@@ -368,11 +368,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RangedBlockElement> dco_decode_list_ranged_block_element(dynamic raw);
 
   @protected
-  List<RangedInlineElement> dco_decode_list_ranged_inline_element(dynamic raw);
+  List<RangedCodeBlock> dco_decode_list_ranged_code_block(dynamic raw);
 
   @protected
-  List<((int, int), String)> dco_decode_list_record_record_u_32_u_32_string(
-      dynamic raw);
+  List<RangedInlineElement> dco_decode_list_ranged_inline_element(dynamic raw);
 
   @protected
   List<UiClientRecord> dco_decode_list_ui_client_record(dynamic raw);
@@ -435,13 +434,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RangedBlockElement dco_decode_ranged_block_element(dynamic raw);
 
   @protected
+  RangedCodeBlock dco_decode_ranged_code_block(dynamic raw);
+
+  @protected
   RangedInlineElement dco_decode_ranged_inline_element(dynamic raw);
-
-  @protected
-  ((int, int), String) dco_decode_record_record_u_32_u_32_string(dynamic raw);
-
-  @protected
-  (int, int) dco_decode_record_u_32_u_32(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -827,11 +823,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
-  List<RangedInlineElement> sse_decode_list_ranged_inline_element(
+  List<RangedCodeBlock> sse_decode_list_ranged_code_block(
       SseDeserializer deserializer);
 
   @protected
-  List<((int, int), String)> sse_decode_list_record_record_u_32_u_32_string(
+  List<RangedInlineElement> sse_decode_list_ranged_inline_element(
       SseDeserializer deserializer);
 
   @protected
@@ -900,15 +896,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
+  RangedCodeBlock sse_decode_ranged_code_block(SseDeserializer deserializer);
+
+  @protected
   RangedInlineElement sse_decode_ranged_inline_element(
       SseDeserializer deserializer);
-
-  @protected
-  ((int, int), String) sse_decode_record_record_u_32_u_32_string(
-      SseDeserializer deserializer);
-
-  @protected
-  (int, int) sse_decode_record_u_32_u_32(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -1302,12 +1294,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       List<RangedBlockElement> self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_ranged_inline_element(
-      List<RangedInlineElement> self, SseSerializer serializer);
+  void sse_encode_list_ranged_code_block(
+      List<RangedCodeBlock> self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_record_record_u_32_u_32_string(
-      List<((int, int), String)> self, SseSerializer serializer);
+  void sse_encode_list_ranged_inline_element(
+      List<RangedInlineElement> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_ui_client_record(
@@ -1379,15 +1371,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       RangedBlockElement self, SseSerializer serializer);
 
   @protected
+  void sse_encode_ranged_code_block(
+      RangedCodeBlock self, SseSerializer serializer);
+
+  @protected
   void sse_encode_ranged_inline_element(
       RangedInlineElement self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_record_record_u_32_u_32_string(
-      ((int, int), String) self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_record_u_32_u_32((int, int) self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);

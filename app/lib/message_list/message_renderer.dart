@@ -105,7 +105,7 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
       ),
     BlockElement_CodeBlock(:final field0) => Text.rich(
         TextSpan(
-          text: field0.map((e) => e.$2).join('\n'),
+          text: field0.map((e) => e.value).join('\n'),
           style: const TextStyle(fontSize: 12, color: Colors.black),
         ),
       ),
@@ -178,7 +178,7 @@ const TextStyle highlightStyle = TextStyle(
 
 class CustomTextEditingController extends TextEditingController {
   // Keep track of where widgets are, so the cursor can treat it as one unit
-  List<(int, int)> widgetRanges = [];
+  List<({int start, int end})> widgetRanges = [];
   int lastKnownRawTextLength = 0;
   int previousCursorPosition = 0;
   Uint8List raw = Uint8List(0);
@@ -209,9 +209,9 @@ class CustomTextEditingController extends TextEditingController {
       // - The user pressed backspace, so the cursor is now at the end of where the widget was
       // - The user pressed delete, so the cursor is still at the character just before where the widget was
 
-      for (var (start, end) in widgetRanges) {
-        if (cursorPosition >= start && cursorPosition < end) {
-          int startUtf16 = utf8.decode(raw.sublist(0, start)).length;
+      for (var range in widgetRanges) {
+        if (cursorPosition >= range.start && cursorPosition < range.end) {
+          int startUtf16 = utf8.decode(raw.sublist(0, range.start)).length;
 
           if (cursorPosition != previousCursorPosition) {
             // The cursor moved, so this was a backspace and not a delete
@@ -226,7 +226,7 @@ class CustomTextEditingController extends TextEditingController {
             moveCursorTo(startUtf16);
           } else {
             // The cursor did not move, this was a delete, not a backspace
-            int endUtf16 = utf8.decode(raw.sublist(0, end)).length;
+            int endUtf16 = utf8.decode(raw.sublist(0, range.end)).length;
             var removedChars = lastKnownRawTextLength - text.length;
             var newText =
                 text.replaceRange(cursorPosition, endUtf16 - removedChars, "");
@@ -248,14 +248,14 @@ class CustomTextEditingController extends TextEditingController {
       return;
     }
 
-    for (var (start, end) in widgetRanges) {
+    for (var range in widgetRanges) {
       // If the cursor is inside a widget range, push it to the end
-      if (cursorPositionUtf8 > start && cursorPositionUtf8 < end) {
+      if (cursorPositionUtf8 > range.start && cursorPositionUtf8 < range.end) {
         if (cursorPosition < previousCursorPosition) {
-          int startUtf16 = utf8.decode(raw.sublist(0, start)).length;
+          int startUtf16 = utf8.decode(raw.sublist(0, range.start)).length;
           moveCursorTo(startUtf16);
         } else {
-          int endUtf16 = utf8.decode(raw.sublist(0, end)).length;
+          int endUtf16 = utf8.decode(raw.sublist(0, range.end)).length;
           moveCursorTo(endUtf16);
         }
 
@@ -304,51 +304,53 @@ class CustomTextEditingController extends TextEditingController {
     MessageContent parsed = MessageContent.parseMarkdownRaw(string: raw);
     return TextSpan(
       style: style,
-      children: buildWrappedBlock((0, raw.length), parsed.content),
+      children: buildWrappedBlock(0, raw.length, parsed.content),
     );
   }
 
   InlineSpan buildFormattedTextSpanBlock(RangedBlockElement block) {
     return switch (block.element) {
       BlockElement_Paragraph(:final field0) =>
-        TextSpan(children: buildWrappedInline(block.range, field0)),
+        TextSpan(children: buildWrappedInline(block.start, block.end, field0)),
       BlockElement_Heading(:final field0) => TextSpan(
-          children: buildWrappedInline(block.range, field0),
+          children: buildWrappedInline(block.start, block.end, field0),
           style: const TextStyle(fontSize: 20),
         ),
       BlockElement_Quote(:final field0) => TextSpan(
-          children: buildWrappedBlock(block.range, field0),
+          children: buildWrappedBlock(block.start, block.end, field0),
           style: TextStyle(color: Colors.grey[600]),
         ),
       BlockElement_UnorderedList(:final field0) => TextSpan(
           children: buildWrappedBlock(
-              block.range, field0.expand((list) => list).toList()),
+              block.start, block.end, field0.expand((list) => list).toList()),
         ),
       BlockElement_OrderedList(:final field1) => TextSpan(
           children: buildWrappedBlock(
-              block.range, field1.expand((list) => list).toList()),
+              block.start, block.end, field1.expand((list) => list).toList()),
         ),
       BlockElement_Table() => TextSpan(
-          text: utf8.decode(raw.sublist(block.range.$1, block.range.$2)),
+          text: utf8.decode(raw.sublist(block.start, block.end)),
           style: highlightStyle,
         ),
       BlockElement_HorizontalRule() => TextSpan(
-          text: utf8.decode(raw.sublist(block.range.$1, block.range.$2)),
+          text: utf8.decode(raw.sublist(block.start, block.end)),
           style: highlightStyle,
         ),
       BlockElement_CodeBlock(:final field0) => TextSpan(
           children: buildWrappedInline(
-              block.range,
+              block.start,
+              block.end,
               field0
                   .map((item) => RangedInlineElement(
-                        range: item.$1,
-                        element: InlineElement.code(item.$2),
+                        start: item.start,
+                        end: item.end,
+                        element: InlineElement.code(item.value),
                       ))
                   .toList()),
           style: const TextStyle(fontSize: 12, color: Colors.black),
         ),
       BlockElement_Error() => TextSpan(
-          text: utf8.decode(raw.sublist(block.range.$1, block.range.$2)),
+          text: utf8.decode(raw.sublist(block.start, block.end)),
           style: const TextStyle(
             color: Colors.red,
             decorationColor: Colors.red,
@@ -363,14 +365,14 @@ class CustomTextEditingController extends TextEditingController {
     return switch (inline.element) {
       // TODO: Handle this case.
       InlineElement_Text() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.range.$1, inline.range.$2)),
+          text: utf8.decode(raw.sublist(inline.start, inline.end)),
         ),
       InlineElement_Code() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.range.$1, inline.range.$2)),
+          text: utf8.decode(raw.sublist(inline.start, inline.end)),
           style: const TextStyle(fontSize: 12),
         ),
       InlineElement_Link() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.range.$1, inline.range.$2)),
+          text: utf8.decode(raw.sublist(inline.start, inline.end)),
           style: const TextStyle(
             color: Colors.blue,
             decorationColor: Colors.blue,
@@ -379,7 +381,8 @@ class CustomTextEditingController extends TextEditingController {
         ),
       InlineElement_Bold(:final field0) => TextSpan(
           children: buildWrappedInline(
-            inline.range,
+            inline.start,
+            inline.end,
             field0,
           ),
           style: const TextStyle(
@@ -388,7 +391,8 @@ class CustomTextEditingController extends TextEditingController {
         ),
       InlineElement_Italic(:final field0) => TextSpan(
           children: buildWrappedInline(
-            inline.range,
+            inline.start,
+            inline.end,
             field0,
           ),
           style: const TextStyle(
@@ -396,13 +400,13 @@ class CustomTextEditingController extends TextEditingController {
           ),
         ),
       InlineElement_Strikethrough(:final field0) => TextSpan(
-          children: buildWrappedInline(inline.range, field0),
+          children: buildWrappedInline(inline.start, inline.end, field0),
           style: const TextStyle(
             decoration: TextDecoration.lineThrough,
           ),
         ),
       InlineElement_Spoiler(:final field0) => TextSpan(
-          children: buildWrappedInline(inline.range, field0),
+          children: buildWrappedInline(inline.start, inline.end, field0),
           style: TextStyle(
             decoration: TextDecoration.combine([
               TextDecoration.overline,
@@ -417,51 +421,52 @@ class CustomTextEditingController extends TextEditingController {
             width: 32,
             child: Icon(Icons.image),
           ),
-          inline.range),
+          inline.start,
+          inline.end),
       InlineElement_TaskListMarker() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.range.$1, inline.range.$2)),
+          text: utf8.decode(raw.sublist(inline.start, inline.end)),
           style: highlightStyle,
         ),
     };
   }
 
-  InlineSpan buildCorrectWidget(Widget widget, (int, int) range) {
-    widgetRanges.add(range);
+  InlineSpan buildCorrectWidget(Widget widget, int rangeStart, int rangeEnd) {
+    widgetRanges.add((start: rangeStart, end: rangeEnd));
 
     return TextSpan(children: [
       WidgetSpan(child: widget),
-      TextSpan(text: "\u200d" * (range.$2 - range.$1 - 1))
+      TextSpan(text: "\u200d" * (rangeEnd - rangeStart - 1))
     ]);
   }
 
   List<InlineSpan> buildWrappedInline(
-      (int, int) range, List<RangedInlineElement> value) {
+      int rangeStart, int rangeEnd, List<RangedInlineElement> value) {
     List<InlineSpan> children = [];
 
-    var lastInner = (0, range.$1);
+    var lastInner = (start: 0, end: rangeStart);
 
     for (var inner in value) {
-      if (inner.range.$1 < range.$1) {
+      if (inner.start < rangeStart) {
         // This element is outside of the surrounding block. Ignore.
         // This can happen for this markdown: "- [ ] > test"
         continue;
       }
       // Gap between previous and this inline
-      if (lastInner.$2 < inner.range.$1) {
+      if (lastInner.end < inner.start) {
         children.add(TextSpan(
-          text: utf8.decode(raw.sublist(lastInner.$2, inner.range.$1)),
+          text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
           style: highlightStyle,
         ));
       }
 
       children.add(buildFormattedTextSpanInline(inner));
-      lastInner = inner.range;
+      lastInner = (start: inner.start, end: inner.end);
     }
 
     // Gap after last inline
-    if (lastInner.$2 < range.$2) {
+    if (lastInner.end < rangeEnd) {
       children.add(TextSpan(
-        text: utf8.decode(raw.sublist(lastInner.$2, range.$2)),
+        text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
         style: highlightStyle,
       ));
     }
@@ -470,29 +475,29 @@ class CustomTextEditingController extends TextEditingController {
   }
 
   List<InlineSpan> buildWrappedBlock(
-      (int, int) range, List<RangedBlockElement> value) {
+      int rangeStart, int rangeEnd, List<RangedBlockElement> value) {
     List<InlineSpan> children = [];
 
-    var lastInner = (0, range.$1);
+    var lastInner = (start: 0, end: rangeStart);
 
     for (var inner in value) {
       // Gap between previous and this block
-      if (lastInner.$2 < inner.range.$1) {
+      if (lastInner.end < inner.start) {
         children.add(TextSpan(
-          text: utf8.decode(raw.sublist(lastInner.$2, inner.range.$1)),
+          text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
           style: highlightStyle,
         ));
       }
 
       children.add(buildFormattedTextSpanBlock(inner));
 
-      lastInner = inner.range;
+      lastInner = (start: inner.start, end: inner.end);
     }
 
     // Gap after last block
-    if (lastInner.$2 < range.$2) {
+    if (lastInner.end < rangeEnd) {
       children.add(TextSpan(
-        text: utf8.decode(raw.sublist(lastInner.$2, range.$2)),
+        text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
         style: highlightStyle,
       ));
     }

@@ -17,6 +17,7 @@ import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../conversation_list/conversation_list_content_test.dart';
 import '../helpers.dart';
 import '../mocks.dart';
 
@@ -34,8 +35,7 @@ final messages = [
         content: UiMimiContent(
           plainBody: 'Hello Alice from Bob',
           topicId: Uint8List(0),
-          content: MessageContent.tryParseMarkdownRaw(
-              string: utf8.encode('Hello Alice from Bob')),
+          content: simpleMessage('Hello Alice from Bob'),
         ),
       ),
     ),
@@ -53,9 +53,8 @@ final messages = [
           plainBody:
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           topicId: Uint8List(0),
-          content: MessageContent.tryParseMarkdownRaw(
-              string: utf8.encode(
-                  'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.')),
+          content: simpleMessage(
+              'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.'),
         ),
       ),
     ),
@@ -70,10 +69,10 @@ final messages = [
         sender: 'alice@localhost',
         sent: true,
         content: UiMimiContent(
-            plainBody: 'Hello Bob and Eve',
-            topicId: Uint8List(0),
-            content: MessageContent.tryParseMarkdownRaw(
-                string: utf8.encode('Hello Bob and Eve'))),
+          plainBody: 'Hello Bob and Eve',
+          topicId: Uint8List(0),
+          content: simpleMessage('Hello Bob and Eve'),
+        ),
       ),
     ),
     position: UiFlightPosition.start,
@@ -89,8 +88,7 @@ final messages = [
         content: UiMimiContent(
           plainBody: 'How are you doing?',
           topicId: Uint8List(0),
-          content: MessageContent.tryParseMarkdownRaw(
-              string: utf8.encode('How are you doing?')),
+          content: simpleMessage('How are you doing?'),
         ),
       ),
     ),
@@ -105,16 +103,14 @@ final messages = [
         sender: 'alice@localhost',
         sent: true,
         content: UiMimiContent(
-            plainBody: '''Nice to see you both here! 👋
+          plainBody: '''Nice to see you both here! 👋
 
 This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
-            topicId: Uint8List(0),
-            content: MessageContent.tryParseMarkdownRaw(
-                string: utf8.encode(
-              '''Nice to see you both here! 👋
+          topicId: Uint8List(0),
+          content: simpleMessage('''Nice to see you both here! 👋
 
-This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
-            ))),
+This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.'''),
+        ),
       ),
     ),
     position: UiFlightPosition.end,

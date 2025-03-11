@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -43,8 +42,7 @@ final conversations = [
           content: UiMimiContent(
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
-            content: MessageContent.tryParseMarkdownRaw(
-                string: utf8.encode('Hello Alice')),
+            content: simpleMessage('Hello Alice'),
           ),
         ),
       ),
@@ -75,10 +73,9 @@ final conversations = [
             plainBody:
                 'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
             topicId: Uint8List(0),
-            content: MessageContent.tryParseMarkdownRaw(
-                string: utf8.encode(
+            content: simpleMessage(
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
-            )),
+            ),
           ),
         ),
       ),
@@ -107,8 +104,7 @@ final conversations = [
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
-            content: MessageContent.tryParseMarkdownRaw(
-                string: utf8.encode('Hello All')),
+            content: simpleMessage('Hello All'),
           ),
         ),
       ),
@@ -116,6 +112,18 @@ final conversations = [
     ),
   ),
 ];
+
+MessageContent simpleMessage(String msg) {
+  return MessageContent(content: [
+    RangedBlockElement(
+        start: 0,
+        end: msg.length,
+        element: BlockElement_Paragraph([
+          RangedInlineElement(
+              start: 0, end: msg.length, element: InlineElement_Text(msg))
+        ]))
+  ]);
+}
 
 void main() {
   group('ConversationListContent', () {

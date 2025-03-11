@@ -671,7 +671,7 @@ abstract class _$$BlockElement_CodeBlockImplCopyWith<$Res> {
           $Res Function(_$BlockElement_CodeBlockImpl) then) =
       __$$BlockElement_CodeBlockImplCopyWithImpl<$Res>;
   @useResult
-  $Res call({List<((int, int), String)> field0});
+  $Res call({List<RangedCodeBlock> field0});
 }
 
 /// @nodoc
@@ -694,7 +694,7 @@ class __$$BlockElement_CodeBlockImplCopyWithImpl<$Res>
       null == field0
           ? _value._field0
           : field0 // ignore: cast_nullable_to_non_nullable
-              as List<((int, int), String)>,
+              as List<RangedCodeBlock>,
     ));
   }
 }
@@ -702,13 +702,13 @@ class __$$BlockElement_CodeBlockImplCopyWithImpl<$Res>
 /// @nodoc
 
 class _$BlockElement_CodeBlockImpl extends BlockElement_CodeBlock {
-  const _$BlockElement_CodeBlockImpl(final List<((int, int), String)> field0)
+  const _$BlockElement_CodeBlockImpl(final List<RangedCodeBlock> field0)
       : _field0 = field0,
         super._();
 
-  final List<((int, int), String)> _field0;
+  final List<RangedCodeBlock> _field0;
   @override
-  List<((int, int), String)> get field0 {
+  List<RangedCodeBlock> get field0 {
     if (_field0 is EqualUnmodifiableListView) return _field0;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_field0);
@@ -742,11 +742,11 @@ class _$BlockElement_CodeBlockImpl extends BlockElement_CodeBlock {
 }
 
 abstract class BlockElement_CodeBlock extends BlockElement {
-  const factory BlockElement_CodeBlock(
-      final List<((int, int), String)> field0) = _$BlockElement_CodeBlockImpl;
+  const factory BlockElement_CodeBlock(final List<RangedCodeBlock> field0) =
+      _$BlockElement_CodeBlockImpl;
   const BlockElement_CodeBlock._() : super._();
 
-  List<((int, int), String)> get field0;
+  List<RangedCodeBlock> get field0;
 
   /// Create a copy of BlockElement
   /// with the given fields replaced by the non-null parameter values.

@@ -12,8 +12,8 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'markdown.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `parse_block_element`, `parse_inline_elements`, `parse_list_items`, `parse_table_cells`, `parse_table_content`, `try_parse_markdown`
-// These types are ignored because they are not used by any `pub` functions: `Error`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `hash`, `hash`, `hash`, `hash`, `hash`
+// These types are ignored because they are not used by any `pub` functions: `Error`, `RangedEvent`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 
 @freezed
 sealed class BlockElement with _$BlockElement {
@@ -43,7 +43,7 @@ sealed class BlockElement with _$BlockElement {
 
   /// If code blocks are indented, each line is a separate String
   const factory BlockElement.codeBlock(
-    List<((int, int), String)> field0,
+    List<RangedCodeBlock> field0,
   ) = BlockElement_CodeBlock;
   const factory BlockElement.error(
     String field0,
@@ -115,43 +115,73 @@ class MessageContent {
 }
 
 class RangedBlockElement {
-  final (int, int) range;
+  final int start;
+  final int end;
   final BlockElement element;
 
   const RangedBlockElement({
-    required this.range,
+    required this.start,
+    required this.end,
     required this.element,
   });
 
   @override
-  int get hashCode => range.hashCode ^ element.hashCode;
+  int get hashCode => start.hashCode ^ end.hashCode ^ element.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is RangedBlockElement &&
           runtimeType == other.runtimeType &&
-          range == other.range &&
+          start == other.start &&
+          end == other.end &&
           element == other.element;
 }
 
+class RangedCodeBlock {
+  final int start;
+  final int end;
+  final String value;
+
+  const RangedCodeBlock({
+    required this.start,
+    required this.end,
+    required this.value,
+  });
+
+  @override
+  int get hashCode => start.hashCode ^ end.hashCode ^ value.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RangedCodeBlock &&
+          runtimeType == other.runtimeType &&
+          start == other.start &&
+          end == other.end &&
+          value == other.value;
+}
+
 class RangedInlineElement {
-  final (int, int) range;
+  final int start;
+  final int end;
   final InlineElement element;
 
   const RangedInlineElement({
-    required this.range,
+    required this.start,
+    required this.end,
     required this.element,
   });
 
   @override
-  int get hashCode => range.hashCode ^ element.hashCode;
+  int get hashCode => start.hashCode ^ end.hashCode ^ element.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is RangedInlineElement &&
           runtimeType == other.runtimeType &&
-          range == other.range &&
+          start == other.start &&
+          end == other.end &&
           element == other.element;
 }

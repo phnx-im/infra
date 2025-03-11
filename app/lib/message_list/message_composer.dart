@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:collection';
-
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';

@@ -2753,7 +2753,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         return BlockElement_HorizontalRule();
       case 7:
         return BlockElement_CodeBlock(
-          dco_decode_list_record_record_u_32_u_32_string(raw[1]),
+          dco_decode_list_ranged_code_block(raw[1]),
         );
       case 8:
         return BlockElement_Error(
@@ -3025,19 +3025,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<RangedCodeBlock> dco_decode_list_ranged_code_block(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_ranged_code_block).toList();
+  }
+
+  @protected
   List<RangedInlineElement> dco_decode_list_ranged_inline_element(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>)
         .map(dco_decode_ranged_inline_element)
-        .toList();
-  }
-
-  @protected
-  List<((int, int), String)> dco_decode_list_record_record_u_32_u_32_string(
-      dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>)
-        .map(dco_decode_record_record_u_32_u_32_string)
         .toList();
   }
 
@@ -3191,11 +3188,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RangedBlockElement dco_decode_ranged_block_element(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return RangedBlockElement(
-      range: dco_decode_record_u_32_u_32(arr[0]),
-      element: dco_decode_block_element(arr[1]),
+      start: dco_decode_u_32(arr[0]),
+      end: dco_decode_u_32(arr[1]),
+      element: dco_decode_block_element(arr[2]),
+    );
+  }
+
+  @protected
+  RangedCodeBlock dco_decode_ranged_code_block(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return RangedCodeBlock(
+      start: dco_decode_u_32(arr[0]),
+      end: dco_decode_u_32(arr[1]),
+      value: dco_decode_String(arr[2]),
     );
   }
 
@@ -3203,37 +3214,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RangedInlineElement dco_decode_ranged_inline_element(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return RangedInlineElement(
-      range: dco_decode_record_u_32_u_32(arr[0]),
-      element: dco_decode_inline_element(arr[1]),
-    );
-  }
-
-  @protected
-  ((int, int), String) dco_decode_record_record_u_32_u_32_string(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2) {
-      throw Exception('Expected 2 elements, got ${arr.length}');
-    }
-    return (
-      dco_decode_record_u_32_u_32(arr[0]),
-      dco_decode_String(arr[1]),
-    );
-  }
-
-  @protected
-  (int, int) dco_decode_record_u_32_u_32(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2) {
-      throw Exception('Expected 2 elements, got ${arr.length}');
-    }
-    return (
-      dco_decode_u_32(arr[0]),
-      dco_decode_u_32(arr[1]),
+      start: dco_decode_u_32(arr[0]),
+      end: dco_decode_u_32(arr[1]),
+      element: dco_decode_inline_element(arr[2]),
     );
   }
 
@@ -3899,8 +3885,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 6:
         return BlockElement_HorizontalRule();
       case 7:
-        var var_field0 =
-            sse_decode_list_record_record_u_32_u_32_string(deserializer);
+        var var_field0 = sse_decode_list_ranged_code_block(deserializer);
         return BlockElement_CodeBlock(var_field0);
       case 8:
         var var_field0 = sse_decode_String(deserializer);
@@ -4182,6 +4167,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<RangedCodeBlock> sse_decode_list_ranged_code_block(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <RangedCodeBlock>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_ranged_code_block(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<RangedInlineElement> sse_decode_list_ranged_inline_element(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -4190,19 +4188,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <RangedInlineElement>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_ranged_inline_element(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
-  List<((int, int), String)> sse_decode_list_record_record_u_32_u_32_string(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <((int, int), String)>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_record_record_u_32_u_32_string(deserializer));
     }
     return ans_;
   }
@@ -4406,35 +4391,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RangedBlockElement sse_decode_ranged_block_element(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_range = sse_decode_record_u_32_u_32(deserializer);
+    var var_start = sse_decode_u_32(deserializer);
+    var var_end = sse_decode_u_32(deserializer);
     var var_element = sse_decode_block_element(deserializer);
-    return RangedBlockElement(range: var_range, element: var_element);
+    return RangedBlockElement(
+        start: var_start, end: var_end, element: var_element);
+  }
+
+  @protected
+  RangedCodeBlock sse_decode_ranged_code_block(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_start = sse_decode_u_32(deserializer);
+    var var_end = sse_decode_u_32(deserializer);
+    var var_value = sse_decode_String(deserializer);
+    return RangedCodeBlock(start: var_start, end: var_end, value: var_value);
   }
 
   @protected
   RangedInlineElement sse_decode_ranged_inline_element(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_range = sse_decode_record_u_32_u_32(deserializer);
+    var var_start = sse_decode_u_32(deserializer);
+    var var_end = sse_decode_u_32(deserializer);
     var var_element = sse_decode_inline_element(deserializer);
-    return RangedInlineElement(range: var_range, element: var_element);
-  }
-
-  @protected
-  ((int, int), String) sse_decode_record_record_u_32_u_32_string(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_field0 = sse_decode_record_u_32_u_32(deserializer);
-    var var_field1 = sse_decode_String(deserializer);
-    return (var_field0, var_field1);
-  }
-
-  @protected
-  (int, int) sse_decode_record_u_32_u_32(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_field0 = sse_decode_u_32(deserializer);
-    var var_field1 = sse_decode_u_32(deserializer);
-    return (var_field0, var_field1);
+    return RangedInlineElement(
+        start: var_start, end: var_end, element: var_element);
   }
 
   @protected
@@ -5149,7 +5130,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_32(6, serializer);
       case BlockElement_CodeBlock(field0: final field0):
         sse_encode_i_32(7, serializer);
-        sse_encode_list_record_record_u_32_u_32_string(field0, serializer);
+        sse_encode_list_ranged_code_block(field0, serializer);
       case BlockElement_Error(field0: final field0):
         sse_encode_i_32(8, serializer);
         sse_encode_String(field0, serializer);
@@ -5410,22 +5391,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_ranged_code_block(
+      List<RangedCodeBlock> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_ranged_code_block(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_ranged_inline_element(
       List<RangedInlineElement> self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_ranged_inline_element(item, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_list_record_record_u_32_u_32_string(
-      List<((int, int), String)> self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_record_record_u_32_u_32_string(item, serializer);
     }
   }
 
@@ -5606,31 +5587,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_ranged_block_element(
       RangedBlockElement self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_record_u_32_u_32(self.range, serializer);
+    sse_encode_u_32(self.start, serializer);
+    sse_encode_u_32(self.end, serializer);
     sse_encode_block_element(self.element, serializer);
+  }
+
+  @protected
+  void sse_encode_ranged_code_block(
+      RangedCodeBlock self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.start, serializer);
+    sse_encode_u_32(self.end, serializer);
+    sse_encode_String(self.value, serializer);
   }
 
   @protected
   void sse_encode_ranged_inline_element(
       RangedInlineElement self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_record_u_32_u_32(self.range, serializer);
+    sse_encode_u_32(self.start, serializer);
+    sse_encode_u_32(self.end, serializer);
     sse_encode_inline_element(self.element, serializer);
-  }
-
-  @protected
-  void sse_encode_record_record_u_32_u_32_string(
-      ((int, int), String) self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_record_u_32_u_32(self.$1, serializer);
-    sse_encode_String(self.$2, serializer);
-  }
-
-  @protected
-  void sse_encode_record_u_32_u_32((int, int) self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_32(self.$1, serializer);
-    sse_encode_u_32(self.$2, serializer);
   }
 
   @protected

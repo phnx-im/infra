@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{iter::Peekable, ops::Range};
+use std::iter::Peekable;
 
 use flutter_rust_bridge::frb;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
@@ -48,15 +48,33 @@ pub struct MessageContent {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb]
 pub struct RangedInlineElement {
-    pub range: (u32, u32),
+    pub start: u32,
+    pub end: u32,
     pub element: InlineElement,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb]
 pub struct RangedBlockElement {
-    pub range: (u32, u32),
+    pub start: u32,
+    pub end: u32,
     pub element: BlockElement,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb]
+pub struct RangedCodeBlock {
+    pub start: u32,
+    pub end: u32,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[frb]
+pub struct RangedEvent<'a> {
+    pub start: u32,
+    pub end: u32,
+    pub event: Event<'a>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -74,7 +92,7 @@ pub enum BlockElement {
     HorizontalRule,
 
     /// If code blocks are indented, each line is a separate String
-    CodeBlock(Vec<((u32, u32), String)>), // Range and String
+    CodeBlock(Vec<RangedCodeBlock>),
 
     Error(String),
 }
@@ -107,10 +125,8 @@ impl MessageContent {
     pub fn error(message: String) -> Self {
         Self {
             content: vec![RangedBlockElement {
-                range: (
-                    0,
-                    u32::try_from(message.chars().count()).unwrap_or(u32::MAX),
-                ),
+                start: 0,
+                end: u32::try_from(message.chars().count()).unwrap_or(u32::MAX),
                 element: BlockElement::Error(message),
             }],
         }
@@ -135,12 +151,10 @@ impl MessageContent {
         .into_offset_iter();
         let mut result = Vec::new();
         let mut iter = parsed
-            .map(|(element, range)| {
-                (
-                    element,
-                    u32::try_from(range.start).unwrap_or(u32::MAX)
-                        ..u32::try_from(range.end).unwrap_or(u32::MAX),
-                )
+            .map(|(event, range)| RangedEvent {
+                start: u32::try_from(range.start).unwrap_or(u32::MAX),
+                end: u32::try_from(range.end).unwrap_or(u32::MAX),
+                event,
             })
             .peekable();
 
@@ -154,25 +168,26 @@ impl MessageContent {
 
 fn parse_block_element<'a, I>(iter: &mut Peekable<I>, depth: usize) -> Result<RangedBlockElement>
 where
-    I: Iterator<Item = (Event<'a>, Range<u32>)>,
+    I: Iterator<Item = RangedEvent<'a>>,
 {
     if depth > MAX_DEPTH {
         return Err(Error::DepthLimitReached);
     }
 
     let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
-    let block = match peek.clone().0 {
+    let block = match peek.clone().event {
         Event::Start(Tag::Paragraph) => {
             let start = iter.next().expect("we already peeked");
             let value = BlockElement::Paragraph(parse_inline_elements(iter, depth + 1)?);
             let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-            if end.0 != Event::End(TagEnd::Paragraph) {
+            if end.event != Event::End(TagEnd::Paragraph) {
                 return Err(Error::ExpectedSpecificTag);
             }
 
             RangedBlockElement {
-                range: (start.1.start, end.1.end),
+                start: start.start,
+                end: end.end,
                 element: value,
             }
         }
@@ -181,12 +196,13 @@ where
             let value = BlockElement::Heading(parse_inline_elements(iter, depth + 1)?);
             let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-            if end.0 != Event::End(TagEnd::Heading(level)) {
+            if end.event != Event::End(TagEnd::Heading(level)) {
                 return Err(Error::ExpectedSpecificTag);
             }
 
             RangedBlockElement {
-                range: (start.1.start, end.1.end),
+                start: start.start,
+                end: end.end,
                 element: value,
             }
         }
@@ -198,12 +214,13 @@ where
             };
             let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-            if end.0 != Event::End(TagEnd::List(number.is_some())) {
+            if end.event != Event::End(TagEnd::List(number.is_some())) {
                 return Err(Error::ExpectedSpecificTag);
             }
 
             RangedBlockElement {
-                range: (start.1.start, end.1.end),
+                start: start.start,
+                end: end.end,
                 element: value,
             }
         }
@@ -212,12 +229,13 @@ where
             let value = parse_table_content(iter, depth + 1)?;
             let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-            if end.0 != Event::End(TagEnd::Table) {
+            if end.event != Event::End(TagEnd::Table) {
                 return Err(Error::ExpectedSpecificTag);
             }
 
             RangedBlockElement {
-                range: (start.1.start, end.1.end),
+                start: start.start,
+                end: end.end,
                 element: value,
             }
         }
@@ -227,7 +245,7 @@ where
             let end;
             loop {
                 let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
-                if matches!(peek.0, Event::End(TagEnd::BlockQuote(..))) {
+                if matches!(peek.event, Event::End(TagEnd::BlockQuote(..))) {
                     end = iter.next().expect("we already peeked");
                     break;
                 }
@@ -235,7 +253,8 @@ where
             }
 
             RangedBlockElement {
-                range: (start.1.start, end.1.end),
+                start: start.start,
+                end: end.end,
                 element: BlockElement::Quote(quote_blocks),
             }
         }
@@ -243,25 +262,33 @@ where
             let start = iter.next().expect("we already peeked");
             let mut value = Vec::new();
 
-            while let Event::Text(str) = iter.peek().ok_or(Error::ExpectedMoreEvents)?.clone().0 {
+            while let Event::Text(str) = iter.peek().ok_or(Error::ExpectedMoreEvents)?.clone().event
+            {
                 let event = iter.next().expect("we already peeked");
-                value.push(((event.1.start, event.1.end), str.to_string()));
+
+                // We need this code, otherwise there is an empty line at the end of code blocks
+                let mut str = str.into_string();
+                if str.ends_with('\n') {
+                    str.truncate(str.len() - 1);
+                }
+
+                value.push(RangedCodeBlock {
+                    start: event.start,
+                    end: event.end,
+                    value: str.to_string(),
+                });
             }
 
             // A code block cannot contain any other data
             let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-            if end.0 != Event::End(TagEnd::CodeBlock) {
+            if end.event != Event::End(TagEnd::CodeBlock) {
                 return Err(Error::ExpectedSpecificTag);
             }
 
-            // // We need this code, otherwise there is an empty line at the end of code blocks
-            // if value.ends_with('\n') {
-            //     value.truncate(value.len() - 1);
-            // }
-
             RangedBlockElement {
-                range: (start.1.start, end.1.end),
+                start: start.start,
+                end: end.end,
                 element: BlockElement::CodeBlock(value),
             }
         }
@@ -270,7 +297,8 @@ where
             let value = BlockElement::HorizontalRule;
 
             RangedBlockElement {
-                range: (item.1.start, item.1.end),
+                start: item.start,
+                end: item.end,
                 element: value,
             }
         }
@@ -288,7 +316,8 @@ where
         | Event::HardBreak => {
             let inner = parse_inline_elements(iter, depth + 1)?;
             RangedBlockElement {
-                range: (inner[0].range.0, inner[inner.len() - 1].range.1),
+                start: inner[0].start,
+                end: inner[inner.len() - 1].end,
                 element: BlockElement::Paragraph(inner),
             }
         }
@@ -302,10 +331,12 @@ where
             let start = iter.next().expect("we already peeked");
             let mut value = Vec::new();
 
-            while let Event::Html(str) = iter.peek().ok_or(Error::ExpectedMoreEvents)?.clone().0 {
+            while let Event::Html(str) = iter.peek().ok_or(Error::ExpectedMoreEvents)?.clone().event
+            {
                 let event = iter.next().expect("we already peeked");
                 value.push(RangedInlineElement {
-                    range: (event.1.start, event.1.end),
+                    start: event.start,
+                    end: event.end,
                     element: InlineElement::Text(str.to_string()),
                 });
             }
@@ -313,12 +344,13 @@ where
             // A code block cannot contain any other data
             let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-            if end.0 != Event::End(TagEnd::HtmlBlock) {
+            if end.event != Event::End(TagEnd::HtmlBlock) {
                 return Err(Error::ExpectedSpecificTag);
             }
 
             RangedBlockElement {
-                range: (start.1.start, end.1.end),
+                start: start.start,
+                end: end.end,
                 element: BlockElement::Paragraph(value),
             }
         }
@@ -358,7 +390,7 @@ fn parse_inline_elements<'a, I>(
     depth: usize,
 ) -> Result<Vec<RangedInlineElement>>
 where
-    I: Iterator<Item = (Event<'a>, Range<u32>)>,
+    I: Iterator<Item = RangedEvent<'a>>,
 {
     if depth > MAX_DEPTH {
         return Err(Error::DepthLimitReached);
@@ -367,18 +399,19 @@ where
     let mut result = Vec::new();
     loop {
         let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
-        match peek.clone().0 {
+        match peek.clone().event {
             Event::Start(Tag::Emphasis) => {
                 let start = iter.next().expect("we already peeked");
                 let value = InlineElement::Italic(parse_inline_elements(iter, depth + 1)?);
                 let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-                if end.0 != Event::End(TagEnd::Emphasis) {
+                if end.event != Event::End(TagEnd::Emphasis) {
                     return Err(Error::ExpectedSpecificTag);
                 }
 
                 result.push(RangedInlineElement {
-                    range: (start.1.start, end.1.end),
+                    start: start.start,
+                    end: end.end,
                     element: value,
                 });
             }
@@ -388,12 +421,13 @@ where
                 let value = InlineElement::Bold(parse_inline_elements(iter, depth + 1)?);
                 let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-                if end.0 != Event::End(TagEnd::Strong) {
+                if end.event != Event::End(TagEnd::Strong) {
                     return Err(Error::ExpectedSpecificTag);
                 }
 
                 result.push(RangedInlineElement {
-                    range: (start.1.start, end.1.end),
+                    start: start.start,
+                    end: end.end,
                     element: value,
                 });
             }
@@ -402,12 +436,13 @@ where
                 let value = InlineElement::Strikethrough(parse_inline_elements(iter, depth + 1)?);
                 let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-                if end.0 != Event::End(TagEnd::Strikethrough) {
+                if end.event != Event::End(TagEnd::Strikethrough) {
                     return Err(Error::ExpectedSpecificTag);
                 }
 
                 result.push(RangedInlineElement {
-                    range: (start.1.start, end.1.end),
+                    start: start.start,
+                    end: end.end,
                     element: value,
                 });
             }
@@ -420,12 +455,13 @@ where
                 };
                 let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-                if end.0 != Event::End(TagEnd::Link) {
+                if end.event != Event::End(TagEnd::Link) {
                     return Err(Error::ExpectedSpecificTag);
                 }
 
                 result.push(RangedInlineElement {
-                    range: (start.1.start, end.1.end),
+                    start: start.start,
+                    end: end.end,
                     element: value,
                 });
             }
@@ -438,12 +474,13 @@ where
 
                 let end = iter.next().ok_or(Error::ExpectedMoreEvents)?;
 
-                if end.0 != Event::End(TagEnd::Image) {
+                if end.event != Event::End(TagEnd::Image) {
                     return Err(Error::ExpectedSpecificTag);
                 }
 
                 result.push(RangedInlineElement {
-                    range: (start.1.start, end.1.end),
+                    start: start.start,
+                    end: end.end,
                     element: value,
                 });
             }
@@ -451,7 +488,8 @@ where
             Event::Text(str) => {
                 let value = iter.next().expect("we already peeked");
                 result.push(RangedInlineElement {
-                    range: (value.1.start, value.1.end),
+                    start: value.start,
+                    end: value.end,
                     element: InlineElement::Text(str.to_string()),
                 });
             }
@@ -459,7 +497,8 @@ where
             Event::Code(str) => {
                 let value = iter.next().expect("we already peeked");
                 result.push(RangedInlineElement {
-                    range: (value.1.start, value.1.end),
+                    start: value.start,
+                    end: value.end,
                     element: InlineElement::Code(str.to_string()),
                 });
             }
@@ -467,7 +506,8 @@ where
             Event::SoftBreak | Event::HardBreak => {
                 let value = iter.next().expect("we already peeked");
                 result.push(RangedInlineElement {
-                    range: (value.1.start, value.1.end),
+                    start: value.start,
+                    end: value.end,
                     element: InlineElement::Text("\n".to_owned()),
                 });
             }
@@ -475,7 +515,8 @@ where
             Event::TaskListMarker(bool) => {
                 let value = iter.next().expect("we already peeked");
                 result.push(RangedInlineElement {
-                    range: (value.1.start, value.1.end),
+                    start: value.start,
+                    end: value.end,
                     element: InlineElement::TaskListMarker(bool),
                 });
             }
@@ -487,7 +528,8 @@ where
             Event::InlineHtml(str) => {
                 let value = iter.next().expect("we already peeked");
                 result.push(RangedInlineElement {
-                    range: (value.1.start, value.1.end),
+                    start: value.start,
+                    end: value.end,
                     element: InlineElement::Text(str.to_string()),
                 });
             }
@@ -536,7 +578,7 @@ fn parse_list_items<'a, I>(
     depth: usize,
 ) -> Result<Vec<Vec<RangedBlockElement>>>
 where
-    I: Iterator<Item = (Event<'a>, Range<u32>)>,
+    I: Iterator<Item = RangedEvent<'a>>,
 {
     if depth > MAX_DEPTH {
         return Err(Error::DepthLimitReached);
@@ -546,13 +588,13 @@ where
 
     loop {
         let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
-        match peek.0 {
+        match peek.event {
             Event::Start(Tag::Item) => {
                 iter.next().expect("we already peeked");
                 let mut item_blocks = Vec::new();
                 loop {
                     let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
-                    if peek.0 == Event::End(TagEnd::Item) {
+                    if peek.event == Event::End(TagEnd::Item) {
                         iter.next().expect("we already peeked");
                         break;
                     }
@@ -571,19 +613,31 @@ where
 
 fn parse_table_content<'a, I>(iter: &mut Peekable<I>, depth: usize) -> Result<BlockElement>
 where
-    I: Iterator<Item = (Event<'a>, Range<u32>)>,
+    I: Iterator<Item = RangedEvent<'a>>,
 {
     if depth > MAX_DEPTH {
         return Err(Error::DepthLimitReached);
     }
 
-    if !matches!(iter.next(), Some((Event::Start(Tag::TableHead), _))) {
+    if !matches!(
+        iter.next(),
+        Some(RangedEvent {
+            event: Event::Start(Tag::TableHead),
+            ..
+        })
+    ) {
         return Err(Error::ExpectedSpecificTag);
     }
 
     let table_head = parse_table_cells(iter, depth + 1)?;
 
-    if !matches!(iter.next(), Some((Event::End(TagEnd::TableHead), _))) {
+    if !matches!(
+        iter.next(),
+        Some(RangedEvent {
+            event: Event::End(TagEnd::TableHead),
+            ..
+        })
+    ) {
         return Err(Error::ExpectedSpecificTag);
     }
 
@@ -591,12 +645,18 @@ where
 
     loop {
         let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
-        match peek.0 {
+        match peek.event {
             Event::Start(Tag::TableRow) => {
                 iter.next().expect("we already peeked");
                 let cells = parse_table_cells(iter, depth + 1)?;
                 table_rows.push(cells);
-                if !matches!(iter.next(), Some((Event::End(TagEnd::TableRow), _))) {
+                if !matches!(
+                    iter.next(),
+                    Some(RangedEvent {
+                        event: Event::End(TagEnd::TableRow),
+                        ..
+                    })
+                ) {
                     return Err(Error::ExpectedSpecificTag);
                 }
             }
@@ -619,7 +679,7 @@ fn parse_table_cells<'a, I>(
     depth: usize,
 ) -> Result<Vec<Vec<RangedBlockElement>>>
 where
-    I: Iterator<Item = (Event<'a>, Range<u32>)>,
+    I: Iterator<Item = RangedEvent<'a>>,
 {
     if depth > MAX_DEPTH {
         return Err(Error::DepthLimitReached);
@@ -629,14 +689,14 @@ where
 
     loop {
         let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
-        match peek.0 {
+        match peek.event {
             Event::Start(Tag::TableCell) => {
                 iter.next().expect("we already peeked");
                 let mut cell_blocks = Vec::new();
                 loop {
                     let peek = iter.peek().ok_or(Error::ExpectedMoreEvents)?;
 
-                    if peek.0 == Event::End(TagEnd::TableCell) {
+                    if peek.event == Event::End(TagEnd::TableCell) {
                         iter.next().expect("we already peeked");
                         break;
                     }
