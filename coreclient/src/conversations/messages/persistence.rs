@@ -340,8 +340,8 @@ pub(crate) mod tests {
     use chrono::Utc;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, Conversation, EventMessage,
-        SystemMessage,
+        Conversation, EventMessage, SystemMessage,
+        conversations::persistence::tests::test_conversation,
     };
 
     use super::*;

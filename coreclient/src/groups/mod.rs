@@ -14,7 +14,7 @@ pub(crate) mod process;
 
 pub(crate) use error::*;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use mimi_content::MimiContent;
 use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
@@ -59,7 +59,7 @@ use tracing::{debug, error};
 use crate::{
     SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
     conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
-    utils::persistence::SqliteConnection, SystemMessage,
+    utils::persistence::SqliteConnection,
 };
 use std::collections::HashSet;
 

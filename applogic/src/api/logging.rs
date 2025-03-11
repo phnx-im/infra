@@ -10,11 +10,11 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
-use anyhow::bail;
 use anyhow::Context;
+use anyhow::bail;
 use bytes::Buf;
 use chrono::{DateTime, Utc};
-use flate2::{write::GzEncoder, Compression};
+use flate2::{Compression, write::GzEncoder};
 use flutter_rust_bridge::frb;
 use regex::Regex;
 
