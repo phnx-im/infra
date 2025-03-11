@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    codec::PhnxCodec,
     identifiers::{AsClientId, QualifiedUserName},
     messages::client_as::ConnectionPackage,
 };
@@ -12,13 +11,13 @@ use uuid::Uuid;
 
 use crate::errors::StorageError;
 
-use super::StorableConnectionPackage;
+use super::{StorableConnectionPackage, StorableConnectionPackageRef};
 
 impl StorableConnectionPackage {
     // TODO: No need to take items by value
     pub(in crate::auth_service) async fn store_multiple(
         connection: impl PgExecutor<'_>,
-        connection_packages: impl IntoIterator<Item = impl Into<StorableConnectionPackage>>,
+        connection_packages: impl IntoIterator<Item = &ConnectionPackage>,
         client_id: &AsClientId,
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
@@ -26,12 +25,11 @@ impl StorableConnectionPackage {
             String::from("INSERT INTO connection_packages (client_id, connection_package) VALUES");
 
         for (i, connection_package) in connection_packages.into_iter().enumerate() {
-            let connection_package: StorableConnectionPackage = connection_package.into();
-            let connection_package_bytes = PhnxCodec::to_vec(&connection_package)?;
+            let connection_package: StorableConnectionPackageRef = connection_package.into();
 
             // Add values to the query arguments. None of these should throw an error.
             query_args.add(client_id.client_id())?;
-            query_args.add(connection_package_bytes)?;
+            query_args.add(connection_package)?;
 
             if i > 0 {
                 query_string.push(',');
@@ -52,15 +50,12 @@ impl StorableConnectionPackage {
         Ok(())
     }
 
-    // TODO: Deserialize in this function?
-    async fn load(connection: &mut PgConnection, client_id: Uuid) -> Result<Vec<u8>, StorageError> {
-        let mut transaction = connection.begin().await?;
-
+    async fn load(connection: impl PgExecutor<'_>, client_id: Uuid) -> Result<Self, StorageError> {
         // This is to ensure that counting and deletion happen atomically. If we
         // don't do this, two concurrent queries might both count 2 and delete,
         // leaving us with 0 packages.
-        let connection_package = sqlx::query_scalar!(
-            "WITH next_connection_package AS (
+        sqlx::query_scalar!(
+            r#"WITH next_connection_package AS (
                 SELECT id, connection_package
                 FROM connection_packages
                 WHERE client_id = $1
@@ -81,15 +76,13 @@ impl StorableConnectionPackage {
                 )
                 AND (SELECT count FROM remaining_packages) > 1
             )
-            SELECT connection_package FROM next_connection_package",
+            SELECT connection_package AS "connection_package: StorableConnectionPackage"
+            FROM next_connection_package"#,
             client_id,
         )
-        .fetch_one(&mut *transaction)
-        .await?;
-
-        transaction.commit().await?;
-
-        Ok(connection_package)
+        .fetch_one(connection)
+        .await
+        .map_err(From::from)
     }
 
     /// TODO: Last resort key package
@@ -97,12 +90,9 @@ impl StorableConnectionPackage {
         connection: &mut PgConnection,
         client_id: &AsClientId,
     ) -> Result<ConnectionPackage, StorageError> {
-        let connection_package_bytes = Self::load(connection, client_id.client_id()).await?;
-
-        let connection_package: StorableConnectionPackage =
-            PhnxCodec::from_slice(&connection_package_bytes)?;
-
-        Ok(connection_package.into())
+        Self::load(connection, client_id.client_id())
+            .await
+            .map(From::from)
     }
 
     /// Return a connection package for each client of a user referenced by a
@@ -127,24 +117,14 @@ impl StorableConnectionPackage {
         .await?;
 
         // First fetch all connection package records from the DB.
-        let mut connection_packages_bytes = Vec::new();
+        let mut connection_packages = Vec::with_capacity(client_ids.len());
         for client_id in client_ids {
-            let connection_package_bytes = Self::load(&mut transaction, client_id).await?;
-            connection_packages_bytes.push(connection_package_bytes);
+            let connection_package = Self::load(&mut *transaction, client_id).await?;
+            connection_packages.push(connection_package.into());
         }
 
         // End the transaction.
         transaction.commit().await?;
-
-        // Deserialize the connection packages.
-        let connection_packages = connection_packages_bytes
-            .into_iter()
-            .map(|connection_package_bytes| {
-                let storable: StorableConnectionPackage =
-                    PhnxCodec::from_slice(&connection_package_bytes)?;
-                Ok(storable.into())
-            })
-            .collect::<Result<Vec<ConnectionPackage>, StorageError>>()?;
 
         Ok(connection_packages)
     }
@@ -176,7 +156,7 @@ mod tests {
             random_connection_package(client_credential.clone()),
             random_connection_package(client_credential),
         ];
-        StorableConnectionPackage::store_multiple(pool, pkgs.iter().cloned(), client_id).await?;
+        StorableConnectionPackage::store_multiple(pool, pkgs.iter(), client_id).await?;
         Ok(pkgs)
     }
 
@@ -211,7 +191,6 @@ mod tests {
                 client_id.client_id(),
             )
             .await?;
-            let pkg: StorableConnectionPackage = PhnxCodec::from_slice(&pkg)?;
             let pkg: ConnectionPackage = pkg.into();
             if pkg == pkgs[0] {
                 loaded[0] = Some(pkg);
