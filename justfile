@@ -113,7 +113,7 @@ build-linux:
 # analyze Dart code
 [working-directory: 'app']
 analyze-dart:
-    flutter analyze --current-package --suggestions
+    flutter analyze
 
 # run Flutter tests
 [working-directory: 'app']
