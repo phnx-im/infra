@@ -52,11 +52,11 @@ impl KdfKey for RosterExtractedKey {
 
 impl KdfExtractable<RosterKdfKey, RosterKdfInjection> for RosterExtractedKey {}
 
-/// A key that can be derived from a [`RosterExtractedKey`] and subsequently
-/// used to derive a [`RosterEarKey`] or as input in the extraction of a new
-/// [`RosterExtractedKey`].
-/// TODO: I think for a clean key schedule design, we need another derivation
-/// step before we can use this as input for an extraction.
+/// A key that can be derived from a `RosterExtractedKey` and subsequently
+/// used to derive a `RosterEarKey` or as input in the extraction of a new
+/// `RosterExtractedKey`.
+// TODO: I think for a clean key schedule design, we need another derivation
+// step before we can use this as input for an extraction.
 #[derive(TlsSerialize, TlsSize, TlsDeserializeBytes, Clone, Debug)]
 pub struct RosterKdfKey {
     key: Secret<KDF_KEY_SIZE>,

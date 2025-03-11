@@ -13,11 +13,10 @@ description = "Implements the protocol logic of the client component"
 [lib]
 
 [dependencies]
-thiserror = "1.0"
+thiserror = { workspace = true }
 openmls_traits = { workspace = true }
 openmls_rust_crypto = { workspace = true }
 tracing = "0.1.41"
-url = "2.5"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types", features = ["sqlite"] }
@@ -29,8 +28,9 @@ rand_chacha = "0.3.1"
 tokio = { version = "1" }
 tokio-util = { workspace = true }
 image = "0.25.1"
-kamadak-exif = "0.5.5"
+kamadak-exif = "0.6.1"
 derive_more = { version = "0.99.18", features = ["from"] }
+mimi_content = { workspace = true }
 
 # Persistence
 refinery = { version = "0.8", features = [

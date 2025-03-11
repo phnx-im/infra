@@ -39,6 +39,8 @@ reqwest = { version = "^0.12", features = [
     "charset",
 ], default-features = false }
 chrono = { version = "0.4.38", features = ["serde"] }
+thiserror = "2.0"
+
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
 openmls = { git = "https://github.com/openmls/openmls" }
@@ -55,6 +57,8 @@ tracing-subscriber = { version = "0.3", features = [
 ] }
 
 tokio-util = "0.7.13"
+
+mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "71495dc8fc794111c381649c4c6cbc6e258a0135" }
 
 
 [patch.crates-io]

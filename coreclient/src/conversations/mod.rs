@@ -15,7 +15,6 @@ use rusqlite::{
     types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, Value, ValueRef},
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::DeserializeBytes;
 use tracing::error;
 use uuid::Uuid;
 

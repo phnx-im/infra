@@ -25,6 +25,7 @@ rand = "0.8"
 rand_chacha = { version = "0.3" }
 uuid = { version = "1.0.0", features = ["v4"] }
 tracing = { version = "0.1", features = ["log"] }
+mimi_content = { workspace = true }
 
 # Workspace dependencies
 phnxtypes = { workspace = true }

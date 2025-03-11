@@ -92,3 +92,27 @@ path = "**/snapshots/*.snap.tls"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "app/rust_builder/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "app/lib/core/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "app/**/*.freezed.*"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = "**/*frb_generated.*"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Phoenix R&D GmbH <hello@phnx.im>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

@@ -36,7 +36,27 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     rm -Rf lib/core/api lib/core/frb_*.dart lib/core/lib.dart
     flutter_rust_bridge_codegen generate
 
-# integrate the Flutter Rust bridge
+# Generate Rust and Dart flutter bridge files and check that they are committed
+#
+# Note: As a side effect, this recipe also checks whether the generated Dart
+# files and the `app/pubspec.lock` file are up to date. This occurs because
+# `flutter_rust_bridge_codegen` runs the `dart run build_runner build` command,
+# which updates the generated files.
+check-frb: frb-generate
+    #!/usr/bin/env -S bash -eu
+    if [ -n "$(git status --porcelain)" ]; then
+        git add -N .
+        git --no-pager diff
+        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run 'just frb-generate'?"
+        exit 1
+    fi
+
+# same as check-generated-frb (with all prerequisite steps for running in CI)
+check-frb-ci: install-cargo-binstall
+    cargo binstall flutter_rust_bridge_codegen@2.9.0 cargo-expand
+    just check-frb
+
+# integrate the Flutter Rust bridge (potentially destructive; commit changes before running)
 [working-directory: 'app']
 frb-integrate:
     mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
@@ -52,25 +72,24 @@ frb-integrate:
     just frb-generate
 
 # set up the CI environment for the app
-setup-ci:
+install-cargo-binstall:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-    cargo binstall -y flutter_rust_bridge_codegen@2.7.0 cargo-expand
 
 # set up the CI environment for Android builds
 [working-directory: 'app/fastlane']
-setup-android-ci: setup-ci
+setup-android-ci: install-cargo-binstall
     cargo binstall -y cargo-ndk
     bundle install
 
 # set up the CI environment for iOS builds
 [working-directory: 'app/fastlane']
-setup-ios-ci: setup-ci
-	bundle install
+setup-ios-ci: install-cargo-binstall
+    bundle install
 
 # set up the CI environment for macOS builds
 [working-directory: 'app/fastlane']
-setup-macos-ci: setup-ci
-	bundle install
+setup-macos-ci: install-cargo-binstall
+    bundle install
 
 test-rust *args='':
     cargo test {{args}}
@@ -91,14 +110,10 @@ build-ios:
 build-linux:
      flutter build linux
 
-# Build Linux app (with all prerequisite steps for running in CI)
-[working-directory: 'app']
-build-linux-ci: setup-ci frb-integrate build-linux
-
 # analyze Dart code
 [working-directory: 'app']
 analyze-dart:
-    flutter analyze
+    flutter analyze --current-package --suggestions
 
 # run Flutter tests
 [working-directory: 'app']
@@ -113,7 +128,3 @@ run-backend: init-db
 [working-directory: 'app']
 build-windows:
      flutter build windows
-
-# Build Windows app (with all prerequisite steps for running in CI)
-[working-directory: 'app']
-build-windows-ci: setup-ci frb-integrate build-windows

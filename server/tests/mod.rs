@@ -7,12 +7,13 @@ mod qs;
 use std::{fs, io::Cursor, sync::LazyLock};
 
 use image::{ImageBuffer, Rgba};
-use opaque_ke::rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
+use mimi_content::MimiContent;
+use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
 use phnxcoreclient::{
-    Asset, ConversationId, ConversationMessage, DisplayName, MimiContent, UserProfile,
-    clients::CoreUser, store::Store,
+    clients::CoreUser, store::Store, Asset, ConversationId, ConversationMessage, DisplayName,
+    UserProfile,
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
@@ -493,8 +494,7 @@ async fn retrieve_conversation_messages() {
             .take(32)
             .map(char::from)
             .collect();
-        let message_content =
-            MimiContent::simple_markdown_message(alice.user_name().domain(), message);
+        let message_content = MimiContent::simple_markdown_message(message);
         let message = alice
             .send_message(conversation_id, message_content)
             .await
@@ -543,8 +543,7 @@ async fn mark_as_read() {
                 .take(32)
                 .map(char::from)
                 .collect();
-            let message_content =
-                MimiContent::simple_markdown_message(user.user_name().domain(), message);
+            let message_content = MimiContent::simple_markdown_message(message);
             let message = user
                 .send_message(conversation_id, message_content)
                 .await

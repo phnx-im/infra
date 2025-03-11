@@ -151,7 +151,7 @@ impl Store for CoreUser {
     async fn send_message(
         &self,
         conversation_id: ConversationId,
-        content: crate::MimiContent,
+        content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage> {
         self.send_message(conversation_id, content).await
     }

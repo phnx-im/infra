@@ -59,14 +59,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: just setup-android-ci
 
-      - name: Integrate bridge
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: just frb-integrate
-
-      - name: Generate Dart files
-        run: just generate-dart-files
-
       - name: Build and upload to Play Store
         env:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}

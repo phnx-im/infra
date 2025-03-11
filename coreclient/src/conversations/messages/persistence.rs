@@ -2,29 +2,32 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use anyhow::bail;
+use mimi_content::MimiContent;
 use phnxtypes::{codec::PhnxCodec, time::TimeStamp};
 use rusqlite::{
     Connection, OptionalExtension, ToSql, named_params, params,
     types::{FromSql, FromSqlError, Type},
 };
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::warn;
 
 use crate::{
     ContentMessage, ConversationId, ConversationMessage, Message, store::StoreNotifier,
     utils::persistence::Storable,
 };
 
-// When adding a variant to this enum, the new variant must be called
-// `CurrentVersion` and the current version must be renamed to `VX`, where `X`
-// is the next version number. The content type of the old `CurrentVersion` must
-// be renamed and otherwise preserved to ensure backwards compatibility.
+use super::{ErrorMessage, EventMessage};
+
 #[derive(Serialize, Deserialize)]
-enum VersionedMessage {
+struct VersionedMessage {
+    version: u16,
     // We store the message as bytes, because deserialization depends on
     // other parameters.
-    CurrentVersion(Vec<u8>),
+    content: Vec<u8>,
 }
+
+const CURRENT_MESSAGE_VERSION: u16 = 1;
 
 impl FromSql for VersionedMessage {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
@@ -41,46 +44,37 @@ impl ToSql for VersionedMessage {
     }
 }
 
-enum MessageInputs {
-    System,
-    User(String, bool), // sender, sent
-}
-
-enum VersionedMessageInputs {
-    CurrentVersion(Vec<u8>, MessageInputs),
-}
-
-impl Message {
-    // For future message types, the additional inputs to this function might
-    // have to be adjusted.
-    fn from_versioned_message(
-        versioned_message: VersionedMessageInputs,
-    ) -> Result<Self, phnxtypes::codec::Error> {
-        match versioned_message {
-            VersionedMessageInputs::CurrentVersion(message_bytes, inputs) => match inputs {
-                MessageInputs::System => {
-                    let event_message = PhnxCodec::from_slice(&message_bytes)?;
-                    Ok(Message::Event(event_message))
-                }
-                MessageInputs::User(sender, sent) => {
-                    let content = PhnxCodec::from_slice(&message_bytes)?;
-                    let content_message = ContentMessage {
-                        sender,
-                        sent,
-                        content,
-                    };
-                    Ok(Message::Content(Box::new(content_message)))
-                }
-            },
+impl VersionedMessage {
+    fn to_event_message(&self) -> anyhow::Result<EventMessage> {
+        match self.version {
+            CURRENT_MESSAGE_VERSION => Ok(PhnxCodec::from_slice::<EventMessage>(&self.content)?),
+            _ => bail!("unknown event message version"),
         }
     }
 
-    fn to_versioned_message(&self) -> Result<VersionedMessage, phnxtypes::codec::Error> {
-        let message_bytes = match self {
-            Message::Event(event_message) => PhnxCodec::to_vec(event_message)?,
-            Message::Content(content_message) => PhnxCodec::to_vec(content_message.content())?,
-        };
-        Ok(VersionedMessage::CurrentVersion(message_bytes))
+    fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
+        match self.version {
+            CURRENT_MESSAGE_VERSION => Ok(PhnxCodec::from_slice::<MimiContent>(&self.content)?),
+            _ => bail!("unknown mimi content message version"),
+        }
+    }
+
+    fn from_event_message(
+        event: &EventMessage,
+    ) -> Result<VersionedMessage, phnxtypes::codec::Error> {
+        Ok(VersionedMessage {
+            version: CURRENT_MESSAGE_VERSION,
+            content: PhnxCodec::to_vec(&event)?,
+        })
+    }
+
+    fn from_mimi_content(
+        content: &MimiContent,
+    ) -> Result<VersionedMessage, phnxtypes::codec::Error> {
+        Ok(VersionedMessage {
+            version: CURRENT_MESSAGE_VERSION,
+            content: PhnxCodec::to_vec(&content)?,
+        })
     }
 }
 
@@ -104,33 +98,55 @@ impl Storable for ConversationMessage {
         let conversation_id = row.get(1)?;
         let timestamp = row.get(2)?;
         let sender_str: String = row.get(3)?;
-        let versioned_message: VersionedMessage = row.get(4)?;
         let sent = row.get(5)?;
 
-        let versioned_message_inputs = match versioned_message {
-            VersionedMessage::CurrentVersion(bytes) => {
-                let inputs = match sender_str.as_str() {
-                    "system" => MessageInputs::System,
-                    user_str => {
-                        let sender = user_str
-                            .strip_prefix("user:")
-                            .ok_or(rusqlite::Error::FromSqlConversionFailure(
-                                3,
-                                Type::Text,
-                                Box::new(FromSqlError::InvalidType),
-                            ))?
-                            .to_string();
-                        MessageInputs::User(sender, sent)
-                    }
-                };
-                VersionedMessageInputs::CurrentVersion(bytes, inputs)
+        let message;
+
+        match row.get::<_, VersionedMessage>(4) {
+            Err(e) => {
+                warn!("Versioned message parsing failed: {e}");
+                message = Message::Event(EventMessage::Error(ErrorMessage::new(
+                    "Versioned message parsing failed".to_owned(),
+                )))
             }
+            Ok(versioned_message) => match sender_str.as_str() {
+                "system" => {
+                    message =
+                        Message::Event(versioned_message.to_event_message().unwrap_or_else(|e| {
+                            warn!("Event parsing failed: {e}");
+                            EventMessage::Error(ErrorMessage::new(
+                                "Event parsing failed".to_owned(),
+                            ))
+                        }))
+                }
+                user_str => {
+                    let sender = user_str
+                        .strip_prefix("user:")
+                        .ok_or(rusqlite::Error::FromSqlConversionFailure(
+                            3,
+                            Type::Text,
+                            Box::new(FromSqlError::InvalidType),
+                        ))?
+                        .to_string();
+
+                    message = versioned_message
+                        .to_mimi_content()
+                        .map(|content| {
+                            Message::Content(Box::new(ContentMessage {
+                                sender,
+                                sent,
+                                content,
+                            }))
+                        })
+                        .unwrap_or_else(|e| {
+                            warn!("Message parsing failed: {e}");
+                            Message::Event(EventMessage::Error(ErrorMessage::new(
+                                "Message parsing failed".to_owned(),
+                            )))
+                        });
+                }
+            },
         };
-        let message =
-            Message::from_versioned_message(versioned_message_inputs).map_err(|error| {
-                error!(%error, "Failed to deserialize content message");
-                rusqlite::Error::FromSqlConversionFailure(4, Type::Blob, Box::new(error))
-            })?;
 
         let timestamped_message = TimestampedMessage { timestamp, message };
 
@@ -192,14 +208,21 @@ impl ConversationMessage {
         &self,
         connection: &Connection,
         notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> anyhow::Result<()> {
         let sender = match &self.timestamped_message.message {
             Message::Content(content_message) => {
                 format!("user:{}", content_message.sender)
             }
             Message::Event(_) => "system".to_string(),
         };
-        let content = self.timestamped_message.message.to_versioned_message()?;
+
+        let content = match &self.timestamped_message.message {
+            Message::Content(content_message) => {
+                VersionedMessage::from_mimi_content(&content_message.content)?
+            }
+            Message::Event(event_message) => VersionedMessage::from_event_message(event_message)?,
+        };
+
         connection.execute(
             "INSERT INTO conversation_messages (message_id, conversation_id, timestamp, sender, content, sent) VALUES (?, ?, ?, ?, ?, ?)",
             params![
@@ -317,8 +340,8 @@ pub(crate) mod tests {
     use chrono::Utc;
 
     use crate::{
-        Conversation, EventMessage, MimiContent, SystemMessage,
-        conversations::persistence::tests::test_conversation,
+        conversations::persistence::tests::test_conversation, Conversation, EventMessage,
+        SystemMessage,
     };
 
     use super::*;
@@ -345,10 +368,7 @@ pub(crate) mod tests {
         let message = Message::Content(Box::new(ContentMessage {
             sender: "alice@localhost".to_string(),
             sent: false,
-            content: MimiContent::simple_markdown_message(
-                "localhost".parse().unwrap(),
-                "Hello world!".to_string(),
-            ),
+            content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ConversationMessage {

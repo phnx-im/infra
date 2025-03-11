@@ -233,7 +233,7 @@ impl CoreUser {
             application_message,
             ds_timestamp,
             sender_client_id.user_name(),
-        )?];
+        )];
         Ok((group_messages, false))
     }
 

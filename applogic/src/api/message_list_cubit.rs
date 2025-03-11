@@ -292,7 +292,8 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 
 #[cfg(test)]
 mod tests {
-    use phnxcoreclient::{ContentMessage, ConversationMessageId, Message, MimiContent};
+    use mimi_content::MimiContent;
+    use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
     use phnxtypes::time::TimeStamp;
     use uuid::Uuid;
 
@@ -306,10 +307,7 @@ mod tests {
             Message::with_content(ContentMessage::new(
                 sender.into(),
                 true,
-                MimiContent::simple_markdown_message(
-                    "localhost".parse().unwrap(),
-                    "some content".into(),
-                ),
+                MimiContent::simple_markdown_message("some content".into()),
             )),
         )
     }
