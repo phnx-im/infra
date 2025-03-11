@@ -31,7 +31,7 @@ impl From<&SignaturePublicKey> for LeafVerifyingKey {
 }
 
 #[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone, PartialEq, Eq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct QsClientVerifyingKey(VerifyingKey);

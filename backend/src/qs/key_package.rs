@@ -89,13 +89,11 @@ mod persistence {
         }
 
         pub(in crate::qs) async fn load(
-            connection: &mut PgConnection,
+            connection: impl PgExecutor<'_>,
             user_id: &QsUserId,
             client_id: &QsClientId,
         ) -> Result<Option<Self>, StorageError> {
-            let mut transaction = connection.begin().await?;
-
-            let encrypted_key_package_option = sqlx::query_scalar!(
+            sqlx::query_scalar!(
                 r#"WITH to_delete AS (
                     SELECT id FROM key_packages
                     INNER JOIN qs_client_records qcr
@@ -113,12 +111,9 @@ mod persistence {
                 client_id as &QsClientId,
                 user_id as &QsUserId
             )
-            .fetch_optional(&mut *transaction)
-            .await?;
-
-            transaction.commit().await?;
-
-            Ok(encrypted_key_package_option)
+            .fetch_optional(connection)
+            .await
+            .map_err(From::from)
         }
 
         pub(in crate::qs) async fn load_user_key_package(
@@ -194,7 +189,7 @@ mod persistence {
 
             for _ in 0..2 {
                 let pkg = StorableEncryptedAddPackage::load(
-                    pool.acquire().await?.as_mut(),
+                    &pool,
                     &user_record.user_id,
                     &client_record.client_id,
                 )
@@ -209,7 +204,7 @@ mod persistence {
             }
 
             let pkg = StorableEncryptedAddPackage::load(
-                pool.acquire().await?.as_mut(),
+                &pool,
                 &user_record.user_id,
                 &client_record.client_id,
             )

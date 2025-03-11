@@ -43,9 +43,8 @@ pub(super) enum QueueMessageType {
 }
 
 /// Info attached to a queue meant as a target for messages fanned out by a DS.
-#[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct QsClientRecord {
     pub(super) user_id: QsUserId,
     pub(super) client_id: QsClientId,

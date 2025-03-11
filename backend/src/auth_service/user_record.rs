@@ -7,7 +7,8 @@ use phnxtypes::{crypto::OpaqueCiphersuite, identifiers::QualifiedUserName};
 
 use crate::errors::StorageError;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct UserRecord {
     user_name: QualifiedUserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,

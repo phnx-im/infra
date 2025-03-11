@@ -14,6 +14,7 @@ use phnxtypes::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection};
+use tracing::error;
 
 use crate::errors::StorageError;
 
@@ -82,15 +83,18 @@ impl IntermediateSigningKey {
         signing_key: AsSigningKey,
     ) -> Result<IntermediateSigningKey, CredentialGenerationError> {
         let (csr, prelim_signing_key) = AsIntermediateCredentialCsr::new(signature_scheme, domain)?;
-        let as_intermediate_credential = csr.sign(&signing_key, None).map_err(|e| {
-            tracing::error!("Failed to sign intermediate credential: {:?}", e);
+        let as_intermediate_credential = csr.sign(&signing_key, None).map_err(|error| {
+            error!(%error, "Failed to sign intermediate credential");
             CredentialGenerationError::SigningError
         })?;
         let as_intermediate_signing_key = AsIntermediateSigningKey::from_prelim_key(
             prelim_signing_key,
             as_intermediate_credential,
         )
-        .unwrap();
+        .map_err(|error| {
+            error!(%error, "Failed to convert intermediate signing key");
+            CredentialGenerationError::SigningError
+        })?;
         Ok(IntermediateSigningKey::from(as_intermediate_signing_key))
     }
 
@@ -121,7 +125,7 @@ mod persistence {
                 "INSERT INTO
                     as_signing_keys
                     (cred_type, credential_fingerprint, signing_key, currently_active)
-                VALUES 
+                VALUES
                     ($1, $2, $3, $4)",
                 CredentialType::Intermediate as _,
                 self.fingerprint().as_bytes(),

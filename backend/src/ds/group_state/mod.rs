@@ -171,7 +171,8 @@ pub(super) enum DsGroupStateDecryptionError {
 #[serde(transparent)]
 pub struct EncryptedDsGroupState(Ciphertext);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct StorableDsGroupData {
     group_id: Uuid,
     pub(super) encrypted_group_state: EncryptedDsGroupState,

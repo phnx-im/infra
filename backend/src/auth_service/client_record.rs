@@ -15,7 +15,8 @@ use crate::errors::StorageError;
 
 use super::queue::Queue;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct ClientRecord {
     pub(super) queue_encryption_key: RatchetEncryptionKey,
     pub(super) ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
