@@ -11,28 +11,28 @@ use mls_assist::{
     },
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
+use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
 use crate::codec::PhnxCodec;
 
 use super::{
+    AsCredential, AsIntermediateCredential,
     pseudonymous_credentials::{
         IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs,
     },
-    AsCredential, AsIntermediateCredential,
 };
 
 use crate::crypto::{
-    ear::{keys::IdentityLinkKey, EarEncryptable},
+    ear::{EarEncryptable, keys::IdentityLinkKey},
     errors::{EncryptionError, KeyGenerationError, RandomnessError},
-    kdf::{keys::ConnectionKey, KdfDerivable},
+    kdf::{KdfDerivable, keys::ConnectionKey},
     signatures::{
+        DEFAULT_SIGNATURE_SCHEME,
         private_keys::{SigningKey, VerifyingKey},
         signable::Signable,
         traits::{SigningKeyBehaviour, VerifyingKeyBehaviour},
-        DEFAULT_SIGNATURE_SCHEME,
     },
 };
 

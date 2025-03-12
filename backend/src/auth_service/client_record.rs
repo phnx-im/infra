@@ -4,9 +4,9 @@
 
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{ratchet::QueueRatchet, RatchetEncryptionKey},
+    crypto::{RatchetEncryptionKey, ratchet::QueueRatchet},
     identifiers::AsClientId,
-    messages::{client_as::AsQueueMessagePayload, EncryptedAsQueueMessage},
+    messages::{EncryptedAsQueueMessage, client_as::AsQueueMessagePayload},
     time::TimeStamp,
 };
 use sqlx::{Connection, PgConnection};
@@ -67,8 +67,8 @@ pub(crate) mod persistence {
         identifiers::QualifiedUserName,
     };
     use sqlx::{
-        types::chrono::{DateTime, Utc},
         PgExecutor,
+        types::chrono::{DateTime, Utc},
     };
 
     use super::*;

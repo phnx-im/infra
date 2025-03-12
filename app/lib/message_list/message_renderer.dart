@@ -421,7 +421,7 @@ class CustomTextEditingController extends TextEditingController {
           ),
         ),
       InlineElement_Image() => buildCorrectWidget(
-          SizedBox(
+          const SizedBox(
             height: 14,
             width: 32,
             child: Icon(Icons.image),

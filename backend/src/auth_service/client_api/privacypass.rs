@@ -9,7 +9,7 @@ use phnxtypes::{
 use privacypass::batched_tokens_ristretto255::server::Server;
 
 use crate::auth_service::{
-    client_record::ClientRecord, privacy_pass::AuthServiceBatchedKeyStoreProvider, AuthService,
+    AuthService, client_record::ClientRecord, privacy_pass::AuthServiceBatchedKeyStoreProvider,
 };
 
 const MAX_TOKENS_PER_REQUEST: i32 = 100;

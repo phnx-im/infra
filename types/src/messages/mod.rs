@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::crypto::{
-    ear::{keys::KeyPackageEarKey, Ciphertext, EarDecryptable, EarEncryptable},
+    ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::KeyPackageEarKey},
     errors::RandomnessError,
 };
 

@@ -7,8 +7,8 @@ use std::{fmt, hash::Hash, str::FromStr};
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 use rand::{CryptoRng, Rng, RngCore};
 use sqlx::{
-    encode::IsNull, error::BoxDynError, postgres::PgValueRef, Database, Decode, Encode, Postgres,
-    Sqlite, Type,
+    Database, Decode, Encode, Postgres, Sqlite, Type, encode::IsNull, error::BoxDynError,
+    postgres::PgValueRef,
 };
 use tls_codec_impls::{TlsString, TlsUuid};
 use tracing::{debug, error};
@@ -495,7 +495,7 @@ pub struct QsClientId(TlsUuid);
 
 impl QsClientId {
     pub fn random(rng: &mut (impl CryptoRng + RngCore)) -> Self {
-        let random_bytes = rng.gen::<[u8; 16]>();
+        let random_bytes = rng.r#gen::<[u8; 16]>();
         Uuid::from_bytes(random_bytes).into()
     }
 
@@ -576,7 +576,7 @@ mod tests {
     #[test]
     fn valid_user_name() {
         let user_name = UserName::try_from("alice".to_string());
-        assert_eq!(user_name.unwrap().0 .0, "alice");
+        assert_eq!(user_name.unwrap().0.0, "alice");
     }
 
     #[test]

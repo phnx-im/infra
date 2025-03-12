@@ -6,7 +6,7 @@ use phnxtypes::{
     credentials::keys::{CredentialCreationError, PseudonymousCredentialSigningKey},
     crypto::ear::keys::IdentityLinkKey,
 };
-use sqlx::{query, query_as, SqliteExecutor};
+use sqlx::{SqliteExecutor, query, query_as};
 
 use super::*;
 

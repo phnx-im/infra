@@ -4,15 +4,15 @@
 
 use std::{fmt::Display, fs, path::Path, time::Duration};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use openmls::group::GroupId;
 use phnxtypes::identifiers::AsClientId;
 use sqlx::{
+    Database, Encode, Sqlite, SqlitePool, Type,
     encode::IsNull,
     error::BoxDynError,
     migrate,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
-    Database, Encode, Sqlite, SqlitePool, Type,
 };
 use tracing::error;
 

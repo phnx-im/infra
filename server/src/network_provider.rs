@@ -5,8 +5,8 @@
 use async_trait::async_trait;
 use phnxbackend::qs::{network_provider_trait::NetworkProvider, qs_api::FederatedProcessingResult};
 use phnxtypes::{
-    endpoint_paths::ENDPOINT_QS_FEDERATION, identifiers::Fqdn, DEFAULT_PORT_HTTP,
-    DEFAULT_PORT_HTTPS,
+    DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_QS_FEDERATION,
+    identifiers::Fqdn,
 };
 use reqwest::Client;
 use thiserror::Error;

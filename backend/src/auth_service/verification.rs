@@ -9,7 +9,7 @@ use phnxtypes::{
 };
 use tls_codec::TlsDeserializeBytes;
 
-use super::{client_record::ClientRecord, AuthService, TlsSize, VerifiedAsRequestParams};
+use super::{AuthService, TlsSize, VerifiedAsRequestParams, client_record::ClientRecord};
 
 /// Wrapper struct around a message from a client to the AS. It does not
 /// implement the [`Verifiable`] trait, but instead is verified depending on the

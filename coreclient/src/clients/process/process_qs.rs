@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use openmls::{
     group::QueuedProposal,
     prelude::{MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage, Sender},
@@ -12,21 +12,21 @@ use phnxtypes::{
     crypto::ear::EarDecryptable,
     identifiers::AsClientId,
     messages::{
+        QueueMessage,
         client_ds::{
             ExtractedQsQueueMessage, ExtractedQsQueueMessagePayload, InfraAadMessage,
             InfraAadPayload, WelcomeBundle,
         },
-        QueueMessage,
     },
     time::TimeStamp,
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{conversations::ConversationType, groups::Group, ConversationMessage, PartialContact};
+use crate::{ConversationMessage, PartialContact, conversations::ConversationType, groups::Group};
 
 use super::{
-    anyhow, Asset, Conversation, ConversationAttributes, ConversationId, CoreUser,
-    FriendshipPackage, TimestampedMessage, UserProfile,
+    Asset, Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
+    TimestampedMessage, UserProfile, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
@@ -283,8 +283,7 @@ impl CoreUser {
 
         let mut notifier = self.store_notifier();
 
-        if let ConversationType::UnconfirmedConnection(ref user_name) =
-            conversation.conversation_type()
+        if let ConversationType::UnconfirmedConnection(user_name) = conversation.conversation_type()
         {
             let user_name = user_name.clone();
             // Check if it was an external commit and if the user name matches

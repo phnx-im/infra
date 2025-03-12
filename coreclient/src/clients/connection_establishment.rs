@@ -4,14 +4,15 @@
 
 use openmls::group::GroupId;
 use phnxtypes::{
-    credentials::{keys::AsIntermediateVerifyingKey, ClientCredential, VerifiableClientCredential},
+    credentials::{ClientCredential, VerifiableClientCredential, keys::AsIntermediateVerifyingKey},
     crypto::{
+        ConnectionDecryptionKey, ConnectionEncryptionKey,
         ear::{
+            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
             keys::{
                 FriendshipPackageEarKey, GroupStateEarKey, IdentityLinkWrapperKey,
                 KeyPackageEarKey, WelcomeAttributionInfoEarKey,
             },
-            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
         kdf::keys::ConnectionKey,
@@ -19,11 +20,10 @@ use phnxtypes::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
             traits::SignatureVerificationError,
         },
-        ConnectionDecryptionKey, ConnectionEncryptionKey,
     },
     messages::{
-        client_as::{EncryptedConnectionEstablishmentPackage, EncryptedFriendshipPackage},
         FriendshipToken,
+        client_as::{EncryptedConnectionEstablishmentPackage, EncryptedFriendshipPackage},
     },
 };
 use tls_codec::{

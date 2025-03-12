@@ -11,8 +11,8 @@ use phnxtypes::{
 };
 
 use crate::auth_service::{
-    connection_package::StorableConnectionPackage,
-    credentials::intermediate_signing_key::IntermediateCredential, AuthService,
+    AuthService, connection_package::StorableConnectionPackage,
+    credentials::intermediate_signing_key::IntermediateCredential,
 };
 
 impl AuthService {

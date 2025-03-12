@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls_traits::storage::{Entity, Key, CURRENT_VERSION};
+use openmls_traits::storage::{CURRENT_VERSION, Entity, Key};
 
 pub(crate) struct StorableSignatureKeyPairs<SignatureKeyPairs: Entity<CURRENT_VERSION>>(
     pub SignatureKeyPairs,

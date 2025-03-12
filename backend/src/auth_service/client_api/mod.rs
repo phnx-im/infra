@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::{rand::rngs::OsRng, ServerLogin, ServerLoginStartParameters};
+use opaque_ke::{ServerLogin, ServerLoginStartParameters, rand::rngs::OsRng};
 use phnxtypes::{
-    crypto::{opaque::OpaqueLoginResponse, OpaqueCiphersuite},
+    crypto::{OpaqueCiphersuite, opaque::OpaqueLoginResponse},
     errors::auth_service::Init2FactorAuthError,
     messages::client_as::{Init2FactorAuthParamsTbs, Init2FactorAuthResponse},
 };
 
-use super::{opaque::OpaqueSetup, user_record::UserRecord, AuthService};
+use super::{AuthService, opaque::OpaqueSetup, user_record::UserRecord};
 
 use tls_codec::Serialize;
 

@@ -10,7 +10,7 @@ use phnxtypes::{
     },
 };
 
-use crate::qs::{user_record::UserRecord, Qs};
+use crate::qs::{Qs, user_record::UserRecord};
 
 impl Qs {
     /// Update the info of a given queue. Requires a valid signature by the

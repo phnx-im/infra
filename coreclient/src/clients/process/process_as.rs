@@ -8,10 +8,10 @@ use phnxtypes::{
     crypto::hpke::HpkeDecryptable,
     identifiers::QualifiedGroupId,
     messages::{
+        QueueMessage,
         client_as::{EncryptedConnectionEstablishmentPackage, ExtractedAsQueueMessagePayload},
         client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
-        QueueMessage,
     },
 };
 use tls_codec::DeserializeBytes;
@@ -27,8 +27,8 @@ use crate::{
 };
 
 use super::{
-    anyhow, AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId,
-    CoreUser, EarEncryptable, FriendshipPackage, UserProfile,
+    AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
+    EarEncryptable, FriendshipPackage, UserProfile, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 

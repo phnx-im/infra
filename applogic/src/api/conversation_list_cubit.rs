@@ -8,18 +8,18 @@ use std::{pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
+    Conversation,
     clients::CoreUser,
     store::{Store, StoreEntityId, StoreOperation},
-    Conversation,
 };
-use phnxcoreclient::{store::StoreNotification, ConversationId};
+use phnxcoreclient::{ConversationId, store::StoreNotification};
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::util::{spawn_from_sync, Cubit, CubitCore};
 use crate::StreamSink;
+use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
     types::{UiConversation, UiConversationDetails, UiConversationMessage},

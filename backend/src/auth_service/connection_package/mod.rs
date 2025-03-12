@@ -4,7 +4,7 @@
 
 use phnxtypes::{codec::PhnxCodec, messages::client_as::ConnectionPackage};
 use serde::{Deserialize, Serialize};
-use sqlx::{error::BoxDynError, Database, Decode, Encode, Postgres, Type};
+use sqlx::{Database, Decode, Encode, Postgres, Type, error::BoxDynError};
 
 mod persistence;
 

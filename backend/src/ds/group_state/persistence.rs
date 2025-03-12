@@ -5,8 +5,8 @@
 use phnxtypes::codec::PhnxCodec;
 use phnxtypes::identifiers::QualifiedGroupId;
 use sqlx::{
-    types::chrono::{DateTime, Utc},
     PgExecutor,
+    types::chrono::{DateTime, Utc},
 };
 
 use crate::errors::StorageError;
@@ -102,8 +102,8 @@ mod test {
 
     use crate::{
         ds::{
-            group_state::{EncryptedDsGroupState, StorableDsGroupData},
             Ds,
+            group_state::{EncryptedDsGroupState, StorableDsGroupData},
         },
         infra_service::InfraService,
     };

@@ -6,7 +6,7 @@ use phnxtypes::{
     identifiers::{AsClientId, QualifiedUserName},
     messages::client_as::ConnectionPackage,
 };
-use sqlx::{postgres::PgArguments, Arguments, Connection, PgConnection, PgExecutor};
+use sqlx::{Arguments, Connection, PgConnection, PgExecutor, postgres::PgArguments};
 use uuid::Uuid;
 
 use crate::errors::StorageError;
@@ -134,8 +134,8 @@ impl StorableConnectionPackage {
 mod tests {
     use phnxtypes::{
         credentials::ClientCredential,
-        crypto::{signatures::signable::Signature, ConnectionDecryptionKey},
-        messages::{client_as::ConnectionPackageTbs, MlsInfraVersion},
+        crypto::{ConnectionDecryptionKey, signatures::signable::Signature},
+        messages::{MlsInfraVersion, client_as::ConnectionPackageTbs},
         time::{Duration, ExpirationData},
     };
     use sqlx::PgPool;

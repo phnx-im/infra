@@ -10,11 +10,11 @@ use std::{fmt::Display, ops::Deref};
 
 use rand::{RngCore, SeedableRng};
 use secrecy::{
-    zeroize::{Zeroize, ZeroizeOnDrop},
     CloneableSecret, SerializableSecret,
+    zeroize::{Zeroize, ZeroizeOnDrop},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
+use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use super::RandomnessError;

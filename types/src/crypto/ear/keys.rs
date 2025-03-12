@@ -17,14 +17,14 @@ use crate::{
     crypto::{
         errors::RandomnessError,
         kdf::{
-            keys::{ConnectionKey, InitialClientKdfKey, RatchetSecret, RosterKdfKey},
             KdfDerivable,
+            keys::{ConnectionKey, InitialClientKdfKey, RatchetSecret, RosterKdfKey},
         },
         secrets::Secret,
     },
 };
 
-use super::{traits::EarKey, Ciphertext, EarDecryptable, EarEncryptable, AEAD_KEY_SIZE};
+use super::{AEAD_KEY_SIZE, Ciphertext, EarDecryptable, EarEncryptable, traits::EarKey};
 
 pub type GroupStateEarKeySecret = Secret<AEAD_KEY_SIZE>;
 

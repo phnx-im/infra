@@ -5,19 +5,21 @@
 use std::{cell::RefCell, future::Future};
 
 use openmls_traits::storage::{
+    CURRENT_VERSION, Entity, Key, StorageProvider,
     traits::{
         self, ProposalRef as ProposalRefTrait, SignaturePublicKey as SignaturePublicKeyTrait,
     },
-    Entity, Key, StorageProvider, CURRENT_VERSION,
 };
 use phnxtypes::codec::PhnxCodec;
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, sqlite::SqliteTypeInfo, Database, Decode, Encode,
-    Row, Sqlite, SqliteConnection, SqliteExecutor, Type,
+    Database, Decode, Encode, Row, Sqlite, SqliteConnection, SqliteExecutor, Type, encode::IsNull,
+    error::BoxDynError, query, sqlite::SqliteTypeInfo,
 };
 use tokio_stream::StreamExt;
 
 use super::{
+    EntityRefWrapper, EntitySliceWrapper, EntityVecWrapper, EntityWrapper, KeyRefWrapper,
+    StorableGroupIdRef,
     encryption_key_pairs::{StorableEncryptionKeyPair, StorableEncryptionPublicKeyRef},
     epoch_key_pairs::{StorableEpochKeyPairs, StorableEpochKeyPairsRef},
     group_data::{GroupDataType, StorableGroupData, StorableGroupDataRef},
@@ -28,8 +30,6 @@ use super::{
     signature_key_pairs::{
         StorableSignatureKeyPairs, StorableSignatureKeyPairsRef, StorableSignaturePublicKeyRef,
     },
-    EntityRefWrapper, EntitySliceWrapper, EntityVecWrapper, EntityWrapper, KeyRefWrapper,
-    StorableGroupIdRef,
 };
 
 pub(crate) struct SqliteStorageProvider<'a> {

@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, mem, sync::Arc};
 
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio::sync::broadcast;
-use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
+use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};
 use tracing::{debug, error, warn};
 
@@ -120,7 +120,7 @@ impl StoreNotificationsSender {
     /// Creates a new subscription to the notifications.
     ///
     /// The stream will contain all notifications from the moment this function is called.
-    pub(crate) fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> {
+    pub(crate) fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + 'static {
         BroadcastStream::new(self.tx.subscribe()).filter_map(|res| match res {
             Ok(notification) => {
                 debug!(?notification, "Received store notification");
@@ -144,16 +144,19 @@ impl StoreNotificationsSender {
         &self,
     ) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static {
         let mut rx = self.tx.subscribe();
-        std::iter::from_fn(move || loop {
-            match rx.try_recv() {
-                Ok(notification) => return Some(notification),
-                Err(broadcast::error::TryRecvError::Lagged(n)) => {
-                    error!(n, "store notifications lagged");
-                    continue;
+        std::iter::from_fn(move || {
+            loop {
+                match rx.try_recv() {
+                    Ok(notification) => return Some(notification),
+                    Err(broadcast::error::TryRecvError::Lagged(n)) => {
+                        error!(n, "store notifications lagged");
+                        continue;
+                    }
+                    Err(
+                        broadcast::error::TryRecvError::Closed
+                        | broadcast::error::TryRecvError::Empty,
+                    ) => return None,
                 }
-                Err(
-                    broadcast::error::TryRecvError::Closed | broadcast::error::TryRecvError::Empty,
-                ) => return None,
             }
         })
     }

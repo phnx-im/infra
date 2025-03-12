@@ -12,9 +12,9 @@ use std::{
 
 use once_cell::sync::Lazy;
 use phnxapiclient::ApiClient;
-use phnxtypes::{identifiers::Fqdn, DEFAULT_PORT_HTTP};
+use phnxtypes::{DEFAULT_PORT_HTTP, identifiers::Fqdn};
 
-use crate::{test_scenarios::FederationTestScenario, TRACING};
+use crate::{TRACING, test_scenarios::FederationTestScenario};
 
 use container::Container;
 
@@ -152,7 +152,8 @@ fn create_and_start_server_container(
     // Set the env variable in which to generate the TLS certs
     let cert_dir = "backend/test_certs";
     let absolute_cert_dir = std::env::current_dir().unwrap().join(cert_dir);
-    std::env::set_var("TEST_CERT_DIR_NAME", cert_dir);
+    // Safety: setting env var is safe because test bed is started only once
+    unsafe { std::env::set_var("TEST_CERT_DIR_NAME", cert_dir) };
 
     // Call script to generate the TLS certs
     let cert_gen_output = Command::new("bash")

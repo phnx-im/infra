@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::QualifiedUserName;
-use sqlx::{query, query_as, SqliteExecutor};
+use sqlx::{SqliteExecutor, query, query_as};
 
-use crate::{store::StoreNotifier, UserProfile};
+use crate::{UserProfile, store::StoreNotifier};
 
 use super::{Asset, DisplayName};
 

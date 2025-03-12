@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{codec::PhnxCodec, credentials::keys::PseudonymousCredentialSigningKey};
-use sqlx::{encode::IsNull, error::BoxDynError, prelude::Type, Database, Decode, Encode, Sqlite};
+use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError, prelude::Type};
 
 use super::*;
 

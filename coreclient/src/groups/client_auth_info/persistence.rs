@@ -8,7 +8,7 @@ use phnxtypes::{
     crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
     identifiers::{AsClientId, QualifiedUserName},
 };
-use sqlx::{query, query_as, query_scalar, Row, SqliteExecutor};
+use sqlx::{Row, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
@@ -468,7 +468,7 @@ mod tests {
         index: LeafNodeIndex,
     ) -> GroupMembership {
         let group_id = GroupId::from_slice(&[0; 32]);
-        let secret: [u8; 32] = rand::thread_rng().gen();
+        let secret: [u8; 32] = rand::thread_rng().r#gen();
 
         GroupMembership::new(
             credential.identity(),

@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use anyhow::bail;
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, query_as, Acquire, Decode, Encode, Sqlite,
-    SqliteExecutor, Type,
+    Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
+    query, query_as,
 };
 use tokio_stream::StreamExt;
 use tracing::error;
@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{ConversationId, ConversationMessageId};
 
-use super::{notification::StoreEntityKind, StoreEntityId, StoreNotification, StoreOperation};
+use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 
 impl Type<Sqlite> for StoreEntityId {
     fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
