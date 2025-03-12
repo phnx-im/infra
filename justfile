@@ -35,6 +35,7 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
     touch {{app_rust_base_dir}}/src/frb_generated.rs
     rm -Rf lib/core/api lib/core/frb_*.dart lib/core/lib.dart
     flutter_rust_bridge_codegen generate
+    cd .. && cargo fmt
 
 # Generate Rust and Dart flutter bridge files and check that they are committed
 #
