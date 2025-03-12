@@ -1,16 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO as_client_records (client_id, user_name, queue_encryption_key, ratchet, activity_time, credential, remaining_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+  "query": "SELECT credential as \"client_credential: FlatClientCredential\"\n                FROM as_client_records WHERE user_name = $1",
   "describe": {
-    "columns": [],
-    "parameters": {
-      "Left": [
-        "Uuid",
-        "Text",
-        "Bytea",
-        "Bytea",
-        "Timestamptz",
-        {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_credential: FlatClientCredential",
+        "type_info": {
           "Custom": {
             "name": "client_credential",
             "kind": {
@@ -94,11 +90,17 @@
               ]
             }
           }
-        },
-        "Int4"
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
       ]
     },
-    "nullable": []
+    "nullable": [
+      false
+    ]
   },
-  "hash": "6f5111ddd6b33e7449b904797bd9b8363e107a5194a40d065860f31aba15db02"
+  "hash": "9a5f546ce7fc67b98969917aa5129a2bad09a9b99dda05a93d7367556eefb742"
 }

@@ -3443,16 +3443,20 @@ dependencies = [
 name = "phnxbackend"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "mls-assist",
  "opaque-ke",
  "phnxtypes",
  "privacypass",
+ "rand",
  "serde",
+ "serde_json",
  "sqlx",
  "thiserror 2.0.12",
  "tls_codec",
  "tokio",
+ "tokio-stream",
  "tracing",
  "uuid",
 ]

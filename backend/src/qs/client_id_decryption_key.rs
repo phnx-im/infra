@@ -62,4 +62,25 @@ mod persistence {
                 .map_err(Into::into)
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use phnxtypes::crypto::hpke::ClientIdDecryptionKey;
+        use sqlx::PgPool;
+
+        use super::*;
+
+        #[sqlx::test]
+        async fn load(pool: PgPool) -> anyhow::Result<()> {
+            let key = StorableClientIdDecryptionKey(ClientIdDecryptionKey::generate()?);
+            key.store(&pool).await?;
+
+            let loaded = StorableClientIdDecryptionKey::load(&pool)
+                .await?
+                .expect("missing decryption key");
+            assert_eq!(loaded.0.as_ref(), key.0.as_ref());
+
+            Ok(())
+        }
+    }
 }

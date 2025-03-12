@@ -45,13 +45,9 @@ impl AuthService {
             })
             .collect::<Result<Vec<ConnectionPackage>, PublishConnectionPackageError>>()?;
 
-        StorableConnectionPackage::store_multiple(
-            &self.db_pool,
-            connection_packages.into_iter(),
-            &client_id,
-        )
-        .await
-        .map_err(|_| PublishConnectionPackageError::StorageError)?;
+        StorableConnectionPackage::store_multiple(&self.db_pool, &connection_packages, &client_id)
+            .await
+            .map_err(|_| PublishConnectionPackageError::StorageError)?;
         Ok(())
     }
 
