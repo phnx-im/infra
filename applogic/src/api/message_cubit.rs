@@ -155,9 +155,13 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
-        match notification.ops.get(&self.message_id.into()) {
-            Some(StoreOperation::Add | StoreOperation::Update) => self.load_and_emit_state().await,
-            Some(StoreOperation::Remove) | None => {}
+        let op = notification
+            .ops
+            .get(&self.message_id.into())
+            .copied()
+            .unwrap_or_default();
+        if op.contains(StoreOperation::Add) || op.contains(StoreOperation::Update) {
+            self.load_and_emit_state().await;
         }
     }
 }

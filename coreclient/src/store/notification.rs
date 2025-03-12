@@ -4,6 +4,7 @@
 
 use std::{collections::BTreeMap, mem, sync::Arc};
 
+use enumset::{EnumSet, EnumSetType};
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
@@ -46,7 +47,11 @@ impl StoreNotifier {
     ///
     /// Notification will be sent when the `notify` function is called.
     pub(crate) fn add(&mut self, id: impl Into<StoreEntityId>) -> &mut Self {
-        self.notification.ops.insert(id.into(), StoreOperation::Add);
+        self.notification
+            .ops
+            .entry(id.into())
+            .or_default()
+            .insert(StoreOperation::Add);
         self
     }
 
@@ -56,7 +61,9 @@ impl StoreNotifier {
     pub(crate) fn update(&mut self, id: impl Into<StoreEntityId>) -> &mut Self {
         self.notification
             .ops
-            .insert(id.into(), StoreOperation::Update);
+            .entry(id.into())
+            .or_default()
+            .insert(StoreOperation::Update);
         self
     }
 
@@ -66,7 +73,9 @@ impl StoreNotifier {
     pub(crate) fn remove(&mut self, id: impl Into<StoreEntityId>) -> &mut Self {
         self.notification
             .ops
-            .insert(id.into(), StoreOperation::Remove);
+            .entry(id.into())
+            .or_default()
+            .insert(StoreOperation::Remove);
         self
     }
 
@@ -175,7 +184,7 @@ impl Default for StoreNotificationsSender {
 #[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct StoreNotification {
-    pub ops: BTreeMap<StoreEntityId, StoreOperation>,
+    pub ops: BTreeMap<StoreEntityId, EnumSet<StoreOperation>>,
 }
 
 impl StoreNotification {
@@ -189,7 +198,7 @@ impl StoreNotification {
 }
 
 /// Operation which was performed in a [`super::Store`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialOrd, Ord, Hash, EnumSetType)]
 pub enum StoreOperation {
     Add,
     Update,
@@ -250,30 +259,30 @@ mod tests {
     fn subscribe_iter() {
         let tx = StoreNotificationsSender::new();
 
-        let ops_1: BTreeMap<_, _> = [(
+        let ops_1: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
             StoreEntityId::User("alice@localhost".parse().unwrap()),
-            StoreOperation::Add,
+            StoreOperation::Add.into(),
         )]
         .into_iter()
         .collect();
 
-        let ops_2: BTreeMap<_, _> = [(
+        let ops_2: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
             StoreEntityId::User("bob@localhost".parse().unwrap()),
-            StoreOperation::Update,
+            StoreOperation::Update.into(),
         )]
         .into_iter()
         .collect();
 
-        let ops_3: BTreeMap<_, _> = [(
+        let ops_3: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
             StoreEntityId::User("eve@localhost".parse().unwrap()),
-            StoreOperation::Remove,
+            StoreOperation::Remove.into(),
         )]
         .into_iter()
         .collect();
 
-        let ops_4: BTreeMap<_, _> = [(
+        let ops_4: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
             StoreEntityId::User("mallory@localhost".parse().unwrap()),
-            StoreOperation::Add,
+            StoreOperation::Add.into(),
         )]
         .into_iter()
         .collect();

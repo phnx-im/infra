@@ -287,7 +287,7 @@ impl ConversationMessage {
         timestamp: TimeStamp,
         sent: bool,
     ) -> sqlx::Result<()> {
-        query!(
+        let res = query!(
             "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
             timestamp,
             sent,
@@ -295,7 +295,9 @@ impl ConversationMessage {
         )
         .execute(executor)
         .await?;
-        notifier.update(message_id);
+        if res.rows_affected() == 1 {
+            notifier.update(message_id);
+        }
         Ok(())
     }
 
