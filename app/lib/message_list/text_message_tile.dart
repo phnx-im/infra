@@ -154,11 +154,6 @@ class TextMessageTile extends StatelessWidget {
                   .toList(),
             ),
           ),
-          // child: RichText(
-          //   selectionRegistrar: SelectionContainer.maybeOf(context),
-          //   selectionColor: Colors.blue.withValues(alpha: 0.3),
-          //   textWidthBasis: TextWidthBasis.longestLine,
-          // ),
         ),
       ),
     );
