@@ -113,6 +113,7 @@ build-linux:
 # analyze Dart code
 [working-directory: 'app']
 analyze-dart:
+    cd rust_builder/cargokit/build_tool && flutter pub get
     flutter analyze
 
 # run Flutter tests
