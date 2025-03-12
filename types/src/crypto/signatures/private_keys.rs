@@ -43,8 +43,8 @@ impl From<VerifyingKey> for SignaturePublicKey {
 }
 
 impl VerifyingKey {
-    #[cfg(test)]
-    pub(crate) fn new_for_test(value: Vec<u8>) -> Self {
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn new_for_test(value: Vec<u8>) -> Self {
         Self(value)
     }
 

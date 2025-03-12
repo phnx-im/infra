@@ -27,9 +27,13 @@ phnxtypes = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
+tokio-stream = "0.1.17"
 
 [dev-dependencies]
 phnxtypes = { path = "../types", features = ["test_utils"] }
+anyhow = "1.0.97"
+rand = "0.8.0"
+serde_json = "1.0.140"
 
 [features]
 test_utils = ["phnxtypes/test_utils"]

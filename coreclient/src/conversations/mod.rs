@@ -12,7 +12,6 @@ use phnxtypes::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteExecutor;
-use tls_codec::DeserializeBytes;
 use uuid::Uuid;
 
 use crate::store::StoreNotifier;

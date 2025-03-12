@@ -73,6 +73,18 @@ pub struct DecryptionKey {
     encryption_key: EncryptionPublicKey,
 }
 
+#[cfg(any(test, feature = "test_utils"))]
+impl PartialEq for DecryptionKey {
+    fn eq(&self, other: &Self) -> bool {
+        let decryption_key: &[u8] = self.decryption_key.as_ref();
+        let other_decryption_key: &[u8] = other.decryption_key.as_ref();
+        decryption_key == other_decryption_key && self.encryption_key == other.encryption_key
+    }
+}
+
+#[cfg(any(test, feature = "test_utils"))]
+impl Eq for DecryptionKey {}
+
 impl DecryptionKey {
     pub fn new(decryption_key: HpkePrivateKey, encryption_key: EncryptionPublicKey) -> Self {
         Self {

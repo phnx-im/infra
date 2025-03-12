@@ -27,14 +27,30 @@ impl<T> RatchetCiphertext for T where
 
 // WARNING: If this struct is changed its implementation of ToSql and FromSql in the sqlite module
 // must be updated and a new `QueueRatchetVersion` introduced.
-#[derive(
-    Serialize, PartialEq, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct QueueRatchet<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> {
     sequence_number: u64,
     secret: RatchetSecret,
     key: RatchetKey,
     _phantom: PhantomData<(Ciphertext, Payload)>,
+}
+
+#[cfg(feature = "test_utils")]
+impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> PartialEq
+    for QueueRatchet<Ciphertext, Payload>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.sequence_number == other.sequence_number
+            && self.secret == other.secret
+            && self.key == other.key
+            && self._phantom == other._phantom
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Eq
+    for QueueRatchet<Ciphertext, Payload>
+{
 }
 
 impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> TryFrom<RatchetSecret>

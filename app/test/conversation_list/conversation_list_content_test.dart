@@ -2,12 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prototype/conversation_list/conversation_list_content.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -20,27 +23,26 @@ final conversations = [
   UiConversationDetails(
     id: 1.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: const UiConversationType_Connection("bob@localhost"),
+    conversationType: const UiConversationType_Connection('bob@localhost'),
     unreadMessages: 10,
     messagesCount: 10,
     attributes: const UiConversationAttributes(
-      title: "Bob",
+      title: 'Bob',
       picture: null,
     ),
-    lastUsed: "2023-01-01T00:00:00.000Z",
+    lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 1.conversationMessageId(),
       conversationId: 1.conversationId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: "bob@localhost",
+          sender: 'bob@localhost',
           sent: true,
           content: UiMimiContent(
-            id: 1.messageId(),
-            timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-            lastSeen: [],
-            body: 'Hello Alice',
+            plainBody: 'Hello Alice',
+            topicId: Uint8List(0),
+            content: simpleMessage('Hello Alice'),
           ),
         ),
       ),
@@ -51,28 +53,29 @@ final conversations = [
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
     conversationType:
-        const UiConversationType_UnconfirmedConnection("eve@localhost"),
+        const UiConversationType_UnconfirmedConnection('eve@localhost'),
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiConversationAttributes(
-      title: "Eve",
+      title: 'Eve',
       picture: null,
     ),
-    lastUsed: "2023-01-01T00:00:00.000Z",
+    lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 2.conversationMessageId(),
       conversationId: 2.conversationId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: "eve@localhost",
+          sender: 'eve@localhost',
           sent: true,
           content: UiMimiContent(
-            id: 2.messageId(),
-            timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-            lastSeen: [],
-            body:
+            plainBody:
                 'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
+            topicId: Uint8List(0),
+            content: simpleMessage(
+              'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
+            ),
           ),
         ),
       ),
@@ -86,23 +89,22 @@ final conversations = [
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiConversationAttributes(
-      title: "Group",
+      title: 'Group',
       picture: null,
     ),
-    lastUsed: "2023-01-01T00:00:00.000Z",
+    lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 3.conversationMessageId(),
       conversationId: 3.conversationId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: "somebody@localhost",
+          sender: 'somebody@localhost',
           sent: true,
           content: UiMimiContent(
-            id: 3.messageId(),
-            timestamp: DateTime.parse("2023-01-01T00:00:00.000Z"),
-            lastSeen: [],
-            body: 'Hello All',
+            plainBody: 'Hello All',
+            topicId: Uint8List(0),
+            content: simpleMessage('Hello All'),
           ),
         ),
       ),
@@ -110,6 +112,18 @@ final conversations = [
     ),
   ),
 ];
+
+MessageContent simpleMessage(String msg) {
+  return MessageContent(content: [
+    RangedBlockElement(
+        start: 0,
+        end: msg.length,
+        element: BlockElement_Paragraph([
+          RangedInlineElement(
+              start: 0, end: msg.length, element: InlineElement_Text(msg))
+        ]))
+  ]);
+}
 
 void main() {
   group('ConversationListContent', () {
@@ -125,7 +139,7 @@ void main() {
       when(() => navigationCubit.state)
           .thenReturn(const NavigationState.home());
       when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: "alice@localhost"));
+          .thenReturn(MockUiUser(userName: 'alice@localhost'));
     });
 
     Widget buildSubject() => MultiBlocProvider(

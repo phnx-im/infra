@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use mimi_content::MimiContent;
 use phnxtypes::{
     codec::{self, PhnxCodec},
     time::TimeStamp,
@@ -15,9 +16,7 @@ use sqlx::{
 use tokio_stream::StreamExt;
 use tracing::{error, warn};
 
-use crate::{
-    store::StoreNotifier, ContentMessage, ConversationId, ConversationMessage, Message, MimiContent,
-};
+use crate::{store::StoreNotifier, ContentMessage, ConversationId, ConversationMessage, Message};
 
 use super::{ErrorMessage, EventMessage};
 
@@ -398,8 +397,7 @@ pub(crate) mod tests {
     use sqlx::SqlitePool;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, EventMessage, MimiContent,
-        SystemMessage,
+        conversations::persistence::tests::test_conversation, EventMessage, SystemMessage,
     };
 
     use super::*;
@@ -412,10 +410,7 @@ pub(crate) mod tests {
         let message = Message::Content(Box::new(ContentMessage {
             sender: "alice@localhost".to_string(),
             sent: false,
-            content: MimiContent::simple_markdown_message(
-                "localhost".parse().unwrap(),
-                "Hello world!".to_string(),
-            ),
+            content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ConversationMessage {

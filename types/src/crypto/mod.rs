@@ -49,6 +49,7 @@ pub type RatchetKeyUpdate = Vec<u8>;
     Debug,
     Clone,
     PartialEq,
+    Eq,
     Serialize,
     Deserialize,
     TlsSerialize,
@@ -60,8 +61,8 @@ pub type RatchetKeyUpdate = Vec<u8>;
 pub struct RatchetEncryptionKey(EncryptionPublicKey);
 
 impl RatchetEncryptionKey {
-    #[cfg(test)]
-    pub(crate) fn new_for_test(encryption_key: EncryptionPublicKey) -> Self {
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn new_for_test(encryption_key: EncryptionPublicKey) -> Self {
         Self(encryption_key)
     }
 }
@@ -80,7 +81,9 @@ impl RatchetDecryptionKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
 pub struct ConnectionEncryptionKey {
     encryption_key: EncryptionPublicKey,
 }

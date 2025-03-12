@@ -62,6 +62,16 @@ impl Ciphertext {
         }
     }
 
+    pub fn random() -> Self {
+        use rand::Rng;
+
+        let mut rng = rand::thread_rng();
+        Self {
+            ciphertext: rng.gen::<[u8; 32]>().into(),
+            nonce: rng.gen::<[u8; AEAD_NONCE_SIZE]>(),
+        }
+    }
+
     pub fn flip_bit(&mut self) {
         let byte = self.ciphertext.pop().unwrap();
         self.ciphertext.push(byte ^ 1);

@@ -188,7 +188,7 @@ impl AuthService {
 
         StorableConnectionPackage::store_multiple(
             &self.db_pool,
-            vec![verified_connection_package],
+            [&verified_connection_package],
             &client_id,
         )
         .await

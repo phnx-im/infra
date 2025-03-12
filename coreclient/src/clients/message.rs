@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{bail, Context};
+use mimi_content::MimiContent;
 use openmls::storage::OpenMlsProvider;
 use phnxtypes::{
     identifiers::QualifiedUserName, messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
@@ -10,9 +11,7 @@ use phnxtypes::{
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-use crate::{
-    Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message, MimiContent,
-};
+use crate::{Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message};
 
 use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
 

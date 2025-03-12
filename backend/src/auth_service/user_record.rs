@@ -8,6 +8,7 @@ use phnxtypes::{crypto::OpaqueCiphersuite, identifiers::QualifiedUserName};
 use crate::errors::StorageError;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct UserRecord {
     user_name: QualifiedUserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
@@ -34,12 +35,17 @@ impl UserRecord {
         Ok(user_record)
     }
 
+    #[cfg(test)]
+    pub(super) fn user_name(&self) -> &QualifiedUserName {
+        &self.user_name
+    }
+
     pub(super) fn into_password_file(self) -> ServerRegistration<OpaqueCiphersuite> {
         self.password_file
     }
 }
 
-mod persistence {
+pub(crate) mod persistence {
     use phnxtypes::{
         codec::PhnxCodec,
         identifiers::{QualifiedUserName, UserName},
@@ -58,7 +64,9 @@ mod persistence {
             user_name: &QualifiedUserName,
         ) -> Result<Option<UserRecord>, StorageError> {
             sqlx::query!(
-                r#"SELECT user_name as "user_name: UserName", password_file FROM as_user_records WHERE user_name = $1"#,
+                r#"SELECT user_name as "user_name: UserName", password_file
+                FROM as_user_records
+                WHERE user_name = $1"#,
                 user_name.to_string(),
             )
             .fetch_optional(connection)
@@ -105,6 +113,80 @@ mod persistence {
             )
             .execute(connection)
             .await?;
+            Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) mod tests {
+        use opaque_ke::{
+            ClientRegistration, ClientRegistrationFinishParameters, ServerRegistration, ServerSetup,
+        };
+        use sqlx::PgPool;
+        use uuid::Uuid;
+
+        use super::*;
+
+        pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
+            let user_name: QualifiedUserName = format!("{}@example.com", Uuid::new_v4()).parse()?;
+            let password = b"password";
+
+            let mut rng = rand::thread_rng();
+            let server_setup = ServerSetup::new(&mut rng);
+            let client_registration_start_result =
+                ClientRegistration::start(&mut rng, password).unwrap();
+            let server_registration_start_result = ServerRegistration::start(
+                &server_setup,
+                client_registration_start_result.message,
+                user_name.to_string().as_bytes(),
+            )
+            .unwrap();
+            let client_registration_finish_result = client_registration_start_result
+                .state
+                .finish(
+                    &mut rng,
+                    password,
+                    server_registration_start_result.message,
+                    ClientRegistrationFinishParameters::default(),
+                )
+                .unwrap();
+            let password_file =
+                ServerRegistration::finish(client_registration_finish_result.message);
+
+            let record = UserRecord {
+                user_name,
+                password_file,
+            };
+            record.store(pool).await?;
+            Ok(record)
+        }
+
+        #[sqlx::test]
+        async fn load(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+
+            let loaded = UserRecord::load(&pool, &user_record.user_name)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded, user_record);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn delete(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+
+            let loaded = UserRecord::load(&pool, &user_record.user_name)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded, user_record);
+
+            UserRecord::delete(&pool, &user_record.user_name).await?;
+
+            let loaded = UserRecord::load(&pool, &user_record.user_name).await?;
+            assert!(loaded.is_none());
+
             Ok(())
         }
     }

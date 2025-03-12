@@ -48,7 +48,16 @@ use crate::{
 use super::traits::{SignatureVerificationError, SigningKeyBehaviour, VerifyingKeyBehaviour};
 
 #[derive(
-    Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize, sqlx::Type,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    TlsDeserializeBytes,
+    TlsSerialize,
+    TlsSize,
+    Serialize,
+    Deserialize,
+    sqlx::Type,
 )]
 #[sqlx(transparent)]
 pub struct Signature(Vec<u8>);

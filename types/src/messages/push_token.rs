@@ -36,6 +36,7 @@ impl PushToken {
     Serialize,
     Deserialize,
     PartialEq,
+    Eq,
     Clone,
     Debug,
     TlsSerialize,
