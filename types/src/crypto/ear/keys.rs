@@ -216,7 +216,7 @@ impl From<Secret<AEAD_KEY_SIZE>> for ClientCredentialEarKey {
 pub type EnqueueAuthKeyEarKeySecret = Secret<AEAD_KEY_SIZE>;
 
 #[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct RatchetKey {
     key: RatchetKeySecret,

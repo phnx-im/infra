@@ -33,7 +33,7 @@ impl PushToken {
     }
 }
 #[derive(
-    Serialize, Deserialize, PartialEq, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Serialize, Deserialize, PartialEq, Eq, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
 pub struct EncryptedPushToken(Ciphertext);

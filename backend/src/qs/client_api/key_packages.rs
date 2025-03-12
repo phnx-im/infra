@@ -93,13 +93,8 @@ impl Qs {
     ) -> Result<ClientKeyPackageResponse, QsClientKeyPackageError> {
         let ClientKeyPackageParams { sender, client_id } = params;
 
-        let mut connection = self.db_pool.acquire().await.map_err(|e| {
-            tracing::warn!("Failed to acquire connection: {:?}", e);
-            QsClientKeyPackageError::StorageError
-        })?;
-
         let StorableEncryptedAddPackage(encrypted_key_package) =
-            StorableEncryptedAddPackage::load(&mut connection, &sender, &client_id)
+            StorableEncryptedAddPackage::load(&self.db_pool, &sender, &client_id)
                 .await
                 .map_err(|e| {
                     tracing::warn!("Failed to load key package: {:?}", e);

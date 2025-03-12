@@ -33,7 +33,7 @@ impl UserRecord {
     }
 }
 
-mod persistence {
+pub(crate) mod persistence {
     use phnxtypes::identifiers::QsUserId;
     use sqlx::PgExecutor;
 
@@ -47,10 +47,10 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             sqlx::query!(
-                "INSERT INTO 
-                    qs_user_records 
+                "INSERT INTO
+                    qs_user_records
                     (user_id, verifying_key, friendship_token)
-                VALUES 
+                VALUES
                     ($1, $2, $3)",
                 &self.user_id as &QsUserId,
                 &self.verifying_key as &QsUserVerifyingKey,
@@ -66,11 +66,12 @@ mod persistence {
             user_id: &QsUserId,
         ) -> Result<Option<UserRecord>, StorageError> {
             sqlx::query!(
-                r#"SELECT 
-                    verifying_key as "verifying_key: QsUserVerifyingKey", friendship_token as "friendship_token: FriendshipToken"
-                FROM 
+                r#"SELECT
+                    verifying_key as "verifying_key: QsUserVerifyingKey",
+                    friendship_token as "friendship_token: FriendshipToken"
+                FROM
                     qs_user_records
-                WHERE 
+                WHERE
                     user_id = $1"#,
                 user_id.as_uuid(),
             )
@@ -104,11 +105,11 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             sqlx::query!(
-                "UPDATE 
+                "UPDATE
                     qs_user_records
-                SET 
+                SET
                     verifying_key = $2, friendship_token = $3
-                WHERE 
+                WHERE
                     user_id = $1",
                 &self.user_id as &QsUserId,
                 &self.verifying_key as &QsUserVerifyingKey,
@@ -116,6 +117,80 @@ mod persistence {
             )
             .execute(connection)
             .await?;
+            Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) mod tests {
+        use phnxtypes::crypto::signatures::private_keys::VerifyingKey;
+        use sqlx::PgPool;
+
+        use super::*;
+
+        pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
+            let record = UserRecord {
+                user_id: QsUserId::random(),
+                verifying_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+                    b"some_key".to_vec(),
+                )),
+                friendship_token: FriendshipToken::random().unwrap(),
+            };
+            record.store(pool).await?;
+            Ok(record)
+        }
+
+        #[sqlx::test]
+        async fn load(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+
+            let loaded = UserRecord::load(&pool, &user_record.user_id)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded, user_record);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn update(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+
+            let loaded = UserRecord::load(&pool, &user_record.user_id)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded, user_record);
+
+            let user_record = UserRecord {
+                user_id: user_record.user_id,
+                verifying_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+                    b"some_other_key".to_vec(),
+                )),
+                friendship_token: FriendshipToken::random().unwrap(),
+            };
+
+            user_record.update(&pool).await?;
+            let loaded = UserRecord::load(&pool, &user_record.user_id)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded, user_record);
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn delete(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+
+            let loaded = UserRecord::load(&pool, &user_record.user_id)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded, user_record);
+
+            UserRecord::delete(&pool, user_record.user_id).await?;
+            let loaded = UserRecord::load(&pool, &user_record.user_id).await?;
+            assert_eq!(loaded, None);
+
             Ok(())
         }
     }

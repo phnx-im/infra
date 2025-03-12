@@ -8,12 +8,12 @@ use std::{fs, io::Cursor, sync::LazyLock};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
-use opaque_ke::rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
+use opaque_ke::rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use phnxapiclient::ApiClient;
 
 use phnxcoreclient::{
-    Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
-    store::Store,
+    clients::CoreUser, store::Store, Asset, ConversationId, ConversationMessage, DisplayName,
+    UserProfile,
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};

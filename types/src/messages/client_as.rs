@@ -162,7 +162,7 @@ pub struct Init2FactorAuthResponse {
     pub opaque_ke2: OpaqueLoginResponse,
 }
 
-#[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackageTbs {
     pub(super) protocol_version: MlsInfraVersion,
     pub(super) encryption_key: ConnectionEncryptionKey,
@@ -186,7 +186,7 @@ impl ConnectionPackageTbs {
     }
 }
 
-#[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackage {
     payload: ConnectionPackageTbs,
     signature: Signature,
@@ -199,6 +199,11 @@ impl ConnectionPackage {
 
     pub fn encryption_key(&self) -> &ConnectionEncryptionKey {
         &self.payload.encryption_key
+    }
+
+    #[cfg(feature = "test_utils")]
+    pub fn new_for_test(payload: ConnectionPackageTbs, signature: Signature) -> Self {
+        Self { payload, signature }
     }
 }
 

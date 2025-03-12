@@ -110,7 +110,7 @@ impl AsRef<Secret<KDF_KEY_SIZE>> for InitialClientKdfKey {
 pub type RatchetSecretKey = Secret<KDF_KEY_SIZE>;
 
 #[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
 pub struct RatchetSecret {
     key: RatchetSecretKey,

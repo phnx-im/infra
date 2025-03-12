@@ -81,7 +81,7 @@ mod persistence {
                 "INSERT INTO
                     as_signing_keys
                     (cred_type, credential_fingerprint, signing_key, currently_active)
-                VALUES 
+                VALUES
                     ($1, $2, $3, $4)",
                 CredentialType::As as _,
                 self.fingerprint().as_bytes(),
@@ -150,6 +150,113 @@ mod persistence {
                 .collect::<Result<Vec<_>, StorageError>>()?;
 
             Ok(credentials)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::collections::HashSet;
+
+        use phnxtypes::time::{Duration, ExpirationData};
+        use sqlx::PgPool;
+
+        use super::*;
+
+        async fn store_random_signing_key(pool: &PgPool) -> anyhow::Result<StorableSigningKey> {
+            let (_, key) = AsCredential::new(
+                SignatureScheme::ED25519,
+                "example.com".parse()?,
+                Some(ExpirationData::new(Duration::days(42))),
+            )?;
+            let storable: StorableSigningKey = key.into();
+            storable.store(pool).await?;
+            Ok(storable)
+        }
+
+        fn comparable<T: Serialize>(value: &T) -> String {
+            serde_json::to_string(value).unwrap()
+        }
+
+        #[sqlx::test]
+        async fn load(pool: PgPool) -> anyhow::Result<()> {
+            let key = store_random_signing_key(&pool).await?;
+
+            let loaded = StorableSigningKey::load(&pool).await?;
+            assert!(loaded.is_none()); // not active
+
+            key.activate(&pool).await?;
+            let loaded = StorableSigningKey::load(&pool)
+                .await?
+                .expect("missing signing key");
+            assert_eq!(
+                comparable::<StorableSigningKey>(&loaded.into()),
+                comparable(&key)
+            );
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn activate(pool: PgPool) -> anyhow::Result<()> {
+            let keys = [
+                store_random_signing_key(&pool).await?,
+                store_random_signing_key(&pool).await?,
+                store_random_signing_key(&pool).await?,
+            ];
+
+            let loaded = StorableSigningKey::load(&pool).await?;
+            assert!(loaded.is_none()); // not active
+
+            keys[0].activate(&pool).await?;
+            let loaded = StorableSigningKey::load(&pool)
+                .await?
+                .expect("missing signing key");
+            assert_eq!(
+                comparable::<StorableSigningKey>(&loaded.into()),
+                comparable(&keys[0])
+            );
+
+            keys[1].activate(&pool).await?;
+            let loaded = StorableSigningKey::load(&pool)
+                .await?
+                .expect("missing signing key");
+            assert_eq!(
+                comparable::<StorableSigningKey>(&loaded.into()),
+                comparable(&keys[1])
+            );
+
+            keys[2].activate(&pool).await?;
+            let loaded = StorableSigningKey::load(&pool)
+                .await?
+                .expect("missing signing key");
+            assert_eq!(
+                comparable::<StorableSigningKey>(&loaded.into()),
+                comparable(&keys[2])
+            );
+
+            Ok(())
+        }
+
+        #[sqlx::test]
+        async fn load_all(pool: PgPool) -> anyhow::Result<()> {
+            let keys = [
+                store_random_signing_key(&pool).await?,
+                store_random_signing_key(&pool).await?,
+                store_random_signing_key(&pool).await?,
+            ];
+
+            let loaded = Credential::load_all(&pool).await?;
+            assert_eq!(loaded.len(), 3);
+
+            let loaded_comparable: HashSet<_> = loaded.iter().map(comparable).collect();
+            let expected_comparable: HashSet<_> = keys
+                .into_iter()
+                .map(AsSigningKey::from)
+                .map(|value| comparable(value.credential()))
+                .collect();
+            assert_eq!(loaded_comparable, expected_comparable);
+
+            Ok(())
         }
     }
 }

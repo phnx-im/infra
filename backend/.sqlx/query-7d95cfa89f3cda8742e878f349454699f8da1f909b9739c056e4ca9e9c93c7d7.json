@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT voprf_server AS \"voprf_server: StorableVorpfServer\"\n            FROM as_batched_keys\n            WHERE token_key_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "voprf_server: StorableVorpfServer",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7d95cfa89f3cda8742e878f349454699f8da1f909b9739c056e4ca9e9c93c7d7"
+}

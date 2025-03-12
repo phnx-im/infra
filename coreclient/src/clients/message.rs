@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, bail};
+use anyhow::{bail, Context};
 use mimi_content::MimiContent;
 use openmls::storage::OpenMlsProvider;
 use phnxtypes::{
