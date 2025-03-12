@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:collection';
-
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
@@ -20,20 +18,8 @@ class MessageComposer extends StatefulWidget {
 }
 
 class _MessageComposerState extends State<MessageComposer> {
-  final TextEditingController _controller = _CustomTextEditingController();
+  final TextEditingController _controller = CustomTextEditingController();
   final _focusNode = FocusNode();
-  final _keywords = [
-    "@Alice",
-    "@Bob",
-    "@Carol",
-    "@Dave",
-    "@Eve",
-  ];
-
-  // Override constructor
-  _MessageComposerState() {
-    (_controller as _CustomTextEditingController).keywords = _keywords;
-  }
 
   // Key events
   KeyEventResult _onKeyEvent(
@@ -41,7 +27,6 @@ class _MessageComposerState extends State<MessageComposer> {
     FocusNode node,
     KeyEvent evt,
   ) {
-    final keyId = evt.logicalKey.keyId;
     if (!HardwareKeyboard.instance.isShiftPressed &&
         !HardwareKeyboard.instance.isAltPressed &&
         !HardwareKeyboard.instance.isMetaPressed &&
@@ -50,38 +35,6 @@ class _MessageComposerState extends State<MessageComposer> {
         (evt is KeyDownEvent)) {
       _submitMessage(conversationDetailCubit);
       return KeyEventResult.handled;
-      // Arrow keys
-    } else if (keyId == LogicalKeyboardKey.arrowLeft.keyId ||
-        keyId == LogicalKeyboardKey.arrowRight.keyId) {
-      final direction = keyId == LogicalKeyboardKey.arrowLeft.keyId
-          ? Direction.left
-          : Direction.right;
-      final isSelection =
-          _controller.selection.base != _controller.selection.extent;
-      final position = isSelection
-          ? _controller.selection.extentOffset
-          : _controller.selection.baseOffset;
-
-      final matches = _keywords
-          .map((keyword) => RegExp(keyword, caseSensitive: false)
-              .allMatches(_controller.text))
-          .expand((element) => element)
-          .toList();
-
-      final match = matches
-          .where((element) =>
-              // Check if the cursor is in the middle of a match
-              element.start < position && element.end > position)
-          .singleOrNull;
-      // Then move the cursor to the start or the end of the match, depending
-      // on the direction
-      if (match != null) {
-        final target = direction == Direction.left ? match.start : match.end;
-        _controller.selection = TextSelection(
-            baseOffset: isSelection ? _controller.selection.baseOffset : target,
-            extentOffset: target);
-      }
-      return KeyEventResult.ignored;
     } else {
       return KeyEventResult.ignored;
     }
@@ -181,12 +134,9 @@ class _MessageInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final smallScreen = isSmallScreen(context);
 
-    final style = Theme.of(context).textTheme.bodyLarge!.merge(
-        smallScreen ? VariableFontWeight.medium : VariableFontWeight.normal);
-
     return TextField(
       focusNode: _focusNode,
-      style: style,
+      style: messageTextStyle(context, false),
       controller: _controller,
       minLines: 1,
       maxLines: 10,
@@ -203,26 +153,3 @@ class _MessageInput extends StatelessWidget {
 }
 
 enum Direction { right, left }
-
-class _CustomTextEditingController extends TextEditingController {
-  _CustomTextEditingController();
-
-  List<String> _keywords = [];
-
-  // Setter for keywords
-  set keywords(List<String> keywords) {
-    _keywords = keywords;
-    notifyListeners();
-  }
-
-  // Getter for keywords
-  List<String> get keywords => _keywords;
-
-  @override
-  TextSpan buildTextSpan(
-      {required BuildContext context,
-      TextStyle? style,
-      required bool withComposing}) {
-    return buildTextSpanFromText(_keywords, text, style, HostWidget.textField);
-  }
-}

@@ -44,7 +44,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.7.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1044504697;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 278746970;
 
 // Section: executor
 
@@ -2919,6 +2919,109 @@ fn wire__crate__api__logging__init_rust_logging_impl(
         },
     )
 }
+fn wire__crate__api__markdown__message_content_error_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "message_content_error",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_message = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok(
+                        crate::api::markdown::MessageContent::error(api_message),
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__markdown__message_content_parse_markdown_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "message_content_parse_markdown",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_string = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok(
+                        crate::api::markdown::MessageContent::parse_markdown(&api_string),
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__markdown__message_content_parse_markdown_raw_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "message_content_parse_markdown_raw",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_string = <Vec<u8>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                (move || {
+                    let output_ok =
+                        crate::api::markdown::MessageContent::parse_markdown_raw(api_string)?;
+                    Ok(output_ok)
+                })(),
+            )
+        },
+    )
+}
 fn wire__crate__api__logging__read_app_logs_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -3352,6 +3455,68 @@ impl SseDecode for uuid::Uuid {
     }
 }
 
+impl SseDecode for crate::api::markdown::BlockElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut tag_ = <i32>::sse_decode(deserializer);
+        match tag_ {
+            0 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedInlineElement>>::sse_decode(deserializer);
+                return crate::api::markdown::BlockElement::Paragraph(var_field0);
+            }
+            1 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedInlineElement>>::sse_decode(deserializer);
+                return crate::api::markdown::BlockElement::Heading(var_field0);
+            }
+            2 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedBlockElement>>::sse_decode(deserializer);
+                return crate::api::markdown::BlockElement::Quote(var_field0);
+            }
+            3 => {
+                let mut var_field0 =
+                    <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_decode(deserializer);
+                return crate::api::markdown::BlockElement::UnorderedList(var_field0);
+            }
+            4 => {
+                let mut var_field0 = <u64>::sse_decode(deserializer);
+                let mut var_field1 =
+                    <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_decode(deserializer);
+                return crate::api::markdown::BlockElement::OrderedList(var_field0, var_field1);
+            }
+            5 => {
+                let mut var_head =
+                    <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_decode(deserializer);
+                let mut var_rows =
+                    <Vec<Vec<Vec<crate::api::markdown::RangedBlockElement>>>>::sse_decode(
+                        deserializer,
+                    );
+                return crate::api::markdown::BlockElement::Table {
+                    head: var_head,
+                    rows: var_rows,
+                };
+            }
+            6 => {
+                return crate::api::markdown::BlockElement::HorizontalRule;
+            }
+            7 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedCodeBlock>>::sse_decode(deserializer);
+                return crate::api::markdown::BlockElement::CodeBlock(var_field0);
+            }
+            8 => {
+                let mut var_field0 = <String>::sse_decode(deserializer);
+                return crate::api::markdown::BlockElement::Error(var_field0);
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
+    }
+}
+
 impl SseDecode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3434,6 +3599,63 @@ impl SseDecode for crate::api::types::ImageData {
     }
 }
 
+impl SseDecode for crate::api::markdown::InlineElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut tag_ = <i32>::sse_decode(deserializer);
+        match tag_ {
+            0 => {
+                let mut var_field0 = <String>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Text(var_field0);
+            }
+            1 => {
+                let mut var_field0 = <String>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Code(var_field0);
+            }
+            2 => {
+                let mut var_destUrl = <String>::sse_decode(deserializer);
+                let mut var_children =
+                    <Vec<crate::api::markdown::RangedInlineElement>>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Link {
+                    dest_url: var_destUrl,
+                    children: var_children,
+                };
+            }
+            3 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedInlineElement>>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Bold(var_field0);
+            }
+            4 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedInlineElement>>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Italic(var_field0);
+            }
+            5 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedInlineElement>>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Strikethrough(var_field0);
+            }
+            6 => {
+                let mut var_field0 =
+                    <Vec<crate::api::markdown::RangedInlineElement>>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Spoiler(var_field0);
+            }
+            7 => {
+                let mut var_field0 = <String>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::Image(var_field0);
+            }
+            8 => {
+                let mut var_field0 = <bool>::sse_decode(deserializer);
+                return crate::api::markdown::InlineElement::TaskListMarker(var_field0);
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
+    }
+}
+
 impl SseDecode for Vec<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3446,6 +3668,34 @@ impl SseDecode for Vec<String> {
     }
 }
 
+impl SseDecode for Vec<Vec<Vec<crate::api::markdown::RangedBlockElement>>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(
+                <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_decode(deserializer),
+            );
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<Vec<crate::api::markdown::RangedBlockElement>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<Vec<crate::api::markdown::RangedBlockElement>>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3453,6 +3703,48 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::markdown::RangedBlockElement> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::markdown::RangedBlockElement>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::markdown::RangedCodeBlock> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::markdown::RangedCodeBlock>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::markdown::RangedInlineElement> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::markdown::RangedInlineElement>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -3498,18 +3790,6 @@ impl SseDecode for Vec<crate::api::types::UiConversationDetails> {
     }
 }
 
-impl SseDecode for Vec<crate::api::types::UiMessageId> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = vec![];
-        for idx_ in 0..len_ {
-            ans_.push(<crate::api::types::UiMessageId>::sse_decode(deserializer));
-        }
-        return ans_;
-    }
-}
-
 impl SseDecode for crate::api::logging::LogEntry {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3537,6 +3817,17 @@ impl SseDecode for crate::api::logging::LogEntryLevel {
             3 => crate::api::logging::LogEntryLevel::Warn,
             4 => crate::api::logging::LogEntryLevel::Error,
             _ => unreachable!("Invalid variant for LogEntryLevel: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::api::markdown::MessageContent {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_content =
+            <Vec<crate::api::markdown::RangedBlockElement>>::sse_decode(deserializer);
+        return crate::api::markdown::MessageContent {
+            content: var_content,
         };
     }
 }
@@ -3578,17 +3869,6 @@ impl SseDecode for Option<User> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<User>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<chrono::DateTime<chrono::Utc>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<chrono::DateTime<chrono::Utc>>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -3645,28 +3925,6 @@ impl SseDecode for Option<crate::api::types::UiConversationMessage> {
     }
 }
 
-impl SseDecode for Option<crate::api::types::UiMessageId> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::api::types::UiMessageId>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::api::types::UiReplyToInfo> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::api::types::UiReplyToInfo>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
 impl SseDecode for Option<crate::api::types::UiUserProfile> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3706,6 +3964,62 @@ impl SseDecode for crate::api::user::PlatformPushToken {
                 unimplemented!("");
             }
         }
+    }
+}
+
+impl SseDecode for crate::api::markdown::RangedBlockElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_start = <u32>::sse_decode(deserializer);
+        let mut var_end = <u32>::sse_decode(deserializer);
+        let mut var_element = <crate::api::markdown::BlockElement>::sse_decode(deserializer);
+        return crate::api::markdown::RangedBlockElement {
+            start: var_start,
+            end: var_end,
+            element: var_element,
+        };
+    }
+}
+
+impl SseDecode for crate::api::markdown::RangedCodeBlock {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_start = <u32>::sse_decode(deserializer);
+        let mut var_end = <u32>::sse_decode(deserializer);
+        let mut var_value = <String>::sse_decode(deserializer);
+        return crate::api::markdown::RangedCodeBlock {
+            start: var_start,
+            end: var_end,
+            value: var_value,
+        };
+    }
+}
+
+impl SseDecode for crate::api::markdown::RangedInlineElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_start = <u32>::sse_decode(deserializer);
+        let mut var_end = <u32>::sse_decode(deserializer);
+        let mut var_element = <crate::api::markdown::InlineElement>::sse_decode(deserializer);
+        return crate::api::markdown::RangedInlineElement {
+            start: var_start,
+            end: var_end,
+            element: var_element,
+        };
+    }
+}
+
+impl SseDecode for u32 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u32::<NativeEndian>().unwrap()
+    }
+}
+
+impl SseDecode for u64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u64::<NativeEndian>().unwrap()
     }
 }
 
@@ -3934,51 +4248,20 @@ impl SseDecode for crate::api::types::UiMessage {
     }
 }
 
-impl SseDecode for crate::api::types::UiMessageId {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_id = <uuid::Uuid>::sse_decode(deserializer);
-        let mut var_domain = <String>::sse_decode(deserializer);
-        return crate::api::types::UiMessageId {
-            id: var_id,
-            domain: var_domain,
-        };
-    }
-}
-
 impl SseDecode for crate::api::types::UiMimiContent {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_id = <crate::api::types::UiMessageId>::sse_decode(deserializer);
-        let mut var_timestamp = <chrono::DateTime<chrono::Utc>>::sse_decode(deserializer);
-        let mut var_replaces = <Option<crate::api::types::UiMessageId>>::sse_decode(deserializer);
-        let mut var_topicId = <Option<Vec<u8>>>::sse_decode(deserializer);
-        let mut var_expires = <Option<chrono::DateTime<chrono::Utc>>>::sse_decode(deserializer);
-        let mut var_inReplyTo =
-            <Option<crate::api::types::UiReplyToInfo>>::sse_decode(deserializer);
-        let mut var_lastSeen = <Vec<crate::api::types::UiMessageId>>::sse_decode(deserializer);
-        let mut var_body = <String>::sse_decode(deserializer);
+        let mut var_replaces = <Option<Vec<u8>>>::sse_decode(deserializer);
+        let mut var_topicId = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_inReplyTo = <Option<Vec<u8>>>::sse_decode(deserializer);
+        let mut var_plainBody = <String>::sse_decode(deserializer);
+        let mut var_content = <crate::api::markdown::MessageContent>::sse_decode(deserializer);
         return crate::api::types::UiMimiContent {
-            id: var_id,
-            timestamp: var_timestamp,
             replaces: var_replaces,
             topic_id: var_topicId,
-            expires: var_expires,
             in_reply_to: var_inReplyTo,
-            last_seen: var_lastSeen,
-            body: var_body,
-        };
-    }
-}
-
-impl SseDecode for crate::api::types::UiReplyToInfo {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_messageId = <crate::api::types::UiMessageId>::sse_decode(deserializer);
-        let mut var_hash = <Vec<u8>>::sse_decode(deserializer);
-        return crate::api::types::UiReplyToInfo {
-            message_id: var_messageId,
-            hash: var_hash,
+            plain_body: var_plainBody,
+            content: var_content,
         };
     }
 }
@@ -4078,9 +4361,11 @@ fn pde_ffi_dispatcher_primary_impl(
 58 => wire__crate__api__utils__delete_client_database_impl(port, ptr, rust_vec_len, data_len),
 59 => wire__crate__api__utils__delete_databases_impl(port, ptr, rust_vec_len, data_len),
 61 => wire__crate__api__init_impl(port, ptr, rust_vec_len, data_len),
-63 => wire__crate__api__logging__read_app_logs_impl(port, ptr, rust_vec_len, data_len),
-64 => wire__crate__api__logging__read_background_logs_impl(port, ptr, rust_vec_len, data_len),
-65 => wire__crate__api__logging__tar_logs_impl(port, ptr, rust_vec_len, data_len),
+63 => wire__crate__api__markdown__message_content_error_impl(port, ptr, rust_vec_len, data_len),
+64 => wire__crate__api__markdown__message_content_parse_markdown_impl(port, ptr, rust_vec_len, data_len),
+66 => wire__crate__api__logging__read_app_logs_impl(port, ptr, rust_vec_len, data_len),
+67 => wire__crate__api__logging__read_background_logs_impl(port, ptr, rust_vec_len, data_len),
+68 => wire__crate__api__logging__tar_logs_impl(port, ptr, rust_vec_len, data_len),
                         _ => unreachable!(),
                     }
 }
@@ -4118,6 +4403,7 @@ fn pde_ffi_dispatcher_sync_impl(
 52 => wire__crate__api__user__User_user_name_impl(ptr, rust_vec_len, data_len),
 60 => wire__crate__api__types__image_data_compute_hash_impl(ptr, rust_vec_len, data_len),
 62 => wire__crate__api__logging__init_rust_logging_impl(ptr, rust_vec_len, data_len),
+65 => wire__crate__api__markdown__message_content_parse_markdown_raw_impl(ptr, rust_vec_len, data_len),
                         _ => unreachable!(),
                     }
 }
@@ -4273,6 +4559,58 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<UserCubitBase>> for UserCubitB
 }
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::markdown::BlockElement {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            crate::api::markdown::BlockElement::Paragraph(field0) => {
+                [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::BlockElement::Heading(field0) => {
+                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::BlockElement::Quote(field0) => {
+                [2.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::BlockElement::UnorderedList(field0) => {
+                [3.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::BlockElement::OrderedList(field0, field1) => [
+                4.into_dart(),
+                field0.into_into_dart().into_dart(),
+                field1.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            crate::api::markdown::BlockElement::Table { head, rows } => [
+                5.into_dart(),
+                head.into_into_dart().into_dart(),
+                rows.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            crate::api::markdown::BlockElement::HorizontalRule => [6.into_dart()].into_dart(),
+            crate::api::markdown::BlockElement::CodeBlock(field0) => {
+                [7.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::BlockElement::Error(field0) => {
+                [8.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::markdown::BlockElement
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::BlockElement>
+    for crate::api::markdown::BlockElement
+{
+    fn into_into_dart(self) -> crate::api::markdown::BlockElement {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart
     for crate::api::conversation_details_cubit::ConversationDetailsState
 {
@@ -4367,6 +4705,57 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::ImageData>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::markdown::InlineElement {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            crate::api::markdown::InlineElement::Text(field0) => {
+                [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::InlineElement::Code(field0) => {
+                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::InlineElement::Link { dest_url, children } => [
+                2.into_dart(),
+                dest_url.into_into_dart().into_dart(),
+                children.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            crate::api::markdown::InlineElement::Bold(field0) => {
+                [3.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::InlineElement::Italic(field0) => {
+                [4.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::InlineElement::Strikethrough(field0) => {
+                [5.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::InlineElement::Spoiler(field0) => {
+                [6.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::InlineElement::Image(field0) => {
+                [7.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::markdown::InlineElement::TaskListMarker(field0) => {
+                [8.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::markdown::InlineElement
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::InlineElement>
+    for crate::api::markdown::InlineElement
+{
+    fn into_into_dart(self) -> crate::api::markdown::InlineElement {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::logging::LogEntry {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -4411,6 +4800,23 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::logging::LogEntryLevel>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::markdown::MessageContent {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [self.content.into_into_dart().into_dart()].into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::markdown::MessageContent
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::MessageContent>
+    for crate::api::markdown::MessageContent
+{
+    fn into_into_dart(self) -> crate::api::markdown::MessageContent {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::message_cubit::MessageState {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [self.message.into_into_dart().into_dart()].into_dart()
@@ -4451,6 +4857,72 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::user::PlatformPushToken>
     for crate::api::user::PlatformPushToken
 {
     fn into_into_dart(self) -> crate::api::user::PlatformPushToken {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::markdown::RangedBlockElement {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.start.into_into_dart().into_dart(),
+            self.end.into_into_dart().into_dart(),
+            self.element.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::markdown::RangedBlockElement
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::RangedBlockElement>
+    for crate::api::markdown::RangedBlockElement
+{
+    fn into_into_dart(self) -> crate::api::markdown::RangedBlockElement {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::markdown::RangedCodeBlock {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.start.into_into_dart().into_dart(),
+            self.end.into_into_dart().into_dart(),
+            self.value.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::markdown::RangedCodeBlock
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::RangedCodeBlock>
+    for crate::api::markdown::RangedCodeBlock
+{
+    fn into_into_dart(self) -> crate::api::markdown::RangedCodeBlock {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::markdown::RangedInlineElement {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.start.into_into_dart().into_dart(),
+            self.end.into_into_dart().into_dart(),
+            self.element.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::markdown::RangedInlineElement
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::RangedInlineElement>
+    for crate::api::markdown::RangedInlineElement
+{
+    fn into_into_dart(self) -> crate::api::markdown::RangedInlineElement {
         self
     }
 }
@@ -4748,38 +5220,14 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMessage>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::types::UiMessageId {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.id.into_into_dart().into_dart(),
-            self.domain.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::types::UiMessageId
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMessageId>
-    for crate::api::types::UiMessageId
-{
-    fn into_into_dart(self) -> crate::api::types::UiMessageId {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::UiMimiContent {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.id.into_into_dart().into_dart(),
-            self.timestamp.into_into_dart().into_dart(),
             self.replaces.into_into_dart().into_dart(),
             self.topic_id.into_into_dart().into_dart(),
-            self.expires.into_into_dart().into_dart(),
             self.in_reply_to.into_into_dart().into_dart(),
-            self.last_seen.into_into_dart().into_dart(),
-            self.body.into_into_dart().into_dart(),
+            self.plain_body.into_into_dart().into_dart(),
+            self.content.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4792,27 +5240,6 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMimiContent>
     for crate::api::types::UiMimiContent
 {
     fn into_into_dart(self) -> crate::api::types::UiMimiContent {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::types::UiReplyToInfo {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.message_id.into_into_dart().into_dart(),
-            self.hash.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::types::UiReplyToInfo
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiReplyToInfo>
-    for crate::api::types::UiReplyToInfo
-{
-    fn into_into_dart(self) -> crate::api::types::UiReplyToInfo {
         self
     }
 }
@@ -5141,6 +5568,60 @@ impl SseEncode for uuid::Uuid {
     }
 }
 
+impl SseEncode for crate::api::markdown::BlockElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        match self {
+            crate::api::markdown::BlockElement::Paragraph(field0) => {
+                <i32>::sse_encode(0, serializer);
+                <Vec<crate::api::markdown::RangedInlineElement>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::BlockElement::Heading(field0) => {
+                <i32>::sse_encode(1, serializer);
+                <Vec<crate::api::markdown::RangedInlineElement>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::BlockElement::Quote(field0) => {
+                <i32>::sse_encode(2, serializer);
+                <Vec<crate::api::markdown::RangedBlockElement>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::BlockElement::UnorderedList(field0) => {
+                <i32>::sse_encode(3, serializer);
+                <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_encode(
+                    field0, serializer,
+                );
+            }
+            crate::api::markdown::BlockElement::OrderedList(field0, field1) => {
+                <i32>::sse_encode(4, serializer);
+                <u64>::sse_encode(field0, serializer);
+                <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_encode(
+                    field1, serializer,
+                );
+            }
+            crate::api::markdown::BlockElement::Table { head, rows } => {
+                <i32>::sse_encode(5, serializer);
+                <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_encode(head, serializer);
+                <Vec<Vec<Vec<crate::api::markdown::RangedBlockElement>>>>::sse_encode(
+                    rows, serializer,
+                );
+            }
+            crate::api::markdown::BlockElement::HorizontalRule => {
+                <i32>::sse_encode(6, serializer);
+            }
+            crate::api::markdown::BlockElement::CodeBlock(field0) => {
+                <i32>::sse_encode(7, serializer);
+                <Vec<crate::api::markdown::RangedCodeBlock>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::BlockElement::Error(field0) => {
+                <i32>::sse_encode(8, serializer);
+                <String>::sse_encode(field0, serializer);
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
+    }
+}
+
 impl SseEncode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5209,6 +5690,54 @@ impl SseEncode for crate::api::types::ImageData {
     }
 }
 
+impl SseEncode for crate::api::markdown::InlineElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        match self {
+            crate::api::markdown::InlineElement::Text(field0) => {
+                <i32>::sse_encode(0, serializer);
+                <String>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::InlineElement::Code(field0) => {
+                <i32>::sse_encode(1, serializer);
+                <String>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::InlineElement::Link { dest_url, children } => {
+                <i32>::sse_encode(2, serializer);
+                <String>::sse_encode(dest_url, serializer);
+                <Vec<crate::api::markdown::RangedInlineElement>>::sse_encode(children, serializer);
+            }
+            crate::api::markdown::InlineElement::Bold(field0) => {
+                <i32>::sse_encode(3, serializer);
+                <Vec<crate::api::markdown::RangedInlineElement>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::InlineElement::Italic(field0) => {
+                <i32>::sse_encode(4, serializer);
+                <Vec<crate::api::markdown::RangedInlineElement>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::InlineElement::Strikethrough(field0) => {
+                <i32>::sse_encode(5, serializer);
+                <Vec<crate::api::markdown::RangedInlineElement>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::InlineElement::Spoiler(field0) => {
+                <i32>::sse_encode(6, serializer);
+                <Vec<crate::api::markdown::RangedInlineElement>>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::InlineElement::Image(field0) => {
+                <i32>::sse_encode(7, serializer);
+                <String>::sse_encode(field0, serializer);
+            }
+            crate::api::markdown::InlineElement::TaskListMarker(field0) => {
+                <i32>::sse_encode(8, serializer);
+                <bool>::sse_encode(field0, serializer);
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
+    }
+}
+
 impl SseEncode for Vec<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5219,12 +5748,62 @@ impl SseEncode for Vec<String> {
     }
 }
 
+impl SseEncode for Vec<Vec<Vec<crate::api::markdown::RangedBlockElement>>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <Vec<Vec<crate::api::markdown::RangedBlockElement>>>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<Vec<crate::api::markdown::RangedBlockElement>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <Vec<crate::api::markdown::RangedBlockElement>>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::markdown::RangedBlockElement> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::markdown::RangedBlockElement>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::markdown::RangedCodeBlock> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::markdown::RangedCodeBlock>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::markdown::RangedInlineElement> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::markdown::RangedInlineElement>::sse_encode(item, serializer);
         }
     }
 }
@@ -5259,16 +5838,6 @@ impl SseEncode for Vec<crate::api::types::UiConversationDetails> {
     }
 }
 
-impl SseEncode for Vec<crate::api::types::UiMessageId> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <crate::api::types::UiMessageId>::sse_encode(item, serializer);
-        }
-    }
-}
-
 impl SseEncode for crate::api::logging::LogEntry {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5295,6 +5864,13 @@ impl SseEncode for crate::api::logging::LogEntryLevel {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::api::markdown::MessageContent {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<crate::api::markdown::RangedBlockElement>>::sse_encode(self.content, serializer);
     }
 }
 
@@ -5331,16 +5907,6 @@ impl SseEncode for Option<User> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <User>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<chrono::DateTime<chrono::Utc>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <chrono::DateTime<chrono::Utc>>::sse_encode(value, serializer);
         }
     }
 }
@@ -5385,26 +5951,6 @@ impl SseEncode for Option<crate::api::types::UiConversationMessage> {
     }
 }
 
-impl SseEncode for Option<crate::api::types::UiMessageId> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::api::types::UiMessageId>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::api::types::UiReplyToInfo> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::api::types::UiReplyToInfo>::sse_encode(value, serializer);
-        }
-    }
-}
-
 impl SseEncode for Option<crate::api::types::UiUserProfile> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5441,6 +5987,47 @@ impl SseEncode for crate::api::user::PlatformPushToken {
                 unimplemented!("");
             }
         }
+    }
+}
+
+impl SseEncode for crate::api::markdown::RangedBlockElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.start, serializer);
+        <u32>::sse_encode(self.end, serializer);
+        <crate::api::markdown::BlockElement>::sse_encode(self.element, serializer);
+    }
+}
+
+impl SseEncode for crate::api::markdown::RangedCodeBlock {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.start, serializer);
+        <u32>::sse_encode(self.end, serializer);
+        <String>::sse_encode(self.value, serializer);
+    }
+}
+
+impl SseEncode for crate::api::markdown::RangedInlineElement {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.start, serializer);
+        <u32>::sse_encode(self.end, serializer);
+        <crate::api::markdown::InlineElement>::sse_encode(self.element, serializer);
+    }
+}
+
+impl SseEncode for u32 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u32::<NativeEndian>(self).unwrap();
+    }
+}
+
+impl SseEncode for u64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u64::<NativeEndian>(self).unwrap();
     }
 }
 
@@ -5624,33 +6211,14 @@ impl SseEncode for crate::api::types::UiMessage {
     }
 }
 
-impl SseEncode for crate::api::types::UiMessageId {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <uuid::Uuid>::sse_encode(self.id, serializer);
-        <String>::sse_encode(self.domain, serializer);
-    }
-}
-
 impl SseEncode for crate::api::types::UiMimiContent {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <crate::api::types::UiMessageId>::sse_encode(self.id, serializer);
-        <chrono::DateTime<chrono::Utc>>::sse_encode(self.timestamp, serializer);
-        <Option<crate::api::types::UiMessageId>>::sse_encode(self.replaces, serializer);
-        <Option<Vec<u8>>>::sse_encode(self.topic_id, serializer);
-        <Option<chrono::DateTime<chrono::Utc>>>::sse_encode(self.expires, serializer);
-        <Option<crate::api::types::UiReplyToInfo>>::sse_encode(self.in_reply_to, serializer);
-        <Vec<crate::api::types::UiMessageId>>::sse_encode(self.last_seen, serializer);
-        <String>::sse_encode(self.body, serializer);
-    }
-}
-
-impl SseEncode for crate::api::types::UiReplyToInfo {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <crate::api::types::UiMessageId>::sse_encode(self.message_id, serializer);
-        <Vec<u8>>::sse_encode(self.hash, serializer);
+        <Option<Vec<u8>>>::sse_encode(self.replaces, serializer);
+        <Vec<u8>>::sse_encode(self.topic_id, serializer);
+        <Option<Vec<u8>>>::sse_encode(self.in_reply_to, serializer);
+        <String>::sse_encode(self.plain_body, serializer);
+        <crate::api::markdown::MessageContent>::sse_encode(self.content, serializer);
     }
 }
 
