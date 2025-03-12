@@ -10,7 +10,7 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId, MimiContent,
+    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
     PartialContact, UserProfile,
 };
 
@@ -124,7 +124,7 @@ pub trait LocalStore {
     async fn send_message(
         &self,
         conversation_id: ConversationId,
-        content: MimiContent,
+        content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage>;
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
