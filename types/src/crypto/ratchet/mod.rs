@@ -138,7 +138,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
 }
 
 mod sqlite {
-    use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
+    use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 
     use crate::codec::PhnxCodec;
 

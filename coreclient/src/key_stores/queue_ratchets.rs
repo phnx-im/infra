@@ -15,8 +15,8 @@ use phnxtypes::{
     },
 };
 use sqlx::{
-    encode::IsNull, error::BoxDynError, query, query_scalar, Database, Decode, Encode, Sqlite,
-    SqliteExecutor, Type,
+    Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
+    query, query_scalar,
 };
 use tracing::error;
 

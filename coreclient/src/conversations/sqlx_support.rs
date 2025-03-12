@@ -7,13 +7,13 @@ use std::borrow::Cow;
 use openmls::group::GroupId;
 use phnxtypes::identifiers::QualifiedUserNameError;
 use sqlx::{
-    encode::IsNull, error::BoxDynError, sqlite::SqliteValueRef, Database, Decode, Encode, Sqlite,
-    Type,
+    Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError,
+    sqlite::SqliteValueRef,
 };
 use tracing::error;
 use uuid::Uuid;
 
-use crate::{utils::persistence::GroupIdWrapper, ConversationMessageId};
+use crate::{ConversationMessageId, utils::persistence::GroupIdWrapper};
 
 use super::{ConversationId, ConversationStatus, ConversationType, InactiveConversation};
 

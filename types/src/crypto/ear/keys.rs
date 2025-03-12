@@ -9,7 +9,7 @@
 use mls_assist::openmls::prelude::GroupId;
 
 use serde::{Deserialize, Serialize};
-use sqlx::{encode::IsNull, error::BoxDynError, Database, Decode, Encode, Sqlite, Type};
+use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
