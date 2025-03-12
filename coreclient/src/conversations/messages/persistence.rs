@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
-    store::StoreNotifier, utils::persistence::Storable, ContentMessage, ConversationId,
-    ConversationMessage, Message,
+    ContentMessage, ConversationId, ConversationMessage, Message, store::StoreNotifier,
+    utils::persistence::Storable,
 };
 
 use super::{ErrorMessage, EventMessage};
@@ -340,8 +340,8 @@ pub(crate) mod tests {
     use chrono::Utc;
 
     use crate::{
-        conversations::persistence::tests::test_conversation, Conversation, EventMessage,
-        SystemMessage,
+        Conversation, EventMessage, SystemMessage,
+        conversations::persistence::tests::test_conversation,
     };
 
     use super::*;

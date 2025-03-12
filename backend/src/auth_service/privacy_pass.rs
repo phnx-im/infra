@@ -10,8 +10,8 @@ use privacypass::{
     private_tokens::{Ristretto255, VoprfServer},
 };
 use sqlx::{
-    encode::IsNull, error::BoxDynError, postgres::PgTypeInfo, Database, Decode, Encode,
-    PgConnection, Postgres, Type,
+    Database, Decode, Encode, PgConnection, Postgres, Type, encode::IsNull, error::BoxDynError,
+    postgres::PgTypeInfo,
 };
 use tokio::sync::Mutex;
 use tracing::error;

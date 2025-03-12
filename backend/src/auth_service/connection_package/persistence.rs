@@ -134,8 +134,8 @@ impl StorableConnectionPackage {
 mod tests {
     use phnxtypes::{
         credentials::ClientCredential,
-        crypto::{signatures::signable::Signature, ConnectionDecryptionKey},
-        messages::{client_as::ConnectionPackageTbs, MlsInfraVersion},
+        crypto::{ConnectionDecryptionKey, signatures::signable::Signature},
+        messages::{MlsInfraVersion, client_as::ConnectionPackageTbs},
         time::{Duration, ExpirationData},
     };
     use sqlx::PgPool;

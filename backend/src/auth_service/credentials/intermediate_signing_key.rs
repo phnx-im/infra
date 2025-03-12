@@ -7,8 +7,8 @@ use std::ops::Deref;
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxtypes::{
     credentials::{
-        keys::{AsIntermediateSigningKey, AsSigningKey},
         AsIntermediateCredential, AsIntermediateCredentialCsr, CredentialFingerprint,
+        keys::{AsIntermediateSigningKey, AsSigningKey},
     },
     identifiers::Fqdn,
 };
