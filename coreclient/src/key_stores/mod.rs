@@ -15,21 +15,21 @@ use phnxtypes::{
         hpke::{ClientIdEncryptionKey, HpkeEncryptable},
         kdf::keys::ConnectionKey,
     },
-    identifiers::{ClientConfig, QsClientId, QsReference, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{ClientConfig, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsClientId, QsReference},
 };
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
-    clients::{api_clients::ApiClients, CIPHERSUITE},
+    clients::{CIPHERSUITE, api_clients::ApiClients},
     groups::{default_capabilities, openmls_provider::PhnxOpenMlsProvider},
 };
 
 use phnxtypes::{
     credentials::keys::ClientSigningKey,
     crypto::{
+        ConnectionDecryptionKey, RatchetDecryptionKey,
         ear::keys::{KeyPackageEarKey, PushTokenEarKey, WelcomeAttributionInfoEarKey},
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
-        ConnectionDecryptionKey, RatchetDecryptionKey,
     },
     messages::FriendshipToken,
 };

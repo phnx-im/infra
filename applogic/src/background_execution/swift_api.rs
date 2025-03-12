@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 
 use crate::background_execution::{
-    processing::retrieve_messages_sync, IncomingNotificationContent,
+    IncomingNotificationContent, processing::retrieve_messages_sync,
 };
 use crate::logging::init_logger;
 
@@ -14,7 +14,7 @@ use crate::logging::init_logger;
 /// # Safety
 ///
 /// The caller must ensure that the content is a pointer to a valid C string.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn process_new_messages(content: *const c_char) -> *mut c_char {
     assert!(!content.is_null());
 
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn process_new_messages(content: *const c_char) -> *mut c_
 ///
 /// The caller must ensure that the input string was previously created by
 /// `process_new_messages`.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn free_string(s: *mut c_char) {
     if s.is_null() {
         return;

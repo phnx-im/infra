@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use chrono::{DateTime, SubsecRound, TimeZone, Utc};
 #[cfg(feature = "sqlite")]
-use rusqlite::{types::FromSql, ToSql};
+use rusqlite::{ToSql, types::FromSql};
 
 use super::*;
 

@@ -62,8 +62,8 @@ impl Ciphertext {
 
         let mut rng = rand::thread_rng();
         Self {
-            ciphertext: rng.gen::<[u8; 32]>().into(),
-            nonce: rng.gen::<[u8; AEAD_NONCE_SIZE]>(),
+            ciphertext: rng.r#gen::<[u8; 32]>().into(),
+            nonce: rng.r#gen::<[u8; AEAD_NONCE_SIZE]>(),
         }
     }
 

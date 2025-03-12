@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
-        errors::QsEnqueueError, network_provider_trait::NetworkProvider, PushNotificationProvider,
-        Qs, QsConnector,
+        PushNotificationProvider, Qs, QsConnector, errors::QsEnqueueError,
+        network_provider_trait::NetworkProvider,
     },
 };
 

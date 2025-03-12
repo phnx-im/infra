@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls_traits::storage::{
-    traits::ProposalRef as ProposalRefTrait, Entity, Key, CURRENT_VERSION,
+    CURRENT_VERSION, Entity, Key, traits::ProposalRef as ProposalRefTrait,
 };
 use rusqlite::params;
 

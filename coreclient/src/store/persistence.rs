@@ -4,13 +4,12 @@
 
 use phnxtypes::identifiers::QualifiedUserName;
 use rusqlite::{
-    params,
+    Connection, ToSql, params,
     types::{FromSql, ToSqlOutput, Value},
-    Connection, ToSql,
 };
 use tracing::error;
 
-use super::{notification::StoreEntityKind, StoreEntityId, StoreNotification, StoreOperation};
+use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 
 impl ToSql for StoreEntityId {
     /// Lossy conversion to SQLite value: the type is not stored.

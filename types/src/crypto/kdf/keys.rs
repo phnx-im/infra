@@ -13,7 +13,7 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::crypto::{errors::RandomnessError, secrets::Secret};
 
-use super::{traits::KdfKey, KdfDerivable, KdfExtractable, KDF_KEY_SIZE};
+use super::{KDF_KEY_SIZE, KdfDerivable, KdfExtractable, traits::KdfKey};
 
 /// A secret meant to be injected into the extraction of the new roster kdf key.
 #[derive(TlsSerialize, TlsSize, TlsDeserializeBytes, Clone, Debug)]

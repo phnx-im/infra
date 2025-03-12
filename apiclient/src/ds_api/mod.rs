@@ -10,10 +10,11 @@ use super::*;
 use mls_assist::{
     messages::AssistedMessageOut,
     openmls::prelude::{
-        tls_codec::Serialize, GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn,
+        GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, tls_codec::Serialize,
     },
 };
 use phnxtypes::{
+    LibraryError,
     credentials::keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
     crypto::{
         ear::keys::GroupStateEarKey,
@@ -24,8 +25,8 @@ use phnxtypes::{
     identifiers::QsReference,
     messages::{
         client_ds::{
-            ConnectionGroupInfoParams, ExternalCommitInfoParams, UpdateQsClientReferenceParams,
-            WelcomeInfoParams, SUPPORTED_DS_API_VERSIONS,
+            ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
+            UpdateQsClientReferenceParams, WelcomeInfoParams,
         },
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
@@ -37,7 +38,6 @@ use phnxtypes::{
         },
     },
     time::TimeStamp,
-    LibraryError,
 };
 
 use tls_codec::DeserializeBytes;

@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use actix_web::{
-    web::{self, Data},
     HttpResponse, Responder,
+    web::{self, Data},
 };
 use phnxbackend::{ds::Ds, qs::QsConnector};
-use phnxtypes::{errors::DsProcessingError, ACCEPTED_API_VERSIONS_HEADER};
+use phnxtypes::{ACCEPTED_API_VERSIONS_HEADER, errors::DsProcessingError};
 use tls_codec::{DeserializeBytes, Serialize};
 use tracing::{info, trace, warn};
 

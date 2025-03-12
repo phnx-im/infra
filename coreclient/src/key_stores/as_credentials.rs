@@ -13,7 +13,7 @@ use phnxtypes::{
     crypto::signatures::{signable::Verifiable, traits::SignatureVerificationError},
     identifiers::Fqdn,
 };
-use rusqlite::{params, OptionalExtension, ToSql};
+use rusqlite::{OptionalExtension, ToSql, params};
 use thiserror::Error;
 use tracing::info;
 

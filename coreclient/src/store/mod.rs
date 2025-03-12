@@ -85,7 +85,7 @@ pub trait LocalStore {
     async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>>;
 
     async fn user_profile(&self, user_name: &QualifiedUserName)
-        -> StoreResult<Option<UserProfile>>;
+    -> StoreResult<Option<UserProfile>>;
 
     // messages
 

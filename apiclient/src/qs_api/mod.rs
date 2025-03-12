@@ -5,7 +5,9 @@
 use http::StatusCode;
 use mls_assist::openmls::prelude::KeyPackage;
 use phnxtypes::{
+    LibraryError,
     crypto::{
+        RatchetEncryptionKey,
         ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
         signatures::{
@@ -13,19 +15,19 @@ use phnxtypes::{
             signable::Signable,
             traits::SigningKeyBehaviour,
         },
-        RatchetEncryptionKey,
     },
     endpoint_paths::ENDPOINT_QS,
     errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
     messages::{
+        FriendshipToken,
         client_qs::{
             ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
             CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
             DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
             KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
-            QsVersionedProcessResponseIn, UpdateClientRecordParams, UpdateUserRecordParams,
-            SUPPORTED_QS_API_VERSIONS,
+            QsVersionedProcessResponseIn, SUPPORTED_QS_API_VERSIONS, UpdateClientRecordParams,
+            UpdateUserRecordParams,
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
@@ -33,16 +35,14 @@ use phnxtypes::{
             QsVersionedRequestParamsOut,
         },
         push_token::EncryptedPushToken,
-        FriendshipToken,
     },
-    LibraryError,
 };
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 
 use crate::{
-    version::{extract_api_version_negotiation, negotiate_api_version},
     ApiClient, Protocol,
+    version::{extract_api_version_negotiation, negotiate_api_version},
 };
 
 pub mod ws;

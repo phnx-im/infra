@@ -5,13 +5,13 @@
 use async_trait::async_trait;
 use phnxtypes::codec::PhnxCodec;
 use privacypass::{
+    TruncatedTokenKeyId,
     batched_tokens_ristretto255::server::BatchedKeyStore,
     private_tokens::{Ristretto255, VoprfServer},
-    TruncatedTokenKeyId,
 };
 use sqlx::{
-    encode::IsNull, error::BoxDynError, postgres::PgTypeInfo, Database, Decode, Encode,
-    PgConnection, Postgres, Type,
+    Database, Decode, Encode, PgConnection, Postgres, Type, encode::IsNull, error::BoxDynError,
+    postgres::PgTypeInfo,
 };
 use tokio::sync::Mutex;
 use tracing::error;

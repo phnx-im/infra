@@ -14,29 +14,29 @@ pub(crate) mod process;
 
 pub(crate) use error::*;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use mimi_content::MimiContent;
 use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
     credentials::{
-        keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
         ClientCredential,
+        keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
     },
     crypto::{
         ear::{
+            EarDecryptable, EarEncryptable,
             keys::{
                 EncryptedIdentityLinkKey, GroupStateEarKey, IdentityLinkKey,
                 IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
             },
-            EarDecryptable, EarEncryptable,
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
         kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
-    identifiers::{AsClientId, QsReference, QualifiedUserName, QS_CLIENT_REFERENCE_EXTENSION_TYPE},
+    identifiers::{AsClientId, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedUserName},
     messages::{
         client_ds::{
             DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
@@ -57,9 +57,9 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
 use crate::{
-    clients::api_clients::ApiClients, contacts::ContactAddInfos,
+    SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
     conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
-    utils::persistence::SqliteConnection, SystemMessage,
+    utils::persistence::SqliteConnection,
 };
 use std::collections::HashSet;
 
@@ -67,11 +67,11 @@ use openmls::{
     group::ProcessedWelcome,
     key_packages::KeyPackageBundle,
     prelude::{
-        tls_codec::Serialize as TlsSerializeTrait, Capabilities, Ciphersuite, CredentialType,
-        CredentialWithKey, Extension, ExtensionType, Extensions, GroupId, KeyPackage,
-        LeafNodeIndex, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider, Proposal,
-        ProposalType, ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender,
-        StagedCommit, UnknownExtension, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+        Capabilities, Ciphersuite, CredentialType, CredentialWithKey, Extension, ExtensionType,
+        Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig,
+        MlsMessageOut, OpenMlsProvider, PURE_PLAINTEXT_WIRE_FORMAT_POLICY, Proposal, ProposalType,
+        ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, StagedCommit,
+        UnknownExtension, tls_codec::Serialize as TlsSerializeTrait,
     },
     treesync::{LeafNodeParameters, RatchetTree},
 };

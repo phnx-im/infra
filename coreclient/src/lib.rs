@@ -16,12 +16,12 @@ mod utils;
 pub use crate::{
     contacts::{Contact, PartialContact},
     conversations::{
+        Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
+        InactiveConversation,
         messages::{
             ContentMessage, ConversationMessage, ConversationMessageId, ErrorMessage, EventMessage,
             Message, NotificationType, SystemMessage,
         },
-        Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
-        InactiveConversation,
     },
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
     utils::persistence::{delete_client_database, delete_databases, open_client_db},

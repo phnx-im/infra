@@ -10,7 +10,7 @@ use mls_assist::{
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 #[cfg(feature = "sqlite")]
-use rusqlite::{types::FromSql, ToSql};
+use rusqlite::{ToSql, types::FromSql};
 
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -21,8 +21,9 @@ use keys::{
 };
 
 use crate::{
+    LibraryError,
     crypto::{
-        ear::{keys::IdentityLinkKey, Ciphertext, EarDecryptable, EarEncryptable},
+        ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
         errors::KeyGenerationError,
         signatures::{
             private_keys::SigningKey,
@@ -32,7 +33,6 @@ use crate::{
     identifiers::{AsClientId, Fqdn},
     messages::MlsInfraVersion,
     time::ExpirationData,
-    LibraryError,
 };
 
 mod private_mod {
@@ -659,8 +659,8 @@ pub mod persistence {
     };
 
     use super::{
-        keys::ClientVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
-        CredentialFingerprint,
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint,
+        keys::ClientVerifyingKey,
     };
 
     #[derive(Debug, sqlx::Type)]

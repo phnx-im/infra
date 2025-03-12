@@ -9,16 +9,16 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use phnxtypes::{
     crypto::{
-        ear::{keys::PushTokenEarKey, EarDecryptable},
+        RatchetEncryptionKey, RatchetKeyUpdate,
+        ear::{EarDecryptable, keys::PushTokenEarKey},
         ratchet::QueueRatchet,
         signatures::keys::QsClientVerifyingKey,
-        RatchetEncryptionKey, RatchetKeyUpdate,
     },
     identifiers::{QsClientId, QsUserId},
     messages::{
+        EncryptedQsQueueMessage, QueueMessage,
         client_ds::QsQueueMessagePayload,
         push_token::{EncryptedPushToken, PushToken},
-        EncryptedQsQueueMessage, QueueMessage,
     },
     time::TimeStamp,
 };
@@ -29,7 +29,7 @@ use crate::{
     qs::{PushNotificationError, WsNotification},
 };
 
-use super::{errors::EnqueueError, queue::Queue, PushNotificationProvider, WebsocketNotifier};
+use super::{PushNotificationProvider, WebsocketNotifier, errors::EnqueueError, queue::Queue};
 
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
@@ -358,42 +358,54 @@ impl QsClientRecord {
                                         push_notification_provider.push(push_token).await
                                     {
                                         match e {
-                                    // The push notification failed for some other reason.
-                                    PushNotificationError::Other(error_description) => {
-                                        tracing::error!(
-                                            "Push notification failed unexpectedly: {}",
-                                            error_description
-                                        )
-                                    }
-                                    // The token is no longer valid and should be deleted.
-                                    PushNotificationError::InvalidToken(error_description) => {
-                                        tracing::info!(
-                                            "Push notification failed because the token is invalid: {}",
-                                            error_description
-                                        );
-                                        self.encrypted_push_token = None;
-                                    }
-                                    // There was a network error when trying to send the push notification.
-                                    PushNotificationError::NetworkError(e) => tracing::info!(
-                                        "Push notification failed because of a network error: {}",
-                                        e
-                                    ),
-                                    PushNotificationError::UnsupportedType => tracing::warn!(
-                                        "Push notification failed because the push token type is unsupported",
-                                    ),
-                                    PushNotificationError::JwtCreationError(e) => tracing::error!(
-                                        "Push notification failed because the JWT token could not be created: {}",
-                                        e
-                                    ),
-                                    PushNotificationError::OAuthError(e) => tracing::error!(
-                                        "Push notification failed because of an OAuth error: {}",
-                                        e
-                                    ),
-                                    PushNotificationError::InvalidConfiguration(e) => tracing::error!(
-                                        "Push notification failed because of an invalid configuration: {}",
-                                        e
-                                    ),
-                                }
+                                            // The push notification failed for some other reason.
+                                            PushNotificationError::Other(error_description) => {
+                                                tracing::error!(
+                                                    "Push notification failed unexpectedly: {}",
+                                                    error_description
+                                                )
+                                            }
+                                            // The token is no longer valid and should be deleted.
+                                            PushNotificationError::InvalidToken(
+                                                error_description,
+                                            ) => {
+                                                tracing::info!(
+                                                    "Push notification failed because the token is invalid: {}",
+                                                    error_description
+                                                );
+                                                self.encrypted_push_token = None;
+                                            }
+                                            // There was a network error when trying to send the push notification.
+                                            PushNotificationError::NetworkError(e) => {
+                                                tracing::info!(
+                                                    "Push notification failed because of a network error: {}",
+                                                    e
+                                                )
+                                            }
+                                            PushNotificationError::UnsupportedType => {
+                                                tracing::warn!(
+                                                    "Push notification failed because the push token type is unsupported",
+                                                )
+                                            }
+                                            PushNotificationError::JwtCreationError(e) => {
+                                                tracing::error!(
+                                                    "Push notification failed because the JWT token could not be created: {}",
+                                                    e
+                                                )
+                                            }
+                                            PushNotificationError::OAuthError(e) => {
+                                                tracing::error!(
+                                                    "Push notification failed because of an OAuth error: {}",
+                                                    e
+                                                )
+                                            }
+                                            PushNotificationError::InvalidConfiguration(e) => {
+                                                tracing::error!(
+                                                    "Push notification failed because of an invalid configuration: {}",
+                                                    e
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

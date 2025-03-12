@@ -7,7 +7,7 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::messages::qs_qs::{QsToQsMessage, QsToQsPayload};
 
-use super::{errors::QsEnqueueError, network_provider_trait::NetworkProvider, Qs, QsConnector};
+use super::{Qs, QsConnector, errors::QsEnqueueError, network_provider_trait::NetworkProvider};
 
 #[derive(Error, Debug)]
 pub enum FederatedProcessingError<N: NetworkProvider> {

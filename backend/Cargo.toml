@@ -6,7 +6,7 @@
 name = "phnxbackend"
 version = "0.1.0"
 authors = ["Phoenix R&D <hello@phnx.im>"]
-edition = "2021"
+edition = "2024"
 include = ["./migrations/**"]
 publish = false
 description = "Implements the local and the federation part of the protocol logic on the server side"

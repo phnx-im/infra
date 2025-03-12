@@ -6,14 +6,14 @@ use std::collections::{HashMap, HashSet};
 
 use mimi_content::MimiContent;
 use phnxcoreclient::{
-    clients::CoreUser, store::Store, ConversationId, ConversationStatus, ConversationType, *,
+    ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedUserName},
     DEFAULT_PORT_HTTP,
+    identifiers::{Fqdn, QualifiedUserName},
 };
-use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng, RngCore};
+use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
 use tracing::info;
 
@@ -558,8 +558,8 @@ impl TestBackend {
         let user = &mut test_user.user;
         let user_conversations_before = user.conversations().await.unwrap();
 
-        let group_name = format!("{:?}", OsRng.gen::<[u8; 32]>());
-        let group_picture_bytes_option = Some(OsRng.gen::<[u8; 32]>().to_vec());
+        let group_name = format!("{:?}", OsRng.r#gen::<[u8; 32]>());
+        let group_picture_bytes_option = Some(OsRng.r#gen::<[u8; 32]>().to_vec());
         let conversation_id = user
             .create_conversation(group_name.clone(), group_picture_bytes_option.clone())
             .await
@@ -889,9 +889,11 @@ impl TestBackend {
             }
             assert!(conversation.conversation_type() == &ConversationType::Group);
             for conversation in removed_conversations_after {
-                assert!(removed_conversations_before
-                    .iter()
-                    .any(|c| c.id() == conversation.id()))
+                assert!(
+                    removed_conversations_before
+                        .iter()
+                        .any(|c| c.id() == conversation.id())
+                )
             }
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();

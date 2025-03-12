@@ -7,26 +7,26 @@ use tls_codec::{Serialize, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::{
+        RatchetEncryptionKey,
         ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientVerifyingKey, QsUserVerifyingKey},
             signable::{Signable, Signature, SignedStruct},
         },
-        RatchetEncryptionKey,
     },
     errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
 };
 
 use super::{
+    ApiVersion, FriendshipToken,
     client_qs::{
         ClientKeyPackageParams, DeleteClientRecordParams, DeleteUserRecordParams,
-        DequeueMessagesParams, KeyPackageParams, UpdateClientRecordParams, UpdateUserRecordParams,
-        SUPPORTED_QS_API_VERSIONS,
+        DequeueMessagesParams, KeyPackageParams, SUPPORTED_QS_API_VERSIONS,
+        UpdateClientRecordParams, UpdateUserRecordParams,
     },
     push_token::EncryptedPushToken,
-    ApiVersion, FriendshipToken,
 };
 
 #[derive(Debug, TlsSerialize, TlsSize)]

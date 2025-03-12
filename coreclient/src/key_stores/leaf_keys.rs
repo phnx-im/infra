@@ -6,7 +6,7 @@ use phnxtypes::{
     credentials::keys::{CredentialCreationError, PseudonymousCredentialSigningKey},
     crypto::ear::keys::IdentityLinkKey,
 };
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{OptionalExtension, params};
 
 use crate::utils::persistence::Storable;
 

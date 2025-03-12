@@ -10,10 +10,10 @@ use std::{fmt::Display, ops::Deref};
 
 use rand::{RngCore, SeedableRng};
 #[cfg(feature = "sqlite")]
-use rusqlite::{types::FromSql, ToSql};
+use rusqlite::{ToSql, types::FromSql};
 use secrecy::{
-    zeroize::{Zeroize, ZeroizeOnDrop},
     CloneableSecret, SerializableSecret,
+    zeroize::{Zeroize, ZeroizeOnDrop},
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
