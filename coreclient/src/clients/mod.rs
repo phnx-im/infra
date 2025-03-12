@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use opaque_ke::{
@@ -204,29 +204,24 @@ impl CoreUser {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(as_client_id: AsClientId, db_path: &str) -> Result<Option<CoreUser>> {
-        let phnx_db = open_phnx_db(db_path).await?;
-
+    pub async fn load(as_client_id: AsClientId, db_path: &str) -> Result<CoreUser> {
         let client_db = open_client_db(&as_client_id, db_path).await?;
 
-        let Some(user_creation_state) = UserCreationState::load(&client_db, &as_client_id).await?
-        else {
-            return Ok(None);
-        };
+        let user_creation_state = UserCreationState::load(&client_db, &as_client_id)
+            .await?
+            .context("missing user creation state")?;
 
+        let phnx_db = open_phnx_db(db_path).await?;
         let api_clients = ApiClients::new(
             as_client_id.user_name().domain(),
             user_creation_state.server_url(),
         );
-
         let final_state = user_creation_state
             .complete_user_creation(&phnx_db, &client_db, &api_clients)
             .await?;
+        ClientRecord::set_default(&phnx_db, &as_client_id).await?;
 
-        let self_user = final_state.into_self_user(client_db.clone(), api_clients);
-        ClientRecord::set_default(&client_db, &self_user.as_client_id()).await?;
-
-        Ok(Some(self_user))
+        Ok(final_state.into_self_user(client_db, api_clients))
     }
 
     pub(crate) fn pool(&self) -> &SqlitePool {
@@ -423,13 +418,13 @@ impl CoreUser {
             .await?;
 
         // Phase 5: Merge the commit into the group
-        self.with_transaction(async |connection| {
+        self.with_transaction_and_notifier(async |connection, notifier| {
             // Now that we know the commit went through, we can merge the commit
             let group_messages = group
                 .merge_pending_commit(&mut *connection, None, ds_timestamp)
                 .await?;
             group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, conversation_id, group_messages)
+            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
                 .await
         })
         .await
@@ -472,12 +467,12 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        self.with_transaction(async |connection| {
+        self.with_transaction_and_notifier(async |connection, notifier| {
             let group_messages = group
                 .merge_pending_commit(&mut *connection, None, ds_timestamp)
                 .await?;
             group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, conversation_id, group_messages)
+            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
                 .await
         })
         .await
@@ -702,7 +697,7 @@ impl CoreUser {
                     past_members.into_iter().collect(),
                 )
                 .await?;
-            self.store_messages(&mut *connection, conversation_id, messages)
+            self.store_messages(&mut *connection, notifier, conversation_id, messages)
                 .await
         })
         .await
@@ -820,12 +815,12 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        self.with_transaction(async |connection| {
+        self.with_transaction_and_notifier(async |connection, notifier| {
             let group_messages = group
                 .merge_pending_commit(&mut *connection, None, ds_timestamp)
                 .await?;
             group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, conversation_id, group_messages)
+            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
                 .await
         })
         .await
@@ -1042,18 +1037,17 @@ impl CoreUser {
     async fn store_messages(
         &self,
         connection: &mut sqlx::SqliteConnection,
+        notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
-        let mut notifier = self.store_notifier();
         let mut stored_messages = vec![];
         for timestamped_message in group_messages.into_iter() {
             let message =
                 ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
-            message.store(&mut *connection, &mut notifier).await?;
+            message.store(&mut *connection, notifier).await?;
             stored_messages.push(message);
         }
-        notifier.notify();
         Ok(stored_messages)
     }
 

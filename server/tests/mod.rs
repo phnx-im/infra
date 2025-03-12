@@ -618,9 +618,7 @@ async fn client_persistence() {
     let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
 
     // Try to load the user from the database.
-    let user_result = CoreUser::load(client_id.clone(), "./").await.unwrap();
-
-    assert!(user_result.is_some());
+    CoreUser::load(client_id.clone(), "./").await.unwrap();
 
     fs::remove_file("./phnx.db").unwrap();
     let client_db_path = format!("./{}.db", client_id);
