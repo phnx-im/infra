@@ -310,6 +310,7 @@ where
         | Event::Start(Tag::Link { .. })
         | Event::Start(Tag::Image { .. })
         | Event::Text(_)
+        | Event::InlineHtml(_)
         | Event::Code(_)
         | Event::TaskListMarker(_)
         | Event::SoftBreak
@@ -331,7 +332,8 @@ where
             let start = iter.next().expect("we already peeked");
             let mut value = Vec::new();
 
-            while let Event::Html(str) = iter.peek().ok_or(Error::ExpectedMoreEvents)?.clone().event
+            while let Event::Html(str) | Event::Text(str) =
+                iter.peek().ok_or(Error::ExpectedMoreEvents)?.clone().event
             {
                 let event = iter.next().expect("we already peeked");
                 value.push(RangedInlineElement {
@@ -355,7 +357,7 @@ where
             }
         }
 
-        Event::Html(_) | Event::InlineHtml(_) => {
+        Event::Html(_) => {
             return Err(Error::HtmlNotInBlock);
         }
 
@@ -752,4 +754,14 @@ But it ends after the paragraph"#,
             Err(Error::DepthLimitReached)
         );
     }
+}
+
+#[test]
+fn text_in_html_block() {
+    MessageContent::try_parse_markdown(">a<a>").unwrap();
+}
+
+#[test]
+fn inline_html() {
+    MessageContent::try_parse_markdown("|>\n|-\n<Y>").unwrap();
 }
