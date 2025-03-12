@@ -2,87 +2,70 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    fmt::Display,
-    fs,
-    ops::{Deref, DerefMut},
-    path::Path,
-    sync::Arc,
-};
+use std::{fmt::Display, fs, path::Path, time::Duration};
 
 use anyhow::{Result, bail};
 use openmls::group::GroupId;
 use phnxtypes::identifiers::AsClientId;
-use rusqlite::{Connection, ToSql, types::FromSql};
-use tokio::sync::{Mutex, MutexGuard};
+use sqlx::{
+    Database, Encode, Sqlite, SqlitePool, Type,
+    encode::IsNull,
+    error::BoxDynError,
+    migrate,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+};
 use tracing::error;
 
 use crate::clients::store::ClientRecord;
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
-#[derive(Debug, Clone)]
-pub(crate) struct SqliteConnection {
-    connection_mutex: Arc<Mutex<Connection>>,
-}
-
-impl SqliteConnection {
-    pub fn new(connection: Connection) -> Self {
-        Self {
-            connection_mutex: Arc::new(Mutex::new(connection)),
-        }
-    }
-
-    pub async fn lock(&self) -> SqliteConnectionGuard {
-        let guard = self.connection_mutex.lock().await;
-        SqliteConnectionGuard { guard }
-    }
-}
-
-pub(crate) struct SqliteConnectionGuard<'a> {
-    guard: MutexGuard<'a, Connection>,
-}
-
-impl Deref for SqliteConnectionGuard<'_> {
-    type Target = Connection;
-
-    fn deref(&self) -> &Self::Target {
-        &self.guard
-    }
-}
-
-impl DerefMut for SqliteConnectionGuard<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.guard
-    }
-}
-
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
-pub(crate) fn open_phnx_db(client_db_path: &str) -> Result<Connection, rusqlite::Error> {
-    let db_name = format!("{}/{}", client_db_path, PHNX_DB_NAME);
-    let db_existed = Path::new(&db_name).exists();
-    let conn = Connection::open(db_name)?;
-    // Create a table for the client records if the db was newly created.
-    if !db_existed {
-        ClientRecord::create_table(&conn)?;
-    }
-    Ok(conn)
+pub(crate) async fn open_phnx_db(client_db_path: &str) -> sqlx::Result<SqlitePool> {
+    let db_url = format!("sqlite://{}/{}", client_db_path, PHNX_DB_NAME);
+    let opts: SqliteConnectOptions = db_url.parse()?;
+    let opts = opts
+        .journal_mode(SqliteJournalMode::Wal)
+        .create_if_missing(true);
+    let pool = SqlitePool::connect_with(opts).await?;
+
+    migrate!().run(&pool).await?;
+
+    Ok(pool)
+}
+
+pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
+    let opts = SqliteConnectOptions::new()
+        .journal_mode(SqliteJournalMode::Wal)
+        .in_memory(true);
+    let pool = SqlitePoolOptions::new()
+        // More than one connection in memory is not supported.
+        .max_connections(1)
+        .idle_timeout(None)
+        .max_lifetime(None)
+        // We have only a single connection, so fail fast when there is a deadlock when acquiring a
+        // connection.
+        .acquire_timeout(Duration::from_secs(3))
+        .connect_with(opts)
+        .await?;
+    migrate!().run(&pool).await?;
+    Ok(pool)
 }
 
 /// Delete both the phnx.db and all client dbs from this device.
 ///
 /// WARNING: This will delete all APP-data from this device! Also, this function
 /// may panic.
-pub fn delete_databases(client_db_path: &str) -> Result<()> {
+pub async fn delete_databases(client_db_path: &str) -> Result<()> {
     let full_phnx_db_path = format!("{client_db_path}/{PHNX_DB_NAME}");
     if !Path::new(&full_phnx_db_path).exists() {
         bail!("phnx.db does not exist")
     }
 
     // First delete all client DBs.
-    let phnx_db_connection = open_phnx_db(client_db_path)?;
-    if let Ok(client_records) = ClientRecord::load_all(&phnx_db_connection) {
+    let phnx_db_connection = open_phnx_db(client_db_path).await?;
+    if let Ok(client_records) = ClientRecord::load_all(&phnx_db_connection).await {
         for client_record in client_records {
             let client_db_name = client_db_name(&client_record.as_client_id);
             let client_db_path = format!("{client_db_path}/{client_db_name}");
@@ -97,7 +80,7 @@ pub fn delete_databases(client_db_path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn delete_client_database(db_path: &str, as_client_id: &AsClientId) -> Result<()> {
+pub async fn delete_client_database(db_path: &str, as_client_id: &AsClientId) -> Result<()> {
     // Delete the client DB
     let client_db_name = client_db_name(as_client_id);
     let client_db_path = format!("{db_path}/{client_db_name}");
@@ -110,8 +93,8 @@ pub fn delete_client_database(db_path: &str, as_client_id: &AsClientId) -> Resul
     if !Path::new(&full_phnx_db_path).exists() {
         bail!("phnx.db does not exist")
     }
-    let phnx_db_connection = open_phnx_db(&client_db_path)?;
-    ClientRecord::delete(&phnx_db_connection, as_client_id)?;
+    let phnx_db = open_phnx_db(&client_db_path).await?;
+    ClientRecord::delete(&phnx_db, as_client_id).await?;
 
     Ok(())
 }
@@ -120,32 +103,21 @@ fn client_db_name(as_client_id: &AsClientId) -> String {
     format!("{}.db", as_client_id)
 }
 
-pub fn open_client_db(
+pub async fn open_client_db(
     as_client_id: &AsClientId,
     client_db_path: &str,
-) -> Result<Connection, rusqlite::Error> {
+) -> sqlx::Result<SqlitePool> {
     let client_db_name = client_db_name(as_client_id);
-    let full_db_path = format!("{}/{}", client_db_path, client_db_name);
-    let conn = Connection::open(full_db_path)?;
-    Ok(conn)
-}
+    let db_url = format!("sqlite://{}/{}", client_db_path, client_db_name);
+    let opts: SqliteConnectOptions = db_url.parse()?;
+    let opts = opts
+        .journal_mode(SqliteJournalMode::Wal)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::default().connect_with(opts).await?;
 
-/// Helper function to read one or more values from the database. If
-/// `number_of_entries` is set, it will load at most that number of entries.
-pub(crate) trait Storable {
-    const CREATE_TABLE_STATEMENT: &'static str;
+    migrate!().run(&pool).await?;
 
-    /// Helper function that creates a table for the given data type.
-    fn create_table(conn: &rusqlite::Connection) -> anyhow::Result<(), rusqlite::Error> {
-        let mut stmt = conn.prepare(Self::CREATE_TABLE_STATEMENT)?;
-        stmt.execute([])?;
-
-        Ok(())
-    }
-
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error>
-    where
-        Self: Sized;
+    Ok(pool)
 }
 
 /// Helper struct that allows us to use GroupId as sqlite input.
@@ -157,29 +129,31 @@ impl<'a> From<&'a GroupId> for GroupIdRefWrapper<'a> {
     }
 }
 
-impl ToSql for GroupIdRefWrapper<'_> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.as_slice().to_sql()
-    }
-}
-
 impl Display for GroupIdRefWrapper<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", String::from_utf8_lossy(self.0.as_slice()))
     }
 }
 
-pub(crate) struct GroupIdWrapper(GroupId);
+impl Type<Sqlite> for GroupIdRefWrapper<'_> {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for GroupIdRefWrapper<'q> {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode_by_ref(&self.0.as_slice(), buf)
+    }
+}
+
+pub(crate) struct GroupIdWrapper(pub(crate) GroupId);
 
 impl From<GroupIdWrapper> for GroupId {
     fn from(group_id: GroupIdWrapper) -> Self {
         group_id.0
-    }
-}
-
-impl FromSql for GroupIdWrapper {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let group_id = GroupId::from_slice(value.as_blob()?);
-        Ok(GroupIdWrapper(group_id))
     }
 }

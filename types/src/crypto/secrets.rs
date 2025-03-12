@@ -9,13 +9,12 @@
 use std::{fmt::Display, ops::Deref};
 
 use rand::{RngCore, SeedableRng};
-#[cfg(feature = "sqlite")]
-use rusqlite::{ToSql, types::FromSql};
 use secrecy::{
     CloneableSecret, SerializableSecret,
     zeroize::{Zeroize, ZeroizeOnDrop},
 };
 use serde::{Deserialize, Serialize};
+use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use super::RandomnessError;
@@ -79,27 +78,33 @@ impl<const LENGTH: usize> Display for Secret<LENGTH> {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for Secret<32> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::from(self.secret.to_vec()))
+impl<const LENGTH: usize> Type<Sqlite> for Secret<LENGTH> {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <&[u8] as Type<Sqlite>>::type_info()
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl FromSql for Secret<32> {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let secret = value.as_blob()?;
-        let mut secret_bytes = [0u8; 32];
-        secret_bytes.copy_from_slice(secret);
+impl<'q, const LENGTH: usize> Encode<'q, Sqlite> for Secret<LENGTH> {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes: Box<[u8]> = self.secret.into();
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl<'r, const LENGTH: usize> Decode<'r, Sqlite> for Secret<LENGTH> {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
         Ok(Secret {
-            secret: secret_bytes,
+            secret: bytes.try_into()?,
         })
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub(super) struct SecretBytes(Vec<u8>);
 
 impl From<Vec<u8>> for SecretBytes {

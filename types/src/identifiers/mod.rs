@@ -6,10 +6,9 @@ use std::{fmt, hash::Hash, str::FromStr};
 
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 use rand::{CryptoRng, Rng, RngCore};
-#[cfg(feature = "sqlite")]
-use rusqlite::{
-    ToSql,
-    types::{FromSql, FromSqlError},
+use sqlx::{
+    Database, Decode, Encode, Postgres, Sqlite, Type, encode::IsNull, error::BoxDynError,
+    postgres::PgValueRef,
 };
 use tls_codec_impls::{TlsString, TlsUuid};
 use tracing::{debug, error};
@@ -33,51 +32,33 @@ pub struct Fqdn {
     domain: Host<String>,
 }
 
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<sqlx::Postgres> for Fqdn {
-    fn type_info() -> sqlx::postgres::PgTypeInfo {
-        String::type_info()
+impl<DB: Database> Type<DB> for Fqdn
+where
+    String: Type<DB>,
+{
+    fn type_info() -> DB::TypeInfo {
+        <String as Type<DB>>::type_info()
     }
 }
 
-#[cfg(feature = "sqlx")]
-impl sqlx::Encode<'_, sqlx::Postgres> for Fqdn {
+impl<'r, DB: Database> Encode<'r, DB> for Fqdn
+where
+    String: Encode<'r, DB>,
+{
     fn encode_by_ref(
         &self,
-        buf: &mut sqlx::postgres::PgArgumentBuffer,
-    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Sync + Send>> {
-        self.to_string().encode_by_ref(buf)
+        buf: &mut <DB as Database>::ArgumentBuffer<'r>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<DB>::encode(self.to_string(), buf)
     }
 }
 
-#[cfg(feature = "sqlx")]
-impl<'r> sqlx::Decode<'r, sqlx::Postgres> for Fqdn {
-    fn decode(
-        value: sqlx::postgres::PgValueRef<'r>,
-    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let s: &str = sqlx::Decode::decode(value)?;
-        let fqdn = s.parse().inspect_err(|error| {
-            error!(%error, "Error parsing Fqdn from DB");
-        })?;
-        Ok(fqdn)
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl ToSql for Fqdn {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let string = self.to_string();
-        Ok(rusqlite::types::ToSqlOutput::from(string))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for Fqdn {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let s = value.as_str()?;
+impl<'r> Decode<'r, Postgres> for Fqdn {
+    fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
+        let s: &str = Decode::<Postgres>::decode(value)?;
         let fqdn = s.parse().map_err(|error| {
             error!(%error, "Error parsing Fqdn from DB");
-            FromSqlError::InvalidType
+            sqlx::Error::Decode(Box::new(error))
         })?;
         Ok(fqdn)
     }
@@ -224,8 +205,9 @@ impl FromStr for QualifiedGroupId {
     Ord,
     Serialize,
     Deserialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct UserName(TlsString);
 
 impl fmt::Display for UserName {
@@ -265,34 +247,34 @@ impl TryFrom<String> for UserName {
     Ord,
     Serialize,
     Deserialize,
+    sqlx::Type, // only for postgres
 )]
-#[cfg_attr(
-    feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "qualified_user_name")
-)]
+#[sqlx(type_name = "qualified_user_name")]
 pub struct QualifiedUserName {
     user_name: UserName,
     domain: Fqdn,
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for QualifiedUserName {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let string = self.to_string();
-        Ok(rusqlite::types::ToSqlOutput::from(string))
+impl Type<Sqlite> for QualifiedUserName {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <String as Type<Sqlite>>::type_info()
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl FromSql for QualifiedUserName {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let s = value.as_str()?;
-        let user_name: QualifiedUserName = s.parse().map_err(|error| {
-            error!(%error, "Error parsing UserName");
-            FromSqlError::InvalidType
-        })?;
-        Ok(user_name)
+impl<'q> Encode<'q, Sqlite> for QualifiedUserName {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let value = self.to_string();
+        Encode::<Sqlite>::encode(value, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for QualifiedUserName {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let s: &str = Decode::<Sqlite>::decode(value)?;
+        Ok(s.parse()?)
     }
 }
 
@@ -354,8 +336,9 @@ impl fmt::Display for QualifiedUserName {
     TlsSize,
     TlsSerialize,
     TlsDeserializeBytes,
+    sqlx::Type, // Only for Postgres
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "as_client_id"))]
+#[sqlx(type_name = "as_client_id")]
 pub struct AsClientId {
     user_name: QualifiedUserName,
     client_id: TlsUuid,
@@ -400,15 +383,15 @@ pub enum AsClientIdError {
     UserNameError(#[from] QualifiedUserNameError),
 }
 
-impl TryFrom<String> for AsClientId {
-    type Error = AsClientIdError;
+impl FromStr for AsClientId {
+    type Err = AsClientIdError;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let Some((client_id_str, user_name_str)) = value.split_once('.') else {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let Some((client_id_str, user_name_str)) = s.split_once('.') else {
             return Err(AsClientIdError::InvalidClientId);
         };
         let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
-        let user_name: QualifiedUserName = user_name_str.parse()?;
+        let user_name = user_name_str.parse()?;
         Ok(Self {
             user_name,
             client_id,
@@ -416,23 +399,26 @@ impl TryFrom<String> for AsClientId {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for AsClientId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        let string = self.to_string();
-        Ok(rusqlite::types::ToSqlOutput::from(string))
+impl Type<Sqlite> for AsClientId {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <String as Type<Sqlite>>::type_info()
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl FromSql for AsClientId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let string = value.as_str()?.to_owned();
-        let as_client_id = AsClientId::try_from(string).map_err(|e| {
-            error!("Error parsing AsClientId: {}", e);
-            FromSqlError::InvalidType
-        })?;
-        Ok(as_client_id)
+impl<'q> Encode<'q, Sqlite> for AsClientId {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let value = self.to_string();
+        Encode::<Sqlite>::encode(value, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for AsClientId {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let s: &str = Decode::<Sqlite>::decode(value)?;
+        Ok(s.parse()?)
     }
 }
 
@@ -502,23 +488,10 @@ impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientCon
     TlsSize,
     TlsSerialize,
     TlsDeserializeBytes,
+    sqlx::Type, // Only for Postgres
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct QsClientId(TlsUuid);
-
-#[cfg(feature = "sqlite")]
-impl ToSql for QsClientId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for QsClientId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Uuid::column_result(value).map(|id| id.into())
-    }
-}
 
 impl QsClientId {
     pub fn random(rng: &mut (impl CryptoRng + RngCore)) -> Self {
@@ -549,23 +522,10 @@ impl From<Uuid> for QsClientId {
     TlsSize,
     TlsDeserializeBytes,
     TlsSerialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct QsUserId(TlsUuid);
-
-#[cfg(feature = "sqlite")]
-impl ToSql for QsUserId {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for QsUserId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Uuid::column_result(value).map(|id| id.into())
-    }
-}
 
 impl From<Uuid> for QsUserId {
     fn from(value: Uuid) -> Self {

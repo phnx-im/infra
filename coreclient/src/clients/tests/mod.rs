@@ -2,49 +2,43 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use super::api_clients::ApiClients;
-use crate::{
-    clients::store::{ClientRecord, ClientRecordState, UserCreationState},
-    utils::{
-        migration::run_migrations,
-        persistence::{SqliteConnection, Storable},
-    },
-};
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use rusqlite::Connection;
+use tokio::task::LocalSet;
 
-#[actix_rt::test]
-async fn user_stages() {
+use crate::{
+    clients::store::{ClientRecord, ClientRecordState, UserCreationState},
+    utils::persistence::open_db_in_memory,
+};
+
+use super::api_clients::ApiClients;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn user_stages() -> anyhow::Result<()> {
     // Set up backend
-    let setup = TestBackend::single().await;
+    let setup = LocalSet::new().run_until(TestBackend::single()).await;
+    let server_url = setup.url().unwrap();
 
     let user_name = "alice@example.com";
     let as_client_id = AsClientId::random(user_name.parse().unwrap()).unwrap();
 
-    let phnx_db_connection = Connection::open_in_memory().unwrap();
-    let mut client_db_connection = Connection::open_in_memory().unwrap();
+    let phnx_db = open_db_in_memory().await?;
+    let client_db = open_db_in_memory().await?;
 
-    // Set up the client db
-    run_migrations(&mut client_db_connection).unwrap();
-    // Set up phnx db
-    ClientRecord::create_table(&phnx_db_connection).unwrap();
-
-    let server_url = setup.url().unwrap();
     let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
 
     let computed_state = UserCreationState::new(
-        &client_db_connection,
-        &phnx_db_connection,
+        &client_db,
+        &phnx_db,
         as_client_id.clone(),
         server_url,
         user_name,
         None,
     )
-    .unwrap();
+    .await?;
 
     // There should now be a client record state in the phnx db.
-    let client_records = ClientRecord::load_all(&phnx_db_connection).unwrap();
+    let client_records = ClientRecord::load_all(&phnx_db).await?;
     assert!(client_records.len() == 1);
     let client_record = client_records.first().unwrap();
     assert!(client_record.as_client_id == as_client_id);
@@ -54,8 +48,8 @@ async fn user_stages() {
     ));
 
     // If we load a user state now, it should be the basic user data state.
-    let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
-        .unwrap()
+    let loaded_state = UserCreationState::load(&client_db, &as_client_id)
+        .await?
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::BasicUserData(_)));
     assert_eq!(
@@ -63,22 +57,15 @@ async fn user_stages() {
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
 
-    let client_db_connection_mutex = SqliteConnection::new(client_db_connection);
-    let phnx_db_connection_mutex = SqliteConnection::new(phnx_db_connection);
     // We now continue down the path of creating a user.
     let computed_state = loaded_state
-        .step(
-            phnx_db_connection_mutex.clone(),
-            client_db_connection_mutex.clone(),
-            &api_clients,
-        )
+        .step(&phnx_db, &client_db, &api_clients)
         .await
         .unwrap();
 
     // If we load a user state now, it should be the initial user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
-    let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
-        .unwrap()
+    let loaded_state = UserCreationState::load(&client_db, &as_client_id)
+        .await?
         .unwrap();
     assert!(matches!(
         loaded_state,
@@ -88,22 +75,16 @@ async fn user_stages() {
         PhnxCodec::to_vec(&computed_state).unwrap(),
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
-    drop(client_db_connection);
 
     // We take the next step
     let computed_state = loaded_state
-        .step(
-            phnx_db_connection_mutex.clone(),
-            client_db_connection_mutex.clone(),
-            &api_clients,
-        )
+        .step(&phnx_db, &client_db, &api_clients)
         .await
         .unwrap();
 
-    let client_db_connection = client_db_connection_mutex.lock().await;
     // If we load a user state now, it should be the post registration init state.
-    let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
-        .unwrap()
+    let loaded_state = UserCreationState::load(&client_db, &as_client_id)
+        .await?
         .unwrap();
     assert!(matches!(
         loaded_state,
@@ -113,22 +94,16 @@ async fn user_stages() {
         PhnxCodec::to_vec(&computed_state).unwrap(),
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
-    drop(client_db_connection);
 
     // We take the next step
     let computed_state = loaded_state
-        .step(
-            phnx_db_connection_mutex.clone(),
-            client_db_connection_mutex.clone(),
-            &api_clients,
-        )
+        .step(&phnx_db, &client_db, &api_clients)
         .await
         .unwrap();
 
     // If we load a user state now, it should be the unfinalized registration state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
-    let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
-        .unwrap()
+    let loaded_state = UserCreationState::load(&client_db, &as_client_id)
+        .await?
         .unwrap();
     assert!(matches!(
         loaded_state,
@@ -138,22 +113,16 @@ async fn user_stages() {
         PhnxCodec::to_vec(&computed_state).unwrap(),
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
-    drop(client_db_connection);
 
     // We take the next step
     let computed_state = loaded_state
-        .step(
-            phnx_db_connection_mutex.clone(),
-            client_db_connection_mutex.clone(),
-            &api_clients,
-        )
+        .step(&phnx_db, &client_db, &api_clients)
         .await
         .unwrap();
 
     // If we load a user state now, it should be the AS registered user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
-    let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
-        .unwrap()
+    let loaded_state = UserCreationState::load(&client_db, &as_client_id)
+        .await?
         .unwrap();
     assert!(matches!(
         loaded_state,
@@ -163,22 +132,16 @@ async fn user_stages() {
         PhnxCodec::to_vec(&computed_state).unwrap(),
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
-    drop(client_db_connection);
 
     // We take the next step
     let computed_state = loaded_state
-        .step(
-            phnx_db_connection_mutex.clone(),
-            client_db_connection_mutex.clone(),
-            &api_clients,
-        )
+        .step(&phnx_db, &client_db, &api_clients)
         .await
         .unwrap();
 
     // If we load a user state now, it should be the QS registered user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
-    let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
-        .unwrap()
+    let loaded_state = UserCreationState::load(&client_db, &as_client_id)
+        .await?
         .unwrap();
     assert!(matches!(
         loaded_state,
@@ -188,26 +151,22 @@ async fn user_stages() {
         PhnxCodec::to_vec(&computed_state).unwrap(),
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
-    drop(client_db_connection);
 
     // We take the final step
     let computed_state = loaded_state
-        .step(
-            phnx_db_connection_mutex.clone(),
-            client_db_connection_mutex.clone(),
-            &api_clients,
-        )
+        .step(&phnx_db, &client_db, &api_clients)
         .await
         .unwrap();
 
     // If we load a user state now, it should be the final user state.
-    let client_db_connection = client_db_connection_mutex.lock().await;
-    let loaded_state = UserCreationState::load(&client_db_connection, &as_client_id)
-        .unwrap()
+    let loaded_state = UserCreationState::load(&client_db, &as_client_id)
+        .await?
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::FinalUserState(_)));
     assert_eq!(
         PhnxCodec::to_vec(&computed_state).unwrap(),
         PhnxCodec::to_vec(&loaded_state).unwrap()
     );
+
+    Ok(())
 }

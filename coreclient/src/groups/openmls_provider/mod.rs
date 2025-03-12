@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls_rust_crypto::RustCrypto;
-use openmls_traits::random::OpenMlsRand;
+use openmls_traits::{
+    random::OpenMlsRand,
+    storage::{CURRENT_VERSION, Entity, Key},
+};
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use storage_provider::SqliteStorageProvider;
@@ -19,7 +22,20 @@ pub(crate) mod own_leaf_nodes;
 pub(crate) mod proposals;
 pub(crate) mod psks;
 pub(crate) mod signature_key_pairs;
-pub(super) mod storage_provider;
+pub(crate) mod storage_provider;
+
+#[derive(Debug, Serialize)]
+struct KeyRefWrapper<'a, T: Key<CURRENT_VERSION>>(pub &'a T);
+
+struct EntityWrapper<T: Entity<CURRENT_VERSION>>(pub T);
+
+struct EntityRefWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a T);
+
+struct EntitySliceWrapper<'a, T: Entity<CURRENT_VERSION>>(pub &'a [T]);
+
+struct EntityVecWrapper<T: Entity<CURRENT_VERSION>>(pub Vec<T>);
+
+struct StorableGroupIdRef<'a, GroupId: Key<CURRENT_VERSION>>(pub &'a GroupId);
 
 pub(crate) struct PhnxOpenMlsProvider<'a> {
     storage: SqliteStorageProvider<'a>,
@@ -27,7 +43,7 @@ pub(crate) struct PhnxOpenMlsProvider<'a> {
 }
 
 impl<'a> PhnxOpenMlsProvider<'a> {
-    pub(crate) fn new(connection: &'a Connection) -> Self {
+    pub(crate) fn new(connection: &'a mut sqlx::SqliteConnection) -> Self {
         Self {
             storage: SqliteStorageProvider::new(connection),
             crypto: RustCrypto::default(),
@@ -77,26 +93,35 @@ impl OpenMlsRand for PhnxOpenMlsProvider<'_> {
 
 #[derive(Debug, Error)]
 pub(crate) enum PhnxRandomnessError {
-    #[error(transparent)]
-    StorageError(#[from] rusqlite::Error),
     #[error("Unable to collect enough randomness.")]
     NotEnoughRandomness,
 }
 
-#[test]
-fn randomness() {
+#[cfg(test)]
+mod tests {
     use std::collections::HashSet;
-    let connection = Connection::open_in_memory().unwrap();
 
-    let provider = PhnxOpenMlsProvider::new(&connection);
-    let random_vec_1 = provider.random_vec(32).unwrap();
-    let random_vec_2 = provider.random_vec(32).unwrap();
-    let provider = PhnxOpenMlsProvider::new(&connection);
-    let random_vec_3 = provider.random_vec(32).unwrap();
-    let random_vec_4 = provider.random_vec(32).unwrap();
-    let set = [random_vec_1, random_vec_2, random_vec_3, random_vec_4]
-        .iter()
-        .cloned()
-        .collect::<HashSet<_>>();
-    assert_eq!(set.len(), 4);
+    use openmls::prelude::*;
+    use sqlx::SqlitePool;
+
+    use super::*;
+
+    #[sqlx::test]
+    async fn randomness(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
+
+        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let random_vec_1 = provider.random_vec(32).unwrap();
+        let random_vec_2 = provider.random_vec(32).unwrap();
+        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let random_vec_3 = provider.random_vec(32).unwrap();
+        let random_vec_4 = provider.random_vec(32).unwrap();
+        let set = [random_vec_1, random_vec_2, random_vec_3, random_vec_4]
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        assert_eq!(set.len(), 4);
+
+        Ok(())
+    }
 }

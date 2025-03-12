@@ -9,7 +9,6 @@ use phnxtypes::{
     codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
     identifiers::QsReference,
 };
-use rusqlite::Connection;
 use tracing::error;
 
 use crate::{
@@ -36,26 +35,24 @@ impl CoreUser {
             .request_group_id(&self.inner.api_clients)
             .await?;
 
-        let created_group = {
-            let mut connection = self.inner.connection.lock().await;
-            let transaction = connection.transaction()?;
+        let created_group = self
+            .with_transaction(async |connection| {
+                let provider = PhnxOpenMlsProvider::new(&mut *connection);
+                let mut notifier = self.store_notifier();
 
-            let provider = PhnxOpenMlsProvider::new(&transaction);
-            let mut notifier = self.store_notifier();
+                let created_group = group_data
+                    .create_group(
+                        &provider,
+                        &self.inner.key_store.signing_key,
+                        &self.inner.key_store.connection_key,
+                    )?
+                    .store_group(&mut *connection, &mut notifier)
+                    .await?;
 
-            let created_group = group_data
-                .create_group(
-                    &provider,
-                    &self.inner.key_store.signing_key,
-                    &self.inner.key_store.connection_key,
-                )?
-                .store_group(&transaction, &mut notifier)?;
-
-            transaction.commit()?;
-            notifier.notify();
-
-            created_group
-        };
+                notifier.notify();
+                Ok(created_group)
+            })
+            .await?;
 
         created_group
             .create_group_on_ds(&self.inner.api_clients, self.create_own_client_reference())
@@ -67,15 +64,17 @@ impl CoreUser {
         conversation_id: ConversationId,
         picture: Option<Vec<u8>>,
     ) -> Result<()> {
-        let connection = &self.inner.connection.lock().await;
         let mut notifier = self.store_notifier();
-        let mut conversation =
-            Conversation::load(connection, &conversation_id)?.ok_or_else(|| {
+        let mut conversation = Conversation::load(self.pool(), &conversation_id)
+            .await?
+            .ok_or_else(|| {
                 let id = conversation_id.uuid();
                 anyhow!("Can't find conversation with id {id}")
             })?;
         let resized_picture_option = picture.and_then(|picture| self.resize_image(&picture).ok());
-        conversation.set_conversation_picture(connection, &mut notifier, resized_picture_option)?;
+        conversation
+            .set_conversation_picture(self.pool(), &mut notifier, resized_picture_option)
+            .await?;
         notifier.notify();
         Ok(())
     }
@@ -83,57 +82,50 @@ impl CoreUser {
     pub(crate) async fn message(
         &self,
         message_id: ConversationMessageId,
-    ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        ConversationMessage::load(connection, message_id)
+    ) -> sqlx::Result<Option<ConversationMessage>> {
+        ConversationMessage::load(self.pool(), message_id).await
     }
 
     pub(crate) async fn prev_message(
         &self,
         message_id: ConversationMessageId,
     ) -> Result<Option<ConversationMessage>> {
-        let connection = &self.inner.connection.lock().await;
-        Ok(ConversationMessage::prev_message(connection, message_id)?)
+        Ok(ConversationMessage::prev_message(self.pool(), message_id).await?)
     }
 
     pub(crate) async fn next_message(
         &self,
         message_id: ConversationMessageId,
     ) -> Result<Option<ConversationMessage>> {
-        let connection = &self.inner.connection.lock().await;
-        Ok(ConversationMessage::next_message(connection, message_id)?)
+        Ok(ConversationMessage::next_message(self.pool(), message_id).await?)
     }
 
     pub async fn last_message(
         &self,
         conversation_id: ConversationId,
     ) -> Option<ConversationMessage> {
-        let connection = &self.inner.connection.lock().await;
-        ConversationMessage::last_content_message(connection, conversation_id).unwrap_or_else(
-            |error| {
+        ConversationMessage::last_content_message(self.pool(), conversation_id)
+            .await
+            .unwrap_or_else(|error| {
                 error!(%error, "Error while fetching last message");
                 None
-            },
-        )
+            })
     }
 
     pub(crate) async fn try_last_message(
         &self,
         conversation_id: ConversationId,
-    ) -> Result<Option<ConversationMessage>, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        ConversationMessage::last_content_message(connection, conversation_id)
+    ) -> sqlx::Result<Option<ConversationMessage>> {
+        ConversationMessage::last_content_message(self.pool(), conversation_id).await
     }
 
-    pub async fn conversations(&self) -> Result<Vec<Conversation>, rusqlite::Error> {
-        let connection = &self.inner.connection.lock().await;
-        let conversations = Conversation::load_all(connection)?;
-        Ok(conversations)
+    pub async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
+        Conversation::load_all(self.pool()).await
     }
 
     pub async fn conversation(&self, conversation_id: &ConversationId) -> Option<Conversation> {
-        let connection = self.inner.connection.lock().await;
-        Conversation::load(&connection, conversation_id)
+        Conversation::load(self.pool(), conversation_id)
+            .await
             .ok()
             .flatten()
     }
@@ -145,12 +137,12 @@ impl CoreUser {
         conversation_id: ConversationId,
         number_of_messages: usize,
     ) -> Result<Vec<ConversationMessage>> {
-        let connection = self.inner.connection.lock().await;
         let messages = ConversationMessage::load_multiple(
-            &connection,
+            self.pool(),
             conversation_id,
             number_of_messages as u32,
-        )?;
+        )
+        .await?;
         Ok(messages)
     }
 }
@@ -214,9 +206,9 @@ impl ConversationGroupData {
 }
 
 impl CreatedGroup {
-    fn store_group(
+    async fn store_group(
         self,
-        connection: &Connection,
+        connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
     ) -> Result<StoredGroup> {
         let Self {
@@ -226,12 +218,12 @@ impl CreatedGroup {
             attributes,
         } = self;
 
-        group_membership.store(connection)?;
-        group.store(connection)?;
+        group_membership.store(&mut *connection).await?;
+        group.store(&mut *connection).await?;
 
         let conversation =
             Conversation::new_group_conversation(partial_params.group_id.clone(), attributes);
-        conversation.store(connection, notifier)?;
+        conversation.store(&mut *connection, notifier).await?;
 
         Ok(StoredGroup {
             group,

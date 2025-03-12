@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::messages::AssistedMessageError;
-use openmls::group::{
-    AddMembersError, CreateMessageError, MergeCommitError, MergePendingCommitError,
-    MlsGroupStateError, ProcessMessageError, WelcomeError,
-};
+use openmls::group::{CreateMessageError, MlsGroupStateError, ProcessMessageError};
 use phnxtypes::crypto::errors::DecryptionError;
 use thiserror::Error;
 
@@ -14,19 +11,11 @@ use thiserror::Error;
 #[allow(clippy::enum_variant_names)]
 pub enum GroupOperationError {
     #[error(transparent)]
-    MergeCommitError(#[from] MergeCommitError<rusqlite::Error>),
-    #[error(transparent)]
-    WelcomeError(#[from] WelcomeError<rusqlite::Error>),
-    #[error(transparent)]
     MlsGroupStateError(#[from] MlsGroupStateError),
     #[error(transparent)]
     CreateMessageError(#[from] CreateMessageError),
     #[error(transparent)]
     ProcessMessageError(#[from] ProcessMessageError),
-    #[error(transparent)]
-    AddMembersError(#[from] AddMembersError<rusqlite::Error>),
-    #[error(transparent)]
-    MergePendingCommitError(#[from] MergePendingCommitError<rusqlite::Error>),
     #[error("Missing key package in key store")]
     MissingKeyPackage,
     #[error(transparent)]

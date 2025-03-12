@@ -225,6 +225,23 @@ pub(crate) enum StoreEntityKind {
     Message = 2,
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid store entity kind: {0}")]
+pub(crate) struct InvalidStoreEntityKind(i64);
+
+impl TryFrom<i64> for StoreEntityKind {
+    type Error = InvalidStoreEntityKind;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(StoreEntityKind::User),
+            1 => Ok(StoreEntityKind::Conversation),
+            2 => Ok(StoreEntityKind::Message),
+            _ => Err(InvalidStoreEntityKind(value)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

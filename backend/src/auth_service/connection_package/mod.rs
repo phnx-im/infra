@@ -62,6 +62,7 @@ impl Encode<'_, Postgres> for StorableConnectionPackageRef<'_> {
         &self,
         buf: &mut <Postgres as Database>::ArgumentBuffer<'_>,
     ) -> Result<sqlx::encode::IsNull, BoxDynError> {
-        PhnxCodec::to_vec(self)?.encode(buf)
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Postgres>::encode(bytes, buf)
     }
 }

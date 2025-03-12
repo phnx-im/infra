@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE groups SET\n                leaf_signer = ?,\n                identity_link_wrapper_key = ?,\n                group_state_ear_key = ?,\n                pending_diff = ?\n            WHERE group_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "c53409b846b78320f253dc57630d9c8c832b5930b800e7e8d64b2a3437db96a9"
+}

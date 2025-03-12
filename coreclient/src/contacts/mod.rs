@@ -16,12 +16,12 @@ use phnxtypes::{
     identifiers::{AsClientId, QualifiedUserName},
     messages::FriendshipToken,
 };
+use sqlx::SqlitePool;
 
 use crate::{
     ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
-    utils::persistence::SqliteConnection,
 };
 use anyhow::Result;
 
@@ -70,7 +70,7 @@ impl Contact {
 
     pub(crate) async fn fetch_add_infos(
         &self,
-        connection_mutex: SqliteConnection,
+        pool: &SqlitePool,
         api_clients: ApiClients,
     ) -> Result<ContactAddInfos> {
         let invited_user = self.user_name.clone();
@@ -94,18 +94,15 @@ impl Contact {
         let (plaintext, identity_link_key) =
             pseudonymous_credential.derive_decrypt_and_verify(&self.connection_key)?;
         // Verify the client credential
-        let incoming_client_credential = StorableClientCredential::verify(
-            connection_mutex.clone(),
-            &api_clients,
-            plaintext.client_credential,
-        )
-        .await?;
+        let incoming_client_credential =
+            StorableClientCredential::verify(pool, &api_clients, plaintext.client_credential)
+                .await?;
         // Check that the client credential is the same as the one we have on file.
-        let connection = connection_mutex.lock().await;
         let Some(current_client_credential) = StorableClientCredential::load_by_client_id(
-            &connection,
+            pool,
             &incoming_client_credential.identity(),
-        )?
+        )
+        .await?
         else {
             anyhow::bail!("Client credential not found");
         };

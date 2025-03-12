@@ -10,11 +10,12 @@ use mls_assist::{
         signatures::{Signer, SignerError},
     },
 };
-#[cfg(feature = "sqlite")]
-use rusqlite::{ToSql, types::ToSqlOutput};
 use serde::{Deserialize, Serialize};
+use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
+
+use crate::codec::PhnxCodec;
 
 use super::{
     AsCredential, AsIntermediateCredential,
@@ -22,9 +23,6 @@ use super::{
         IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs,
     },
 };
-
-#[cfg(feature = "sqlite")]
-use crate::codec::PhnxCodec;
 
 use crate::crypto::{
     ear::{EarEncryptable, keys::IdentityLinkKey},
@@ -169,9 +167,18 @@ impl ClientSigningKey {
 }
 
 #[derive(
-    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
+    Clone,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct ClientVerifyingKey(pub(super) VerifyingKey);
 
 impl VerifyingKeyBehaviour for ClientVerifyingKey {}
@@ -188,19 +195,27 @@ pub struct PseudonymousCredentialSigningKey {
     credential: PseudonymousCredential,
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for PseudonymousCredentialSigningKey {
-    fn to_sql(&self) -> Result<rusqlite::types::ToSqlOutput<'_>, rusqlite::Error> {
-        let bytes = PhnxCodec::to_vec(self)?;
-        Ok(ToSqlOutput::from(bytes))
+impl Type<Sqlite> for PseudonymousCredentialSigningKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for PseudonymousCredentialSigningKey {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let key = PhnxCodec::from_slice(value.as_blob()?)?;
-        Ok(key)
+impl<'q> Encode<'q, Sqlite> for PseudonymousCredentialSigningKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for PseudonymousCredentialSigningKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        let value = PhnxCodec::from_slice(bytes)?;
+        Ok(value)
     }
 }
 

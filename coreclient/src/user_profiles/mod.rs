@@ -8,8 +8,8 @@
 use std::fmt::Display;
 
 use phnxtypes::identifiers::QualifiedUserName;
-use rusqlite::{ToSql, types::FromSql};
 use serde::{Deserialize, Serialize};
+use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -66,16 +66,25 @@ pub struct DisplayName {
     display_name: String,
 }
 
-impl FromSql for DisplayName {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let display_name = String::column_result(value)?;
-        Ok(Self { display_name })
+impl sqlx::Type<Sqlite> for DisplayName {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <String as sqlx::Type<Sqlite>>::type_info()
     }
 }
 
-impl ToSql for DisplayName {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.display_name.to_sql()
+impl<'q> Encode<'q, Sqlite> for DisplayName {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        Encode::<Sqlite>::encode_by_ref(&self.display_name, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for DisplayName {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let display_name: String = Decode::<Sqlite>::decode(value)?;
+        Ok(Self { display_name })
     }
 }
 
@@ -141,18 +150,26 @@ pub enum Asset {
     // TODO: Assets by Reference
 }
 
-impl ToSql for Asset {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+impl sqlx::Type<Sqlite> for Asset {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as sqlx::Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for Asset {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
         match self {
-            Asset::Value(value) => value.to_sql(),
+            Asset::Value(value) => Encode::<Sqlite>::encode_by_ref(value, buf),
         }
     }
 }
 
-impl FromSql for Asset {
-    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        let value = Vec::<u8>::column_result(value)?;
-        Ok(Asset::Value(value))
+impl<'r> Decode<'r, Sqlite> for Asset {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        Decode::<Sqlite>::decode(value).map(Asset::Value)
     }
 }
 

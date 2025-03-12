@@ -15,9 +15,18 @@ use crate::crypto::{errors::KeyGenerationError, secrets::SecretBytes};
 use super::DEFAULT_SIGNATURE_SCHEME;
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct VerifyingKey(Vec<u8>);
 
 // We need these traits to interop the MLS leaf keys.
@@ -44,12 +53,8 @@ impl VerifyingKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "signing_key_data")
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "signing_key_data")]
 pub struct SigningKey {
     signing_key: SecretBytes,
     verifying_key: VerifyingKey,
@@ -73,52 +78,5 @@ impl SigningKey {
 
     pub(super) fn expose_secret(&self) -> &SecretBytes {
         &self.signing_key
-    }
-}
-
-#[cfg(feature = "sqlite")]
-mod sqlite {
-    use rusqlite::{ToSql, types::FromSql};
-
-    use crate::codec::PhnxCodec;
-
-    use super::{SigningKey, VerifyingKey};
-
-    impl FromSql for VerifyingKey {
-        fn column_result(
-            value: rusqlite::types::ValueRef<'_>,
-        ) -> rusqlite::types::FromSqlResult<Self> {
-            let bytes = value.as_blob()?;
-            Ok(VerifyingKey(bytes.to_vec()))
-        }
-    }
-
-    impl ToSql for VerifyingKey {
-        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-            Ok(rusqlite::types::ToSqlOutput::Borrowed(
-                rusqlite::types::ValueRef::Blob(&self.0),
-            ))
-        }
-    }
-
-    impl FromSql for SigningKey {
-        fn column_result(
-            value: rusqlite::types::ValueRef<'_>,
-        ) -> rusqlite::types::FromSqlResult<Self> {
-            let bytes = value.as_blob()?;
-            let signing_key = PhnxCodec::from_slice(bytes)
-                .map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))?;
-            Ok(signing_key)
-        }
-    }
-
-    impl ToSql for SigningKey {
-        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-            let bytes = PhnxCodec::to_vec(self)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            Ok(rusqlite::types::ToSqlOutput::Owned(
-                rusqlite::types::Value::Blob(bytes),
-            ))
-        }
     }
 }

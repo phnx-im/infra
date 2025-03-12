@@ -5,16 +5,14 @@
 use std::ops::Deref;
 
 use chrono::{DateTime, SubsecRound, TimeZone, Utc};
-#[cfg(feature = "sqlite")]
-use rusqlite::{ToSql, types::FromSql};
 
 use super::*;
 
 pub use chrono::Duration;
 
 /// A time stamp that can be used to represent a point in time.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, Copy)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, Copy, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct TimeStamp(DateTime<Utc>);
 
 impl AsRef<DateTime<Utc>> for TimeStamp {
@@ -99,21 +97,6 @@ impl TlsDeserializeBytesTrait for TimeStamp {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for TimeStamp {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for TimeStamp {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let time = DateTime::<Utc>::column_result(value)?;
-        Ok(time.into())
-    }
-}
-
 impl TimeStamp {
     /// Same as [`Utc::now`], but rounded to microsecond precision.
     pub fn now() -> Self {
@@ -151,9 +134,18 @@ mod timestamp_conversion {
 }
 
 #[derive(
-    Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    TlsDeserializeBytes,
+    TlsSerialize,
+    TlsSize,
+    Serialize,
+    Deserialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "expiration"))]
+#[sqlx(type_name = "expiration")]
 pub struct ExpirationData {
     not_before: TimeStamp,
     not_after: TimeStamp,

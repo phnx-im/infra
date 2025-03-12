@@ -43,7 +43,8 @@ impl Encode<'_, Postgres> for StorableVorpfServer {
         &self,
         buf: &mut <Postgres as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
-        PhnxCodec::to_vec(&self.0)?.encode(buf)
+        let bytes = PhnxCodec::to_vec(&self.0)?;
+        Encode::<Postgres>::encode(bytes, buf)
     }
 }
 

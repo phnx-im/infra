@@ -13,7 +13,7 @@ import 'package:uuid/uuid.dart';
 import 'types.dart';
 part 'user.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `from_core_user`
+// These functions are ignored because they are not marked as `pub`: `from_core_user`, `load_ui_record`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<User>>

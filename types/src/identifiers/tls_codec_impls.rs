@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use tls_codec::{DeserializeBytes, Error, Serialize, Size};
 use url::Host;
@@ -10,8 +10,10 @@ use uuid::Uuid;
 
 use super::{Fqdn, UserName};
 
-#[derive(Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(
+    Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, sqlx::Type,
+)]
+#[sqlx(transparent)]
 #[serde(transparent)]
 pub(super) struct TlsUuid(pub Uuid);
 
@@ -60,14 +62,23 @@ impl Serialize for TlsStr<'_> {
 }
 
 #[derive(
-    Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord,
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 #[serde(transparent)]
 pub(super) struct TlsString(pub String);
 
-impl std::fmt::Display for TlsString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for TlsString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }

@@ -15,6 +15,7 @@ use phnxtypes::{
 };
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
+use tokio::task::{LocalEnterGuard, LocalSet};
 use tracing::info;
 
 use super::spawn_app;
@@ -86,6 +87,7 @@ pub struct TestBackend {
     pub groups: HashMap<ConversationId, HashSet<QualifiedUserName>>,
     // This is what we feed to the test clients.
     kind: TestKind,
+    _guard: Option<LocalEnterGuard>,
 }
 
 impl TestBackend {
@@ -94,16 +96,22 @@ impl TestBackend {
             users: HashMap::new(),
             groups: HashMap::new(),
             kind: TestKind::Federated,
+            _guard: None,
         }
     }
+
     pub async fn single() -> Self {
         let network_provider = MockNetworkProvider::new();
         let domain: Fqdn = "example.com".parse().unwrap();
+        let local = LocalSet::new();
+        let _guard = local.enter();
         let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider).await;
+        info!(%address, "spawned server");
         Self {
             users: HashMap::new(),
             groups: HashMap::new(),
             kind: TestKind::SingleBackend(address.to_string()),
+            _guard: Some(_guard),
         }
     }
 

@@ -28,9 +28,18 @@ use super::{
 };
 
 #[derive(
-    Clone, PartialEq, Eq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Debug,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct EncryptionPublicKey(Vec<u8>);
 
 impl From<Vec<u8>> for EncryptionPublicKey {
@@ -57,12 +66,8 @@ impl EncryptionPublicKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "decryption_key_data")
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "decryption_key_data")]
 pub struct DecryptionKey {
     decryption_key: SecretBytes,
     encryption_key: EncryptionPublicKey,
@@ -260,8 +265,8 @@ impl ClientIdEncryptionKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 #[serde(transparent)]
 pub struct ClientIdDecryptionKey(DecryptionKey);
 

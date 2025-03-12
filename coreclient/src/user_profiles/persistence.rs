@@ -3,70 +3,69 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::identifiers::QualifiedUserName;
-use rusqlite::{Connection, OptionalExtension, params};
-use tracing::error;
+use sqlx::{SqliteExecutor, query, query_as};
 
-use crate::{UserProfile, store::StoreNotifier, utils::persistence::Storable};
+use crate::{UserProfile, store::StoreNotifier};
 
-impl Storable for UserProfile {
-    const CREATE_TABLE_STATEMENT: &'static str = "CREATE TABLE IF NOT EXISTS users (
-                user_name TEXT PRIMARY KEY,
-                display_name TEXT,
-                profile_picture BLOB
-            );";
+use super::{Asset, DisplayName};
 
-    fn from_row(row: &rusqlite::Row) -> anyhow::Result<Self, rusqlite::Error> {
-        let user_name = row.get(0)?;
-        let display_name_option = row.get(1)?;
-        let profile_picture_option = row.get(2)?;
-        Ok(UserProfile {
+struct SqlUserProfile {
+    user_name: QualifiedUserName,
+    display_name: Option<DisplayName>,
+    profile_picture: Option<Asset>,
+}
+
+impl From<SqlUserProfile> for UserProfile {
+    fn from(
+        SqlUserProfile {
             user_name,
-            display_name_option,
-            profile_picture_option,
-        })
+            display_name,
+            profile_picture,
+        }: SqlUserProfile,
+    ) -> Self {
+        Self {
+            user_name,
+            display_name_option: display_name,
+            profile_picture_option: profile_picture,
+        }
     }
 }
 
 impl UserProfile {
-    pub fn load(
-        connection: &Connection,
+    pub async fn load(
+        executor: impl SqliteExecutor<'_>,
         user_name: &QualifiedUserName,
-    ) -> Result<Option<Self>, rusqlite::Error> {
-        let mut statement = connection.prepare(
-            "SELECT user_name, display_name, profile_picture FROM users WHERE user_name = ?",
-        )?;
-        let user = statement
-            .query_row(params![user_name.to_string()], Self::from_row)
-            .optional()?;
-
-        if let Some(user_profile) = &user {
-            if user_name != user_profile.user_name() {
-                // This should never happen, but if it does, we want to know about it.
-                error!(
-                    expected =% user_name,
-                    actual =% user_profile.user_name(),
-                    "User name mismatch",
-                );
-            }
-        }
-        Ok(user)
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            SqlUserProfile,
+            r#"SELECT
+                user_name AS "user_name: _",
+                display_name AS "display_name: _",
+                profile_picture AS "profile_picture: _"
+            FROM users WHERE user_name = ?"#,
+            user_name,
+        )
+        .fetch_optional(executor)
+        .await
+        .map(|record| record.map(From::from))
     }
 
     /// Stores this new [`UserProfile`] if one doesn't already exist.
-    pub(crate) fn store(
+    pub(crate) async fn store(
         &self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
-        // TODO: We can skip this notification if the user profile was already stored.
+    ) -> sqlx::Result<()> {
+        query!(
+            "INSERT OR IGNORE INTO users (user_name, display_name, profile_picture)
+            VALUES (?, ?, ?)",
+            self.user_name,
+            self.display_name_option,
+            self.profile_picture_option
+        )
+        .execute(executor)
+        .await?;
+        // TODO(#369): We can skip this notification if the user profile was already stored.
         notifier.add(self.user_name.clone());
         Ok(())
     }
@@ -74,38 +73,59 @@ impl UserProfile {
     /// Stores this new [`UserProfile`].
     ///
     /// Replaces the existing user profile if one exists.
-    pub(crate) fn upsert(
+    pub(crate) async fn upsert(
         &self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
-            "INSERT OR REPLACE INTO users (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
+    ) -> sqlx::Result<()> {
+        query!(
+            "INSERT OR REPLACE INTO users (user_name, display_name, profile_picture)
+            VALUES (?, ?, ?)",
+            self.user_name,
+            self.display_name_option,
+            self.profile_picture_option,
+        )
+        .execute(executor)
+        .await?;
         notifier.update(self.user_name.clone());
+        Ok(())
+    }
+
+    /// Stores this new [`UserProfile`] if one doesn't already exist.
+    pub(crate) async fn store_or_ignore(
+        &self,
+        executor: impl SqliteExecutor<'_>,
+        notifier: &mut StoreNotifier,
+    ) -> sqlx::Result<()> {
+        query!(
+            "INSERT OR IGNORE INTO users
+                (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
+            self.user_name,
+            self.display_name_option,
+            self.profile_picture_option
+        )
+        .execute(executor)
+        .await?;
+        // TODO: We can skip this notification if the user profile was already stored.
+        notifier.add(self.user_name.clone());
         Ok(())
     }
 
     /// Update the user's display name and profile picture in the database. To store a new profile,
     /// use [`register_as_conversation_participant`] instead.
-    pub(crate) fn update(
+    pub(crate) async fn update(
         &self,
-        connection: &Connection,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-    ) -> Result<(), rusqlite::Error> {
-        connection.execute(
+    ) -> sqlx::Result<()> {
+        query!(
             "UPDATE users SET display_name = ?2, profile_picture = ?3 WHERE user_name = ?1",
-            params![
-                self.user_name.to_string(),
-                self.display_name_option,
-                self.profile_picture_option
-            ],
-        )?;
+            self.user_name,
+            self.display_name_option,
+            self.profile_picture_option
+        )
+        .execute(executor)
+        .await?;
         notifier.update(self.user_name.clone());
         Ok(())
     }
@@ -113,17 +133,11 @@ impl UserProfile {
 
 #[cfg(test)]
 mod tests {
+    use sqlx::SqlitePool;
+
     use crate::Asset;
 
     use super::*;
-
-    fn test_connection() -> rusqlite::Connection {
-        let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(UserProfile::CREATE_TABLE_STATEMENT)
-            .unwrap();
-        connection
-    }
 
     fn test_profile() -> UserProfile {
         UserProfile::new(
@@ -133,15 +147,16 @@ mod tests {
         )
     }
 
-    #[test]
-    fn store_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
         let profile = test_profile();
 
-        profile.store(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        profile.store(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
@@ -149,60 +164,70 @@ mod tests {
         new_profile.set_profile_picture(None);
 
         // store ignores the new profile if the user already exists
-        new_profile.store(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.store(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
         assert_ne!(loaded, new_profile);
 
         // upsert/load works
-        new_profile.upsert(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.upsert(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
 
         Ok(())
     }
 
-    #[test]
-    fn upsert_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn upsert_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
         let profile = test_profile();
 
-        profile.upsert(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        profile.upsert(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
         new_profile.set_display_name(Some("Alice In Wonderland".to_string().try_into()?));
         new_profile.set_profile_picture(None);
 
-        new_profile.upsert(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.upsert(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
 
         Ok(())
     }
 
-    #[test]
-    fn update_load() -> anyhow::Result<()> {
-        let connection = test_connection();
+    #[sqlx::test]
+    async fn update_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
         let profile = test_profile();
 
-        profile.store(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        profile.store(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
         new_profile.set_display_name(Some("Alice In Wonderland".to_string().try_into()?));
         new_profile.set_profile_picture(None);
 
-        new_profile.update(&connection, &mut notifier)?;
-        let loaded = UserProfile::load(&connection, &profile.user_name)?.expect("profile exists");
+        new_profile.update(&pool, &mut notifier).await?;
+        let loaded = UserProfile::load(&pool, &profile.user_name)
+            .await?
+            .expect("profile exists");
         assert_ne!(loaded, profile);
         assert_eq!(loaded, new_profile);
 

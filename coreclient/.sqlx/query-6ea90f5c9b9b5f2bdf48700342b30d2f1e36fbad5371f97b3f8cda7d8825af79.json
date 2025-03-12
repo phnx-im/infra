@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                COUNT(*) AS \"count: _\"\n            FROM\n                conversation_messages cm\n            WHERE\n                cm.conversation_id = ?\n                AND cm.sender != 'system'",
+  "describe": {
+    "columns": [
+      {
+        "name": "count: _",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6ea90f5c9b9b5f2bdf48700342b30d2f1e36fbad5371f97b3f8cda7d8825af79"
+}

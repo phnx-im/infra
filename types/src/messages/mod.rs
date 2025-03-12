@@ -27,26 +27,19 @@ pub mod push_token;
 pub mod welcome_attribution_info;
 
 #[derive(
-    Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq, Clone, Debug,
+    Serialize,
+    Deserialize,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct FriendshipToken(Vec<u8>);
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::ToSql for FriendshipToken {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(self.0.clone()),
-        ))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl rusqlite::types::FromSql for FriendshipToken {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(Self(value.as_blob()?.to_vec()))
-    }
-}
 
 impl FriendshipToken {
     pub fn random() -> Result<Self, RandomnessError> {
@@ -149,8 +142,10 @@ pub enum AsTokenType {
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[derive(
+    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, sqlx::Type,
+)]
+#[sqlx(transparent)]
 pub struct QsEncryptedKeyPackage(Ciphertext);
 
 impl AsRef<Ciphertext> for QsEncryptedKeyPackage {

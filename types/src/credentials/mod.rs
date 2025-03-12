@@ -2,17 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#[cfg(feature = "sqlite")]
-use crate::codec::PhnxCodec;
 use chrono::Duration;
 use mls_assist::{
     openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-#[cfg(feature = "sqlite")]
-use rusqlite::{ToSql, types::FromSql};
 
 use serde::{Deserialize, Serialize};
+use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use keys::{
@@ -22,6 +19,7 @@ use keys::{
 
 use crate::{
     LibraryError,
+    codec::PhnxCodec,
     crypto::{
         ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
         errors::KeyGenerationError,
@@ -56,8 +54,9 @@ use self::keys::ClientVerifyingKey;
     Hash,
     Serialize,
     Deserialize,
+    sqlx::Type,
 )]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(transparent))]
+#[sqlx(transparent)]
 pub struct CredentialFingerprint(Vec<u8>);
 
 impl std::fmt::Display for CredentialFingerprint {
@@ -90,23 +89,6 @@ impl CredentialFingerprint {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for CredentialFingerprint {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Borrowed(
-            rusqlite::types::ValueRef::Blob(&self.0),
-        ))
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl FromSql for CredentialFingerprint {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = value.as_blob()?;
-        Ok(Self(value.to_vec()))
-    }
-}
-
 const DEFAULT_AS_CREDENTIAL_LIFETIME: Duration = Duration::days(5 * 365);
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
@@ -132,23 +114,19 @@ pub struct AsCredentialBody {
     verifying_key: AsVerifyingKey,
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for AsCredentialBody {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(self)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
+impl Type<Sqlite> for AsCredentialBody {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl FromSql for AsCredentialBody {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let body = PhnxCodec::from_slice(value.as_blob()?)?;
-        Ok(body)
+impl Encode<'_, Sqlite> for AsCredentialBody {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
     }
 }
 
@@ -288,23 +266,26 @@ pub struct AsIntermediateCredentialBody {
     signature: Signature,
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for AsIntermediateCredentialBody {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(self)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
+impl Type<Sqlite> for AsIntermediateCredentialBody {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl FromSql for AsIntermediateCredentialBody {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let body = PhnxCodec::from_slice(value.as_blob()?)?;
-        Ok(body)
+impl Encode<'_, Sqlite> for AsIntermediateCredentialBody {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl Decode<'_, Sqlite> for AsIntermediateCredentialBody {
+    fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        Ok(PhnxCodec::from_slice(bytes)?)
     }
 }
 
@@ -539,39 +520,40 @@ impl ClientCredential {
 // `CurrentVersion` and the current version must be renamed to `VX`, where `X`
 // is the next version number. The content type of the old `CurrentVersion` must
 // be renamed and otherwise preserved to ensure backwards compatibility.
-#[cfg(feature = "sqlite")]
 #[derive(Serialize, Deserialize)]
 enum VersionedClientCredential {
     CurrentVersion(ClientCredential),
 }
 
-#[cfg(feature = "sqlite")]
-impl FromSql for ClientCredential {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = value.as_blob()?;
-        let versioned_credential = PhnxCodec::from_slice(value)?;
-        match versioned_credential {
-            VersionedClientCredential::CurrentVersion(credential) => Ok(credential),
-        }
-    }
-}
-
 // Only change this enum in tandem with its non-Ref variant.
-#[cfg(feature = "sqlite")]
 #[derive(Serialize)]
 enum VersionedClientCredentialRef<'a> {
     CurrentVersion(&'a ClientCredential),
 }
 
-#[cfg(feature = "sqlite")]
-impl ToSql for ClientCredential {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Blob(
-                PhnxCodec::to_vec(&VersionedClientCredentialRef::CurrentVersion(self))
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            ),
-        ))
+impl Type<Sqlite> for ClientCredential {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for ClientCredential {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let versioned = VersionedClientCredentialRef::CurrentVersion(self);
+        let bytes = PhnxCodec::to_vec(&versioned)?;
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for ClientCredential {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        match PhnxCodec::from_slice(bytes)? {
+            VersionedClientCredential::CurrentVersion(credential) => Ok(credential),
+        }
     }
 }
 
@@ -651,7 +633,6 @@ impl AsRef<Ciphertext> for EncryptedClientCredential {
     }
 }
 
-#[cfg(feature = "sqlx")]
 pub mod persistence {
     use crate::{
         codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::AsClientId,

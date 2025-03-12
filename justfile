@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-export DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
-
 set windows-shell := ["C:\\Program Files\\Git\\bin\\sh.exe","-c"]
 
 # === Backend ===
 
+POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
+
 # run postgres via docker compose and apply migrations
-init-db: generate-db-certs
+init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
     docker compose up --wait
     cd backend && sqlx database create
     cd backend && sqlx database setup
@@ -17,6 +17,18 @@ init-db: generate-db-certs
 # generate postgres TLS certificates
 generate-db-certs:
     cd backend && TEST_CERT_DIR_NAME=test_certs scripts/generate_test_certs.sh
+
+# === Client ===
+
+[working-directory: 'coreclient']
+init-client-db:
+    sqlx database create --database-url sqlite://client.db
+    sqlx database setup --database-url sqlite://client.db
+
+[working-directory: 'coreclient']
+prepare-client-db-statements: init-client-db
+    cargo sqlx prepare --database-url sqlite://{{justfile_directory()}}/coreclient/client.db
+
 
 # === App ===
 
@@ -93,7 +105,7 @@ setup-macos-ci: install-cargo-binstall
     bundle install
 
 test-rust *args='':
-    cargo test {{args}}
+    env DATABASE_URL={{POSTGRES_DATABASE_URL}} SQLX_OFFLINE=true cargo test {{args}}
 
 # build Android
 # we limit it to android-arm64 to speed up the build process

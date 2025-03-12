@@ -95,31 +95,17 @@ impl User {
     ///
     /// Also tries to load user profile from the client database. In case the client database
     /// cannot be opened, the client record is skipped.
-    pub fn load_client_records(db_path: String) -> Result<Vec<UiClientRecord>> {
-        let ui_records = ClientRecord::load_all_from_phnx_db(&db_path)?
-            .into_iter()
-            .filter_map(|record| {
-                let connection = open_client_db(&record.as_client_id, &db_path)
-                    .inspect_err(|error| {
-                        error!(%error, ?record.as_client_id, "failed to open client db");
-                    })
-                    .ok()?;
-                let user_name =
-                    UiUserName::from_qualified_user_name(&record.as_client_id.user_name());
-                let user_profile = UserProfile::load(&connection, &record.as_client_id.user_name())
-                    .ok()
-                    .flatten()
-                    .map(|profile| UiUserProfile::from_profile(&profile));
-                Some(UiClientRecord {
-                    client_id: record.as_client_id.client_id(),
-                    created_at: record.created_at,
-                    user_name,
-                    user_profile,
-                    is_finished: record.client_record_state == ClientRecordState::Finished,
-                })
-            })
-            .rev()
-            .collect();
+    pub async fn load_client_records(db_path: String) -> Result<Vec<UiClientRecord>> {
+        let mut ui_records = Vec::new();
+        for record in ClientRecord::load_all_from_phnx_db(&db_path).await? {
+            match load_ui_record(&db_path, &record).await {
+                Ok(record) => ui_records.push(record),
+                Err(error) => {
+                    error!(%error, ?record.as_client_id, "failed to load client record");
+                }
+            }
+        }
+        ui_records.reverse();
         Ok(ui_records)
     }
 
@@ -143,7 +129,8 @@ impl User {
     /// * the most recent user with finished registration, or if none
     /// * the most recent user, if any.
     pub async fn load_default(path: String) -> Result<Option<Self>> {
-        let finished_records = ClientRecord::load_all_from_phnx_db(&path)?
+        let finished_records = ClientRecord::load_all_from_phnx_db(&path)
+            .await?
             .into_iter()
             .filter(|record| matches!(record.client_record_state, ClientRecordState::Finished));
         let Some(client_record) = finished_records.max_by_key(|record| {
@@ -189,4 +176,19 @@ impl User {
     pub fn client_id(&self) -> Uuid {
         self.user.as_client_id().client_id()
     }
+}
+
+async fn load_ui_record(db_path: &str, record: &ClientRecord) -> anyhow::Result<UiClientRecord> {
+    let pool = open_client_db(&record.as_client_id, db_path).await?;
+    let user_name = UiUserName::from_qualified_user_name(&record.as_client_id.user_name());
+    let user_profile = UserProfile::load(&pool, &record.as_client_id.user_name())
+        .await?
+        .map(|profile| UiUserProfile::from_profile(&profile));
+    Ok(UiClientRecord {
+        client_id: record.as_client_id.client_id(),
+        created_at: record.created_at,
+        user_name,
+        user_profile,
+        is_finished: record.client_record_state == ClientRecordState::Finished,
+    })
 }
