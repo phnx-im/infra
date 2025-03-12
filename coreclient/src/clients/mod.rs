@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, future::Future, pin::Pin, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
@@ -423,20 +423,14 @@ impl CoreUser {
             .await?;
 
         // Phase 5: Merge the commit into the group
-        self.with_transaction(|transaction| {
-            let inner_self = self.clone();
-            Box::pin(async move {
-                // Now that we know the commit went through, we can merge the commit
-                let group_messages = group
-                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                    .await?;
-                group.store_update(&mut **transaction).await?;
-
-                let conversation_messages = inner_self
-                    .store_messages(&mut *transaction, conversation_id, group_messages)
-                    .await?;
-                Ok(conversation_messages)
-            })
+        self.with_transaction(async |connection| {
+            // Now that we know the commit went through, we can merge the commit
+            let group_messages = group
+                .merge_pending_commit(&mut *connection, None, ds_timestamp)
+                .await?;
+            group.store_update(&mut *connection).await?;
+            self.store_messages(&mut *connection, conversation_id, group_messages)
+                .await
         })
         .await
     }
@@ -478,20 +472,13 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        self.with_transaction(|transaction| {
-            let inner_self = self.clone();
-            Box::pin(async move {
-                let group_messages = group
-                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                    .await?;
-                group.store_update(&mut **transaction).await?;
-
-                let conversation_messages = inner_self
-                    .store_messages(&mut *transaction, conversation_id, group_messages)
-                    .await?;
-
-                Ok(conversation_messages)
-            })
+        self.with_transaction(async |connection| {
+            let group_messages = group
+                .merge_pending_commit(&mut *connection, None, ds_timestamp)
+                .await?;
+            group.store_update(&mut *connection).await?;
+            self.store_messages(&mut *connection, conversation_id, group_messages)
+                .await
         })
         .await
     }
@@ -553,22 +540,18 @@ impl CoreUser {
         let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
         let (connection_group, partial_params) = self
-            .with_transaction(|transaction| {
-                let inner_self = self.clone();
-                let group_id = group_id.clone();
-                Box::pin(async move {
-                    let provider = PhnxOpenMlsProvider::new(transaction);
-                    let (group, group_membership, partial_params) = Group::create_group(
-                        &provider,
-                        &inner_self.inner.key_store.signing_key,
-                        &inner_self.inner.key_store.connection_key,
-                        group_id,
-                        group_data,
-                    )?;
-                    group_membership.store(&mut **transaction).await?;
-                    group.store(&mut **transaction).await?;
-                    Ok((group, partial_params))
-                })
+            .with_transaction(async |transaction| {
+                let provider = PhnxOpenMlsProvider::new(transaction);
+                let (group, group_membership, partial_params) = Group::create_group(
+                    &provider,
+                    &self.inner.key_store.signing_key,
+                    &self.inner.key_store.connection_key,
+                    group_id.clone(),
+                    group_data,
+                )?;
+                group_membership.store(&mut *transaction).await?;
+                group.store(&mut *transaction).await?;
+                Ok((group, partial_params))
             })
             .await?;
 
@@ -711,25 +694,16 @@ impl CoreUser {
         };
 
         // Phase 4: Set the conversation to inactive
-        self.with_transaction(|transaction| {
-            let inner_self = self.clone();
-            Box::pin(async move {
-                let mut notifier = inner_self.store_notifier();
-                conversation
-                    .set_inactive(
-                        &mut **transaction,
-                        &mut notifier,
-                        past_members.into_iter().collect(),
-                    )
-                    .await?;
-                let conversation_messages = inner_self
-                    .store_messages(&mut *transaction, conversation_id, messages)
-                    .await?;
-
-                notifier.notify();
-
-                Ok(conversation_messages)
-            })
+        self.with_transaction_and_notifier(async |connection, notifier| {
+            conversation
+                .set_inactive(
+                    &mut *connection,
+                    notifier,
+                    past_members.into_iter().collect(),
+                )
+                .await?;
+            self.store_messages(&mut *connection, conversation_id, messages)
+                .await
         })
         .await
     }
@@ -846,18 +820,13 @@ impl CoreUser {
             .await?;
 
         // Phase 3: Merge the commit into the group
-        self.with_transaction(|transaction| {
-            let inner_self = self.clone();
-            Box::pin(async move {
-                let group_messages = group
-                    .merge_pending_commit(&mut *transaction, None, ds_timestamp)
-                    .await?;
-                group.store_update(&mut **transaction).await?;
-                let conversation_messages = inner_self
-                    .store_messages(&mut *transaction, conversation_id, group_messages)
-                    .await?;
-                Ok(conversation_messages)
-            })
+        self.with_transaction(async |connection| {
+            let group_messages = group
+                .merge_pending_commit(&mut *connection, None, ds_timestamp)
+                .await?;
+            group.store_update(&mut *connection).await?;
+            self.store_messages(&mut *connection, conversation_id, group_messages)
+                .await
         })
         .await
     }
@@ -1096,16 +1065,34 @@ impl CoreUser {
             .map(|user_option| user_option.unwrap())
     }
 
-    pub(crate) async fn with_transaction<T, F>(&self, f: F) -> anyhow::Result<T>
-    where
-        T: Send,
-        F: for<'c> FnOnce(
-            &'c mut sqlx::SqliteTransaction,
-        ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'c>>,
-    {
+    /// Executes a function with a transaction.
+    ///
+    /// The transaction is committed if the function returns `Ok`, and rolled
+    /// back if the function returns `Err`.
+    pub(crate) async fn with_transaction<T: Send>(
+        &self,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteConnection) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
         let mut transaction = self.pool().begin().await?;
         let value = f(&mut transaction).await?;
         transaction.commit().await?;
+        Ok(value)
+    }
+
+    /// Executes a function with a transaction and a [`StoreNotifier`].
+    ///
+    /// The transaction is committed if the function returns `Ok`, and rolled
+    /// back if the function returns `Err`. The [`StoreNotifier`] is notified
+    /// after the transaction is committed successfully.
+    pub(crate) async fn with_transaction_and_notifier<T: Send>(
+        &self,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteConnection, &mut StoreNotifier) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let mut transaction = self.pool().begin().await?;
+        let mut notifier = self.store_notifier();
+        let value = f(&mut transaction, &mut notifier).await?;
+        transaction.commit().await?;
+        notifier.notify();
         Ok(value)
     }
 }

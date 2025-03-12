@@ -26,23 +26,16 @@ impl CoreUser {
         content: MimiContent,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = self
-            .with_transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    UnsentContent {
-                        conversation_id,
-                        content,
-                    }
-                    .store_unsent_message(
-                        transaction,
-                        inner_self.store_notifier(),
-                        &inner_self.user_name(),
-                    )
-                    .await?
-                    .create_group_message(&PhnxOpenMlsProvider::new(transaction))?
-                    .store_group_update(transaction, inner_self.store_notifier())
-                    .await
-                })
+            .with_transaction(async |connection| {
+                UnsentContent {
+                    conversation_id,
+                    content,
+                }
+                .store_unsent_message(connection, self.store_notifier(), &self.user_name())
+                .await?
+                .create_group_message(&PhnxOpenMlsProvider::new(connection))?
+                .store_group_update(connection, self.store_notifier())
+                .await
             })
             .await?;
 
@@ -50,8 +43,10 @@ impl CoreUser {
             .send_message_to_ds(&self.inner.api_clients)
             .await?;
 
-        self.with_transaction(|transaction| {
-            Box::pin(sent_message.mark_as_sent_and_read(transaction, self.store_notifier()))
+        self.with_transaction(async |connection| {
+            sent_message
+                .mark_as_sent_and_read(connection, self.store_notifier())
+                .await
         })
         .await
     }
@@ -59,13 +54,11 @@ impl CoreUser {
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&self, local_message_id: Uuid) -> anyhow::Result<()> {
         let unsent_group_message = self
-            .with_transaction(|transaction| {
-                Box::pin(async move {
-                    LocalMessage { local_message_id }
-                        .load(transaction)
-                        .await?
-                        .create_group_message(&PhnxOpenMlsProvider::new(transaction))
-                })
+            .with_transaction(async |connection| {
+                LocalMessage { local_message_id }
+                    .load(connection)
+                    .await?
+                    .create_group_message(&PhnxOpenMlsProvider::new(connection))
             })
             .await?;
 
@@ -73,8 +66,10 @@ impl CoreUser {
             .send_message_to_ds(&self.inner.api_clients)
             .await?;
 
-        self.with_transaction(|transaction| {
-            Box::pin(sent_message.mark_as_sent_and_read(transaction, self.store_notifier()))
+        self.with_transaction(async |connection| {
+            sent_message
+                .mark_as_sent_and_read(connection, self.store_notifier())
+                .await
         })
         .await?;
 

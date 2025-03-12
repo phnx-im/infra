@@ -36,24 +36,21 @@ impl CoreUser {
             .await?;
 
         let created_group = self
-            .with_transaction(|transaction| {
-                let inner_self = self.clone();
-                Box::pin(async move {
-                    let provider = PhnxOpenMlsProvider::new(&mut *transaction);
-                    let mut notifier = inner_self.store_notifier();
+            .with_transaction(async |connection| {
+                let provider = PhnxOpenMlsProvider::new(&mut *connection);
+                let mut notifier = self.store_notifier();
 
-                    let created_group = group_data
-                        .create_group(
-                            &provider,
-                            &inner_self.inner.key_store.signing_key,
-                            &inner_self.inner.key_store.connection_key,
-                        )?
-                        .store_group(&mut *transaction, &mut notifier)
-                        .await?;
+                let created_group = group_data
+                    .create_group(
+                        &provider,
+                        &self.inner.key_store.signing_key,
+                        &self.inner.key_store.connection_key,
+                    )?
+                    .store_group(&mut *connection, &mut notifier)
+                    .await?;
 
-                    notifier.notify();
-                    Ok(created_group)
-                })
+                notifier.notify();
+                Ok(created_group)
             })
             .await?;
 

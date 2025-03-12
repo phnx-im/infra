@@ -38,13 +38,11 @@ impl CoreUser {
         &self,
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
-        self.with_transaction(|transaction| {
-            Box::pin(async move {
-                let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut **transaction).await?;
-                let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-                as_queue_ratchet.update_ratchet(&mut **transaction).await?;
-                Ok(payload.extract()?)
-            })
+        self.with_transaction(async |connection| {
+            let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut *connection).await?;
+            let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
+            as_queue_ratchet.update_ratchet(&mut *connection).await?;
+            Ok(payload.extract()?)
         })
         .await
     }
