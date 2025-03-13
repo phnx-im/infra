@@ -3417,7 +3417,6 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "static_assertions",
  "tar",
  "tempfile",
  "thiserror 2.0.12",
