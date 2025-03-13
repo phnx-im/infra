@@ -7,13 +7,19 @@ import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/navigation/navigation.dart';
 
 /// Wrapper of the [UserCubitBase] that implements a [StateStreamableSource]
 ///
 // See <https://github.com/phnx-im/infra/issues/248>
 class UserCubit implements StateStreamableSource<UiUser> {
-  UserCubit({required CoreClient coreClient})
-      : _impl = UserCubitBase(user: coreClient.user);
+  UserCubit({
+    required CoreClient coreClient,
+    required NavigationCubit navigationCubit,
+  }) : _impl = UserCubitBase(
+          user: coreClient.user,
+          navigation: DartNavigationExtension.fromCubit(navigationCubit),
+        );
 
   final UserCubitBase _impl;
 

@@ -7,6 +7,7 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'navigation.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
 import 'types.dart';
@@ -14,7 +15,7 @@ import 'user.dart';
 
 // These functions are ignored because they are not marked as `pub`: `emit`, `handle_websocket_message`, `new`, `process_fetched_messages`, `run_websocket`, `spawn_load`, `spawn_polling`, `spawn_websocket`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiUserInner`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `drop`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>>
 abstract class UiUser implements RustOpaqueInterface {
@@ -36,8 +37,10 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   bool get isClosed;
 
-  factory UserCubitBase({required User user}) =>
-      RustLib.instance.api.crateApiUserCubitUserCubitBaseNew(user: user);
+  factory UserCubitBase(
+          {required User user, required DartNavigation navigation}) =>
+      RustLib.instance.api.crateApiUserCubitUserCubitBaseNew(
+          user: user, navigation: navigation);
 
   Future<void> removeUserFromConversation(
       ConversationId conversationId, String userName);

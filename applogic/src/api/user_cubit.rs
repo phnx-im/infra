@@ -16,7 +16,7 @@ use phnxtypes::identifiers::QualifiedUserName;
 use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::RwLock;
 use tokio_util::sync::{CancellationToken, DropGuard};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     StreamSink,
@@ -27,7 +27,7 @@ use crate::{
     messages::FetchedMessages,
 };
 
-use super::{types::ImageData, user::User};
+use super::{navigation::DartNavigation, types::ImageData, user::User};
 
 /// State of the [`UserCubit`] which is the logged in user
 ///
@@ -110,27 +110,21 @@ pub struct UserCubitBase {
     _background_tasks_cancel: DropGuard,
 }
 
-impl Drop for UserCubitBase {
-    fn drop(&mut self) {
-        info!("Dropping UserCubitBase");
-    }
-}
-
 const WEBSOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 const WEBSCOKET_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 const POLLING_INTERVAL: Duration = Duration::from_secs(10);
 
 impl UserCubitBase {
     #[frb(sync)]
-    pub fn new(user: &User) -> Self {
+    pub fn new(user: &User, navigation: DartNavigation) -> Self {
         let core_user = user.user.clone();
         let state = Arc::new(RwLock::new(UiUser::new(core_user.user_name(), None)));
 
         UiUser::spawn_load(state.clone(), core_user.clone());
 
         let cancel = CancellationToken::new();
-        spawn_websocket(core_user.clone(), cancel.clone());
-        spawn_polling(core_user.clone(), cancel.clone());
+        spawn_websocket(core_user.clone(), navigation.clone(), cancel.clone());
+        spawn_polling(core_user.clone(), navigation, cancel.clone());
 
         Self {
             state,
@@ -247,11 +241,13 @@ impl UserCubitBase {
     }
 }
 
-fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken) {
+fn spawn_websocket(core_user: CoreUser, navigation: DartNavigation, cancel: CancellationToken) {
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
         let mut websocket_cancel = cancel.child_token();
-        while let Err(error) = run_websocket(&core_user, &websocket_cancel, &mut backoff).await {
+        while let Err(error) =
+            run_websocket(&core_user, &navigation, &websocket_cancel, &mut backoff).await
+        {
             let timeout = backoff.next_backoff();
             info!(%error, retry_in =? timeout, "Websocket failed");
             websocket_cancel.cancel();
@@ -265,6 +261,7 @@ fn spawn_websocket(core_user: CoreUser, cancel: CancellationToken) {
 /// Normal return means the websocket handler was cancelled
 async fn run_websocket(
     core_user: &CoreUser,
+    navigation: &DartNavigation,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
 ) -> anyhow::Result<()> {
@@ -281,14 +278,14 @@ async fn run_websocket(
             _ = cancel.cancelled() => return Ok(()),
         };
         match event {
-            Some(event) => handle_websocket_message(event, core_user).await,
+            Some(event) => handle_websocket_message(event, core_user, navigation).await,
             None => bail!("unexpected disconnect"),
         }
         backoff.reset(); // reset backoff after a successful message
     }
 }
 
-fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
+fn spawn_polling(core_user: CoreUser, navigation: DartNavigation, cancel: CancellationToken) {
     let user = User::from_core_user(core_user);
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
@@ -300,7 +297,7 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
             let mut timeout = POLLING_INTERVAL;
             match res {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(fetched_messages).await;
+                    process_fetched_messages(&navigation, fetched_messages).await;
                     backoff.reset();
                 }
                 Err(error) => {
@@ -316,7 +313,11 @@ fn spawn_polling(core_user: CoreUser, cancel: CancellationToken) {
     });
 }
 
-async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) {
+async fn handle_websocket_message(
+    event: WsEvent,
+    core_user: &CoreUser,
+    navigation: &DartNavigation,
+) {
     match event {
         WsEvent::ConnectedEvent => {
             info!("connected to websocket");
@@ -336,7 +337,7 @@ async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) {
             let user = User::from_core_user(core_user);
             match user.fetch_all_messages().await {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(fetched_messages).await;
+                    process_fetched_messages(navigation, fetched_messages).await;
                 }
                 Err(error) => {
                     error!(%error, "Failed to fetch messages on queue update");
@@ -346,11 +347,29 @@ async fn handle_websocket_message(event: WsEvent, core_user: &CoreUser) {
     }
 }
 
-async fn process_fetched_messages(_fetched_messages: FetchedMessages) {
+async fn process_fetched_messages(navigation: &DartNavigation, fetched_messages: FetchedMessages) {
+    let currrent_conversation_id = navigation.current_conversation_id().await;
+    debug!(
+        ?fetched_messages,
+        ?currrent_conversation_id,
+        "process_fetched_messages"
+    );
+
     // Send a notification to the OS (desktop only)
     //
     // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
     // we delegate it to a different place.
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    crate::notifications::show_desktop_notifications(&_fetched_messages.notifications_content);
+    {
+        let mut fetched_messages = fetched_messages;
+        if let Some(current_conversation_id) = currrent_conversation_id {
+            // Remove the notifications for the current conversation
+            fetched_messages
+                .notifications_content
+                .remove(&current_conversation_id);
+        }
+        crate::notifications::show_desktop_notifications(
+            fetched_messages.notifications_content.values().flatten(),
+        );
+    }
 }

@@ -106,7 +106,10 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               // Logged in user is accessible everywhere inside the app after
               // the user is loaded
               ? BlocProvider<UserCubit>(
-                  create: (context) => UserCubit(coreClient: context.read()),
+                  create: (context) => UserCubit(
+                    coreClient: context.read<CoreClient>(),
+                    navigationCubit: context.read<NavigationCubit>(),
+                  ),
                   child: router!,
                 )
               : router!,
