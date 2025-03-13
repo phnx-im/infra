@@ -69,7 +69,7 @@ pub enum DeveloperSettingsScreenType {
 }
 
 impl NavigationState {
-    fn conversation_id(&self) -> Option<ConversationId> {
+    pub(crate) fn conversation_id(&self) -> Option<ConversationId> {
         match self {
             Self::Intro { .. } => None,
             Self::Home { home } => home.conversation_id,
