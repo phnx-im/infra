@@ -348,10 +348,10 @@ async fn handle_websocket_message(
 }
 
 async fn process_fetched_messages(navigation: &DartNavigation, fetched_messages: FetchedMessages) {
-    let currrent_conversation_id = navigation.current_conversation_id().await;
+    let current_conversation_id = navigation.current_conversation_id().await;
     debug!(
         ?fetched_messages,
-        ?currrent_conversation_id,
+        ?current_conversation_id,
         "process_fetched_messages"
     );
 
@@ -362,7 +362,7 @@ async fn process_fetched_messages(navigation: &DartNavigation, fetched_messages:
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
         let mut fetched_messages = fetched_messages;
-        if let Some(current_conversation_id) = currrent_conversation_id {
+        if let Some(current_conversation_id) = current_conversation_id {
             // Remove the notifications for the current conversation
             fetched_messages
                 .notifications_content
