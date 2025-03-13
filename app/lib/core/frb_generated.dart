@@ -82,7 +82,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.9.0';
 
   @override
-  int get rustContentHash => -1264916258;
+  int get rustContentHash => -1467624112;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -358,9 +358,6 @@ abstract class RustLibApi extends BaseApi {
 
   MessageContent crateApiMarkdownMessageContentParseMarkdownRaw(
       {required List<int> string});
-
-  ConversationId? crateApiNavigationCubitNavigationStateConversationId(
-      {required NavigationState that});
 
   Future<String> crateApiLoggingReadAppLogs();
 
@@ -2792,38 +2789,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  ConversationId? crateApiNavigationCubitNavigationStateConversationId(
-      {required NavigationState that}) {
-    return handler.executeSync(SyncTask(
-      callFfi: () {
-        final serializer = SseSerializer(generalizedFrbRustBinding);
-        sse_encode_box_autoadd_navigation_state(that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 83)!;
-      },
-      codec: SseCodec(
-        decodeSuccessData: sse_decode_opt_box_autoadd_conversation_id,
-        decodeErrorData: null,
-      ),
-      constMeta: kCrateApiNavigationCubitNavigationStateConversationIdConstMeta,
-      argValues: [that],
-      apiImpl: this,
-    ));
-  }
-
-  TaskConstMeta
-      get kCrateApiNavigationCubitNavigationStateConversationIdConstMeta =>
-          const TaskConstMeta(
-            debugName: "navigation_state_conversation_id",
-            argNames: ["that"],
-          );
-
-  @override
   Future<String> crateApiLoggingReadAppLogs() {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 84, port: port_);
+            funcId: 83, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2847,7 +2818,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 85, port: port_);
+            funcId: 84, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2872,7 +2843,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 86, port: port_);
+            funcId: 85, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -3441,12 +3412,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MessageState dco_decode_box_autoadd_message_state(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_message_state(raw);
-  }
-
-  @protected
-  NavigationState dco_decode_box_autoadd_navigation_state(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_navigation_state(raw);
   }
 
   @protected
@@ -4706,13 +4671,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_message_state(deserializer));
-  }
-
-  @protected
-  NavigationState sse_decode_box_autoadd_navigation_state(
-      SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_navigation_state(deserializer));
   }
 
   @protected
@@ -6116,13 +6074,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       MessageState self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_message_state(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_navigation_state(
-      NavigationState self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_navigation_state(self, serializer);
   }
 
   @protected

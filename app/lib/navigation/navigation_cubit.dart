@@ -9,6 +9,8 @@ import 'package:prototype/core/core.dart';
 
 export 'package:prototype/core/core.dart'
     show NavigationState, IntroScreenType, DeveloperSettingsScreenType;
+export 'package:prototype/core/core_extension.dart'
+    show NavigationStateExtension;
 
 class NavigationCubit implements StateStreamableSource<NavigationState> {
   NavigationCubit() : _impl = NavigationCubitBase();

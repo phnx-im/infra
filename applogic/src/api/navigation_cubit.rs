@@ -69,8 +69,7 @@ pub enum DeveloperSettingsScreenType {
 }
 
 impl NavigationState {
-    #[frb(sync, getter)]
-    pub fn conversation_id(&self) -> Option<ConversationId> {
+    fn conversation_id(&self) -> Option<ConversationId> {
         match self {
             Self::Intro { .. } => None,
             Self::Home { home } => home.conversation_id,

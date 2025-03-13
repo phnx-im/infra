@@ -13,8 +13,8 @@ import 'package:uuid/uuid.dart';
 import 'types.dart';
 part 'navigation_cubit.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `home`, `intro`, `subscribe`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
+// These functions are ignored because they are not marked as `pub`: `conversation_id`, `home`, `intro`, `subscribe`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<NavigationCubitBase>>
 abstract class NavigationCubitBase implements RustOpaqueInterface {
@@ -102,9 +102,4 @@ sealed class NavigationState with _$NavigationState {
   const factory NavigationState.home({
     @Default(HomeNavigationState()) HomeNavigationState home,
   }) = NavigationState_Home;
-
-  ConversationId? get conversationId =>
-      RustLib.instance.api.crateApiNavigationCubitNavigationStateConversationId(
-        that: this,
-      );
 }

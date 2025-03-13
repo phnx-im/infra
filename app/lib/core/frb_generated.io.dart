@@ -325,9 +325,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageState dco_decode_box_autoadd_message_state(dynamic raw);
 
   @protected
-  NavigationState dco_decode_box_autoadd_navigation_state(dynamic raw);
-
-  @protected
   PlatformPushToken dco_decode_box_autoadd_platform_push_token(dynamic raw);
 
   @protected
@@ -825,10 +822,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MessageState sse_decode_box_autoadd_message_state(
-      SseDeserializer deserializer);
-
-  @protected
-  NavigationState sse_decode_box_autoadd_navigation_state(
       SseDeserializer deserializer);
 
   @protected
@@ -1358,10 +1351,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_message_state(
       MessageState self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_box_autoadd_navigation_state(
-      NavigationState self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_platform_push_token(
