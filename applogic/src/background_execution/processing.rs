@@ -85,7 +85,8 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
             info!("All messages fetched");
             fetched_messages
                 .notifications_content
-                .into_iter()
+                .into_values()
+                .flatten()
                 .map(|m| NotificationContent {
                     title: m.title,
                     body: m.body,
