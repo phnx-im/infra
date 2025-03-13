@@ -18,7 +18,7 @@ class UserCubit implements StateStreamableSource<UiUser> {
     required NavigationCubit navigationCubit,
   }) : _impl = UserCubitBase(
           user: coreClient.user,
-          navigation: DartNavigationExtension.fromCubit(navigationCubit),
+          navigation: navigationCubit.base,
         );
 
   final UserCubitBase _impl;

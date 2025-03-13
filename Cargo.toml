@@ -55,6 +55,7 @@ tracing-subscriber = { version = "0.3", features = [
 ] }
 
 tokio-util = "0.7.13"
+derive_more = { version = "0.99.19", features = ["from"] }
 
 mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "71495dc8fc794111c381649c4c6cbc6e258a0135" }
 

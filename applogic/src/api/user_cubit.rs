@@ -14,7 +14,7 @@ use phnxcoreclient::{Asset, UserProfile};
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use phnxtypes::identifiers::QualifiedUserName;
 use phnxtypes::messages::client_ds::QsWsMessage;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, watch};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, info, warn};
 
@@ -27,7 +27,11 @@ use crate::{
     messages::FetchedMessages,
 };
 
-use super::{navigation::DartNavigation, types::ImageData, user::User};
+use super::{
+    navigation_cubit::{NavigationCubitBase, NavigationState},
+    types::ImageData,
+    user::User,
+};
 
 /// State of the [`UserCubit`] which is the logged in user
 ///
@@ -116,15 +120,17 @@ const POLLING_INTERVAL: Duration = Duration::from_secs(10);
 
 impl UserCubitBase {
     #[frb(sync)]
-    pub fn new(user: &User, navigation: DartNavigation) -> Self {
+    pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
         let core_user = user.user.clone();
         let state = Arc::new(RwLock::new(UiUser::new(core_user.user_name(), None)));
 
         UiUser::spawn_load(state.clone(), core_user.clone());
 
+        let navigation_state = navigation.subscribe();
+
         let cancel = CancellationToken::new();
-        spawn_websocket(core_user.clone(), navigation.clone(), cancel.clone());
-        spawn_polling(core_user.clone(), navigation, cancel.clone());
+        spawn_websocket(core_user.clone(), navigation_state.clone(), cancel.clone());
+        spawn_polling(core_user.clone(), navigation_state, cancel.clone());
 
         Self {
             state,
@@ -241,12 +247,21 @@ impl UserCubitBase {
     }
 }
 
-fn spawn_websocket(core_user: CoreUser, navigation: DartNavigation, cancel: CancellationToken) {
+fn spawn_websocket(
+    core_user: CoreUser,
+    navigation_state: watch::Receiver<NavigationState>,
+    cancel: CancellationToken,
+) {
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
         let mut websocket_cancel = cancel.child_token();
-        while let Err(error) =
-            run_websocket(&core_user, &navigation, &websocket_cancel, &mut backoff).await
+        while let Err(error) = run_websocket(
+            &core_user,
+            &navigation_state,
+            &websocket_cancel,
+            &mut backoff,
+        )
+        .await
         {
             let timeout = backoff.next_backoff();
             info!(%error, retry_in =? timeout, "Websocket failed");
@@ -261,7 +276,7 @@ fn spawn_websocket(core_user: CoreUser, navigation: DartNavigation, cancel: Canc
 /// Normal return means the websocket handler was cancelled
 async fn run_websocket(
     core_user: &CoreUser,
-    navigation: &DartNavigation,
+    navigation_state: &watch::Receiver<NavigationState>,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
 ) -> anyhow::Result<()> {
@@ -278,14 +293,18 @@ async fn run_websocket(
             _ = cancel.cancelled() => return Ok(()),
         };
         match event {
-            Some(event) => handle_websocket_message(event, core_user, navigation).await,
+            Some(event) => handle_websocket_message(event, core_user, navigation_state).await,
             None => bail!("unexpected disconnect"),
         }
         backoff.reset(); // reset backoff after a successful message
     }
 }
 
-fn spawn_polling(core_user: CoreUser, navigation: DartNavigation, cancel: CancellationToken) {
+fn spawn_polling(
+    core_user: CoreUser,
+    navigation_state: watch::Receiver<NavigationState>,
+    cancel: CancellationToken,
+) {
     let user = User::from_core_user(core_user);
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
@@ -297,7 +316,7 @@ fn spawn_polling(core_user: CoreUser, navigation: DartNavigation, cancel: Cancel
             let mut timeout = POLLING_INTERVAL;
             match res {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(&navigation, fetched_messages).await;
+                    process_fetched_messages(&navigation_state, fetched_messages).await;
                     backoff.reset();
                 }
                 Err(error) => {
@@ -316,7 +335,7 @@ fn spawn_polling(core_user: CoreUser, navigation: DartNavigation, cancel: Cancel
 async fn handle_websocket_message(
     event: WsEvent,
     core_user: &CoreUser,
-    navigation: &DartNavigation,
+    navigation_state: &watch::Receiver<NavigationState>,
 ) {
     match event {
         WsEvent::ConnectedEvent => {
@@ -337,7 +356,7 @@ async fn handle_websocket_message(
             let user = User::from_core_user(core_user);
             match user.fetch_all_messages().await {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(navigation, fetched_messages).await;
+                    process_fetched_messages(navigation_state, fetched_messages).await;
                 }
                 Err(error) => {
                     error!(%error, "Failed to fetch messages on queue update");
@@ -347,8 +366,11 @@ async fn handle_websocket_message(
     }
 }
 
-async fn process_fetched_messages(navigation: &DartNavigation, fetched_messages: FetchedMessages) {
-    let current_conversation_id = navigation.current_conversation_id().await;
+async fn process_fetched_messages(
+    navigation_state: &watch::Receiver<NavigationState>,
+    fetched_messages: FetchedMessages,
+) {
+    let current_conversation_id = navigation_state.borrow().conversation_id();
     debug!(
         ?fetched_messages,
         ?current_conversation_id,

@@ -7,7 +7,7 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import 'navigation.dart';
+import 'navigation_cubit.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
 import 'types.dart';
@@ -38,7 +38,7 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   bool get isClosed;
 
   factory UserCubitBase(
-          {required User user, required DartNavigation navigation}) =>
+          {required User user, required NavigationCubitBase navigation}) =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseNew(
           user: user, navigation: navigation);
 

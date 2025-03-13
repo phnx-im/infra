@@ -12,7 +12,7 @@ import 'api/logging.dart';
 import 'api/markdown.dart';
 import 'api/message_cubit.dart';
 import 'api/message_list_cubit.dart';
-import 'api/navigation.dart';
+import 'api/navigation_cubit.dart';
 import 'api/types.dart';
 import 'api/user.dart';
 import 'api/user_cubit.dart';
@@ -82,7 +82,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.9.0';
 
   @override
-  int get rustContentHash => 1133068549;
+  int get rustContentHash => -1264916258;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -158,14 +158,6 @@ abstract class RustLibApi extends BaseApi {
       crateApiConversationListCubitConversationListCubitBaseStream(
           {required ConversationListCubitBase that});
 
-  Future<ConversationId?> crateApiNavigationDartNavigationCurrentConversationId(
-      {required DartNavigation that});
-
-  DartNavigation crateApiNavigationDartNavigationNew(
-      {required Object navigationCubit,
-      required FutureOr<ConversationId?> Function(Object)
-          currentConversationCallback});
-
   Future<void> crateApiLoggingLogWriterWriteLine(
       {required LogWriter that, required String message});
 
@@ -212,6 +204,56 @@ abstract class RustLibApi extends BaseApi {
       {required MessageListState that,
       required ConversationMessageId messageId});
 
+  Future<void> crateApiNavigationCubitNavigationCubitBaseClose(
+      {required NavigationCubitBase that});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseCloseConversation(
+      {required NavigationCubitBase that});
+
+  bool crateApiNavigationCubitNavigationCubitBaseIsClosed(
+      {required NavigationCubitBase that});
+
+  NavigationCubitBase crateApiNavigationCubitNavigationCubitBaseNew();
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenAddMembers(
+      {required NavigationCubitBase that});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenConversation(
+      {required NavigationCubitBase that,
+      required ConversationId conversationId});
+
+  Future<void>
+      crateApiNavigationCubitNavigationCubitBaseOpenConversationDetails(
+          {required NavigationCubitBase that});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenDeveloperSettings(
+      {required NavigationCubitBase that,
+      required DeveloperSettingsScreenType screen});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenHome(
+      {required NavigationCubitBase that});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenInto(
+      {required NavigationCubitBase that});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenIntroScreen(
+      {required NavigationCubitBase that, required IntroScreenType screen});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenMemberDetails(
+      {required NavigationCubitBase that, required String member});
+
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenUserSettings(
+      {required NavigationCubitBase that});
+
+  bool crateApiNavigationCubitNavigationCubitBasePop(
+      {required NavigationCubitBase that});
+
+  NavigationState crateApiNavigationCubitNavigationCubitBaseState(
+      {required NavigationCubitBase that});
+
+  Stream<NavigationState> crateApiNavigationCubitNavigationCubitBaseStream(
+      {required NavigationCubitBase that});
+
   String? crateApiUserCubitUiUserDisplayName({required UiUser that});
 
   ImageData? crateApiUserCubitUiUserProfilePicture({required UiUser that});
@@ -232,7 +274,7 @@ abstract class RustLibApi extends BaseApi {
   bool crateApiUserCubitUserCubitBaseIsClosed({required UserCubitBase that});
 
   UserCubitBase crateApiUserCubitUserCubitBaseNew(
-      {required User user, required DartNavigation navigation});
+      {required User user, required NavigationCubitBase navigation});
 
   Future<void> crateApiUserCubitUserCubitBaseRemoveUserFromConversation(
       {required UserCubitBase that,
@@ -299,6 +341,9 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUtilsDeleteDatabases({required String dbPath});
 
+  Future<HomeNavigationState>
+      crateApiNavigationCubitHomeNavigationStateDefault();
+
   String crateApiTypesImageDataComputeHash({required List<int> bytes});
 
   Future<void> crateApiInit();
@@ -313,6 +358,9 @@ abstract class RustLibApi extends BaseApi {
 
   MessageContent crateApiMarkdownMessageContentParseMarkdownRaw(
       {required List<int> string});
+
+  ConversationId? crateApiNavigationCubitNavigationStateConversationId(
+      {required NavigationState that});
 
   Future<String> crateApiLoggingReadAppLogs();
 
@@ -337,15 +385,6 @@ abstract class RustLibApi extends BaseApi {
 
   CrossPlatformFinalizerArg
       get rust_arc_decrement_strong_count_ConversationListCubitBasePtr;
-
-  RustArcIncrementStrongCountFnType
-      get rust_arc_increment_strong_count_DartNavigation;
-
-  RustArcDecrementStrongCountFnType
-      get rust_arc_decrement_strong_count_DartNavigation;
-
-  CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_DartNavigationPtr;
 
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_LogWriter;
@@ -381,6 +420,15 @@ abstract class RustLibApi extends BaseApi {
 
   CrossPlatformFinalizerArg
       get rust_arc_decrement_strong_count_MessageListStatePtr;
+
+  RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_NavigationCubitBase;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_NavigationCubitBase;
+
+  CrossPlatformFinalizerArg
+      get rust_arc_decrement_strong_count_NavigationCubitBasePtr;
 
   RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_UiUser;
 
@@ -906,65 +954,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
 
   @override
-  Future<ConversationId?> crateApiNavigationDartNavigationCurrentConversationId(
-      {required DartNavigation that}) {
-    return handler.executeNormal(NormalTask(
-      callFfi: (port_) {
-        final serializer = SseSerializer(generalizedFrbRustBinding);
-        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-            that, serializer);
-        pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 17, port: port_);
-      },
-      codec: SseCodec(
-        decodeSuccessData: sse_decode_opt_box_autoadd_conversation_id,
-        decodeErrorData: null,
-      ),
-      constMeta:
-          kCrateApiNavigationDartNavigationCurrentConversationIdConstMeta,
-      argValues: [that],
-      apiImpl: this,
-    ));
-  }
-
-  TaskConstMeta
-      get kCrateApiNavigationDartNavigationCurrentConversationIdConstMeta =>
-          const TaskConstMeta(
-            debugName: "DartNavigation_current_conversation_id",
-            argNames: ["that"],
-          );
-
-  @override
-  DartNavigation crateApiNavigationDartNavigationNew(
-      {required Object navigationCubit,
-      required FutureOr<ConversationId?> Function(Object)
-          currentConversationCallback}) {
-    return handler.executeSync(SyncTask(
-      callFfi: () {
-        final serializer = SseSerializer(generalizedFrbRustBinding);
-        sse_encode_DartOpaque(navigationCubit, serializer);
-        sse_encode_DartFn_Inputs_DartOpaque_Output_opt_box_autoadd_conversation_id_AnyhowException(
-            currentConversationCallback, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
-      },
-      codec: SseCodec(
-        decodeSuccessData:
-            sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation,
-        decodeErrorData: null,
-      ),
-      constMeta: kCrateApiNavigationDartNavigationNewConstMeta,
-      argValues: [navigationCubit, currentConversationCallback],
-      apiImpl: this,
-    ));
-  }
-
-  TaskConstMeta get kCrateApiNavigationDartNavigationNewConstMeta =>
-      const TaskConstMeta(
-        debugName: "DartNavigation_new",
-        argNames: ["navigationCubit", "currentConversationCallback"],
-      );
-
-  @override
   Future<void> crateApiLoggingLogWriterWriteLine(
       {required LogWriter that, required String message}) {
     return handler.executeNormal(NormalTask(
@@ -974,7 +963,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_String(message, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 19, port: port_);
+            funcId: 17, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1001,7 +990,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 20, port: port_);
+            funcId: 18, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1027,7 +1016,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1054,7 +1043,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             userCubit, serializer);
         sse_encode_box_autoadd_message_state(initialState, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1081,7 +1070,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_state,
@@ -1110,7 +1099,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_StreamSink_message_state_Sse(sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 24, port: port_);
+            funcId: 22, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1138,7 +1127,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 25, port: port_);
+            funcId: 23, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1165,7 +1154,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 24)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1194,7 +1183,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             userCubit, serializer);
         sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1221,7 +1210,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1253,7 +1242,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
             sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 29, port: port_);
+            funcId: 27, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1279,7 +1268,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 30, port: port_);
+            funcId: 28, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1306,7 +1295,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 29)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_CastedPrimitive_usize,
@@ -1335,7 +1324,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
             that, serializer);
         sse_encode_CastedPrimitive_usize(index, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 32)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_ui_conversation_message,
@@ -1364,7 +1353,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
             that, serializer);
         sse_encode_box_autoadd_conversation_message_id(messageId, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 33)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_CastedPrimitive_usize,
@@ -1385,13 +1374,469 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
 
   @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseClose(
+      {required NavigationCubitBase that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 32, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBaseCloseConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiNavigationCubitNavigationCubitBaseCloseConstMeta =>
+      const TaskConstMeta(
+        debugName: "NavigationCubitBase_close",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseCloseConversation(
+      {required NavigationCubitBase that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 33, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseCloseConversationConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseCloseConversationConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_close_conversation",
+            argNames: ["that"],
+          );
+
+  @override
+  bool crateApiNavigationCubitNavigationCubitBaseIsClosed(
+      {required NavigationCubitBase that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_bool,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBaseIsClosedConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseIsClosedConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_is_closed",
+            argNames: ["that"],
+          );
+
+  @override
+  NavigationCubitBase crateApiNavigationCubitNavigationCubitBaseNew() {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData:
+            sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBaseNewConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiNavigationCubitNavigationCubitBaseNewConstMeta =>
+      const TaskConstMeta(
+        debugName: "NavigationCubitBase_new",
+        argNames: [],
+      );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenAddMembers(
+      {required NavigationCubitBase that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 36, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseOpenAddMembersConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenAddMembersConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_add_members",
+            argNames: ["that"],
+          );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenConversation(
+      {required NavigationCubitBase that,
+      required ConversationId conversationId}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        sse_encode_box_autoadd_conversation_id(conversationId, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 37, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseOpenConversationConstMeta,
+      argValues: [that, conversationId],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenConversationConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_conversation",
+            argNames: ["that", "conversationId"],
+          );
+
+  @override
+  Future<void>
+      crateApiNavigationCubitNavigationCubitBaseOpenConversationDetails(
+          {required NavigationCubitBase that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 38, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseOpenConversationDetailsConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenConversationDetailsConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_conversation_details",
+            argNames: ["that"],
+          );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenDeveloperSettings(
+      {required NavigationCubitBase that,
+      required DeveloperSettingsScreenType screen}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        sse_encode_developer_settings_screen_type(screen, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 39, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseOpenDeveloperSettingsConstMeta,
+      argValues: [that, screen],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenDeveloperSettingsConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_developer_settings",
+            argNames: ["that", "screen"],
+          );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenHome(
+      {required NavigationCubitBase that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 40, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBaseOpenHomeConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenHomeConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_home",
+            argNames: ["that"],
+          );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenInto(
+      {required NavigationCubitBase that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 41, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBaseOpenIntoConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenIntoConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_into",
+            argNames: ["that"],
+          );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenIntroScreen(
+      {required NavigationCubitBase that, required IntroScreenType screen}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        sse_encode_intro_screen_type(screen, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 42, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseOpenIntroScreenConstMeta,
+      argValues: [that, screen],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenIntroScreenConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_intro_screen",
+            argNames: ["that", "screen"],
+          );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenMemberDetails(
+      {required NavigationCubitBase that, required String member}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        sse_encode_String(member, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 43, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseOpenMemberDetailsConstMeta,
+      argValues: [that, member],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenMemberDetailsConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_member_details",
+            argNames: ["that", "member"],
+          );
+
+  @override
+  Future<void> crateApiNavigationCubitNavigationCubitBaseOpenUserSettings(
+      {required NavigationCubitBase that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 44, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta:
+          kCrateApiNavigationCubitNavigationCubitBaseOpenUserSettingsConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseOpenUserSettingsConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_open_user_settings",
+            argNames: ["that"],
+          );
+
+  @override
+  bool crateApiNavigationCubitNavigationCubitBasePop(
+      {required NavigationCubitBase that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 45)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_bool,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBasePopConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiNavigationCubitNavigationCubitBasePopConstMeta =>
+      const TaskConstMeta(
+        debugName: "NavigationCubitBase_pop",
+        argNames: ["that"],
+      );
+
+  @override
+  NavigationState crateApiNavigationCubitNavigationCubitBaseState(
+      {required NavigationCubitBase that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 46)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_navigation_state,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBaseStateConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiNavigationCubitNavigationCubitBaseStateConstMeta =>
+      const TaskConstMeta(
+        debugName: "NavigationCubitBase_state",
+        argNames: ["that"],
+      );
+
+  @override
+  Stream<NavigationState> crateApiNavigationCubitNavigationCubitBaseStream(
+      {required NavigationCubitBase that}) {
+    final sink = RustStreamSink<NavigationState>();
+    unawaited(handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+            that, serializer);
+        sse_encode_StreamSink_navigation_state_Sse(sink, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 47, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationCubitBaseStreamConstMeta,
+      argValues: [that, sink],
+      apiImpl: this,
+    )));
+    return sink.stream;
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationCubitBaseStreamConstMeta =>
+          const TaskConstMeta(
+            debugName: "NavigationCubitBase_stream",
+            argNames: ["that", "sink"],
+          );
+
+  @override
   String? crateApiUserCubitUiUserDisplayName({required UiUser that}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 48)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_String,
@@ -1416,7 +1861,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 49)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_image_data,
@@ -1441,7 +1886,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 36)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 50)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -1472,7 +1917,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_box_autoadd_conversation_id(conversationId, serializer);
         sse_encode_String(userName, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 37, port: port_);
+            funcId: 51, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1500,7 +1945,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 38, port: port_);
+            funcId: 52, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1527,7 +1972,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 39, port: port_);
+            funcId: 53, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_ui_contact,
@@ -1552,7 +1997,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 40)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 54)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1572,15 +2017,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   UserCubitBase crateApiUserCubitUserCubitBaseNew(
-      {required User user, required DartNavigation navigation}) {
+      {required User user, required NavigationCubitBase navigation}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
             user, serializer);
-        sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             navigation, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 41)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 55)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1612,7 +2057,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_box_autoadd_conversation_id(conversationId, serializer);
         sse_encode_String(userName, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 42, port: port_);
+            funcId: 56, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1645,7 +2090,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_opt_String(displayName, serializer);
         sse_encode_opt_list_prim_u_8_strict(profilePicture, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 43, port: port_);
+            funcId: 57, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1670,7 +2115,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 44)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 58)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1701,7 +2146,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
             sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 45, port: port_);
+            funcId: 59, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1730,7 +2175,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_String(userName, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 46, port: port_);
+            funcId: 60, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_ui_user_profile,
@@ -1755,7 +2200,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 47)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 61)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_Uuid,
@@ -1780,7 +2225,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 48, port: port_);
+            funcId: 62, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_CastedPrimitive_usize,
@@ -1810,7 +2255,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_box_autoadd_ui_user_name(userName, serializer);
         sse_encode_Uuid(clientId, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 49, port: port_);
+            funcId: 63, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1836,7 +2281,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(dbPath, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 50, port: port_);
+            funcId: 64, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_ui_client_record,
@@ -1861,7 +2306,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(path, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 51, port: port_);
+            funcId: 65, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1900,7 +2345,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_opt_String(displayName, serializer);
         sse_encode_opt_list_prim_u_8_strict(profilePicture, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 52, port: port_);
+            funcId: 66, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1944,7 +2389,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_opt_box_autoadd_platform_push_token(pushToken, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 53, port: port_);
+            funcId: 67, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1969,7 +2414,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 54)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 68)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -1992,7 +2437,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 55, port: port_);
+            funcId: 69, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2017,7 +2462,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 56, port: port_);
+            funcId: 70, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2042,7 +2487,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 57, port: port_);
+            funcId: 71, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_conversation_details_state,
@@ -2069,7 +2514,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 58, port: port_);
+            funcId: 72, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_conversation_list_state,
@@ -2097,7 +2542,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_StreamSink_log_entry_Sse(s, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 59, port: port_);
+            funcId: 73, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2128,7 +2573,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(userName, serializer);
         sse_encode_Uuid(clientId, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 60, port: port_);
+            funcId: 74, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2153,7 +2598,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(dbPath, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 61, port: port_);
+            funcId: 75, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2172,12 +2617,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<HomeNavigationState>
+      crateApiNavigationCubitHomeNavigationStateDefault() {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 76, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_home_navigation_state,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitHomeNavigationStateDefaultConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitHomeNavigationStateDefaultConstMeta =>
+          const TaskConstMeta(
+            debugName: "home_navigation_state_default",
+            argNames: [],
+          );
+
+  @override
   String crateApiTypesImageDataComputeHash({required List<int> bytes}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_list_prim_u_8_loose(bytes, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 62)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 77)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2201,7 +2672,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 63, port: port_);
+            funcId: 78, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2224,7 +2695,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(logFile, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 64)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 79)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -2251,7 +2722,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(message, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 65, port: port_);
+            funcId: 80, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_content,
@@ -2277,7 +2748,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(string, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 66, port: port_);
+            funcId: 81, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_content,
@@ -2302,7 +2773,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_list_prim_u_8_loose(string, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 67)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 82)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_content,
@@ -2321,12 +2792,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  ConversationId? crateApiNavigationCubitNavigationStateConversationId(
+      {required NavigationState that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_box_autoadd_navigation_state(that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 83)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_opt_box_autoadd_conversation_id,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNavigationCubitNavigationStateConversationIdConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta
+      get kCrateApiNavigationCubitNavigationStateConversationIdConstMeta =>
+          const TaskConstMeta(
+            debugName: "navigation_state_conversation_id",
+            argNames: ["that"],
+          );
+
+  @override
   Future<String> crateApiLoggingReadAppLogs() {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 68, port: port_);
+            funcId: 84, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2350,7 +2847,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 69, port: port_);
+            funcId: 85, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -2375,7 +2872,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(cacheDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 70, port: port_);
+            funcId: 86, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -2392,39 +2889,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         argNames: ["cacheDir"],
       );
 
-  Future<void> Function(int, dynamic)
-      encode_DartFn_Inputs_DartOpaque_Output_opt_box_autoadd_conversation_id_AnyhowException(
-          FutureOr<ConversationId?> Function(Object) raw) {
-    return (callId, rawArg0) async {
-      final arg0 = dco_decode_DartOpaque(rawArg0);
-
-      Box<ConversationId?>? rawOutput;
-      Box<AnyhowException>? rawError;
-      try {
-        rawOutput = Box(await raw(arg0));
-      } catch (e, s) {
-        rawError = Box(AnyhowException("$e\n\n$s"));
-      }
-
-      final serializer = SseSerializer(generalizedFrbRustBinding);
-      assert((rawOutput != null) ^ (rawError != null));
-      if (rawOutput != null) {
-        serializer.buffer.putUint8(0);
-        sse_encode_opt_box_autoadd_conversation_id(rawOutput.value, serializer);
-      } else {
-        serializer.buffer.putUint8(1);
-        sse_encode_AnyhowException(rawError!.value, serializer);
-      }
-      final output = serializer.intoRaw();
-
-      generalizedFrbRustBinding.dartFnDeliverOutput(
-          callId: callId,
-          ptr: output.ptr,
-          rustVecLen: output.rustVecLen,
-          dataLen: output.dataLen);
-    };
-  }
-
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_ConversationDetailsCubitBase => wire
           .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase;
@@ -2440,14 +2904,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RustArcDecrementStrongCountFnType
       get rust_arc_decrement_strong_count_ConversationListCubitBase => wire
           .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase;
-
-  RustArcIncrementStrongCountFnType
-      get rust_arc_increment_strong_count_DartNavigation => wire
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation;
-
-  RustArcDecrementStrongCountFnType
-      get rust_arc_decrement_strong_count_DartNavigation => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation;
 
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_LogWriter => wire
@@ -2480,6 +2936,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RustArcDecrementStrongCountFnType
       get rust_arc_decrement_strong_count_MessageListState => wire
           .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState;
+
+  RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_NavigationCubitBase => wire
+          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_NavigationCubitBase => wire
+          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
 
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_UiUser => wire
@@ -2528,14 +2992,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  DartNavigation
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return DartNavigationImpl.frbInternalDcoDecode(raw as List<dynamic>);
-  }
-
-  @protected
   LogWriter
       dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           dynamic raw) {
@@ -2565,6 +3021,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return MessageListStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  NavigationCubitBase
+      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -2626,6 +3090,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NavigationCubitBase
+      dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   UserCubitBase
       dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
           dynamic raw) {
@@ -2649,14 +3121,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return ConversationListCubitBaseImpl.frbInternalDcoDecode(
         raw as List<dynamic>);
-  }
-
-  @protected
-  DartNavigation
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return DartNavigationImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -2689,6 +3153,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return MessageListStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  NavigationCubitBase
+      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -2729,20 +3201,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  FutureOr<ConversationId?> Function(Object)
-      dco_decode_DartFn_Inputs_DartOpaque_Output_opt_box_autoadd_conversation_id_AnyhowException(
-          dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    throw UnimplementedError('');
-  }
-
-  @protected
-  Object dco_decode_DartOpaque(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return decodeDartOpaque(raw, generalizedFrbRustBinding);
-  }
-
-  @protected
   ConversationDetailsCubitBase
       dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
           dynamic raw) {
@@ -2758,14 +3216,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return ConversationListCubitBaseImpl.frbInternalDcoDecode(
         raw as List<dynamic>);
-  }
-
-  @protected
-  DartNavigation
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return DartNavigationImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -2798,6 +3248,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return MessageListStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  NavigationCubitBase
+      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -2862,6 +3320,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   RustStreamSink<MessageState> dco_decode_StreamSink_message_state_Sse(
+      dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<NavigationState> dco_decode_StreamSink_navigation_state_Sse(
       dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     throw UnimplementedError();
@@ -2953,6 +3418,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DeveloperSettingsScreenType
+      dco_decode_box_autoadd_developer_settings_screen_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_developer_settings_screen_type(raw);
+  }
+
+  @protected
+  HomeNavigationState dco_decode_box_autoadd_home_navigation_state(
+      dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_home_navigation_state(raw);
+  }
+
+  @protected
   ImageData dco_decode_box_autoadd_image_data(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_image_data(raw);
@@ -2962,6 +3441,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MessageState dco_decode_box_autoadd_message_state(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_message_state(raw);
+  }
+
+  @protected
+  NavigationState dco_decode_box_autoadd_navigation_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_navigation_state(raw);
   }
 
   @protected
@@ -3073,6 +3558,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DeveloperSettingsScreenType dco_decode_developer_settings_screen_type(
+      dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return DeveloperSettingsScreenType.values[raw as int];
+  }
+
+  @protected
+  HomeNavigationState dco_decode_home_navigation_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return HomeNavigationState(
+      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[0]),
+      developerSettingsScreen:
+          dco_decode_opt_box_autoadd_developer_settings_screen_type(arr[1]),
+      memberDetails: dco_decode_opt_String(arr[2]),
+      userSettingsOpen: dco_decode_bool(arr[3]),
+      conversationDetailsOpen: dco_decode_bool(arr[4]),
+      addMembersOpen: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
   int dco_decode_i_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -3143,15 +3652,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PlatformInt64 dco_decode_isize(dynamic raw) {
+  IntroScreenType dco_decode_intro_screen_type(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dcoDecodeI64(raw);
+    return IntroScreenType.values[raw as int];
   }
 
   @protected
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<IntroScreenType> dco_decode_list_intro_screen_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_intro_screen_type).toList();
   }
 
   @protected
@@ -3268,6 +3783,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NavigationState dco_decode_navigation_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return NavigationState_Intro(
+          screens: dco_decode_list_intro_screen_type(raw[1]),
+        );
+      case 1:
+        return NavigationState_Home(
+          home: dco_decode_box_autoadd_home_navigation_state(raw[1]),
+        );
+      default:
+        throw Exception("unreachable");
+    }
+  }
+
+  @protected
   int? dco_decode_opt_CastedPrimitive_usize(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_CastedPrimitive_usize(raw);
@@ -3294,6 +3826,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ConversationId? dco_decode_opt_box_autoadd_conversation_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_conversation_id(raw);
+  }
+
+  @protected
+  DeveloperSettingsScreenType?
+      dco_decode_opt_box_autoadd_developer_settings_screen_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_developer_settings_screen_type(raw);
   }
 
   @protected
@@ -3682,15 +4223,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  DartNavigation
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return DartNavigationImpl.frbInternalSseDecode(
-        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
-  }
-
-  @protected
   LogWriter
       sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           SseDeserializer deserializer) {
@@ -3723,6 +4255,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return MessageListStateImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
+  NavigationCubitBase
+      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -3790,6 +4331,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NavigationCubitBase
+      sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
   UserCubitBase
       sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
           SseDeserializer deserializer) {
@@ -3813,15 +4363,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return ConversationListCubitBaseImpl.frbInternalSseDecode(
-        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
-  }
-
-  @protected
-  DartNavigation
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return DartNavigationImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -3858,6 +4399,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return MessageListStateImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
+  NavigationCubitBase
+      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -3903,13 +4453,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  Object sse_decode_DartOpaque(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_isize(deserializer);
-    return decodeDartOpaque(inner, generalizedFrbRustBinding);
-  }
-
-  @protected
   ConversationDetailsCubitBase
       sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
           SseDeserializer deserializer) {
@@ -3924,15 +4467,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return ConversationListCubitBaseImpl.frbInternalSseDecode(
-        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
-  }
-
-  @protected
-  DartNavigation
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return DartNavigationImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -3969,6 +4503,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return MessageListStateImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
+  NavigationCubitBase
+      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return NavigationCubitBaseImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -4040,6 +4583,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   RustStreamSink<MessageState> sse_decode_StreamSink_message_state_Sse(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
+  RustStreamSink<NavigationState> sse_decode_StreamSink_navigation_state_Sse(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     throw UnimplementedError('Unreachable ()');
@@ -4131,6 +4681,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DeveloperSettingsScreenType
+      sse_decode_box_autoadd_developer_settings_screen_type(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_developer_settings_screen_type(deserializer));
+  }
+
+  @protected
+  HomeNavigationState sse_decode_box_autoadd_home_navigation_state(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_home_navigation_state(deserializer));
+  }
+
+  @protected
   ImageData sse_decode_box_autoadd_image_data(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_image_data(deserializer));
@@ -4141,6 +4706,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_message_state(deserializer));
+  }
+
+  @protected
+  NavigationState sse_decode_box_autoadd_navigation_state(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_navigation_state(deserializer));
   }
 
   @protected
@@ -4248,6 +4820,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DeveloperSettingsScreenType sse_decode_developer_settings_screen_type(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return DeveloperSettingsScreenType.values[inner];
+  }
+
+  @protected
+  HomeNavigationState sse_decode_home_navigation_state(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_conversationId =
+        sse_decode_opt_box_autoadd_conversation_id(deserializer);
+    var var_developerSettingsScreen =
+        sse_decode_opt_box_autoadd_developer_settings_screen_type(deserializer);
+    var var_memberDetails = sse_decode_opt_String(deserializer);
+    var var_userSettingsOpen = sse_decode_bool(deserializer);
+    var var_conversationDetailsOpen = sse_decode_bool(deserializer);
+    var var_addMembersOpen = sse_decode_bool(deserializer);
+    return HomeNavigationState(
+        conversationId: var_conversationId,
+        developerSettingsScreen: var_developerSettingsScreen,
+        memberDetails: var_memberDetails,
+        userSettingsOpen: var_userSettingsOpen,
+        conversationDetailsOpen: var_conversationDetailsOpen,
+        addMembersOpen: var_addMembersOpen);
+  }
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
@@ -4307,9 +4908,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PlatformInt64 sse_decode_isize(SseDeserializer deserializer) {
+  IntroScreenType sse_decode_intro_screen_type(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getPlatformInt64();
+    var inner = sse_decode_i_32(deserializer);
+    return IntroScreenType.values[inner];
   }
 
   @protected
@@ -4320,6 +4922,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<IntroScreenType> sse_decode_list_intro_screen_type(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <IntroScreenType>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_intro_screen_type(deserializer));
     }
     return ans_;
   }
@@ -4475,6 +5090,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NavigationState sse_decode_navigation_state(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_screens = sse_decode_list_intro_screen_type(deserializer);
+        return NavigationState_Intro(screens: var_screens);
+      case 1:
+        var var_home =
+            sse_decode_box_autoadd_home_navigation_state(deserializer);
+        return NavigationState_Home(home: var_home);
+      default:
+        throw UnimplementedError('');
+    }
+  }
+
+  @protected
   int? sse_decode_opt_CastedPrimitive_usize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -4517,6 +5150,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_conversation_id(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  DeveloperSettingsScreenType?
+      sse_decode_opt_box_autoadd_developer_settings_screen_type(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_developer_settings_screen_type(
+          deserializer));
     } else {
       return null;
     }
@@ -4924,16 +5571,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          DartNavigation self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-        (self as DartNavigationImpl).frbInternalSseEncode(move: true),
-        serializer);
-  }
-
-  @protected
-  void
       sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           LogWriter self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -4968,6 +5605,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as MessageListStateImpl).frbInternalSseEncode(move: true),
+        serializer);
+  }
+
+  @protected
+  void
+      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          NavigationCubitBase self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: true),
         serializer);
   }
 
@@ -5043,6 +5690,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+      sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          NavigationCubitBase self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: false),
+        serializer);
+  }
+
+  @protected
+  void
       sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
           UserCubitBase self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -5070,16 +5727,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_usize(
         (self as ConversationListCubitBaseImpl)
             .frbInternalSseEncode(move: false),
-        serializer);
-  }
-
-  @protected
-  void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          DartNavigation self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-        (self as DartNavigationImpl).frbInternalSseEncode(move: false),
         serializer);
   }
 
@@ -5119,6 +5766,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as MessageListStateImpl).frbInternalSseEncode(move: false),
+        serializer);
+  }
+
+  @protected
+  void
+      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          NavigationCubitBase self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: false),
         serializer);
   }
 
@@ -5165,27 +5822,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
-      sse_encode_DartFn_Inputs_DartOpaque_Output_opt_box_autoadd_conversation_id_AnyhowException(
-          FutureOr<ConversationId?> Function(Object) self,
-          SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_DartOpaque(
-        encode_DartFn_Inputs_DartOpaque_Output_opt_box_autoadd_conversation_id_AnyhowException(
-            self),
-        serializer);
-  }
-
-  @protected
-  void sse_encode_DartOpaque(Object self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_isize(
-        PlatformPointerUtil.ptrToPlatformInt64(encodeDartOpaque(
-            self, portManager.dartHandlerPort, generalizedFrbRustBinding)),
-        serializer);
-  }
-
-  @protected
-  void
       sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
           ConversationDetailsCubitBase self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -5203,16 +5839,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_usize(
         (self as ConversationListCubitBaseImpl)
             .frbInternalSseEncode(move: null),
-        serializer);
-  }
-
-  @protected
-  void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNavigation(
-          DartNavigation self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-        (self as DartNavigationImpl).frbInternalSseEncode(move: null),
         serializer);
   }
 
@@ -5252,6 +5878,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as MessageListStateImpl).frbInternalSseEncode(move: null),
+        serializer);
+  }
+
+  @protected
+  void
+      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+          NavigationCubitBase self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: null),
         serializer);
   }
 
@@ -5366,6 +6002,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_StreamSink_navigation_state_Sse(
+      RustStreamSink<NavigationState> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+        self.setupAndSerialize(
+            codec: SseCodec(
+          decodeSuccessData: sse_decode_navigation_state,
+          decodeErrorData: sse_decode_AnyhowException,
+        )),
+        serializer);
+  }
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
@@ -5442,6 +6091,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_developer_settings_screen_type(
+      DeveloperSettingsScreenType self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_developer_settings_screen_type(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_home_navigation_state(
+      HomeNavigationState self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_home_navigation_state(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_image_data(
       ImageData self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -5453,6 +6116,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       MessageState self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_message_state(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_navigation_state(
+      NavigationState self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_navigation_state(self, serializer);
   }
 
   @protected
@@ -5556,6 +6226,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_developer_settings_screen_type(
+      DeveloperSettingsScreenType self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_home_navigation_state(
+      HomeNavigationState self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_conversation_id(self.conversationId, serializer);
+    sse_encode_opt_box_autoadd_developer_settings_screen_type(
+        self.developerSettingsScreen, serializer);
+    sse_encode_opt_String(self.memberDetails, serializer);
+    sse_encode_bool(self.userSettingsOpen, serializer);
+    sse_encode_bool(self.conversationDetailsOpen, serializer);
+    sse_encode_bool(self.addMembersOpen, serializer);
+  }
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
@@ -5610,9 +6300,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_isize(PlatformInt64 self, SseSerializer serializer) {
+  void sse_encode_intro_screen_type(
+      IntroScreenType self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putPlatformInt64(self);
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
@@ -5621,6 +6312,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_intro_screen_type(
+      List<IntroScreenType> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_intro_screen_type(item, serializer);
     }
   }
 
@@ -5751,6 +6452,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_navigation_state(
+      NavigationState self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case NavigationState_Intro(screens: final screens):
+        sse_encode_i_32(0, serializer);
+        sse_encode_list_intro_screen_type(screens, serializer);
+      case NavigationState_Home(home: final home):
+        sse_encode_i_32(1, serializer);
+        sse_encode_box_autoadd_home_navigation_state(home, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_CastedPrimitive_usize(
       int? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -5792,6 +6507,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_conversation_id(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_developer_settings_screen_type(
+      DeveloperSettingsScreenType? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_developer_settings_screen_type(self, serializer);
     }
   }
 
@@ -6239,32 +6965,6 @@ class ConversationListCubitBaseImpl extends RustOpaque
 }
 
 @sealed
-class DartNavigationImpl extends RustOpaque implements DartNavigation {
-  // Not to be used by end users
-  DartNavigationImpl.frbInternalDcoDecode(List<dynamic> wire)
-      : super.frbInternalDcoDecode(wire, _kStaticData);
-
-  // Not to be used by end users
-  DartNavigationImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
-      : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
-
-  static final _kStaticData = RustArcStaticData(
-    rustArcIncrementStrongCount:
-        RustLib.instance.api.rust_arc_increment_strong_count_DartNavigation,
-    rustArcDecrementStrongCount:
-        RustLib.instance.api.rust_arc_decrement_strong_count_DartNavigation,
-    rustArcDecrementStrongCountPtr:
-        RustLib.instance.api.rust_arc_decrement_strong_count_DartNavigationPtr,
-  );
-
-  /// Returns the conversation ID of the currently open conversation, if any.
-  Future<ConversationId?> currentConversationId() => RustLib.instance.api
-          .crateApiNavigationDartNavigationCurrentConversationId(
-        that: this,
-      );
-}
-
-@sealed
 class LogWriterImpl extends RustOpaque implements LogWriter {
   // Not to be used by end users
   LogWriterImpl.frbInternalDcoDecode(List<dynamic> wire)
@@ -6408,6 +7108,104 @@ class MessageListStateImpl extends RustOpaque implements MessageListState {
   int? messageIdIndex(ConversationMessageId messageId) => RustLib.instance.api
       .crateApiMessageListCubitMessageListStateMessageIdIndex(
           that: this, messageId: messageId);
+}
+
+@sealed
+class NavigationCubitBaseImpl extends RustOpaque
+    implements NavigationCubitBase {
+  // Not to be used by end users
+  NavigationCubitBaseImpl.frbInternalDcoDecode(List<dynamic> wire)
+      : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  NavigationCubitBaseImpl.frbInternalSseDecode(
+      BigInt ptr, int externalSizeOnNative)
+      : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount: RustLib
+        .instance.api.rust_arc_increment_strong_count_NavigationCubitBase,
+    rustArcDecrementStrongCount: RustLib
+        .instance.api.rust_arc_decrement_strong_count_NavigationCubitBase,
+    rustArcDecrementStrongCountPtr: RustLib
+        .instance.api.rust_arc_decrement_strong_count_NavigationCubitBasePtr,
+  );
+
+  Future<void> close() =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseClose(
+        that: this,
+      );
+
+  Future<void> closeConversation() => RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseCloseConversation(
+        that: this,
+      );
+
+  bool get isClosed =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseIsClosed(
+        that: this,
+      );
+
+  Future<void> openAddMembers() => RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseOpenAddMembers(
+        that: this,
+      );
+
+  Future<void> openConversation({required ConversationId conversationId}) =>
+      RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseOpenConversation(
+              that: this, conversationId: conversationId);
+
+  Future<void> openConversationDetails() => RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseOpenConversationDetails(
+        that: this,
+      );
+
+  Future<void> openDeveloperSettings(
+          {required DeveloperSettingsScreenType screen}) =>
+      RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseOpenDeveloperSettings(
+              that: this, screen: screen);
+
+  Future<void> openHome() =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseOpenHome(
+        that: this,
+      );
+
+  Future<void> openInto() =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseOpenInto(
+        that: this,
+      );
+
+  Future<void> openIntroScreen({required IntroScreenType screen}) =>
+      RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseOpenIntroScreen(
+              that: this, screen: screen);
+
+  Future<void> openMemberDetails({required String member}) =>
+      RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseOpenMemberDetails(
+              that: this, member: member);
+
+  Future<void> openUserSettings() => RustLib.instance.api
+          .crateApiNavigationCubitNavigationCubitBaseOpenUserSettings(
+        that: this,
+      );
+
+  bool pop() =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBasePop(
+        that: this,
+      );
+
+  NavigationState get state =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseState(
+        that: this,
+      );
+
+  Stream<NavigationState> stream() =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseStream(
+        that: this,
+      );
 }
 
 @sealed

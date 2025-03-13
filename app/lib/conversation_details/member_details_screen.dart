@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -19,11 +20,13 @@ class MemberDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final (conversationId, memberUsername) =
         context.select((NavigationCubit cubit) => switch (cubit.state) {
-              IntroNavigation(screens: final screens) =>
+              NavigationState_Intro(:final screens) =>
                 throw StateError("No member details for intro screen"),
-              HomeNavigation(
-                conversationId: final conversationId,
-                memberDetails: final memberId,
+              NavigationState_Home(
+                home: HomeNavigationState(
+                  conversationId: final conversationId,
+                  memberDetails: final memberId,
+                ),
               ) =>
                 (conversationId, memberId),
             });

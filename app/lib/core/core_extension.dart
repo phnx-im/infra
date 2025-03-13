@@ -5,7 +5,6 @@
 import 'dart:typed_data';
 
 import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation_cubit.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// Username of the conversation (for group it is the group title)
@@ -60,15 +59,4 @@ extension DeviceTokenExtension on PlatformPushToken {
 extension ImageDataExtension on Uint8List {
   ImageData toImageData() =>
       ImageData(data: this, hash: ImageData.computeHash(this));
-}
-
-extension DartNavigationExtension on DartNavigation {
-  static DartNavigation fromCubit(NavigationCubit navigationCubit) =>
-      DartNavigation(
-        navigationCubit: navigationCubit,
-        currentConversationCallback: (opaque) => switch (opaque) {
-          NavigationCubit navigation => navigation.state.conversationId,
-          _ => throw TypeError()
-        },
-      );
 }
