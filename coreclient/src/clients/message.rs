@@ -26,15 +26,15 @@ impl CoreUser {
         content: MimiContent,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = self
-            .with_transaction(async |connection| {
+            .with_transaction_and_notifier(async |connection, notifier| {
                 UnsentContent {
                     conversation_id,
                     content,
                 }
-                .store_unsent_message(connection, self.store_notifier(), &self.user_name())
+                .store_unsent_message(connection, notifier, &self.user_name())
                 .await?
                 .create_group_message(&PhnxOpenMlsProvider::new(connection))?
-                .store_group_update(connection, self.store_notifier())
+                .store_group_update(connection, notifier)
                 .await
             })
             .await?;
@@ -43,9 +43,9 @@ impl CoreUser {
             .send_message_to_ds(&self.inner.api_clients)
             .await?;
 
-        self.with_transaction(async |connection| {
+        self.with_transaction_and_notifier(async |connection, notifier| {
             sent_message
-                .mark_as_sent_and_read(connection, self.store_notifier())
+                .mark_as_sent_and_read(connection, notifier)
                 .await
         })
         .await
@@ -66,9 +66,9 @@ impl CoreUser {
             .send_message_to_ds(&self.inner.api_clients)
             .await?;
 
-        self.with_transaction(async |connection| {
+        self.with_transaction_and_notifier(async |connection, notifier| {
             sent_message
-                .mark_as_sent_and_read(connection, self.store_notifier())
+                .mark_as_sent_and_read(connection, notifier)
                 .await
         })
         .await?;
@@ -86,7 +86,7 @@ impl UnsentContent {
     async fn store_unsent_message(
         self,
         connection: &mut sqlx::SqliteConnection,
-        mut notifier: StoreNotifier,
+        notifier: &mut StoreNotifier,
         sender: &QualifiedUserName,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
         let UnsentContent {
@@ -105,16 +105,13 @@ impl UnsentContent {
             content.clone(),
         );
         conversation_message
-            .store(&mut *connection, &mut notifier)
+            .store(&mut *connection, notifier)
             .await?;
 
         let group_id = conversation.group_id();
         let group = Group::load(connection, group_id)
             .await?
             .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-
-        // Notify as early as possible to react to the not yet sent message
-        notifier.notify();
 
         Ok(UnsentMessage {
             conversation,
@@ -218,7 +215,7 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
     async fn store_group_update(
         self,
         connection: &mut sqlx::SqliteConnection,
-        mut notifier: StoreNotifier,
+        notifier: &mut StoreNotifier,
     ) -> anyhow::Result<UnsentMessage<WithParams, GroupUpdated>> {
         let Self {
             conversation,
@@ -234,12 +231,11 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
         // Also, mark the message (and all messages preceeding it) as read.
         Conversation::mark_as_read_until_message_id(
             connection,
-            &mut notifier,
+            notifier,
             conversation.id(),
             conversation_message.id(),
         )
         .await?;
-        notifier.notify();
 
         Ok(UnsentMessage {
             conversation,
@@ -282,7 +278,7 @@ impl SentMessage {
     async fn mark_as_sent_and_read(
         self,
         connection: &mut sqlx::SqliteConnection,
-        mut notifier: StoreNotifier,
+        notifier: &mut StoreNotifier,
     ) -> anyhow::Result<ConversationMessage> {
         let Self {
             mut conversation_message,
@@ -290,17 +286,15 @@ impl SentMessage {
         } = self;
 
         conversation_message
-            .mark_as_sent(connection, &mut notifier, ds_timestamp)
+            .mark_as_sent(connection, notifier, ds_timestamp)
             .await?;
         Conversation::mark_as_read_until_message_id(
             connection,
-            &mut notifier,
+            notifier,
             conversation_message.conversation_id(),
             conversation_message.id(),
         )
         .await?;
-
-        notifier.notify();
 
         Ok(conversation_message)
     }

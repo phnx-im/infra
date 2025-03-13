@@ -4,7 +4,9 @@
 
 //! User features
 
-use anyhow::{Context, Result};
+use std::cmp::Reverse;
+
+use anyhow::Result;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     Asset, UserProfile,
@@ -116,9 +118,7 @@ impl User {
     ) -> anyhow::Result<Self> {
         let user_name = user_name.to_string().parse()?;
         let as_client_id = AsClientId::new(user_name, client_id);
-        let user = CoreUser::load(as_client_id.clone(), &db_path)
-            .await?
-            .with_context(|| format!("Could not load user with client_id {as_client_id}"))?;
+        let user = CoreUser::load(as_client_id.clone(), &db_path).await?;
         Ok(Self { user: user.clone() })
     }
 
@@ -129,21 +129,28 @@ impl User {
     /// * the most recent user with finished registration, or if none
     /// * the most recent user, if any.
     pub async fn load_default(path: String) -> Result<Option<Self>> {
-        let finished_records = ClientRecord::load_all_from_phnx_db(&path)
-            .await?
-            .into_iter()
-            .filter(|record| matches!(record.client_record_state, ClientRecordState::Finished));
-        let Some(client_record) = finished_records.max_by_key(|record| {
+        let mut records = ClientRecord::load_all_from_phnx_db(&path).await?;
+        records.sort_unstable_by_key(|record| {
             let is_finished = matches!(record.client_record_state, ClientRecordState::Finished);
-            (is_finished, record.is_default, record.created_at)
-        }) else {
+            Reverse((record.is_default, is_finished, record.created_at))
+        });
+
+        let mut loaded_user = None;
+        for client_record in records {
+            let as_client_id = client_record.as_client_id;
+            match CoreUser::load(as_client_id.clone(), &path).await {
+                Ok(user) => {
+                    loaded_user = Some(user);
+                    break;
+                }
+                Err(error) => error!(%as_client_id, %error, "Failed to load user"),
+            };
+        }
+
+        let Some(user) = loaded_user else {
             return Ok(None);
         };
 
-        let as_client_id = client_record.as_client_id.clone();
-        let user = CoreUser::load(as_client_id.clone(), &path)
-            .await?
-            .with_context(|| format!("Could not load user with client_id {as_client_id}"))?;
         Ok(Some(Self { user }))
     }
 
