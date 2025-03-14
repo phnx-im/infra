@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use anyhow::bail;
+use enumset::EnumSet;
 use sqlx::{
     Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
     query, query_as,
@@ -74,7 +74,7 @@ struct SqlStoreNotification {
 }
 
 impl SqlStoreNotification {
-    fn into_entity_id_and_op(self) -> anyhow::Result<(StoreEntityId, StoreOperation)> {
+    fn into_entity_id_and_op(self) -> anyhow::Result<(StoreEntityId, EnumSet<StoreOperation>)> {
         let Self {
             entity_id,
             kind,
@@ -91,15 +91,16 @@ impl SqlStoreNotification {
                 StoreEntityId::Message(ConversationMessageId::new(Uuid::from_slice(&entity_id)?))
             }
         };
-        let op = if added {
-            StoreOperation::Add
-        } else if updated {
-            StoreOperation::Update
-        } else if removed {
-            StoreOperation::Remove
-        } else {
-            bail!("missing operation");
-        };
+        let mut op: EnumSet<StoreOperation> = Default::default();
+        if added {
+            op.insert(StoreOperation::Add);
+        }
+        if updated {
+            op.insert(StoreOperation::Update);
+        }
+        if removed {
+            op.insert(StoreOperation::Remove);
+        }
         Ok((entity_id, op))
     }
 }
@@ -112,9 +113,9 @@ impl StoreNotification {
         let mut transaction = connection.begin().await?;
         for (entity_id, operation) in &self.ops {
             let kind = entity_id.kind();
-            let added = operation == &StoreOperation::Add;
-            let updated = operation == &StoreOperation::Update;
-            let removed = operation == &StoreOperation::Remove;
+            let added = operation.contains(StoreOperation::Add);
+            let updated = operation.contains(StoreOperation::Update);
+            let removed = operation.contains(StoreOperation::Remove);
             query!(
                 "INSERT INTO store_notifications (entity_id, kind, added, updated, removed)
                 VALUES (?, ?, ?, ?, ?)",
@@ -165,6 +166,7 @@ impl StoreNotification {
 #[cfg(test)]
 mod tests {
     use sqlx::SqlitePool;
+    use uuid::Uuid;
 
     use crate::{ConversationId, ConversationMessageId};
 
@@ -174,20 +176,20 @@ mod tests {
     async fn queue_dequeue_notification(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notification = StoreNotification::default();
         notification.ops.insert(
-            StoreEntityId::User("alice@localhost".parse().unwrap()),
-            StoreOperation::Add,
+            StoreEntityId::User("alice@localhost".parse()?),
+            StoreOperation::Add.into(),
         );
         notification.ops.insert(
             StoreEntityId::Conversation(ConversationId {
-                uuid: uuid::Uuid::new_v4(),
+                uuid: Uuid::new_v4(),
             }),
-            StoreOperation::Update,
+            StoreOperation::Update.into(),
         );
         notification.ops.insert(
             StoreEntityId::Message(ConversationMessageId {
                 uuid: uuid::Uuid::new_v4(),
             }),
-            StoreOperation::Remove,
+            StoreOperation::Remove | StoreOperation::Update,
         );
 
         notification.enqueue(pool.acquire().await?.as_mut()).await?;

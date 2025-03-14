@@ -10,7 +10,7 @@ use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     Conversation,
     clients::CoreUser,
-    store::{Store, StoreEntityId, StoreOperation},
+    store::{Store, StoreEntityId},
 };
 use phnxcoreclient::{ConversationId, store::StoreNotification};
 use tokio::sync::watch;
@@ -161,14 +161,10 @@ where
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
-        let any_conversation_changed = notification.ops.iter().any(|(id, op)| {
-            matches!(
-                (id, op),
-                (StoreEntityId::Conversation(_), StoreOperation::Add)
-                    | (StoreEntityId::Conversation(_), StoreOperation::Remove)
-                    | (StoreEntityId::Conversation(_), StoreOperation::Update)
-            )
-        });
+        let any_conversation_changed = notification
+            .ops
+            .iter()
+            .any(|(id, op)| matches!(id, StoreEntityId::Conversation(_) if !op.is_empty()));
         if any_conversation_changed {
             // TODO(perf): This is a very coarse-grained approach. Optimally, we would only load
             // changed and new conversations, and replace them individually in the `state`.

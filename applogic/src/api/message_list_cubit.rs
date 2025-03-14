@@ -245,15 +245,17 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         &self,
         notification: &StoreNotification,
     ) -> anyhow::Result<()> {
-        for item in notification.ops.iter() {
-            if let (StoreEntityId::Message(message_id), StoreOperation::Add) = item {
-                if let Some(message) = self.store.message(*message_id).await? {
-                    if message.conversation_id() == self.conversation_id {
-                        self.notify_neghbors_of_added_message(message);
-                        self.load_and_emit_state().await;
-                    }
-                    return Ok(());
-                };
+        for (id, op) in &notification.ops {
+            if let StoreEntityId::Message(message_id) = id {
+                if op.contains(StoreOperation::Add) {
+                    if let Some(message) = self.store.message(*message_id).await? {
+                        if message.conversation_id() == self.conversation_id {
+                            self.notify_neghbors_of_added_message(message);
+                            self.load_and_emit_state().await;
+                        }
+                        return Ok(());
+                    };
+                }
             }
         }
         Ok(())
@@ -275,14 +277,16 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
                 let next_message = messages.get(idx);
                 let mut notification = StoreNotification::default();
                 if let Some(message) = prev_message {
-                    notification
-                        .ops
-                        .insert(StoreEntityId::Message(message.id), StoreOperation::Update);
+                    notification.ops.insert(
+                        StoreEntityId::Message(message.id),
+                        StoreOperation::Update.into(),
+                    );
                 }
                 if let Some(message) = next_message {
-                    notification
-                        .ops
-                        .insert(StoreEntityId::Message(message.id), StoreOperation::Update);
+                    notification.ops.insert(
+                        StoreEntityId::Message(message.id),
+                        StoreOperation::Update.into(),
+                    );
                 }
                 self.store.notify(notification);
             }
