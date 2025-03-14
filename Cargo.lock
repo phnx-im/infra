@@ -3400,6 +3400,7 @@ dependencies = [
  "blake3",
  "bytes",
  "chrono",
+ "derive_more",
  "flate2",
  "flutter_rust_bridge",
  "jni",

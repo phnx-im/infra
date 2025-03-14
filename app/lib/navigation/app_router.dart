@@ -13,6 +13,7 @@ import 'package:prototype/intro_screen.dart';
 import 'package:prototype/registration/registration.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
+import 'package:prototype/core/core.dart';
 
 import 'navigation_cubit.dart';
 
@@ -66,11 +67,16 @@ class AppRouterDelegate extends RouterDelegate<EmptyConfig> {
 
     // routing
     final List<MaterialPage> pages = switch (navigationState) {
-      IntroNavigation(screens: final screensStack) => [
-          for (final screenType in screensStack)
+      NavigationState_Intro(:final screens) => [
+          if (screens.isEmpty)
+            MaterialPage(
+              key: IntroScreenType.intro.key,
+              child: IntroScreenType.intro.screen,
+            ),
+          for (final screenType in screens)
             MaterialPage(key: screenType.key, child: screenType.screen),
         ],
-      HomeNavigation home => home.pages(screenType),
+      NavigationState_Home(:final home) => home.pages(screenType),
     };
 
     _log.finer(
@@ -154,7 +160,7 @@ extension on IntroScreenType {
 }
 
 /// Convert [HomeNavigation] state into a list of pages.
-extension on HomeNavigation {
+extension on HomeNavigationState {
   List<MaterialPage> pages(ResponsiveScreenType screenType) {
     const homeScreenPage = MaterialPage(
       key: ValueKey("home-screen"),

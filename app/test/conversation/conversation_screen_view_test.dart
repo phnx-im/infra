@@ -104,8 +104,8 @@ void main() {
     });
 
     testWidgets('renders correctly', (tester) async {
-      when(() => navigationCubit.state)
-          .thenReturn(NavigationState.home(conversationId: conversation.id));
+      when(() => navigationCubit.state).thenReturn(NavigationState.home(
+          home: HomeNavigationState(conversationId: conversation.id)));
       when(() => messageListCubit.state)
           .thenReturn(MockMessageListState(messages));
 
