@@ -29,7 +29,7 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 tokio-util = { workspace = true }
 image = "0.25.1"
 kamadak-exif = "0.6.1"
-derive_more = { version = "0.99.18", features = ["from"] }
+derive_more = { workspace = true }
 mimi_content = { workspace = true }
 
 # Persistence

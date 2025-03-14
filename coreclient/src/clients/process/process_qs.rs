@@ -204,10 +204,10 @@ impl CoreUser {
         };
 
         // MLSMessage Phase 3: Store the updated group and the messages.
-        self.with_transaction(async |connection| {
+        self.with_transaction_and_notifier(async |connection, notifier| {
             group.store_update(&mut *connection).await?;
             let conversation_messages = self
-                .store_messages(connection, conversation_id, group_messages)
+                .store_messages(connection, notifier, conversation_id, group_messages)
                 .await?;
             Ok(match (conversation_messages, conversation_changed) {
                 (messages, true) => {

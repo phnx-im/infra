@@ -60,3 +60,10 @@ extension ImageDataExtension on Uint8List {
   ImageData toImageData() =>
       ImageData(data: this, hash: ImageData.computeHash(this));
 }
+
+extension NavigationStateExtension on NavigationState {
+  ConversationId? get conversationId => switch (this) {
+        NavigationState_Intro() => null,
+        NavigationState_Home(:final home) => home.conversationId,
+      };
+}

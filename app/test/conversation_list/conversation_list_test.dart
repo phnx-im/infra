@@ -71,8 +71,8 @@ void main() {
     });
 
     testWidgets('renders correctly', (tester) async {
-      when(() => navigationCubit.state).thenReturn(
-          NavigationState.home(conversationId: conversations[1].id));
+      when(() => navigationCubit.state).thenReturn(NavigationState.home(
+          home: HomeNavigationState(conversationId: conversations[1].id)));
       when(() => conversationListCubit.state).thenReturn(
         ConversationListState(
           conversations: List.generate(

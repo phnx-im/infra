@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::BTreeMap;
+
 use anyhow::Result;
 use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
 
@@ -9,7 +11,7 @@ use crate::{api::user::User, notifications::LocalNotificationContent};
 
 #[derive(Debug, Default)]
 pub(crate) struct FetchedMessages {
-    pub(crate) notifications_content: Vec<LocalNotificationContent>,
+    pub(crate) notifications_content: BTreeMap<ConversationId, Vec<LocalNotificationContent>>,
 }
 
 impl User {
@@ -37,14 +39,12 @@ impl User {
 
     /// Fetch both AS and QS messages
     pub(crate) async fn fetch_all_messages(&self) -> Result<FetchedMessages> {
-        let mut notifications = Vec::new();
+        let mut notifications = BTreeMap::new();
 
         // Fetch AS connection requests
         let new_connections = self.fetch_as_messages().await?;
-        notifications.extend(
-            self.new_connection_request_notifications(&new_connections)
-                .await,
-        );
+        self.new_connection_request_notifications(&new_connections, &mut notifications)
+            .await;
 
         // Fetch QS messages
         let ProcessedQsMessages {
@@ -52,12 +52,10 @@ impl User {
             changed_conversations: _,
             new_messages,
         } = self.fetch_qs_messages().await?;
-
-        notifications.extend(
-            self.new_conversation_notifications(&new_conversations)
-                .await,
-        );
-        notifications.extend(self.new_message_notifications(&new_messages).await);
+        self.new_conversation_notifications(&new_conversations, &mut notifications)
+            .await;
+        self.new_message_notifications(&new_messages, &mut notifications)
+            .await;
 
         Ok(FetchedMessages {
             notifications_content: notifications,
