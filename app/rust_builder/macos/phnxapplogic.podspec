@@ -34,11 +34,11 @@ A new Flutter FFI plugin project.
     # Let XCode know that the static library referenced in -force_load below is
     # created by this build step.
     :output_files => ["${BUILT_PRODUCTS_DIR}/libphnxapplogic.a"],
-  }
+  }		
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     # Flutter.framework does not contain a i386 slice.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libphnxapplogic.a -framework SystemConfiguration',
+    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libphnxapplogic.a -framework SystemConfiguration -L$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)',
   }
 end

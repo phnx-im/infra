@@ -16,8 +16,10 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
-use crate::StreamSink;
-use crate::util::{Cubit, CubitCore, spawn_from_sync};
+use crate::{
+    StreamSink,
+    util::{Cubit, CubitCore, spawn_from_sync},
+};
 
 use super::{
     conversation_list_cubit::converation_into_ui_details,

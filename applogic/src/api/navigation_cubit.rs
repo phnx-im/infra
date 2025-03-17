@@ -7,10 +7,12 @@ use std::mem;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::ConversationId;
 use tokio::sync::watch;
+use tracing::info;
 
 use crate::{
     StreamSink,
-    util::{Cubit, CubitCore},
+    notifications::NotificationId,
+    util::{Cubit, CubitCore, spawn_from_sync},
 };
 
 /// State of the global App navigation
@@ -161,6 +163,24 @@ impl NavigationCubitBase {
                 home.conversation_id.replace(conversation_id) != Some(conversation_id)
             }
         });
+    }
+
+    pub async fn open_conversation_with_cleared_notifications(
+        &self,
+        conversation_id: ConversationId,
+    ) {
+        self.open_conversation(conversation_id);
+
+        let mut pending = notifications::delivered().await;
+        pending.retain(|s| {
+            let id = s.parse::<NotificationId>();
+            if let Ok(id) = id {
+                id.belongs_to(conversation_id)
+            } else {
+                false
+            }
+        });
+        notifications::remove(&pending);
     }
 
     pub fn close_conversation(&self) {

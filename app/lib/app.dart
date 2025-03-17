@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -31,16 +32,30 @@ class App extends StatefulWidget {
 class _AppState extends State<App> with WidgetsBindingObserver {
   final CoreClient _coreClient = CoreClient();
 
+  final StreamController<ConversationId> _openedNotificationController =
+      StreamController<ConversationId>();
+  late final StreamSubscription<ConversationId> _openedNotificationSubscription;
+  final NavigationCubit _navigationCubit = NavigationCubit();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    initMethodChannel(_openedNotificationController.sink);
+    _openedNotificationSubscription =
+        _openedNotificationController.stream.listen((conversationId) {
+      _navigationCubit.openConversationWithClearedNotifications(conversationId);
+    });
+
     _requestMobileNotifications();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _openedNotificationSubscription.cancel();
+    _openedNotificationController.close();
     super.dispose();
   }
 
@@ -70,7 +85,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     return MultiBlocProvider(
       providers: [
         Provider.value(value: _coreClient),
-        BlocProvider<NavigationCubit>(create: (context) => NavigationCubit()),
+        BlocProvider<NavigationCubit>.value(value: _navigationCubit),
         BlocProvider<RegistrationCubit>(
             create: (context) => RegistrationCubit(coreClient: _coreClient)),
         BlocProvider<LoadableUserCubit>(
@@ -127,9 +142,6 @@ bool _isUserLoadedOrUnloaded(LoadableUser previous, LoadableUser current) =>
 void _requestMobileNotifications() async {
   // Mobile initialization
   if (Platform.isAndroid || Platform.isIOS) {
-    // Initialize the method channel
-    initMethodChannel();
-
     // Ask for notification permission
     var status = await Permission.notification.status;
     switch (status) {

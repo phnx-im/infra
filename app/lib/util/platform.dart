@@ -2,19 +2,26 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
+import 'package:prototype/core/core.dart';
 
 const platform = MethodChannel('im.phnx.prototype/channel');
 
 final _log = Logger('Platform');
 
-void initMethodChannel() {
-  platform.setMethodCallHandler(_handleMethod);
+void initMethodChannel(StreamSink<ConversationId> openedNotificationSink) {
+  platform.setMethodCallHandler(
+      (call) => _handleMethod(call, openedNotificationSink));
 }
 
-Future<void> _handleMethod(MethodCall call) async {
+Future<void> _handleMethod(
+  MethodCall call,
+  StreamSink<ConversationId> openedNotificationSink,
+) async {
+  _log.info('Handling method call: ${call.method}');
   switch (call.method) {
     case 'receivedNotification':
       // Handle notification data
@@ -24,9 +31,15 @@ Future<void> _handleMethod(MethodCall call) async {
       break;
     case 'openedNotification':
       // Handle notification opened
-      final String data = call.arguments["customData"];
-      _log.info('Notification opened: $data');
-      // Do something with the data
+      final String? identifier = call.arguments["identifier"];
+      _log.info('Notification opened: id = $identifier');
+      if (identifier != null) {
+        final conversationId =
+            conversationIdFromNotificationIdentifier(identifier);
+        if (conversationId != null) {
+          openedNotificationSink.add(conversationId);
+        }
+      }
       break;
     default:
       _log.severe('Unknown method called: ${call.method}');

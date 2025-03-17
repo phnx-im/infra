@@ -34,11 +34,4 @@ pub mod utils;
 ///
 /// Note: Logging has to be initialized separately, see [`logging::init_rust_logging`].
 #[frb(init)]
-pub fn init() {
-    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    {
-        if let Err(error) = crate::notifications::init_desktop_os_notifications() {
-            tracing::error!(%error, "Failed to initialize desktop notifications");
-        }
-    }
-}
+pub fn init() {}

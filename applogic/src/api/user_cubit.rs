@@ -20,6 +20,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     StreamSink,
+    notifications::show_notifications,
     util::{FibonacciBackoff, spawn_from_sync},
 };
 use crate::{
@@ -368,7 +369,7 @@ async fn handle_websocket_message(
 
 async fn process_fetched_messages(
     navigation_state: &watch::Receiver<NavigationState>,
-    fetched_messages: FetchedMessages,
+    mut fetched_messages: FetchedMessages,
 ) {
     let current_conversation_id = navigation_state.borrow().conversation_id();
     debug!(
@@ -377,21 +378,13 @@ async fn process_fetched_messages(
         "process_fetched_messages"
     );
 
-    // Send a notification to the OS (desktop only)
-    //
     // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
     // we delegate it to a different place.
-    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    {
-        let mut fetched_messages = fetched_messages;
-        if let Some(current_conversation_id) = current_conversation_id {
-            // Remove the notifications for the current conversation
-            fetched_messages
-                .notifications_content
-                .remove(&current_conversation_id);
-        }
-        crate::notifications::show_desktop_notifications(
-            fetched_messages.notifications_content.values().flatten(),
-        );
+    if let Some(current_conversation_id) = current_conversation_id {
+        // Remove the notifications for the current conversation
+        fetched_messages
+            .notifications_content
+            .remove(&current_conversation_id);
     }
+    show_notifications(fetched_messages.notifications_content);
 }

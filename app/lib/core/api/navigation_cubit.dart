@@ -33,6 +33,9 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   Future<void> openConversationDetails();
 
+  Future<void> openConversationWithClearedNotifications(
+      {required ConversationId conversationId});
+
   Future<void> openDeveloperSettings(
       {required DeveloperSettingsScreenType screen});
 
