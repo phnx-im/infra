@@ -27,26 +27,41 @@ class TextMessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userName = context.select((UserCubit cubit) => cubit.state.userName);
-
     final isSender = contentMessage.sender == userName;
 
     return Column(
       children: [
-        if (!isSender && flightPosition.isFirst) _sender(context, false),
-        _messageSpace(
-          context,
+        if (!isSender && flightPosition.isFirst)
+          _Sender(
+            sender: contentMessage.sender,
+            isSender: false,
+          ),
+        _MessageView(
+          contentMessage: contentMessage,
+          timestamp: timestamp,
           isSender: isSender,
           flightPosition: flightPosition,
         ),
       ],
     );
   }
+}
 
-  Widget _messageSpace(
-    BuildContext context, {
-    required bool isSender,
-    required UiFlightPosition flightPosition,
-  }) {
+class _MessageView extends StatelessWidget {
+  const _MessageView({
+    required this.contentMessage,
+    required this.timestamp,
+    required this.flightPosition,
+    required this.isSender,
+  });
+
+  final UiContentMessage contentMessage;
+  final String timestamp;
+  final UiFlightPosition flightPosition;
+  final bool isSender;
+
+  @override
+  Widget build(BuildContext context) {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox.shrink());
 
@@ -65,10 +80,13 @@ class TextMessageTile extends StatelessWidget {
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _textMessage(context, contentMessage.content.content, isSender),
+                _TextMessage(
+                  blockElements: contentMessage.content.content.content,
+                  isSender: isSender,
+                ),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 3),
-                  _timestamp(context),
+                  _Timestamp(timestamp),
                 ],
               ],
             ),
@@ -78,30 +96,20 @@ class TextMessageTile extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _sender(BuildContext context, bool isSender) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          FutureUserAvatar(
-            profile: () =>
-                context.read<UserCubit>().userProfile(contentMessage.sender),
-          ),
-          const SizedBox(width: 10),
-          _username(isSender),
-        ],
-      ),
-    );
-  }
+class _Timestamp extends StatelessWidget {
+  const _Timestamp(this.timestamp);
 
-  Widget _timestamp(BuildContext context) {
+  final String timestamp;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 7.0),
       child: SelectionContainer.disabled(
         child: Text(
-          timeString(timestamp),
+          _calcTimeString(timestamp),
           style: TextStyle(
             color: colorGreyDark,
             fontSize: isLargeScreen(context) ? 10 : 11,
@@ -111,23 +119,33 @@ class TextMessageTile extends StatelessWidget {
       ),
     );
   }
+}
 
-  String timeString(String time) {
-    final t = DateTime.parse(time);
-    // If the elapsed time is less than 60 seconds, show "now"
-    if (DateTime.now().difference(t).inSeconds < 60) {
-      return 'Now';
-    }
-    // If the elapsed time is less than 60 minutes, show the elapsed minutes
-    if (DateTime.now().difference(t).inMinutes < 60) {
-      return '${DateTime.now().difference(t).inMinutes}m ago';
-    }
-    // Otherwise show the time
-    return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+String _calcTimeString(String time) {
+  final t = DateTime.parse(time);
+  // If the elapsed time is less than 60 seconds, show "now"
+  if (DateTime.now().difference(t).inSeconds < 60) {
+    return 'Now';
   }
+  // If the elapsed time is less than 60 minutes, show the elapsed minutes
+  if (DateTime.now().difference(t).inMinutes < 60) {
+    return '${DateTime.now().difference(t).inMinutes}m ago';
+  }
+  // Otherwise show the time
+  return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+}
 
-  Widget _textMessage(
-      BuildContext context, MessageContent messageContent, bool isSender) {
+class _TextMessage extends StatelessWidget {
+  const _TextMessage({
+    required this.blockElements,
+    required this.isSender,
+  });
+
+  final List<RangedBlockElement> blockElements;
+  final bool isSender;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.0),
       child: Container(
@@ -149,7 +167,7 @@ class TextMessageTile extends StatelessWidget {
             style: messageTextStyle(context, isSender),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: messageContent.content
+              children: blockElements
                   .map((inner) => buildBlockElement(inner.element, isSender))
                   .toList(),
             ),
@@ -158,11 +176,52 @@ class TextMessageTile extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _username(bool isSender) {
+class _Sender extends StatelessWidget {
+  const _Sender({
+    required this.sender,
+    required this.isSender,
+  });
+
+  final String sender;
+  final bool isSender;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          FutureUserAvatar(
+            profile: () => context.read<UserCubit>().userProfile(sender),
+          ),
+          const SizedBox(width: 10),
+          _Username(
+            sender: sender,
+            isSender: isSender,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Username extends StatelessWidget {
+  const _Username({
+    required this.sender,
+    required this.isSender,
+  });
+
+  final String sender;
+  final bool isSender;
+
+  @override
+  Widget build(BuildContext context) {
     return SelectionContainer.disabled(
       child: Text(
-        isSender ? "You" : contentMessage.sender.split("@").firstOrNull ?? "",
+        isSender ? "You" : sender.split("@").firstOrNull ?? "",
         style: const TextStyle(
           color: colorDMB,
           fontSize: 12,
