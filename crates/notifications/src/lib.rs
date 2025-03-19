@@ -1,5 +1,10 @@
+// #[cfg(target_os = "android")]
+mod kotlin;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod swift;
+
+// #[cfg(target_os = "android")]
+pub use kotlin::register_java_vm;
 
 pub struct Notification {
     pub identifier: String,
@@ -7,6 +12,7 @@ pub struct Notification {
     pub body: String,
 }
 
+#[allow(unused_variables)]
 pub fn send(notification: Notification) {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     swift::send_notification(
@@ -14,11 +20,30 @@ pub fn send(notification: Notification) {
         &notification.title,
         &notification.body,
     );
+    #[cfg(target_os = "android")]
+    {
+        kotlin::send_notification(
+            &notification.identifier,
+            &notification.title,
+            &notification.body,
+        );
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+    {
+        tracing::error!("send is not implemented for this platform");
+    }
 }
 
+#[allow(unused_variables)]
 pub fn remove(identifiers: &[impl AsRef<str>]) {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     swift::remove_notifications(identifiers);
+    #[cfg(target_os = "android")]
+    kotlin::remove_notifications(identifiers);
+    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+    {
+        tracing::error!("remove is not implemented for this platform");
+    }
 }
 
 pub async fn delivered() -> Vec<String> {
@@ -31,8 +56,13 @@ pub async fn delivered() -> Vec<String> {
         }
         identifiers
     }
-    #[cfg(any(target_os = "android", target_os = "linux", target_os = "windows"))]
+    #[cfg(target_os = "android")]
     {
+        kotlin::active_notifications()
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+    {
+        tracing::error!("delived is not implemented for this platform");
         Vec::new()
     }
 }

@@ -7,12 +7,11 @@ use std::mem;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::ConversationId;
 use tokio::sync::watch;
-use tracing::info;
 
 use crate::{
     StreamSink,
     notifications::NotificationId,
-    util::{Cubit, CubitCore, spawn_from_sync},
+    util::{Cubit, CubitCore},
 };
 
 /// State of the global App navigation

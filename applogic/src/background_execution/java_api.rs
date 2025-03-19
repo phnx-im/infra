@@ -4,13 +4,18 @@
 
 use jni::{
     JNIEnv,
-    objects::{JClass, JString},
+    objects::{JClass, JObject, JString},
     sys::jstring,
 };
 
 use crate::{background_execution::processing::retrieve_messages_sync, logging::init_logger};
 
 use super::IncomingNotificationContent;
+
+#[unsafe(export_name = "Java_im_phnx_prototype_NativeLib_registerJavaVm")]
+pub extern "C" fn register_java_vm(env: JNIEnv, _class: JClass, jni_notifications_class: JObject) {
+    notifications::register_java_vm(env, jni_notifications_class);
+}
 
 /// This methos gets called from the Android Messaging Service
 #[unsafe(export_name = "Java_im_phnx_prototype_NativeLib_process_1new_1messages")]
