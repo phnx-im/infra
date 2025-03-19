@@ -224,7 +224,7 @@ class _LastMessage extends StatelessWidget {
       fontSize: isSmallScreen(context) ? 14 : 13,
       height: 1.2,
     ).merge(VariableFontWeight.normal);
-    final unreadStyle = readStyle.merge(VariableFontWeight.semiBold);
+    final unreadStyle = readStyle.merge(VariableFontWeight.medium);
 
     final contentStyle = conversation.id != currentConversationId &&
             conversation.unreadMessages > 0
