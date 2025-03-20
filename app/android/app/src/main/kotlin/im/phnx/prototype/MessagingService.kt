@@ -32,7 +32,7 @@ class BackgroundFirebaseMessagingService : FirebaseMessagingService() {
             body = "",
             data = data["data"] ?: "",
             path = filesDir.absolutePath,
-            logFilePath = cacheDir.resolve(" s.log").absolutePath,
+            logFilePath = cacheDir.resolve("background.log").absolutePath,
         )
 
         Log.d(LOGTAG, "Starting to process messages in Rust")
