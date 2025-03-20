@@ -5,8 +5,10 @@
 use std::sync::Arc;
 
 use flutter_rust_bridge::{DartFnFuture, frb};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotificationContent {
     pub identifier: String,
     pub title: String,
