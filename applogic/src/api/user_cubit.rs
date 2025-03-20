@@ -17,10 +17,11 @@ use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::{RwLock, watch};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 use crate::{
     StreamSink,
-    notifications::show_notifications,
+    api::notifications::NotificationContent,
     util::{FibonacciBackoff, spawn_from_sync},
 };
 use crate::{
@@ -30,6 +31,7 @@ use crate::{
 
 use super::{
     navigation_cubit::{NavigationCubitBase, NavigationState},
+    notifications::NotificationService,
     types::ImageData,
     user::User,
 };
@@ -128,10 +130,21 @@ impl UserCubitBase {
         UiUser::spawn_load(state.clone(), core_user.clone());
 
         let navigation_state = navigation.subscribe();
+        let notification_service = navigation.notification_service.clone();
 
         let cancel = CancellationToken::new();
-        spawn_websocket(core_user.clone(), navigation_state.clone(), cancel.clone());
-        spawn_polling(core_user.clone(), navigation_state, cancel.clone());
+        spawn_websocket(
+            core_user.clone(),
+            navigation_state.clone(),
+            notification_service.clone(),
+            cancel.clone(),
+        );
+        spawn_polling(
+            core_user.clone(),
+            navigation_state,
+            notification_service.clone(),
+            cancel.clone(),
+        );
 
         Self {
             state,
@@ -251,6 +264,7 @@ impl UserCubitBase {
 fn spawn_websocket(
     core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
+    notification_service: NotificationService,
     cancel: CancellationToken,
 ) {
     spawn_from_sync(async move {
@@ -259,6 +273,7 @@ fn spawn_websocket(
         while let Err(error) = run_websocket(
             &core_user,
             &navigation_state,
+            &notification_service,
             &websocket_cancel,
             &mut backoff,
         )
@@ -278,6 +293,7 @@ fn spawn_websocket(
 async fn run_websocket(
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
+    notification_service: &NotificationService,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
 ) -> anyhow::Result<()> {
@@ -294,7 +310,10 @@ async fn run_websocket(
             _ = cancel.cancelled() => return Ok(()),
         };
         match event {
-            Some(event) => handle_websocket_message(event, core_user, navigation_state).await,
+            Some(event) => {
+                handle_websocket_message(event, core_user, navigation_state, notification_service)
+                    .await
+            }
             None => bail!("unexpected disconnect"),
         }
         backoff.reset(); // reset backoff after a successful message
@@ -304,6 +323,7 @@ async fn run_websocket(
 fn spawn_polling(
     core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
+    notification_service: NotificationService,
     cancel: CancellationToken,
 ) {
     let user = User::from_core_user(core_user);
@@ -317,7 +337,12 @@ fn spawn_polling(
             let mut timeout = POLLING_INTERVAL;
             match res {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(&navigation_state, fetched_messages).await;
+                    process_fetched_messages(
+                        &navigation_state,
+                        &notification_service,
+                        fetched_messages,
+                    )
+                    .await;
                     backoff.reset();
                 }
                 Err(error) => {
@@ -337,6 +362,7 @@ async fn handle_websocket_message(
     event: WsEvent,
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
+    notification_service: &NotificationService,
 ) {
     match event {
         WsEvent::ConnectedEvent => {
@@ -357,7 +383,12 @@ async fn handle_websocket_message(
             let user = User::from_core_user(core_user);
             match user.fetch_all_messages().await {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(navigation_state, fetched_messages).await;
+                    process_fetched_messages(
+                        navigation_state,
+                        notification_service,
+                        fetched_messages,
+                    )
+                    .await;
                 }
                 Err(error) => {
                     error!(%error, "Failed to fetch messages on queue update");
@@ -369,6 +400,7 @@ async fn handle_websocket_message(
 
 async fn process_fetched_messages(
     navigation_state: &watch::Receiver<NavigationState>,
+    notification_service: &NotificationService,
     mut fetched_messages: FetchedMessages,
 ) {
     let current_conversation_id = navigation_state.borrow().conversation_id();
@@ -386,5 +418,16 @@ async fn process_fetched_messages(
             .notifications_content
             .remove(&current_conversation_id);
     }
-    show_notifications(fetched_messages.notifications_content);
+
+    for (conversation_id, notification) in fetched_messages.notifications_content {
+        for notification in notification {
+            let content = NotificationContent {
+                identifier: Uuid::new_v4().to_string(),
+                title: notification.title,
+                body: notification.body,
+                conversation_id: Some(conversation_id.to_string()),
+            };
+            notification_service.send_notification(content).await;
+        }
+    }
 }

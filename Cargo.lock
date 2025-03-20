@@ -3478,7 +3478,6 @@ dependencies = [
  "jni",
  "memmap2",
  "mimi_content",
- "notifications",
  "notify-rust",
  "parking_lot",
  "phnxapiclient",

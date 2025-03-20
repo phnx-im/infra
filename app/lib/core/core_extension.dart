@@ -5,6 +5,7 @@
 import 'dart:typed_data';
 
 import 'package:prototype/core/core.dart';
+import 'package:prototype/util/platform.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// Username of the conversation (for group it is the group title)
@@ -66,4 +67,12 @@ extension NavigationStateExtension on NavigationState {
         NavigationState_Intro() => null,
         NavigationState_Home(:final home) => home.conversationId,
       };
+}
+
+extension NotificationServiceExtension on NotificationService {
+  static NotificationService create() => NotificationService(
+        send: sendNotification,
+        getActive: getActiveNotifications,
+        remove: cancelNotifications,
+      );
 }

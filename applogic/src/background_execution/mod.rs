@@ -6,15 +6,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::notifications::NotificationId;
-
-#[cfg(target_os = "android")]
+// #[cfg(target_os = "android")]
 pub mod java_api;
 
 #[cfg(target_os = "ios")]
 pub mod swift_api;
 
-#[cfg(any(target_os = "ios", target_os = "android"))]
+// #[cfg(any(target_os = "ios", target_os = "android"))]
 pub(crate) mod processing;
 
 #[derive(Serialize, Deserialize)]
@@ -37,7 +35,7 @@ pub(crate) struct NotificationBatch {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct NotificationContent {
-    identifier: NotificationId,
+    identifier: String,
     title: String,
     body: String,
     data: String,

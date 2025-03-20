@@ -21,8 +21,6 @@ pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use phnxtypes::identifiers::QualifiedUserName;
 use uuid::Uuid;
 
-use crate::notifications::NotificationId;
-
 use super::markdown::MessageContent;
 
 /// Mirror of the [`ConversationId`] types
@@ -34,12 +32,6 @@ use super::markdown::MessageContent;
 ")]
 pub struct _ConversationId {
     pub uuid: Uuid,
-}
-
-#[frb(sync, positional)]
-pub fn conversation_id_from_notification_identifier(identifier: String) -> Option<ConversationId> {
-    let id: NotificationId = identifier.parse().ok()?;
-    Some(id.into_conversation_id())
 }
 
 /// A conversation which is a 1:1 connection or a group conversation

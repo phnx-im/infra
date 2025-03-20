@@ -7,12 +7,14 @@ use std::mem;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::ConversationId;
 use tokio::sync::watch;
+use uuid::Uuid;
 
 use crate::{
     StreamSink,
-    notifications::NotificationId,
     util::{Cubit, CubitCore},
 };
+
+use super::notifications::NotificationService;
 
 /// State of the global App navigation
 #[frb(dart_metadata = ("freezed"))]
@@ -98,13 +100,17 @@ impl NavigationState {
 /// `AppRouter` in Dart.
 pub struct NavigationCubitBase {
     core: CubitCore<NavigationState>,
+    pub(crate) notification_service: NotificationService,
 }
 
 impl NavigationCubitBase {
     #[frb(sync)]
-    pub fn new() -> Self {
+    pub fn new(notification_service: &NotificationService) -> Self {
         let core = CubitCore::with_initial_state(NavigationState::intro());
-        Self { core }
+        Self {
+            core,
+            notification_service: notification_service.clone(),
+        }
     }
 
     // Cubit interface
@@ -148,7 +154,7 @@ impl NavigationCubitBase {
         });
     }
 
-    pub fn open_conversation(&self, conversation_id: ConversationId) {
+    pub async fn open_conversation(&self, conversation_id: ConversationId) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => {
                 *state = HomeNavigationState {
@@ -162,24 +168,24 @@ impl NavigationCubitBase {
                 home.conversation_id.replace(conversation_id) != Some(conversation_id)
             }
         });
-    }
 
-    pub async fn open_conversation_with_cleared_notifications(
-        &self,
-        conversation_id: ConversationId,
-    ) {
-        self.open_conversation(conversation_id);
-
-        let mut pending = notifications::delivered().await;
-        pending.retain(|s| {
-            let id = s.parse::<NotificationId>();
-            if let Ok(id) = id {
-                id.belongs_to(conversation_id)
-            } else {
-                false
-            }
-        });
-        notifications::remove(&pending);
+        // Remove the active notifications for the current conversation
+        let handles = self.notification_service.get_active_notifications().await;
+        let identifiers = handles
+            .into_iter()
+            .filter_map(|handle| {
+                tracing::info!("### handle: {handle:?}");
+                let uuid: Uuid = handle.conversation_id?.parse().ok()?;
+                if uuid == conversation_id.uuid {
+                    Some(handle.identifier)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        self.notification_service
+            .remove_notifications(identifiers)
+            .await;
     }
 
     pub fn close_conversation(&self) {

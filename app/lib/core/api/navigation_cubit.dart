@@ -7,6 +7,7 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
@@ -24,17 +25,16 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   bool get isClosed;
 
-  factory NavigationCubitBase() =>
-      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseNew();
+  factory NavigationCubitBase(
+          {required NotificationService notificationService}) =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseNew(
+          notificationService: notificationService);
 
   Future<void> openAddMembers();
 
   Future<void> openConversation({required ConversationId conversationId});
 
   Future<void> openConversationDetails();
-
-  Future<void> openConversationWithClearedNotifications(
-      {required ConversationId conversationId});
 
   Future<void> openDeveloperSettings(
       {required DeveloperSettingsScreenType screen});

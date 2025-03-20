@@ -45,7 +45,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     initMethodChannel(_openedNotificationController.sink);
     _openedNotificationSubscription =
         _openedNotificationController.stream.listen((conversationId) {
-      _navigationCubit.openConversationWithClearedNotifications(conversationId);
+      _navigationCubit.openConversation(conversationId);
     });
 
     _requestMobileNotifications();

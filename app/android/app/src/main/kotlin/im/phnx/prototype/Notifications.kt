@@ -13,11 +13,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.TaskStackBuilder
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 
@@ -37,7 +37,7 @@ data class NotificationContent(
     val identifier: String,
     val title: String,
     val body: String,
-    val data: String
+    val conversationId: String?
 )
 
 @Serializable
@@ -45,6 +45,11 @@ data class NotificationBatch(
     val badgeCount: Int,
     val removals: List<String>,
     val additions: List<NotificationContent>
+)
+
+data class LocalNotificationHandle(
+    val notificationId: String,
+    val conversationId: String?
 )
 
 class NativeLib {
@@ -57,9 +62,6 @@ class NativeLib {
         // Declare the native method
         @JvmStatic
         external fun process_new_messages(content: String): String
-
-        @JvmStatic
-        external fun registerJavaVm(jniNotificationClass: Any)
     }
 
     // Wrapper to process new messages. Handles JSON
@@ -90,88 +92,85 @@ class NativeLib {
     }
 }
 
-class JniNotifications {
+class Notifications {
     companion object JniNotifications {
-        private const val CHANNEL_ID = "Conversations"
-        private const val NOTIFICATION_ID = 0;
+        private const val CHANNEL_ID = "Chats"
+        private const val NOTIFICATION_ID = 0
 
-        @JvmStatic
-        fun showNotification(identifier: String, title: String, message: String) {
-            try {
-                val activity = MainActivity.instance ?: return
-                val notificationManager =
-                    activity.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        const val SELECT_NOTIFICATION: String = "SELECT_NOTIFICATION"
 
-                // Create notification channel (needed for Android 8+)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val channel = NotificationChannel(
-                        CHANNEL_ID, "Conversations", NotificationManager.IMPORTANCE_HIGH
-                    )
-                    notificationManager.createNotificationChannel(channel)
-                }
-
-                if (ActivityCompat.checkSelfPermission(
-                        activity, Manifest.permission.POST_NOTIFICATIONS
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    return
-                }
+        /// Key for storing the conversation id in the Intent extras field
+        const val EXTRAS_NOTIFICATION_ID_KEY: String = "im.phnx.prototype/notification_id"
+        const val EXTRAS_CONVERSATION_ID_KEY: String = "im.phnx.prototype/conversation_id"
 
 
-                val intent = Intent(activity, MainActivity::class.java)
-                intent.action = MainActivity.SELECT_NOTIFICATION
-                intent.putExtra(MainActivity.INTENT_EXTRA_NOTIFICATION_ID, identifier)
+        fun showNotification(context: Context, content: NotificationContent) {
+            if (ActivityCompat.checkSelfPermission(
+                    context, Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
 
-                val pendingIntent = PendingIntent.getActivity(
-                    activity,
-                    1,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            // Create notification channel (needed for Android 8+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID, "Chats", NotificationManager.IMPORTANCE_HIGH
                 )
-
-                val notification =
-                    NotificationCompat.Builder(activity, CHANNEL_ID)
-                        .setContentTitle(title)
-                        .setContentText(message)
-                        .setSmallIcon(android.R.drawable.ic_notification_overlay)
-                        .setContentIntent(pendingIntent)
-                        .setDefaults(Notification.DEFAULT_ALL)
-                        .setPriority(NotificationManagerCompat.IMPORTANCE_HIGH)
-                        .build()
-                NotificationManagerCompat.from(activity)
-                    .notify(identifier, NOTIFICATION_ID, notification)
-            } catch (exception: Exception) {
-                Log.e(LOGTAG, "failed to show notification: $exception")
+                notificationManager.createNotificationChannel(channel)
             }
+
+            val intent = Intent(context, MainActivity::class.java).apply {
+                action = SELECT_NOTIFICATION
+                putExtra(EXTRAS_NOTIFICATION_ID_KEY, content.identifier)
+                putExtra(EXTRAS_CONVERSATION_ID_KEY, content.conversationId)
+            }
+
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                1,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val extras = Bundle().apply {
+                putString(EXTRAS_CONVERSATION_ID_KEY, content.conversationId)
+            }
+
+            val notification =
+                NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setContentTitle(content.title)
+                    .setContentText(content.body)
+                    .setSmallIcon(android.R.drawable.ic_notification_overlay)
+                    .setContentIntent(pendingIntent)
+                    .setDefaults(Notification.DEFAULT_ALL)
+                    .setPriority(NotificationManagerCompat.IMPORTANCE_HIGH)
+                    .addExtras(extras)
+                    .build()
+
+            NotificationManagerCompat.from(context)
+                .notify(content.identifier, NOTIFICATION_ID, notification)
         }
 
-        @JvmStatic
-        fun getActiveNotifications(): ArrayList<String> {
-            try {
-                val activity = MainActivity.instance ?: return ArrayList()
-                val notificationManager =
-                    activity.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                val activeNotifications =
-                    NotificationManagerCompat.from(activity).activeNotifications
-                return activeNotifications.mapNotNull { notification -> notification.tag }
-                    .toCollection(ArrayList())
-            } catch (exception: Exception) {
-                Log.e(LOGTAG, "failed to get active notifications: $exception")
-            }
-            return ArrayList()
-        }
-
-        @JvmStatic
-        fun cancelNotifications(identifiers: ArrayList<String>) {
-            try {
-                val activity = MainActivity.instance ?: return
-                val notificationManager =
-                    activity.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                for (identifier in identifiers) {
-                    notificationManager.cancel(identifier, NOTIFICATION_ID)
+        fun getActiveNotifications(context: Context): Array<LocalNotificationHandle> {
+            return NotificationManagerCompat.from(context).activeNotifications
+                .mapNotNull { sbn ->
+                    LocalNotificationHandle(
+                        sbn.tag,
+                        sbn.notification.extras.getString(EXTRAS_CONVERSATION_ID_KEY)
+                    )
                 }
-            } catch (exception: Exception) {
-                Log.e(LOGTAG, "failed to cancel notifications: $exception")
+                .toTypedArray()
+        }
+
+        fun cancelNotifications(context: Context, identifiers: ArrayList<String>) {
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            for (identifier in identifiers) {
+                notificationManager.cancel(identifier, NOTIFICATION_ID)
             }
         }
     }

@@ -6,8 +6,9 @@ use phnxcoreclient::store::Store;
 use std::panic::{self, AssertUnwindSafe};
 use tokio::runtime::Builder;
 use tracing::{error, info};
+use uuid::Uuid;
 
-use crate::{api::user::User, notifications::NotificationId};
+use crate::api::user::User;
 
 use super::{NotificationBatch, NotificationContent};
 
@@ -17,7 +18,7 @@ pub(crate) fn error_batch(title: String, body: String) -> NotificationBatch {
         badge_count: 0,
         removals: Vec::new(),
         additions: vec![NotificationContent {
-            identifier: NotificationId::invalid(),
+            identifier: "".to_string(),
             title,
             body,
             data: "".to_string(),
@@ -86,11 +87,11 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
             fetched_messages
                 .notifications_content
                 .into_iter()
-                .flat_map(|(conversation_id, notifications)| {
+                .flat_map(|(_conversation_id, notifications)| {
                     notifications.into_iter().map(move |m| NotificationContent {
                         title: m.title,
                         body: m.body,
-                        identifier: NotificationId::new(conversation_id),
+                        identifier: Uuid::new_v4().to_string(),
                         data: "".to_string(),
                     })
                 })
@@ -99,7 +100,7 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
         Err(e) => {
             error!(?e, "Failed to fetch messages");
             vec![NotificationContent {
-                identifier: NotificationId::invalid(),
+                identifier: "".to_string(),
                 title: "Error fetching messages".to_string(),
                 body: e.to_string(),
                 data: "".to_string(),

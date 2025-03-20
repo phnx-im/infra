@@ -14,7 +14,6 @@ members = [
     "test_harness",
     "types",
     "applogic",
-    "crates/notifications",
 ]
 
 [workspace.dependencies]

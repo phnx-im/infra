@@ -25,6 +25,7 @@ pub mod markdown;
 pub mod message_cubit;
 pub mod message_list_cubit;
 pub mod navigation_cubit;
+pub mod notifications;
 pub mod types;
 pub mod user;
 pub mod user_cubit;

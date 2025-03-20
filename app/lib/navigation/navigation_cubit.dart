@@ -13,7 +13,10 @@ export 'package:prototype/core/core_extension.dart'
     show NavigationStateExtension;
 
 class NavigationCubit implements StateStreamableSource<NavigationState> {
-  NavigationCubit() : _impl = NavigationCubitBase();
+  NavigationCubit()
+      : _impl = NavigationCubitBase(
+          notificationService: NotificationServiceExtension.create(),
+        );
 
   final NavigationCubitBase _impl;
 
@@ -37,11 +40,6 @@ class NavigationCubit implements StateStreamableSource<NavigationState> {
 
   Future<void> openConversation(ConversationId conversationId) =>
       _impl.openConversation(conversationId: conversationId);
-
-  Future<void> openConversationWithClearedNotifications(
-          ConversationId conversationId) =>
-      _impl.openConversationWithClearedNotifications(
-          conversationId: conversationId);
 
   Future<void> openConversationDetails() => _impl.openConversationDetails();
 

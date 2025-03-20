@@ -24,7 +24,6 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 phnxcoreclient = { path = "../coreclient" }
 phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types" }
-notifications = { path = "../crates/notifications" }
 
 tracing = "0.1"
 tracing-subscriber = { workspace = true }
