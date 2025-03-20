@@ -91,7 +91,6 @@ FutureOr<void> sendNotification(NotificationContent content) async {
       'body': content.body,
       'conversationId': content.conversationId?.uuid.toString(),
     };
-    _log.info("invokeMethod sendNotification, arguments: $arguments");
     await platform.invokeMethod('sendNotification', arguments);
   } on PlatformException catch (e, stacktrace) {
     _log.severe("Failed to send notifications: '${e.message}'", e, stacktrace);
