@@ -100,7 +100,7 @@ impl NotificationId {
         Self(Uuid::new_v4())
     }
 
-    // #[cfg(any(target_os = "ios", target_os = "android"))]
+    #[cfg(any(target_os = "ios", target_os = "android"))]
     pub(crate) fn invalid() -> Self {
         Self(Uuid::nil())
     }
