@@ -4,15 +4,16 @@
 
 //! Background execution on mobile platforms
 
+use phnxcoreclient::ConversationId;
 use serde::{Deserialize, Serialize};
 
-// #[cfg(target_os = "android")]
+#[cfg(target_os = "android")]
 pub mod java_api;
 
 #[cfg(target_os = "ios")]
 pub mod swift_api;
 
-// #[cfg(any(target_os = "ios", target_os = "android"))]
+#[cfg(any(target_os = "ios", target_os = "android"))]
 pub(crate) mod processing;
 
 #[derive(Serialize, Deserialize)]
@@ -34,9 +35,10 @@ pub(crate) struct NotificationBatch {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct NotificationContent {
     identifier: String,
     title: String,
     body: String,
-    data: String,
+    conversation_id: Option<ConversationId>,
 }

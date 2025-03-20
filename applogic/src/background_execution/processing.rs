@@ -21,7 +21,7 @@ pub(crate) fn error_batch(title: String, body: String) -> NotificationBatch {
             identifier: "".to_string(),
             title,
             body,
-            data: "".to_string(),
+            conversation_id: None,
         }],
     }
 }
@@ -87,12 +87,12 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
             fetched_messages
                 .notifications_content
                 .into_iter()
-                .flat_map(|(_conversation_id, notifications)| {
+                .flat_map(|(conversation_id, notifications)| {
                     notifications.into_iter().map(move |m| NotificationContent {
                         title: m.title,
                         body: m.body,
                         identifier: Uuid::new_v4().to_string(),
-                        data: "".to_string(),
+                        conversation_id: Some(conversation_id),
                     })
                 })
                 .collect()
@@ -103,7 +103,7 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
                 identifier: "".to_string(),
                 title: "Error fetching messages".to_string(),
                 body: e.to_string(),
-                data: "".to_string(),
+                conversation_id: None,
             }]
         }
     };
