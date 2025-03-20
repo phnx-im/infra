@@ -4,7 +4,6 @@
 
 //! Background execution on mobile platforms
 
-use phnxcoreclient::ConversationId;
 use serde::{Deserialize, Serialize};
 
 use crate::api::notifications::NotificationContent;
