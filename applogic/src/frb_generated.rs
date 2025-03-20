@@ -46,7 +46,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.9.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1354871900;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -2034956985;
 
 // Section: executor
 
@@ -3788,40 +3788,6 @@ fn wire__crate__api__types__image_data_compute_hash_impl(
         },
     )
 }
-fn wire__crate__api__init_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "init",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::api::init();
-                    })?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
 fn wire__crate__api__logging__init_rust_logging_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -5669,12 +5635,11 @@ fn pde_ffi_dispatcher_primary_impl(
 75 => wire__crate__api__utils__delete_client_database_impl(port, ptr, rust_vec_len, data_len),
 76 => wire__crate__api__utils__delete_databases_impl(port, ptr, rust_vec_len, data_len),
 77 => wire__crate__api__navigation_cubit__home_navigation_state_default_impl(port, ptr, rust_vec_len, data_len),
-79 => wire__crate__api__init_impl(port, ptr, rust_vec_len, data_len),
-81 => wire__crate__api__markdown__message_content_error_impl(port, ptr, rust_vec_len, data_len),
-82 => wire__crate__api__markdown__message_content_parse_markdown_impl(port, ptr, rust_vec_len, data_len),
-84 => wire__crate__api__logging__read_app_logs_impl(port, ptr, rust_vec_len, data_len),
-85 => wire__crate__api__logging__read_background_logs_impl(port, ptr, rust_vec_len, data_len),
-86 => wire__crate__api__logging__tar_logs_impl(port, ptr, rust_vec_len, data_len),
+80 => wire__crate__api__markdown__message_content_error_impl(port, ptr, rust_vec_len, data_len),
+81 => wire__crate__api__markdown__message_content_parse_markdown_impl(port, ptr, rust_vec_len, data_len),
+83 => wire__crate__api__logging__read_app_logs_impl(port, ptr, rust_vec_len, data_len),
+84 => wire__crate__api__logging__read_background_logs_impl(port, ptr, rust_vec_len, data_len),
+85 => wire__crate__api__logging__tar_logs_impl(port, ptr, rust_vec_len, data_len),
                         _ => unreachable!(),
                     }
 }
@@ -5716,8 +5681,8 @@ fn pde_ffi_dispatcher_sync_impl(
 62 => wire__crate__api__user__User_client_id_impl(ptr, rust_vec_len, data_len),
 69 => wire__crate__api__user__User_user_name_impl(ptr, rust_vec_len, data_len),
 78 => wire__crate__api__types__image_data_compute_hash_impl(ptr, rust_vec_len, data_len),
-80 => wire__crate__api__logging__init_rust_logging_impl(ptr, rust_vec_len, data_len),
-83 => wire__crate__api__markdown__message_content_parse_markdown_raw_impl(ptr, rust_vec_len, data_len),
+79 => wire__crate__api__logging__init_rust_logging_impl(ptr, rust_vec_len, data_len),
+82 => wire__crate__api__markdown__message_content_parse_markdown_raw_impl(ptr, rust_vec_len, data_len),
                         _ => unreachable!(),
                     }
 }

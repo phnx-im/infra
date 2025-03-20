@@ -16,8 +16,6 @@
 //! introduce a Dart wrapper for each cubit here. The wrappers have the same name as the cubit, but
 //! without the `Base` suffix.
 
-use flutter_rust_bridge::frb;
-
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod logging;
@@ -30,9 +28,3 @@ pub mod types;
 pub mod user;
 pub mod user_cubit;
 pub mod utils;
-
-/// Main entry point of the application in Flutter
-///
-/// Note: Logging has to be initialized separately, see [`logging::init_rust_logging`].
-#[frb(init)]
-pub fn init() {}
