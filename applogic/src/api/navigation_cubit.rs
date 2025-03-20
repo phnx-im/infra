@@ -167,11 +167,7 @@ impl NavigationCubitBase {
         let identifiers = handles
             .into_iter()
             .filter_map(|handle| {
-                if handle.conversation_id? == conversation_id {
-                    Some(handle.identifier)
-                } else {
-                    None
-                }
+                (handle.conversation_id? == conversation_id).then_some(handle.identifier)
             })
             .collect();
         self.notification_service
