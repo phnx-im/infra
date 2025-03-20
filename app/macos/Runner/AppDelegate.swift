@@ -4,7 +4,7 @@ import UserNotifications
 
 @main
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
-  private let notificationChannelName: String = "im.phnx.prototype/channel"
+  public static let notificationChannelName: String = "im.phnx.prototype/channel"
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
     let center = UNUserNotificationCenter.current()
@@ -29,22 +29,25 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
 
     NSApp.activate(ignoringOtherApps: true)
 
-    let identifier = response.notification.request.identifier
-    let userInfo = response.notification.request.content.userInfo
-    let customData = userInfo["customData"] as? String
-
-    notifyFlutter(method: "openedNotification", identifier: identifier, customData: customData)
+    if let identifier = UUID(uuidString: response.notification.request.identifier) {
+      let userInfo = response.notification.request.content.userInfo
+      let conversationId = (userInfo["conversationId"] as? String).flatMap { UUID(uuidString: $0) }
+      let arguments = [
+        "identifier": identifier.uuidString,
+        "conversationId": conversationId?.uuidString,
+      ]
+      notifyFlutter(method: "openedNotification", arguments: arguments)
+    }
 
     completionHandler()
   }
 
   // Call Flutter by passing a method and customData as payload
-  private func notifyFlutter(method: String, identifier: String, customData: String?) {
+  private func notifyFlutter(method: String, arguments: [String: Any?]) {
     let window = NSApplication.shared.windows.first as! MainFlutterWindow
     let controller = window.contentViewController as! FlutterViewController
     let channel = FlutterMethodChannel(
-      name: notificationChannelName, binaryMessenger: controller.engine.binaryMessenger)
-    let arguments: [String: String] = ["identifier": identifier, "customData": customData ?? ""]
+      name: Self.notificationChannelName, binaryMessenger: controller.engine.binaryMessenger)
     channel.invokeMethod(method, arguments: arguments)
   }
 }

@@ -21,10 +21,14 @@ struct NotificationBatch: Codable {
 }
 
 struct NotificationContent: Codable {
-  let identifier: String
+  let identifier: UUID
   let title: String
   let body: String
-  let data: String
+  let conversationId: ConversationId
+}
+
+struct ConversationId: Codable {
+  let uuid: UUID
 }
 
 class NotificationService: UNNotificationServiceExtension {
@@ -141,9 +145,11 @@ class NotificationService: UNNotificationServiceExtension {
         newContent.title = notificationContent.title
         newContent.body = notificationContent.body
         newContent.sound = UNNotificationSound.default
-        newContent.userInfo["customData"] = notificationContent.data
+        newContent.userInfo["conversationId"] = notificationContent.conversationId.uuid.uuidString
         let request = UNNotificationRequest(
-          identifier: notificationContent.identifier, content: newContent, trigger: nil)
+          identifier: notificationContent.identifier.uuidString,
+          content: newContent,
+          trigger: nil)
         center.add(request) { error in
           if let error = error {
             NSLog("NSE Error adding notification: \(error)")
@@ -160,7 +166,7 @@ class NotificationService: UNNotificationServiceExtension {
         content.title = lastNotification.title
         content.body = lastNotification.body
         content.sound = UNNotificationSound.default
-        content.userInfo["customData"] = lastNotification.data
+        content.userInfo["conversationId"] = lastNotification.conversationId.uuid.uuidString
       }
       // Add the badge number
       content.badge = NSNumber(value: batch.badgeCount)
