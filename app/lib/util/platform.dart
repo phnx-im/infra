@@ -26,8 +26,10 @@ Future<void> _handleMethod(
   switch (call.method) {
     case 'receivedNotification':
       // Handle notification data
-      final String data = call.arguments["customData"];
-      _log.info('Notification data: $data');
+      final String? identifier = call.arguments["identifier"];
+      final String? conversationIdStr = call.arguments["conversationId"];
+      _log.info(
+          'Received notification: identifier = $identifier, conversationId = $conversationIdStr');
       // Do something with the data
       break;
     case 'openedNotification':

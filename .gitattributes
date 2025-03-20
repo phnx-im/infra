@@ -5,4 +5,6 @@
 **/goldens/** filter=lfs diff=lfs merge=lfs -text
 
 applogic/src/frb_generated.rs linguist-generated=true
-app/lib/core/** linguist-generated=true
+app/lib/core/api/** linguist-generated=true
+app/lib/core/frb_**.dart linguist-generated=true
+app/lib/core/notifications.dart linguist-generated=true

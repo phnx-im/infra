@@ -29,14 +29,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
 
     NSApp.activate(ignoringOtherApps: true)
 
-    if let identifier = UUID(uuidString: response.notification.request.identifier) {
-      let userInfo = response.notification.request.content.userInfo
-      let conversationId = (userInfo["conversationId"] as? String).flatMap { UUID(uuidString: $0) }
-      let arguments = [
-        "identifier": identifier.uuidString,
-        "conversationId": conversationId?.uuidString,
-      ]
-      notifyFlutter(method: "openedNotification", arguments: arguments)
+    if let handle = NotificationHandle.init(notification: response.notification) {
+      notifyFlutter(method: "openedNotification", arguments: handle.toDict())
     }
 
     completionHandler()

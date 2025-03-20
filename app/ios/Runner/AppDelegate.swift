@@ -54,9 +54,8 @@ import UIKit
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     NSLog("Foreground notification received")
-    let userInfo = notification.request.content.userInfo
-    if let customData = userInfo["customData"] as? String {
-      notifyFlutter(customData: customData, method: "receivedNotification")
+    if let handle = NotificationHandle.init(notification: notification) {
+      notifyFlutter(method: "receivedNotification", arguments: handle.toDict())
     }
     completionHandler([.alert, .sound])
   }
@@ -67,19 +66,17 @@ import UIKit
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
     NSLog("User opened notification")
-    let userInfo = response.notification.request.content.userInfo
-    if let customData = userInfo["customData"] as? String {
-      notifyFlutter(customData: customData, method: "openedNotification")
+    if let handle = NotificationHandle.init(notification: response.notification) {
+      notifyFlutter(method: "openedNotification", arguments: handle.toDict())
     }
     completionHandler()
   }
 
   // Call Flutter by passing a method and customData as payload
-  private func notifyFlutter(customData: String, method: String) {
+  private func notifyFlutter(method: String, arguments: [String: Any?]) {
     let controller = window?.rootViewController as! FlutterViewController
     let channel = FlutterMethodChannel(
       name: notificationChannelName, binaryMessenger: controller.binaryMessenger)
-    let arguments: [String: String] = ["customData": customData]
     channel.invokeMethod(method, arguments: arguments)
   }
 
@@ -97,10 +94,50 @@ import UIKit
           FlutterError(
             code: "INVALID_ARGUMENT", message: "Invalid or missing arguments", details: nil))
       }
+    } else if call.method == "sendNotification" {
+      if let args = call.arguments as? [String: Any?],
+        let identifierStr = args["identifier"] as? String,
+        let identifier = UUID(uuidString: identifierStr),
+        let title = args["title"] as? String,
+        let body = args["body"] as? String,
+        let conversationIdStr = args["conversationId"] as? String?
+      {
+        sendNotification(
+          identifier: identifier,
+          title: title,
+          body: body,
+          conversationId: conversationIdStr.flatMap { UUID(uuidString: $0) })
+        result(nil)
+      } else {
+        result(
+          FlutterError(
+            code: "DecodingError",
+            message: "Failed to decode sendNotifications arguments",
+            details: nil))
+      }
+    } else if call.method == "getActiveNotifications" {
+      getActiveNotifications { handles in
+        result(handles.map { $0.toDict() })
+      }
+    } else if call.method == "cancelNotifications" {
+      if let args = call.arguments as? [String: Any?],
+        let identifiers = args["identifiers"] as? [String]
+      {
+        let ids = identifiers.compactMap { UUID(uuidString: $0) }
+        cancelNotifications(identifiers: ids)
+        result(nil)
+      } else {
+        result(
+          FlutterError(
+            code: "DecodingError",
+            message: "Failed to decode cancelNotifications arguments",
+            details: nil))
+      }
     } else {
       NSLog("Unknown method called: \(call.method)")
       result(FlutterMethodNotImplemented)
     }
+
   }
 
   // Get device token
@@ -143,5 +180,66 @@ import UIKit
     UIApplication.shared.applicationIconBadgeNumber = count
     result(nil)
   }
+}
 
+func sendNotification(identifier: UUID, title: String, body: String, conversationId: UUID?) {
+  let center = UNUserNotificationCenter.current()
+
+  let content = UNMutableNotificationContent()
+  content.title = title
+  content.body = body
+  content.sound = UNNotificationSound.default
+  content.userInfo["conversationId"] = conversationId?.uuidString
+
+  let request = UNNotificationRequest(
+    identifier: identifier.uuidString,
+    content: content,
+    trigger: nil)
+
+  center.add(request) { error in
+    if let error = error {
+      NSLog("NSE Error adding notification: \(error)")
+    }
+  }
+}
+
+struct NotificationHandle {
+  let identifier: UUID
+  let conversationId: UUID?
+
+  init?(notification: UNNotification) {
+    let identifierStr = notification.request.identifier
+    guard let identifier = UUID(uuidString: identifierStr) else {
+      return nil
+    }
+    self.identifier = identifier
+    let conversationIdStr: String? =
+      notification.request.content.userInfo["conversationId"] as? String? ?? nil
+    self.conversationId = conversationIdStr.flatMap { UUID(uuidString: $0) }
+  }
+
+  func toDict() -> [String: Any?] {
+    [
+      "identifier": identifier.uuidString,
+      "conversationId": conversationId?.uuidString,
+    ]
+  }
+}
+
+func getActiveNotifications(completionHandler: @escaping ([NotificationHandle]) -> Void) {
+  let center = UNUserNotificationCenter.current()
+  center.getDeliveredNotifications { notifications in
+    completionHandler(
+      notifications.compactMap {
+        NotificationHandle(notification: $0)
+      })
+  }
+}
+
+func cancelNotifications(identifiers: [UUID]) {
+  let center = UNUserNotificationCenter.current()
+  center.removeDeliveredNotifications(
+    withIdentifiers: identifiers.map {
+      $0.uuidString
+    })
 }
