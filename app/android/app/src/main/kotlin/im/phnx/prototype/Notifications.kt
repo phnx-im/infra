@@ -37,7 +37,12 @@ data class NotificationContent(
     val identifier: String,
     val title: String,
     val body: String,
-    val conversationId: String?
+    val conversationId: ConversationId?
+)
+
+@Serializable
+data class ConversationId(
+    val uuid: String
 )
 
 @Serializable
@@ -47,7 +52,7 @@ data class NotificationBatch(
     val additions: List<NotificationContent>
 )
 
-data class LocalNotificationHandle(
+data class NotificationHandle(
     val notificationId: String,
     val conversationId: String?
 )
@@ -126,7 +131,7 @@ class Notifications {
             val intent = Intent(context, MainActivity::class.java).apply {
                 action = SELECT_NOTIFICATION
                 putExtra(EXTRAS_NOTIFICATION_ID_KEY, content.identifier)
-                putExtra(EXTRAS_CONVERSATION_ID_KEY, content.conversationId)
+                putExtra(EXTRAS_CONVERSATION_ID_KEY, content.conversationId?.uuid)
             }
 
             val pendingIntent = PendingIntent.getActivity(
@@ -137,7 +142,7 @@ class Notifications {
             )
 
             val extras = Bundle().apply {
-                putString(EXTRAS_CONVERSATION_ID_KEY, content.conversationId)
+                putString(EXTRAS_CONVERSATION_ID_KEY, content.conversationId?.uuid)
             }
 
             val notification =
@@ -155,10 +160,10 @@ class Notifications {
                 .notify(content.identifier, NOTIFICATION_ID, notification)
         }
 
-        fun getActiveNotifications(context: Context): Array<LocalNotificationHandle> {
+        fun getActiveNotifications(context: Context): Array<NotificationHandle> {
             return NotificationManagerCompat.from(context).activeNotifications
                 .mapNotNull { sbn ->
-                    LocalNotificationHandle(
+                    NotificationHandle(
                         sbn.tag,
                         sbn.notification.extras.getString(EXTRAS_CONVERSATION_ID_KEY)
                     )

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:prototype/core/core.dart';
 import 'package:prototype/util/platform.dart';
+import 'package:uuid/uuid.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// Username of the conversation (for group it is the group title)
@@ -69,10 +70,52 @@ extension NavigationStateExtension on NavigationState {
       };
 }
 
-extension NotificationServiceExtension on NotificationService {
-  static NotificationService create() => NotificationService(
+extension DartNotificationServiceExtension on DartNotificationService {
+  static DartNotificationService create() => DartNotificationService(
         send: sendNotification,
         getActive: getActiveNotifications,
-        remove: cancelNotifications,
+        cancel: cancelNotifications,
       );
+}
+
+extension ConversationIdExtension on ConversationId {
+  static ConversationId? fromString(String value) {
+    try {
+      final uuid = UuidValue.withValidation(value);
+      return ConversationId(uuid: uuid);
+    } on FormatException catch (_) {
+      return null;
+    }
+  }
+}
+
+extension NotificationIdExtension on NotificationId {
+  static NotificationId? fromString(String value) {
+    try {
+      final uuid = UuidValue.withValidation(value);
+      return NotificationId(field0: uuid);
+    } on FormatException catch (_) {
+      return null;
+    }
+  }
+}
+
+extension NotificationHandleExtension on NotificationHandle {
+  static NotificationHandle? fromMap(Map<Object?, Object?> map) {
+    final NotificationId? identifier = switch (map['identifier']) {
+      String s => NotificationIdExtension.fromString(s),
+      _ => null,
+    };
+    if (identifier == null) {
+      return null;
+    }
+    final ConversationId? conversationId = switch (map['conversationId']) {
+      String s => ConversationIdExtension.fromString(s),
+      _ => null,
+    };
+    return NotificationHandle(
+      identifier: identifier,
+      conversationId: conversationId,
+    );
+  }
 }

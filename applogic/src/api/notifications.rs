@@ -2,29 +2,24 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#![cfg_attr(
+    any(target_os = "linux", target_os = "windows"),
+    expect(
+        dead_code,
+        reason = "DartNotificationService is only used on iOS/macOS and Android"
+    )
+)]
+
 use std::sync::Arc;
 
 use flutter_rust_bridge::{DartFnFuture, frb};
-use serde::{Deserialize, Serialize};
+use tracing::debug;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NotificationContent {
-    pub identifier: String,
-    pub title: String,
-    pub body: String,
-    pub conversation_id: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct NotificationHandle {
-    pub identifier: String,
-    pub conversation_id: Option<String>,
-}
+pub use crate::notifications::{NotificationContent, NotificationHandle, NotificationId};
 
 #[frb(opaque)]
 #[derive(Clone)]
-pub struct NotificationService {
+pub struct DartNotificationService {
     callback: Arc<Callbacks>,
 }
 
@@ -32,34 +27,37 @@ pub struct NotificationService {
 struct Callbacks {
     send: Box<dyn Fn(NotificationContent) -> DartFnFuture<()> + Send + Sync + 'static>,
     get_active: Box<dyn Fn() -> DartFnFuture<Vec<NotificationHandle>> + Send + Sync + 'static>,
-    remove: Box<dyn Fn(Vec<String>) -> DartFnFuture<()> + Send + Sync + 'static>,
+    cancel: Box<dyn Fn(Vec<NotificationId>) -> DartFnFuture<()> + Send + Sync + 'static>,
 }
 
-impl NotificationService {
+impl DartNotificationService {
     #[frb(sync)]
     pub fn new(
         send: impl Fn(NotificationContent) -> DartFnFuture<()> + Send + Sync + 'static,
         get_active: impl Fn() -> DartFnFuture<Vec<NotificationHandle>> + Send + Sync + 'static,
-        remove: impl Fn(Vec<String>) -> DartFnFuture<()> + Send + Sync + 'static,
-    ) -> NotificationService {
-        NotificationService {
+        cancel: impl Fn(Vec<NotificationId>) -> DartFnFuture<()> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
             callback: Arc::new(Callbacks {
                 send: Box::new(send),
                 get_active: Box::new(get_active),
-                remove: Box::new(remove),
+                cancel: Box::new(cancel),
             }),
         }
     }
 
     pub(crate) async fn send_notification(&self, notification: NotificationContent) {
+        debug!(?notification, "send notification over dart service");
         (self.callback.send)(notification).await;
     }
 
     pub(crate) async fn get_active_notifications(&self) -> Vec<NotificationHandle> {
+        debug!("get active notifications over dart service");
         (self.callback.get_active)().await
     }
 
-    pub(crate) async fn remove_notifications(&self, identifiers: Vec<String>) {
-        (self.callback.remove)(identifiers).await;
+    pub(crate) async fn cancel_notifications(&self, identifiers: Vec<NotificationId>) {
+        debug!(?identifiers, "cancel notifications over dart service");
+        (self.callback.cancel)(identifiers).await;
     }
 }

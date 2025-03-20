@@ -15,7 +15,7 @@ export 'package:prototype/core/core_extension.dart'
 class NavigationCubit implements StateStreamableSource<NavigationState> {
   NavigationCubit()
       : _impl = NavigationCubitBase(
-          notificationService: NotificationServiceExtension.create(),
+          notificationService: DartNotificationServiceExtension.create(),
         );
 
   final NavigationCubitBase _impl;

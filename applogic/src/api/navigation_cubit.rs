@@ -7,14 +7,14 @@ use std::mem;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::ConversationId;
 use tokio::sync::watch;
-use uuid::Uuid;
 
 use crate::{
     StreamSink,
+    notifications::NotificationService,
     util::{Cubit, CubitCore},
 };
 
-use super::notifications::NotificationService;
+use super::notifications::DartNotificationService;
 
 /// State of the global App navigation
 #[frb(dart_metadata = ("freezed"))]
@@ -105,11 +105,11 @@ pub struct NavigationCubitBase {
 
 impl NavigationCubitBase {
     #[frb(sync)]
-    pub fn new(notification_service: &NotificationService) -> Self {
+    pub fn new(notification_service: &DartNotificationService) -> Self {
         let core = CubitCore::with_initial_state(NavigationState::intro());
         Self {
             core,
-            notification_service: notification_service.clone(),
+            notification_service: NotificationService::new(notification_service.clone()),
         }
     }
 
@@ -169,14 +169,12 @@ impl NavigationCubitBase {
             }
         });
 
-        // Remove the active notifications for the current conversation
+        // Cancel the active notifications for the current conversation
         let handles = self.notification_service.get_active_notifications().await;
         let identifiers = handles
             .into_iter()
             .filter_map(|handle| {
-                tracing::info!("### handle: {handle:?}");
-                let uuid: Uuid = handle.conversation_id?.parse().ok()?;
-                if uuid == conversation_id.uuid {
+                if handle.conversation_id? == conversation_id {
                     Some(handle.identifier)
                 } else {
                     None
@@ -184,7 +182,7 @@ impl NavigationCubitBase {
             })
             .collect();
         self.notification_service
-            .remove_notifications(identifiers)
+            .cancel_notifications(identifiers)
             .await;
     }
 

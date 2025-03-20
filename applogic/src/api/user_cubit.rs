@@ -17,11 +17,10 @@ use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::{RwLock, watch};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 
 use crate::{
     StreamSink,
-    api::notifications::NotificationContent,
+    notifications::NotificationService,
     util::{FibonacciBackoff, spawn_from_sync},
 };
 use crate::{
@@ -31,7 +30,6 @@ use crate::{
 
 use super::{
     navigation_cubit::{NavigationCubitBase, NavigationState},
-    notifications::NotificationService,
     types::ImageData,
     user::User,
 };
@@ -416,18 +414,10 @@ async fn process_fetched_messages(
         // Remove the notifications for the current conversation
         fetched_messages
             .notifications_content
-            .remove(&current_conversation_id);
+            .retain(|notification| notification.conversation_id != Some(current_conversation_id));
     }
 
-    for (conversation_id, notification) in fetched_messages.notifications_content {
-        for notification in notification {
-            let content = NotificationContent {
-                identifier: Uuid::new_v4().to_string(),
-                title: notification.title,
-                body: notification.body,
-                conversation_id: Some(conversation_id.to_string()),
-            };
-            notification_service.send_notification(content).await;
-        }
+    for notification in fetched_messages.notifications_content {
+        notification_service.send_notification(notification).await;
     }
 }

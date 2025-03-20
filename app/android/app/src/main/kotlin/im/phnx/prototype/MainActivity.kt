@@ -73,7 +73,8 @@ class MainActivity : FlutterActivity() {
                     val identifier: String? = call.argument("identifier")
                     val title: String? = call.argument("title")
                     val body: String? = call.argument("body")
-                    val conversationId: String? = call.argument("conversationId")
+                    val conversationId: ConversationId? =
+                        call.argument<String>("conversationId")?.let { ConversationId(it) }
 
                     if (identifier != null && title != null && body != null) {
                         val notification =

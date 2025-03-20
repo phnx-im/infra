@@ -7,70 +7,21 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'package:uuid/uuid.dart';
+import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_active_notifications`, `remove_notifications`, `send_notification`
+// These functions are ignored because they are not marked as `pub`: `cancel_notifications`, `get_active_notifications`, `send_notification`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Callbacks`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<NotificationService>>
-abstract class NotificationService implements RustOpaqueInterface {
-  factory NotificationService(
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DartNotificationService>>
+abstract class DartNotificationService implements RustOpaqueInterface {
+  factory DartNotificationService(
           {required FutureOr<void> Function(NotificationContent) send,
           required FutureOr<List<NotificationHandle>> Function() getActive,
-          required FutureOr<void> Function(List<String>) remove}) =>
-      RustLib.instance.api.crateApiNotificationsNotificationServiceNew(
-          send: send, getActive: getActive, remove: remove);
-}
-
-class NotificationContent {
-  final String identifier;
-  final String title;
-  final String body;
-  final String? conversationId;
-
-  const NotificationContent({
-    required this.identifier,
-    required this.title,
-    required this.body,
-    this.conversationId,
-  });
-
-  @override
-  int get hashCode =>
-      identifier.hashCode ^
-      title.hashCode ^
-      body.hashCode ^
-      conversationId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is NotificationContent &&
-          runtimeType == other.runtimeType &&
-          identifier == other.identifier &&
-          title == other.title &&
-          body == other.body &&
-          conversationId == other.conversationId;
-}
-
-class NotificationHandle {
-  final String identifier;
-  final String? conversationId;
-
-  const NotificationHandle({
-    required this.identifier,
-    this.conversationId,
-  });
-
-  @override
-  int get hashCode => identifier.hashCode ^ conversationId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is NotificationHandle &&
-          runtimeType == other.runtimeType &&
-          identifier == other.identifier &&
-          conversationId == other.conversationId;
+          required FutureOr<void> Function(List<NotificationId>) cancel}) =>
+      RustLib.instance.api.crateApiNotificationsDartNotificationServiceNew(
+          send: send, getActive: getActive, cancel: cancel);
 }

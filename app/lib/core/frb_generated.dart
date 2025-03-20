@@ -23,6 +23,7 @@ import 'dart:convert';
 import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
+import 'notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
 
@@ -83,7 +84,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.9.0';
 
   @override
-  int get rustContentHash => 228108560;
+  int get rustContentHash => -1354871900;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -159,6 +160,11 @@ abstract class RustLibApi extends BaseApi {
       crateApiConversationListCubitConversationListCubitBaseStream(
           {required ConversationListCubitBase that});
 
+  DartNotificationService crateApiNotificationsDartNotificationServiceNew(
+      {required FutureOr<void> Function(NotificationContent) send,
+      required FutureOr<List<NotificationHandle>> Function() getActive,
+      required FutureOr<void> Function(List<NotificationId>) cancel});
+
   Future<void> crateApiLoggingLogWriterWriteLine(
       {required LogWriter that, required String message});
 
@@ -215,7 +221,7 @@ abstract class RustLibApi extends BaseApi {
       {required NavigationCubitBase that});
 
   NavigationCubitBase crateApiNavigationCubitNavigationCubitBaseNew(
-      {required NotificationService notificationService});
+      {required DartNotificationService notificationService});
 
   Future<void> crateApiNavigationCubitNavigationCubitBaseOpenAddMembers(
       {required NavigationCubitBase that});
@@ -255,11 +261,6 @@ abstract class RustLibApi extends BaseApi {
 
   Stream<NavigationState> crateApiNavigationCubitNavigationCubitBaseStream(
       {required NavigationCubitBase that});
-
-  NotificationService crateApiNotificationsNotificationServiceNew(
-      {required FutureOr<void> Function(NotificationContent) send,
-      required FutureOr<List<NotificationHandle>> Function() getActive,
-      required FutureOr<void> Function(List<String>) remove});
 
   String? crateApiUserCubitUiUserDisplayName({required UiUser that});
 
@@ -391,6 +392,15 @@ abstract class RustLibApi extends BaseApi {
       get rust_arc_decrement_strong_count_ConversationListCubitBasePtr;
 
   RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_DartNotificationService;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_DartNotificationService;
+
+  CrossPlatformFinalizerArg
+      get rust_arc_decrement_strong_count_DartNotificationServicePtr;
+
+  RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_LogWriter;
 
   RustArcDecrementStrongCountFnType
@@ -433,15 +443,6 @@ abstract class RustLibApi extends BaseApi {
 
   CrossPlatformFinalizerArg
       get rust_arc_decrement_strong_count_NavigationCubitBasePtr;
-
-  RustArcIncrementStrongCountFnType
-      get rust_arc_increment_strong_count_NotificationService;
-
-  RustArcDecrementStrongCountFnType
-      get rust_arc_decrement_strong_count_NotificationService;
-
-  CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_NotificationServicePtr;
 
   RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_UiUser;
 
@@ -967,6 +968,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
 
   @override
+  DartNotificationService crateApiNotificationsDartNotificationServiceNew(
+      {required FutureOr<void> Function(NotificationContent) send,
+      required FutureOr<List<NotificationHandle>> Function() getActive,
+      required FutureOr<void> Function(List<NotificationId>) cancel}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_DartFn_Inputs_notification_content_Output_unit_AnyhowException(
+            send, serializer);
+        sse_encode_DartFn_Inputs__Output_list_notification_handle_AnyhowException(
+            getActive, serializer);
+        sse_encode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
+            cancel, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData:
+            sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNotificationsDartNotificationServiceNewConstMeta,
+      argValues: [send, getActive, cancel],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiNotificationsDartNotificationServiceNewConstMeta =>
+      const TaskConstMeta(
+        debugName: "DartNotificationService_new",
+        argNames: ["send", "getActive", "cancel"],
+      );
+
+  @override
   Future<void> crateApiLoggingLogWriterWriteLine(
       {required LogWriter that, required String message}) {
     return handler.executeNormal(NormalTask(
@@ -976,7 +1010,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_String(message, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 17, port: port_);
+            funcId: 18, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1003,7 +1037,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 18, port: port_);
+            funcId: 19, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1029,7 +1063,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1056,7 +1090,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             userCubit, serializer);
         sse_encode_box_autoadd_message_state(initialState, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1083,7 +1117,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_message_state,
@@ -1112,7 +1146,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_StreamSink_message_state_Sse(sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 22, port: port_);
+            funcId: 23, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1140,7 +1174,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 23, port: port_);
+            funcId: 24, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1167,7 +1201,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 24)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1196,7 +1230,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
             userCubit, serializer);
         sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1223,7 +1257,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1255,7 +1289,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
             sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 27, port: port_);
+            funcId: 28, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1281,7 +1315,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 28, port: port_);
+            funcId: 29, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1308,7 +1342,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 29)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_CastedPrimitive_usize,
@@ -1337,7 +1371,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
             that, serializer);
         sse_encode_CastedPrimitive_usize(index, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_ui_conversation_message,
@@ -1366,7 +1400,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
             that, serializer);
         sse_encode_box_autoadd_conversation_message_id(messageId, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 32)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_CastedPrimitive_usize,
@@ -1395,7 +1429,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 32, port: port_);
+            funcId: 33, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1422,7 +1456,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 33, port: port_);
+            funcId: 34, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1450,7 +1484,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1471,13 +1505,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   NavigationCubitBase crateApiNavigationCubitNavigationCubitBaseNew(
-      {required NotificationService notificationService}) {
+      {required DartNotificationService notificationService}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
-        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
             notificationService, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 36)!;
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1505,7 +1539,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 36, port: port_);
+            funcId: 37, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1536,7 +1570,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_box_autoadd_conversation_id(conversationId, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 37, port: port_);
+            funcId: 38, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1566,7 +1600,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 38, port: port_);
+            funcId: 39, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1597,7 +1631,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_developer_settings_screen_type(screen, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 39, port: port_);
+            funcId: 40, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1626,7 +1660,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 40, port: port_);
+            funcId: 41, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1654,7 +1688,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 41, port: port_);
+            funcId: 42, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1683,7 +1717,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_intro_screen_type(screen, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 42, port: port_);
+            funcId: 43, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1713,7 +1747,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_String(member, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 43, port: port_);
+            funcId: 44, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1742,7 +1776,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 44, port: port_);
+            funcId: 45, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1770,7 +1804,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 45)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 46)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1796,7 +1830,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 46)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 47)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_navigation_state,
@@ -1825,7 +1859,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_StreamSink_navigation_state_Sse(sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 47, port: port_);
+            funcId: 48, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1844,39 +1878,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             debugName: "NavigationCubitBase_stream",
             argNames: ["that", "sink"],
           );
-
-  @override
-  NotificationService crateApiNotificationsNotificationServiceNew(
-      {required FutureOr<void> Function(NotificationContent) send,
-      required FutureOr<List<NotificationHandle>> Function() getActive,
-      required FutureOr<void> Function(List<String>) remove}) {
-    return handler.executeSync(SyncTask(
-      callFfi: () {
-        final serializer = SseSerializer(generalizedFrbRustBinding);
-        sse_encode_DartFn_Inputs_notification_content_Output_unit_AnyhowException(
-            send, serializer);
-        sse_encode_DartFn_Inputs__Output_list_notification_handle_AnyhowException(
-            getActive, serializer);
-        sse_encode_DartFn_Inputs_list_String_Output_unit_AnyhowException(
-            remove, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 48)!;
-      },
-      codec: SseCodec(
-        decodeSuccessData:
-            sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService,
-        decodeErrorData: null,
-      ),
-      constMeta: kCrateApiNotificationsNotificationServiceNewConstMeta,
-      argValues: [send, getActive, remove],
-      apiImpl: this,
-    ));
-  }
-
-  TaskConstMeta get kCrateApiNotificationsNotificationServiceNewConstMeta =>
-      const TaskConstMeta(
-        debugName: "NotificationService_new",
-        argNames: ["send", "getActive", "remove"],
-      );
 
   @override
   String? crateApiUserCubitUiUserDisplayName({required UiUser that}) {
@@ -2947,10 +2948,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   Future<void> Function(int, dynamic)
-      encode_DartFn_Inputs_list_String_Output_unit_AnyhowException(
-          FutureOr<void> Function(List<String>) raw) {
+      encode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
+          FutureOr<void> Function(List<NotificationId>) raw) {
     return (callId, rawArg0) async {
-      final arg0 = dco_decode_list_String(rawArg0);
+      final arg0 = dco_decode_list_notification_id(rawArg0);
 
       Box<void>? rawOutput;
       Box<AnyhowException>? rawError;
@@ -3029,6 +3030,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase;
 
   RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_DartNotificationService => wire
+          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_DartNotificationService => wire
+          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService;
+
+  RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_LogWriter => wire
           .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter;
 
@@ -3067,14 +3076,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RustArcDecrementStrongCountFnType
       get rust_arc_decrement_strong_count_NavigationCubitBase => wire
           .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
-
-  RustArcIncrementStrongCountFnType
-      get rust_arc_increment_strong_count_NotificationService => wire
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService;
-
-  RustArcDecrementStrongCountFnType
-      get rust_arc_decrement_strong_count_NotificationService => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService;
 
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_UiUser => wire
@@ -3123,6 +3124,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DartNotificationService
+      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return DartNotificationServiceImpl.frbInternalDcoDecode(
+        raw as List<dynamic>);
+  }
+
+  @protected
   LogWriter
       dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           dynamic raw) {
@@ -3160,14 +3170,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
-  }
-
-  @protected
-  NotificationService
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return NotificationServiceImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -3263,6 +3265,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DartNotificationService
+      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return DartNotificationServiceImpl.frbInternalDcoDecode(
+        raw as List<dynamic>);
+  }
+
+  @protected
   LogWriter
       dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           dynamic raw) {
@@ -3300,14 +3311,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
-  }
-
-  @protected
-  NotificationService
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return NotificationServiceImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -3356,8 +3359,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  FutureOr<void> Function(List<String>)
-      dco_decode_DartFn_Inputs_list_String_Output_unit_AnyhowException(
+  FutureOr<void> Function(List<NotificationId>)
+      dco_decode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     throw UnimplementedError('');
@@ -3392,6 +3395,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return ConversationListCubitBaseImpl.frbInternalDcoDecode(
+        raw as List<dynamic>);
+  }
+
+  @protected
+  DartNotificationService
+      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return DartNotificationServiceImpl.frbInternalDcoDecode(
         raw as List<dynamic>);
   }
 
@@ -3433,14 +3445,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
-  }
-
-  @protected
-  NotificationService
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return NotificationServiceImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -3879,6 +3883,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<NotificationId> dco_decode_list_notification_id(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_notification_id).toList();
+  }
+
+  @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as List<int>;
@@ -3997,10 +4007,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 4)
       throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return NotificationContent(
-      identifier: dco_decode_String(arr[0]),
+      identifier: dco_decode_notification_id(arr[0]),
       title: dco_decode_String(arr[1]),
       body: dco_decode_String(arr[2]),
-      conversationId: dco_decode_opt_String(arr[3]),
+      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[3]),
     );
   }
 
@@ -4011,8 +4021,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 2)
       throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
     return NotificationHandle(
-      identifier: dco_decode_String(arr[0]),
-      conversationId: dco_decode_opt_String(arr[1]),
+      identifier: dco_decode_notification_id(arr[0]),
+      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[1]),
+    );
+  }
+
+  @protected
+  NotificationId dco_decode_notification_id(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return NotificationId(
+      field0: dco_decode_Uuid(arr[0]),
     );
   }
 
@@ -4440,6 +4461,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DartNotificationService
+      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return DartNotificationServiceImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
   LogWriter
       sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           SseDeserializer deserializer) {
@@ -4481,15 +4511,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
-        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
-  }
-
-  @protected
-  NotificationService
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return NotificationServiceImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -4593,6 +4614,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DartNotificationService
+      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return DartNotificationServiceImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
   LogWriter
       sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           SseDeserializer deserializer) {
@@ -4634,15 +4664,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
-        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
-  }
-
-  @protected
-  NotificationService
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return NotificationServiceImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -4713,6 +4734,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DartNotificationService
+      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return DartNotificationServiceImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
   LogWriter
       sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           SseDeserializer deserializer) {
@@ -4754,15 +4784,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
-        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
-  }
-
-  @protected
-  NotificationService
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return NotificationServiceImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -5230,6 +5251,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<NotificationId> sse_decode_list_notification_id(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <NotificationId>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_notification_id(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -5374,10 +5408,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   NotificationContent sse_decode_notification_content(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_identifier = sse_decode_String(deserializer);
+    var var_identifier = sse_decode_notification_id(deserializer);
     var var_title = sse_decode_String(deserializer);
     var var_body = sse_decode_String(deserializer);
-    var var_conversationId = sse_decode_opt_String(deserializer);
+    var var_conversationId =
+        sse_decode_opt_box_autoadd_conversation_id(deserializer);
     return NotificationContent(
         identifier: var_identifier,
         title: var_title,
@@ -5389,10 +5424,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   NotificationHandle sse_decode_notification_handle(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_identifier = sse_decode_String(deserializer);
-    var var_conversationId = sse_decode_opt_String(deserializer);
+    var var_identifier = sse_decode_notification_id(deserializer);
+    var var_conversationId =
+        sse_decode_opt_box_autoadd_conversation_id(deserializer);
     return NotificationHandle(
         identifier: var_identifier, conversationId: var_conversationId);
+  }
+
+  @protected
+  NotificationId sse_decode_notification_id(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_Uuid(deserializer);
+    return NotificationId(field0: var_field0);
   }
 
   @protected
@@ -5859,6 +5902,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          DartNotificationService self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as DartNotificationServiceImpl).frbInternalSseEncode(move: true),
+        serializer);
+  }
+
+  @protected
+  void
       sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           LogWriter self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -5903,16 +5956,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: true),
-        serializer);
-  }
-
-  @protected
-  void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          NotificationService self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-        (self as NotificationServiceImpl).frbInternalSseEncode(move: true),
         serializer);
   }
 
@@ -6030,6 +6073,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          DartNotificationService self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as DartNotificationServiceImpl).frbInternalSseEncode(move: false),
+        serializer);
+  }
+
+  @protected
+  void
       sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
           LogWriter self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -6074,16 +6127,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: false),
-        serializer);
-  }
-
-  @protected
-  void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          NotificationService self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-        (self as NotificationServiceImpl).frbInternalSseEncode(move: false),
         serializer);
   }
 
@@ -6141,11 +6184,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_DartFn_Inputs_list_String_Output_unit_AnyhowException(
-      FutureOr<void> Function(List<String>) self, SseSerializer serializer) {
+  void
+      sse_encode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
+          FutureOr<void> Function(List<NotificationId>) self,
+          SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_DartOpaque(
-        encode_DartFn_Inputs_list_String_Output_unit_AnyhowException(self),
+        encode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
+            self),
         serializer);
   }
 
@@ -6189,6 +6235,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_usize(
         (self as ConversationListCubitBaseImpl)
             .frbInternalSseEncode(move: null),
+        serializer);
+  }
+
+  @protected
+  void
+      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+          DartNotificationService self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as DartNotificationServiceImpl).frbInternalSseEncode(move: null),
         serializer);
   }
 
@@ -6238,16 +6294,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: null),
-        serializer);
-  }
-
-  @protected
-  void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNotificationService(
-          NotificationService self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(
-        (self as NotificationServiceImpl).frbInternalSseEncode(move: null),
         serializer);
   }
 
@@ -6715,6 +6761,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_notification_id(
+      List<NotificationId> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_notification_id(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_loose(
       List<int> self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -6838,18 +6894,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_notification_content(
       NotificationContent self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.identifier, serializer);
+    sse_encode_notification_id(self.identifier, serializer);
     sse_encode_String(self.title, serializer);
     sse_encode_String(self.body, serializer);
-    sse_encode_opt_String(self.conversationId, serializer);
+    sse_encode_opt_box_autoadd_conversation_id(self.conversationId, serializer);
   }
 
   @protected
   void sse_encode_notification_handle(
       NotificationHandle self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.identifier, serializer);
-    sse_encode_opt_String(self.conversationId, serializer);
+    sse_encode_notification_id(self.identifier, serializer);
+    sse_encode_opt_box_autoadd_conversation_id(self.conversationId, serializer);
+  }
+
+  @protected
+  void sse_encode_notification_id(
+      NotificationId self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_Uuid(self.field0, serializer);
   }
 
   @protected
@@ -7352,6 +7415,28 @@ class ConversationListCubitBaseImpl extends RustOpaque
 }
 
 @sealed
+class DartNotificationServiceImpl extends RustOpaque
+    implements DartNotificationService {
+  // Not to be used by end users
+  DartNotificationServiceImpl.frbInternalDcoDecode(List<dynamic> wire)
+      : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  DartNotificationServiceImpl.frbInternalSseDecode(
+      BigInt ptr, int externalSizeOnNative)
+      : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount: RustLib
+        .instance.api.rust_arc_increment_strong_count_DartNotificationService,
+    rustArcDecrementStrongCount: RustLib
+        .instance.api.rust_arc_decrement_strong_count_DartNotificationService,
+    rustArcDecrementStrongCountPtr: RustLib.instance.api
+        .rust_arc_decrement_strong_count_DartNotificationServicePtr,
+  );
+}
+
+@sealed
 class LogWriterImpl extends RustOpaque implements LogWriter {
   // Not to be used by end users
   LogWriterImpl.frbInternalDcoDecode(List<dynamic> wire)
@@ -7593,28 +7678,6 @@ class NavigationCubitBaseImpl extends RustOpaque
       RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseStream(
         that: this,
       );
-}
-
-@sealed
-class NotificationServiceImpl extends RustOpaque
-    implements NotificationService {
-  // Not to be used by end users
-  NotificationServiceImpl.frbInternalDcoDecode(List<dynamic> wire)
-      : super.frbInternalDcoDecode(wire, _kStaticData);
-
-  // Not to be used by end users
-  NotificationServiceImpl.frbInternalSseDecode(
-      BigInt ptr, int externalSizeOnNative)
-      : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
-
-  static final _kStaticData = RustArcStaticData(
-    rustArcIncrementStrongCount: RustLib
-        .instance.api.rust_arc_increment_strong_count_NotificationService,
-    rustArcDecrementStrongCount: RustLib
-        .instance.api.rust_arc_decrement_strong_count_NotificationService,
-    rustArcDecrementStrongCountPtr: RustLib
-        .instance.api.rust_arc_decrement_strong_count_NotificationServicePtr,
-  );
 }
 
 @sealed

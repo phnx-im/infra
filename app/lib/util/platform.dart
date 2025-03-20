@@ -86,11 +86,12 @@ Future<void> setBadgeCount(int count) async {
 FutureOr<void> sendNotification(NotificationContent content) async {
   try {
     final arguments = <String, dynamic>{
-      'identifier': content.identifier,
+      'identifier': content.identifier.field0.toString(),
       'title': content.title,
       'body': content.body,
-      'conversationId': content.conversationId,
+      'conversationId': content.conversationId?.uuid.toString(),
     };
+    _log.info("invokeMethod sendNotification, arguments: $arguments");
     await platform.invokeMethod('sendNotification', arguments);
   } on PlatformException catch (e, stacktrace) {
     _log.severe("Failed to send notifications: '${e.message}'", e, stacktrace);
@@ -101,13 +102,7 @@ FutureOr<List<NotificationHandle>> getActiveNotifications() async {
   try {
     List<Map<Object?, Object?>> res =
         await platform.invokeListMethod('getActiveNotifications') ?? [];
-    return res
-        .where((e) => e['identifier'] != null)
-        .map((e) => NotificationHandle(
-              identifier: e['identifier'] as String,
-              conversationId: e['conversationId'] as String?,
-            ))
-        .toList();
+    return res.map(NotificationHandleExtension.fromMap).nonNulls.toList();
   } on PlatformException catch (e, stacktrace) {
     _log.severe(
         "Failed to get active notifications: '${e.message}'", e, stacktrace);
@@ -115,13 +110,13 @@ FutureOr<List<NotificationHandle>> getActiveNotifications() async {
   return [];
 }
 
-FutureOr<void> cancelNotifications(List<String> identifiers) async {
+FutureOr<void> cancelNotifications(List<NotificationId> identifiers) async {
   if (identifiers.isEmpty) {
     return;
   }
   try {
     final arguments = <String, dynamic>{
-      'identifiers': identifiers,
+      'identifiers': identifiers.map((id) => id.field0.toString()).toList(),
     };
     await platform.invokeMethod('cancelNotifications', arguments);
   } on PlatformException catch (e, stacktrace) {

@@ -8,13 +8,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::notifications::NotificationContent;
 
-#[cfg(target_os = "android")]
+// #[cfg(target_os = "android")]
 pub mod java_api;
 
-#[cfg(target_os = "ios")]
+// #[cfg(target_os = "ios")]
 pub mod swift_api;
 
-#[cfg(any(target_os = "ios", target_os = "android"))]
+// #[cfg(any(target_os = "ios", target_os = "android"))]
 pub(crate) mod processing;
 
 #[derive(Serialize, Deserialize)]

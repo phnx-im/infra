@@ -26,7 +26,7 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
   bool get isClosed;
 
   factory NavigationCubitBase(
-          {required NotificationService notificationService}) =>
+          {required DartNotificationService notificationService}) =>
       RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseNew(
           notificationService: notificationService);
 
