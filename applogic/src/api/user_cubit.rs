@@ -20,6 +20,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     StreamSink,
+    api::navigation_cubit::HomeNavigationState,
     notifications::NotificationService,
     util::{FibonacciBackoff, spawn_from_sync},
 };
@@ -396,25 +397,70 @@ async fn handle_websocket_message(
     }
 }
 
+/// Places in the app where notifications in foreground are handled differently.
+///
+/// Dervived from the [`NavigationState`].
+#[derive(Debug)]
+enum NotificationContext {
+    Intro,
+    Conversation(ConversationId),
+    ConversationList,
+    Other,
+}
+
 async fn process_fetched_messages(
     navigation_state: &watch::Receiver<NavigationState>,
     notification_service: &NotificationService,
     mut fetched_messages: FetchedMessages,
 ) {
-    let current_conversation_id = navigation_state.borrow().conversation_id();
+    let notification_context = match &*navigation_state.borrow() {
+        NavigationState::Intro { .. } => NotificationContext::Intro,
+        NavigationState::Home {
+            home:
+                HomeNavigationState {
+                    conversation_id: Some(conversation_id),
+                    ..
+                },
+        } => NotificationContext::Conversation(*conversation_id),
+        NavigationState::Home {
+            home:
+                HomeNavigationState {
+                    conversation_id: None,
+                    developer_settings_screen,
+                    user_settings_open,
+                    ..
+                },
+        } => {
+            let is_desktop = cfg!(any(
+                target_os = "macos",
+                target_os = "windows",
+                target_os = "linux"
+            ));
+            if developer_settings_screen.is_none() && *user_settings_open && !is_desktop {
+                NotificationContext::ConversationList
+            } else {
+                NotificationContext::Other
+            }
+        }
+    };
+
     debug!(
         ?fetched_messages,
-        ?current_conversation_id,
+        ?notification_context,
         "process_fetched_messages"
     );
 
-    // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
-    // we delegate it to a different place.
-    if let Some(current_conversation_id) = current_conversation_id {
-        // Remove the notifications for the current conversation
-        fetched_messages
-            .notifications_content
-            .retain(|notification| notification.conversation_id != Some(current_conversation_id));
+    match notification_context {
+        NotificationContext::Intro | NotificationContext::ConversationList => {
+            return; // suppress all notifications
+        }
+        NotificationContext::Conversation(conversation_id) => {
+            // Remove notifications for the current conversation
+            fetched_messages
+                .notifications_content
+                .retain(|notification| notification.conversation_id != Some(conversation_id));
+        }
+        NotificationContext::Other => (),
     }
 
     for notification in fetched_messages.notifications_content {

@@ -72,13 +72,6 @@ pub enum DeveloperSettingsScreenType {
 }
 
 impl NavigationState {
-    pub(crate) fn conversation_id(&self) -> Option<ConversationId> {
-        match self {
-            Self::Intro { .. } => None,
-            Self::Home { home } => home.conversation_id,
-        }
-    }
-
     fn intro() -> Self {
         Self::Intro {
             screens: Vec::new(),
