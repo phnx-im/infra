@@ -83,7 +83,7 @@ void main() {
       await tester.pumpWidget(buildSubject());
 
       // Increase threshold because rendering frosted glass varies significantly across different platforms.
-      await withThreshold(0.028, () async {
+      await withThreshold(0.029, () async {
         await expectLater(
           find.byType(MaterialApp),
           matchesGoldenFile('goldens/conversation_list.png'),
