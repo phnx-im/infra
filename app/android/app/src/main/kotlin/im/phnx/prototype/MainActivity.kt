@@ -4,14 +4,8 @@
 
 package im.phnx.prototype
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.ContentValues.TAG
-import android.content.Context
-import android.os.Build
-import androidx.core.app.NotificationCompat
-import com.google.firebase.messaging.FirebaseMessagingService
-import com.google.firebase.messaging.RemoteMessage
+import android.content.Intent
 import com.google.android.gms.tasks.Task
 import com.google.firebase.messaging.FirebaseMessaging
 import io.flutter.Log
@@ -20,16 +14,42 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val channel: String = "im.phnx.prototype/channel"
+    companion object {
+        private const val CHANNEL_NAME: String = "im.phnx.prototype/channel"
+    }
+
+    private var channel: MethodChannel? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+
+        if (intent.action == Notifications.SELECT_NOTIFICATION) {
+            val notificationId = intent.extras?.getString(Notifications.EXTRAS_NOTIFICATION_ID_KEY)
+            val conversationId = intent.extras?.getString(Notifications.EXTRAS_CONVERSATION_ID_KEY)
+            if (notificationId != null) {
+                val arguments = mapOf(
+                    "identifier" to notificationId, "conversationId" to conversationId
+                )
+                channel?.invokeMethod("openedNotification", arguments)
+            }
+        }
+    }
+
+    override fun detachFromFlutterEngine() {
+        super.detachFromFlutterEngine()
+
+        channel?.setMethodCallHandler(null)
+        channel = null
+    }
 
     // Configures the Method Channel to communicate with Flutter
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            channel
-        ).setMethodCallHandler { call, result ->
+        channel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME
+        )
+        channel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getDeviceToken" -> {
                     FirebaseMessaging.getInstance().token.addOnCompleteListener { task: Task<String> ->
@@ -42,16 +62,62 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+
                 "getDatabasesDirectory" -> {
                     val databasePath = filesDir.absolutePath
                     Log.d(TAG, "Application database path: $databasePath")
                     result.success(databasePath)
                 }
+
+                "sendNotification" -> {
+                    val identifier: String? = call.argument("identifier")
+                    val title: String? = call.argument("title")
+                    val body: String? = call.argument("body")
+                    val conversationId: ConversationId? =
+                        call.argument<String>("conversationId")?.let { ConversationId(it) }
+
+                    if (identifier != null && title != null && body != null) {
+                        val notification =
+                            NotificationContent(identifier, title, body, conversationId)
+                        Notifications.showNotification(this, notification)
+                        result.success(null)
+                    } else {
+                        result.error(
+                            "DeserializeError",
+                            "Failed to decode notification arguments ${call.arguments}",
+                            ""
+                        )
+                    }
+                }
+
+                "getActiveNotifications" -> {
+                    val notifications = Notifications.getActiveNotifications(this)
+                    val res: ArrayList<Map<String, Any?>> = ArrayList(notifications.map { handle ->
+                        mapOf<String, Any?>(
+                            "identifier" to handle.notificationId,
+                            "conversationId" to handle.conversationId
+                        )
+                    })
+                    result.success(res)
+                }
+
+                "cancelNotifications" -> {
+                    val identifiers: ArrayList<String>? = call.argument("identifiers")
+                    if (identifiers != null) {
+                        Notifications.cancelNotifications(this, identifiers)
+                    } else {
+                        result.error(
+                            "DeserializeError", "Failed to decode 'identifiers' arguments", ""
+                        )
+                    }
+                }
+
                 else -> {
                     result.notImplemented()
                 }
             }
         }
     }
+
 }
 

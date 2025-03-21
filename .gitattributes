@@ -3,3 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 **/goldens/** filter=lfs diff=lfs merge=lfs -text
+
+applogic/src/frb_generated.rs linguist-generated=true
+app/lib/core/api/** linguist-generated=true
+app/lib/core/frb_**.dart linguist-generated=true
+app/lib/core/notifications.dart linguist-generated=true

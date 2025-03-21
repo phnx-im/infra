@@ -12,6 +12,8 @@ export 'api/user.dart';
 export 'api/user_cubit.dart';
 export 'api/utils.dart';
 export 'api/navigation_cubit.dart';
+export 'api/notifications.dart';
+export 'notifications.dart';
 
 export 'core_client.dart';
 export 'core_extension.dart';

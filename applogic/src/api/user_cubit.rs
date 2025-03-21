@@ -20,6 +20,8 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     StreamSink,
+    api::navigation_cubit::HomeNavigationState,
+    notifications::NotificationService,
     util::{FibonacciBackoff, spawn_from_sync},
 };
 use crate::{
@@ -127,10 +129,21 @@ impl UserCubitBase {
         UiUser::spawn_load(state.clone(), core_user.clone());
 
         let navigation_state = navigation.subscribe();
+        let notification_service = navigation.notification_service.clone();
 
         let cancel = CancellationToken::new();
-        spawn_websocket(core_user.clone(), navigation_state.clone(), cancel.clone());
-        spawn_polling(core_user.clone(), navigation_state, cancel.clone());
+        spawn_websocket(
+            core_user.clone(),
+            navigation_state.clone(),
+            notification_service.clone(),
+            cancel.clone(),
+        );
+        spawn_polling(
+            core_user.clone(),
+            navigation_state,
+            notification_service.clone(),
+            cancel.clone(),
+        );
 
         Self {
             state,
@@ -250,6 +263,7 @@ impl UserCubitBase {
 fn spawn_websocket(
     core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
+    notification_service: NotificationService,
     cancel: CancellationToken,
 ) {
     spawn_from_sync(async move {
@@ -258,6 +272,7 @@ fn spawn_websocket(
         while let Err(error) = run_websocket(
             &core_user,
             &navigation_state,
+            &notification_service,
             &websocket_cancel,
             &mut backoff,
         )
@@ -277,6 +292,7 @@ fn spawn_websocket(
 async fn run_websocket(
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
+    notification_service: &NotificationService,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
 ) -> anyhow::Result<()> {
@@ -293,7 +309,10 @@ async fn run_websocket(
             _ = cancel.cancelled() => return Ok(()),
         };
         match event {
-            Some(event) => handle_websocket_message(event, core_user, navigation_state).await,
+            Some(event) => {
+                handle_websocket_message(event, core_user, navigation_state, notification_service)
+                    .await
+            }
             None => bail!("unexpected disconnect"),
         }
         backoff.reset(); // reset backoff after a successful message
@@ -303,6 +322,7 @@ async fn run_websocket(
 fn spawn_polling(
     core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
+    notification_service: NotificationService,
     cancel: CancellationToken,
 ) {
     let user = User::from_core_user(core_user);
@@ -316,7 +336,12 @@ fn spawn_polling(
             let mut timeout = POLLING_INTERVAL;
             match res {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(&navigation_state, fetched_messages).await;
+                    process_fetched_messages(
+                        &navigation_state,
+                        &notification_service,
+                        fetched_messages,
+                    )
+                    .await;
                     backoff.reset();
                 }
                 Err(error) => {
@@ -336,6 +361,7 @@ async fn handle_websocket_message(
     event: WsEvent,
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
+    notification_service: &NotificationService,
 ) {
     match event {
         WsEvent::ConnectedEvent => {
@@ -356,7 +382,12 @@ async fn handle_websocket_message(
             let user = User::from_core_user(core_user);
             match user.fetch_all_messages().await {
                 Ok(fetched_messages) => {
-                    process_fetched_messages(navigation_state, fetched_messages).await;
+                    process_fetched_messages(
+                        navigation_state,
+                        notification_service,
+                        fetched_messages,
+                    )
+                    .await;
                 }
                 Err(error) => {
                     error!(%error, "Failed to fetch messages on queue update");
@@ -366,32 +397,73 @@ async fn handle_websocket_message(
     }
 }
 
+/// Places in the app where notifications in foreground are handled differently.
+///
+/// Dervived from the [`NavigationState`].
+#[derive(Debug)]
+enum NotificationContext {
+    Intro,
+    Conversation(ConversationId),
+    ConversationList,
+    Other,
+}
+
 async fn process_fetched_messages(
     navigation_state: &watch::Receiver<NavigationState>,
-    fetched_messages: FetchedMessages,
+    notification_service: &NotificationService,
+    mut fetched_messages: FetchedMessages,
 ) {
-    let current_conversation_id = navigation_state.borrow().conversation_id();
+    let notification_context = match &*navigation_state.borrow() {
+        NavigationState::Intro { .. } => NotificationContext::Intro,
+        NavigationState::Home {
+            home:
+                HomeNavigationState {
+                    conversation_id: Some(conversation_id),
+                    ..
+                },
+        } => NotificationContext::Conversation(*conversation_id),
+        NavigationState::Home {
+            home:
+                HomeNavigationState {
+                    conversation_id: None,
+                    developer_settings_screen,
+                    user_settings_open,
+                    ..
+                },
+        } => {
+            let is_desktop = cfg!(any(
+                target_os = "macos",
+                target_os = "windows",
+                target_os = "linux"
+            ));
+            if developer_settings_screen.is_none() && *user_settings_open && !is_desktop {
+                NotificationContext::ConversationList
+            } else {
+                NotificationContext::Other
+            }
+        }
+    };
+
     debug!(
         ?fetched_messages,
-        ?current_conversation_id,
+        ?notification_context,
         "process_fetched_messages"
     );
 
-    // Send a notification to the OS (desktop only)
-    //
-    // TODO: Technically, this is not the responsibility of the user cubit to do this. Better
-    // we delegate it to a different place.
-    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    {
-        let mut fetched_messages = fetched_messages;
-        if let Some(current_conversation_id) = current_conversation_id {
-            // Remove the notifications for the current conversation
+    match notification_context {
+        NotificationContext::Intro | NotificationContext::ConversationList => {
+            return; // suppress all notifications
+        }
+        NotificationContext::Conversation(conversation_id) => {
+            // Remove notifications for the current conversation
             fetched_messages
                 .notifications_content
-                .remove(&current_conversation_id);
+                .retain(|notification| notification.conversation_id != Some(conversation_id));
         }
-        crate::notifications::show_desktop_notifications(
-            fetched_messages.notifications_content.values().flatten(),
-        );
+        NotificationContext::Other => (),
+    }
+
+    for notification in fetched_messages.notifications_content {
+        notification_service.send_notification(notification).await;
     }
 }
