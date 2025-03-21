@@ -7,13 +7,14 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 import 'types.dart';
 part 'navigation_cubit.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `conversation_id`, `home`, `intro`, `subscribe`
+// These functions are ignored because they are not marked as `pub`: `home`, `intro`, `subscribe`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<NavigationCubitBase>>
@@ -24,8 +25,10 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   bool get isClosed;
 
-  factory NavigationCubitBase() =>
-      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseNew();
+  factory NavigationCubitBase(
+          {required DartNotificationService notificationService}) =>
+      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseNew(
+          notificationService: notificationService);
 
   Future<void> openAddMembers();
 

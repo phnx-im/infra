@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::api::notifications::NotificationContent;
+
 #[cfg(target_os = "android")]
 pub mod java_api;
 
@@ -31,12 +33,4 @@ pub(crate) struct NotificationBatch {
     badge_count: usize,
     removals: Vec<String>,
     additions: Vec<NotificationContent>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct NotificationContent {
-    identifier: String,
-    title: String,
-    body: String,
-    data: String,
 }
