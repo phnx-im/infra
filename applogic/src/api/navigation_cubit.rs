@@ -10,8 +10,11 @@ use tokio::sync::watch;
 
 use crate::{
     StreamSink,
+    notifications::NotificationService,
     util::{Cubit, CubitCore},
 };
+
+use super::notifications::DartNotificationService;
 
 /// State of the global App navigation
 #[frb(dart_metadata = ("freezed"))]
@@ -69,13 +72,6 @@ pub enum DeveloperSettingsScreenType {
 }
 
 impl NavigationState {
-    pub(crate) fn conversation_id(&self) -> Option<ConversationId> {
-        match self {
-            Self::Intro { .. } => None,
-            Self::Home { home } => home.conversation_id,
-        }
-    }
-
     fn intro() -> Self {
         Self::Intro {
             screens: Vec::new(),
@@ -97,13 +93,17 @@ impl NavigationState {
 /// `AppRouter` in Dart.
 pub struct NavigationCubitBase {
     core: CubitCore<NavigationState>,
+    pub(crate) notification_service: NotificationService,
 }
 
 impl NavigationCubitBase {
     #[frb(sync)]
-    pub fn new() -> Self {
+    pub fn new(notification_service: &DartNotificationService) -> Self {
         let core = CubitCore::with_initial_state(NavigationState::intro());
-        Self { core }
+        Self {
+            core,
+            notification_service: NotificationService::new(notification_service.clone()),
+        }
     }
 
     // Cubit interface
@@ -147,7 +147,7 @@ impl NavigationCubitBase {
         });
     }
 
-    pub fn open_conversation(&self, conversation_id: ConversationId) {
+    pub async fn open_conversation(&self, conversation_id: ConversationId) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => {
                 *state = HomeNavigationState {
@@ -161,6 +161,18 @@ impl NavigationCubitBase {
                 home.conversation_id.replace(conversation_id) != Some(conversation_id)
             }
         });
+
+        // Cancel the active notifications for the current conversation
+        let handles = self.notification_service.get_active_notifications().await;
+        let identifiers = handles
+            .into_iter()
+            .filter_map(|handle| {
+                (handle.conversation_id? == conversation_id).then_some(handle.identifier)
+            })
+            .collect();
+        self.notification_service
+            .cancel_notifications(identifiers)
+            .await;
     }
 
     pub fn close_conversation(&self) {

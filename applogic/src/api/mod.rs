@@ -16,8 +16,6 @@
 //! introduce a Dart wrapper for each cubit here. The wrappers have the same name as the cubit, but
 //! without the `Base` suffix.
 
-use flutter_rust_bridge::frb;
-
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod logging;
@@ -25,20 +23,8 @@ pub mod markdown;
 pub mod message_cubit;
 pub mod message_list_cubit;
 pub mod navigation_cubit;
+pub mod notifications;
 pub mod types;
 pub mod user;
 pub mod user_cubit;
 pub mod utils;
-
-/// Main entry point of the application in Flutter
-///
-/// Note: Logging has to be initialized separately, see [`logging::init_rust_logging`].
-#[frb(init)]
-pub fn init() {
-    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    {
-        if let Err(error) = crate::notifications::init_desktop_os_notifications() {
-            tracing::error!(%error, "Failed to initialize desktop notifications");
-        }
-    }
-}

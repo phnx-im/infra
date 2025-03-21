@@ -4,12 +4,7 @@
 
 package im.phnx.prototype
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Context
-import android.os.Build
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -28,19 +23,6 @@ class BackgroundFirebaseMessagingService : FirebaseMessagingService() {
     // Handle incoming data messages
     private fun handleDataMessage(data: Map<String, String>) {
         Log.d(LOGTAG, "handleDataMessage")
-        val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        // Create a notification channel for Android 8.0+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Log.d(LOGTAG, "Creating notification channel")
-            val channel = NotificationChannel(
-                "default_channel",
-                "Default Channel",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
 
         val logFilePath = cacheDir.resolve("background.log").absolutePath
         Log.d(LOGTAG, "Logging file path: $logFilePath")
@@ -53,30 +35,19 @@ class BackgroundFirebaseMessagingService : FirebaseMessagingService() {
             logFilePath = cacheDir.resolve("background.log").absolutePath,
         )
 
-
         Log.d(LOGTAG, "Starting to process messages in Rust")
         val notificationBatch = NativeLib().processNewMessages(notificationContent)
         Log.d(LOGTAG, "Finished to process messages in Rust")
 
         // Show the notifications
-        notificationBatch?.additions?.forEach {
-            showNotification(notificationManager, it.identifier, it.title, it.body)
+        notificationBatch?.additions?.forEach { content ->
+            Notifications.showNotification(this, content)
         }
 
         // Remove the notifications
-        notificationBatch?.removals?.forEach {
-            notificationManager.cancel(it, 0)
+        if (notificationBatch?.removals != null) {
+            Notifications.cancelNotifications(this, ArrayList(notificationBatch.removals))
         }
-    }
-
-    private fun showNotification(notificationManager: NotificationManager, identifier: String?, title: String?, body: String?) {
-        val notificationBuilder = NotificationCompat.Builder(this, "default_channel")
-            .setContentTitle(title)
-            .setContentText(body)
-            .setSmallIcon(android.R.drawable.ic_notification_overlay) // Use your app's icon
-            .setAutoCancel(true)
-
-        notificationManager.notify(identifier, 0, notificationBuilder.build())
     }
 
     override fun onNewToken(token: String) {
@@ -85,4 +56,3 @@ class BackgroundFirebaseMessagingService : FirebaseMessagingService() {
         // TODO: The new token needs to be provisioned on the server
     }
 }
-
