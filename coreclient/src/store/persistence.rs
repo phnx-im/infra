@@ -118,7 +118,11 @@ impl StoreNotification {
             let removed = operation.contains(StoreOperation::Remove);
             query!(
                 "INSERT INTO store_notifications (entity_id, kind, added, updated, removed)
-                VALUES (?, ?, ?, ?, ?)",
+                VALUES (?1, ?2, ?3, ?4, ?5)
+                ON CONFLICT DO UPDATE SET
+                    added = MAX(?3, added),
+                    updated = MAX(?4, updated),
+                    removed = MAX(?5, removed)",
                 entity_id,
                 kind,
                 added,
@@ -199,6 +203,44 @@ mod tests {
 
         let dequeued_notification = StoreNotification::dequeue(&pool).await?;
         assert!(dequeued_notification.is_empty());
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn queue_notification_with_conflict(pool: SqlitePool) -> anyhow::Result<()> {
+        let conversation_id = ConversationId::new(Uuid::new_v4());
+
+        let mut notification = StoreNotification::default();
+        notification.ops.insert(
+            StoreEntityId::Conversation(conversation_id),
+            StoreOperation::Add.into(),
+        );
+        notification.enqueue(pool.acquire().await?.as_mut()).await?;
+
+        let mut notification = StoreNotification::default();
+        notification.ops.insert(
+            StoreEntityId::Conversation(conversation_id),
+            StoreOperation::Update.into(),
+        );
+        notification.enqueue(pool.acquire().await?.as_mut()).await?;
+
+        let mut notification = StoreNotification::default();
+        notification.ops.insert(
+            StoreEntityId::Conversation(conversation_id),
+            StoreOperation::Remove.into(),
+        );
+        notification.enqueue(pool.acquire().await?.as_mut()).await?;
+
+        let dequeued_notification = StoreNotification::dequeue(&pool).await?;
+        let expected = StoreNotification {
+            ops: [(
+                StoreEntityId::Conversation(conversation_id),
+                StoreOperation::Add | StoreOperation::Update | StoreOperation::Remove,
+            )]
+            .into(),
+        };
+        assert_eq!(dequeued_notification, expected);
 
         Ok(())
     }
