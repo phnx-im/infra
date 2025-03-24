@@ -15,7 +15,7 @@ import 'user.dart';
 
 // These functions are ignored because they are not marked as `pub`: `emit`, `handle_websocket_message`, `new`, `process_fetched_messages`, `run_websocket`, `spawn_load`, `spawn_polling`, `spawn_websocket`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NotificationContext`, `UiUserInner`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>>
 abstract class UiUser implements RustOpaqueInterface {
@@ -45,6 +45,8 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   Future<void> removeUserFromConversation(
       ConversationId conversationId, String userName);
 
+  Future<void> setAppState({required AppState appState});
+
   /// Set the display name and/or profile picture of the user.
   Future<void> setProfile({String? displayName, Uint8List? profilePicture});
 
@@ -54,4 +56,10 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   /// Get the user profile of the user with the given [`QualifiedUserName`].
   Future<UiUserProfile?> userProfile(String userName);
+}
+
+enum AppState {
+  background,
+  foreground,
+  ;
 }
