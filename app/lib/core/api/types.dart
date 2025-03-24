@@ -395,39 +395,15 @@ sealed class UiMessage with _$UiMessage {
 }
 
 /// The actual content of a message
-class UiMimiContent {
-  final Uint8List? replaces;
-  final Uint8List topicId;
-  final Uint8List? inReplyTo;
-  final String plainBody;
-  final MessageContent content;
-
-  const UiMimiContent({
-    this.replaces,
-    required this.topicId,
-    this.inReplyTo,
-    required this.plainBody,
-    required this.content,
-  });
-
-  @override
-  int get hashCode =>
-      replaces.hashCode ^
-      topicId.hashCode ^
-      inReplyTo.hashCode ^
-      plainBody.hashCode ^
-      content.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiMimiContent &&
-          runtimeType == other.runtimeType &&
-          replaces == other.replaces &&
-          topicId == other.topicId &&
-          inReplyTo == other.inReplyTo &&
-          plainBody == other.plainBody &&
-          content == other.content;
+@freezed
+class UiMimiContent with _$UiMimiContent {
+  const factory UiMimiContent({
+    Uint8List? replaces,
+    required Uint8List topicId,
+    Uint8List? inReplyTo,
+    required String plainBody,
+    required MessageContent content,
+  }) = _UiMimiContent;
 }
 
 /// System message
