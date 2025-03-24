@@ -51,6 +51,14 @@ pub enum IntroScreenType {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[frb(dart_metadata = ("freezed"))]
 pub struct HomeNavigationState {
+    /// Indicates whether a conversation is open independently of the state of the conversation id.
+    ///
+    /// When this flag is true and a conversation id is set, the conversation is open. When it is
+    /// false, no conversation is open, even if the conversation id is set.
+    ///
+    /// Allows to close a conversation without setting the conversation id to `None`.
+    #[frb(default = false)]
+    pub conversation_open: bool,
     pub conversation_id: Option<ConversationId>,
     pub developer_settings_screen: Option<DeveloperSettingsScreenType>,
     /// User name of the member that details are currently open
@@ -151,6 +159,7 @@ impl NavigationCubitBase {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => {
                 *state = HomeNavigationState {
+                    conversation_open: true,
                     conversation_id: Some(conversation_id),
                     ..Default::default()
                 }
@@ -158,7 +167,10 @@ impl NavigationCubitBase {
                 true
             }
             NavigationState::Home { home } => {
-                home.conversation_id.replace(conversation_id) != Some(conversation_id)
+                let was_open = mem::replace(&mut home.conversation_open, true);
+                let different_id =
+                    home.conversation_id.replace(conversation_id) != Some(conversation_id);
+                !was_open || different_id
             }
         });
 
@@ -178,7 +190,7 @@ impl NavigationCubitBase {
     pub fn close_conversation(&self) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => false,
-            NavigationState::Home { home } => home.conversation_id.take().is_some(),
+            NavigationState::Home { home } => mem::replace(&mut home.conversation_open, false),
         });
     }
 
@@ -302,7 +314,7 @@ impl NavigationCubitBase {
                 true
             }
             NavigationState::Home { home } if home.conversation_id.is_some() => {
-                home.conversation_id.take();
+                home.conversation_open = false;
                 true
             }
             NavigationState::Home { .. } => false,

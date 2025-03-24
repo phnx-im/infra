@@ -73,6 +73,7 @@ enum DeveloperSettingsScreenType {
 class HomeNavigationState with _$HomeNavigationState {
   const HomeNavigationState._();
   const factory HomeNavigationState({
+    @Default(false) bool conversationOpen,
     ConversationId? conversationId,
     DeveloperSettingsScreenType? developerSettingsScreen,
     String? memberDetails,
