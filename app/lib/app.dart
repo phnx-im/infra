@@ -37,6 +37,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   late final StreamSubscription<ConversationId> _openedNotificationSubscription;
   final NavigationCubit _navigationCubit = NavigationCubit();
 
+  final StreamController<AppState> _appStateController =
+      StreamController<AppState>.broadcast();
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +71,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   Future<void> _onStateChanged(AppLifecycleState state) async {
     if (state == AppLifecycleState.paused) {
       _log.fine('App is in the background');
+      _appStateController.sink.add(AppState.background);
 
       // iOS only
       if (Platform.isIOS) {
@@ -77,6 +81,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           await setBadgeCount(count);
         }
       }
+    } else if (state == AppLifecycleState.resumed) {
+      _log.fine('App is in the foreground');
+      _appStateController.sink.add(AppState.foreground);
     }
   }
 
@@ -118,12 +125,13 @@ class _AppState extends State<App> with WidgetsBindingObserver {
             }
           },
           builder: (context, loadableUser) => loadableUser.user != null
-              // Logged in user is accessible everywhere inside the app after
+              // Logged-in user is accessible everywhere inside the app after
               // the user is loaded
               ? BlocProvider<UserCubit>(
                   create: (context) => UserCubit(
                     coreClient: context.read<CoreClient>(),
                     navigationCubit: context.read<NavigationCubit>(),
+                    appStateStream: _appStateController.stream,
                   ),
                   child: router!,
                 )

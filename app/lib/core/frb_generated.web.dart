@@ -335,6 +335,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UuidValue dco_decode_Uuid(dynamic raw);
 
   @protected
+  AppState dco_decode_app_state(dynamic raw);
+
+  @protected
   BlockElement dco_decode_block_element(dynamic raw);
 
   @protected
@@ -865,6 +868,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UuidValue sse_decode_Uuid(SseDeserializer deserializer);
+
+  @protected
+  AppState sse_decode_app_state(SseDeserializer deserializer);
 
   @protected
   BlockElement sse_decode_block_element(SseDeserializer deserializer);
@@ -1451,6 +1457,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_Uuid(UuidValue self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_app_state(AppState self, SseSerializer serializer);
 
   @protected
   void sse_encode_block_element(BlockElement self, SseSerializer serializer);
