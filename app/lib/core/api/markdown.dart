@@ -84,13 +84,12 @@ sealed class InlineElement with _$InlineElement {
   ) = InlineElement_TaskListMarker;
 }
 
-class MessageContent {
-  final List<RangedBlockElement> content;
-
-  const MessageContent({
-    required this.content,
-  });
-
+@freezed
+class MessageContent with _$MessageContent {
+  const MessageContent._();
+  const factory MessageContent({
+    required List<RangedBlockElement> content,
+  }) = _MessageContent;
   static Future<MessageContent> error({required String message}) =>
       RustLib.instance.api
           .crateApiMarkdownMessageContentError(message: message);
@@ -102,86 +101,31 @@ class MessageContent {
   static MessageContent parseMarkdownRaw({required List<int> string}) =>
       RustLib.instance.api
           .crateApiMarkdownMessageContentParseMarkdownRaw(string: string);
-
-  @override
-  int get hashCode => content.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is MessageContent &&
-          runtimeType == other.runtimeType &&
-          content == other.content;
 }
 
-class RangedBlockElement {
-  final int start;
-  final int end;
-  final BlockElement element;
-
-  const RangedBlockElement({
-    required this.start,
-    required this.end,
-    required this.element,
-  });
-
-  @override
-  int get hashCode => start.hashCode ^ end.hashCode ^ element.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RangedBlockElement &&
-          runtimeType == other.runtimeType &&
-          start == other.start &&
-          end == other.end &&
-          element == other.element;
+@freezed
+class RangedBlockElement with _$RangedBlockElement {
+  const factory RangedBlockElement({
+    required int start,
+    required int end,
+    required BlockElement element,
+  }) = _RangedBlockElement;
 }
 
-class RangedCodeBlock {
-  final int start;
-  final int end;
-  final String value;
-
-  const RangedCodeBlock({
-    required this.start,
-    required this.end,
-    required this.value,
-  });
-
-  @override
-  int get hashCode => start.hashCode ^ end.hashCode ^ value.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RangedCodeBlock &&
-          runtimeType == other.runtimeType &&
-          start == other.start &&
-          end == other.end &&
-          value == other.value;
+@freezed
+class RangedCodeBlock with _$RangedCodeBlock {
+  const factory RangedCodeBlock({
+    required int start,
+    required int end,
+    required String value,
+  }) = _RangedCodeBlock;
 }
 
-class RangedInlineElement {
-  final int start;
-  final int end;
-  final InlineElement element;
-
-  const RangedInlineElement({
-    required this.start,
-    required this.end,
-    required this.element,
-  });
-
-  @override
-  int get hashCode => start.hashCode ^ end.hashCode ^ element.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RangedInlineElement &&
-          runtimeType == other.runtimeType &&
-          start == other.start &&
-          end == other.end &&
-          element == other.element;
+@freezed
+class RangedInlineElement with _$RangedInlineElement {
+  const factory RangedInlineElement({
+    required int start,
+    required int end,
+    required InlineElement element,
+  }) = _RangedInlineElement;
 }

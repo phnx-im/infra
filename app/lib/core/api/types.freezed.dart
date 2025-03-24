@@ -816,3 +816,237 @@ abstract class UiMessage_Display extends UiMessage {
   _$$UiMessage_DisplayImplCopyWith<_$UiMessage_DisplayImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
+
+/// @nodoc
+mixin _$UiMimiContent {
+  Uint8List? get replaces => throw _privateConstructorUsedError;
+  Uint8List get topicId => throw _privateConstructorUsedError;
+  Uint8List? get inReplyTo => throw _privateConstructorUsedError;
+  String get plainBody => throw _privateConstructorUsedError;
+  MessageContent get content => throw _privateConstructorUsedError;
+
+  /// Create a copy of UiMimiContent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $UiMimiContentCopyWith<UiMimiContent> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $UiMimiContentCopyWith<$Res> {
+  factory $UiMimiContentCopyWith(
+          UiMimiContent value, $Res Function(UiMimiContent) then) =
+      _$UiMimiContentCopyWithImpl<$Res, UiMimiContent>;
+  @useResult
+  $Res call(
+      {Uint8List? replaces,
+      Uint8List topicId,
+      Uint8List? inReplyTo,
+      String plainBody,
+      MessageContent content});
+
+  $MessageContentCopyWith<$Res> get content;
+}
+
+/// @nodoc
+class _$UiMimiContentCopyWithImpl<$Res, $Val extends UiMimiContent>
+    implements $UiMimiContentCopyWith<$Res> {
+  _$UiMimiContentCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of UiMimiContent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? replaces = freezed,
+    Object? topicId = null,
+    Object? inReplyTo = freezed,
+    Object? plainBody = null,
+    Object? content = null,
+  }) {
+    return _then(_value.copyWith(
+      replaces: freezed == replaces
+          ? _value.replaces
+          : replaces // ignore: cast_nullable_to_non_nullable
+              as Uint8List?,
+      topicId: null == topicId
+          ? _value.topicId
+          : topicId // ignore: cast_nullable_to_non_nullable
+              as Uint8List,
+      inReplyTo: freezed == inReplyTo
+          ? _value.inReplyTo
+          : inReplyTo // ignore: cast_nullable_to_non_nullable
+              as Uint8List?,
+      plainBody: null == plainBody
+          ? _value.plainBody
+          : plainBody // ignore: cast_nullable_to_non_nullable
+              as String,
+      content: null == content
+          ? _value.content
+          : content // ignore: cast_nullable_to_non_nullable
+              as MessageContent,
+    ) as $Val);
+  }
+
+  /// Create a copy of UiMimiContent
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $MessageContentCopyWith<$Res> get content {
+    return $MessageContentCopyWith<$Res>(_value.content, (value) {
+      return _then(_value.copyWith(content: value) as $Val);
+    });
+  }
+}
+
+/// @nodoc
+abstract class _$$UiMimiContentImplCopyWith<$Res>
+    implements $UiMimiContentCopyWith<$Res> {
+  factory _$$UiMimiContentImplCopyWith(
+          _$UiMimiContentImpl value, $Res Function(_$UiMimiContentImpl) then) =
+      __$$UiMimiContentImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {Uint8List? replaces,
+      Uint8List topicId,
+      Uint8List? inReplyTo,
+      String plainBody,
+      MessageContent content});
+
+  @override
+  $MessageContentCopyWith<$Res> get content;
+}
+
+/// @nodoc
+class __$$UiMimiContentImplCopyWithImpl<$Res>
+    extends _$UiMimiContentCopyWithImpl<$Res, _$UiMimiContentImpl>
+    implements _$$UiMimiContentImplCopyWith<$Res> {
+  __$$UiMimiContentImplCopyWithImpl(
+      _$UiMimiContentImpl _value, $Res Function(_$UiMimiContentImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of UiMimiContent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? replaces = freezed,
+    Object? topicId = null,
+    Object? inReplyTo = freezed,
+    Object? plainBody = null,
+    Object? content = null,
+  }) {
+    return _then(_$UiMimiContentImpl(
+      replaces: freezed == replaces
+          ? _value.replaces
+          : replaces // ignore: cast_nullable_to_non_nullable
+              as Uint8List?,
+      topicId: null == topicId
+          ? _value.topicId
+          : topicId // ignore: cast_nullable_to_non_nullable
+              as Uint8List,
+      inReplyTo: freezed == inReplyTo
+          ? _value.inReplyTo
+          : inReplyTo // ignore: cast_nullable_to_non_nullable
+              as Uint8List?,
+      plainBody: null == plainBody
+          ? _value.plainBody
+          : plainBody // ignore: cast_nullable_to_non_nullable
+              as String,
+      content: null == content
+          ? _value.content
+          : content // ignore: cast_nullable_to_non_nullable
+              as MessageContent,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$UiMimiContentImpl implements _UiMimiContent {
+  const _$UiMimiContentImpl(
+      {this.replaces,
+      required this.topicId,
+      this.inReplyTo,
+      required this.plainBody,
+      required this.content});
+
+  @override
+  final Uint8List? replaces;
+  @override
+  final Uint8List topicId;
+  @override
+  final Uint8List? inReplyTo;
+  @override
+  final String plainBody;
+  @override
+  final MessageContent content;
+
+  @override
+  String toString() {
+    return 'UiMimiContent(replaces: $replaces, topicId: $topicId, inReplyTo: $inReplyTo, plainBody: $plainBody, content: $content)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiMimiContentImpl &&
+            const DeepCollectionEquality().equals(other.replaces, replaces) &&
+            const DeepCollectionEquality().equals(other.topicId, topicId) &&
+            const DeepCollectionEquality().equals(other.inReplyTo, inReplyTo) &&
+            (identical(other.plainBody, plainBody) ||
+                other.plainBody == plainBody) &&
+            (identical(other.content, content) || other.content == content));
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      runtimeType,
+      const DeepCollectionEquality().hash(replaces),
+      const DeepCollectionEquality().hash(topicId),
+      const DeepCollectionEquality().hash(inReplyTo),
+      plainBody,
+      content);
+
+  /// Create a copy of UiMimiContent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UiMimiContentImplCopyWith<_$UiMimiContentImpl> get copyWith =>
+      __$$UiMimiContentImplCopyWithImpl<_$UiMimiContentImpl>(this, _$identity);
+}
+
+abstract class _UiMimiContent implements UiMimiContent {
+  const factory _UiMimiContent(
+      {final Uint8List? replaces,
+      required final Uint8List topicId,
+      final Uint8List? inReplyTo,
+      required final String plainBody,
+      required final MessageContent content}) = _$UiMimiContentImpl;
+
+  @override
+  Uint8List? get replaces;
+  @override
+  Uint8List get topicId;
+  @override
+  Uint8List? get inReplyTo;
+  @override
+  String get plainBody;
+  @override
+  MessageContent get content;
+
+  /// Create a copy of UiMimiContent
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UiMimiContentImplCopyWith<_$UiMimiContentImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}

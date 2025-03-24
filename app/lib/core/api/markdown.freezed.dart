@@ -1652,3 +1652,667 @@ abstract class InlineElement_TaskListMarker extends InlineElement {
           _$InlineElement_TaskListMarkerImpl>
       get copyWith => throw _privateConstructorUsedError;
 }
+
+/// @nodoc
+mixin _$MessageContent {
+  List<RangedBlockElement> get content => throw _privateConstructorUsedError;
+
+  /// Create a copy of MessageContent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $MessageContentCopyWith<MessageContent> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $MessageContentCopyWith<$Res> {
+  factory $MessageContentCopyWith(
+          MessageContent value, $Res Function(MessageContent) then) =
+      _$MessageContentCopyWithImpl<$Res, MessageContent>;
+  @useResult
+  $Res call({List<RangedBlockElement> content});
+}
+
+/// @nodoc
+class _$MessageContentCopyWithImpl<$Res, $Val extends MessageContent>
+    implements $MessageContentCopyWith<$Res> {
+  _$MessageContentCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of MessageContent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? content = null,
+  }) {
+    return _then(_value.copyWith(
+      content: null == content
+          ? _value.content
+          : content // ignore: cast_nullable_to_non_nullable
+              as List<RangedBlockElement>,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$MessageContentImplCopyWith<$Res>
+    implements $MessageContentCopyWith<$Res> {
+  factory _$$MessageContentImplCopyWith(_$MessageContentImpl value,
+          $Res Function(_$MessageContentImpl) then) =
+      __$$MessageContentImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({List<RangedBlockElement> content});
+}
+
+/// @nodoc
+class __$$MessageContentImplCopyWithImpl<$Res>
+    extends _$MessageContentCopyWithImpl<$Res, _$MessageContentImpl>
+    implements _$$MessageContentImplCopyWith<$Res> {
+  __$$MessageContentImplCopyWithImpl(
+      _$MessageContentImpl _value, $Res Function(_$MessageContentImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of MessageContent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? content = null,
+  }) {
+    return _then(_$MessageContentImpl(
+      content: null == content
+          ? _value._content
+          : content // ignore: cast_nullable_to_non_nullable
+              as List<RangedBlockElement>,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$MessageContentImpl extends _MessageContent {
+  const _$MessageContentImpl({required final List<RangedBlockElement> content})
+      : _content = content,
+        super._();
+
+  final List<RangedBlockElement> _content;
+  @override
+  List<RangedBlockElement> get content {
+    if (_content is EqualUnmodifiableListView) return _content;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_content);
+  }
+
+  @override
+  String toString() {
+    return 'MessageContent(content: $content)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$MessageContentImpl &&
+            const DeepCollectionEquality().equals(other._content, _content));
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, const DeepCollectionEquality().hash(_content));
+
+  /// Create a copy of MessageContent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$MessageContentImplCopyWith<_$MessageContentImpl> get copyWith =>
+      __$$MessageContentImplCopyWithImpl<_$MessageContentImpl>(
+          this, _$identity);
+}
+
+abstract class _MessageContent extends MessageContent {
+  const factory _MessageContent(
+      {required final List<RangedBlockElement> content}) = _$MessageContentImpl;
+  const _MessageContent._() : super._();
+
+  @override
+  List<RangedBlockElement> get content;
+
+  /// Create a copy of MessageContent
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$MessageContentImplCopyWith<_$MessageContentImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+mixin _$RangedBlockElement {
+  int get start => throw _privateConstructorUsedError;
+  int get end => throw _privateConstructorUsedError;
+  BlockElement get element => throw _privateConstructorUsedError;
+
+  /// Create a copy of RangedBlockElement
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $RangedBlockElementCopyWith<RangedBlockElement> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $RangedBlockElementCopyWith<$Res> {
+  factory $RangedBlockElementCopyWith(
+          RangedBlockElement value, $Res Function(RangedBlockElement) then) =
+      _$RangedBlockElementCopyWithImpl<$Res, RangedBlockElement>;
+  @useResult
+  $Res call({int start, int end, BlockElement element});
+
+  $BlockElementCopyWith<$Res> get element;
+}
+
+/// @nodoc
+class _$RangedBlockElementCopyWithImpl<$Res, $Val extends RangedBlockElement>
+    implements $RangedBlockElementCopyWith<$Res> {
+  _$RangedBlockElementCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of RangedBlockElement
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? start = null,
+    Object? end = null,
+    Object? element = null,
+  }) {
+    return _then(_value.copyWith(
+      start: null == start
+          ? _value.start
+          : start // ignore: cast_nullable_to_non_nullable
+              as int,
+      end: null == end
+          ? _value.end
+          : end // ignore: cast_nullable_to_non_nullable
+              as int,
+      element: null == element
+          ? _value.element
+          : element // ignore: cast_nullable_to_non_nullable
+              as BlockElement,
+    ) as $Val);
+  }
+
+  /// Create a copy of RangedBlockElement
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $BlockElementCopyWith<$Res> get element {
+    return $BlockElementCopyWith<$Res>(_value.element, (value) {
+      return _then(_value.copyWith(element: value) as $Val);
+    });
+  }
+}
+
+/// @nodoc
+abstract class _$$RangedBlockElementImplCopyWith<$Res>
+    implements $RangedBlockElementCopyWith<$Res> {
+  factory _$$RangedBlockElementImplCopyWith(_$RangedBlockElementImpl value,
+          $Res Function(_$RangedBlockElementImpl) then) =
+      __$$RangedBlockElementImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({int start, int end, BlockElement element});
+
+  @override
+  $BlockElementCopyWith<$Res> get element;
+}
+
+/// @nodoc
+class __$$RangedBlockElementImplCopyWithImpl<$Res>
+    extends _$RangedBlockElementCopyWithImpl<$Res, _$RangedBlockElementImpl>
+    implements _$$RangedBlockElementImplCopyWith<$Res> {
+  __$$RangedBlockElementImplCopyWithImpl(_$RangedBlockElementImpl _value,
+      $Res Function(_$RangedBlockElementImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of RangedBlockElement
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? start = null,
+    Object? end = null,
+    Object? element = null,
+  }) {
+    return _then(_$RangedBlockElementImpl(
+      start: null == start
+          ? _value.start
+          : start // ignore: cast_nullable_to_non_nullable
+              as int,
+      end: null == end
+          ? _value.end
+          : end // ignore: cast_nullable_to_non_nullable
+              as int,
+      element: null == element
+          ? _value.element
+          : element // ignore: cast_nullable_to_non_nullable
+              as BlockElement,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$RangedBlockElementImpl implements _RangedBlockElement {
+  const _$RangedBlockElementImpl(
+      {required this.start, required this.end, required this.element});
+
+  @override
+  final int start;
+  @override
+  final int end;
+  @override
+  final BlockElement element;
+
+  @override
+  String toString() {
+    return 'RangedBlockElement(start: $start, end: $end, element: $element)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$RangedBlockElementImpl &&
+            (identical(other.start, start) || other.start == start) &&
+            (identical(other.end, end) || other.end == end) &&
+            (identical(other.element, element) || other.element == element));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, start, end, element);
+
+  /// Create a copy of RangedBlockElement
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$RangedBlockElementImplCopyWith<_$RangedBlockElementImpl> get copyWith =>
+      __$$RangedBlockElementImplCopyWithImpl<_$RangedBlockElementImpl>(
+          this, _$identity);
+}
+
+abstract class _RangedBlockElement implements RangedBlockElement {
+  const factory _RangedBlockElement(
+      {required final int start,
+      required final int end,
+      required final BlockElement element}) = _$RangedBlockElementImpl;
+
+  @override
+  int get start;
+  @override
+  int get end;
+  @override
+  BlockElement get element;
+
+  /// Create a copy of RangedBlockElement
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$RangedBlockElementImplCopyWith<_$RangedBlockElementImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+mixin _$RangedCodeBlock {
+  int get start => throw _privateConstructorUsedError;
+  int get end => throw _privateConstructorUsedError;
+  String get value => throw _privateConstructorUsedError;
+
+  /// Create a copy of RangedCodeBlock
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $RangedCodeBlockCopyWith<RangedCodeBlock> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $RangedCodeBlockCopyWith<$Res> {
+  factory $RangedCodeBlockCopyWith(
+          RangedCodeBlock value, $Res Function(RangedCodeBlock) then) =
+      _$RangedCodeBlockCopyWithImpl<$Res, RangedCodeBlock>;
+  @useResult
+  $Res call({int start, int end, String value});
+}
+
+/// @nodoc
+class _$RangedCodeBlockCopyWithImpl<$Res, $Val extends RangedCodeBlock>
+    implements $RangedCodeBlockCopyWith<$Res> {
+  _$RangedCodeBlockCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of RangedCodeBlock
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? start = null,
+    Object? end = null,
+    Object? value = null,
+  }) {
+    return _then(_value.copyWith(
+      start: null == start
+          ? _value.start
+          : start // ignore: cast_nullable_to_non_nullable
+              as int,
+      end: null == end
+          ? _value.end
+          : end // ignore: cast_nullable_to_non_nullable
+              as int,
+      value: null == value
+          ? _value.value
+          : value // ignore: cast_nullable_to_non_nullable
+              as String,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$RangedCodeBlockImplCopyWith<$Res>
+    implements $RangedCodeBlockCopyWith<$Res> {
+  factory _$$RangedCodeBlockImplCopyWith(_$RangedCodeBlockImpl value,
+          $Res Function(_$RangedCodeBlockImpl) then) =
+      __$$RangedCodeBlockImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({int start, int end, String value});
+}
+
+/// @nodoc
+class __$$RangedCodeBlockImplCopyWithImpl<$Res>
+    extends _$RangedCodeBlockCopyWithImpl<$Res, _$RangedCodeBlockImpl>
+    implements _$$RangedCodeBlockImplCopyWith<$Res> {
+  __$$RangedCodeBlockImplCopyWithImpl(
+      _$RangedCodeBlockImpl _value, $Res Function(_$RangedCodeBlockImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of RangedCodeBlock
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? start = null,
+    Object? end = null,
+    Object? value = null,
+  }) {
+    return _then(_$RangedCodeBlockImpl(
+      start: null == start
+          ? _value.start
+          : start // ignore: cast_nullable_to_non_nullable
+              as int,
+      end: null == end
+          ? _value.end
+          : end // ignore: cast_nullable_to_non_nullable
+              as int,
+      value: null == value
+          ? _value.value
+          : value // ignore: cast_nullable_to_non_nullable
+              as String,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$RangedCodeBlockImpl implements _RangedCodeBlock {
+  const _$RangedCodeBlockImpl(
+      {required this.start, required this.end, required this.value});
+
+  @override
+  final int start;
+  @override
+  final int end;
+  @override
+  final String value;
+
+  @override
+  String toString() {
+    return 'RangedCodeBlock(start: $start, end: $end, value: $value)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$RangedCodeBlockImpl &&
+            (identical(other.start, start) || other.start == start) &&
+            (identical(other.end, end) || other.end == end) &&
+            (identical(other.value, value) || other.value == value));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, start, end, value);
+
+  /// Create a copy of RangedCodeBlock
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$RangedCodeBlockImplCopyWith<_$RangedCodeBlockImpl> get copyWith =>
+      __$$RangedCodeBlockImplCopyWithImpl<_$RangedCodeBlockImpl>(
+          this, _$identity);
+}
+
+abstract class _RangedCodeBlock implements RangedCodeBlock {
+  const factory _RangedCodeBlock(
+      {required final int start,
+      required final int end,
+      required final String value}) = _$RangedCodeBlockImpl;
+
+  @override
+  int get start;
+  @override
+  int get end;
+  @override
+  String get value;
+
+  /// Create a copy of RangedCodeBlock
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$RangedCodeBlockImplCopyWith<_$RangedCodeBlockImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+mixin _$RangedInlineElement {
+  int get start => throw _privateConstructorUsedError;
+  int get end => throw _privateConstructorUsedError;
+  InlineElement get element => throw _privateConstructorUsedError;
+
+  /// Create a copy of RangedInlineElement
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $RangedInlineElementCopyWith<RangedInlineElement> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $RangedInlineElementCopyWith<$Res> {
+  factory $RangedInlineElementCopyWith(
+          RangedInlineElement value, $Res Function(RangedInlineElement) then) =
+      _$RangedInlineElementCopyWithImpl<$Res, RangedInlineElement>;
+  @useResult
+  $Res call({int start, int end, InlineElement element});
+
+  $InlineElementCopyWith<$Res> get element;
+}
+
+/// @nodoc
+class _$RangedInlineElementCopyWithImpl<$Res, $Val extends RangedInlineElement>
+    implements $RangedInlineElementCopyWith<$Res> {
+  _$RangedInlineElementCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of RangedInlineElement
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? start = null,
+    Object? end = null,
+    Object? element = null,
+  }) {
+    return _then(_value.copyWith(
+      start: null == start
+          ? _value.start
+          : start // ignore: cast_nullable_to_non_nullable
+              as int,
+      end: null == end
+          ? _value.end
+          : end // ignore: cast_nullable_to_non_nullable
+              as int,
+      element: null == element
+          ? _value.element
+          : element // ignore: cast_nullable_to_non_nullable
+              as InlineElement,
+    ) as $Val);
+  }
+
+  /// Create a copy of RangedInlineElement
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $InlineElementCopyWith<$Res> get element {
+    return $InlineElementCopyWith<$Res>(_value.element, (value) {
+      return _then(_value.copyWith(element: value) as $Val);
+    });
+  }
+}
+
+/// @nodoc
+abstract class _$$RangedInlineElementImplCopyWith<$Res>
+    implements $RangedInlineElementCopyWith<$Res> {
+  factory _$$RangedInlineElementImplCopyWith(_$RangedInlineElementImpl value,
+          $Res Function(_$RangedInlineElementImpl) then) =
+      __$$RangedInlineElementImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({int start, int end, InlineElement element});
+
+  @override
+  $InlineElementCopyWith<$Res> get element;
+}
+
+/// @nodoc
+class __$$RangedInlineElementImplCopyWithImpl<$Res>
+    extends _$RangedInlineElementCopyWithImpl<$Res, _$RangedInlineElementImpl>
+    implements _$$RangedInlineElementImplCopyWith<$Res> {
+  __$$RangedInlineElementImplCopyWithImpl(_$RangedInlineElementImpl _value,
+      $Res Function(_$RangedInlineElementImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of RangedInlineElement
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? start = null,
+    Object? end = null,
+    Object? element = null,
+  }) {
+    return _then(_$RangedInlineElementImpl(
+      start: null == start
+          ? _value.start
+          : start // ignore: cast_nullable_to_non_nullable
+              as int,
+      end: null == end
+          ? _value.end
+          : end // ignore: cast_nullable_to_non_nullable
+              as int,
+      element: null == element
+          ? _value.element
+          : element // ignore: cast_nullable_to_non_nullable
+              as InlineElement,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$RangedInlineElementImpl implements _RangedInlineElement {
+  const _$RangedInlineElementImpl(
+      {required this.start, required this.end, required this.element});
+
+  @override
+  final int start;
+  @override
+  final int end;
+  @override
+  final InlineElement element;
+
+  @override
+  String toString() {
+    return 'RangedInlineElement(start: $start, end: $end, element: $element)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$RangedInlineElementImpl &&
+            (identical(other.start, start) || other.start == start) &&
+            (identical(other.end, end) || other.end == end) &&
+            (identical(other.element, element) || other.element == element));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, start, end, element);
+
+  /// Create a copy of RangedInlineElement
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$RangedInlineElementImplCopyWith<_$RangedInlineElementImpl> get copyWith =>
+      __$$RangedInlineElementImplCopyWithImpl<_$RangedInlineElementImpl>(
+          this, _$identity);
+}
+
+abstract class _RangedInlineElement implements RangedInlineElement {
+  const factory _RangedInlineElement(
+      {required final int start,
+      required final int end,
+      required final InlineElement element}) = _$RangedInlineElementImpl;
+
+  @override
+  int get start;
+  @override
+  int get end;
+  @override
+  InlineElement get element;
+
+  /// Create a copy of RangedInlineElement
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$RangedInlineElementImplCopyWith<_$RangedInlineElementImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
