@@ -149,8 +149,14 @@ void main() {
         binding.platformDispatcher.views.first.resetPhysicalSize();
       });
 
-      when(() => navigationCubit.state).thenReturn(NavigationState.home(
-          home: HomeNavigationState(conversationId: conversations[2].id)));
+      when(() => navigationCubit.state).thenReturn(
+        NavigationState.home(
+          home: HomeNavigationState(
+            conversationOpen: true,
+            conversationId: conversations[2].id,
+          ),
+        ),
+      );
       when(() => conversationListCubit.state)
           .thenReturn(ConversationListState(conversations: conversations));
       when(() => messageListCubit.state)
