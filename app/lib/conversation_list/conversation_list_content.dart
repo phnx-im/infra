@@ -152,7 +152,10 @@ class _ListTileBottom extends StatelessWidget {
         const SizedBox(width: 16),
         Align(
           alignment: Alignment.center,
-          child: _UnreadBadge(count: conversation.unreadMessages),
+          child: _UnreadBadge(
+            conversationId: conversation.id,
+            count: conversation.unreadMessages,
+          ),
         ),
       ],
     );
@@ -161,16 +164,22 @@ class _ListTileBottom extends StatelessWidget {
 
 class _UnreadBadge extends StatelessWidget {
   const _UnreadBadge({
+    required this.conversationId,
     required this.count,
   });
 
+  final ConversationId conversationId;
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    if (count < 1) {
+    final currentConversationId =
+        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+
+    if (count < 1 || conversationId == currentConversationId) {
       return const SizedBox();
     }
+
     final badgeText = count <= 100 ? "$count" : "100+";
     const double badgeSize = 20;
     return Container(
@@ -205,18 +214,24 @@ class _LastMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentConversationId =
+        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+
     final lastMessage = conversation.lastMessage;
-    final style = TextStyle(
+
+    final readStyle = TextStyle(
       color: colorDMB,
       fontSize: isSmallScreen(context) ? 14 : 13,
       height: 1.2,
-    );
+    ).merge(VariableFontWeight.normal);
+    final unreadStyle = readStyle.merge(VariableFontWeight.medium);
 
-    final contentStyle = conversation.unreadMessages > 0
-        ? style.merge(VariableFontWeight.medium)
-        : style;
+    final contentStyle = conversation.id != currentConversationId &&
+            conversation.unreadMessages > 0
+        ? unreadStyle
+        : readStyle;
 
-    final senderStyle = style.merge(VariableFontWeight.semiBold);
+    final senderStyle = readStyle.merge(VariableFontWeight.semiBold);
 
     final (sender, displayedLastMessage) = switch (lastMessage?.message) {
       UiMessage_Content(field0: final content) => (
