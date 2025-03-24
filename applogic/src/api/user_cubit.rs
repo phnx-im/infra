@@ -119,6 +119,10 @@ pub struct UserCubitBase {
     state: Arc<RwLock<UiUser>>,
     sinks: Option<Vec<StreamSink<UiUser>>>,
     pub(crate) core_user: CoreUser,
+    #[cfg_attr(
+        any(target_os = "linux", target_os = "macos", target_os = "windows"),
+        expect(dead_code)
+    )]
     app_state_tx: watch::Sender<AppState>,
     _background_tasks_cancel: DropGuard,
 }
@@ -324,6 +328,7 @@ fn spawn_websocket(
 async fn run_websocket(
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
+    app_state: &mut watch::Receiver<AppState>,
     notification_service: &NotificationService,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
