@@ -40,13 +40,13 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb]
+#[frb(dart_metadata = ("freezed"))]
 pub struct MessageContent {
     pub content: Vec<RangedBlockElement>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb]
+#[frb(dart_metadata = ("freezed"))]
 pub struct RangedInlineElement {
     pub start: u32,
     pub end: u32,
@@ -54,7 +54,7 @@ pub struct RangedInlineElement {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb]
+#[frb(dart_metadata = ("freezed"))]
 pub struct RangedBlockElement {
     pub start: u32,
     pub end: u32,
@@ -62,7 +62,7 @@ pub struct RangedBlockElement {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb]
+#[frb(dart_metadata = ("freezed"))]
 pub struct RangedCodeBlock {
     pub start: u32,
     pub end: u32,
@@ -70,7 +70,7 @@ pub struct RangedCodeBlock {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[frb]
+#[frb(dart_metadata = ("freezed"))]
 pub struct RangedEvent<'a> {
     pub start: u32,
     pub end: u32,
@@ -78,7 +78,7 @@ pub struct RangedEvent<'a> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb]
+#[frb(dart_metadata = ("freezed"))]
 pub enum BlockElement {
     Paragraph(Vec<RangedInlineElement>),
     Heading(Vec<RangedInlineElement>),
@@ -98,7 +98,7 @@ pub enum BlockElement {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb]
+#[frb(dart_metadata = ("freezed"))]
 pub enum InlineElement {
     Text(String),
     Code(String),

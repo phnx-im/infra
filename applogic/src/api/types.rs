@@ -215,6 +215,7 @@ impl From<Message> for UiMessage {
 
 /// The actual content of a message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub struct UiMimiContent {
     pub replaces: Option<Vec<u8>>,
     pub topic_id: Vec<u8>,
