@@ -479,12 +479,12 @@ async fn process_fetched_messages(
                     ..
                 },
         } => {
-            let is_desktop = cfg!(any(
+            const IS_DESKTOP: bool = cfg!(any(
                 target_os = "macos",
                 target_os = "windows",
                 target_os = "linux"
             ));
-            if developer_settings_screen.is_none() && *user_settings_open && !is_desktop {
+            if !IS_DESKTOP && developer_settings_screen.is_none() && !*user_settings_open {
                 NotificationContext::ConversationList
             } else {
                 NotificationContext::Other
