@@ -98,6 +98,12 @@ impl UiUser {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum AppState {
+    Background,
+    Foreground,
+}
+
 /// Provides access to the logged in user and their profile.
 ///
 /// Also connects to the server websocket and listens to messages. Fetches updates from the server.
@@ -113,6 +119,7 @@ pub struct UserCubitBase {
     state: Arc<RwLock<UiUser>>,
     sinks: Option<Vec<StreamSink<UiUser>>>,
     pub(crate) core_user: CoreUser,
+    app_state_tx: watch::Sender<AppState>,
     _background_tasks_cancel: DropGuard,
 }
 
@@ -131,16 +138,20 @@ impl UserCubitBase {
         let navigation_state = navigation.subscribe();
         let notification_service = navigation.notification_service.clone();
 
+        let (app_state_tx, app_state) = watch::channel(AppState::Foreground);
+
         let cancel = CancellationToken::new();
         spawn_websocket(
             core_user.clone(),
             navigation_state.clone(),
+            app_state.clone(),
             notification_service.clone(),
             cancel.clone(),
         );
         spawn_polling(
             core_user.clone(),
             navigation_state,
+            app_state,
             notification_service.clone(),
             cancel.clone(),
         );
@@ -149,6 +160,7 @@ impl UserCubitBase {
             state,
             sinks: Some(Default::default()),
             core_user,
+            app_state_tx,
             _background_tasks_cancel: cancel.drop_guard(),
         }
     }
@@ -258,33 +270,53 @@ impl UserCubitBase {
         let contacts = self.core_user.contacts().await?;
         Ok(contacts.into_iter().map(From::from).collect())
     }
+
+    pub fn set_app_state(&self, app_state: AppState) {
+        info!(?app_state, "app state changed");
+        // Note: on Desktop, we consider the app to be always in foreground
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        let _no_receivers = self.app_state_tx.send(app_state);
+    }
 }
 
 fn spawn_websocket(
     core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
+    mut app_state: watch::Receiver<AppState>,
     notification_service: NotificationService,
     cancel: CancellationToken,
 ) {
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
         let mut websocket_cancel = cancel.child_token();
-        while let Err(error) = run_websocket(
-            &core_user,
-            &navigation_state,
-            &notification_service,
-            &websocket_cancel,
-            &mut backoff,
-        )
-        .await
-        {
-            let timeout = backoff.next_backoff();
-            info!(%error, retry_in =? timeout, "Websocket failed");
+        loop {
+            let res = run_websocket(
+                &core_user,
+                &navigation_state,
+                &mut app_state,
+                &notification_service,
+                &websocket_cancel,
+                &mut backoff,
+            )
+            .await;
+
+            // stop internal websocket loop and issue a new token
             websocket_cancel.cancel();
             websocket_cancel = cancel.child_token();
-            tokio::time::sleep(timeout).await;
+
+            // wait for app to be foreground
+            let _ = app_state
+                .wait_for(|app_state| matches!(app_state, AppState::Foreground))
+                .await;
+
+            // if websocket failed, retry with backoff
+            if let Err(error) = res {
+                let timeout = backoff.next_backoff();
+                info!(%error, retry_in =? timeout, "Websocket failed");
+
+                tokio::time::sleep(timeout).await;
+            }
         }
-        info!("Websocket handler stopped normally");
     });
 }
 
@@ -303,11 +335,17 @@ async fn run_websocket(
             cancel.clone(),
         )
         .await?;
+
     loop {
+        let in_background =
+            app_state.wait_for(|app_state| matches!(app_state, AppState::Background));
+
         let event = tokio::select! {
             event = websocket.next() => event,
+            _ = in_background => return Ok(()),
             _ = cancel.cancelled() => return Ok(()),
         };
+
         match event {
             Some(event) => {
                 handle_websocket_message(event, core_user, navigation_state, notification_service)
@@ -322,6 +360,7 @@ async fn run_websocket(
 fn spawn_polling(
     core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
+    mut app_state: watch::Receiver<AppState>,
     notification_service: NotificationService,
     cancel: CancellationToken,
 ) {
@@ -329,6 +368,10 @@ fn spawn_polling(
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
         loop {
+            let _ = app_state
+                .wait_for(|app_state| matches!(app_state, AppState::Foreground))
+                .await;
+
             let res = tokio::select! {
                 _ = cancel.cancelled() => break,
                 res = user.fetch_all_messages() => res,
