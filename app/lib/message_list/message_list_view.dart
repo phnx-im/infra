@@ -85,7 +85,7 @@ class _VisibilityConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return VisibilityDetector(
-      key: ValueKey(_VisibilityKeyValue(messageId)),
+      key: ValueKey(VisibilityKeyValue(messageId)),
       child: const ConversationTile(),
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction > 0) {
@@ -99,9 +99,20 @@ class _VisibilityConversationTile extends StatelessWidget {
   }
 }
 
-class _VisibilityKeyValue {
-  const _VisibilityKeyValue(this.id);
+class VisibilityKeyValue {
+  const VisibilityKeyValue(this.id);
   final ConversationMessageId id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is VisibilityKeyValue &&
+            other.id == id);
+  }
 }
 
 final ScrollPhysics _scrollPhysics =
