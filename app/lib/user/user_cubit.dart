@@ -16,17 +16,23 @@ class UserCubit implements StateStreamableSource<UiUser> {
   UserCubit({
     required CoreClient coreClient,
     required NavigationCubit navigationCubit,
+    required Stream<AppState> appStateStream,
   }) : _impl = UserCubitBase(
           user: coreClient.user,
           navigation: navigationCubit.base,
-        );
+        ) {
+    _appStateSubscription = appStateStream
+        .listen((appState) => _impl.setAppState(appState: appState));
+  }
 
   final UserCubitBase _impl;
+  late final StreamSubscription<AppState> _appStateSubscription;
 
   UserCubitBase get impl => _impl;
 
   @override
   FutureOr<void> close() {
+    _appStateSubscription.cancel();
     _impl.close();
   }
 
