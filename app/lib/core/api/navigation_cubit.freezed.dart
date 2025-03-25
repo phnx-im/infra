@@ -16,6 +16,7 @@ final _privateConstructorUsedError = UnsupportedError(
 
 /// @nodoc
 mixin _$HomeNavigationState {
+  bool get conversationOpen => throw _privateConstructorUsedError;
   ConversationId? get conversationId => throw _privateConstructorUsedError;
   DeveloperSettingsScreenType? get developerSettingsScreen =>
       throw _privateConstructorUsedError;
@@ -38,7 +39,8 @@ abstract class $HomeNavigationStateCopyWith<$Res> {
       _$HomeNavigationStateCopyWithImpl<$Res, HomeNavigationState>;
   @useResult
   $Res call(
-      {ConversationId? conversationId,
+      {bool conversationOpen,
+      ConversationId? conversationId,
       DeveloperSettingsScreenType? developerSettingsScreen,
       String? memberDetails,
       bool userSettingsOpen,
@@ -61,6 +63,7 @@ class _$HomeNavigationStateCopyWithImpl<$Res, $Val extends HomeNavigationState>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? conversationOpen = null,
     Object? conversationId = freezed,
     Object? developerSettingsScreen = freezed,
     Object? memberDetails = freezed,
@@ -69,6 +72,10 @@ class _$HomeNavigationStateCopyWithImpl<$Res, $Val extends HomeNavigationState>
     Object? addMembersOpen = null,
   }) {
     return _then(_value.copyWith(
+      conversationOpen: null == conversationOpen
+          ? _value.conversationOpen
+          : conversationOpen // ignore: cast_nullable_to_non_nullable
+              as bool,
       conversationId: freezed == conversationId
           ? _value.conversationId
           : conversationId // ignore: cast_nullable_to_non_nullable
@@ -106,7 +113,8 @@ abstract class _$$HomeNavigationStateImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {ConversationId? conversationId,
+      {bool conversationOpen,
+      ConversationId? conversationId,
       DeveloperSettingsScreenType? developerSettingsScreen,
       String? memberDetails,
       bool userSettingsOpen,
@@ -127,6 +135,7 @@ class __$$HomeNavigationStateImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? conversationOpen = null,
     Object? conversationId = freezed,
     Object? developerSettingsScreen = freezed,
     Object? memberDetails = freezed,
@@ -135,6 +144,10 @@ class __$$HomeNavigationStateImplCopyWithImpl<$Res>
     Object? addMembersOpen = null,
   }) {
     return _then(_$HomeNavigationStateImpl(
+      conversationOpen: null == conversationOpen
+          ? _value.conversationOpen
+          : conversationOpen // ignore: cast_nullable_to_non_nullable
+              as bool,
       conversationId: freezed == conversationId
           ? _value.conversationId
           : conversationId // ignore: cast_nullable_to_non_nullable
@@ -167,7 +180,8 @@ class __$$HomeNavigationStateImplCopyWithImpl<$Res>
 
 class _$HomeNavigationStateImpl extends _HomeNavigationState {
   const _$HomeNavigationStateImpl(
-      {this.conversationId,
+      {this.conversationOpen = false,
+      this.conversationId,
       this.developerSettingsScreen,
       this.memberDetails,
       this.userSettingsOpen = false,
@@ -175,6 +189,9 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
       this.addMembersOpen = false})
       : super._();
 
+  @override
+  @JsonKey()
+  final bool conversationOpen;
   @override
   final ConversationId? conversationId;
   @override
@@ -193,7 +210,7 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
 
   @override
   String toString() {
-    return 'HomeNavigationState(conversationId: $conversationId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsOpen: $userSettingsOpen, conversationDetailsOpen: $conversationDetailsOpen, addMembersOpen: $addMembersOpen)';
+    return 'HomeNavigationState(conversationOpen: $conversationOpen, conversationId: $conversationId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsOpen: $userSettingsOpen, conversationDetailsOpen: $conversationDetailsOpen, addMembersOpen: $addMembersOpen)';
   }
 
   @override
@@ -201,6 +218,8 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$HomeNavigationStateImpl &&
+            (identical(other.conversationOpen, conversationOpen) ||
+                other.conversationOpen == conversationOpen) &&
             (identical(other.conversationId, conversationId) ||
                 other.conversationId == conversationId) &&
             (identical(
@@ -220,6 +239,7 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
   @override
   int get hashCode => Object.hash(
       runtimeType,
+      conversationOpen,
       conversationId,
       developerSettingsScreen,
       memberDetails,
@@ -239,7 +259,8 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
 
 abstract class _HomeNavigationState extends HomeNavigationState {
   const factory _HomeNavigationState(
-      {final ConversationId? conversationId,
+      {final bool conversationOpen,
+      final ConversationId? conversationId,
       final DeveloperSettingsScreenType? developerSettingsScreen,
       final String? memberDetails,
       final bool userSettingsOpen,
@@ -247,6 +268,8 @@ abstract class _HomeNavigationState extends HomeNavigationState {
       final bool addMembersOpen}) = _$HomeNavigationStateImpl;
   const _HomeNavigationState._() : super._();
 
+  @override
+  bool get conversationOpen;
   @override
   ConversationId? get conversationId;
   @override
