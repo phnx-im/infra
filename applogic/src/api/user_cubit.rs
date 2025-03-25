@@ -304,6 +304,11 @@ fn spawn_websocket(
             )
             .await;
 
+            // stop handler on websocket cancellation
+            if let Ok(true) = res {
+                break;
+            }
+
             // stop internal websocket loop and issue a new token
             websocket_cancel.cancel();
             websocket_cancel = cancel.child_token();
@@ -324,7 +329,9 @@ fn spawn_websocket(
     });
 }
 
-/// Normal return means the websocket handler was cancelled
+/// Returns `true` if the websocket was cancelled.
+///
+/// Otherwise, returns `false` or an error.
 async fn run_websocket(
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
@@ -332,7 +339,7 @@ async fn run_websocket(
     notification_service: &NotificationService,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let mut websocket = core_user
         .websocket(
             WEBSOCKET_TIMEOUT.as_secs(),
@@ -347,8 +354,8 @@ async fn run_websocket(
 
         let event = tokio::select! {
             event = websocket.next() => event,
-            _ = in_background => return Ok(()),
-            _ = cancel.cancelled() => return Ok(()),
+            _ = in_background => return Ok(false),
+            _ = cancel.cancelled() => return Ok(true),
         };
 
         match event {
