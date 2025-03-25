@@ -173,24 +173,30 @@ extension on HomeNavigationState {
           key: ValueKey("user-settings-screen"),
           child: UserSettingsScreen(),
         ),
-      if (conversationId != null && screenType == ResponsiveScreenType.mobile)
+      if (conversationId != null &&
+          conversationOpen &&
+          screenType == ResponsiveScreenType.mobile)
         const MaterialPage(
           key: ValueKey("conversation-screen"),
           child: ConversationScreen(),
         ),
-      if (conversationId != null && conversationDetailsOpen)
+      if (conversationId != null && conversationOpen && conversationDetailsOpen)
         const MaterialPage(
           key: ValueKey("conversation-details-screen"),
           child: ConversationDetailsScreen(),
         ),
       if (conversationId != null &&
+          conversationOpen &&
           conversationDetailsOpen &&
           memberDetails != null)
         const MaterialPage(
           key: ValueKey("conversation-member-details-screen"),
           child: MemberDetailsScreen(),
         ),
-      if (conversationId != null && conversationDetailsOpen && addMembersOpen)
+      if (conversationId != null &&
+          conversationOpen &&
+          conversationDetailsOpen &&
+          addMembersOpen)
         const MaterialPage(
           key: ValueKey("add-members-screen"),
           child: AddMembersScreen(),
