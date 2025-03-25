@@ -71,10 +71,15 @@ class AppRouterDelegate extends RouterDelegate<EmptyConfig> {
           if (screens.isEmpty)
             MaterialPage(
               key: IntroScreenType.intro.key,
+              canPop: false,
               child: IntroScreenType.intro.screen,
             ),
           for (final screenType in screens)
-            MaterialPage(key: screenType.key, child: screenType.screen),
+            MaterialPage(
+              key: screenType.key,
+              canPop: screenType != IntroScreenType.intro,
+              child: screenType.screen,
+            ),
         ],
       NavigationState_Home(:final home) => home.pages(screenType),
     };
@@ -162,8 +167,9 @@ extension on IntroScreenType {
 /// Convert [HomeNavigation] state into a list of pages.
 extension on HomeNavigationState {
   List<MaterialPage> pages(ResponsiveScreenType screenType) {
-    const homeScreenPage = MaterialPage(
+    const homeScreenPage = NoAnimationPage(
       key: ValueKey("home-screen"),
+      canPop: false,
       child: HomeScreen(),
     );
     return [
@@ -231,5 +237,36 @@ extension on HomeNavigationState {
           ],
       },
     ];
+  }
+}
+
+class NoAnimationPage<T> extends MaterialPage<T> {
+  const NoAnimationPage({
+    super.name,
+    super.canPop,
+    required super.child,
+    super.key,
+  });
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    return NoAnimationMaterialPageRoute<T>(
+      settings: this,
+      builder: (context) => child,
+    );
+  }
+}
+
+class NoAnimationMaterialPageRoute<T> extends MaterialPageRoute<T> {
+  NoAnimationMaterialPageRoute({
+    super.settings,
+    required super.builder,
+  });
+
+  @override
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) {
+    // return child without transition animation
+    return child;
   }
 }
