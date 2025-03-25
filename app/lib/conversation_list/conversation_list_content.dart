@@ -62,8 +62,8 @@ class _ListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId =
-        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    final currentConversationId = context
+        .select((NavigationCubit cubit) => cubit.state.openConversationId);
     final isSelected = currentConversationId == conversation.id;
     return ListTile(
       horizontalTitleGap: 0,

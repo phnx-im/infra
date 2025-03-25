@@ -3761,16 +3761,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   HomeNavigationState dco_decode_home_navigation_state(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return HomeNavigationState(
-      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[0]),
+      conversationOpen: dco_decode_bool(arr[0]),
+      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[1]),
       developerSettingsScreen:
-          dco_decode_opt_box_autoadd_developer_settings_screen_type(arr[1]),
-      memberDetails: dco_decode_opt_String(arr[2]),
-      userSettingsOpen: dco_decode_bool(arr[3]),
-      conversationDetailsOpen: dco_decode_bool(arr[4]),
-      addMembersOpen: dco_decode_bool(arr[5]),
+          dco_decode_opt_box_autoadd_developer_settings_screen_type(arr[2]),
+      memberDetails: dco_decode_opt_String(arr[3]),
+      userSettingsOpen: dco_decode_bool(arr[4]),
+      conversationDetailsOpen: dco_decode_bool(arr[5]),
+      addMembersOpen: dco_decode_bool(arr[6]),
     );
   }
 
@@ -5113,6 +5114,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   HomeNavigationState sse_decode_home_navigation_state(
       SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_conversationOpen = sse_decode_bool(deserializer);
     var var_conversationId =
         sse_decode_opt_box_autoadd_conversation_id(deserializer);
     var var_developerSettingsScreen =
@@ -5122,6 +5124,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_conversationDetailsOpen = sse_decode_bool(deserializer);
     var var_addMembersOpen = sse_decode_bool(deserializer);
     return HomeNavigationState(
+        conversationOpen: var_conversationOpen,
         conversationId: var_conversationId,
         developerSettingsScreen: var_developerSettingsScreen,
         memberDetails: var_memberDetails,
@@ -6658,6 +6661,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_home_navigation_state(
       HomeNavigationState self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.conversationOpen, serializer);
     sse_encode_opt_box_autoadd_conversation_id(self.conversationId, serializer);
     sse_encode_opt_box_autoadd_developer_settings_screen_type(
         self.developerSettingsScreen, serializer);

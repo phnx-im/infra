@@ -65,8 +65,14 @@ extension ImageDataExtension on Uint8List {
 
 extension NavigationStateExtension on NavigationState {
   ConversationId? get conversationId => switch (this) {
-        NavigationState_Intro() => null,
         NavigationState_Home(:final home) => home.conversationId,
+        NavigationState_Intro() => null,
+      };
+
+  ConversationId? get openConversationId => switch (this) {
+        NavigationState_Home(:final home) when home.conversationOpen =>
+          home.conversationId,
+        NavigationState_Intro() || NavigationState_Home() => null,
       };
 }
 
