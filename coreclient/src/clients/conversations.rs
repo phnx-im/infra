@@ -4,11 +4,13 @@
 
 use anyhow::{Result, anyhow};
 use create_conversation_flow::IntitialConversationData;
+use delete_conversation_flow::load_conversation_data;
+use tokio_util::either::Either;
 
 use crate::{
     ConversationMessageId,
     conversations::{Conversation, messages::ConversationMessage},
-    groups::{Group, openmls_provider::PhnxOpenMlsProvider},
+    groups::openmls_provider::PhnxOpenMlsProvider,
 };
 
 use super::{ConversationId, CoreUser};
@@ -55,54 +57,35 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
-        let mut conversation = Conversation::load(self.pool(), &conversation_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
-        let group_id = conversation.group_id();
-        // Generate ciphertext
-        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
-        let past_members = group.members(self.pool()).await;
-
-        // No need to send a message to the server if we are the only member.
-        // TODO: Make sure this is what we want.
-        let messages = if past_members.len() != 1 {
-            // Phase 2: Create the delete commit
-            let params = group.delete(self.pool().acquire().await?.as_mut()).await?;
-
-            let owner_domain = conversation.owner_domain();
-            // Phase 3: Send the delete to the DS
-            let ds_timestamp = self
-                .inner
-                .api_clients
-                .get(&owner_domain)?
-                .ds_delete_group(params, group.leaf_signer(), group.group_state_ear_key())
-                .await?;
-
-            // Phase 4: Merge the commit into the group
-            let messages = group
-                .merge_pending_commit(self.pool().acquire().await?.as_mut(), None, ds_timestamp)
-                .await?;
-            group.store_update(self.pool()).await?;
-            messages
-        } else {
-            vec![]
-        };
-
-        // Phase 4: Set the conversation to inactive
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            conversation
-                .set_inactive(
-                    &mut *connection,
-                    notifier,
-                    past_members.into_iter().collect(),
-                )
-                .await?;
-            self.store_messages(&mut *connection, notifier, conversation_id, messages)
+        match load_conversation_data(self.pool(), conversation_id).await? {
+            Either::Left(multi_user_data) => {
+                let deleted = multi_user_data
+                    // Phase 2: Create the delete commit
+                    .create_delete_commit(self.pool())
+                    .await?
+                    // Phase 3: Send the delete to the DS
+                    .send_delete_commit(&self.inner.api_clients)
+                    .await?;
+                self.with_transaction_and_notifier(async |connection, notifier| {
+                    deleted
+                        // Phase 4: Merge the commit into the group
+                        .merge_pending_commit(&mut *connection)
+                        .await?
+                        // Phase 5: Set the conversation to inactive
+                        .set_inactive(&mut *connection, notifier)
+                        .await
+                })
                 .await
-        })
-        .await
+            }
+            Either::Right(single_user_data) => {
+                // Phase 5: Set the conversation to inactive
+                self.with_transaction_and_notifier(async |connection, notifier| {
+                    single_user_data.set_inactive(connection, notifier).await?;
+                    Ok(Vec::new())
+                })
+                .await
+            }
+        }
     }
 
     pub(crate) async fn set_conversation_picture(
@@ -315,6 +298,190 @@ mod create_conversation_flow {
                 .await?;
 
             Ok(conversation_id)
+        }
+    }
+}
+
+mod delete_conversation_flow {
+    use std::collections::HashSet;
+
+    use anyhow::Context;
+    use phnxtypes::{
+        identifiers::QualifiedUserName, messages::client_ds_out::DeleteGroupParamsOut,
+        time::TimeStamp,
+    };
+    use sqlx::{SqliteConnection, SqlitePool};
+    use tokio_util::either::Either;
+
+    use crate::{
+        Conversation, ConversationId, ConversationMessage, clients::api_clients::ApiClients,
+        conversations::messages::TimestampedMessage, groups::Group, store::StoreNotifier,
+    };
+
+    pub(super) async fn load_conversation_data(
+        pool: &SqlitePool,
+        conversation_id: ConversationId,
+    ) -> anyhow::Result<Either<LoadedConversationData<()>, LoadedSingleUserConversationData>> {
+        let conversation = Conversation::load(pool, &conversation_id)
+            .await?
+            .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
+        let group_id = conversation.group_id();
+        let group = Group::load(pool.acquire().await?.as_mut(), group_id)
+            .await?
+            .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+        let past_members = group.members(pool).await;
+
+        if past_members.len() == 1 {
+            let member = past_members.into_iter().next().unwrap();
+            Ok(Either::Right(LoadedSingleUserConversationData {
+                conversation,
+                member,
+            }))
+        } else {
+            Ok(Either::Left(LoadedConversationData {
+                conversation,
+                group,
+                past_members,
+                state: (),
+            }))
+        }
+    }
+
+    pub(super) struct LoadedSingleUserConversationData {
+        conversation: Conversation,
+        member: QualifiedUserName,
+    }
+
+    impl LoadedSingleUserConversationData {
+        pub(super) async fn set_inactive(
+            self,
+            connection: &mut SqliteConnection,
+            notifier: &mut StoreNotifier,
+        ) -> anyhow::Result<()> {
+            let Self {
+                mut conversation,
+                member,
+            } = self;
+            conversation
+                .set_inactive(connection, notifier, vec![member])
+                .await?;
+            Ok(())
+        }
+    }
+
+    pub(super) struct LoadedConversationData<S> {
+        conversation: Conversation,
+        group: Group,
+        past_members: HashSet<QualifiedUserName>,
+        state: S,
+    }
+
+    impl LoadedConversationData<()> {
+        pub(super) async fn create_delete_commit(
+            self,
+            pool: &SqlitePool,
+        ) -> anyhow::Result<LoadedConversationData<DeleteGroupParamsOut>> {
+            let Self {
+                conversation,
+                mut group,
+                past_members,
+                state: _,
+            } = self;
+            let params = group.delete(pool.acquire().await?.as_mut()).await?;
+            Ok(LoadedConversationData {
+                conversation,
+                group,
+                past_members,
+                state: params,
+            })
+        }
+    }
+
+    impl LoadedConversationData<DeleteGroupParamsOut> {
+        pub(super) async fn send_delete_commit(
+            self,
+            api_clients: &ApiClients,
+        ) -> anyhow::Result<LoadedConversationData<DeletedGroupOnDs>> {
+            let Self {
+                conversation,
+                group,
+                past_members,
+                state: params,
+            } = self;
+            let owner_domain = conversation.owner_domain();
+            let ds_timestamp = api_clients
+                .get(&owner_domain)?
+                .ds_delete_group(params, group.leaf_signer(), group.group_state_ear_key())
+                .await?;
+            Ok(LoadedConversationData {
+                conversation,
+                group,
+                past_members,
+                state: DeletedGroupOnDs(ds_timestamp),
+            })
+        }
+    }
+
+    pub(super) struct DeletedGroupOnDs(TimeStamp);
+
+    impl LoadedConversationData<DeletedGroupOnDs> {
+        pub(super) async fn merge_pending_commit(
+            self,
+            connection: &mut SqliteConnection,
+        ) -> anyhow::Result<DeletedGroup> {
+            let Self {
+                conversation,
+                mut group,
+                past_members,
+                state: DeletedGroupOnDs(ds_timestamp),
+            } = self;
+
+            let messages = group
+                .merge_pending_commit(connection, None, ds_timestamp)
+                .await?;
+
+            Ok(DeletedGroup {
+                conversation,
+                past_members,
+                messages,
+            })
+        }
+    }
+
+    pub(super) struct DeletedGroup {
+        conversation: Conversation,
+        past_members: HashSet<QualifiedUserName>,
+        messages: Vec<TimestampedMessage>,
+    }
+
+    impl DeletedGroup {
+        pub(super) async fn set_inactive(
+            self,
+            connection: &mut SqliteConnection,
+            notifier: &mut StoreNotifier,
+        ) -> anyhow::Result<Vec<ConversationMessage>> {
+            let Self {
+                mut conversation,
+                past_members,
+                messages,
+            } = self;
+            conversation
+                .set_inactive(
+                    &mut *connection,
+                    notifier,
+                    past_members.into_iter().collect(),
+                )
+                .await?;
+
+            let mut stored_messages = Vec::with_capacity(messages.len());
+            for message in messages {
+                let message =
+                    ConversationMessage::from_timestamped_message(conversation.id(), message);
+                message.store(&mut *connection, notifier).await?;
+                stored_messages.push(message);
+            }
+
+            Ok(stored_messages)
         }
     }
 }
