@@ -83,6 +83,18 @@ pub trait LocalStore {
 
     async fn leave_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
 
+    /// Invite users to an existing conversation.
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    async fn invite_users(
+        &self,
+        conversation_id: ConversationId,
+        invited_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>>;
+
     // contacts
 
     /// Create a connection with a new user.
