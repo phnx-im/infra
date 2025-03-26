@@ -3,23 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{Result, anyhow};
-use openmls::prelude::GroupId;
-use openmls_traits::OpenMlsProvider;
-use phnxtypes::{
-    codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
-    identifiers::QsReference,
-};
+use create_conversation_flow::IntitialConversationData;
 
 use crate::{
     ConversationMessageId,
-    conversations::{Conversation, ConversationAttributes, messages::ConversationMessage},
-    groups::{
-        Group, GroupData, PartialCreateGroupParams, client_auth_info::GroupMembership,
-        openmls_provider::PhnxOpenMlsProvider,
-    },
+    conversations::{Conversation, messages::ConversationMessage},
+    groups::{Group, openmls_provider::PhnxOpenMlsProvider},
 };
 
-use super::{ApiClients, ConversationId, CoreUser, StoreNotifier};
+use super::{ConversationId, CoreUser};
 
 impl CoreUser {
     /// Create new conversation.
@@ -30,7 +22,7 @@ impl CoreUser {
         title: String,
         picture: Option<Vec<u8>>,
     ) -> Result<ConversationId> {
-        let group_data = IntitialConversationData { title, picture }
+        let group_data = IntitialConversationData::new(title, picture)
             .request_group_id(&self.inner.api_clients)
             .await?;
 
@@ -189,116 +181,140 @@ impl CoreUser {
     }
 }
 
-struct IntitialConversationData {
-    title: String,
-    picture: Option<Vec<u8>>,
-}
+mod create_conversation_flow {
+    use anyhow::Result;
+    use openmls::group::GroupId;
+    use openmls_traits::OpenMlsProvider;
+    use phnxtypes::{
+        codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
+        identifiers::QsReference,
+    };
 
-impl IntitialConversationData {
-    async fn request_group_id(self, api_clients: &ApiClients) -> Result<ConversationGroupData> {
-        let Self { title, picture } = self;
-        let group_id = api_clients.default_client()?.ds_request_group_id().await?;
-        // Store the conversation attributes in the group's aad
-        let attributes = ConversationAttributes::new(title, picture);
-        let group_data = PhnxCodec::to_vec(&attributes)?.into();
-        Ok(ConversationGroupData {
-            group_id,
-            group_data,
-            attributes,
-        })
+    use crate::{
+        Conversation, ConversationAttributes, ConversationId,
+        clients::api_clients::ApiClients,
+        groups::{Group, GroupData, PartialCreateGroupParams, client_auth_info::GroupMembership},
+        store::StoreNotifier,
+    };
+
+    pub(super) struct IntitialConversationData {
+        title: String,
+        picture: Option<Vec<u8>>,
     }
-}
 
-struct ConversationGroupData {
-    group_id: GroupId,
-    group_data: GroupData,
-    attributes: ConversationAttributes,
-}
+    impl IntitialConversationData {
+        pub(super) fn new(title: String, picture: Option<Vec<u8>>) -> Self {
+            Self { title, picture }
+        }
 
-struct CreatedGroup {
-    group: Group,
-    group_membership: GroupMembership,
-    partial_params: PartialCreateGroupParams,
-    attributes: ConversationAttributes,
-}
-
-impl ConversationGroupData {
-    fn create_group(
-        self,
-        provider: &impl OpenMlsProvider,
-        signing_key: &ClientSigningKey,
-        connection_key: &ConnectionKey,
-    ) -> Result<CreatedGroup> {
-        let Self {
-            group_id,
-            group_data,
-            attributes,
-        } = self;
-
-        let (group, group_membership, partial_params) =
-            Group::create_group(provider, signing_key, connection_key, group_id, group_data)?;
-
-        Ok(CreatedGroup {
-            group,
-            group_membership,
-            partial_params,
-            attributes,
-        })
+        pub(super) async fn request_group_id(
+            self,
+            api_clients: &ApiClients,
+        ) -> Result<ConversationGroupData> {
+            let Self { title, picture } = self;
+            let group_id = api_clients.default_client()?.ds_request_group_id().await?;
+            // Store the conversation attributes in the group's aad
+            let attributes = ConversationAttributes::new(title, picture);
+            let group_data = PhnxCodec::to_vec(&attributes)?.into();
+            Ok(ConversationGroupData {
+                group_id,
+                group_data,
+                attributes,
+            })
+        }
     }
-}
 
-impl CreatedGroup {
-    async fn store_group(
-        self,
-        connection: &mut sqlx::SqliteConnection,
-        notifier: &mut StoreNotifier,
-    ) -> Result<StoredGroup> {
-        let Self {
-            group,
-            group_membership,
-            partial_params,
-            attributes,
-        } = self;
-
-        group_membership.store(&mut *connection).await?;
-        group.store(&mut *connection).await?;
-
-        let conversation =
-            Conversation::new_group_conversation(partial_params.group_id.clone(), attributes);
-        conversation.store(&mut *connection, notifier).await?;
-
-        Ok(StoredGroup {
-            group,
-            partial_params,
-            conversation_id: conversation.id(),
-        })
+    pub(super) struct ConversationGroupData {
+        group_id: GroupId,
+        group_data: GroupData,
+        attributes: ConversationAttributes,
     }
-}
 
-pub struct StoredGroup {
-    group: Group,
-    partial_params: PartialCreateGroupParams,
-    conversation_id: ConversationId,
-}
+    pub(super) struct CreatedGroup {
+        group: Group,
+        group_membership: GroupMembership,
+        partial_params: PartialCreateGroupParams,
+        attributes: ConversationAttributes,
+    }
 
-impl StoredGroup {
-    async fn create_group_on_ds(
-        self,
-        api_clients: &ApiClients,
-        client_reference: QsReference,
-    ) -> Result<ConversationId> {
-        let Self {
-            group,
-            partial_params,
-            conversation_id,
-        } = self;
+    impl ConversationGroupData {
+        pub(super) fn create_group(
+            self,
+            provider: &impl OpenMlsProvider,
+            signing_key: &ClientSigningKey,
+            connection_key: &ConnectionKey,
+        ) -> Result<CreatedGroup> {
+            let Self {
+                group_id,
+                group_data,
+                attributes,
+            } = self;
 
-        let params = partial_params.into_params(client_reference);
-        api_clients
-            .default_client()?
-            .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
+            let (group, group_membership, partial_params) =
+                Group::create_group(provider, signing_key, connection_key, group_id, group_data)?;
 
-        Ok(conversation_id)
+            Ok(CreatedGroup {
+                group,
+                group_membership,
+                partial_params,
+                attributes,
+            })
+        }
+    }
+
+    impl CreatedGroup {
+        pub(super) async fn store_group(
+            self,
+            connection: &mut sqlx::SqliteConnection,
+            notifier: &mut StoreNotifier,
+        ) -> Result<StoredGroup> {
+            let Self {
+                group,
+                group_membership,
+                partial_params,
+                attributes,
+            } = self;
+
+            group_membership.store(&mut *connection).await?;
+            group.store(&mut *connection).await?;
+
+            let conversation =
+                Conversation::new_group_conversation(partial_params.group_id.clone(), attributes);
+            conversation.store(&mut *connection, notifier).await?;
+
+            Ok(StoredGroup {
+                group,
+                partial_params,
+                conversation_id: conversation.id(),
+            })
+        }
+    }
+
+    pub(super) struct StoredGroup {
+        group: Group,
+        partial_params: PartialCreateGroupParams,
+        conversation_id: ConversationId,
+    }
+
+    impl StoredGroup {
+        pub(super) async fn create_group_on_ds(
+            self,
+            api_clients: &ApiClients,
+            client_reference: QsReference,
+        ) -> Result<ConversationId> {
+            let Self {
+                group,
+                partial_params,
+                conversation_id,
+            } = self;
+
+            let params = partial_params.into_params(client_reference);
+            api_clients
+                .default_client()?
+                .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())
+                .await?;
+
+            Ok(conversation_id)
+        }
     }
 }
