@@ -449,7 +449,7 @@ impl TestBackend {
         // Fetch the last message and mark it as read.
         let test_user1 = self.users.get_mut(user1_name).unwrap();
         let user1 = &mut test_user1.user;
-        let user1_messages = user1.get_messages(user1_conversation_id, 1).await.unwrap();
+        let user1_messages = user1.messages(user1_conversation_id, 1).await.unwrap();
 
         assert_eq!(user1_messages.len(), 1);
         let user1_unread_messages = user1.unread_messages_count(user1_conversation_id).await;
@@ -467,7 +467,7 @@ impl TestBackend {
 
         let test_user2 = self.users.get_mut(user2_name).unwrap();
         let user2 = &mut test_user2.user;
-        let user2_messages = user2.get_messages(user2_conversation_id, 1).await.unwrap();
+        let user2_messages = user2.messages(user2_conversation_id, 1).await.unwrap();
 
         assert_eq!(user2_messages.len(), 1);
         let last_message = user2_messages.last().unwrap();
