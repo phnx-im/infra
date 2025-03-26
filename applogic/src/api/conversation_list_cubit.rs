@@ -86,7 +86,7 @@ impl ConversationListCubitBase {
     ///
     /// `user_name` is the fully qualified user name of the contact.
     pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
-        let id = self.context.store.add_contact(&user_name.parse()?).await?;
+        let id = self.context.store.add_contact(user_name.parse()?).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }

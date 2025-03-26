@@ -278,7 +278,7 @@ impl TestBackend {
         let user1 = &mut test_user1.user;
         let user1_partial_contacts_before = user1.partial_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
-        user1.add_contact(user2_name).await.unwrap();
+        user1.add_contact(user2_name.clone()).await.unwrap();
         let mut user1_partial_contacts_after = user1.partial_contacts().await.unwrap();
         let error_msg = format!(
             "User 2 should be in the partial contacts list of user 1. List: {:?}",

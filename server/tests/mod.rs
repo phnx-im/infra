@@ -634,7 +634,7 @@ async fn error_if_user_doesnt_exist() {
     let alice_test = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test.user;
 
-    let res = alice.add_contact(&BOB).await;
+    let res = alice.add_contact(BOB.clone()).await;
 
     assert!(res.is_err());
 }

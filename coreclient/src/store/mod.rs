@@ -76,7 +76,7 @@ pub trait LocalStore {
 
     // contacts
 
-    async fn add_contact(&self, user_name: &QualifiedUserName) -> StoreResult<ConversationId>;
+    async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
