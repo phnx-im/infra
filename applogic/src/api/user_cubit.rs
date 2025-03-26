@@ -135,7 +135,10 @@ impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
         let core_user = user.user.clone();
-        let state = Arc::new(RwLock::new(UiUser::new(core_user.user_name(), None)));
+        let state = Arc::new(RwLock::new(UiUser::new(
+            core_user.user_name().clone(),
+            None,
+        )));
 
         UiUser::spawn_load(state.clone(), core_user.clone());
 

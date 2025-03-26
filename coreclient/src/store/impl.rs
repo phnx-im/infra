@@ -16,7 +16,7 @@ use crate::{
 use super::{Store, StoreNotification, StoreResult};
 
 impl Store for CoreUser {
-    fn user_name(&self) -> QualifiedUserName {
+    fn user_name(&self) -> &QualifiedUserName {
         self.user_name()
     }
 

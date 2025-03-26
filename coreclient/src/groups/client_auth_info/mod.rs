@@ -194,7 +194,7 @@ impl ClientAuthInfo {
         )
         .await?;
         let group_membership = GroupMembership::new(
-            client_credential.identity(),
+            client_credential.identity().clone(),
             group_id.clone(),
             leaf_index,
             identity_link_key,

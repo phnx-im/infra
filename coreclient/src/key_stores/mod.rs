@@ -72,9 +72,10 @@ impl MemoryUserKeyStore {
             client_homeserver_domain: self
                 .signing_key
                 .credential()
-                .identity_ref()
+                .identity()
                 .user_name()
-                .domain(),
+                .domain()
+                .clone(),
             sealed_reference,
         }
     }

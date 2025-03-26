@@ -34,7 +34,7 @@ pub type StoreResult<T> = anyhow::Result<T>;
 pub trait LocalStore {
     // user
 
-    fn user_name(&self) -> QualifiedUserName;
+    fn user_name(&self) -> &QualifiedUserName;
 
     async fn own_user_profile(&self) -> StoreResult<UserProfile>;
 

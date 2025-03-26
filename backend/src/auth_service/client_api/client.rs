@@ -49,7 +49,7 @@ impl AuthService {
 
         // Load the user record from storage
         let user_name = client_credential_payload.identity().user_name();
-        let password_file_option = UserRecord::load(&self.db_pool, &user_name)
+        let password_file_option = UserRecord::load(&self.db_pool, user_name)
             .await
             .map_err(|e| {
                 tracing::error!("Error loading user record: {:?}", e);
@@ -80,7 +80,7 @@ impl AuthService {
 
         // Check if a client entry with the name given in the client_csr already exists for the user
         let client_id_exists =
-            ClientRecord::load(&self.db_pool, &client_credential_payload.identity())
+            ClientRecord::load(&self.db_pool, client_credential_payload.identity())
                 .await
                 .map_err(|e| {
                     tracing::error!("Error loading client record: {:?}", e);

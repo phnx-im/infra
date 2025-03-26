@@ -471,7 +471,7 @@ mod tests {
         let secret: [u8; 32] = rand::thread_rng().r#gen();
 
         GroupMembership::new(
-            credential.identity(),
+            credential.identity().clone(),
             group_id,
             index,
             IdentityLinkKey::from(Secret::from(secret)),
@@ -484,7 +484,7 @@ mod tests {
         let credential = test_client_credential(Uuid::new_v4());
 
         credential.store(&pool).await?;
-        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential.identity())
+        let loaded = StorableClientCredential::load_by_client_id(&pool, credential.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -500,7 +500,7 @@ mod tests {
         let credential = test_client_credential(Uuid::new_v4());
 
         credential.store(&pool).await?;
-        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential.identity())
+        let loaded = StorableClientCredential::load_by_client_id(&pool, credential.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -578,7 +578,7 @@ mod tests {
         credential_1.store(&pool).await?;
         credential_2.store(&pool).await?;
 
-        let loaded = StorableClientCredential::load_by_client_id(&pool, &credential_1.identity())
+        let loaded = StorableClientCredential::load_by_client_id(&pool, credential_1.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -662,7 +662,7 @@ mod tests {
         let indices = GroupMembership::client_indices(
             &pool,
             &membership_a.group_id,
-            &[credential_a.identity()],
+            &[credential_a.identity().clone()],
         )
         .await?;
         assert_eq!(indices, vec![index_a]);
@@ -670,7 +670,7 @@ mod tests {
         let indices = GroupMembership::client_indices(
             &pool,
             &membership_b.group_id,
-            &[credential_b.identity()],
+            &[credential_b.identity().clone()],
         )
         .await?;
         assert_eq!(indices, [index_b]);
@@ -690,10 +690,10 @@ mod tests {
         let client_ids = GroupMembership::user_client_ids(
             &pool,
             &membership.group_id,
-            &membership.client_id.user_name(),
+            membership.client_id.user_name(),
         )
         .await?;
-        assert_eq!(client_ids, [credential.identity()]);
+        assert_eq!(client_ids, [credential.identity().clone()]);
 
         Ok(())
     }
@@ -716,7 +716,13 @@ mod tests {
         membership_b.store(&pool).await?;
 
         let members = GroupMembership::group_members(&pool, &membership_a.group_id).await?;
-        assert_eq!(members, [credential_a.identity(), credential_b.identity()]);
+        assert_eq!(
+            members,
+            [
+                credential_a.identity().clone(),
+                credential_b.identity().clone()
+            ]
+        );
 
         Ok(())
     }

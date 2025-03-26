@@ -43,7 +43,7 @@ impl CoreUser {
         let connection_packages =
             fetch_user_connection_packages(&self.inner.api_clients, user_name.clone())
                 .await? // Phase 1: Fetch connection key packages from the AS
-                .verify(self.pool(), &self.inner.api_clients, &user_name.domain())
+                .verify(self.pool(), &self.inner.api_clients, user_name.domain())
                 .await? // Phase 2: Verify the connection key packages
                 .request_group_id(&self.inner.api_clients)
                 .await?; // Phase 3: Request a group id from the DS
@@ -58,14 +58,14 @@ impl CoreUser {
                         transaction,
                         &mut notifier,
                         &self.inner.key_store,
-                        &self.user_name(),
+                        self.user_name(),
                         &user_name,
                     )
                     .await
             })
             .await?;
 
-        let user_profile = UserProfile::load(self.pool(), &self.user_name())
+        let user_profile = UserProfile::load(self.pool(), self.user_name())
             .await?
             .context("missing user profile")?;
         let client_reference = self.create_own_client_reference();
@@ -84,7 +84,7 @@ impl CoreUser {
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages
         let conversation_id = local_partial_contact
-            .create_connection_group(&self.inner.api_clients, &user_name.domain())
+            .create_connection_group(&self.inner.api_clients, user_name.domain())
             .await?;
 
         notifier.notify();
@@ -105,7 +105,7 @@ async fn fetch_user_connection_packages(
     let user_domain = user_name.domain();
     info!(%user_name, "Adding contact");
     let user_key_packages = api_clients
-        .get(&user_domain)?
+        .get(user_domain)?
         .as_user_connection_packages(params)
         .await?;
 
@@ -343,7 +343,7 @@ impl LocalPartialContact {
 
             api_clients
                 .get(user_domain)?
-                .as_enqueue_message(client_id, ciphertext)
+                .as_enqueue_message(client_id.clone(), ciphertext)
                 .await?;
         }
 

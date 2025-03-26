@@ -382,7 +382,7 @@ impl FinishClientAdditionParams {
     // trait later on.
     pub(super) fn user_auth(self) -> UserAuth {
         UserAuth {
-            user_name: self.payload.client_id.user_name(),
+            user_name: self.payload.client_id.user_name().clone(),
             opaque_finish: self.opaque_login_finish.clone(),
             payload: Box::new(VerifiedAsRequestParams::FinishClientAddition(self.payload)),
         }

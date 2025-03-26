@@ -54,7 +54,7 @@ impl Group {
                 let sender_client_id = if let Sender::Member(index) = processed_message.sender() {
                     ClientAuthInfo::load(pool.acquire().await?.as_mut(), group_id, *index)
                         .await?
-                        .map(|info| info.client_credential().identity())
+                        .map(|info| info.client_credential().identity().clone())
                         .ok_or_else(|| {
                             anyhow!("Could not find client credential of message sender")
                         })?
@@ -295,7 +295,8 @@ impl Group {
         }
         .ok_or_else(|| anyhow!("Could not find client credential of message sender"))?
         .client_credential()
-        .identity();
+        .identity()
+        .clone();
 
         Ok((processed_message, we_were_removed, sender_client_id))
     }

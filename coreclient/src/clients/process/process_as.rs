@@ -123,7 +123,7 @@ impl CoreUser {
         let as_intermediate_credential = AsCredentials::get(
             self.pool(),
             &self.inner.api_clients,
-            &sender_domain,
+            sender_domain,
             cep_in.sender_credential().signer_fingerprint(),
         )
         .await?;
@@ -176,7 +176,7 @@ impl CoreUser {
 
     async fn load_own_user_profile(&self) -> Result<UserProfile> {
         // We unwrap here, because we know that the user exists.
-        Ok(UserProfile::load(self.pool(), &self.user_name())
+        Ok(UserProfile::load(self.pool(), self.user_name())
             .await?
             .unwrap())
     }
@@ -242,7 +242,7 @@ impl CoreUser {
             ),
         )?;
         let contact = Contact::from_friendship_package(
-            sender_client_id,
+            sender_client_id.clone(),
             conversation.id(),
             cep_tbs.friendship_package.clone(),
         );

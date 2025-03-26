@@ -274,7 +274,7 @@ impl CoreUser {
             let user_name = user_name.clone();
             // Check if it was an external commit and if the user name matches
             if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_id.user_name() == user_name
+                && sender_client_id.user_name() == &user_name
             {
                 // TODO: Handle the fact that an unexpected user joined the connection group.
             }

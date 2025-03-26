@@ -229,7 +229,7 @@ impl Group {
         };
 
         let group_membership = GroupMembership::new(
-            signer.credential().identity(),
+            signer.credential().identity().clone(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
             identity_link_key,
@@ -458,7 +458,7 @@ impl Group {
         // We still have to add ourselves to the encrypted client credentials.
         let own_index = mls_group.own_leaf_index().usize();
         let own_group_membership = GroupMembership::new(
-            own_client_credential.identity(),
+            own_client_credential.identity().clone(),
             group_info.group_context().group_id().clone(),
             LeafNodeIndex::new(own_index as u32),
             identity_link_key.clone(),
@@ -544,7 +544,7 @@ impl Group {
             .map(|wai_key| {
                 // WAI = WelcomeAttributionInfo
                 let wai_payload = WelcomeAttributionInfoPayload::new(
-                    signer.credential().identity(),
+                    signer.credential().identity().clone(),
                     self.identity_link_wrapper_key.clone(),
                 );
 
@@ -582,7 +582,7 @@ impl Group {
         ) {
             let fingerprint = client_credential.fingerprint();
             let group_membership = GroupMembership::new(
-                client_credential.identity(),
+                client_credential.identity().clone(),
                 self.group_id.clone(),
                 leaf_index,
                 identity_link_key,
@@ -864,9 +864,9 @@ impl Group {
         };
         group_members
             .into_iter()
-            .map(|client_id| client_id.user_name())
+            .map(|client_id| client_id.user_name().clone())
             // Collecting to a HashSet first to deduplicate.
-            .collect::<HashSet<QualifiedUserName>>()
+            .collect()
     }
 
     pub(super) async fn update(&mut self, pool: &SqlitePool) -> Result<UpdateParamsOut> {
@@ -945,7 +945,7 @@ impl Group {
         for proposal in self.mls_group().pending_proposals() {
             if let Proposal::Remove(rp) = proposal.proposal() {
                 if let Some(client) = self.client_by_index(connection, rp.removed()).await {
-                    pending_removes.push(client.user_name());
+                    pending_removes.push(client.user_name().clone());
                 }
             }
         }
@@ -990,14 +990,16 @@ impl TimestampedMessage {
             }
             .client_credential()
             .identity()
-            .user_name();
+            .user_name()
+            .clone();
             let removed_index = remove_proposal.remove_proposal().removed();
             let removed = ClientAuthInfo::load_staged(connection, group_id, removed_index)
                 .await?
                 .ok_or_else(|| anyhow!("Could not find client credential of removed"))?
                 .client_credential()
                 .identity()
-                .user_name();
+                .user_name()
+                .clone();
             removed_set.insert((remover, removed));
         }
         let remove_messages = removed_set.into_iter().map(|(remover, removed)| {
@@ -1020,7 +1022,8 @@ impl TimestampedMessage {
                 .ok_or_else(|| anyhow!("Could not find client credential of sender"))?
                 .client_credential()
                 .identity()
-                .user_name();
+                .user_name()
+                .clone();
             // Get the name of the added member from the diff containing
             // the new clients.
             let addee_name = ClientAuthInfo::load_staged(connection, group_id, free_index)
@@ -1033,7 +1036,8 @@ impl TimestampedMessage {
                 })?
                 .client_credential()
                 .identity()
-                .user_name();
+                .user_name()
+                .clone();
             adds_set.insert((sender_name, addee_name));
         }
         let add_messages = adds_set.into_iter().map(|(adder, addee)| {
@@ -1048,12 +1052,10 @@ impl TimestampedMessage {
                 // Update proposals have to be sent by group members.
                 bail!("Invalid proposal")
             };
-            let user_name = ClientAuthInfo::load(&mut *connection, group_id, *sender_index)
+            let client_auth_info = ClientAuthInfo::load(&mut *connection, group_id, *sender_index)
                 .await?
-                .ok_or_else(|| anyhow!("Could not find client credential of sender"))?
-                .client_credential()
-                .identity()
-                .user_name();
+                .ok_or_else(|| anyhow!("Could not find client credential of sender"))?;
+            let user_name = client_auth_info.client_credential().identity().user_name();
             debug!(
                 %user_name,
                 %sender_index, "Client has updated their key material",

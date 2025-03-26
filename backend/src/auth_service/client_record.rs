@@ -56,7 +56,7 @@ impl ClientRecord {
         &self.credential
     }
 
-    fn client_id(&self) -> AsClientId {
+    fn client_id(&self) -> &AsClientId {
         self.credential.identity()
     }
 }
@@ -255,7 +255,7 @@ pub(crate) mod persistence {
             )
             .await?;
 
-            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.client_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, client_record);
@@ -307,15 +307,15 @@ pub(crate) mod persistence {
             )
             .await?;
 
-            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.client_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, client_record);
 
-            let updated_client_record = random_client_record(client_record.client_id())?;
+            let updated_client_record = random_client_record(client_record.client_id().clone())?;
 
             updated_client_record.update(&pool).await?;
-            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.client_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, updated_client_record);
@@ -332,14 +332,14 @@ pub(crate) mod persistence {
             )
             .await?;
 
-            let loaded = ClientRecord::load(&pool, &client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.client_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, client_record);
 
-            ClientRecord::delete(&pool, &client_record.client_id()).await?;
+            ClientRecord::delete(&pool, client_record.client_id()).await?;
 
-            let loaded = ClientRecord::load(&pool, &client_record.client_id()).await?;
+            let loaded = ClientRecord::load(&pool, client_record.client_id()).await?;
             assert!(loaded.is_none());
 
             Ok(())
