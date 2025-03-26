@@ -143,15 +143,16 @@ where
                 changed = state_rx.changed() => {
                     if changed.is_err() {
                         return;
-                    };
-                    let state = state_rx.borrow().clone();
-                    trace!(num_sinks = sinks.len(), ?state, "emitting new state");
-                    sinks.retain(|sink| sink.add(state.clone()).is_ok());
+                    }
                 },
                 _ = stop.cancelled() => {
                     return;
                 }
             }
+
+            let state = state_rx.borrow_and_update().clone();
+            trace!(num_sinks = sinks.len(), ?state, "emitting new state");
+            sinks.retain(|sink| sink.add(state.clone()).is_ok());
         }
     }
 }
