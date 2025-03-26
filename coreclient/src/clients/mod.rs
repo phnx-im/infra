@@ -381,8 +381,7 @@ impl CoreUser {
                 .merge_pending_commit(&mut *connection, None, ds_timestamp)
                 .await?;
             group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
-                .await
+            Self::store_messages(&mut *connection, notifier, conversation_id, group_messages).await
         })
         .await
     }
@@ -474,8 +473,7 @@ impl CoreUser {
                 .merge_pending_commit(&mut *connection, None, ds_timestamp)
                 .await?;
             group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
-                .await
+            Self::store_messages(&mut *connection, notifier, conversation_id, group_messages).await
         })
         .await
     }
@@ -689,13 +687,12 @@ impl CoreUser {
     }
 
     async fn store_messages(
-        &self,
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
         group_messages: Vec<TimestampedMessage>,
     ) -> Result<Vec<ConversationMessage>> {
-        let mut stored_messages = vec![];
+        let mut stored_messages = Vec::with_capacity(group_messages.len());
         for timestamped_message in group_messages.into_iter() {
             let message =
                 ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
