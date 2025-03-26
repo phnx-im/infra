@@ -4,8 +4,7 @@
 
 use anyhow::{Result, anyhow};
 use create_conversation_flow::IntitialConversationData;
-use delete_conversation_flow::load_conversation_data;
-use tokio_util::either::Either;
+use delete_conversation_flow::{LoadedData, load_conversation_data};
 
 use crate::{
     ConversationMessageId,
@@ -58,8 +57,17 @@ impl CoreUser {
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
         match load_conversation_data(self.pool(), conversation_id).await? {
-            Either::Left(multi_user_data) => {
-                let deleted = multi_user_data
+            LoadedData::SingleMember(data) => {
+                // No need to send a message to the server if we are the only member.
+                // Phase 5: Set the conversation to inactive
+                self.with_transaction_and_notifier(async |connection, notifier| {
+                    data.set_inactive(connection, notifier).await?;
+                    Ok(Vec::new())
+                })
+                .await
+            }
+            LoadedData::MultiMember(data) => {
+                let deleted = data
                     // Phase 2: Create the delete commit
                     .create_delete_commit(self.pool())
                     .await?
@@ -74,14 +82,6 @@ impl CoreUser {
                         // Phase 5: Set the conversation to inactive
                         .set_inactive(&mut *connection, notifier)
                         .await
-                })
-                .await
-            }
-            Either::Right(single_user_data) => {
-                // Phase 5: Set the conversation to inactive
-                self.with_transaction_and_notifier(async |connection, notifier| {
-                    single_user_data.set_inactive(connection, notifier).await?;
-                    Ok(Vec::new())
                 })
                 .await
             }
@@ -311,7 +311,6 @@ mod delete_conversation_flow {
         time::TimeStamp,
     };
     use sqlx::{SqliteConnection, SqlitePool};
-    use tokio_util::either::Either;
 
     use crate::{
         Conversation, ConversationId, ConversationMessage, clients::api_clients::ApiClients,
@@ -321,7 +320,7 @@ mod delete_conversation_flow {
     pub(super) async fn load_conversation_data(
         pool: &SqlitePool,
         conversation_id: ConversationId,
-    ) -> anyhow::Result<Either<LoadedConversationData<()>, LoadedSingleUserConversationData>> {
+    ) -> anyhow::Result<LoadedData> {
         let conversation = Conversation::load(pool, &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
@@ -333,18 +332,29 @@ mod delete_conversation_flow {
 
         if past_members.len() == 1 {
             let member = past_members.into_iter().next().unwrap();
-            Ok(Either::Right(LoadedSingleUserConversationData {
-                conversation,
-                member,
-            }))
+            Ok(LoadedData::SingleMember(
+                LoadedSingleUserConversationData {
+                    conversation,
+                    member,
+                }
+                .into(),
+            ))
         } else {
-            Ok(Either::Left(LoadedConversationData {
-                conversation,
-                group,
-                past_members,
-                state: (),
-            }))
+            Ok(LoadedData::MultiMember(
+                LoadedConversationData {
+                    conversation,
+                    group,
+                    past_members,
+                    state: (),
+                }
+                .into(),
+            ))
         }
+    }
+
+    pub(super) enum LoadedData {
+        SingleMember(Box<LoadedSingleUserConversationData>),
+        MultiMember(Box<LoadedConversationData<()>>),
     }
 
     pub(super) struct LoadedSingleUserConversationData {
