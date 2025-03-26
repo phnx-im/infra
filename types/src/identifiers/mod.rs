@@ -314,6 +314,7 @@ impl QualifiedUserName {
         &self.user_name
     }
 
+    // TODO: return by ref
     pub fn domain(&self) -> Fqdn {
         self.domain.clone()
     }
