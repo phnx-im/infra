@@ -4,7 +4,8 @@
 
 use anyhow::{Result, anyhow};
 use create_conversation_flow::IntitialConversationData;
-use delete_conversation_flow::{LoadedData, load_conversation_data};
+use delete_conversation_flow::DeleteConversationData;
+use leave_conversation_flow::LeaveConversationData;
 
 use crate::{
     ConversationMessageId,
@@ -56,8 +57,8 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
-        match load_conversation_data(self.pool(), conversation_id).await? {
-            LoadedData::SingleMember(data) => {
+        match DeleteConversationData::load(self.pool(), conversation_id).await? {
+            DeleteConversationData::SingleMember(data) => {
                 // No need to send a message to the server if we are the only member.
                 // Phase 5: Set the conversation to inactive
                 self.with_transaction_and_notifier(async |connection, notifier| {
@@ -66,7 +67,7 @@ impl CoreUser {
                 })
                 .await
             }
-            LoadedData::MultiMember(data) => {
+            DeleteConversationData::MultiMember(data) => {
                 let deleted = data
                     // Phase 2: Create the delete commit
                     .create_delete_commit(self.pool())
@@ -86,6 +87,21 @@ impl CoreUser {
                 .await
             }
         }
+    }
+
+    pub(crate) async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
+        // Phase 1: Load the conversation and the group
+        LeaveConversationData::load(self.pool(), conversation_id)
+            .await?
+            .leave_group(self.pool())
+            .await?
+            // Phase 2: Send the leave to the DS
+            .ds_self_remove(&self.inner.api_clients)
+            .await?
+            // Phase 3: Merge the commit into the group
+            .store_update(self.pool())
+            .await?;
+        Ok(())
     }
 
     pub(crate) async fn set_conversation_picture(
@@ -317,44 +333,46 @@ mod delete_conversation_flow {
         conversations::messages::TimestampedMessage, groups::Group, store::StoreNotifier,
     };
 
-    pub(super) async fn load_conversation_data(
-        pool: &SqlitePool,
-        conversation_id: ConversationId,
-    ) -> anyhow::Result<LoadedData> {
-        let conversation = Conversation::load(pool, &conversation_id)
-            .await?
-            .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
-        let group_id = conversation.group_id();
-        let group = Group::load(pool.acquire().await?.as_mut(), group_id)
-            .await?
-            .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-        let past_members = group.members(pool).await;
-
-        if past_members.len() == 1 {
-            let member = past_members.into_iter().next().unwrap();
-            Ok(LoadedData::SingleMember(
-                LoadedSingleUserConversationData {
-                    conversation,
-                    member,
-                }
-                .into(),
-            ))
-        } else {
-            Ok(LoadedData::MultiMember(
-                LoadedConversationData {
-                    conversation,
-                    group,
-                    past_members,
-                    state: (),
-                }
-                .into(),
-            ))
-        }
-    }
-
-    pub(super) enum LoadedData {
+    pub(super) enum DeleteConversationData {
         SingleMember(Box<LoadedSingleUserConversationData>),
         MultiMember(Box<LoadedConversationData<()>>),
+    }
+
+    impl DeleteConversationData {
+        pub(super) async fn load(
+            pool: &SqlitePool,
+            conversation_id: ConversationId,
+        ) -> anyhow::Result<Self> {
+            let conversation = Conversation::load(pool, &conversation_id)
+                .await?
+                .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
+            let group_id = conversation.group_id();
+            let group = Group::load(pool.acquire().await?.as_mut(), group_id)
+                .await?
+                .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+            let past_members = group.members(pool).await;
+
+            if past_members.len() == 1 {
+                let member = past_members.into_iter().next().unwrap();
+                Ok(Self::SingleMember(
+                    LoadedSingleUserConversationData {
+                        conversation,
+                        member,
+                    }
+                    .into(),
+                ))
+            } else {
+                Ok(Self::MultiMember(
+                    LoadedConversationData {
+                        conversation,
+                        group,
+                        past_members,
+                        state: (),
+                    }
+                    .into(),
+                ))
+            }
+        }
     }
 
     pub(super) struct LoadedSingleUserConversationData {
@@ -492,6 +510,91 @@ mod delete_conversation_flow {
             }
 
             Ok(stored_messages)
+        }
+    }
+}
+
+mod leave_conversation_flow {
+    use anyhow::Context;
+    use phnxtypes::messages::client_ds_out::SelfRemoveParamsOut;
+    use sqlx::SqlitePool;
+
+    use crate::{Conversation, ConversationId, groups::Group};
+
+    pub(super) struct LeaveConversationData<S> {
+        conversation: Conversation,
+        group: Group,
+        state: S,
+    }
+
+    impl LeaveConversationData<()> {
+        pub(super) async fn load(
+            pool: &SqlitePool,
+            conversation_id: ConversationId,
+        ) -> anyhow::Result<LeaveConversationData<()>> {
+            let conversation = Conversation::load(pool, &conversation_id)
+                .await?
+                .with_context(|| format!("Can't find conversation with id {conversation_id}",))?;
+            let group_id = conversation.group_id();
+            let group = Group::load(pool.acquire().await?.as_mut(), group_id)
+                .await?
+                .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+            Ok(Self {
+                conversation,
+                group,
+                state: (),
+            })
+        }
+
+        pub(super) async fn leave_group(
+            self,
+            pool: &SqlitePool,
+        ) -> anyhow::Result<LeaveConversationData<SelfRemoveParamsOut>> {
+            let Self {
+                conversation,
+                mut group,
+                state: (),
+            } = self;
+
+            let params = group.leave_group(pool.acquire().await?.as_mut())?;
+
+            Ok(LeaveConversationData {
+                conversation,
+                group,
+                state: params,
+            })
+        }
+    }
+
+    impl LeaveConversationData<SelfRemoveParamsOut> {
+        pub(super) async fn ds_self_remove(
+            self,
+            api_clients: &crate::clients::api_clients::ApiClients,
+        ) -> anyhow::Result<DsSelfRemoved> {
+            let Self {
+                conversation,
+                group,
+                state: params,
+            } = self;
+
+            let owner_domain = conversation.owner_domain();
+
+            api_clients
+                .get(&owner_domain)?
+                .ds_self_remove(params, group.leaf_signer(), group.group_state_ear_key())
+                .await?;
+
+            Ok(DsSelfRemoved(group))
+        }
+    }
+
+    pub(super) struct DsSelfRemoved(Group);
+
+    impl DsSelfRemoved {
+        pub(super) async fn store_update(self, pool: &SqlitePool) -> anyhow::Result<()> {
+            let Self(group) = self;
+            group.store_update(pool).await?;
+            Ok(())
         }
     }
 }
