@@ -51,21 +51,19 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         // Phase 4: Prepare the connection locally
-        let local_group = {
-            // TODO: Use with_transaction
-            let mut transaction = self.pool().begin().await?;
-            let res = connection_packages
-                .create_local_connection_group(
-                    &mut transaction,
-                    &mut notifier,
-                    &self.inner.key_store,
-                    &self.user_name(),
-                    &user_name,
-                )
-                .await?;
-            transaction.commit().await?;
-            res
-        };
+        let local_group = self
+            .with_transaction(async |transaction| {
+                connection_packages
+                    .create_local_connection_group(
+                        transaction,
+                        &mut notifier,
+                        &self.inner.key_store,
+                        &self.user_name(),
+                        &user_name,
+                    )
+                    .await
+            })
+            .await?;
 
         let user_profile = UserProfile::load(self.pool(), &self.user_name())
             .await?
