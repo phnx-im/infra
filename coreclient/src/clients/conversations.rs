@@ -9,7 +9,6 @@ use phnxtypes::{
     codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
     identifiers::QsReference,
 };
-use tracing::error;
 
 use crate::{
     ConversationMessageId,
@@ -26,7 +25,7 @@ impl CoreUser {
     /// Create new conversation.
     ///
     /// Returns the id of the newly created conversation.
-    pub async fn create_conversation(
+    pub(crate) async fn create_conversation(
         &self,
         title: String,
         picture: Option<Vec<u8>>,
@@ -36,21 +35,15 @@ impl CoreUser {
             .await?;
 
         let created_group = self
-            .with_transaction(async |connection| {
-                let provider = PhnxOpenMlsProvider::new(&mut *connection);
-                let mut notifier = self.store_notifier();
-
-                let created_group = group_data
+            .with_transaction_and_notifier(async |connection, notifier| {
+                group_data
                     .create_group(
-                        &provider,
+                        &PhnxOpenMlsProvider::new(&mut *connection),
                         &self.inner.key_store.signing_key,
                         &self.inner.key_store.connection_key,
                     )?
-                    .store_group(&mut *connection, &mut notifier)
-                    .await?;
-
-                notifier.notify();
-                Ok(created_group)
+                    .store_group(&mut *connection, notifier)
+                    .await
             })
             .await?;
 
@@ -59,7 +52,68 @@ impl CoreUser {
             .await
     }
 
-    pub async fn set_conversation_picture(
+    /// Delete the conversation with the given [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    pub(crate) async fn delete_conversation(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<Vec<ConversationMessage>> {
+        // Phase 1: Load the conversation and the group
+        let mut conversation = Conversation::load(self.pool(), &conversation_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
+        let group_id = conversation.group_id();
+        // Generate ciphertext
+        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
+            .await?
+            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
+        let past_members = group.members(self.pool()).await;
+
+        // No need to send a message to the server if we are the only member.
+        // TODO: Make sure this is what we want.
+        let messages = if past_members.len() != 1 {
+            // Phase 2: Create the delete commit
+            let params = group.delete(self.pool().acquire().await?.as_mut()).await?;
+
+            let owner_domain = conversation.owner_domain();
+            // Phase 3: Send the delete to the DS
+            let ds_timestamp = self
+                .inner
+                .api_clients
+                .get(&owner_domain)?
+                .ds_delete_group(params, group.leaf_signer(), group.group_state_ear_key())
+                .await?;
+
+            // Phase 4: Merge the commit into the group
+            let messages = group
+                .merge_pending_commit(self.pool().acquire().await?.as_mut(), None, ds_timestamp)
+                .await?;
+            group.store_update(self.pool()).await?;
+            messages
+        } else {
+            vec![]
+        };
+
+        // Phase 4: Set the conversation to inactive
+        self.with_transaction_and_notifier(async |connection, notifier| {
+            conversation
+                .set_inactive(
+                    &mut *connection,
+                    notifier,
+                    past_members.into_iter().collect(),
+                )
+                .await?;
+            self.store_messages(&mut *connection, notifier, conversation_id, messages)
+                .await
+        })
+        .await
+    }
+
+    pub(crate) async fn set_conversation_picture(
         &self,
         conversation_id: ConversationId,
         picture: Option<Vec<u8>>,
@@ -100,18 +154,6 @@ impl CoreUser {
         Ok(ConversationMessage::next_message(self.pool(), message_id).await?)
     }
 
-    pub async fn last_message(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Option<ConversationMessage> {
-        ConversationMessage::last_content_message(self.pool(), conversation_id)
-            .await
-            .unwrap_or_else(|error| {
-                error!(%error, "Error while fetching last message");
-                None
-            })
-    }
-
     pub(crate) async fn try_last_message(
         &self,
         conversation_id: ConversationId,
@@ -119,7 +161,7 @@ impl CoreUser {
         ConversationMessage::last_content_message(self.pool(), conversation_id).await
     }
 
-    pub async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
+    pub(crate) async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
         Conversation::load_all(self.pool()).await
     }
 
@@ -132,7 +174,7 @@ impl CoreUser {
 
     /// Get the most recent `number_of_messages` messages from the conversation
     /// with the given [`ConversationId`].
-    pub async fn get_messages(
+    pub(crate) async fn get_messages(
         &self,
         conversation_id: ConversationId,
         number_of_messages: usize,
