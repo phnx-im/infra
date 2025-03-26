@@ -81,7 +81,7 @@ impl CoreUser {
                         .merge_pending_commit(&mut *connection)
                         .await?
                         // Phase 5: Set the conversation to inactive
-                        .set_inactive(&mut *connection, notifier)
+                        .set_inactive(&mut *connection, notifier, conversation_id)
                         .await
                 })
                 .await
@@ -329,8 +329,11 @@ mod delete_conversation_flow {
     use sqlx::{SqliteConnection, SqlitePool};
 
     use crate::{
-        Conversation, ConversationId, ConversationMessage, clients::api_clients::ApiClients,
-        conversations::messages::TimestampedMessage, groups::Group, store::StoreNotifier,
+        Conversation, ConversationId, ConversationMessage,
+        clients::{CoreUser, api_clients::ApiClients},
+        conversations::messages::TimestampedMessage,
+        groups::Group,
+        store::StoreNotifier,
     };
 
     pub(super) enum DeleteConversationData {
@@ -487,6 +490,7 @@ mod delete_conversation_flow {
             self,
             connection: &mut SqliteConnection,
             notifier: &mut StoreNotifier,
+            conversation_id: ConversationId,
         ) -> anyhow::Result<Vec<ConversationMessage>> {
             let Self {
                 mut conversation,
@@ -500,16 +504,7 @@ mod delete_conversation_flow {
                     past_members.into_iter().collect(),
                 )
                 .await?;
-
-            let mut stored_messages = Vec::with_capacity(messages.len());
-            for message in messages {
-                let message =
-                    ConversationMessage::from_timestamped_message(conversation.id(), message);
-                message.store(&mut *connection, notifier).await?;
-                stored_messages.push(message);
-            }
-
-            Ok(stored_messages)
+            CoreUser::store_messages(&mut *connection, notifier, conversation_id, messages).await
         }
     }
 }
