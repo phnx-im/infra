@@ -67,8 +67,8 @@ impl Store for CoreUser {
         self.leave_conversation(conversation_id).await
     }
 
-    async fn add_contact(&self, user_name: &QualifiedUserName) -> StoreResult<ConversationId> {
-        self.add_contact(user_name.clone()).await
+    async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId> {
+        self.add_contact(user_name).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
