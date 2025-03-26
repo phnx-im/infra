@@ -27,7 +27,7 @@ impl CoreUser {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    pub async fn add_contact(
+    pub(crate) async fn add_contact(
         &self,
         user_name: QualifiedUserName,
     ) -> anyhow::Result<ConversationId> {
