@@ -528,36 +528,6 @@ impl CoreUser {
         self.fetch_messages_from_queue(QueueType::Qs).await
     }
 
-    pub async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
-        // Phase 1: Load the conversation and the group
-        let conversation = Conversation::load(self.pool(), &conversation_id)
-            .await?
-            .ok_or(anyhow!(
-                "Can't find conversation with id {}",
-                conversation_id.uuid()
-            ))?;
-        let group_id = conversation.group_id();
-        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
-            .await?
-            .ok_or(anyhow!("Can't find group with id {:?}", group_id))?;
-
-        let params = group.leave_group(self.pool().acquire().await?.as_mut())?;
-
-        let owner_domain = conversation.owner_domain();
-
-        // Phase 2: Send the leave to the DS
-        self.inner
-            .api_clients
-            .get(&owner_domain)?
-            .ds_self_remove(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
-
-        // Phase 3: Merge the commit into the group
-        group.store_update(self.pool()).await?;
-
-        Ok(())
-    }
-
     /// Update the user's key material in the conversation with the given
     /// [`ConversationId`].
     ///
