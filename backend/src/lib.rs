@@ -4,8 +4,6 @@
 
 //! Implements the local and the federation part of the protocol logic on the server side
 
-#![deny(unreachable_pub)]
-
 pub mod auth_service;
 pub mod ds;
 pub mod errors;
