@@ -17,6 +17,12 @@ pub enum ServiceCreationError {
     InitializationFailed(Box<dyn std::error::Error + Send + Sync>),
 }
 
+impl ServiceCreationError {
+    pub fn init_error(e: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self::InitializationFailed(Box::new(e))
+    }
+}
+
 impl<T: Into<sqlx::Error>> From<T> for ServiceCreationError {
     fn from(e: T) -> Self {
         Self::Storage(StorageError::from(e.into()))

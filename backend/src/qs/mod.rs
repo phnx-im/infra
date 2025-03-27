@@ -67,7 +67,6 @@ use phnxtypes::{
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
 
-use async_trait::*;
 use sqlx::PgPool;
 use thiserror::Error;
 
@@ -134,7 +133,7 @@ pub enum WebsocketNotifierError {
 }
 
 /// TODO: This should be unified with push notifications later
-#[async_trait]
+#[expect(async_fn_in_trait)]
 pub trait WebsocketNotifier {
     async fn notify(
         &self,
@@ -161,12 +160,12 @@ pub enum PushNotificationError {
     InvalidConfiguration(String),
 }
 
-#[async_trait]
+#[expect(async_fn_in_trait)]
 pub trait PushNotificationProvider: std::fmt::Debug + Send + Sync + 'static {
     async fn push(&self, push_token: PushToken) -> Result<(), PushNotificationError>;
 }
 
-#[async_trait]
+#[expect(async_fn_in_trait)]
 pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     type EnqueueError: std::fmt::Debug;
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;

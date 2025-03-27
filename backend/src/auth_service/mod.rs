@@ -118,7 +118,7 @@ impl InfraService for AuthService {
                 signature_scheme,
             )
             .await
-            .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
+            .map_err(ServiceCreationError::init_error)?;
             // Generate and sign an intermediate signing key
             IntermediateSigningKey::generate_sign_and_activate(
                 &mut transaction,
@@ -126,7 +126,7 @@ impl InfraService for AuthService {
                 signature_scheme,
             )
             .await
-            .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
+            .map_err(ServiceCreationError::init_error)?;
         }
 
         let opaque_setup_exists = match OpaqueSetup::load(&mut *transaction).await {
