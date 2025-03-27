@@ -81,6 +81,7 @@ mod message;
 pub(crate) mod own_client_info;
 mod persistence;
 pub mod process;
+mod remove_users;
 pub mod store;
 #[cfg(test)]
 mod tests;
@@ -424,56 +425,7 @@ impl CoreUser {
                 .merge_pending_commit(&mut *connection, None, ds_timestamp)
                 .await?;
             group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
-                .await
-        })
-        .await
-    }
-
-    /// Remove users from the conversation with the given [`ConversationId`].
-    ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
-    pub async fn remove_users(
-        &self,
-        conversation_id: ConversationId,
-        target_users: &[QualifiedUserName],
-    ) -> Result<Vec<ConversationMessage>> {
-        // Phase 1: Load the group and conversation and prepare the commit.
-        let conversation = Conversation::load(self.pool(), &conversation_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
-        let group_id = conversation.group_id();
-        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
-
-        let mut clients = Vec::new();
-        for user_name in target_users {
-            clients.extend(group.user_client_ids(self.pool(), user_name).await);
-        }
-        let params = group
-            .remove(self.pool().acquire().await?.as_mut(), clients)
-            .await?;
-
-        // Phase 2: Send the commit to the DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&conversation.owner_domain())?
-            .ds_group_operation(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
-
-        // Phase 3: Merge the commit into the group
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            let group_messages = group
-                .merge_pending_commit(&mut *connection, None, ds_timestamp)
-                .await?;
-            group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
-                .await
+            Self::store_messages(&mut *connection, notifier, conversation_id, group_messages).await
         })
         .await
     }
@@ -697,8 +649,7 @@ impl CoreUser {
                     past_members.into_iter().collect(),
                 )
                 .await?;
-            self.store_messages(&mut *connection, notifier, conversation_id, messages)
-                .await
+            Self::store_messages(&mut *connection, notifier, conversation_id, messages).await
         })
         .await
     }
@@ -820,8 +771,7 @@ impl CoreUser {
                 .merge_pending_commit(&mut *connection, None, ds_timestamp)
                 .await?;
             group.store_update(&mut *connection).await?;
-            self.store_messages(&mut *connection, notifier, conversation_id, group_messages)
-                .await
+            Self::store_messages(&mut *connection, notifier, conversation_id, group_messages).await
         })
         .await
     }
@@ -1035,7 +985,6 @@ impl CoreUser {
     }
 
     async fn store_messages(
-        &self,
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
