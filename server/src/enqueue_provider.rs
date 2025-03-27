@@ -6,7 +6,7 @@ use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
         PushNotificationProvider, Qs, QsConnector, errors::QsEnqueueError,
-        network_provider_trait::NetworkProvider,
+        network_provider::NetworkProvider,
     },
 };
 

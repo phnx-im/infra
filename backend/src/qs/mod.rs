@@ -82,7 +82,7 @@ mod client_record;
 pub mod ds_api;
 pub mod errors;
 mod key_package;
-pub mod network_provider_trait;
+pub mod network_provider;
 pub mod qs_api;
 mod queue;
 mod user_record;
@@ -167,6 +167,6 @@ pub trait PushNotificationProvider: std::fmt::Debug + Send + Sync + 'static {
 
 #[expect(async_fn_in_trait)]
 pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
-    type EnqueueError: std::fmt::Debug;
+    type EnqueueError: std::error::Error;
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
 }

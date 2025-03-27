@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::error::Error;
 use std::fmt::Debug;
 
 use super::{Fqdn, qs_api::FederatedProcessingResult};
 
 #[expect(async_fn_in_trait)]
 pub trait NetworkProvider: Sync + Send + Debug + 'static {
-    type NetworkError: Error + Debug + Clone;
+    type NetworkError: std::error::Error;
 
     async fn deliver(
         &self,
