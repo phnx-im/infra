@@ -4,7 +4,6 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use async_trait::async_trait;
 use credentials::{
     CredentialGenerationError, intermediate_signing_key::IntermediateSigningKey,
     signing_key::StorableSigningKey,
@@ -73,10 +72,15 @@ ACTION_AS_CREDENTIALS
 
 #[derive(Clone)]
 pub struct AuthService {
-    ephemeral_client_credentials: Arc<Mutex<HashMap<AsClientId, ClientCredential>>>,
-    ephemeral_user_logins: Arc<Mutex<HashMap<QualifiedUserName, ServerLogin<OpaqueCiphersuite>>>>,
-    ephemeral_client_logins: Arc<Mutex<HashMap<AsClientId, ServerLogin<OpaqueCiphersuite>>>>,
+    inner: Arc<AuthServiceInner>,
     db_pool: PgPool,
+}
+
+#[derive(Default)]
+struct AuthServiceInner {
+    ephemeral_client_credentials: Mutex<HashMap<AsClientId, ClientCredential>>,
+    ephemeral_user_logins: Mutex<HashMap<QualifiedUserName, ServerLogin<OpaqueCiphersuite>>>,
+    ephemeral_client_logins: Mutex<HashMap<AsClientId, ServerLogin<OpaqueCiphersuite>>>,
 }
 
 #[derive(Debug, Error)]
@@ -93,14 +97,11 @@ impl<T: Into<sqlx::Error>> From<T> for AuthServiceCreationError {
     }
 }
 
-#[async_trait]
 impl InfraService for AuthService {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         let auth_service = Self {
+            inner: Default::default(),
             db_pool,
-            ephemeral_client_credentials: Arc::new(Mutex::new(HashMap::new())),
-            ephemeral_user_logins: Arc::new(Mutex::new(HashMap::new())),
-            ephemeral_client_logins: Arc::new(Mutex::new(HashMap::new())),
         };
 
         // Check if there is an active AS signing key

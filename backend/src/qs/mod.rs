@@ -106,7 +106,6 @@ impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
     }
 }
 
-#[async_trait]
 impl InfraService for Qs {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         // Check if the requisite key material exists and if it doesn't, generate it.
