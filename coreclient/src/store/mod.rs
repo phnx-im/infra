@@ -74,6 +74,20 @@ pub trait LocalStore {
 
     async fn leave_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
 
+    // user management
+
+    /// Update the user's key material in the conversation with the given
+    /// [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    async fn update_key(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Vec<ConversationMessage>>;
+
     // contacts
 
     async fn add_contact(&self, user_name: &QualifiedUserName) -> StoreResult<ConversationId>;
