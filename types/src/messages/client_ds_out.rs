@@ -53,17 +53,15 @@ pub enum DsVersionedProcessResponseIn {
 impl DsVersionedProcessResponseIn {
     pub fn version(&self) -> ApiVersion {
         match self {
-            DsVersionedProcessResponseIn::Other(version) => *version,
-            DsVersionedProcessResponseIn::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+            Self::Other(version) => *version,
+            Self::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
     }
 
     pub fn into_unversioned(self) -> Result<DsProcessResponseIn, VersionError> {
         match self {
-            DsVersionedProcessResponseIn::Alpha(response) => Ok(response),
-            DsVersionedProcessResponseIn::Other(version) => {
-                Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS))
-            }
+            Self::Alpha(response) => Ok(response),
+            Self::Other(version) => Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS)),
         }
     }
 }
@@ -71,10 +69,8 @@ impl DsVersionedProcessResponseIn {
 impl tls_codec::Size for DsVersionedProcessResponseIn {
     fn tls_serialized_len(&self) -> usize {
         match self {
-            DsVersionedProcessResponseIn::Other(_) => {
-                self.version().tls_value().tls_serialized_len()
-            }
-            DsVersionedProcessResponseIn::Alpha(response) => {
+            Self::Other(_) => self.version().tls_value().tls_serialized_len(),
+            Self::Alpha(response) => {
                 self.version().tls_value().tls_serialized_len() + response.tls_serialized_len()
             }
         }
@@ -87,12 +83,9 @@ impl tls_codec::DeserializeBytes for DsVersionedProcessResponseIn {
         match version.value() {
             1 => {
                 let (response, bytes) = DsProcessResponseIn::tls_deserialize_bytes(bytes)?;
-                Ok((DsVersionedProcessResponseIn::Alpha(response), bytes))
+                Ok((Self::Alpha(response), bytes))
             }
-            _ => Ok((
-                DsVersionedProcessResponseIn::Other(ApiVersion::from_tls_value(version)),
-                bytes,
-            )),
+            _ => Ok((Self::Other(ApiVersion::from_tls_value(version)), bytes)),
         }
     }
 }

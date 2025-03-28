@@ -7,6 +7,8 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::time::TimeStamp;
 
+use super::version::VersionError;
+
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
@@ -203,7 +205,7 @@ pub enum AsCredentialsError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub enum AsVerificationError {
     /// Storage provider error
@@ -218,11 +220,17 @@ pub enum AsVerificationError {
     /// Could not authenticate message
     #[error("Could not authenticate message")]
     AuthenticationFailed,
+    /// API Version error
+    #[error(transparent)]
+    Api(#[from] VersionError),
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Debug, Error)]
 #[repr(u8)]
 pub enum AsProcessingError {
+    /// API Version error
+    #[error(transparent)]
+    Api(#[from] VersionError),
     /// Authentication error
     #[error(transparent)]
     AuthenticationError(#[from] AsVerificationError),

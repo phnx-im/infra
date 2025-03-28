@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
     credentials::{
@@ -18,20 +18,22 @@ use crate::{
             traits::SignatureVerificationError,
         },
     },
+    errors::version::VersionError,
     identifiers::AsClientId,
     time::ExpirationData,
 };
 
 use super::{
-    MlsInfraVersion,
+    ApiVersion, MlsInfraVersion,
     client_as::{
         AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
         AsDequeueMessagesParams, AsPublishConnectionPackagesParams, ClientCredentialAuthenticator,
         ConnectionPackage, ConnectionPackageTbs, DeleteClientParams, DeleteUserParams,
         EnqueueMessageParams, FinishClientAdditionParams, Init2FactorAuthResponse,
         InitUserRegistrationParams, Initiate2FaAuthenticationParams, InitiateClientAdditionParams,
-        IssueTokensParams, IssueTokensResponse, NoAuth, TwoFactorAuthenticator, UserClientsParams,
-        UserConnectionPackagesParams, VerifiedAsRequestParams,
+        IssueTokensParams, IssueTokensResponse, NoAuth, SUPPORTED_AS_API_VERSIONS,
+        TwoFactorAuthenticator, UserClientsParams, UserConnectionPackagesParams,
+        VerifiedAsRequestParams,
     },
     client_qs::DequeueMessagesResponse,
 };
@@ -70,6 +72,54 @@ pub struct AsCredentialsResponseIn {
 pub struct InitUserRegistrationResponseIn {
     pub client_credential: VerifiableClientCredential,
     pub opaque_registration_response: OpaqueRegistrationResponse,
+}
+
+#[expect(clippy::large_enum_variant)]
+pub enum AsVersionedProcessResponseIn {
+    Other(ApiVersion),
+    Alpha(AsProcessResponseIn),
+}
+
+impl AsVersionedProcessResponseIn {
+    fn version(&self) -> ApiVersion {
+        match self {
+            Self::Other(version) => *version,
+            Self::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    pub fn into_unversioned(self) -> Result<AsProcessResponseIn, VersionError> {
+        match self {
+            Self::Alpha(response) => Ok(response),
+            Self::Other(version) => Err(VersionError::new(version, SUPPORTED_AS_API_VERSIONS)),
+        }
+    }
+}
+
+impl tls_codec::Size for AsVersionedProcessResponseIn {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            AsVersionedProcessResponseIn::Other(_) => {
+                self.version().tls_value().tls_serialized_len()
+            }
+            AsVersionedProcessResponseIn::Alpha(response) => {
+                self.version().tls_value().tls_serialized_len() + response.tls_serialized_len()
+            }
+        }
+    }
+}
+
+impl tls_codec::DeserializeBytes for AsVersionedProcessResponseIn {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        let (version, bytes) = TlsVarInt::tls_deserialize_bytes(bytes)?;
+        match version.value() {
+            1 => {
+                let (response, bytes) = AsProcessResponseIn::tls_deserialize_bytes(bytes)?;
+                Ok((Self::Alpha(response), bytes))
+            }
+            _ => Ok((Self::Other(ApiVersion::from_tls_value(version)), bytes)),
+        }
+    }
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -183,21 +233,69 @@ impl ClientCredentialAuthenticator for FinishUserRegistrationParamsIn {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct ClientToAsMessageIn {
-    _version: MlsInfraVersion,
     // This essentially includes the wire format.
-    body: AsRequestParamsIn,
+    body: AsVersionedRequestParamsIn,
 }
 
 impl ClientToAsMessageIn {
-    pub fn new(body: AsRequestParamsIn) -> Self {
-        Self {
-            _version: MlsInfraVersion::default(),
-            body,
+    pub fn new(body: AsVersionedRequestParamsIn) -> Self {
+        Self { body }
+    }
+
+    pub fn into_body(self) -> AsVersionedRequestParamsIn {
+        self.body
+    }
+}
+
+#[derive(Debug)]
+#[expect(clippy::large_enum_variant)]
+pub enum AsVersionedRequestParamsIn {
+    Other(ApiVersion),
+    Alpha(AsRequestParamsIn),
+}
+
+impl AsVersionedRequestParamsIn {
+    pub fn version(&self) -> ApiVersion {
+        match self {
+            Self::Other(version) => *version,
+            Self::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
     }
 
-    pub fn auth_method(self) -> AsAuthMethod {
-        self.body.auth_method()
+    pub fn into_unversioned(self) -> Result<(AsRequestParamsIn, ApiVersion), VersionError> {
+        let version = self.version();
+        let params = match self {
+            Self::Other(_) => {
+                return Err(VersionError::new(version, SUPPORTED_AS_API_VERSIONS));
+            }
+            Self::Alpha(params) => params,
+        };
+        Ok((params, version))
+    }
+}
+
+impl tls_codec::Size for AsVersionedRequestParamsIn {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            Self::Other(_) => self.version().tls_value().tls_serialized_len(),
+            Self::Alpha(ds_request_params) => {
+                self.version().tls_value().tls_serialized_len()
+                    + ds_request_params.tls_serialized_len()
+            }
+        }
+    }
+}
+
+impl tls_codec::DeserializeBytes for AsVersionedRequestParamsIn {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        let (version, bytes) = TlsVarInt::tls_deserialize_bytes(bytes)?;
+        match version.value() {
+            1 => {
+                let (params, bytes) = AsRequestParamsIn::tls_deserialize_bytes(bytes)?;
+                Ok((Self::Alpha(params), bytes))
+            }
+            _ => Ok((Self::Other(ApiVersion::from_tls_value(version)), bytes)),
+        }
     }
 }
 
@@ -222,7 +320,7 @@ pub enum AsRequestParamsIn {
 }
 
 impl AsRequestParamsIn {
-    pub(crate) fn auth_method(self) -> AsAuthMethod {
+    pub fn into_auth_method(self) -> AsAuthMethod {
         match self {
             // Requests authenticated only by the user's password.
             // TODO: We should probably sign/verify the CSR with the verifying

@@ -4,7 +4,9 @@
 
 use actix_web::web::{self, Data};
 use phnxbackend::auth_service::{AuthService, VerifiableClientToAsMessage};
+use phnxtypes::{ACCEPTED_API_VERSIONS_HEADER, errors::auth_service::AsProcessingError};
 use tls_codec::{DeserializeBytes, Serialize};
+use tracing::{error, info, trace, warn};
 
 use super::*;
 
@@ -17,21 +19,30 @@ pub(crate) async fn as_process_message(
     // Create a new group on the DS.
     let message = match VerifiableClientToAsMessage::tls_deserialize_exact_bytes(&message) {
         Ok(message) => message,
-        Err(e) => {
-            tracing::warn!("Received invalid message: {:?}", e);
-            return HttpResponse::BadRequest().body(e.to_string());
+        Err(error) => {
+            warn!(%error, "Received invalid message");
+            return HttpResponse::BadRequest().body(error.to_string());
         }
     };
     match auth_service.process(message).await {
         // If the message was processed successfully, return the response.
         Ok(response) => {
-            tracing::trace!("Processed message successfully");
+            trace!("Processed message successfully");
             HttpResponse::Ok().body(response.tls_serialize_detached().unwrap())
         }
+        Err(AsProcessingError::Api(version_error)) => {
+            info!(%version_error, "Unsupported QS API version");
+            HttpResponse::NotAcceptable()
+                .insert_header((
+                    ACCEPTED_API_VERSIONS_HEADER,
+                    version_error.supported_versions_header_value(),
+                ))
+                .body(version_error.to_string())
+        }
         // If the message could not be processed, return an error.
-        Err(e) => {
-            tracing::warn!("AS failed to process message: {:?}", e);
-            HttpResponse::InternalServerError().body(e.to_string())
+        Err(error) => {
+            error!(%error, "AS failed to process message");
+            HttpResponse::InternalServerError().body(error.to_string())
         }
     }
 }
