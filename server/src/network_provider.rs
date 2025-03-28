@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use async_trait::async_trait;
-use phnxbackend::qs::{network_provider_trait::NetworkProvider, qs_api::FederatedProcessingResult};
+use phnxbackend::qs::{network_provider::NetworkProvider, qs_api::FederatedProcessingResult};
 use phnxtypes::{
     DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_QS_FEDERATION,
     identifiers::Fqdn,
@@ -46,7 +45,6 @@ impl MockNetworkProvider {
     }
 }
 
-#[async_trait]
 impl NetworkProvider for MockNetworkProvider {
     type NetworkError = MockNetworkError;
 

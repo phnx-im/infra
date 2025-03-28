@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use async_trait::async_trait;
 use phnxbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
         PushNotificationProvider, Qs, QsConnector, errors::QsEnqueueError,
-        network_provider_trait::NetworkProvider,
+        network_provider::NetworkProvider,
     },
 };
 
@@ -21,7 +20,6 @@ pub struct SimpleEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider
     pub network: N,
 }
 
-#[async_trait]
 impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for SimpleEnqueueProvider<N, P> {
     type EnqueueError = QsEnqueueError<N>;
 

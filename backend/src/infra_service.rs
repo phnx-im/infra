@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use async_trait::async_trait;
 use phnxtypes::identifiers::Fqdn;
 use sqlx::{Executor, PgPool};
 use thiserror::Error;
+use tracing::info;
 
 use crate::{errors::StorageError, settings::DatabaseSettings};
 
@@ -17,13 +17,19 @@ pub enum ServiceCreationError {
     InitializationFailed(Box<dyn std::error::Error + Send + Sync>),
 }
 
+impl ServiceCreationError {
+    pub fn init_error(e: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self::InitializationFailed(Box::new(e))
+    }
+}
+
 impl<T: Into<sqlx::Error>> From<T> for ServiceCreationError {
     fn from(e: T) -> Self {
         Self::Storage(StorageError::from(e.into()))
     }
 }
 
-#[async_trait]
+#[expect(async_fn_in_trait)]
 pub trait InfraService: Sized {
     async fn new(
         database_settings: &DatabaseSettings,
@@ -44,11 +50,11 @@ pub trait InfraService: Sized {
 
         if !db_exists.exists.unwrap_or(false) {
             connection
-                .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+                .execute(format!(r#"CREATE DATABASE "{db_name}";"#).as_str())
                 .await?;
         }
 
-        tracing::info!("Successfully created database {}", db_name);
+        info!(db_name, "Successfully created database");
 
         let db_pool = PgPool::connect(&database_settings.connection_string()).await?;
 
@@ -56,9 +62,9 @@ pub trait InfraService: Sized {
     }
 
     async fn new_from_pool(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
-        tracing::info!("Running database migration");
+        info!("Running database migration");
         sqlx::migrate!("./migrations").run(&db_pool).await?;
-        tracing::info!("Database migration successful");
+        info!("Database migration successful");
 
         Self::initialize(db_pool, domain).await
     }
