@@ -10,17 +10,6 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/util/logging.dart';
 import 'package:path/path.dart' as p;
 
-class Foobar {
-  const Foobar({
-    required this.value,
-    required this.name,
-    required this.id,
-    required this.date,
-  });
-
-  final int value;
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
