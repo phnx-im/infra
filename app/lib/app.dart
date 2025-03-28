@@ -46,10 +46,10 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     initMethodChannel(_openedNotificationController.sink);
-    _openedNotificationSubscription =
-        _openedNotificationController.stream.listen((conversationId) {
-      _navigationCubit.openConversation(conversationId);
-    });
+    _openedNotificationSubscription = _openedNotificationController.stream
+        .listen((conversationId) {
+          _navigationCubit.openConversation(conversationId);
+        });
 
     _requestMobileNotifications();
   }
@@ -94,11 +94,14 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         Provider.value(value: _coreClient),
         BlocProvider<NavigationCubit>.value(value: _navigationCubit),
         BlocProvider<RegistrationCubit>(
-            create: (context) => RegistrationCubit(coreClient: _coreClient)),
+          create: (context) => RegistrationCubit(coreClient: _coreClient),
+        ),
         BlocProvider<LoadableUserCubit>(
           // loads the user on startup
-          create: (context) =>
-              LoadableUserCubit((_coreClient..loadDefaultUser()).userStream),
+          create:
+              (context) => LoadableUserCubit(
+                (_coreClient..loadDefaultUser()).userStream,
+              ),
           lazy: false, // immediately try to load the user
         ),
       ],
@@ -110,33 +113,37 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         // This bloc has two tasks:
         // 1. Listen to the loadable user and switch the navigation accordingly.
         // 2. Provide the logged in user to the app, when it is loaded.
-        builder: (context, router) =>
-            BlocConsumer<LoadableUserCubit, LoadableUser>(
-          listenWhen: _isUserLoadedOrUnloaded,
-          buildWhen: _isUserLoadedOrUnloaded,
-          listener: (context, loadableUser) {
-            // Side Effect: navigate to the home screen or away to the intro
-            // screen, depending on whether the user was loaded or unloaded.
-            switch (loadableUser) {
-              case LoadedUser(user: final _?):
-                context.read<NavigationCubit>().openHome();
-              case LoadingUser() || LoadedUser(user: null):
-                context.read<NavigationCubit>().openIntro();
-            }
-          },
-          builder: (context, loadableUser) => loadableUser.user != null
-              // Logged-in user is accessible everywhere inside the app after
-              // the user is loaded
-              ? BlocProvider<UserCubit>(
-                  create: (context) => UserCubit(
-                    coreClient: context.read<CoreClient>(),
-                    navigationCubit: context.read<NavigationCubit>(),
-                    appStateStream: _appStateController.stream,
-                  ),
-                  child: router!,
-                )
-              : router!,
-        ),
+        builder:
+            (context, router) => BlocConsumer<LoadableUserCubit, LoadableUser>(
+              listenWhen: _isUserLoadedOrUnloaded,
+              buildWhen: _isUserLoadedOrUnloaded,
+              listener: (context, loadableUser) {
+                // Side Effect: navigate to the home screen or away to the intro
+                // screen, depending on whether the user was loaded or unloaded.
+                switch (loadableUser) {
+                  case LoadedUser(user: final _?):
+                    context.read<NavigationCubit>().openHome();
+                  case LoadingUser() || LoadedUser(user: null):
+                    context.read<NavigationCubit>().openIntro();
+                }
+              },
+              builder:
+                  (context, loadableUser) =>
+                      loadableUser.user != null
+                          // Logged-in user is accessible everywhere inside the app after
+                          // the user is loaded
+                          ? BlocProvider<UserCubit>(
+                            create:
+                                (context) => UserCubit(
+                                  coreClient: context.read<CoreClient>(),
+                                  navigationCubit:
+                                      context.read<NavigationCubit>(),
+                                  appStateStream: _appStateController.stream,
+                                ),
+                            child: router!,
+                          )
+                          : router!,
+            ),
       ),
     );
   }

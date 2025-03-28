@@ -32,10 +32,7 @@ class TextMessageTile extends StatelessWidget {
     return Column(
       children: [
         if (!isSender && flightPosition.isFirst)
-          _Sender(
-            sender: contentMessage.sender,
-            isSender: false,
-          ),
+          _Sender(sender: contentMessage.sender, isSender: false),
         _MessageView(
           contentMessage: contentMessage,
           timestamp: timestamp,
@@ -74,8 +71,9 @@ class _MessageView extends StatelessWidget {
           flex: 5,
           child: Container(
             padding: EdgeInsets.only(
-                top: flightPosition.isFirst ? 5 : 0,
-                bottom: flightPosition.isLast ? 5 : 0),
+              top: flightPosition.isFirst ? 5 : 0,
+              bottom: flightPosition.isLast ? 5 : 0,
+            ),
             child: Column(
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -136,10 +134,7 @@ String _calcTimeString(String time) {
 }
 
 class _TextMessage extends StatelessWidget {
-  const _TextMessage({
-    required this.blockElements,
-    required this.isSender,
-  });
+  const _TextMessage({required this.blockElements, required this.isSender});
 
   final List<RangedBlockElement> blockElements;
   final bool isSender;
@@ -149,9 +144,10 @@ class _TextMessage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.0),
       child: Container(
-        alignment: isSender
-            ? AlignmentDirectional.topEnd
-            : AlignmentDirectional.topStart,
+        alignment:
+            isSender
+                ? AlignmentDirectional.topEnd
+                : AlignmentDirectional.topStart,
         child: Container(
           padding: EdgeInsets.only(
             top: isLargeScreen(context) ? 1 : 4,
@@ -167,9 +163,12 @@ class _TextMessage extends StatelessWidget {
             style: messageTextStyle(context, isSender),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: blockElements
-                  .map((inner) => buildBlockElement(inner.element, isSender))
-                  .toList(),
+              children:
+                  blockElements
+                      .map(
+                        (inner) => buildBlockElement(inner.element, isSender),
+                      )
+                      .toList(),
             ),
           ),
         ),
@@ -179,10 +178,7 @@ class _TextMessage extends StatelessWidget {
 }
 
 class _Sender extends StatelessWidget {
-  const _Sender({
-    required this.sender,
-    required this.isSender,
-  });
+  const _Sender({required this.sender, required this.isSender});
 
   final String sender;
   final bool isSender;
@@ -198,10 +194,7 @@ class _Sender extends StatelessWidget {
             profile: () => context.read<UserCubit>().userProfile(sender),
           ),
           const SizedBox(width: 10),
-          _Username(
-            sender: sender,
-            isSender: isSender,
-          ),
+          _Username(sender: sender, isSender: isSender),
         ],
       ),
     );
@@ -209,10 +202,7 @@ class _Sender extends StatelessWidget {
 }
 
 class _Username extends StatelessWidget {
-  const _Username({
-    required this.sender,
-    required this.isSender,
-  });
+  const _Username({required this.sender, required this.isSender});
 
   final String sender;
   final bool isSender;

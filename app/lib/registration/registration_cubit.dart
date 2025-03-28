@@ -15,8 +15,9 @@ final _log = Logger('RegistrationCubit');
 // * Each label can contain alphanumeric characters (A-Z, a-z, 0-9) and hyphens.
 // * Labels cannot start or end with a hyphen.
 // * Each label must be between 1 and 63 characters long.
-final _domainRegex =
-    RegExp(r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*$');
+final _domainRegex = RegExp(
+  r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*$',
+);
 final _usernameRegex = RegExp(r'^[a-zA-Z0-9@.]+$');
 
 @freezed
@@ -43,10 +44,9 @@ sealed class RegistrationState with _$RegistrationState {
 }
 
 class RegistrationCubit extends Cubit<RegistrationState> {
-  RegistrationCubit({
-    required CoreClient coreClient,
-  })  : _coreClient = coreClient,
-        super(const RegistrationState());
+  RegistrationCubit({required CoreClient coreClient})
+    : _coreClient = coreClient,
+      super(const RegistrationState());
 
   final CoreClient _coreClient;
 
@@ -58,18 +58,17 @@ class RegistrationCubit extends Cubit<RegistrationState> {
     var containsInvalidChars =
         value.isNotEmpty && !_usernameRegex.hasMatch(value);
     var hasRightLength = value.isNotEmpty && value.length <= 64;
-    emit(state.copyWith(
-      isUsernameValid: hasRightLength && !containsInvalidChars,
-      username: value,
-      displayName: value,
-    ));
+    emit(
+      state.copyWith(
+        isUsernameValid: hasRightLength && !containsInvalidChars,
+        username: value,
+        displayName: value,
+      ),
+    );
   }
 
   void setPassword(String value) {
-    emit(state.copyWith(
-      password: value,
-      isPasswordValid: value.isNotEmpty,
-    ));
+    emit(state.copyWith(password: value, isPasswordValid: value.isNotEmpty));
   }
 
   void setAvatar(ImageData? bytes) {
@@ -84,9 +83,10 @@ class RegistrationCubit extends Cubit<RegistrationState> {
     emit(state.copyWith(isSigningUp: true));
 
     final fqun = "${state.username}@${state.domain}";
-    final url = state.domain == "localhost"
-        ? "http://${state.domain}"
-        : "https://${state.domain}";
+    final url =
+        state.domain == "localhost"
+            ? "http://${state.domain}"
+            : "https://${state.domain}";
 
     try {
       _log.info("Registering user ${state.username} ...");

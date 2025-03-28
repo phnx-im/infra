@@ -19,15 +19,12 @@ part 'markdown.freezed.dart';
 sealed class BlockElement with _$BlockElement {
   const BlockElement._();
 
-  const factory BlockElement.paragraph(
-    List<RangedInlineElement> field0,
-  ) = BlockElement_Paragraph;
-  const factory BlockElement.heading(
-    List<RangedInlineElement> field0,
-  ) = BlockElement_Heading;
-  const factory BlockElement.quote(
-    List<RangedBlockElement> field0,
-  ) = BlockElement_Quote;
+  const factory BlockElement.paragraph(List<RangedInlineElement> field0) =
+      BlockElement_Paragraph;
+  const factory BlockElement.heading(List<RangedInlineElement> field0) =
+      BlockElement_Heading;
+  const factory BlockElement.quote(List<RangedBlockElement> field0) =
+      BlockElement_Quote;
   const factory BlockElement.unorderedList(
     List<List<RangedBlockElement>> field0,
   ) = BlockElement_UnorderedList;
@@ -42,65 +39,53 @@ sealed class BlockElement with _$BlockElement {
   const factory BlockElement.horizontalRule() = BlockElement_HorizontalRule;
 
   /// If code blocks are indented, each line is a separate String
-  const factory BlockElement.codeBlock(
-    List<RangedCodeBlock> field0,
-  ) = BlockElement_CodeBlock;
-  const factory BlockElement.error(
-    String field0,
-  ) = BlockElement_Error;
+  const factory BlockElement.codeBlock(List<RangedCodeBlock> field0) =
+      BlockElement_CodeBlock;
+  const factory BlockElement.error(String field0) = BlockElement_Error;
 }
 
 @freezed
 sealed class InlineElement with _$InlineElement {
   const InlineElement._();
 
-  const factory InlineElement.text(
-    String field0,
-  ) = InlineElement_Text;
-  const factory InlineElement.code(
-    String field0,
-  ) = InlineElement_Code;
+  const factory InlineElement.text(String field0) = InlineElement_Text;
+  const factory InlineElement.code(String field0) = InlineElement_Code;
   const factory InlineElement.link({
     required String destUrl,
     required List<RangedInlineElement> children,
   }) = InlineElement_Link;
-  const factory InlineElement.bold(
-    List<RangedInlineElement> field0,
-  ) = InlineElement_Bold;
-  const factory InlineElement.italic(
-    List<RangedInlineElement> field0,
-  ) = InlineElement_Italic;
-  const factory InlineElement.strikethrough(
-    List<RangedInlineElement> field0,
-  ) = InlineElement_Strikethrough;
-  const factory InlineElement.spoiler(
-    List<RangedInlineElement> field0,
-  ) = InlineElement_Spoiler;
-  const factory InlineElement.image(
-    String field0,
-  ) = InlineElement_Image;
-  const factory InlineElement.taskListMarker(
-    bool field0,
-  ) = InlineElement_TaskListMarker;
+  const factory InlineElement.bold(List<RangedInlineElement> field0) =
+      InlineElement_Bold;
+  const factory InlineElement.italic(List<RangedInlineElement> field0) =
+      InlineElement_Italic;
+  const factory InlineElement.strikethrough(List<RangedInlineElement> field0) =
+      InlineElement_Strikethrough;
+  const factory InlineElement.spoiler(List<RangedInlineElement> field0) =
+      InlineElement_Spoiler;
+  const factory InlineElement.image(String field0) = InlineElement_Image;
+  const factory InlineElement.taskListMarker(bool field0) =
+      InlineElement_TaskListMarker;
 }
 
 @freezed
 class MessageContent with _$MessageContent {
   const MessageContent._();
-  const factory MessageContent({
-    required List<RangedBlockElement> content,
-  }) = _MessageContent;
-  static Future<MessageContent> error({required String message}) =>
-      RustLib.instance.api
-          .crateApiMarkdownMessageContentError(message: message);
+  const factory MessageContent({required List<RangedBlockElement> content}) =
+      _MessageContent;
+  static Future<MessageContent> error({required String message}) => RustLib
+      .instance
+      .api
+      .crateApiMarkdownMessageContentError(message: message);
 
   static Future<MessageContent> parseMarkdown({required String string}) =>
-      RustLib.instance.api
-          .crateApiMarkdownMessageContentParseMarkdown(string: string);
+      RustLib.instance.api.crateApiMarkdownMessageContentParseMarkdown(
+        string: string,
+      );
 
-  static MessageContent parseMarkdownRaw({required List<int> string}) =>
-      RustLib.instance.api
-          .crateApiMarkdownMessageContentParseMarkdownRaw(string: string);
+  static MessageContent parseMarkdownRaw({required List<int> string}) => RustLib
+      .instance
+      .api
+      .crateApiMarkdownMessageContentParseMarkdownRaw(string: string);
 }
 
 @freezed

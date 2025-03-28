@@ -17,30 +17,21 @@ import '../mocks.dart';
 final clientRecords = [
   UiClientRecord(
     clientId: UuidValue.fromString("7c19e63f-b636-4808-a034-0b7cdb462bce"),
-    userName: const UiUserName(
-      userName: "alice",
-      domain: "localhost",
-    ),
+    userName: const UiUserName(userName: "alice", domain: "localhost"),
     createdAt: DateTime.parse("2023-01-01T00:00:00.000Z"),
     userProfile: null,
     isFinished: true,
   ),
   UiClientRecord(
     clientId: UuidValue.fromString("b984c959-c83f-4c99-8999-e6d9d485b172"),
-    userName: const UiUserName(
-      userName: "alice",
-      domain: "example.com",
-    ),
+    userName: const UiUserName(userName: "alice", domain: "example.com"),
     createdAt: DateTime.parse("2024-01-01T00:00:00.000Z"),
     userProfile: null,
     isFinished: true,
   ),
   UiClientRecord(
     clientId: UuidValue.fromString("c5091f2f-9409-41b1-9965-5955d12f39b2"),
-    userName: const UiUserName(
-      userName: "bob",
-      domain: "localhost",
-    ),
+    userName: const UiUserName(userName: "bob", domain: "localhost"),
     createdAt: DateTime.parse("2025-01-01T00:00:00.000Z"),
     userProfile: null,
     isFinished: false,
@@ -63,23 +54,21 @@ void main() {
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<LoadableUserCubit>.value(
-              value: loadableUserCubit,
+      providers: [
+        BlocProvider<LoadableUserCubit>.value(value: loadableUserCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: ChangeUserScreenView(
+              clientRecords: Future.value(clientRecords),
             ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: ChangeUserScreenView(
-                  clientRecords: Future.value(clientRecords),
-                ),
-              );
-            },
-          ),
-        );
+          );
+        },
+      ),
+    );
 
     testWidgets('renders correctly', (tester) async {
       await tester.pumpWidget(buildSubject());

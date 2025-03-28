@@ -33,12 +33,14 @@ class ConversationTile extends StatelessWidget {
         alignment: AlignmentDirectional.centerStart,
         child: switch (message) {
           UiMessage_Content(field0: final content) => TextMessageTile(
-              contentMessage: content,
-              timestamp: timestamp,
-              flightPosition: position,
-            ),
-          UiMessage_Display(field0: final display) =>
-            DisplayMessageTile(display, timestamp),
+            contentMessage: content,
+            timestamp: timestamp,
+            flightPosition: position,
+          ),
+          UiMessage_Display(field0: final display) => DisplayMessageTile(
+            display,
+            timestamp,
+          ),
         },
       ),
       selected: false,
