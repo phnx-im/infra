@@ -143,7 +143,7 @@ pub struct JoinConnectionGroupParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ResyncParamsOut {
     pub external_commit: AssistedMessageOut,
-    pub sender_index: LeafNodeIndex,
+    pub sender: LeafNodeIndex,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
