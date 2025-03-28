@@ -19,12 +19,12 @@ class GroupDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (conversation, members) = context.select(
-      (ConversationDetailsCubit cubit) {
-        final state = cubit.state;
-        return (state.conversation, state.members);
-      },
-    );
+    final (conversation, members) = context.select((
+      ConversationDetailsCubit cubit,
+    ) {
+      final state = cubit.state;
+      return (state.conversation, state.members);
+    });
 
     if (conversation == null) {
       return const SizedBox.shrink();
@@ -37,20 +37,22 @@ class GroupDetails extends StatelessWidget {
           spacing: Spacings.l,
           children: [
             UserAvatar(
-                size: 64,
-                image: conversation.attributes.picture,
-                username: conversation.username,
-                onPressed: () async {
-                  final conversationDetailsCubit =
-                      context.read<ConversationDetailsCubit>();
-                  // Image picker
-                  final ImagePicker picker = ImagePicker();
-                  // Pick an image.
-                  final XFile? image =
-                      await picker.pickImage(source: ImageSource.gallery);
-                  final bytes = await image?.readAsBytes();
-                  conversationDetailsCubit.setConversationPicture(bytes: bytes);
-                }),
+              size: 64,
+              image: conversation.attributes.picture,
+              username: conversation.username,
+              onPressed: () async {
+                final conversationDetailsCubit =
+                    context.read<ConversationDetailsCubit>();
+                // Image picker
+                final ImagePicker picker = ImagePicker();
+                // Pick an image.
+                final XFile? image = await picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                final bytes = await image?.readAsBytes();
+                conversationDetailsCubit.setConversationPicture(bytes: bytes);
+              },
+            ),
             Text(
               conversation.title,
               style: Theme.of(context).textTheme.labelMedium,
@@ -69,10 +71,9 @@ class GroupDetails extends StatelessWidget {
                     children: [
                       Text(
                         "Members",
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelMedium
-                            ?.merge(VariableFontWeight.bold),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelMedium?.merge(VariableFontWeight.bold),
                       ),
                       Expanded(
                         child: ListView.builder(
@@ -82,9 +83,10 @@ class GroupDetails extends StatelessWidget {
                             return ListTile(
                               leading: FutureUserAvatar(
                                 size: 24,
-                                profile: () => context
-                                    .read<UserCubit>()
-                                    .userProfile(member),
+                                profile:
+                                    () => context.read<UserCubit>().userProfile(
+                                      member,
+                                    ),
                               ),
                               title: Text(
                                 member,

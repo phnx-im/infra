@@ -9,93 +9,93 @@ import 'package:prototype/theme/theme.dart';
 void main() {
   group('Typography', () {
     Widget buildSubject(Widget widget) => Builder(
-          builder: (context) {
-            return MaterialApp(
-              debugShowCheckedModeBanner: false,
-              theme: themeData(context),
-              home: Scaffold(
-                body: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Spacings.xs),
-                    child: Center(
-                      child: widget,
-                    ),
-                  ),
-                ),
+      builder: (context) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: themeData(context),
+          home: Scaffold(
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Spacings.xs),
+                child: Center(child: widget),
               ),
-            );
-          },
+            ),
+          ),
         );
+      },
+    );
 
     testWidgets('font styles', (tester) async {
       await tester.pumpWidget(
         buildSubject(
-          Builder(builder: (context) {
-            return Column(
-              children: [
-                Text(
-                  "Display Large",
-                  style: Theme.of(context).textTheme.displayLarge,
-                ),
-                Text(
-                  "Display Medium",
-                  style: Theme.of(context).textTheme.displayMedium,
-                ),
-                Text(
-                  "Display Small",
-                  style: Theme.of(context).textTheme.displaySmall,
-                ),
-                Text(
-                  "Headline Large",
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-                Text(
-                  "Headline Medium",
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                Text(
-                  "Headline Small",
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                Text(
-                  "Title Large",
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  "Title Medium",
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  "Title Small",
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                Text(
-                  "Body Large",
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                Text(
-                  "Body Medium",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                Text(
-                  "Body Small",
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                Text(
-                  "Label Large",
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                Text(
-                  "Label Medium",
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                Text(
-                  "Label Small",
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-              ],
-            );
-          }),
+          Builder(
+            builder: (context) {
+              return Column(
+                children: [
+                  Text(
+                    "Display Large",
+                    style: Theme.of(context).textTheme.displayLarge,
+                  ),
+                  Text(
+                    "Display Medium",
+                    style: Theme.of(context).textTheme.displayMedium,
+                  ),
+                  Text(
+                    "Display Small",
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                  Text(
+                    "Headline Large",
+                    style: Theme.of(context).textTheme.headlineLarge,
+                  ),
+                  Text(
+                    "Headline Medium",
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  Text(
+                    "Headline Small",
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  Text(
+                    "Title Large",
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    "Title Medium",
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  Text(
+                    "Title Small",
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  Text(
+                    "Body Large",
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  Text(
+                    "Body Medium",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  Text(
+                    "Body Small",
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  Text(
+                    "Label Large",
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  Text(
+                    "Label Medium",
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  Text(
+                    "Label Small",
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       );
 
@@ -108,20 +108,23 @@ void main() {
     testWidgets('font weights', (tester) async {
       await tester.pumpWidget(
         buildSubject(
-          Builder(builder: (context) {
-            return Column(
-              children: FontWeight.values
-                  .map(
-                    (weight) => Text(
-                      "This text has weight $weight",
-                      style: const TextStyle().merge(
-                        VariableFontWeight.values[weight.index],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            );
-          }),
+          Builder(
+            builder: (context) {
+              return Column(
+                children:
+                    FontWeight.values
+                        .map(
+                          (weight) => Text(
+                            "This text has weight $weight",
+                            style: const TextStyle().merge(
+                              VariableFontWeight.values[weight.index],
+                            ),
+                          ),
+                        )
+                        .toList(),
+              );
+            },
+          ),
         ),
       );
 

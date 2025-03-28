@@ -12,21 +12,25 @@ part of 'types.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$UiConversationStatus {}
 
 /// @nodoc
 abstract class $UiConversationStatusCopyWith<$Res> {
-  factory $UiConversationStatusCopyWith(UiConversationStatus value,
-          $Res Function(UiConversationStatus) then) =
-      _$UiConversationStatusCopyWithImpl<$Res, UiConversationStatus>;
+  factory $UiConversationStatusCopyWith(
+    UiConversationStatus value,
+    $Res Function(UiConversationStatus) then,
+  ) = _$UiConversationStatusCopyWithImpl<$Res, UiConversationStatus>;
 }
 
 /// @nodoc
-class _$UiConversationStatusCopyWithImpl<$Res,
-        $Val extends UiConversationStatus>
+class _$UiConversationStatusCopyWithImpl<
+  $Res,
+  $Val extends UiConversationStatus
+>
     implements $UiConversationStatusCopyWith<$Res> {
   _$UiConversationStatusCopyWithImpl(this._value, this._then);
 
@@ -42,36 +46,39 @@ class _$UiConversationStatusCopyWithImpl<$Res,
 /// @nodoc
 abstract class _$$UiConversationStatus_InactiveImplCopyWith<$Res> {
   factory _$$UiConversationStatus_InactiveImplCopyWith(
-          _$UiConversationStatus_InactiveImpl value,
-          $Res Function(_$UiConversationStatus_InactiveImpl) then) =
-      __$$UiConversationStatus_InactiveImplCopyWithImpl<$Res>;
+    _$UiConversationStatus_InactiveImpl value,
+    $Res Function(_$UiConversationStatus_InactiveImpl) then,
+  ) = __$$UiConversationStatus_InactiveImplCopyWithImpl<$Res>;
   @useResult
   $Res call({UiInactiveConversation field0});
 }
 
 /// @nodoc
 class __$$UiConversationStatus_InactiveImplCopyWithImpl<$Res>
-    extends _$UiConversationStatusCopyWithImpl<$Res,
-        _$UiConversationStatus_InactiveImpl>
+    extends
+        _$UiConversationStatusCopyWithImpl<
+          $Res,
+          _$UiConversationStatus_InactiveImpl
+        >
     implements _$$UiConversationStatus_InactiveImplCopyWith<$Res> {
   __$$UiConversationStatus_InactiveImplCopyWithImpl(
-      _$UiConversationStatus_InactiveImpl _value,
-      $Res Function(_$UiConversationStatus_InactiveImpl) _then)
-      : super(_value, _then);
+    _$UiConversationStatus_InactiveImpl _value,
+    $Res Function(_$UiConversationStatus_InactiveImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiConversationStatus
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$UiConversationStatus_InactiveImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as UiInactiveConversation,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiConversationStatus_InactiveImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiInactiveConversation,
+      ),
+    );
   }
 }
 
@@ -106,15 +113,17 @@ class _$UiConversationStatus_InactiveImpl
   @override
   @pragma('vm:prefer-inline')
   _$$UiConversationStatus_InactiveImplCopyWith<
-          _$UiConversationStatus_InactiveImpl>
-      get copyWith => __$$UiConversationStatus_InactiveImplCopyWithImpl<
-          _$UiConversationStatus_InactiveImpl>(this, _$identity);
+    _$UiConversationStatus_InactiveImpl
+  >
+  get copyWith => __$$UiConversationStatus_InactiveImplCopyWithImpl<
+    _$UiConversationStatus_InactiveImpl
+  >(this, _$identity);
 }
 
 abstract class UiConversationStatus_Inactive extends UiConversationStatus {
   const factory UiConversationStatus_Inactive(
-          final UiInactiveConversation field0) =
-      _$UiConversationStatus_InactiveImpl;
+    final UiInactiveConversation field0,
+  ) = _$UiConversationStatus_InactiveImpl;
   const UiConversationStatus_Inactive._() : super._();
 
   UiInactiveConversation get field0;
@@ -123,27 +132,31 @@ abstract class UiConversationStatus_Inactive extends UiConversationStatus {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$UiConversationStatus_InactiveImplCopyWith<
-          _$UiConversationStatus_InactiveImpl>
-      get copyWith => throw _privateConstructorUsedError;
+    _$UiConversationStatus_InactiveImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class _$$UiConversationStatus_ActiveImplCopyWith<$Res> {
   factory _$$UiConversationStatus_ActiveImplCopyWith(
-          _$UiConversationStatus_ActiveImpl value,
-          $Res Function(_$UiConversationStatus_ActiveImpl) then) =
-      __$$UiConversationStatus_ActiveImplCopyWithImpl<$Res>;
+    _$UiConversationStatus_ActiveImpl value,
+    $Res Function(_$UiConversationStatus_ActiveImpl) then,
+  ) = __$$UiConversationStatus_ActiveImplCopyWithImpl<$Res>;
 }
 
 /// @nodoc
 class __$$UiConversationStatus_ActiveImplCopyWithImpl<$Res>
-    extends _$UiConversationStatusCopyWithImpl<$Res,
-        _$UiConversationStatus_ActiveImpl>
+    extends
+        _$UiConversationStatusCopyWithImpl<
+          $Res,
+          _$UiConversationStatus_ActiveImpl
+        >
     implements _$$UiConversationStatus_ActiveImplCopyWith<$Res> {
   __$$UiConversationStatus_ActiveImplCopyWithImpl(
-      _$UiConversationStatus_ActiveImpl _value,
-      $Res Function(_$UiConversationStatus_ActiveImpl) _then)
-      : super(_value, _then);
+    _$UiConversationStatus_ActiveImpl _value,
+    $Res Function(_$UiConversationStatus_ActiveImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiConversationStatus
   /// with the given fields replaced by the non-null parameter values.
@@ -182,8 +195,9 @@ mixin _$UiConversationType {}
 /// @nodoc
 abstract class $UiConversationTypeCopyWith<$Res> {
   factory $UiConversationTypeCopyWith(
-          UiConversationType value, $Res Function(UiConversationType) then) =
-      _$UiConversationTypeCopyWithImpl<$Res, UiConversationType>;
+    UiConversationType value,
+    $Res Function(UiConversationType) then,
+  ) = _$UiConversationTypeCopyWithImpl<$Res, UiConversationType>;
 }
 
 /// @nodoc
@@ -203,36 +217,39 @@ class _$UiConversationTypeCopyWithImpl<$Res, $Val extends UiConversationType>
 /// @nodoc
 abstract class _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
   factory _$$UiConversationType_UnconfirmedConnectionImplCopyWith(
-          _$UiConversationType_UnconfirmedConnectionImpl value,
-          $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) then) =
-      __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>;
+    _$UiConversationType_UnconfirmedConnectionImpl value,
+    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) then,
+  ) = __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>;
   @useResult
   $Res call({String field0});
 }
 
 /// @nodoc
 class __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>
-    extends _$UiConversationTypeCopyWithImpl<$Res,
-        _$UiConversationType_UnconfirmedConnectionImpl>
+    extends
+        _$UiConversationTypeCopyWithImpl<
+          $Res,
+          _$UiConversationType_UnconfirmedConnectionImpl
+        >
     implements _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
   __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl(
-      _$UiConversationType_UnconfirmedConnectionImpl _value,
-      $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) _then)
-      : super(_value, _then);
+    _$UiConversationType_UnconfirmedConnectionImpl _value,
+    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiConversationType
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$UiConversationType_UnconfirmedConnectionImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiConversationType_UnconfirmedConnectionImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as String,
+      ),
+    );
   }
 }
 
@@ -267,10 +284,11 @@ class _$UiConversationType_UnconfirmedConnectionImpl
   @override
   @pragma('vm:prefer-inline')
   _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
-          _$UiConversationType_UnconfirmedConnectionImpl>
-      get copyWith =>
-          __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<
-              _$UiConversationType_UnconfirmedConnectionImpl>(this, _$identity);
+    _$UiConversationType_UnconfirmedConnectionImpl
+  >
+  get copyWith => __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<
+    _$UiConversationType_UnconfirmedConnectionImpl
+  >(this, _$identity);
 }
 
 abstract class UiConversationType_UnconfirmedConnection
@@ -285,43 +303,47 @@ abstract class UiConversationType_UnconfirmedConnection
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
-          _$UiConversationType_UnconfirmedConnectionImpl>
-      get copyWith => throw _privateConstructorUsedError;
+    _$UiConversationType_UnconfirmedConnectionImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class _$$UiConversationType_ConnectionImplCopyWith<$Res> {
   factory _$$UiConversationType_ConnectionImplCopyWith(
-          _$UiConversationType_ConnectionImpl value,
-          $Res Function(_$UiConversationType_ConnectionImpl) then) =
-      __$$UiConversationType_ConnectionImplCopyWithImpl<$Res>;
+    _$UiConversationType_ConnectionImpl value,
+    $Res Function(_$UiConversationType_ConnectionImpl) then,
+  ) = __$$UiConversationType_ConnectionImplCopyWithImpl<$Res>;
   @useResult
   $Res call({String field0});
 }
 
 /// @nodoc
 class __$$UiConversationType_ConnectionImplCopyWithImpl<$Res>
-    extends _$UiConversationTypeCopyWithImpl<$Res,
-        _$UiConversationType_ConnectionImpl>
+    extends
+        _$UiConversationTypeCopyWithImpl<
+          $Res,
+          _$UiConversationType_ConnectionImpl
+        >
     implements _$$UiConversationType_ConnectionImplCopyWith<$Res> {
   __$$UiConversationType_ConnectionImplCopyWithImpl(
-      _$UiConversationType_ConnectionImpl _value,
-      $Res Function(_$UiConversationType_ConnectionImpl) _then)
-      : super(_value, _then);
+    _$UiConversationType_ConnectionImpl _value,
+    $Res Function(_$UiConversationType_ConnectionImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiConversationType
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$UiConversationType_ConnectionImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiConversationType_ConnectionImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as String,
+      ),
+    );
   }
 }
 
@@ -356,9 +378,11 @@ class _$UiConversationType_ConnectionImpl
   @override
   @pragma('vm:prefer-inline')
   _$$UiConversationType_ConnectionImplCopyWith<
-          _$UiConversationType_ConnectionImpl>
-      get copyWith => __$$UiConversationType_ConnectionImplCopyWithImpl<
-          _$UiConversationType_ConnectionImpl>(this, _$identity);
+    _$UiConversationType_ConnectionImpl
+  >
+  get copyWith => __$$UiConversationType_ConnectionImplCopyWithImpl<
+    _$UiConversationType_ConnectionImpl
+  >(this, _$identity);
 }
 
 abstract class UiConversationType_Connection extends UiConversationType {
@@ -372,27 +396,28 @@ abstract class UiConversationType_Connection extends UiConversationType {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$UiConversationType_ConnectionImplCopyWith<
-          _$UiConversationType_ConnectionImpl>
-      get copyWith => throw _privateConstructorUsedError;
+    _$UiConversationType_ConnectionImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class _$$UiConversationType_GroupImplCopyWith<$Res> {
   factory _$$UiConversationType_GroupImplCopyWith(
-          _$UiConversationType_GroupImpl value,
-          $Res Function(_$UiConversationType_GroupImpl) then) =
-      __$$UiConversationType_GroupImplCopyWithImpl<$Res>;
+    _$UiConversationType_GroupImpl value,
+    $Res Function(_$UiConversationType_GroupImpl) then,
+  ) = __$$UiConversationType_GroupImplCopyWithImpl<$Res>;
 }
 
 /// @nodoc
 class __$$UiConversationType_GroupImplCopyWithImpl<$Res>
-    extends _$UiConversationTypeCopyWithImpl<$Res,
-        _$UiConversationType_GroupImpl>
+    extends
+        _$UiConversationTypeCopyWithImpl<$Res, _$UiConversationType_GroupImpl>
     implements _$$UiConversationType_GroupImplCopyWith<$Res> {
   __$$UiConversationType_GroupImplCopyWithImpl(
-      _$UiConversationType_GroupImpl _value,
-      $Res Function(_$UiConversationType_GroupImpl) _then)
-      : super(_value, _then);
+    _$UiConversationType_GroupImpl _value,
+    $Res Function(_$UiConversationType_GroupImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiConversationType
   /// with the given fields replaced by the non-null parameter values.
@@ -432,8 +457,9 @@ mixin _$UiEventMessage {
 /// @nodoc
 abstract class $UiEventMessageCopyWith<$Res> {
   factory $UiEventMessageCopyWith(
-          UiEventMessage value, $Res Function(UiEventMessage) then) =
-      _$UiEventMessageCopyWithImpl<$Res, UiEventMessage>;
+    UiEventMessage value,
+    $Res Function(UiEventMessage) then,
+  ) = _$UiEventMessageCopyWithImpl<$Res, UiEventMessage>;
 }
 
 /// @nodoc
@@ -453,9 +479,9 @@ class _$UiEventMessageCopyWithImpl<$Res, $Val extends UiEventMessage>
 /// @nodoc
 abstract class _$$UiEventMessage_SystemImplCopyWith<$Res> {
   factory _$$UiEventMessage_SystemImplCopyWith(
-          _$UiEventMessage_SystemImpl value,
-          $Res Function(_$UiEventMessage_SystemImpl) then) =
-      __$$UiEventMessage_SystemImplCopyWithImpl<$Res>;
+    _$UiEventMessage_SystemImpl value,
+    $Res Function(_$UiEventMessage_SystemImpl) then,
+  ) = __$$UiEventMessage_SystemImplCopyWithImpl<$Res>;
   @useResult
   $Res call({UiSystemMessage field0});
 }
@@ -464,23 +490,24 @@ abstract class _$$UiEventMessage_SystemImplCopyWith<$Res> {
 class __$$UiEventMessage_SystemImplCopyWithImpl<$Res>
     extends _$UiEventMessageCopyWithImpl<$Res, _$UiEventMessage_SystemImpl>
     implements _$$UiEventMessage_SystemImplCopyWith<$Res> {
-  __$$UiEventMessage_SystemImplCopyWithImpl(_$UiEventMessage_SystemImpl _value,
-      $Res Function(_$UiEventMessage_SystemImpl) _then)
-      : super(_value, _then);
+  __$$UiEventMessage_SystemImplCopyWithImpl(
+    _$UiEventMessage_SystemImpl _value,
+    $Res Function(_$UiEventMessage_SystemImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiEventMessage
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$UiEventMessage_SystemImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as UiSystemMessage,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiEventMessage_SystemImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiSystemMessage,
+      ),
+    );
   }
 }
 
@@ -514,8 +541,11 @@ class _$UiEventMessage_SystemImpl extends UiEventMessage_System {
   @override
   @pragma('vm:prefer-inline')
   _$$UiEventMessage_SystemImplCopyWith<_$UiEventMessage_SystemImpl>
-      get copyWith => __$$UiEventMessage_SystemImplCopyWithImpl<
-          _$UiEventMessage_SystemImpl>(this, _$identity);
+  get copyWith =>
+      __$$UiEventMessage_SystemImplCopyWithImpl<_$UiEventMessage_SystemImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class UiEventMessage_System extends UiEventMessage {
@@ -530,14 +560,15 @@ abstract class UiEventMessage_System extends UiEventMessage {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$UiEventMessage_SystemImplCopyWith<_$UiEventMessage_SystemImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class _$$UiEventMessage_ErrorImplCopyWith<$Res> {
-  factory _$$UiEventMessage_ErrorImplCopyWith(_$UiEventMessage_ErrorImpl value,
-          $Res Function(_$UiEventMessage_ErrorImpl) then) =
-      __$$UiEventMessage_ErrorImplCopyWithImpl<$Res>;
+  factory _$$UiEventMessage_ErrorImplCopyWith(
+    _$UiEventMessage_ErrorImpl value,
+    $Res Function(_$UiEventMessage_ErrorImpl) then,
+  ) = __$$UiEventMessage_ErrorImplCopyWithImpl<$Res>;
   @useResult
   $Res call({UiErrorMessage field0});
 }
@@ -546,23 +577,24 @@ abstract class _$$UiEventMessage_ErrorImplCopyWith<$Res> {
 class __$$UiEventMessage_ErrorImplCopyWithImpl<$Res>
     extends _$UiEventMessageCopyWithImpl<$Res, _$UiEventMessage_ErrorImpl>
     implements _$$UiEventMessage_ErrorImplCopyWith<$Res> {
-  __$$UiEventMessage_ErrorImplCopyWithImpl(_$UiEventMessage_ErrorImpl _value,
-      $Res Function(_$UiEventMessage_ErrorImpl) _then)
-      : super(_value, _then);
+  __$$UiEventMessage_ErrorImplCopyWithImpl(
+    _$UiEventMessage_ErrorImpl _value,
+    $Res Function(_$UiEventMessage_ErrorImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiEventMessage
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$UiEventMessage_ErrorImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as UiErrorMessage,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiEventMessage_ErrorImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiErrorMessage,
+      ),
+    );
   }
 }
 
@@ -596,9 +628,11 @@ class _$UiEventMessage_ErrorImpl extends UiEventMessage_Error {
   @override
   @pragma('vm:prefer-inline')
   _$$UiEventMessage_ErrorImplCopyWith<_$UiEventMessage_ErrorImpl>
-      get copyWith =>
-          __$$UiEventMessage_ErrorImplCopyWithImpl<_$UiEventMessage_ErrorImpl>(
-              this, _$identity);
+  get copyWith =>
+      __$$UiEventMessage_ErrorImplCopyWithImpl<_$UiEventMessage_ErrorImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class UiEventMessage_Error extends UiEventMessage {
@@ -613,7 +647,7 @@ abstract class UiEventMessage_Error extends UiEventMessage {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$UiEventMessage_ErrorImplCopyWith<_$UiEventMessage_ErrorImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -643,9 +677,10 @@ class _$UiMessageCopyWithImpl<$Res, $Val extends UiMessage>
 
 /// @nodoc
 abstract class _$$UiMessage_ContentImplCopyWith<$Res> {
-  factory _$$UiMessage_ContentImplCopyWith(_$UiMessage_ContentImpl value,
-          $Res Function(_$UiMessage_ContentImpl) then) =
-      __$$UiMessage_ContentImplCopyWithImpl<$Res>;
+  factory _$$UiMessage_ContentImplCopyWith(
+    _$UiMessage_ContentImpl value,
+    $Res Function(_$UiMessage_ContentImpl) then,
+  ) = __$$UiMessage_ContentImplCopyWithImpl<$Res>;
   @useResult
   $Res call({UiContentMessage field0});
 }
@@ -654,23 +689,24 @@ abstract class _$$UiMessage_ContentImplCopyWith<$Res> {
 class __$$UiMessage_ContentImplCopyWithImpl<$Res>
     extends _$UiMessageCopyWithImpl<$Res, _$UiMessage_ContentImpl>
     implements _$$UiMessage_ContentImplCopyWith<$Res> {
-  __$$UiMessage_ContentImplCopyWithImpl(_$UiMessage_ContentImpl _value,
-      $Res Function(_$UiMessage_ContentImpl) _then)
-      : super(_value, _then);
+  __$$UiMessage_ContentImplCopyWithImpl(
+    _$UiMessage_ContentImpl _value,
+    $Res Function(_$UiMessage_ContentImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiMessage
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$UiMessage_ContentImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as UiContentMessage,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiMessage_ContentImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiContentMessage,
+      ),
+    );
   }
 }
 
@@ -705,7 +741,9 @@ class _$UiMessage_ContentImpl extends UiMessage_Content {
   @pragma('vm:prefer-inline')
   _$$UiMessage_ContentImplCopyWith<_$UiMessage_ContentImpl> get copyWith =>
       __$$UiMessage_ContentImplCopyWithImpl<_$UiMessage_ContentImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class UiMessage_Content extends UiMessage {
@@ -725,9 +763,10 @@ abstract class UiMessage_Content extends UiMessage {
 
 /// @nodoc
 abstract class _$$UiMessage_DisplayImplCopyWith<$Res> {
-  factory _$$UiMessage_DisplayImplCopyWith(_$UiMessage_DisplayImpl value,
-          $Res Function(_$UiMessage_DisplayImpl) then) =
-      __$$UiMessage_DisplayImplCopyWithImpl<$Res>;
+  factory _$$UiMessage_DisplayImplCopyWith(
+    _$UiMessage_DisplayImpl value,
+    $Res Function(_$UiMessage_DisplayImpl) then,
+  ) = __$$UiMessage_DisplayImplCopyWithImpl<$Res>;
   @useResult
   $Res call({UiEventMessage field0});
 
@@ -738,23 +777,24 @@ abstract class _$$UiMessage_DisplayImplCopyWith<$Res> {
 class __$$UiMessage_DisplayImplCopyWithImpl<$Res>
     extends _$UiMessageCopyWithImpl<$Res, _$UiMessage_DisplayImpl>
     implements _$$UiMessage_DisplayImplCopyWith<$Res> {
-  __$$UiMessage_DisplayImplCopyWithImpl(_$UiMessage_DisplayImpl _value,
-      $Res Function(_$UiMessage_DisplayImpl) _then)
-      : super(_value, _then);
+  __$$UiMessage_DisplayImplCopyWithImpl(
+    _$UiMessage_DisplayImpl _value,
+    $Res Function(_$UiMessage_DisplayImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiMessage
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$UiMessage_DisplayImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as UiEventMessage,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiMessage_DisplayImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiEventMessage,
+      ),
+    );
   }
 
   /// Create a copy of UiMessage
@@ -799,7 +839,9 @@ class _$UiMessage_DisplayImpl extends UiMessage_Display {
   @pragma('vm:prefer-inline')
   _$$UiMessage_DisplayImplCopyWith<_$UiMessage_DisplayImpl> get copyWith =>
       __$$UiMessage_DisplayImplCopyWithImpl<_$UiMessage_DisplayImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class UiMessage_Display extends UiMessage {
@@ -835,15 +877,17 @@ mixin _$UiMimiContent {
 /// @nodoc
 abstract class $UiMimiContentCopyWith<$Res> {
   factory $UiMimiContentCopyWith(
-          UiMimiContent value, $Res Function(UiMimiContent) then) =
-      _$UiMimiContentCopyWithImpl<$Res, UiMimiContent>;
+    UiMimiContent value,
+    $Res Function(UiMimiContent) then,
+  ) = _$UiMimiContentCopyWithImpl<$Res, UiMimiContent>;
   @useResult
-  $Res call(
-      {Uint8List? replaces,
-      Uint8List topicId,
-      Uint8List? inReplyTo,
-      String plainBody,
-      MessageContent content});
+  $Res call({
+    Uint8List? replaces,
+    Uint8List topicId,
+    Uint8List? inReplyTo,
+    String plainBody,
+    MessageContent content,
+  });
 
   $MessageContentCopyWith<$Res> get content;
 }
@@ -869,28 +913,36 @@ class _$UiMimiContentCopyWithImpl<$Res, $Val extends UiMimiContent>
     Object? plainBody = null,
     Object? content = null,
   }) {
-    return _then(_value.copyWith(
-      replaces: freezed == replaces
-          ? _value.replaces
-          : replaces // ignore: cast_nullable_to_non_nullable
-              as Uint8List?,
-      topicId: null == topicId
-          ? _value.topicId
-          : topicId // ignore: cast_nullable_to_non_nullable
-              as Uint8List,
-      inReplyTo: freezed == inReplyTo
-          ? _value.inReplyTo
-          : inReplyTo // ignore: cast_nullable_to_non_nullable
-              as Uint8List?,
-      plainBody: null == plainBody
-          ? _value.plainBody
-          : plainBody // ignore: cast_nullable_to_non_nullable
-              as String,
-      content: null == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as MessageContent,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            replaces:
+                freezed == replaces
+                    ? _value.replaces
+                    : replaces // ignore: cast_nullable_to_non_nullable
+                        as Uint8List?,
+            topicId:
+                null == topicId
+                    ? _value.topicId
+                    : topicId // ignore: cast_nullable_to_non_nullable
+                        as Uint8List,
+            inReplyTo:
+                freezed == inReplyTo
+                    ? _value.inReplyTo
+                    : inReplyTo // ignore: cast_nullable_to_non_nullable
+                        as Uint8List?,
+            plainBody:
+                null == plainBody
+                    ? _value.plainBody
+                    : plainBody // ignore: cast_nullable_to_non_nullable
+                        as String,
+            content:
+                null == content
+                    ? _value.content
+                    : content // ignore: cast_nullable_to_non_nullable
+                        as MessageContent,
+          )
+          as $Val,
+    );
   }
 
   /// Create a copy of UiMimiContent
@@ -908,16 +960,18 @@ class _$UiMimiContentCopyWithImpl<$Res, $Val extends UiMimiContent>
 abstract class _$$UiMimiContentImplCopyWith<$Res>
     implements $UiMimiContentCopyWith<$Res> {
   factory _$$UiMimiContentImplCopyWith(
-          _$UiMimiContentImpl value, $Res Function(_$UiMimiContentImpl) then) =
-      __$$UiMimiContentImplCopyWithImpl<$Res>;
+    _$UiMimiContentImpl value,
+    $Res Function(_$UiMimiContentImpl) then,
+  ) = __$$UiMimiContentImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {Uint8List? replaces,
-      Uint8List topicId,
-      Uint8List? inReplyTo,
-      String plainBody,
-      MessageContent content});
+  $Res call({
+    Uint8List? replaces,
+    Uint8List topicId,
+    Uint8List? inReplyTo,
+    String plainBody,
+    MessageContent content,
+  });
 
   @override
   $MessageContentCopyWith<$Res> get content;
@@ -928,8 +982,9 @@ class __$$UiMimiContentImplCopyWithImpl<$Res>
     extends _$UiMimiContentCopyWithImpl<$Res, _$UiMimiContentImpl>
     implements _$$UiMimiContentImplCopyWith<$Res> {
   __$$UiMimiContentImplCopyWithImpl(
-      _$UiMimiContentImpl _value, $Res Function(_$UiMimiContentImpl) _then)
-      : super(_value, _then);
+    _$UiMimiContentImpl _value,
+    $Res Function(_$UiMimiContentImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of UiMimiContent
   /// with the given fields replaced by the non-null parameter values.
@@ -942,40 +997,48 @@ class __$$UiMimiContentImplCopyWithImpl<$Res>
     Object? plainBody = null,
     Object? content = null,
   }) {
-    return _then(_$UiMimiContentImpl(
-      replaces: freezed == replaces
-          ? _value.replaces
-          : replaces // ignore: cast_nullable_to_non_nullable
-              as Uint8List?,
-      topicId: null == topicId
-          ? _value.topicId
-          : topicId // ignore: cast_nullable_to_non_nullable
-              as Uint8List,
-      inReplyTo: freezed == inReplyTo
-          ? _value.inReplyTo
-          : inReplyTo // ignore: cast_nullable_to_non_nullable
-              as Uint8List?,
-      plainBody: null == plainBody
-          ? _value.plainBody
-          : plainBody // ignore: cast_nullable_to_non_nullable
-              as String,
-      content: null == content
-          ? _value.content
-          : content // ignore: cast_nullable_to_non_nullable
-              as MessageContent,
-    ));
+    return _then(
+      _$UiMimiContentImpl(
+        replaces:
+            freezed == replaces
+                ? _value.replaces
+                : replaces // ignore: cast_nullable_to_non_nullable
+                    as Uint8List?,
+        topicId:
+            null == topicId
+                ? _value.topicId
+                : topicId // ignore: cast_nullable_to_non_nullable
+                    as Uint8List,
+        inReplyTo:
+            freezed == inReplyTo
+                ? _value.inReplyTo
+                : inReplyTo // ignore: cast_nullable_to_non_nullable
+                    as Uint8List?,
+        plainBody:
+            null == plainBody
+                ? _value.plainBody
+                : plainBody // ignore: cast_nullable_to_non_nullable
+                    as String,
+        content:
+            null == content
+                ? _value.content
+                : content // ignore: cast_nullable_to_non_nullable
+                    as MessageContent,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$UiMimiContentImpl implements _UiMimiContent {
-  const _$UiMimiContentImpl(
-      {this.replaces,
-      required this.topicId,
-      this.inReplyTo,
-      required this.plainBody,
-      required this.content});
+  const _$UiMimiContentImpl({
+    this.replaces,
+    required this.topicId,
+    this.inReplyTo,
+    required this.plainBody,
+    required this.content,
+  });
 
   @override
   final Uint8List? replaces;
@@ -1008,12 +1071,13 @@ class _$UiMimiContentImpl implements _UiMimiContent {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(replaces),
-      const DeepCollectionEquality().hash(topicId),
-      const DeepCollectionEquality().hash(inReplyTo),
-      plainBody,
-      content);
+    runtimeType,
+    const DeepCollectionEquality().hash(replaces),
+    const DeepCollectionEquality().hash(topicId),
+    const DeepCollectionEquality().hash(inReplyTo),
+    plainBody,
+    content,
+  );
 
   /// Create a copy of UiMimiContent
   /// with the given fields replaced by the non-null parameter values.
@@ -1025,12 +1089,13 @@ class _$UiMimiContentImpl implements _UiMimiContent {
 }
 
 abstract class _UiMimiContent implements UiMimiContent {
-  const factory _UiMimiContent(
-      {final Uint8List? replaces,
-      required final Uint8List topicId,
-      final Uint8List? inReplyTo,
-      required final String plainBody,
-      required final MessageContent content}) = _$UiMimiContentImpl;
+  const factory _UiMimiContent({
+    final Uint8List? replaces,
+    required final Uint8List topicId,
+    final Uint8List? inReplyTo,
+    required final String plainBody,
+    required final MessageContent content,
+  }) = _$UiMimiContentImpl;
 
   @override
   Uint8List? get replaces;

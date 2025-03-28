@@ -25,9 +25,9 @@ class MockUiUser implements UiUser {
     required String userName,
     String? displayName,
     Uint8List? profilePicture,
-  })  : _userName = userName,
-        _displayName = displayName,
-        _profilePicture = profilePicture?.toImageData();
+  }) : _userName = userName,
+       _displayName = displayName,
+       _profilePicture = profilePicture?.toImageData();
 
   final String _userName;
   final String? _displayName;

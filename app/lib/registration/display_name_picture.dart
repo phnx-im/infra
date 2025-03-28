@@ -46,7 +46,7 @@ class DisplayNameAvatarChoice extends StatelessWidget {
                     ),
                   ],
                 ),
-                const _SignUpFooter()
+                const _SignUpFooter(),
               ],
             ),
           ),
@@ -61,8 +61,9 @@ class _DisplayNameTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayName =
-        context.select((RegistrationCubit cubit) => cubit.state.displayName);
+    final displayName = context.select(
+      (RegistrationCubit cubit) => cubit.state.displayName,
+    );
 
     return TextFormField(
       autofocus: isSmallScreen(context) ? false : true,
@@ -82,10 +83,7 @@ class _UserAvatarPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (username, avatar) = context.select(
-      (RegistrationCubit cubit) => (
-        cubit.state.username,
-        cubit.state.avatar,
-      ),
+      (RegistrationCubit cubit) => (cubit.state.username, cubit.state.avatar),
     );
 
     return UserAvatar(
@@ -97,8 +95,9 @@ class _UserAvatarPicker extends StatelessWidget {
         // Image picker
         final ImagePicker picker = ImagePicker();
         // Pick an image.
-        final XFile? image =
-            await picker.pickImage(source: ImageSource.gallery);
+        final XFile? image = await picker.pickImage(
+          source: ImageSource.gallery,
+        );
         final bytes = await image?.readAsBytes();
         registrationCubit.setAvatar(bytes?.toImageData());
       },
@@ -111,31 +110,34 @@ class _SignUpFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSigningUp =
-        context.select((RegistrationCubit cubit) => cubit.state.isSigningUp);
+    final isSigningUp = context.select(
+      (RegistrationCubit cubit) => cubit.state.isSigningUp,
+    );
 
     return Column(
-      crossAxisAlignment: isSmallScreen(context)
-          ? CrossAxisAlignment.stretch
-          : CrossAxisAlignment.center,
+      crossAxisAlignment:
+          isSmallScreen(context)
+              ? CrossAxisAlignment.stretch
+              : CrossAxisAlignment.center,
       children: [
         if (!isSigningUp)
           OutlinedButton(
-            onPressed: !isSigningUp
-                ? () async {
-                    final navigationCubit = context.read<NavigationCubit>();
-                    final error =
-                        await context.read<RegistrationCubit>().signUp();
-                    if (error == null) {
-                      navigationCubit.openHome();
-                    } else if (context.mounted) {
-                      showErrorBanner(
-                        ScaffoldMessenger.of(context),
-                        error.message,
-                      );
+            onPressed:
+                !isSigningUp
+                    ? () async {
+                      final navigationCubit = context.read<NavigationCubit>();
+                      final error =
+                          await context.read<RegistrationCubit>().signUp();
+                      if (error == null) {
+                        navigationCubit.openHome();
+                      } else if (context.mounted) {
+                        showErrorBanner(
+                          ScaffoldMessenger.of(context),
+                          error.message,
+                        );
+                      }
                     }
-                  }
-                : null,
+                    : null,
             style: buttonStyle(context, !isSigningUp),
             child: const Text('Sign up'),
           ),

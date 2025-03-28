@@ -15,7 +15,8 @@ final _log = Logger('Platform');
 
 void initMethodChannel(StreamSink<ConversationId> openedNotificationSink) {
   platform.setMethodCallHandler(
-      (call) => _handleMethod(call, openedNotificationSink));
+    (call) => _handleMethod(call, openedNotificationSink),
+  );
 }
 
 Future<void> _handleMethod(
@@ -29,7 +30,8 @@ Future<void> _handleMethod(
       final String? identifier = call.arguments["identifier"];
       final String? conversationIdStr = call.arguments["conversationId"];
       _log.info(
-          'Received notification: identifier = $identifier, conversationId = $conversationIdStr');
+        'Received notification: identifier = $identifier, conversationId = $conversationIdStr',
+      );
       // Do something with the data
       break;
     case 'openedNotification':
@@ -37,10 +39,12 @@ Future<void> _handleMethod(
       final String? identifier = call.arguments["identifier"];
       final String? conversationIdStr = call.arguments["conversationId"];
       _log.fine(
-          'Notification opened: identifier = $identifier, conversationId = $conversationIdStr');
+        'Notification opened: identifier = $identifier, conversationId = $conversationIdStr',
+      );
       if (identifier != null && conversationIdStr != null) {
-        final conversationId =
-            ConversationId(uuid: UuidValue.withValidation(conversationIdStr));
+        final conversationId = ConversationId(
+          uuid: UuidValue.withValidation(conversationIdStr),
+        );
         openedNotificationSink.add(conversationId);
       }
       break;
@@ -66,7 +70,10 @@ Future<String> getDatabaseDirectoryMobile() async {
       return await platform.invokeMethod('getDatabasesDirectory');
     } on PlatformException catch (e, stacktrace) {
       _log.severe(
-          "Failed to get database directory: '${e.message}'.", e, stacktrace);
+        "Failed to get database directory: '${e.message}'.",
+        e,
+        stacktrace,
+      );
       throw PlatformException(code: 'failed_to_get_database_directory');
     }
   }
@@ -106,7 +113,10 @@ FutureOr<List<NotificationHandle>> getActiveNotifications() async {
     return res.map(NotificationHandleExtension.fromMap).nonNulls.toList();
   } on PlatformException catch (e, stacktrace) {
     _log.severe(
-        "Failed to get active notifications: '${e.message}'", e, stacktrace);
+      "Failed to get active notifications: '${e.message}'",
+      e,
+      stacktrace,
+    );
   }
   return [];
 }
@@ -122,6 +132,9 @@ FutureOr<void> cancelNotifications(List<NotificationId> identifiers) async {
     await platform.invokeMethod('cancelNotifications', arguments);
   } on PlatformException catch (e, stacktrace) {
     _log.severe(
-        "Failed to cancel notifications: '${e.message}'", e, stacktrace);
+      "Failed to cancel notifications: '${e.message}'",
+      e,
+      stacktrace,
+    );
   }
 }

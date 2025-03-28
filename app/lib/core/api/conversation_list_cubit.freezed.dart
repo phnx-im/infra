@@ -12,7 +12,8 @@ part of 'conversation_list_cubit.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$ConversationListState {
@@ -28,16 +29,19 @@ mixin _$ConversationListState {
 
 /// @nodoc
 abstract class $ConversationListStateCopyWith<$Res> {
-  factory $ConversationListStateCopyWith(ConversationListState value,
-          $Res Function(ConversationListState) then) =
-      _$ConversationListStateCopyWithImpl<$Res, ConversationListState>;
+  factory $ConversationListStateCopyWith(
+    ConversationListState value,
+    $Res Function(ConversationListState) then,
+  ) = _$ConversationListStateCopyWithImpl<$Res, ConversationListState>;
   @useResult
   $Res call({List<UiConversationDetails> conversations});
 }
 
 /// @nodoc
-class _$ConversationListStateCopyWithImpl<$Res,
-        $Val extends ConversationListState>
+class _$ConversationListStateCopyWithImpl<
+  $Res,
+  $Val extends ConversationListState
+>
     implements $ConversationListStateCopyWith<$Res> {
   _$ConversationListStateCopyWithImpl(this._value, this._then);
 
@@ -50,15 +54,17 @@ class _$ConversationListStateCopyWithImpl<$Res,
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? conversations = null,
-  }) {
-    return _then(_value.copyWith(
-      conversations: null == conversations
-          ? _value.conversations
-          : conversations // ignore: cast_nullable_to_non_nullable
-              as List<UiConversationDetails>,
-    ) as $Val);
+  $Res call({Object? conversations = null}) {
+    return _then(
+      _value.copyWith(
+            conversations:
+                null == conversations
+                    ? _value.conversations
+                    : conversations // ignore: cast_nullable_to_non_nullable
+                        as List<UiConversationDetails>,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -66,9 +72,9 @@ class _$ConversationListStateCopyWithImpl<$Res,
 abstract class _$$ConversationListStateImplCopyWith<$Res>
     implements $ConversationListStateCopyWith<$Res> {
   factory _$$ConversationListStateImplCopyWith(
-          _$ConversationListStateImpl value,
-          $Res Function(_$ConversationListStateImpl) then) =
-      __$$ConversationListStateImplCopyWithImpl<$Res>;
+    _$ConversationListStateImpl value,
+    $Res Function(_$ConversationListStateImpl) then,
+  ) = __$$ConversationListStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({List<UiConversationDetails> conversations});
@@ -76,36 +82,38 @@ abstract class _$$ConversationListStateImplCopyWith<$Res>
 
 /// @nodoc
 class __$$ConversationListStateImplCopyWithImpl<$Res>
-    extends _$ConversationListStateCopyWithImpl<$Res,
-        _$ConversationListStateImpl>
+    extends
+        _$ConversationListStateCopyWithImpl<$Res, _$ConversationListStateImpl>
     implements _$$ConversationListStateImplCopyWith<$Res> {
-  __$$ConversationListStateImplCopyWithImpl(_$ConversationListStateImpl _value,
-      $Res Function(_$ConversationListStateImpl) _then)
-      : super(_value, _then);
+  __$$ConversationListStateImplCopyWithImpl(
+    _$ConversationListStateImpl _value,
+    $Res Function(_$ConversationListStateImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of ConversationListState
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? conversations = null,
-  }) {
-    return _then(_$ConversationListStateImpl(
-      conversations: null == conversations
-          ? _value._conversations
-          : conversations // ignore: cast_nullable_to_non_nullable
-              as List<UiConversationDetails>,
-    ));
+  $Res call({Object? conversations = null}) {
+    return _then(
+      _$ConversationListStateImpl(
+        conversations:
+            null == conversations
+                ? _value._conversations
+                : conversations // ignore: cast_nullable_to_non_nullable
+                    as List<UiConversationDetails>,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$ConversationListStateImpl extends _ConversationListState {
-  const _$ConversationListStateImpl(
-      {required final List<UiConversationDetails> conversations})
-      : _conversations = conversations,
-        super._();
+  const _$ConversationListStateImpl({
+    required final List<UiConversationDetails> conversations,
+  }) : _conversations = conversations,
+       super._();
 
   final List<UiConversationDetails> _conversations;
   @override
@@ -125,13 +133,17 @@ class _$ConversationListStateImpl extends _ConversationListState {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$ConversationListStateImpl &&
-            const DeepCollectionEquality()
-                .equals(other._conversations, _conversations));
+            const DeepCollectionEquality().equals(
+              other._conversations,
+              _conversations,
+            ));
   }
 
   @override
   int get hashCode => Object.hash(
-      runtimeType, const DeepCollectionEquality().hash(_conversations));
+    runtimeType,
+    const DeepCollectionEquality().hash(_conversations),
+  );
 
   /// Create a copy of ConversationListState
   /// with the given fields replaced by the non-null parameter values.
@@ -139,14 +151,17 @@ class _$ConversationListStateImpl extends _ConversationListState {
   @override
   @pragma('vm:prefer-inline')
   _$$ConversationListStateImplCopyWith<_$ConversationListStateImpl>
-      get copyWith => __$$ConversationListStateImplCopyWithImpl<
-          _$ConversationListStateImpl>(this, _$identity);
+  get copyWith =>
+      __$$ConversationListStateImplCopyWithImpl<_$ConversationListStateImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class _ConversationListState extends ConversationListState {
-  const factory _ConversationListState(
-          {required final List<UiConversationDetails> conversations}) =
-      _$ConversationListStateImpl;
+  const factory _ConversationListState({
+    required final List<UiConversationDetails> conversations,
+  }) = _$ConversationListStateImpl;
   const _ConversationListState._() : super._();
 
   @override
@@ -157,5 +172,5 @@ abstract class _ConversationListState extends ConversationListState {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ConversationListStateImplCopyWith<_$ConversationListStateImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

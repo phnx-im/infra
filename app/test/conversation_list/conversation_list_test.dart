@@ -28,39 +28,37 @@ void main() {
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
 
-      when(() => navigationCubit.state)
-          .thenReturn(const NavigationState.home());
-      when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: "alice@localhost"));
+      when(
+        () => navigationCubit.state,
+      ).thenReturn(const NavigationState.home());
+      when(
+        () => userCubit.state,
+      ).thenReturn(MockUiUser(userName: "alice@localhost"));
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<NavigationCubit>.value(
-              value: navigationCubit,
-            ),
-            BlocProvider<UserCubit>.value(
-              value: userCubit,
-            ),
-            BlocProvider<ConversationListCubit>.value(
-              value: conversationListCubit,
-            ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: const Scaffold(body: ConversationListView()),
-              );
-            },
-          ),
-        );
+      providers: [
+        BlocProvider<NavigationCubit>.value(value: navigationCubit),
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: const Scaffold(body: ConversationListView()),
+          );
+        },
+      ),
+    );
 
-    testWidgets('renders correctly when there are no conversations',
-        (tester) async {
-      when(() => conversationListCubit.state)
-          .thenReturn(const ConversationListState(conversations: []));
+    testWidgets('renders correctly when there are no conversations', (
+      tester,
+    ) async {
+      when(
+        () => conversationListCubit.state,
+      ).thenReturn(const ConversationListState(conversations: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -74,13 +72,17 @@ void main() {
       when(() => navigationCubit.state).thenReturn(
         NavigationState.home(
           home: HomeNavigationState(
-              conversationOpen: true, conversationId: conversations[1].id),
+            conversationOpen: true,
+            conversationId: conversations[1].id,
+          ),
         ),
       );
       when(() => conversationListCubit.state).thenReturn(
         ConversationListState(
           conversations: List.generate(
-              20, (index) => conversations[index % conversations.length]),
+            20,
+            (index) => conversations[index % conversations.length],
+          ),
         ),
       );
 

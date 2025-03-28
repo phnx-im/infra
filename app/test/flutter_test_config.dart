@@ -23,11 +23,7 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
     await _loadFonts();
     _setGoldenFileComparatorWithThreshold(goldenThreshold);
-    _setPhysicalScreenSize(
-      binding,
-      pixel8ScreenSize,
-      pixel8DevicePixelRatio,
-    );
+    _setPhysicalScreenSize(binding, pixel8ScreenSize, pixel8DevicePixelRatio);
   });
 
   await testMain();
@@ -50,7 +46,8 @@ void _setGoldenFileComparatorWithThreshold(double threshold) {
   final testUrl = (goldenFileComparator as LocalFileComparator).basedir;
   goldenFileComparator = LocalFileComparatorWithThreshold(
     // only the base dir is used from this URI, so pass a dummy file name
-    Uri.parse('$testUrl/test.dart'), threshold,
+    Uri.parse('$testUrl/test.dart'),
+    threshold,
   );
 }
 

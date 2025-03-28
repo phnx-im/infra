@@ -12,7 +12,8 @@ part of 'navigation_cubit.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$HomeNavigationState {
@@ -35,17 +36,19 @@ mixin _$HomeNavigationState {
 /// @nodoc
 abstract class $HomeNavigationStateCopyWith<$Res> {
   factory $HomeNavigationStateCopyWith(
-          HomeNavigationState value, $Res Function(HomeNavigationState) then) =
-      _$HomeNavigationStateCopyWithImpl<$Res, HomeNavigationState>;
+    HomeNavigationState value,
+    $Res Function(HomeNavigationState) then,
+  ) = _$HomeNavigationStateCopyWithImpl<$Res, HomeNavigationState>;
   @useResult
-  $Res call(
-      {bool conversationOpen,
-      ConversationId? conversationId,
-      DeveloperSettingsScreenType? developerSettingsScreen,
-      String? memberDetails,
-      bool userSettingsOpen,
-      bool conversationDetailsOpen,
-      bool addMembersOpen});
+  $Res call({
+    bool conversationOpen,
+    ConversationId? conversationId,
+    DeveloperSettingsScreenType? developerSettingsScreen,
+    String? memberDetails,
+    bool userSettingsOpen,
+    bool conversationDetailsOpen,
+    bool addMembersOpen,
+  });
 }
 
 /// @nodoc
@@ -71,64 +74,77 @@ class _$HomeNavigationStateCopyWithImpl<$Res, $Val extends HomeNavigationState>
     Object? conversationDetailsOpen = null,
     Object? addMembersOpen = null,
   }) {
-    return _then(_value.copyWith(
-      conversationOpen: null == conversationOpen
-          ? _value.conversationOpen
-          : conversationOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-      conversationId: freezed == conversationId
-          ? _value.conversationId
-          : conversationId // ignore: cast_nullable_to_non_nullable
-              as ConversationId?,
-      developerSettingsScreen: freezed == developerSettingsScreen
-          ? _value.developerSettingsScreen
-          : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
-              as DeveloperSettingsScreenType?,
-      memberDetails: freezed == memberDetails
-          ? _value.memberDetails
-          : memberDetails // ignore: cast_nullable_to_non_nullable
-              as String?,
-      userSettingsOpen: null == userSettingsOpen
-          ? _value.userSettingsOpen
-          : userSettingsOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-      conversationDetailsOpen: null == conversationDetailsOpen
-          ? _value.conversationDetailsOpen
-          : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-      addMembersOpen: null == addMembersOpen
-          ? _value.addMembersOpen
-          : addMembersOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            conversationOpen:
+                null == conversationOpen
+                    ? _value.conversationOpen
+                    : conversationOpen // ignore: cast_nullable_to_non_nullable
+                        as bool,
+            conversationId:
+                freezed == conversationId
+                    ? _value.conversationId
+                    : conversationId // ignore: cast_nullable_to_non_nullable
+                        as ConversationId?,
+            developerSettingsScreen:
+                freezed == developerSettingsScreen
+                    ? _value.developerSettingsScreen
+                    : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
+                        as DeveloperSettingsScreenType?,
+            memberDetails:
+                freezed == memberDetails
+                    ? _value.memberDetails
+                    : memberDetails // ignore: cast_nullable_to_non_nullable
+                        as String?,
+            userSettingsOpen:
+                null == userSettingsOpen
+                    ? _value.userSettingsOpen
+                    : userSettingsOpen // ignore: cast_nullable_to_non_nullable
+                        as bool,
+            conversationDetailsOpen:
+                null == conversationDetailsOpen
+                    ? _value.conversationDetailsOpen
+                    : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable
+                        as bool,
+            addMembersOpen:
+                null == addMembersOpen
+                    ? _value.addMembersOpen
+                    : addMembersOpen // ignore: cast_nullable_to_non_nullable
+                        as bool,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$HomeNavigationStateImplCopyWith<$Res>
     implements $HomeNavigationStateCopyWith<$Res> {
-  factory _$$HomeNavigationStateImplCopyWith(_$HomeNavigationStateImpl value,
-          $Res Function(_$HomeNavigationStateImpl) then) =
-      __$$HomeNavigationStateImplCopyWithImpl<$Res>;
+  factory _$$HomeNavigationStateImplCopyWith(
+    _$HomeNavigationStateImpl value,
+    $Res Function(_$HomeNavigationStateImpl) then,
+  ) = __$$HomeNavigationStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {bool conversationOpen,
-      ConversationId? conversationId,
-      DeveloperSettingsScreenType? developerSettingsScreen,
-      String? memberDetails,
-      bool userSettingsOpen,
-      bool conversationDetailsOpen,
-      bool addMembersOpen});
+  $Res call({
+    bool conversationOpen,
+    ConversationId? conversationId,
+    DeveloperSettingsScreenType? developerSettingsScreen,
+    String? memberDetails,
+    bool userSettingsOpen,
+    bool conversationDetailsOpen,
+    bool addMembersOpen,
+  });
 }
 
 /// @nodoc
 class __$$HomeNavigationStateImplCopyWithImpl<$Res>
     extends _$HomeNavigationStateCopyWithImpl<$Res, _$HomeNavigationStateImpl>
     implements _$$HomeNavigationStateImplCopyWith<$Res> {
-  __$$HomeNavigationStateImplCopyWithImpl(_$HomeNavigationStateImpl _value,
-      $Res Function(_$HomeNavigationStateImpl) _then)
-      : super(_value, _then);
+  __$$HomeNavigationStateImplCopyWithImpl(
+    _$HomeNavigationStateImpl _value,
+    $Res Function(_$HomeNavigationStateImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of HomeNavigationState
   /// with the given fields replaced by the non-null parameter values.
@@ -143,51 +159,60 @@ class __$$HomeNavigationStateImplCopyWithImpl<$Res>
     Object? conversationDetailsOpen = null,
     Object? addMembersOpen = null,
   }) {
-    return _then(_$HomeNavigationStateImpl(
-      conversationOpen: null == conversationOpen
-          ? _value.conversationOpen
-          : conversationOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-      conversationId: freezed == conversationId
-          ? _value.conversationId
-          : conversationId // ignore: cast_nullable_to_non_nullable
-              as ConversationId?,
-      developerSettingsScreen: freezed == developerSettingsScreen
-          ? _value.developerSettingsScreen
-          : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
-              as DeveloperSettingsScreenType?,
-      memberDetails: freezed == memberDetails
-          ? _value.memberDetails
-          : memberDetails // ignore: cast_nullable_to_non_nullable
-              as String?,
-      userSettingsOpen: null == userSettingsOpen
-          ? _value.userSettingsOpen
-          : userSettingsOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-      conversationDetailsOpen: null == conversationDetailsOpen
-          ? _value.conversationDetailsOpen
-          : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-      addMembersOpen: null == addMembersOpen
-          ? _value.addMembersOpen
-          : addMembersOpen // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      _$HomeNavigationStateImpl(
+        conversationOpen:
+            null == conversationOpen
+                ? _value.conversationOpen
+                : conversationOpen // ignore: cast_nullable_to_non_nullable
+                    as bool,
+        conversationId:
+            freezed == conversationId
+                ? _value.conversationId
+                : conversationId // ignore: cast_nullable_to_non_nullable
+                    as ConversationId?,
+        developerSettingsScreen:
+            freezed == developerSettingsScreen
+                ? _value.developerSettingsScreen
+                : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
+                    as DeveloperSettingsScreenType?,
+        memberDetails:
+            freezed == memberDetails
+                ? _value.memberDetails
+                : memberDetails // ignore: cast_nullable_to_non_nullable
+                    as String?,
+        userSettingsOpen:
+            null == userSettingsOpen
+                ? _value.userSettingsOpen
+                : userSettingsOpen // ignore: cast_nullable_to_non_nullable
+                    as bool,
+        conversationDetailsOpen:
+            null == conversationDetailsOpen
+                ? _value.conversationDetailsOpen
+                : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable
+                    as bool,
+        addMembersOpen:
+            null == addMembersOpen
+                ? _value.addMembersOpen
+                : addMembersOpen // ignore: cast_nullable_to_non_nullable
+                    as bool,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$HomeNavigationStateImpl extends _HomeNavigationState {
-  const _$HomeNavigationStateImpl(
-      {this.conversationOpen = false,
-      this.conversationId,
-      this.developerSettingsScreen,
-      this.memberDetails,
-      this.userSettingsOpen = false,
-      this.conversationDetailsOpen = false,
-      this.addMembersOpen = false})
-      : super._();
+  const _$HomeNavigationStateImpl({
+    this.conversationOpen = false,
+    this.conversationId,
+    this.developerSettingsScreen,
+    this.memberDetails,
+    this.userSettingsOpen = false,
+    this.conversationDetailsOpen = false,
+    this.addMembersOpen = false,
+  }) : super._();
 
   @override
   @JsonKey()
@@ -223,14 +248,18 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
             (identical(other.conversationId, conversationId) ||
                 other.conversationId == conversationId) &&
             (identical(
-                    other.developerSettingsScreen, developerSettingsScreen) ||
+                  other.developerSettingsScreen,
+                  developerSettingsScreen,
+                ) ||
                 other.developerSettingsScreen == developerSettingsScreen) &&
             (identical(other.memberDetails, memberDetails) ||
                 other.memberDetails == memberDetails) &&
             (identical(other.userSettingsOpen, userSettingsOpen) ||
                 other.userSettingsOpen == userSettingsOpen) &&
             (identical(
-                    other.conversationDetailsOpen, conversationDetailsOpen) ||
+                  other.conversationDetailsOpen,
+                  conversationDetailsOpen,
+                ) ||
                 other.conversationDetailsOpen == conversationDetailsOpen) &&
             (identical(other.addMembersOpen, addMembersOpen) ||
                 other.addMembersOpen == addMembersOpen));
@@ -238,14 +267,15 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      conversationOpen,
-      conversationId,
-      developerSettingsScreen,
-      memberDetails,
-      userSettingsOpen,
-      conversationDetailsOpen,
-      addMembersOpen);
+    runtimeType,
+    conversationOpen,
+    conversationId,
+    developerSettingsScreen,
+    memberDetails,
+    userSettingsOpen,
+    conversationDetailsOpen,
+    addMembersOpen,
+  );
 
   /// Create a copy of HomeNavigationState
   /// with the given fields replaced by the non-null parameter values.
@@ -254,18 +284,21 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
   @pragma('vm:prefer-inline')
   _$$HomeNavigationStateImplCopyWith<_$HomeNavigationStateImpl> get copyWith =>
       __$$HomeNavigationStateImplCopyWithImpl<_$HomeNavigationStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _HomeNavigationState extends HomeNavigationState {
-  const factory _HomeNavigationState(
-      {final bool conversationOpen,
-      final ConversationId? conversationId,
-      final DeveloperSettingsScreenType? developerSettingsScreen,
-      final String? memberDetails,
-      final bool userSettingsOpen,
-      final bool conversationDetailsOpen,
-      final bool addMembersOpen}) = _$HomeNavigationStateImpl;
+  const factory _HomeNavigationState({
+    final bool conversationOpen,
+    final ConversationId? conversationId,
+    final DeveloperSettingsScreenType? developerSettingsScreen,
+    final String? memberDetails,
+    final bool userSettingsOpen,
+    final bool conversationDetailsOpen,
+    final bool addMembersOpen,
+  }) = _$HomeNavigationStateImpl;
   const _HomeNavigationState._() : super._();
 
   @override
@@ -297,8 +330,9 @@ mixin _$NavigationState {}
 /// @nodoc
 abstract class $NavigationStateCopyWith<$Res> {
   factory $NavigationStateCopyWith(
-          NavigationState value, $Res Function(NavigationState) then) =
-      _$NavigationStateCopyWithImpl<$Res, NavigationState>;
+    NavigationState value,
+    $Res Function(NavigationState) then,
+  ) = _$NavigationStateCopyWithImpl<$Res, NavigationState>;
 }
 
 /// @nodoc
@@ -318,9 +352,9 @@ class _$NavigationStateCopyWithImpl<$Res, $Val extends NavigationState>
 /// @nodoc
 abstract class _$$NavigationState_IntroImplCopyWith<$Res> {
   factory _$$NavigationState_IntroImplCopyWith(
-          _$NavigationState_IntroImpl value,
-          $Res Function(_$NavigationState_IntroImpl) then) =
-      __$$NavigationState_IntroImplCopyWithImpl<$Res>;
+    _$NavigationState_IntroImpl value,
+    $Res Function(_$NavigationState_IntroImpl) then,
+  ) = __$$NavigationState_IntroImplCopyWithImpl<$Res>;
   @useResult
   $Res call({List<IntroScreenType> screens});
 }
@@ -329,33 +363,35 @@ abstract class _$$NavigationState_IntroImplCopyWith<$Res> {
 class __$$NavigationState_IntroImplCopyWithImpl<$Res>
     extends _$NavigationStateCopyWithImpl<$Res, _$NavigationState_IntroImpl>
     implements _$$NavigationState_IntroImplCopyWith<$Res> {
-  __$$NavigationState_IntroImplCopyWithImpl(_$NavigationState_IntroImpl _value,
-      $Res Function(_$NavigationState_IntroImpl) _then)
-      : super(_value, _then);
+  __$$NavigationState_IntroImplCopyWithImpl(
+    _$NavigationState_IntroImpl _value,
+    $Res Function(_$NavigationState_IntroImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of NavigationState
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? screens = null,
-  }) {
-    return _then(_$NavigationState_IntroImpl(
-      screens: null == screens
-          ? _value._screens
-          : screens // ignore: cast_nullable_to_non_nullable
-              as List<IntroScreenType>,
-    ));
+  $Res call({Object? screens = null}) {
+    return _then(
+      _$NavigationState_IntroImpl(
+        screens:
+            null == screens
+                ? _value._screens
+                : screens // ignore: cast_nullable_to_non_nullable
+                    as List<IntroScreenType>,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$NavigationState_IntroImpl extends NavigationState_Intro {
-  const _$NavigationState_IntroImpl(
-      {final List<IntroScreenType> screens = const []})
-      : _screens = screens,
-        super._();
+  const _$NavigationState_IntroImpl({
+    final List<IntroScreenType> screens = const [],
+  }) : _screens = screens,
+       super._();
 
   final List<IntroScreenType> _screens;
   @override
@@ -389,8 +425,11 @@ class _$NavigationState_IntroImpl extends NavigationState_Intro {
   @override
   @pragma('vm:prefer-inline')
   _$$NavigationState_IntroImplCopyWith<_$NavigationState_IntroImpl>
-      get copyWith => __$$NavigationState_IntroImplCopyWithImpl<
-          _$NavigationState_IntroImpl>(this, _$identity);
+  get copyWith =>
+      __$$NavigationState_IntroImplCopyWithImpl<_$NavigationState_IntroImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class NavigationState_Intro extends NavigationState {
@@ -404,14 +443,15 @@ abstract class NavigationState_Intro extends NavigationState {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$NavigationState_IntroImplCopyWith<_$NavigationState_IntroImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class _$$NavigationState_HomeImplCopyWith<$Res> {
-  factory _$$NavigationState_HomeImplCopyWith(_$NavigationState_HomeImpl value,
-          $Res Function(_$NavigationState_HomeImpl) then) =
-      __$$NavigationState_HomeImplCopyWithImpl<$Res>;
+  factory _$$NavigationState_HomeImplCopyWith(
+    _$NavigationState_HomeImpl value,
+    $Res Function(_$NavigationState_HomeImpl) then,
+  ) = __$$NavigationState_HomeImplCopyWithImpl<$Res>;
   @useResult
   $Res call({HomeNavigationState home});
 
@@ -422,23 +462,25 @@ abstract class _$$NavigationState_HomeImplCopyWith<$Res> {
 class __$$NavigationState_HomeImplCopyWithImpl<$Res>
     extends _$NavigationStateCopyWithImpl<$Res, _$NavigationState_HomeImpl>
     implements _$$NavigationState_HomeImplCopyWith<$Res> {
-  __$$NavigationState_HomeImplCopyWithImpl(_$NavigationState_HomeImpl _value,
-      $Res Function(_$NavigationState_HomeImpl) _then)
-      : super(_value, _then);
+  __$$NavigationState_HomeImplCopyWithImpl(
+    _$NavigationState_HomeImpl _value,
+    $Res Function(_$NavigationState_HomeImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of NavigationState
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? home = null,
-  }) {
-    return _then(_$NavigationState_HomeImpl(
-      home: null == home
-          ? _value.home
-          : home // ignore: cast_nullable_to_non_nullable
-              as HomeNavigationState,
-    ));
+  $Res call({Object? home = null}) {
+    return _then(
+      _$NavigationState_HomeImpl(
+        home:
+            null == home
+                ? _value.home
+                : home // ignore: cast_nullable_to_non_nullable
+                    as HomeNavigationState,
+      ),
+    );
   }
 
   /// Create a copy of NavigationState
@@ -456,7 +498,7 @@ class __$$NavigationState_HomeImplCopyWithImpl<$Res>
 
 class _$NavigationState_HomeImpl extends NavigationState_Home {
   const _$NavigationState_HomeImpl({this.home = const HomeNavigationState()})
-      : super._();
+    : super._();
 
   @override
   @JsonKey()
@@ -484,9 +526,11 @@ class _$NavigationState_HomeImpl extends NavigationState_Home {
   @override
   @pragma('vm:prefer-inline')
   _$$NavigationState_HomeImplCopyWith<_$NavigationState_HomeImpl>
-      get copyWith =>
-          __$$NavigationState_HomeImplCopyWithImpl<_$NavigationState_HomeImpl>(
-              this, _$identity);
+  get copyWith =>
+      __$$NavigationState_HomeImplCopyWithImpl<_$NavigationState_HomeImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class NavigationState_Home extends NavigationState {
@@ -500,5 +544,5 @@ abstract class NavigationState_Home extends NavigationState {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$NavigationState_HomeImplCopyWith<_$NavigationState_HomeImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

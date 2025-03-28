@@ -14,9 +14,9 @@ export 'package:prototype/core/core_extension.dart'
 
 class NavigationCubit implements StateStreamableSource<NavigationState> {
   NavigationCubit()
-      : _impl = NavigationCubitBase(
-          notificationService: DartNotificationServiceExtension.create(),
-        );
+    : _impl = NavigationCubitBase(
+        notificationService: DartNotificationServiceExtension.create(),
+      );
 
   final NavigationCubitBase _impl;
 
@@ -50,8 +50,7 @@ class NavigationCubit implements StateStreamableSource<NavigationState> {
 
   Future<void> openDeveloperSettings({
     DeveloperSettingsScreenType screen = DeveloperSettingsScreenType.root,
-  }) =>
-      _impl.openDeveloperSettings(screen: screen);
+  }) => _impl.openDeveloperSettings(screen: screen);
 
   Future<void> openHome() => _impl.openHome();
 

@@ -11,7 +11,7 @@ import 'package:prototype/user/user.dart';
 class ConversationListCubit
     implements StateStreamableSource<ConversationListState> {
   ConversationListCubit({required UserCubit userCubit})
-      : _impl = ConversationListCubitBase(userCubit: userCubit.impl);
+    : _impl = ConversationListCubitBase(userCubit: userCubit.impl);
 
   final ConversationListCubitBase _impl;
 

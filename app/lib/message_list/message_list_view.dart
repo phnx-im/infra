@@ -15,10 +15,11 @@ import 'conversation_tile.dart';
 import 'message_cubit.dart';
 import 'message_list_cubit.dart';
 
-typedef MessageCubitCreate = MessageCubit Function({
-  required UserCubit userCubit,
-  required MessageState initialState,
-});
+typedef MessageCubitCreate =
+    MessageCubit Function({
+      required UserCubit userCubit,
+      required MessageState initialState,
+    });
 
 class MessageListView extends StatelessWidget {
   const MessageListView({
@@ -45,18 +46,18 @@ class MessageListView extends StatelessWidget {
             final message = state.messageAt(index);
             return message != null
                 ? BlocProvider(
-                    key: ValueKey(message.id),
-                    create: (context) {
-                      return createMessageCubit(
-                        userCubit: context.read<UserCubit>(),
-                        initialState: MessageState(message: message),
-                      );
-                    },
-                    child: _VisibilityConversationTile(
-                      messageId: message.id,
-                      timestamp: DateTime.parse(message.timestamp),
-                    ),
-                  )
+                  key: ValueKey(message.id),
+                  create: (context) {
+                    return createMessageCubit(
+                      userCubit: context.read<UserCubit>(),
+                      initialState: MessageState(message: message),
+                    );
+                  },
+                  child: _VisibilityConversationTile(
+                    messageId: message.id,
+                    timestamp: DateTime.parse(message.timestamp),
+                  ),
+                )
                 : const SizedBox.shrink();
           },
           findChildIndexCallback: (key) {
@@ -90,9 +91,9 @@ class _VisibilityConversationTile extends StatelessWidget {
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction > 0) {
           context.read<ConversationDetailsCubit>().markAsRead(
-                untilMessageId: messageId,
-                untilTimestamp: timestamp,
-              );
+            untilMessageId: messageId,
+            untilTimestamp: timestamp,
+          );
         }
       },
     );
@@ -118,5 +119,6 @@ class VisibilityKeyValue {
 final ScrollPhysics _scrollPhysics =
     (Platform.isAndroid || Platform.isWindows || Platform.isLinux)
         ? const ClampingScrollPhysics()
-        : const BouncingScrollPhysics()
-            .applyTo(const AlwaysScrollableScrollPhysics());
+        : const BouncingScrollPhysics().applyTo(
+          const AlwaysScrollableScrollPhysics(),
+        );

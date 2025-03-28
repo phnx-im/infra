@@ -24,20 +24,23 @@ abstract class User implements RustOpaqueInterface {
   /// Total number of unread messages across all conversations
   Future<int> get globalUnreadMessagesCount;
 
-  static Future<User> load(
-          {required String dbPath,
-          required UiUserName userName,
-          required UuidValue clientId}) =>
-      RustLib.instance.api.crateApiUserUserLoad(
-          dbPath: dbPath, userName: userName, clientId: clientId);
+  static Future<User> load({
+    required String dbPath,
+    required UiUserName userName,
+    required UuidValue clientId,
+  }) => RustLib.instance.api.crateApiUserUserLoad(
+    dbPath: dbPath,
+    userName: userName,
+    clientId: clientId,
+  );
 
   /// Loads all client records from the phnx database
   ///
   /// Also tries to load user profile from the client database. In case the client database
   /// cannot be opened, the client record is skipped.
-  static Future<List<UiClientRecord>> loadClientRecords(
-          {required String dbPath}) =>
-      RustLib.instance.api.crateApiUserUserLoadClientRecords(dbPath: dbPath);
+  static Future<List<UiClientRecord>> loadClientRecords({
+    required String dbPath,
+  }) => RustLib.instance.api.crateApiUserUserLoadClientRecords(dbPath: dbPath);
 
   /// Loads the default user from the given database path
   ///
@@ -52,22 +55,23 @@ abstract class User implements RustOpaqueInterface {
   /// Creates a new user with the given `user_name`.
   ///
   /// If a user with this name already exists, this will overwrite that user.
-  static Future<User> newInstance(
-          {required String userName,
-          required String password,
-          required String address,
-          required String path,
-          PlatformPushToken? pushToken,
-          String? displayName,
-          Uint8List? profilePicture}) =>
-      RustLib.instance.api.crateApiUserUserNew(
-          userName: userName,
-          password: password,
-          address: address,
-          path: path,
-          pushToken: pushToken,
-          displayName: displayName,
-          profilePicture: profilePicture);
+  static Future<User> newInstance({
+    required String userName,
+    required String password,
+    required String address,
+    required String path,
+    PlatformPushToken? pushToken,
+    String? displayName,
+    Uint8List? profilePicture,
+  }) => RustLib.instance.api.crateApiUserUserNew(
+    userName: userName,
+    password: password,
+    address: address,
+    path: path,
+    pushToken: pushToken,
+    displayName: displayName,
+    profilePicture: profilePicture,
+  );
 
   /// Update the push token.
   Future<void> updatePushToken(PlatformPushToken? pushToken);
@@ -80,10 +84,8 @@ abstract class User implements RustOpaqueInterface {
 sealed class PlatformPushToken with _$PlatformPushToken {
   const PlatformPushToken._();
 
-  const factory PlatformPushToken.apple(
-    String field0,
-  ) = PlatformPushToken_Apple;
-  const factory PlatformPushToken.google(
-    String field0,
-  ) = PlatformPushToken_Google;
+  const factory PlatformPushToken.apple(String field0) =
+      PlatformPushToken_Apple;
+  const factory PlatformPushToken.google(String field0) =
+      PlatformPushToken_Google;
 }

@@ -60,9 +60,10 @@ class AddMembersScreenView extends StatelessWidget {
                       final contact = contacts[index];
                       return ListTile(
                         leading: FutureUserAvatar(
-                          profile: () => context
-                              .read<UserCubit>()
-                              .userProfile(contact.userName),
+                          profile:
+                              () => context.read<UserCubit>().userProfile(
+                                contact.userName,
+                              ),
                         ),
                         title: Text(
                           contact.userName,
@@ -75,34 +76,38 @@ class AddMembersScreenView extends StatelessWidget {
                           fillColor: WidgetStateProperty.all(colorGreyLight),
                           focusColor: Colors.transparent,
                           hoverColor: Colors.transparent,
-                          overlayColor:
-                              WidgetStateProperty.all(Colors.transparent),
+                          overlayColor: WidgetStateProperty.all(
+                            Colors.transparent,
+                          ),
                           side: BorderSide.none,
                           shape: const CircleBorder(),
-                          onChanged: (bool? value) => context
-                              .read<AddMembersCubit>()
-                              .toggleContact(contact),
+                          onChanged:
+                              (bool? value) => context
+                                  .read<AddMembersCubit>()
+                                  .toggleContact(contact),
                         ),
-                        onTap: () => context
-                            .read<AddMembersCubit>()
-                            .toggleContact(contact),
+                        onTap:
+                            () => context.read<AddMembersCubit>().toggleContact(
+                              contact,
+                            ),
                       );
                     },
                   ),
                 ),
                 OutlinedButton(
-                  onPressed: selectedContacts.isNotEmpty
-                      ? () async {
-                          _addSelectedContacts(
-                            context.read<NavigationCubit>(),
-                            context.read<UserCubit>(),
-                            selectedContacts,
-                          );
-                        }
-                      : null,
+                  onPressed:
+                      selectedContacts.isNotEmpty
+                          ? () async {
+                            _addSelectedContacts(
+                              context.read<NavigationCubit>(),
+                              context.read<UserCubit>(),
+                              selectedContacts,
+                            );
+                          }
+                          : null,
                   style: buttonStyle(context, selectedContacts.isNotEmpty),
                   child: const Text("Add member(s)"),
-                )
+                ),
               ],
             ),
           ),
@@ -121,10 +126,7 @@ class AddMembersScreenView extends StatelessWidget {
       throw StateError("an active conversation is obligatory");
     }
     for (final userName in selectedContacts) {
-      await userCubit.addUserToConversation(
-        conversationId,
-        userName,
-      );
+      await userCubit.addUserToConversation(conversationId, userName);
     }
     navigation.pop();
   }

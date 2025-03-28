@@ -24,11 +24,13 @@ abstract class MessageListCubitBase implements RustOpaqueInterface {
 
   bool get isClosed;
 
-  factory MessageListCubitBase(
-          {required UserCubitBase userCubit,
-          required ConversationId conversationId}) =>
-      RustLib.instance.api.crateApiMessageListCubitMessageListCubitBaseNew(
-          userCubit: userCubit, conversationId: conversationId);
+  factory MessageListCubitBase({
+    required UserCubitBase userCubit,
+    required ConversationId conversationId,
+  }) => RustLib.instance.api.crateApiMessageListCubitMessageListCubitBaseNew(
+    userCubit: userCubit,
+    conversationId: conversationId,
+  );
 
   MessageListState get state;
 

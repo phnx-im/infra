@@ -13,9 +13,12 @@ import 'package:uuid/uuid.dart';
 Future<void> deleteDatabases({required String dbPath}) =>
     RustLib.instance.api.crateApiUtilsDeleteDatabases(dbPath: dbPath);
 
-Future<void> deleteClientDatabase(
-        {required String dbPath,
-        required String userName,
-        required UuidValue clientId}) =>
-    RustLib.instance.api.crateApiUtilsDeleteClientDatabase(
-        dbPath: dbPath, userName: userName, clientId: clientId);
+Future<void> deleteClientDatabase({
+  required String dbPath,
+  required String userName,
+  required UuidValue clientId,
+}) => RustLib.instance.api.crateApiUtilsDeleteClientDatabase(
+  dbPath: dbPath,
+  userName: userName,
+  clientId: clientId,
+);

@@ -14,9 +14,7 @@ import 'create_conversation_view.dart';
 final _log = Logger("ConversationListFooter");
 
 class ConversationListFooter extends StatelessWidget {
-  const ConversationListFooter({
-    super.key,
-  });
+  const ConversationListFooter({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,21 +25,20 @@ class ConversationListFooter extends StatelessWidget {
         children: [
           TextButton.icon(
             style: textButtonStyle(context),
-            icon: const Icon(
-              Icons.person,
-              size: 20,
-            ),
+            icon: const Icon(Icons.person, size: 20),
             onPressed: () async {
               final conversationListCubit =
                   context.read<ConversationListCubit>();
               String connectionUsername = await showDialog(
                 context: context,
-                builder: (BuildContext context) => CreateConversationView(
-                    context,
-                    "New connection",
-                    "Enter the username to which you want to connect",
-                    "USERNAME",
-                    "Connect"),
+                builder:
+                    (BuildContext context) => CreateConversationView(
+                      context,
+                      "New connection",
+                      "Enter the username to which you want to connect",
+                      "USERNAME",
+                      "Connect",
+                    ),
               );
               if (connectionUsername.isNotEmpty) {
                 try {
@@ -62,21 +59,21 @@ class ConversationListFooter extends StatelessWidget {
           ),
           TextButton.icon(
             style: textButtonStyle(context),
-            icon: const Icon(
-              Icons.notes,
-              size: 20,
-            ),
+            icon: const Icon(Icons.notes, size: 20),
             onPressed: () async {
               final conversationListCubit =
                   context.read<ConversationListCubit>();
               String newGroup = await showDialog(
-                  context: context,
-                  builder: (BuildContext context) => CreateConversationView(
+                context: context,
+                builder:
+                    (BuildContext context) => CreateConversationView(
                       context,
                       "New conversation",
                       "Choose a name for the new conversation",
                       "CONVERSATION NAME",
-                      "Create conversation"));
+                      "Create conversation",
+                    ),
+              );
               if (newGroup.isNotEmpty) {
                 await conversationListCubit.createConversation(
                   groupName: newGroup,

@@ -12,7 +12,8 @@ part of 'user.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$PlatformPushToken {
@@ -28,8 +29,9 @@ mixin _$PlatformPushToken {
 /// @nodoc
 abstract class $PlatformPushTokenCopyWith<$Res> {
   factory $PlatformPushTokenCopyWith(
-          PlatformPushToken value, $Res Function(PlatformPushToken) then) =
-      _$PlatformPushTokenCopyWithImpl<$Res, PlatformPushToken>;
+    PlatformPushToken value,
+    $Res Function(PlatformPushToken) then,
+  ) = _$PlatformPushTokenCopyWithImpl<$Res, PlatformPushToken>;
   @useResult
   $Res call({String field0});
 }
@@ -48,15 +50,17 @@ class _$PlatformPushTokenCopyWithImpl<$Res, $Val extends PlatformPushToken>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_value.copyWith(
-      field0: null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _value.copyWith(
+            field0:
+                null == field0
+                    ? _value.field0
+                    : field0 // ignore: cast_nullable_to_non_nullable
+                        as String,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -64,9 +68,9 @@ class _$PlatformPushTokenCopyWithImpl<$Res, $Val extends PlatformPushToken>
 abstract class _$$PlatformPushToken_AppleImplCopyWith<$Res>
     implements $PlatformPushTokenCopyWith<$Res> {
   factory _$$PlatformPushToken_AppleImplCopyWith(
-          _$PlatformPushToken_AppleImpl value,
-          $Res Function(_$PlatformPushToken_AppleImpl) then) =
-      __$$PlatformPushToken_AppleImplCopyWithImpl<$Res>;
+    _$PlatformPushToken_AppleImpl value,
+    $Res Function(_$PlatformPushToken_AppleImpl) then,
+  ) = __$$PlatformPushToken_AppleImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({String field0});
@@ -77,23 +81,23 @@ class __$$PlatformPushToken_AppleImplCopyWithImpl<$Res>
     extends _$PlatformPushTokenCopyWithImpl<$Res, _$PlatformPushToken_AppleImpl>
     implements _$$PlatformPushToken_AppleImplCopyWith<$Res> {
   __$$PlatformPushToken_AppleImplCopyWithImpl(
-      _$PlatformPushToken_AppleImpl _value,
-      $Res Function(_$PlatformPushToken_AppleImpl) _then)
-      : super(_value, _then);
+    _$PlatformPushToken_AppleImpl _value,
+    $Res Function(_$PlatformPushToken_AppleImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of PlatformPushToken
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$PlatformPushToken_AppleImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$PlatformPushToken_AppleImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as String,
+      ),
+    );
   }
 }
 
@@ -127,8 +131,9 @@ class _$PlatformPushToken_AppleImpl extends PlatformPushToken_Apple {
   @override
   @pragma('vm:prefer-inline')
   _$$PlatformPushToken_AppleImplCopyWith<_$PlatformPushToken_AppleImpl>
-      get copyWith => __$$PlatformPushToken_AppleImplCopyWithImpl<
-          _$PlatformPushToken_AppleImpl>(this, _$identity);
+  get copyWith => __$$PlatformPushToken_AppleImplCopyWithImpl<
+    _$PlatformPushToken_AppleImpl
+  >(this, _$identity);
 }
 
 abstract class PlatformPushToken_Apple extends PlatformPushToken {
@@ -144,16 +149,16 @@ abstract class PlatformPushToken_Apple extends PlatformPushToken {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$PlatformPushToken_AppleImplCopyWith<_$PlatformPushToken_AppleImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class _$$PlatformPushToken_GoogleImplCopyWith<$Res>
     implements $PlatformPushTokenCopyWith<$Res> {
   factory _$$PlatformPushToken_GoogleImplCopyWith(
-          _$PlatformPushToken_GoogleImpl value,
-          $Res Function(_$PlatformPushToken_GoogleImpl) then) =
-      __$$PlatformPushToken_GoogleImplCopyWithImpl<$Res>;
+    _$PlatformPushToken_GoogleImpl value,
+    $Res Function(_$PlatformPushToken_GoogleImpl) then,
+  ) = __$$PlatformPushToken_GoogleImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({String field0});
@@ -161,27 +166,27 @@ abstract class _$$PlatformPushToken_GoogleImplCopyWith<$Res>
 
 /// @nodoc
 class __$$PlatformPushToken_GoogleImplCopyWithImpl<$Res>
-    extends _$PlatformPushTokenCopyWithImpl<$Res,
-        _$PlatformPushToken_GoogleImpl>
+    extends
+        _$PlatformPushTokenCopyWithImpl<$Res, _$PlatformPushToken_GoogleImpl>
     implements _$$PlatformPushToken_GoogleImplCopyWith<$Res> {
   __$$PlatformPushToken_GoogleImplCopyWithImpl(
-      _$PlatformPushToken_GoogleImpl _value,
-      $Res Function(_$PlatformPushToken_GoogleImpl) _then)
-      : super(_value, _then);
+    _$PlatformPushToken_GoogleImpl _value,
+    $Res Function(_$PlatformPushToken_GoogleImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of PlatformPushToken
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? field0 = null,
-  }) {
-    return _then(_$PlatformPushToken_GoogleImpl(
-      null == field0
-          ? _value.field0
-          : field0 // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$PlatformPushToken_GoogleImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as String,
+      ),
+    );
   }
 }
 
@@ -215,8 +220,9 @@ class _$PlatformPushToken_GoogleImpl extends PlatformPushToken_Google {
   @override
   @pragma('vm:prefer-inline')
   _$$PlatformPushToken_GoogleImplCopyWith<_$PlatformPushToken_GoogleImpl>
-      get copyWith => __$$PlatformPushToken_GoogleImplCopyWithImpl<
-          _$PlatformPushToken_GoogleImpl>(this, _$identity);
+  get copyWith => __$$PlatformPushToken_GoogleImplCopyWithImpl<
+    _$PlatformPushToken_GoogleImpl
+  >(this, _$identity);
 }
 
 abstract class PlatformPushToken_Google extends PlatformPushToken {
@@ -232,5 +238,5 @@ abstract class PlatformPushToken_Google extends PlatformPushToken {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$PlatformPushToken_GoogleImplCopyWith<_$PlatformPushToken_GoogleImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

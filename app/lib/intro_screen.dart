@@ -39,7 +39,7 @@ class IntroScreen extends StatelessWidget {
                 gradient: const LinearGradient(
                   colors: [
                     Color.fromARGB(255, 34, 163, 255),
-                    Color.fromARGB(255, 72, 23, 250)
+                    Color.fromARGB(255, 72, 23, 250),
                   ],
                   transform: GradientRotation(1.1),
                 ),
@@ -50,25 +50,30 @@ class IntroScreen extends StatelessWidget {
               ),
               // Text button that opens the developer settings screen
               TextButton(
-                onPressed: () =>
-                    context.read<NavigationCubit>().openDeveloperSettings(),
+                onPressed:
+                    () =>
+                        context.read<NavigationCubit>().openDeveloperSettings(),
                 style: textButtonStyle(context),
                 child: const Text('Developer Settings'),
               ),
               if (!isUserLoading)
                 Column(
-                  crossAxisAlignment: isSmallScreen(context)
-                      ? CrossAxisAlignment.stretch
-                      : CrossAxisAlignment.center,
+                  crossAxisAlignment:
+                      isSmallScreen(context)
+                          ? CrossAxisAlignment.stretch
+                          : CrossAxisAlignment.center,
                   children: [
                     OutlinedButton(
-                      onPressed: () =>
-                          context.read<NavigationCubit>().openServerChoice(),
+                      onPressed:
+                          () =>
+                              context
+                                  .read<NavigationCubit>()
+                                  .openServerChoice(),
                       style: buttonStyle(context, true),
                       child: const Text('Sign up'),
-                    )
+                    ),
                   ],
-                )
+                ),
             ],
           ),
         ),
@@ -78,11 +83,7 @@ class IntroScreen extends StatelessWidget {
 }
 
 class _GradientText extends StatelessWidget {
-  const _GradientText(
-    this.text, {
-    required this.gradient,
-    this.style,
-  });
+  const _GradientText(this.text, {required this.gradient, this.style});
 
   final String text;
   final TextStyle? style;
@@ -92,9 +93,10 @@ class _GradientText extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShaderMask(
       blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => gradient.createShader(
-        Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-      ),
+      shaderCallback:
+          (bounds) => gradient.createShader(
+            Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+          ),
       child: Text(text, style: style),
     );
   }

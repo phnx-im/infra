@@ -102,11 +102,4 @@ class LogEntry {
 }
 
 /// The log level
-enum LogEntryLevel {
-  trace,
-  debug,
-  info,
-  warn,
-  error,
-  ;
-}
+enum LogEntryLevel { trace, debug, info, warn, error }

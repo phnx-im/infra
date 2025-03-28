@@ -64,8 +64,10 @@ class _MessageComposerState extends State<MessageComposer> {
 
   @override
   Widget build(BuildContext context) {
-    final conversationTitle = context.select((ConversationDetailsCubit cubit) =>
-        cubit.state.conversation?.attributes.title);
+    final conversationTitle = context.select(
+      (ConversationDetailsCubit cubit) =>
+          cubit.state.conversation?.attributes.title,
+    );
 
     if (conversationTitle == null) {
       return const SizedBox.shrink();
@@ -73,20 +75,12 @@ class _MessageComposerState extends State<MessageComposer> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 1000),
-      padding: const EdgeInsets.only(
-        left: 10,
-        top: 0,
-        right: 10,
-        bottom: 5,
-      ),
+      padding: const EdgeInsets.only(left: 10, top: 0, right: 10, bottom: 5),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              height: 1.5,
-              color: colorGreyLight,
-            ),
+            child: Container(height: 1.5, color: colorGreyLight),
           ),
           Row(
             children: [
@@ -109,7 +103,7 @@ class _MessageComposerState extends State<MessageComposer> {
                       _submitMessage(context.read());
                     },
                   ),
-                )
+                ),
             ],
           ),
         ],
@@ -123,8 +117,8 @@ class _MessageInput extends StatelessWidget {
     required FocusNode focusNode,
     required TextEditingController controller,
     required this.conversationTitle,
-  })  : _focusNode = focusNode,
-        _controller = controller;
+  }) : _focusNode = focusNode,
+       _controller = controller;
 
   final FocusNode _focusNode;
   final TextEditingController _controller;

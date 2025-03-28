@@ -13,9 +13,9 @@ class MessageCubit extends StateStreamableSource<MessageState> {
     required UserCubit userCubit,
     required MessageState initialState,
   }) : _impl = MessageCubitBase(
-          userCubit: userCubit.impl,
-          initialState: initialState,
-        );
+         userCubit: userCubit.impl,
+         initialState: initialState,
+       );
 
   final MessageCubitBase _impl;
 

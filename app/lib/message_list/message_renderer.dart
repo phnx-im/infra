@@ -11,161 +11,186 @@ import 'package:prototype/core/api/markdown.dart';
 Widget buildBlockElement(BlockElement block, bool isSender) {
   return switch (block) {
     BlockElement_Paragraph(:final field0) => Text.rich(
-        TextSpan(
-          children: field0.map(buildInlineElement).toList(),
-        ),
-      ),
+      TextSpan(children: field0.map(buildInlineElement).toList()),
+    ),
     BlockElement_Heading(:final field0) => Text.rich(
-        TextSpan(
-          children: field0.map(buildInlineElement).toList(),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+      TextSpan(
+        children: field0.map(buildInlineElement).toList(),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
       ),
+    ),
     BlockElement_Quote(:final field0) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: const BoxDecoration(
-          border: Border(left: BorderSide(color: Colors.blue, width: 4)),
-          color: Color(0x22448AFF),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: field0
-              .map((inner) => buildBlockElement(inner.element, isSender))
-              .toList(),
-        ),
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(
+        border: Border(left: BorderSide(color: Colors.blue, width: 4)),
+        color: Color(0x22448AFF),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children:
+            field0
+                .map((inner) => buildBlockElement(inner.element, isSender))
+                .toList(),
+      ),
+    ),
     BlockElement_UnorderedList(:final field0) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: field0
-            .map((items) => Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children:
+          field0
+              .map(
+                (items) => Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text.rich(TextSpan(
-                      text: " \u2022  ",
-                    )),
+                    const Text.rich(TextSpan(text: " \u2022  ")),
                     Flexible(
-                        child: Column(
-                      spacing: 4.0,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: items
-                          .map((item) =>
-                              buildBlockElement(item.element, isSender))
-                          .toList(),
-                    )),
+                      child: Column(
+                        spacing: 4.0,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children:
+                            items
+                                .map(
+                                  (item) =>
+                                      buildBlockElement(item.element, isSender),
+                                )
+                                .toList(),
+                      ),
+                    ),
                   ],
-                ))
-            .toList()),
+                ),
+              )
+              .toList(),
+    ),
     BlockElement_OrderedList(:final field0, :final field1) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: field1.indexed
-            .map((items) => Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children:
+          field1.indexed
+              .map(
+                (items) => Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text.rich(TextSpan(
-                      text: " ${field0 + BigInt.from(items.$1)}.  ",
-                    )),
+                    Text.rich(
+                      TextSpan(text: " ${field0 + BigInt.from(items.$1)}.  "),
+                    ),
                     Flexible(
-                        child: Column(
-                      spacing: 4.0,
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: items.$2
-                          .map((item) =>
-                              buildBlockElement(item.element, isSender))
-                          .toList(),
-                    )),
+                      child: Column(
+                        spacing: 4.0,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children:
+                            items.$2
+                                .map(
+                                  (item) =>
+                                      buildBlockElement(item.element, isSender),
+                                )
+                                .toList(),
+                      ),
+                    ),
                   ],
-                ))
-            .toList()),
+                ),
+              )
+              .toList(),
+    ),
     BlockElement_Table(:final head, :final rows) => Table(
-          border: TableBorder.all(),
-          defaultColumnWidth: const FlexColumnWidth(),
-          children: [
-            TableRow(
-                children: head
-                    .map((itemBlocks) => Column(
-                        children: itemBlocks
-                            .map((item) =>
-                                buildBlockElement(item.element, isSender))
-                            .toList()))
-                    .toList()),
-            ...rows.map(
-              (row) => TableRow(
-                  children: row
-                      .map((itemBlocks) => Column(
-                          children: itemBlocks
-                              .map((item) =>
-                                  buildBlockElement(item.element, isSender))
-                              .toList()))
-                      .toList()),
-            )
-          ]),
+      border: TableBorder.all(),
+      defaultColumnWidth: const FlexColumnWidth(),
+      children: [
+        TableRow(
+          children:
+              head
+                  .map(
+                    (itemBlocks) => Column(
+                      children:
+                          itemBlocks
+                              .map(
+                                (item) =>
+                                    buildBlockElement(item.element, isSender),
+                              )
+                              .toList(),
+                    ),
+                  )
+                  .toList(),
+        ),
+        ...rows.map(
+          (row) => TableRow(
+            children:
+                row
+                    .map(
+                      (itemBlocks) => Column(
+                        children:
+                            itemBlocks
+                                .map(
+                                  (item) =>
+                                      buildBlockElement(item.element, isSender),
+                                )
+                                .toList(),
+                      ),
+                    )
+                    .toList(),
+          ),
+        ),
+      ],
+    ),
     BlockElement_HorizontalRule() => Divider(
-        color: isSender ? Colors.white : Colors.black,
-      ),
+      color: isSender ? Colors.white : Colors.black,
+    ),
     BlockElement_CodeBlock(:final field0) => Text.rich(
-        TextSpan(
-          text: field0.map((e) => e.value).join('\n'),
-          style: const TextStyle(fontSize: 12, color: Colors.black),
-        ),
+      TextSpan(
+        text: field0.map((e) => e.value).join('\n'),
+        style: const TextStyle(fontSize: 12, color: Colors.black),
       ),
+    ),
     BlockElement_Error(:final field0) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: const BoxDecoration(
-          border: Border(left: BorderSide(color: Colors.blue, width: 4)),
-          color: Color(0x44FF8A44),
-        ),
-        child: Text.rich(TextSpan(
-          text: field0,
-        )),
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(
+        border: Border(left: BorderSide(color: Colors.blue, width: 4)),
+        color: Color(0x44FF8A44),
       ),
+      child: Text.rich(TextSpan(text: field0)),
+    ),
   };
 }
 
 InlineSpan buildInlineElement(RangedInlineElement inline) {
   return switch (inline.element) {
-    InlineElement_Text(:final field0) => TextSpan(
-        text: field0,
-      ),
+    InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
-        text: field0,
-        style: const TextStyle(fontSize: 12),
-      ),
+      text: field0,
+      style: const TextStyle(fontSize: 12),
+    ),
     InlineElement_Link(:final children) => TextSpan(
-        children: children.map(buildInlineElement).toList(),
-        style: const TextStyle(
-          color: Colors.black,
-          decorationColor: Colors.blue,
-          decoration: TextDecoration.underline,
-        ),
+      children: children.map(buildInlineElement).toList(),
+      style: const TextStyle(
+        color: Colors.black,
+        decorationColor: Colors.blue,
+        decoration: TextDecoration.underline,
       ),
+    ),
     InlineElement_Bold(:final field0) => TextSpan(
-        children: field0.map(buildInlineElement).toList(),
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-        )),
+      children: field0.map(buildInlineElement).toList(),
+      style: const TextStyle(fontWeight: FontWeight.bold),
+    ),
     InlineElement_Italic(:final field0) => TextSpan(
-        children: field0.map(buildInlineElement).toList(),
-        style: const TextStyle(
-          fontStyle: FontStyle.italic,
-        )),
+      children: field0.map(buildInlineElement).toList(),
+      style: const TextStyle(fontStyle: FontStyle.italic),
+    ),
     InlineElement_Strikethrough(:final field0) => TextSpan(
-        children: field0.map(buildInlineElement).toList(),
-        style: const TextStyle(
-          decoration: TextDecoration.lineThrough,
-        )),
+      children: field0.map(buildInlineElement).toList(),
+      style: const TextStyle(decoration: TextDecoration.lineThrough),
+    ),
     InlineElement_Spoiler(:final field0) => TextSpan(
-        children: field0.map(buildInlineElement).toList(),
-        style: TextStyle(
-          decoration: TextDecoration.combine([
-            TextDecoration.overline,
-            TextDecoration.lineThrough,
-            TextDecoration.underline
-          ]),
-        )),
+      children: field0.map(buildInlineElement).toList(),
+      style: TextStyle(
+        decoration: TextDecoration.combine([
+          TextDecoration.overline,
+          TextDecoration.lineThrough,
+          TextDecoration.underline,
+        ]),
+      ),
+    ),
     InlineElement_Image() => const WidgetSpan(child: Icon(Icons.image)),
-    InlineElement_TaskListMarker(:final field0) =>
-      WidgetSpan(child: Checkbox(value: field0, onChanged: null)),
+    InlineElement_TaskListMarker(:final field0) => WidgetSpan(
+      child: Checkbox(value: field0, onChanged: null),
+    ),
   };
 }
 
@@ -228,8 +253,11 @@ class CustomTextEditingController extends TextEditingController {
             // The cursor did not move, this was a delete, not a backspace
             int endUtf16 = utf8.decode(raw.sublist(0, range.end)).length;
             var removedChars = lastKnownRawTextLength - text.length;
-            var newText =
-                text.replaceRange(cursorPosition, endUtf16 - removedChars, "");
+            var newText = text.replaceRange(
+              cursorPosition,
+              endUtf16 - removedChars,
+              "",
+            );
 
             // Make sure we don't use outdated data
             widgetRanges.clear();
@@ -315,54 +343,64 @@ class CustomTextEditingController extends TextEditingController {
 
   InlineSpan buildFormattedTextSpanBlock(RangedBlockElement block) {
     return switch (block.element) {
-      BlockElement_Paragraph(:final field0) =>
-        TextSpan(children: buildWrappedInline(block.start, block.end, field0)),
+      BlockElement_Paragraph(:final field0) => TextSpan(
+        children: buildWrappedInline(block.start, block.end, field0),
+      ),
       BlockElement_Heading(:final field0) => TextSpan(
-          children: buildWrappedInline(block.start, block.end, field0),
-          style: const TextStyle(fontSize: 20),
-        ),
+        children: buildWrappedInline(block.start, block.end, field0),
+        style: const TextStyle(fontSize: 20),
+      ),
       BlockElement_Quote(:final field0) => TextSpan(
-          children: buildWrappedBlock(block.start, block.end, field0),
-          style: TextStyle(color: Colors.grey[600]),
-        ),
+        children: buildWrappedBlock(block.start, block.end, field0),
+        style: TextStyle(color: Colors.grey[600]),
+      ),
       BlockElement_UnorderedList(:final field0) => TextSpan(
-          children: buildWrappedBlock(
-              block.start, block.end, field0.expand((list) => list).toList()),
+        children: buildWrappedBlock(
+          block.start,
+          block.end,
+          field0.expand((list) => list).toList(),
         ),
+      ),
       BlockElement_OrderedList(:final field1) => TextSpan(
-          children: buildWrappedBlock(
-              block.start, block.end, field1.expand((list) => list).toList()),
+        children: buildWrappedBlock(
+          block.start,
+          block.end,
+          field1.expand((list) => list).toList(),
         ),
+      ),
       BlockElement_Table() => TextSpan(
-          text: utf8.decode(raw.sublist(block.start, block.end)),
-          style: highlightStyle,
-        ),
+        text: utf8.decode(raw.sublist(block.start, block.end)),
+        style: highlightStyle,
+      ),
       BlockElement_HorizontalRule() => TextSpan(
-          text: utf8.decode(raw.sublist(block.start, block.end)),
-          style: highlightStyle,
-        ),
+        text: utf8.decode(raw.sublist(block.start, block.end)),
+        style: highlightStyle,
+      ),
       BlockElement_CodeBlock(:final field0) => TextSpan(
-          children: buildWrappedInline(
-              block.start,
-              block.end,
-              field0
-                  .map((item) => RangedInlineElement(
-                        start: item.start,
-                        end: item.end,
-                        element: InlineElement.code(item.value),
-                      ))
-                  .toList()),
-          style: const TextStyle(fontSize: 12, color: Colors.black),
+        children: buildWrappedInline(
+          block.start,
+          block.end,
+          field0
+              .map(
+                (item) => RangedInlineElement(
+                  start: item.start,
+                  end: item.end,
+                  element: InlineElement.code(item.value),
+                ),
+              )
+              .toList(),
         ),
+        style: const TextStyle(fontSize: 12, color: Colors.black),
+      ),
       BlockElement_Error() => TextSpan(
-          text: utf8.decode(raw.sublist(block.start, block.end)),
-          style: const TextStyle(
-            color: Colors.red,
-            decorationColor: Colors.red,
-            decoration: TextDecoration.underline,
-            decorationStyle: TextDecorationStyle.wavy,
-          ),
+        text: utf8.decode(raw.sublist(block.start, block.end)),
+        style: const TextStyle(
+          color: Colors.red,
+          decorationColor: Colors.red,
+          decoration: TextDecoration.underline,
+          decorationStyle: TextDecorationStyle.wavy,
         ),
+      ),
     };
   }
 
@@ -370,82 +408,70 @@ class CustomTextEditingController extends TextEditingController {
     return switch (inline.element) {
       // TODO: Handle this case.
       InlineElement_Text() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        ),
+        text: utf8.decode(raw.sublist(inline.start, inline.end)),
+      ),
       InlineElement_Code() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.start, inline.end)),
-          style: const TextStyle(fontSize: 12),
-        ),
+        text: utf8.decode(raw.sublist(inline.start, inline.end)),
+        style: const TextStyle(fontSize: 12),
+      ),
       InlineElement_Link() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.start, inline.end)),
-          style: const TextStyle(
-            color: Colors.blue,
-            decorationColor: Colors.blue,
-            decoration: TextDecoration.underline,
-          ),
+        text: utf8.decode(raw.sublist(inline.start, inline.end)),
+        style: const TextStyle(
+          color: Colors.blue,
+          decorationColor: Colors.blue,
+          decoration: TextDecoration.underline,
         ),
+      ),
       InlineElement_Bold(:final field0) => TextSpan(
-          children: buildWrappedInline(
-            inline.start,
-            inline.end,
-            field0,
-          ),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        children: buildWrappedInline(inline.start, inline.end, field0),
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
       InlineElement_Italic(:final field0) => TextSpan(
-          children: buildWrappedInline(
-            inline.start,
-            inline.end,
-            field0,
-          ),
-          style: const TextStyle(
-            fontStyle: FontStyle.italic,
-          ),
-        ),
+        children: buildWrappedInline(inline.start, inline.end, field0),
+        style: const TextStyle(fontStyle: FontStyle.italic),
+      ),
       InlineElement_Strikethrough(:final field0) => TextSpan(
-          children: buildWrappedInline(inline.start, inline.end, field0),
-          style: const TextStyle(
-            decoration: TextDecoration.lineThrough,
-          ),
-        ),
+        children: buildWrappedInline(inline.start, inline.end, field0),
+        style: const TextStyle(decoration: TextDecoration.lineThrough),
+      ),
       InlineElement_Spoiler(:final field0) => TextSpan(
-          children: buildWrappedInline(inline.start, inline.end, field0),
-          style: TextStyle(
-            decoration: TextDecoration.combine([
-              TextDecoration.overline,
-              TextDecoration.lineThrough,
-              TextDecoration.underline
-            ]),
-          ),
+        children: buildWrappedInline(inline.start, inline.end, field0),
+        style: TextStyle(
+          decoration: TextDecoration.combine([
+            TextDecoration.overline,
+            TextDecoration.lineThrough,
+            TextDecoration.underline,
+          ]),
         ),
+      ),
       InlineElement_Image() => buildCorrectWidget(
-          const SizedBox(
-            height: 14,
-            width: 32,
-            child: Icon(Icons.image),
-          ),
-          inline.start,
-          inline.end),
+        const SizedBox(height: 14, width: 32, child: Icon(Icons.image)),
+        inline.start,
+        inline.end,
+      ),
       InlineElement_TaskListMarker() => TextSpan(
-          text: utf8.decode(raw.sublist(inline.start, inline.end)),
-          style: highlightStyle,
-        ),
+        text: utf8.decode(raw.sublist(inline.start, inline.end)),
+        style: highlightStyle,
+      ),
     };
   }
 
   InlineSpan buildCorrectWidget(Widget widget, int rangeStart, int rangeEnd) {
     widgetRanges.add((start: rangeStart, end: rangeEnd));
 
-    return TextSpan(children: [
-      WidgetSpan(child: widget),
-      TextSpan(text: "\u200d" * (rangeEnd - rangeStart - 1))
-    ]);
+    return TextSpan(
+      children: [
+        WidgetSpan(child: widget),
+        TextSpan(text: "\u200d" * (rangeEnd - rangeStart - 1)),
+      ],
+    );
   }
 
   List<InlineSpan> buildWrappedInline(
-      int rangeStart, int rangeEnd, List<RangedInlineElement> value) {
+    int rangeStart,
+    int rangeEnd,
+    List<RangedInlineElement> value,
+  ) {
     List<InlineSpan> children = [];
 
     var lastInner = (start: 0, end: rangeStart);
@@ -458,10 +484,12 @@ class CustomTextEditingController extends TextEditingController {
       }
       // Gap between previous and this inline
       if (lastInner.end < inner.start) {
-        children.add(TextSpan(
-          text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
-          style: highlightStyle,
-        ));
+        children.add(
+          TextSpan(
+            text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
+            style: highlightStyle,
+          ),
+        );
       }
 
       children.add(buildFormattedTextSpanInline(inner));
@@ -470,17 +498,22 @@ class CustomTextEditingController extends TextEditingController {
 
     // Gap after last inline
     if (lastInner.end < rangeEnd) {
-      children.add(TextSpan(
-        text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
-        style: highlightStyle,
-      ));
+      children.add(
+        TextSpan(
+          text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
+          style: highlightStyle,
+        ),
+      );
     }
 
     return children;
   }
 
   List<InlineSpan> buildWrappedBlock(
-      int rangeStart, int rangeEnd, List<RangedBlockElement> value) {
+    int rangeStart,
+    int rangeEnd,
+    List<RangedBlockElement> value,
+  ) {
     List<InlineSpan> children = [];
 
     var lastInner = (start: 0, end: rangeStart);
@@ -488,10 +521,12 @@ class CustomTextEditingController extends TextEditingController {
     for (var inner in value) {
       // Gap between previous and this block
       if (lastInner.end < inner.start) {
-        children.add(TextSpan(
-          text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
-          style: highlightStyle,
-        ));
+        children.add(
+          TextSpan(
+            text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
+            style: highlightStyle,
+          ),
+        );
       }
 
       children.add(buildFormattedTextSpanBlock(inner));
@@ -501,10 +536,12 @@ class CustomTextEditingController extends TextEditingController {
 
     // Gap after last block
     if (lastInner.end < rangeEnd) {
-      children.add(TextSpan(
-        text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
-        style: highlightStyle,
-      ));
+      children.add(
+        TextSpan(
+          text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
+          style: highlightStyle,
+        ),
+      );
     }
 
     return children;

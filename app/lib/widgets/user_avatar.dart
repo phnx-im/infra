@@ -27,9 +27,10 @@ class UserAvatar extends StatelessWidget {
     return GestureDetector(
       onTap: onPressed,
       child: MouseRegion(
-        cursor: onPressed != null
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
+        cursor:
+            onPressed != null
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
         child: SizedBox(
           width: size,
           height: size,
@@ -81,12 +82,13 @@ class _FutureUserAvatarState extends State<FutureUserAvatar> {
   Widget build(BuildContext context) {
     return FutureBuilder<UiUserProfile?>(
       future: _profileFuture,
-      builder: (context, snapshot) => UserAvatar(
-        username: snapshot.data?.userName ?? " ",
-        image: snapshot.data?.profilePicture,
-        size: widget.size,
-        onPressed: widget.onPressed,
-      ),
+      builder:
+          (context, snapshot) => UserAvatar(
+            username: snapshot.data?.userName ?? " ",
+            image: snapshot.data?.profilePicture,
+            size: widget.size,
+            onPressed: widget.onPressed,
+          ),
     );
   }
 }

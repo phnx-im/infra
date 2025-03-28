@@ -25,10 +25,11 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   bool get isClosed;
 
-  factory NavigationCubitBase(
-          {required DartNotificationService notificationService}) =>
-      RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseNew(
-          notificationService: notificationService);
+  factory NavigationCubitBase({
+    required DartNotificationService notificationService,
+  }) => RustLib.instance.api.crateApiNavigationCubitNavigationCubitBaseNew(
+    notificationService: notificationService,
+  );
 
   Future<void> openAddMembers();
 
@@ -36,8 +37,9 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   Future<void> openConversationDetails();
 
-  Future<void> openDeveloperSettings(
-      {required DeveloperSettingsScreenType screen});
+  Future<void> openDeveloperSettings({
+    required DeveloperSettingsScreenType screen,
+  });
 
   Future<void> openHome();
 
@@ -56,12 +58,7 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
   Stream<NavigationState> stream();
 }
 
-enum DeveloperSettingsScreenType {
-  root,
-  changeUser,
-  logs,
-  ;
-}
+enum DeveloperSettingsScreenType { root, changeUser, logs }
 
 /// Conversations screen: main screen of the app
 ///
@@ -92,7 +89,6 @@ enum IntroScreenType {
   usernamePassword,
   displayNamePicture,
   developerSettings,
-  ;
 }
 
 @freezed

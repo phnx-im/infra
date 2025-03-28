@@ -24,9 +24,9 @@ sealed class LoadableUser with _$LoadableUser {
   const factory LoadableUser.loaded(User? user) = LoadedUser;
 
   User? get user => switch (this) {
-        LoadingUser() => null,
-        LoadedUser(:final user) => user,
-      };
+    LoadingUser() => null,
+    LoadedUser(:final user) => user,
+  };
 }
 
 /// Observe the [User] state as [LoadableUser] initialized from a [User] stream

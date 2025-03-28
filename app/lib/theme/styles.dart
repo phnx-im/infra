@@ -62,15 +62,13 @@ final inputTextStyle = const TextStyle(
 ).merge(VariableFontWeight.normal);
 
 TextStyle messageTextStyle(BuildContext context, bool inverted) =>
-    Theme.of(context)
-        .textTheme
-        .bodyMedium!
-        .copyWith(
-          color: inverted ? Colors.white : Colors.black,
-        )
-        .merge(isLargeScreen(context)
-            ? VariableFontWeight.normal
-            : VariableFontWeight.medium);
+    Theme.of(context).textTheme.bodyMedium!
+        .copyWith(color: inverted ? Colors.white : Colors.black)
+        .merge(
+          isLargeScreen(context)
+              ? VariableFontWeight.normal
+              : VariableFontWeight.medium,
+        );
 
 // === Buttons ===
 
@@ -82,9 +80,7 @@ ButtonStyle textButtonStyle(BuildContext context) {
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      Theme.of(context)
-          .textTheme
-          .labelLarge!
+      Theme.of(context).textTheme.labelLarge!
           .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
           .merge(VariableFontWeight.semiBold),
     ),
@@ -92,19 +88,21 @@ ButtonStyle textButtonStyle(BuildContext context) {
 }
 
 ButtonStyle dynamicTextButtonStyle(
-    BuildContext context, bool isActive, bool isMain) {
+  BuildContext context,
+  bool isActive,
+  bool isMain,
+) {
   return ButtonStyle(
-    foregroundColor: isActive
-        ? WidgetStateProperty.all(colorDMB)
-        : WidgetStateProperty.all(colorDMBLight),
+    foregroundColor:
+        isActive
+            ? WidgetStateProperty.all(colorDMB)
+            : WidgetStateProperty.all(colorDMBLight),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      Theme.of(context)
-          .textTheme
-          .labelLarge!
+      Theme.of(context).textTheme.labelLarge!
           .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
           .merge(
             isMain ? VariableFontWeight.semiBold : VariableFontWeight.medium,
@@ -116,21 +114,27 @@ ButtonStyle dynamicTextButtonStyle(
 ButtonStyle buttonStyle(BuildContext context, bool isActive) {
   return ButtonStyle(
     foregroundColor: WidgetStateProperty.all<Color>(
-        isActive ? Colors.white : activeButtonColor),
+      isActive ? Colors.white : activeButtonColor,
+    ),
     backgroundColor: WidgetStateProperty.all<Color>(
-        isActive ? activeButtonColor : inactiveButtonColor),
+      isActive ? activeButtonColor : inactiveButtonColor,
+    ),
     overlayColor: WidgetStateProperty.all<Color>(
-        isActive ? activeButtonColor : inactiveButtonColor),
+      isActive ? activeButtonColor : inactiveButtonColor,
+    ),
     mouseCursor: WidgetStateProperty.all<MouseCursor>(
-        isActive ? SystemMouseCursors.click : SystemMouseCursors.basic),
+      isActive ? SystemMouseCursors.click : SystemMouseCursors.basic,
+    ),
     elevation: WidgetStateProperty.all<double>(0),
     shadowColor: WidgetStateProperty.all<Color>(Colors.transparent),
     padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
-        const EdgeInsets.symmetric(vertical: 25, horizontal: 50)),
+      const EdgeInsets.symmetric(vertical: 25, horizontal: 50),
+    ),
     splashFactory: NoSplash.splashFactory,
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
     side: WidgetStateProperty.all<BorderSide>(
-        const BorderSide(color: Colors.transparent, width: 0)),
+      const BorderSide(color: Colors.transparent, width: 0),
+    ),
     shape: WidgetStateProperty.all<OutlinedBorder>(
       RoundedRectangleBorder(
         side: const BorderSide(
@@ -138,15 +142,14 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
           width: 0,
           style: BorderStyle.none,
         ),
-        borderRadius: isSmallScreen(context)
-            ? BorderRadius.circular(12)
-            : BorderRadius.circular(7),
+        borderRadius:
+            isSmallScreen(context)
+                ? BorderRadius.circular(12)
+                : BorderRadius.circular(7),
       ),
     ),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      Theme.of(context)
-          .textTheme
-          .labelLarge!
+      Theme.of(context).textTheme.labelLarge!
           .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
           .merge(VariableFontWeight.semiBold),
     ),

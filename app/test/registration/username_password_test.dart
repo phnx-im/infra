@@ -20,23 +20,19 @@ void main() {
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<RegistrationCubit>.value(
-              value: registrationCubit,
-            ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: const Scaffold(
-                  body: UsernamePasswordChoice(),
-                ),
-              );
-            },
-          ),
-        );
+      providers: [
+        BlocProvider<RegistrationCubit>.value(value: registrationCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: const Scaffold(body: UsernamePasswordChoice()),
+          );
+        },
+      ),
+    );
 
     testWidgets('renders correctly when empty', (tester) async {
       when(() => registrationCubit.state).thenReturn(const RegistrationState());

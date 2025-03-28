@@ -18,9 +18,9 @@ class ConversationListContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ConversationListCubit(
-        userCubit: context.read<UserCubit>(),
-      ),
+      create:
+          (context) =>
+              ConversationListCubit(userCubit: context.read<UserCubit>()),
       child: const ConversationListView(),
     );
   }
@@ -34,12 +34,7 @@ class ConversationListView extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         shape: BoxShape.rectangle,
-        border: Border(
-          right: BorderSide(
-            width: 1,
-            color: colorGreyLight,
-          ),
-        ),
+        border: Border(right: BorderSide(width: 1, color: colorGreyLight)),
       ),
       child: const Scaffold(
         backgroundColor: convPaneBackgroundColor,

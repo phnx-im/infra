@@ -48,26 +48,28 @@ class UsernamePasswordChoice extends StatelessWidget {
                         child: TextFormField(
                           initialValue:
                               context.read<RegistrationCubit>().state.password,
-                          decoration:
-                              const InputDecoration(hintText: 'PASSWORD'),
+                          decoration: const InputDecoration(
+                            hintText: 'PASSWORD',
+                          ),
                           style: inputTextStyle,
                           obscureText: true,
                           onChanged: (String value) {
-                            context
-                                .read<RegistrationCubit>()
-                                .setPassword(value);
+                            context.read<RegistrationCubit>().setPassword(
+                              value,
+                            );
                           },
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
                 Column(
-                  crossAxisAlignment: isSmallScreen(context)
-                      ? CrossAxisAlignment.stretch
-                      : CrossAxisAlignment.center,
+                  crossAxisAlignment:
+                      isSmallScreen(context)
+                          ? CrossAxisAlignment.stretch
+                          : CrossAxisAlignment.center,
                   children: const [_NextButton()],
-                )
+                ),
               ],
             ),
           ),
@@ -118,15 +120,18 @@ class _NextButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isActive = context.select((RegistrationCubit cubit) =>
-        cubit.state.isUsernameValid && cubit.state.isPasswordValid);
+    final isActive = context.select(
+      (RegistrationCubit cubit) =>
+          cubit.state.isUsernameValid && cubit.state.isPasswordValid,
+    );
     return OutlinedButton(
       style: buttonStyle(context, isActive),
-      onPressed: isActive
-          ? () => context
-              .read<NavigationCubit>()
-              .openIntroScreen(IntroScreenType.displayNamePicture)
-          : null,
+      onPressed:
+          isActive
+              ? () => context.read<NavigationCubit>().openIntroScreen(
+                IntroScreenType.displayNamePicture,
+              )
+              : null,
       child: const Text('Next'),
     );
   }

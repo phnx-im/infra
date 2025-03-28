@@ -12,7 +12,8 @@ part of 'message_cubit.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$MessageState {
@@ -28,8 +29,9 @@ mixin _$MessageState {
 /// @nodoc
 abstract class $MessageStateCopyWith<$Res> {
   factory $MessageStateCopyWith(
-          MessageState value, $Res Function(MessageState) then) =
-      _$MessageStateCopyWithImpl<$Res, MessageState>;
+    MessageState value,
+    $Res Function(MessageState) then,
+  ) = _$MessageStateCopyWithImpl<$Res, MessageState>;
   @useResult
   $Res call({UiConversationMessage message});
 }
@@ -48,15 +50,17 @@ class _$MessageStateCopyWithImpl<$Res, $Val extends MessageState>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? message = null,
-  }) {
-    return _then(_value.copyWith(
-      message: null == message
-          ? _value.message
-          : message // ignore: cast_nullable_to_non_nullable
-              as UiConversationMessage,
-    ) as $Val);
+  $Res call({Object? message = null}) {
+    return _then(
+      _value.copyWith(
+            message:
+                null == message
+                    ? _value.message
+                    : message // ignore: cast_nullable_to_non_nullable
+                        as UiConversationMessage,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -64,8 +68,9 @@ class _$MessageStateCopyWithImpl<$Res, $Val extends MessageState>
 abstract class _$$MessageStateImplCopyWith<$Res>
     implements $MessageStateCopyWith<$Res> {
   factory _$$MessageStateImplCopyWith(
-          _$MessageStateImpl value, $Res Function(_$MessageStateImpl) then) =
-      __$$MessageStateImplCopyWithImpl<$Res>;
+    _$MessageStateImpl value,
+    $Res Function(_$MessageStateImpl) then,
+  ) = __$$MessageStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({UiConversationMessage message});
@@ -76,22 +81,24 @@ class __$$MessageStateImplCopyWithImpl<$Res>
     extends _$MessageStateCopyWithImpl<$Res, _$MessageStateImpl>
     implements _$$MessageStateImplCopyWith<$Res> {
   __$$MessageStateImplCopyWithImpl(
-      _$MessageStateImpl _value, $Res Function(_$MessageStateImpl) _then)
-      : super(_value, _then);
+    _$MessageStateImpl _value,
+    $Res Function(_$MessageStateImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of MessageState
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? message = null,
-  }) {
-    return _then(_$MessageStateImpl(
-      message: null == message
-          ? _value.message
-          : message // ignore: cast_nullable_to_non_nullable
-              as UiConversationMessage,
-    ));
+  $Res call({Object? message = null}) {
+    return _then(
+      _$MessageStateImpl(
+        message:
+            null == message
+                ? _value.message
+                : message // ignore: cast_nullable_to_non_nullable
+                    as UiConversationMessage,
+      ),
+    );
   }
 }
 

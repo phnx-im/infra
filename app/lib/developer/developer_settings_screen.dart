@@ -44,8 +44,8 @@ class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
     return DeveloperSettingsScreenView(
       deviceToken: deviceToken,
       isMobile: Platform.isAndroid || Platform.isIOS,
-      onRefreshPushToken: () =>
-          _reRegisterPushToken(context.read<CoreClient>()),
+      onRefreshPushToken:
+          () => _reRegisterPushToken(context.read<CoreClient>()),
     );
   }
 
@@ -99,12 +99,11 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                 isPointer() ? const BoxConstraints(maxWidth: 800) : null,
             child: ListTileTheme(
               data: Theme.of(context).listTileTheme.copyWith(
-                    titleAlignment: ListTileTitleAlignment.titleHeight,
-                    titleTextStyle: Theme.of(context)
-                        .textTheme
-                        .bodyLarge!
-                        .merge(_titleFontWeight),
-                  ),
+                titleAlignment: ListTileTitleAlignment.titleHeight,
+                titleTextStyle: Theme.of(
+                  context,
+                ).textTheme.bodyLarge!.merge(_titleFontWeight),
+              ),
               child: ListView(
                 children: [
                   if (isMobile) ...[
@@ -121,10 +120,12 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                     ListTile(
                       title: const Text("Change User"),
                       trailing: const Icon(Icons.change_circle),
-                      onTap: () => context
-                          .read<NavigationCubit>()
-                          .openDeveloperSettings(
-                              screen: DeveloperSettingsScreenType.changeUser),
+                      onTap:
+                          () => context
+                              .read<NavigationCubit>()
+                              .openDeveloperSettings(
+                                screen: DeveloperSettingsScreenType.changeUser,
+                              ),
                     ),
                     ListTile(
                       title: const Text("Log Out"),
@@ -136,54 +137,55 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                   ListTile(
                     title: const Text("Logs"),
                     trailing: const Icon(Icons.text_snippet),
-                    onTap: () => context
-                        .read<NavigationCubit>()
-                        .openDeveloperSettings(
-                            screen: DeveloperSettingsScreenType.logs),
+                    onTap:
+                        () => context
+                            .read<NavigationCubit>()
+                            .openDeveloperSettings(
+                              screen: DeveloperSettingsScreenType.logs,
+                            ),
                   ),
                   if (user != null)
                     ListTile(
                       title: Text(
                         user.userName,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyLarge
-                            ?.copyWith(
-                              color: Colors.red,
-                            )
+                        style: Theme.of(context).textTheme.bodyLarge
+                            ?.copyWith(color: Colors.red)
                             .merge(_titleFontWeight),
                       ),
                       subtitle: Text("id: ${user.clientId}"),
                       trailing: const Icon(Icons.delete),
-                      onTap: () => _confirmDialog(
-                        context: context,
-                        onConfirm: () =>
-                            context.read<CoreClient>().deleteUserDatabase(),
-                        label: "Are you sure you want to erase the database?",
-                        confirmLabel: "Erase",
-                      ),
+                      onTap:
+                          () => _confirmDialog(
+                            context: context,
+                            onConfirm:
+                                () =>
+                                    context
+                                        .read<CoreClient>()
+                                        .deleteUserDatabase(),
+                            label:
+                                "Are you sure you want to erase the database?",
+                            confirmLabel: "Erase",
+                          ),
                     ),
                   ListTile(
                     title: Text(
                       'Erase All Databases',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyLarge
-                          ?.copyWith(
-                            color: Colors.red,
-                          )
+                      style: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(color: Colors.red)
                           .merge(_titleFontWeight),
                     ),
                     trailing: const Icon(Icons.delete),
-                    onTap: () => _confirmDialog(
-                      context: context,
-                      onConfirm: () {
-                        context.read<CoreClient>().deleteDatabase();
-                        context.read<NavigationCubit>().openIntro();
-                      },
-                      label: "Are you sure you want to erase all databases?",
-                      confirmLabel: "Erase",
-                    ),
+                    onTap:
+                        () => _confirmDialog(
+                          context: context,
+                          onConfirm: () {
+                            context.read<CoreClient>().deleteDatabase();
+                            context.read<NavigationCubit>().openIntro();
+                          },
+                          label:
+                              "Are you sure you want to erase all databases?",
+                          confirmLabel: "Erase",
+                        ),
                   ),
                 ],
               ),
@@ -242,10 +244,9 @@ class _SectionHeader extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context)
-            .textTheme
-            .labelMedium
-            ?.merge(VariableFontWeight.bold),
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.merge(VariableFontWeight.bold),
       ),
     );
   }

@@ -32,20 +32,23 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   /// Marks the conversation as read until the given message id (including).
   ///
   /// The calls to this method are debounced with a fixed delay.
-  Future<void> markAsRead(
-      {required ConversationMessageId untilMessageId,
-      required DateTime untilTimestamp});
+  Future<void> markAsRead({
+    required ConversationMessageId untilMessageId,
+    required DateTime untilTimestamp,
+  });
 
   /// Creates a new cubit for the given conversation.
   ///
   /// The cubit will fetch the conversation details and the list of members. It will also listen
   /// to the changes in the conversation and update the state accordingly.
-  factory ConversationDetailsCubitBase(
-          {required UserCubitBase userCubit,
-          required ConversationId conversationId}) =>
-      RustLib.instance.api
-          .crateApiConversationDetailsCubitConversationDetailsCubitBaseNew(
-              userCubit: userCubit, conversationId: conversationId);
+  factory ConversationDetailsCubitBase({
+    required UserCubitBase userCubit,
+    required ConversationId conversationId,
+  }) => RustLib.instance.api
+      .crateApiConversationDetailsCubitConversationDetailsCubitBaseNew(
+        userCubit: userCubit,
+        conversationId: conversationId,
+      );
 
   /// Sends a message to the conversation.
   ///
@@ -75,6 +78,7 @@ class ConversationDetailsState with _$ConversationDetailsState {
     UiConversationDetails? conversation,
     required List<String> members,
   }) = _ConversationDetailsState;
-  static Future<ConversationDetailsState> default_() => RustLib.instance.api
-      .crateApiConversationDetailsCubitConversationDetailsStateDefault();
+  static Future<ConversationDetailsState> default_() =>
+      RustLib.instance.api
+          .crateApiConversationDetailsCubitConversationDetailsStateDefault();
 }

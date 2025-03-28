@@ -21,9 +21,7 @@ part 'types.freezed.dart';
 class ConversationId {
   final UuidValue uuid;
 
-  const ConversationId({
-    required this.uuid,
-  });
+  const ConversationId({required this.uuid});
 
   @override
   String toString() => 'ConversationId($uuid)';
@@ -43,9 +41,7 @@ class ConversationId {
 class ConversationMessageId {
   final UuidValue uuid;
 
-  const ConversationMessageId({
-    required this.uuid,
-  });
+  const ConversationMessageId({required this.uuid});
 
   @override
   String toString() => 'ConversationMessageId($uuid)';
@@ -69,10 +65,7 @@ class ImageData {
   /// Opaque hash of the image data as hex string
   final String hash;
 
-  const ImageData({
-    required this.data,
-    required this.hash,
-  });
+  const ImageData({required this.data, required this.hash});
 
   /// Computes opaque hashsum of the data and returns it as a hex string.
   static String computeHash(List<int> bytes) =>
@@ -136,9 +129,7 @@ class UiContact {
   /// Fully qualified user name
   final String userName;
 
-  const UiContact({
-    required this.userName,
-  });
+  const UiContact({required this.userName});
 
   @override
   int get hashCode => userName.hashCode;
@@ -184,10 +175,7 @@ class UiConversationAttributes {
   /// Optional picture of the conversation
   final ImageData? picture;
 
-  const UiConversationAttributes({
-    required this.title,
-    this.picture,
-  });
+  const UiConversationAttributes({required this.title, this.picture});
 
   @override
   int get hashCode => title.hashCode ^ picture.hashCode;
@@ -289,9 +277,8 @@ class UiConversationMessage {
 sealed class UiConversationStatus with _$UiConversationStatus {
   const UiConversationStatus._();
 
-  const factory UiConversationStatus.inactive(
-    UiInactiveConversation field0,
-  ) = UiConversationStatus_Inactive;
+  const factory UiConversationStatus.inactive(UiInactiveConversation field0) =
+      UiConversationStatus_Inactive;
   const factory UiConversationStatus.active() = UiConversationStatus_Active;
 }
 
@@ -300,15 +287,13 @@ sealed class UiConversationType with _$UiConversationType {
   const UiConversationType._();
 
   /// A connection conversation that is not yet confirmed by the other party.
-  const factory UiConversationType.unconfirmedConnection(
-    String field0,
-  ) = UiConversationType_UnconfirmedConnection;
+  const factory UiConversationType.unconfirmedConnection(String field0) =
+      UiConversationType_UnconfirmedConnection;
 
   /// A connection conversation that is confirmed by the other party and for which we have
   /// received the necessary secrets.
-  const factory UiConversationType.connection(
-    String field0,
-  ) = UiConversationType_Connection;
+  const factory UiConversationType.connection(String field0) =
+      UiConversationType_Connection;
 
   /// A group conversation, that is, it can contains multiple participants.
   const factory UiConversationType.group() = UiConversationType_Group;
@@ -318,9 +303,7 @@ sealed class UiConversationType with _$UiConversationType {
 class UiErrorMessage {
   final String message;
 
-  const UiErrorMessage({
-    required this.message,
-  });
+  const UiErrorMessage({required this.message});
 
   @override
   int get hashCode => message.hashCode;
@@ -337,12 +320,10 @@ class UiErrorMessage {
 sealed class UiEventMessage with _$UiEventMessage {
   const UiEventMessage._();
 
-  const factory UiEventMessage.system(
-    UiSystemMessage field0,
-  ) = UiEventMessage_System;
-  const factory UiEventMessage.error(
-    UiErrorMessage field0,
-  ) = UiEventMessage_Error;
+  const factory UiEventMessage.system(UiSystemMessage field0) =
+      UiEventMessage_System;
+  const factory UiEventMessage.error(UiErrorMessage field0) =
+      UiEventMessage_Error;
 }
 
 /// Position of a conversation message in a flight
@@ -360,16 +341,13 @@ enum UiFlightPosition {
 
   /// The message is the last message in the flight and the flight has more than one message.
   end,
-  ;
 }
 
 /// Inactive conversation with past members
 class UiInactiveConversation {
   final List<String> pastMembers;
 
-  const UiInactiveConversation({
-    required this.pastMembers,
-  });
+  const UiInactiveConversation({required this.pastMembers});
 
   @override
   int get hashCode => pastMembers.hashCode;
@@ -386,12 +364,8 @@ class UiInactiveConversation {
 sealed class UiMessage with _$UiMessage {
   const UiMessage._();
 
-  const factory UiMessage.content(
-    UiContentMessage field0,
-  ) = UiMessage_Content;
-  const factory UiMessage.display(
-    UiEventMessage field0,
-  ) = UiMessage_Display;
+  const factory UiMessage.content(UiContentMessage field0) = UiMessage_Content;
+  const factory UiMessage.display(UiEventMessage field0) = UiMessage_Display;
 }
 
 /// The actual content of a message
@@ -410,9 +384,7 @@ class UiMimiContent with _$UiMimiContent {
 class UiSystemMessage {
   final String message;
 
-  const UiSystemMessage({
-    required this.message,
-  });
+  const UiSystemMessage({required this.message});
 
   @override
   int get hashCode => message.hashCode;
@@ -429,10 +401,7 @@ class UiUserName {
   final String userName;
   final String domain;
 
-  const UiUserName({
-    required this.userName,
-    required this.domain,
-  });
+  const UiUserName({required this.userName, required this.domain});
 
   @override
   int get hashCode => userName.hashCode ^ domain.hashCode;

@@ -12,7 +12,8 @@ part of 'add_members_cubit.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$AddMembersState {
@@ -29,8 +30,9 @@ mixin _$AddMembersState {
 /// @nodoc
 abstract class $AddMembersStateCopyWith<$Res> {
   factory $AddMembersStateCopyWith(
-          AddMembersState value, $Res Function(AddMembersState) then) =
-      _$AddMembersStateCopyWithImpl<$Res, AddMembersState>;
+    AddMembersState value,
+    $Res Function(AddMembersState) then,
+  ) = _$AddMembersStateCopyWithImpl<$Res, AddMembersState>;
   @useResult
   $Res call({List<UiContact> contacts, Set<String> selectedContacts});
 }
@@ -49,29 +51,32 @@ class _$AddMembersStateCopyWithImpl<$Res, $Val extends AddMembersState>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? contacts = null,
-    Object? selectedContacts = null,
-  }) {
-    return _then(_value.copyWith(
-      contacts: null == contacts
-          ? _value.contacts
-          : contacts // ignore: cast_nullable_to_non_nullable
-              as List<UiContact>,
-      selectedContacts: null == selectedContacts
-          ? _value.selectedContacts
-          : selectedContacts // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-    ) as $Val);
+  $Res call({Object? contacts = null, Object? selectedContacts = null}) {
+    return _then(
+      _value.copyWith(
+            contacts:
+                null == contacts
+                    ? _value.contacts
+                    : contacts // ignore: cast_nullable_to_non_nullable
+                        as List<UiContact>,
+            selectedContacts:
+                null == selectedContacts
+                    ? _value.selectedContacts
+                    : selectedContacts // ignore: cast_nullable_to_non_nullable
+                        as Set<String>,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$AddMembersStateImplCopyWith<$Res>
     implements $AddMembersStateCopyWith<$Res> {
-  factory _$$AddMembersStateImplCopyWith(_$AddMembersStateImpl value,
-          $Res Function(_$AddMembersStateImpl) then) =
-      __$$AddMembersStateImplCopyWithImpl<$Res>;
+  factory _$$AddMembersStateImplCopyWith(
+    _$AddMembersStateImpl value,
+    $Res Function(_$AddMembersStateImpl) then,
+  ) = __$$AddMembersStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({List<UiContact> contacts, Set<String> selectedContacts});
@@ -82,38 +87,40 @@ class __$$AddMembersStateImplCopyWithImpl<$Res>
     extends _$AddMembersStateCopyWithImpl<$Res, _$AddMembersStateImpl>
     implements _$$AddMembersStateImplCopyWith<$Res> {
   __$$AddMembersStateImplCopyWithImpl(
-      _$AddMembersStateImpl _value, $Res Function(_$AddMembersStateImpl) _then)
-      : super(_value, _then);
+    _$AddMembersStateImpl _value,
+    $Res Function(_$AddMembersStateImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of AddMembersState
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? contacts = null,
-    Object? selectedContacts = null,
-  }) {
-    return _then(_$AddMembersStateImpl(
-      contacts: null == contacts
-          ? _value._contacts
-          : contacts // ignore: cast_nullable_to_non_nullable
-              as List<UiContact>,
-      selectedContacts: null == selectedContacts
-          ? _value._selectedContacts
-          : selectedContacts // ignore: cast_nullable_to_non_nullable
-              as Set<String>,
-    ));
+  $Res call({Object? contacts = null, Object? selectedContacts = null}) {
+    return _then(
+      _$AddMembersStateImpl(
+        contacts:
+            null == contacts
+                ? _value._contacts
+                : contacts // ignore: cast_nullable_to_non_nullable
+                    as List<UiContact>,
+        selectedContacts:
+            null == selectedContacts
+                ? _value._selectedContacts
+                : selectedContacts // ignore: cast_nullable_to_non_nullable
+                    as Set<String>,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$AddMembersStateImpl implements _AddMembersState {
-  const _$AddMembersStateImpl(
-      {required final List<UiContact> contacts,
-      required final Set<String> selectedContacts})
-      : _contacts = contacts,
-        _selectedContacts = selectedContacts;
+  const _$AddMembersStateImpl({
+    required final List<UiContact> contacts,
+    required final Set<String> selectedContacts,
+  }) : _contacts = contacts,
+       _selectedContacts = selectedContacts;
 
   final List<UiContact> _contacts;
   @override
@@ -142,15 +149,18 @@ class _$AddMembersStateImpl implements _AddMembersState {
         (other.runtimeType == runtimeType &&
             other is _$AddMembersStateImpl &&
             const DeepCollectionEquality().equals(other._contacts, _contacts) &&
-            const DeepCollectionEquality()
-                .equals(other._selectedContacts, _selectedContacts));
+            const DeepCollectionEquality().equals(
+              other._selectedContacts,
+              _selectedContacts,
+            ));
   }
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      const DeepCollectionEquality().hash(_contacts),
-      const DeepCollectionEquality().hash(_selectedContacts));
+    runtimeType,
+    const DeepCollectionEquality().hash(_contacts),
+    const DeepCollectionEquality().hash(_selectedContacts),
+  );
 
   /// Create a copy of AddMembersState
   /// with the given fields replaced by the non-null parameter values.
@@ -159,13 +169,16 @@ class _$AddMembersStateImpl implements _AddMembersState {
   @pragma('vm:prefer-inline')
   _$$AddMembersStateImplCopyWith<_$AddMembersStateImpl> get copyWith =>
       __$$AddMembersStateImplCopyWithImpl<_$AddMembersStateImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _AddMembersState implements AddMembersState {
-  const factory _AddMembersState(
-      {required final List<UiContact> contacts,
-      required final Set<String> selectedContacts}) = _$AddMembersStateImpl;
+  const factory _AddMembersState({
+    required final List<UiContact> contacts,
+    required final Set<String> selectedContacts,
+  }) = _$AddMembersStateImpl;
 
   @override
   List<UiContact> get contacts;

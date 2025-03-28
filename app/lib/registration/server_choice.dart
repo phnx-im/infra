@@ -43,11 +43,13 @@ class ServerChoice extends StatelessWidget {
                       ConstrainedBox(
                         constraints: BoxConstraints.tight(const Size(300, 80)),
                         child: TextFormField(
-                          autofocus: (Platform.isIOS || Platform.isAndroid)
-                              ? false
-                              : true,
-                          decoration:
-                              const InputDecoration(hintText: 'DOMAIN NAME'),
+                          autofocus:
+                              (Platform.isIOS || Platform.isAndroid)
+                                  ? false
+                                  : true,
+                          decoration: const InputDecoration(
+                            hintText: 'DOMAIN NAME',
+                          ),
                           initialValue:
                               context.read<RegistrationCubit>().state.domain,
                           style: inputTextStyle,
@@ -60,11 +62,12 @@ class ServerChoice extends StatelessWidget {
                   ),
                 ),
                 Column(
-                  crossAxisAlignment: isSmallScreen(context)
-                      ? CrossAxisAlignment.stretch
-                      : CrossAxisAlignment.center,
+                  crossAxisAlignment:
+                      isSmallScreen(context)
+                          ? CrossAxisAlignment.stretch
+                          : CrossAxisAlignment.center,
                   children: const [_NextButton()],
-                )
+                ),
               ],
             ),
           ),
@@ -83,11 +86,12 @@ class _NextButton extends StatelessWidget {
       (RegistrationCubit cubit) => cubit.state.isDomainValid,
     );
     return OutlinedButton(
-      onPressed: isDomainValid
-          ? () => context
-              .read<NavigationCubit>()
-              .openIntroScreen(IntroScreenType.usernamePassword)
-          : null,
+      onPressed:
+          isDomainValid
+              ? () => context.read<NavigationCubit>().openIntroScreen(
+                IntroScreenType.usernamePassword,
+              )
+              : null,
       style: buttonStyle(context, isDomainValid),
       child: const Text('Next'),
     );

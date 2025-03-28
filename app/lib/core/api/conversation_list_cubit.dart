@@ -42,7 +42,8 @@ abstract class ConversationListCubitBase implements RustOpaqueInterface {
   factory ConversationListCubitBase({required UserCubitBase userCubit}) =>
       RustLib.instance.api
           .crateApiConversationListCubitConversationListCubitBaseNew(
-              userCubit: userCubit);
+            userCubit: userCubit,
+          );
 
   ConversationListState get state;
 
@@ -56,6 +57,7 @@ class ConversationListState with _$ConversationListState {
   const factory ConversationListState({
     required List<UiConversationDetails> conversations,
   }) = _ConversationListState;
-  static Future<ConversationListState> default_() => RustLib.instance.api
-      .crateApiConversationListCubitConversationListStateDefault();
+  static Future<ConversationListState> default_() =>
+      RustLib.instance.api
+          .crateApiConversationListCubitConversationListStateDefault();
 }

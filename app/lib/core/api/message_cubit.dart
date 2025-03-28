@@ -28,11 +28,13 @@ abstract class MessageCubitBase implements RustOpaqueInterface {
   /// Creates a new message cubit.
   ///
   /// Note that the loaded message is immediately provided via `initial_state`.
-  factory MessageCubitBase(
-          {required UserCubitBase userCubit,
-          required MessageState initialState}) =>
-      RustLib.instance.api.crateApiMessageCubitMessageCubitBaseNew(
-          userCubit: userCubit, initialState: initialState);
+  factory MessageCubitBase({
+    required UserCubitBase userCubit,
+    required MessageState initialState,
+  }) => RustLib.instance.api.crateApiMessageCubitMessageCubitBaseNew(
+    userCubit: userCubit,
+    initialState: initialState,
+  );
 
   MessageState get state;
 
@@ -42,7 +44,6 @@ abstract class MessageCubitBase implements RustOpaqueInterface {
 /// State of a single message in a conversation
 @freezed
 class MessageState with _$MessageState {
-  const factory MessageState({
-    required UiConversationMessage message,
-  }) = _MessageState;
+  const factory MessageState({required UiConversationMessage message}) =
+      _MessageState;
 }

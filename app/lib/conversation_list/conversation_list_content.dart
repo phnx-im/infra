@@ -18,8 +18,9 @@ class ConversationListContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversations = context
-        .select((ConversationListCubit cubit) => cubit.state.conversations);
+    final conversations = context.select(
+      (ConversationListCubit cubit) => cubit.state.conversations,
+    );
 
     if (conversations.isEmpty) {
       return const _NoConversations();
@@ -62,8 +63,9 @@ class _ListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId = context
-        .select((NavigationCubit cubit) => cubit.state.openConversationId);
+    final currentConversationId = context.select(
+      (NavigationCubit cubit) => cubit.state.openConversationId,
+    );
     final isSelected = currentConversationId == conversation.id;
     return ListTile(
       horizontalTitleGap: 0,
@@ -107,8 +109,9 @@ class _ListTile extends StatelessWidget {
       ),
       selected: isSelected,
       focusColor: convListItemSelectedColor,
-      onTap: () =>
-          context.read<NavigationCubit>().openConversation(conversation.id),
+      onTap:
+          () =>
+              context.read<NavigationCubit>().openConversation(conversation.id),
     );
   }
 }
@@ -163,18 +166,16 @@ class _ListTileBottom extends StatelessWidget {
 }
 
 class _UnreadBadge extends StatelessWidget {
-  const _UnreadBadge({
-    required this.conversationId,
-    required this.count,
-  });
+  const _UnreadBadge({required this.conversationId, required this.count});
 
   final ConversationId conversationId;
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId =
-        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    final currentConversationId = context.select(
+      (NavigationCubit cubit) => cubit.state.conversationId,
+    );
 
     if (count < 1 || conversationId == currentConversationId) {
       return const SizedBox();
@@ -204,18 +205,16 @@ class _UnreadBadge extends StatelessWidget {
 }
 
 class _LastMessage extends StatelessWidget {
-  const _LastMessage({
-    required this.conversation,
-    required this.userName,
-  });
+  const _LastMessage({required this.conversation, required this.userName});
 
   final UiConversationDetails conversation;
   final String userName;
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId =
-        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    final currentConversationId = context.select(
+      (NavigationCubit cubit) => cubit.state.conversationId,
+    );
 
     final lastMessage = conversation.lastMessage;
 
@@ -226,18 +225,19 @@ class _LastMessage extends StatelessWidget {
     ).merge(VariableFontWeight.normal);
     final unreadStyle = readStyle.merge(VariableFontWeight.medium);
 
-    final contentStyle = conversation.id != currentConversationId &&
-            conversation.unreadMessages > 0
-        ? unreadStyle
-        : readStyle;
+    final contentStyle =
+        conversation.id != currentConversationId &&
+                conversation.unreadMessages > 0
+            ? unreadStyle
+            : readStyle;
 
     final senderStyle = readStyle.merge(VariableFontWeight.semiBold);
 
     final (sender, displayedLastMessage) = switch (lastMessage?.message) {
       UiMessage_Content(field0: final content) => (
-          content.sender == userName ? 'You: ' : null,
-          content.content.plainBody
-        ),
+        content.sender == userName ? 'You: ' : null,
+        content.content.plainBody,
+      ),
       UiMessage_Display() => (null, null),
       null => (null, null),
     };
@@ -249,12 +249,7 @@ class _LastMessage extends StatelessWidget {
       TextSpan(
         text: sender,
         style: senderStyle,
-        children: [
-          TextSpan(
-            text: displayedLastMessage,
-            style: contentStyle,
-          ),
-        ],
+        children: [TextSpan(text: displayedLastMessage, style: contentStyle)],
       ),
     );
   }
@@ -272,19 +267,14 @@ class _LastUpdated extends StatelessWidget {
       baselineType: TextBaseline.alphabetic,
       child: Text(
         formatTimestamp(conversation.lastUsed),
-        style: const TextStyle(
-          color: colorDMB,
-          fontSize: 11,
-        ),
+        style: const TextStyle(color: colorDMB, fontSize: 11),
       ),
     );
   }
 }
 
 class _ConversationTitle extends StatelessWidget {
-  const _ConversationTitle({
-    required this.title,
-  });
+  const _ConversationTitle({required this.title});
 
   final String title;
 

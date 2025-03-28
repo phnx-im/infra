@@ -20,23 +20,19 @@ void main() {
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<RegistrationCubit>.value(
-              value: registrationCubit,
-            ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: const Scaffold(
-                  body: ServerChoice(),
-                ),
-              );
-            },
-          ),
-        );
+      providers: [
+        BlocProvider<RegistrationCubit>.value(value: registrationCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: const Scaffold(body: ServerChoice()),
+          );
+        },
+      ),
+    );
 
     testWidgets('renders correctly when empty', (tester) async {
       when(() => registrationCubit.state).thenReturn(const RegistrationState());
@@ -50,8 +46,9 @@ void main() {
     });
 
     testWidgets('renders correctly', (tester) async {
-      when(() => registrationCubit.state)
-          .thenReturn(const RegistrationState(domain: 'example.com'));
+      when(
+        () => registrationCubit.state,
+      ).thenReturn(const RegistrationState(domain: 'example.com'));
 
       await tester.pumpWidget(buildSubject());
 

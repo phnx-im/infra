@@ -10,10 +10,7 @@ import 'package:prototype/core/core.dart';
 
 /// Same as [MemoryImage] but caches the result in memory under the given [tag]
 class CachedMemoryImage extends ImageProvider<CachedMemoryImage> {
-  const CachedMemoryImage(
-    this.tag,
-    this.bytes,
-  );
+  const CachedMemoryImage(this.tag, this.bytes);
 
   factory CachedMemoryImage.fromImageData(ImageData imageData) =>
       CachedMemoryImage(imageData.hash, imageData.data);
