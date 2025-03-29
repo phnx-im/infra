@@ -102,13 +102,7 @@ cargo install just flutter_rust_bridge_codegen sqlx-cli
 
 ### Configuration Steps
 
-1. Generate Rust bridge code:
-
-```bash
-just frb-integrate
-```
-
-2. Ensure that Docker is running. You can check your system tray or verify this on the CLI with:
+1. Ensure that Docker is running. You can check your system tray or verify this on the CLI with:
 
 ```bash
 docker info
@@ -116,7 +110,7 @@ docker info
 
 > If you see something like `ERROR: Cannot connect to the Docker daemon at unix:///Users/[YOUR_USERNAME]/.docker/run/docker.sock. Is the docker daemon running?` then Docker is not running.
 
-3. Initialize the database:
+2. Initialize the database:
 
 ```bash
 just init-db
@@ -128,7 +122,7 @@ just init-db
 >
 > If you see the error `Error response from daemon: Ports are not available: exposing port TCP 127.0.0.1:5432 -> 0.0.0.0:0: listen tcp 127.0.0.1:5432: bind: address already in use`, verify that you are not already running Postgres on port 5432. Some users may be using popular apps like Postgres.app which runs on this port by default. Simply stop your server and try again.
 
-4. Set up macOS requirements:
+3. Set up macOS requirements:
 
 Install [Xcode](https://developer.apple.com/xcode/) and accept the license
 

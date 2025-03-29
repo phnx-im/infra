@@ -69,6 +69,7 @@ check-frb-ci: install-cargo-binstall
     cargo binstall flutter_rust_bridge_codegen@2.9.0 cargo-expand
     just check-frb
 
+# Warning: Only use this when you know what you are doing. This is not required to build the app.
 # integrate the Flutter Rust bridge (potentially destructive; commit changes before running)
 [working-directory: 'app']
 frb-integrate:
