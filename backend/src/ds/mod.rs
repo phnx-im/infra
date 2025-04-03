@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, sync::Arc};
+use std::collections::HashSet;
 
-use async_trait::async_trait;
 use phnxtypes::{identifiers::Fqdn, time::Duration};
 use sqlx::PgPool;
 use tokio::sync::Mutex;
@@ -27,19 +26,18 @@ pub const GROUP_STATE_EXPIRATION: Duration = Duration::days(90);
 
 pub struct Ds {
     own_domain: Fqdn,
-    reserved_group_ids: Arc<Mutex<HashSet<Uuid>>>,
+    reserved_group_ids: Mutex<HashSet<Uuid>>,
     db_pool: PgPool,
 }
 
 #[derive(Debug)]
 pub(crate) struct ReservedGroupId(Uuid);
 
-#[async_trait]
 impl InfraService for Ds {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         let ds = Self {
             own_domain: domain,
-            reserved_group_ids: Arc::new(Mutex::new(HashSet::new())),
+            reserved_group_ids: Mutex::new(HashSet::new()),
             db_pool,
         };
 

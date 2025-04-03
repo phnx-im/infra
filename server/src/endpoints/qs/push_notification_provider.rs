@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use async_trait::async_trait;
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use phnxbackend::{
     qs::{PushNotificationError, PushNotificationProvider},
@@ -405,7 +404,6 @@ impl ProductionPushNotificationProvider {
     }
 }
 
-#[async_trait]
 impl PushNotificationProvider for ProductionPushNotificationProvider {
     async fn push(&self, push_token: PushToken) -> Result<(), PushNotificationError> {
         match push_token.operator() {

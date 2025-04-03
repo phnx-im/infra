@@ -61,7 +61,7 @@ impl AuthService {
             tracing::error!("Opaque startup failed with error {e:?}");
             Init2FactorAuthError::OpaqueLoginFailed
         })?;
-        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        let mut client_login_states = self.inner.ephemeral_client_logins.lock().await;
         client_login_states.insert(client_id, server_login_result.state);
 
         let opaque_login_response = OpaqueLoginResponse {
