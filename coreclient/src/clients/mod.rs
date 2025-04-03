@@ -80,6 +80,7 @@ mod remove_users;
 pub mod store;
 #[cfg(test)]
 mod tests;
+mod update_key;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -388,48 +389,6 @@ impl CoreUser {
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
         self.fetch_messages_from_queue(QueueType::Qs).await
-    }
-
-    /// Update the user's key material in the conversation with the given
-    /// [`ConversationId`].
-    ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
-    pub async fn update(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Result<Vec<ConversationMessage>> {
-        // Phase 1: Load the conversation and the group
-        let conversation = Conversation::load(self.pool(), &conversation_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
-        let group_id = conversation.group_id();
-        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
-        let params = group.update(self.pool()).await?;
-
-        let owner_domain = conversation.owner_domain();
-
-        // Phase 2: Send the update to the DS
-        let ds_timestamp = self
-            .inner
-            .api_clients
-            .get(&owner_domain)?
-            .ds_update(params, group.leaf_signer(), group.group_state_ear_key())
-            .await?;
-
-        // Phase 3: Merge the commit into the group
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            let group_messages = group
-                .merge_pending_commit(&mut *connection, None, ds_timestamp)
-                .await?;
-            group.store_update(&mut *connection).await?;
-            Self::store_messages(&mut *connection, notifier, conversation_id, group_messages).await
-        })
-        .await
     }
 
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
