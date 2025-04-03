@@ -42,6 +42,9 @@ pub trait LocalStore {
 
     // conversations
 
+    /// Create new conversation.
+    ///
+    /// Returns the id of the newly created conversation.
     async fn create_conversation(
         &self,
         title: String,
@@ -67,6 +70,12 @@ pub trait LocalStore {
         until: ConversationMessageId,
     ) -> StoreResult<bool>;
 
+    /// Delete the conversation with the given [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
     async fn delete_conversation(
         &self,
         conversation_id: ConversationId,
