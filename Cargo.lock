@@ -3553,7 +3553,6 @@ dependencies = [
  "actix-rt",
  "actix-web",
  "actix-web-actors",
- "async-trait",
  "base64 0.22.1",
  "config",
  "image",

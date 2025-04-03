@@ -41,7 +41,7 @@ impl AuthService {
         // Check if a user entry with the name given in the client_csr already exists
         tracing::info!("Checking if user already exists");
         let user_name_exists =
-            UserRecord::load(&self.db_pool, &client_payload.identity().user_name())
+            UserRecord::load(&self.db_pool, client_payload.identity().user_name())
                 .await
                 .map_err(|e| {
                     tracing::error!("Error loading user record: {:?}", e);
@@ -78,7 +78,7 @@ impl AuthService {
             .map_err(|_| InitUserRegistrationError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
-        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let mut client_credentials = self.inner.ephemeral_client_credentials.lock().await;
         client_credentials.insert(
             client_credential.identity().clone(),
             client_credential.clone(),
@@ -127,7 +127,7 @@ impl AuthService {
         } = params;
 
         // Look up the initial client's ClientCredential in the ephemeral DB based on the user_name
-        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let mut client_credentials = self.inner.ephemeral_client_credentials.lock().await;
         let client_credential = client_credentials
             .remove(&client_id)
             .ok_or(FinishUserRegistrationError::ClientCredentialNotFound)?;
@@ -139,7 +139,7 @@ impl AuthService {
         let password_file = ServerRegistration::finish(opaque_registration_record.client_message);
 
         // Create the user entry with the information given in the request
-        UserRecord::new_and_store(&self.db_pool, &client_id.user_name(), &password_file)
+        UserRecord::new_and_store(&self.db_pool, client_id.user_name(), &password_file)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);
@@ -198,7 +198,7 @@ impl AuthService {
         })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
-        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        let mut client_login_states = self.inner.ephemeral_client_logins.lock().await;
         client_login_states.remove(&client_id);
         Ok(())
     }

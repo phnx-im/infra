@@ -172,7 +172,7 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let tbs = FinishUserRegistrationParamsTbs {
-            client_id: signing_key.credential().identity(),
+            client_id: signing_key.credential().identity().clone(),
             queue_encryption_key,
             initial_ratchet_secret,
             connection_packages,
@@ -313,7 +313,7 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<DequeueMessagesResponse, AsRequestError> {
         let tbs = DequeueMessagesParamsTbs {
-            sender: signing_key.credential().identity(),
+            sender: signing_key.credential().identity().clone(),
             sequence_number_start,
             max_message_number,
         };
@@ -394,7 +394,7 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<IssueTokensResponse, AsRequestError> {
         let tbs = IssueTokensParamsTbs {
-            client_id: signing_key.credential().identity(),
+            client_id: signing_key.credential().identity().clone(),
             token_type,
             token_request,
         };
