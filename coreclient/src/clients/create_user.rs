@@ -66,7 +66,7 @@ impl BasicUserData {
         let domain = self.as_client_id.user_name().domain();
         // Fetch credentials from AS
         let as_intermediate_credential =
-            AsCredentials::get_intermediate_credential(pool, api_clients, &domain).await?;
+            AsCredentials::get_intermediate_credential(pool, api_clients, domain).await?;
 
         // We already fetch the QS encryption key here, so we don't have to do
         // it in a later step, where we otherwise don't have to perform network
@@ -167,7 +167,7 @@ impl InitialUserState {
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
-        self.client_credential_payload.identity_ref()
+        self.client_credential_payload.identity()
     }
 
     pub(super) fn server_url(&self) -> &str {
@@ -384,7 +384,7 @@ impl UnfinalizedRegistrationState {
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
-        self.key_store.signing_key.credential().identity_ref()
+        self.key_store.signing_key.credential().identity()
     }
 
     pub(super) fn server_url(&self) -> &str {
@@ -439,7 +439,7 @@ impl AsRegisteredUserState {
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
-        self.key_store.signing_key.credential().identity_ref()
+        self.key_store.signing_key.credential().identity()
     }
 
     pub(super) fn server_url(&self) -> &str {
@@ -501,7 +501,7 @@ impl QsRegisteredUserState {
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
-        self.key_store.signing_key.credential().identity_ref()
+        self.key_store.signing_key.credential().identity()
     }
 
     pub(super) fn server_url(&self) -> &str {
@@ -538,7 +538,7 @@ impl PersistedUserState {
     }
 
     pub(super) fn client_id(&self) -> &AsClientId {
-        self.state.key_store.signing_key.credential().identity_ref()
+        self.state.key_store.signing_key.credential().identity()
     }
 
     pub(super) fn server_url(&self) -> &str {

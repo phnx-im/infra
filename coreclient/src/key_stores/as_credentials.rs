@@ -224,7 +224,7 @@ impl AsCredentials {
         let as_intermediate_credential = Self::get(
             pool,
             api_clients,
-            &verifiable_client_credential.domain(),
+            verifiable_client_credential.domain(),
             verifiable_client_credential.signer_fingerprint(),
         )
         .await?;

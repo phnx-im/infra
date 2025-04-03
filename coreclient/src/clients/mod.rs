@@ -140,7 +140,10 @@ impl CoreUser {
         client_db: SqlitePool,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
-        let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
+        let api_clients = ApiClients::new(
+            as_client_id.user_name().domain().clone(),
+            server_url.clone(),
+        );
 
         let user_creation_state = UserCreationState::new(
             &client_db,
@@ -210,7 +213,7 @@ impl CoreUser {
 
         let phnx_db = open_phnx_db(db_path).await?;
         let api_clients = ApiClients::new(
-            as_client_id.user_name().domain(),
+            as_client_id.user_name().domain().clone(),
             user_creation_state.server_url(),
         );
         let final_state = user_creation_state
@@ -270,7 +273,7 @@ impl CoreUser {
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
-        if user_profile.user_name() != &self.user_name() {
+        if user_profile.user_name() != self.user_name() {
             bail!("Can't set user profile for users other than the current user.",);
         }
         if let Some(profile_picture) = user_profile.profile_picture() {
@@ -687,12 +690,12 @@ impl CoreUser {
         }
         .encrypt(&self.inner.key_store.qs_client_id_encryption_key, &[], &[]);
         QsReference {
-            client_homeserver_domain: self.user_name().domain(),
+            client_homeserver_domain: self.user_name().domain().clone(),
             sealed_reference,
         }
     }
 
-    pub fn user_name(&self) -> QualifiedUserName {
+    pub fn user_name(&self) -> &QualifiedUserName {
         self.inner
             .key_store
             .signing_key
@@ -886,7 +889,7 @@ impl CoreUser {
 
     /// Returns the user profile of this [`CoreUser`].
     pub async fn own_user_profile(&self) -> sqlx::Result<UserProfile> {
-        UserProfile::load(self.pool(), &self.user_name())
+        UserProfile::load(self.pool(), self.user_name())
             .await
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())
