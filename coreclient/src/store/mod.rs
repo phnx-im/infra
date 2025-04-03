@@ -97,6 +97,30 @@ pub trait LocalStore {
         conversation_id: ConversationId,
     ) -> StoreResult<Vec<ConversationMessage>>;
 
+    /// Remove users from the conversation with the given [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    async fn remove_users(
+        &self,
+        conversation_id: ConversationId,
+        target_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>>;
+
+    /// Invite users to an existing conversation.
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    async fn invite_users(
+        &self,
+        conversation_id: ConversationId,
+        invited_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>>;
+
     // contacts
 
     /// Create a connection with a new user.
