@@ -76,7 +76,11 @@ pub trait LocalStore {
 
     // contacts
 
-    async fn add_contact(&self, user_name: &QualifiedUserName) -> StoreResult<ConversationId>;
+    /// Create a connection with a new user.
+    ///
+    /// Returns the [`ConversationId`] of the newly created connection
+    /// conversation.
+    async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
