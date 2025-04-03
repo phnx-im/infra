@@ -70,7 +70,7 @@ impl UserCreationState {
         };
 
         // Create user profile entry for own user.
-        UserProfile::new(as_client_id.user_name(), None, None)
+        UserProfile::new(as_client_id.user_name().clone(), None, None)
             .upsert(client_db, &mut StoreNotifier::noop())
             .await?;
 

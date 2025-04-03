@@ -14,7 +14,6 @@ use actix_web::{
     web::{self, Data},
 };
 use actix_web_actors::ws::{self};
-use async_trait::*;
 use base64::{Engine as _, engine::general_purpose};
 use dispatch::*;
 use messages::*;
@@ -254,7 +253,6 @@ impl DispatchWebsocketNotifier {
     }
 }
 
-#[async_trait]
 impl WebsocketNotifier for DispatchWebsocketNotifier {
     /// Notify a client that opened a websocket connection to the QS.
     ///

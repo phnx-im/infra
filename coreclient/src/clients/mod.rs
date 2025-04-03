@@ -15,7 +15,6 @@ use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
 use phnxtypes::{
-    codec::PhnxCodec,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
@@ -23,10 +22,7 @@ use phnxtypes::{
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
         ear::{
             EarEncryptable, EarKey, GenericSerializable,
-            keys::{
-                FriendshipPackageEarKey, KeyPackageEarKey, PushTokenEarKey,
-                WelcomeAttributionInfoEarKey,
-            },
+            keys::{KeyPackageEarKey, PushTokenEarKey, WelcomeAttributionInfoEarKey},
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -38,7 +34,7 @@ use phnxtypes::{
     identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId, QualifiedUserName},
     messages::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
-        client_as::{ConnectionPackageTbs, UserConnectionPackagesParams},
+        client_as::ConnectionPackageTbs,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
@@ -58,7 +54,7 @@ use crate::{
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
-    clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
+    clients::connection_establishment::FriendshipPackage,
     contacts::{Contact, ContactAddInfos, PartialContact},
     conversations::{
         Conversation, ConversationAttributes,
@@ -73,6 +69,7 @@ use crate::{
 
 use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCreationState};
 
+mod add_contact;
 pub(crate) mod api_clients;
 pub(crate) mod connection_establishment;
 pub mod conversations;
@@ -144,7 +141,10 @@ impl CoreUser {
         client_db: SqlitePool,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
-        let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
+        let api_clients = ApiClients::new(
+            as_client_id.user_name().domain().clone(),
+            server_url.clone(),
+        );
 
         let user_creation_state = UserCreationState::new(
             &client_db,
@@ -214,7 +214,7 @@ impl CoreUser {
 
         let phnx_db = open_phnx_db(db_path).await?;
         let api_clients = ApiClients::new(
-            as_client_id.user_name().domain(),
+            as_client_id.user_name().domain().clone(),
             user_creation_state.server_url(),
         );
         let final_state = user_creation_state
@@ -274,7 +274,7 @@ impl CoreUser {
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
-        if user_profile.user_name() != &self.user_name() {
+        if user_profile.user_name() != self.user_name() {
             bail!("Can't set user profile for users other than the current user.",);
         }
         if let Some(profile_picture) = user_profile.profile_picture() {
@@ -477,230 +477,6 @@ impl CoreUser {
         .await
     }
 
-    /// Create a connection with a new user.
-    ///
-    /// Returns the [`ConversationId`] of the newly created connection
-    /// conversation.
-    pub async fn add_contact(&self, user_name: QualifiedUserName) -> Result<ConversationId> {
-        let params = UserConnectionPackagesParams {
-            user_name: user_name.clone(),
-        };
-        // Phase 1: Fetch connection key packages from the AS
-        let user_domain = user_name.domain();
-        info!(%user_name, "Adding contact");
-        let user_key_packages = self
-            .inner
-            .api_clients
-            .get(&user_domain)?
-            .as_user_connection_packages(params)
-            .await?;
-
-        // The AS should return an error if the user does not exist, but we
-        // check here locally just to be sure.
-        if user_key_packages.connection_packages.is_empty() {
-            return Err(anyhow!("User {} does not exist", user_name));
-        }
-        // Phase 2: Verify the connection key packages
-        info!("Verifying connection packages");
-        let mut verified_connection_packages = vec![];
-        for connection_package in user_key_packages.connection_packages.into_iter() {
-            let as_intermediate_credential = AsCredentials::get(
-                self.pool(),
-                &self.inner.api_clients,
-                &user_domain,
-                connection_package.client_credential_signer_fingerprint(),
-            )
-            .await?;
-            let verifying_key = as_intermediate_credential.verifying_key();
-            verified_connection_packages.push(connection_package.verify(verifying_key)?)
-        }
-
-        // TODO: Connection Package Validation
-        // * Version
-        // * Lifetime
-
-        // Phase 3: Request a group id from the DS
-        info!("Requesting group id");
-        let group_id = self
-            .inner
-            .api_clients
-            .default_client()?
-            .ds_request_group_id()
-            .await?;
-
-        // Phase 4: Prepare the connection locally
-        info!("Creating local connection group");
-        let title = format!("Connection group: {} - {}", self.user_name(), user_name);
-        let conversation_attributes = ConversationAttributes::new(title.to_string(), None);
-        let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
-        let (connection_group, partial_params) = self
-            .with_transaction(async |transaction| {
-                let provider = PhnxOpenMlsProvider::new(transaction);
-                let (group, group_membership, partial_params) = Group::create_group(
-                    &provider,
-                    &self.inner.key_store.signing_key,
-                    &self.inner.key_store.connection_key,
-                    group_id.clone(),
-                    group_data,
-                )?;
-                group_membership.store(&mut *transaction).await?;
-                group.store(&mut *transaction).await?;
-                Ok((group, partial_params))
-            })
-            .await?;
-
-        // TODO: Once we allow multi-client, invite all our other clients to the
-        // connection group.
-
-        let own_user_profile = UserProfile::load(self.pool(), &self.user_name())
-            .await
-            // We unwrap here, because we know that the user exists.
-            .map(|user_option| user_option.unwrap())?;
-
-        // Create the connection conversation
-        let conversation = Conversation::new_connection_conversation(
-            group_id.clone(),
-            user_name.clone(),
-            conversation_attributes,
-        )?;
-        let mut notifier = self.store_notifier();
-        conversation.store(self.pool(), &mut notifier).await?;
-
-        let friendship_package = FriendshipPackage {
-            friendship_token: self.inner.key_store.friendship_token.clone(),
-            key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
-            connection_key: self.inner.key_store.connection_key.clone(),
-            wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
-            user_profile: own_user_profile,
-        };
-
-        let friendship_package_ear_key = FriendshipPackageEarKey::random()?;
-
-        // Create and persist a new partial contact
-        PartialContact::new(
-            user_name.clone(),
-            conversation.id(),
-            friendship_package_ear_key.clone(),
-        )
-        .store(self.pool(), &mut notifier)
-        .await?;
-
-        // Store the user profile of the partial contact (we don't have a
-        // display name or a profile picture yet)
-        UserProfile::new(user_name, None, None)
-            .store(self.pool(), &mut notifier)
-            .await?;
-
-        // Create a connection establishment package
-        let connection_establishment_package = ConnectionEstablishmentPackageTbs {
-            sender_client_credential: self.inner.key_store.signing_key.credential().clone(),
-            connection_group_id: group_id,
-            connection_group_ear_key: connection_group.group_state_ear_key().clone(),
-            connection_group_identity_link_wrapper_key: connection_group
-                .identity_link_wrapper_key()
-                .clone(),
-            friendship_package_ear_key,
-            friendship_package,
-        }
-        .sign(&self.inner.key_store.signing_key)?;
-
-        let client_reference = self.create_own_client_reference();
-        let params = partial_params.into_params(client_reference);
-
-        // Phase 5: Create the connection group on the DS and send off the
-        // connection establishment packages
-        info!("Creating connection group on DS");
-        self.inner
-            .api_clients
-            .default_client()?
-            .ds_create_group(
-                params,
-                connection_group.leaf_signer(),
-                connection_group.group_state_ear_key(),
-            )
-            .await?;
-
-        // Encrypt the connection establishment package for each connection and send it off.
-        for connection_package in verified_connection_packages {
-            let ciphertext = connection_establishment_package.encrypt(
-                connection_package.encryption_key(),
-                &[],
-                &[],
-            );
-            let client_id = connection_package.client_credential().identity();
-
-            self.inner
-                .api_clients
-                .get(&user_domain)?
-                .as_enqueue_message(client_id, ciphertext)
-                .await?;
-        }
-
-        notifier.notify();
-
-        Ok(conversation.id())
-    }
-
-    /// Delete the conversation with the given [`ConversationId`].
-    ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
-    pub async fn delete_conversation(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Result<Vec<ConversationMessage>> {
-        // Phase 1: Load the conversation and the group
-        let mut conversation = Conversation::load(self.pool(), &conversation_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
-        let group_id = conversation.group_id();
-        // Generate ciphertext
-        let mut group = Group::load(self.pool().acquire().await?.as_mut(), group_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find group with id {:?}", group_id))?;
-        let past_members = group.members(self.pool()).await;
-
-        // No need to send a message to the server if we are the only member.
-        // TODO: Make sure this is what we want.
-        let messages = if past_members.len() != 1 {
-            // Phase 2: Create the delete commit
-            let params = group.delete(self.pool().acquire().await?.as_mut()).await?;
-
-            let owner_domain = conversation.owner_domain();
-            // Phase 3: Send the delete to the DS
-            let ds_timestamp = self
-                .inner
-                .api_clients
-                .get(&owner_domain)?
-                .ds_delete_group(params, group.leaf_signer(), group.group_state_ear_key())
-                .await?;
-
-            // Phase 4: Merge the commit into the group
-            let messages = group
-                .merge_pending_commit(self.pool().acquire().await?.as_mut(), None, ds_timestamp)
-                .await?;
-            group.store_update(self.pool()).await?;
-            messages
-        } else {
-            vec![]
-        };
-
-        // Phase 4: Set the conversation to inactive
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            conversation
-                .set_inactive(
-                    &mut *connection,
-                    notifier,
-                    past_members.into_iter().collect(),
-                )
-                .await?;
-            Self::store_messages(&mut *connection, notifier, conversation_id, messages).await
-        })
-        .await
-    }
-
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
         let mut remaining_messages = 1;
         let mut messages: Vec<QueueMessage> = Vec::new();
@@ -809,12 +585,12 @@ impl CoreUser {
         }
         .encrypt(&self.inner.key_store.qs_client_id_encryption_key, &[], &[]);
         QsReference {
-            client_homeserver_domain: self.user_name().domain(),
+            client_homeserver_domain: self.user_name().domain().clone(),
             sealed_reference,
         }
     }
 
-    pub fn user_name(&self) -> QualifiedUserName {
+    pub fn user_name(&self) -> &QualifiedUserName {
         self.inner
             .key_store
             .signing_key
@@ -1007,7 +783,7 @@ impl CoreUser {
 
     /// Returns the user profile of this [`CoreUser`].
     pub async fn own_user_profile(&self) -> sqlx::Result<UserProfile> {
-        UserProfile::load(self.pool(), &self.user_name())
+        UserProfile::load(self.pool(), self.user_name())
             .await
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap())

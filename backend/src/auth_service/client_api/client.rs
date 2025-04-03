@@ -49,7 +49,7 @@ impl AuthService {
 
         // Load the user record from storage
         let user_name = client_credential_payload.identity().user_name();
-        let password_file_option = UserRecord::load(&self.db_pool, &user_name)
+        let password_file_option = UserRecord::load(&self.db_pool, user_name)
             .await
             .map_err(|e| {
                 tracing::error!("Error loading user record: {:?}", e);
@@ -80,7 +80,7 @@ impl AuthService {
 
         // Check if a client entry with the name given in the client_csr already exists for the user
         let client_id_exists =
-            ClientRecord::load(&self.db_pool, &client_credential_payload.identity())
+            ClientRecord::load(&self.db_pool, client_credential_payload.identity())
                 .await
                 .map_err(|e| {
                     tracing::error!("Error loading client record: {:?}", e);
@@ -117,7 +117,7 @@ impl AuthService {
             .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
-        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let mut client_credentials = self.inner.ephemeral_client_credentials.lock().await;
         client_credentials.insert(
             client_credential.identity().clone(),
             client_credential.clone(),
@@ -144,7 +144,7 @@ impl AuthService {
 
         // Look up the initial client's ClientCredentialn the ephemeral DB based
         // on the client_id
-        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let mut client_credentials = self.inner.ephemeral_client_credentials.lock().await;
         let client_credential = client_credentials
             .remove(&client_id)
             .ok_or(FinishClientAdditionError::ClientCredentialNotFound)?;
@@ -198,7 +198,7 @@ impl AuthService {
         })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
-        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        let mut client_login_states = self.inner.ephemeral_client_logins.lock().await;
         client_login_states.remove(&client_id);
 
         Ok(())
