@@ -228,12 +228,12 @@ impl ApiClient {
     /// events:
     ///
     ///  - [`WsEvent::MessageEvent`]: A new message has been put in the queue
-    ///        on the QS
+    ///    on the QS
     ///  - [`WsEvent::DisconnectedEvent`]: The client has not received any
-    ///        messages from the QS for a while (longer than the `timeout`
-    ///        parameter)
+    ///    messages from the QS for a while (longer than the `timeout`
+    ///    parameter)
     ///  - [`WsEvent::ConnectedEvent`]: The client has recently received
-    ///        messages from the QS (less than the `timeout` parameter)
+    ///    messages from the QS (less than the `timeout` parameter)
     ///
     /// The events indicating the connection status do not fully correlate with
     /// the status of the websocket connection itself. Instead, they only

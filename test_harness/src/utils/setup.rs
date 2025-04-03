@@ -163,7 +163,7 @@ impl TestBackend {
             .await
             .unwrap();
 
-        updater.update(conversation_id).await.unwrap();
+        updater.update_key(conversation_id).await.unwrap();
 
         let group_members_after = updater
             .conversation_participants(conversation_id)
@@ -237,7 +237,7 @@ impl TestBackend {
         let test_updater = self.users.get_mut(updater_name).unwrap();
         let updater = &mut test_updater.user;
 
-        updater.update(conversation_id).await.unwrap();
+        updater.update_key(conversation_id).await.unwrap();
 
         let group_members = self.groups.get(&conversation_id).unwrap();
         // Have all group members fetch and process messages.
@@ -449,7 +449,7 @@ impl TestBackend {
         // Fetch the last message and mark it as read.
         let test_user1 = self.users.get_mut(user1_name).unwrap();
         let user1 = &mut test_user1.user;
-        let user1_messages = user1.get_messages(user1_conversation_id, 1).await.unwrap();
+        let user1_messages = user1.messages(user1_conversation_id, 1).await.unwrap();
 
         assert_eq!(user1_messages.len(), 1);
         let user1_unread_messages = user1.unread_messages_count(user1_conversation_id).await;
@@ -467,7 +467,7 @@ impl TestBackend {
 
         let test_user2 = self.users.get_mut(user2_name).unwrap();
         let user2 = &mut test_user2.user;
-        let user2_messages = user2.get_messages(user2_conversation_id, 1).await.unwrap();
+        let user2_messages = user2.messages(user2_conversation_id, 1).await.unwrap();
 
         assert_eq!(user2_messages.len(), 1);
         let last_message = user2_messages.last().unwrap();

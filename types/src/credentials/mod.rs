@@ -475,11 +475,7 @@ impl Signable for ClientCredentialPayload {
 }
 
 impl ClientCredentialPayload {
-    pub fn identity(&self) -> AsClientId {
-        self.csr.client_id.clone()
-    }
-
-    pub fn identity_ref(&self) -> &AsClientId {
+    pub fn identity(&self) -> &AsClientId {
         &self.csr.client_id
     }
 }
@@ -494,12 +490,8 @@ pub struct ClientCredential {
 }
 
 impl ClientCredential {
-    pub fn identity(&self) -> AsClientId {
+    pub fn identity(&self) -> &AsClientId {
         self.payload.identity()
-    }
-
-    pub fn identity_ref(&self) -> &AsClientId {
-        self.payload.identity_ref()
     }
 
     pub fn verifying_key(&self) -> &ClientVerifyingKey {
@@ -585,7 +577,7 @@ pub struct VerifiableClientCredential {
 }
 
 impl VerifiableClientCredential {
-    pub fn domain(&self) -> Fqdn {
+    pub fn domain(&self) -> &Fqdn {
         self.payload.csr.client_id.user_name().domain()
     }
 

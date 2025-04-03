@@ -7,14 +7,14 @@ use sqlx::{PgConnection, PgExecutor};
 
 use crate::errors::StorageError;
 
-pub(super) struct Queue {
-    queue_id: AsClientId,
+pub(super) struct Queue<'a> {
+    queue_id: &'a AsClientId,
     sequence_number: i64,
 }
 
-impl Queue {
+impl<'a> Queue<'a> {
     pub(super) async fn new_and_store(
-        queue_id: AsClientId,
+        queue_id: &'a AsClientId,
         connection: impl PgExecutor<'_>,
     ) -> Result<Self, StorageError> {
         let queue_data = Self {
@@ -35,7 +35,7 @@ mod persistence {
 
     use super::*;
 
-    impl Queue {
+    impl Queue<'_> {
         pub(super) async fn store(
             &self,
             connection: impl PgExecutor<'_>,
@@ -200,7 +200,7 @@ mod persistence {
             let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
             store_random_client_record(&pool, client_id.clone()).await?;
 
-            let queue = Queue::new_and_store(client_id.clone(), &pool).await?;
+            let queue = Queue::new_and_store(&client_id, &pool).await?;
 
             let n: u64 = queue.sequence_number.try_into()?;
             let mut messages = Vec::new();

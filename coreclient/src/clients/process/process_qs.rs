@@ -206,9 +206,8 @@ impl CoreUser {
         // MLSMessage Phase 3: Store the updated group and the messages.
         self.with_transaction_and_notifier(async |connection, notifier| {
             group.store_update(&mut *connection).await?;
-            let conversation_messages = self
-                .store_messages(connection, notifier, conversation_id, group_messages)
-                .await?;
+            let conversation_messages =
+                Self::store_messages(connection, notifier, conversation_id, group_messages).await?;
             Ok(match (conversation_messages, conversation_changed) {
                 (messages, true) => {
                     ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
@@ -274,7 +273,7 @@ impl CoreUser {
             let user_name = user_name.clone();
             // Check if it was an external commit and if the user name matches
             if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_id.user_name() == user_name
+                && sender_client_id.user_name() == &user_name
             {
                 // TODO: Handle the fact that an unexpected user joined the connection group.
             }

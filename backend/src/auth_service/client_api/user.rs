@@ -41,7 +41,7 @@ impl AuthService {
         // Check if a user entry with the name given in the client_csr already exists
         tracing::info!("Checking if user already exists");
         let user_name_exists =
-            UserRecord::load(&self.db_pool, &client_payload.identity().user_name())
+            UserRecord::load(&self.db_pool, client_payload.identity().user_name())
                 .await
                 .map_err(|e| {
                     tracing::error!("Error loading user record: {:?}", e);
@@ -139,7 +139,7 @@ impl AuthService {
         let password_file = ServerRegistration::finish(opaque_registration_record.client_message);
 
         // Create the user entry with the information given in the request
-        UserRecord::new_and_store(&self.db_pool, &client_id.user_name(), &password_file)
+        UserRecord::new_and_store(&self.db_pool, client_id.user_name(), &password_file)
             .await
             .map_err(|e| {
                 tracing::error!("Storage provider error: {:?}", e);

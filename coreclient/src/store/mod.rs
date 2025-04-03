@@ -34,7 +34,7 @@ pub type StoreResult<T> = anyhow::Result<T>;
 pub trait LocalStore {
     // user
 
-    fn user_name(&self) -> QualifiedUserName;
+    fn user_name(&self) -> &QualifiedUserName;
 
     async fn own_user_profile(&self) -> StoreResult<UserProfile>;
 
@@ -42,6 +42,9 @@ pub trait LocalStore {
 
     // conversations
 
+    /// Create new conversation.
+    ///
+    /// Returns the id of the newly created conversation.
     async fn create_conversation(
         &self,
         title: String,
@@ -67,6 +70,12 @@ pub trait LocalStore {
         until: ConversationMessageId,
     ) -> StoreResult<bool>;
 
+    /// Delete the conversation with the given [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
     async fn delete_conversation(
         &self,
         conversation_id: ConversationId,
@@ -74,9 +83,51 @@ pub trait LocalStore {
 
     async fn leave_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
 
+    // user management
+
+    /// Update the user's key material in the conversation with the given
+    /// [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    async fn update_key(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Vec<ConversationMessage>>;
+
+    /// Remove users from the conversation with the given [`ConversationId`].
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    async fn remove_users(
+        &self,
+        conversation_id: ConversationId,
+        target_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>>;
+
+    /// Invite users to an existing conversation.
+    ///
+    /// Since this function causes the creation of an MLS commit, it can cause
+    /// more than one effect on the group. As a result this function returns a
+    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// group. Note that these returned message have already been persisted.
+    async fn invite_users(
+        &self,
+        conversation_id: ConversationId,
+        invited_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>>;
+
     // contacts
 
-    async fn add_contact(&self, user_name: &QualifiedUserName) -> StoreResult<ConversationId>;
+    /// Create a connection with a new user.
+    ///
+    /// Returns the [`ConversationId`] of the newly created connection
+    /// conversation.
+    async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
