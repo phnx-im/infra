@@ -75,6 +75,14 @@ impl Store for CoreUser {
         self.remove_users(conversation_id, target_users).await
     }
 
+    async fn invite_users(
+        &self,
+        conversation_id: ConversationId,
+        invited_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>> {
+        self.invite_users(conversation_id, invited_users).await
+    }
+
     async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId> {
         self.add_contact(user_name).await
     }
