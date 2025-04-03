@@ -4,7 +4,7 @@
 
 use crate::errors::StorageError;
 
-use super::network_provider_trait::NetworkProvider;
+use super::network_provider::NetworkProvider;
 use phnxtypes::crypto::errors::{DecryptionError, KeyGenerationError};
 use thiserror::Error;
 

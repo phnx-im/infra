@@ -40,7 +40,7 @@ impl AuthService {
                 // credential from the persistend storage, or the ephemeral
                 // storage.
                 if cca.is_finish_user_registration_request() {
-                    let client_credentials = self.ephemeral_client_credentials.lock().await;
+                    let client_credentials = self.inner.ephemeral_client_credentials.lock().await;
                     let client_credential = client_credentials
                         .get(cca.client_id())
                         .ok_or(AsVerificationError::UnknownClient)?;
@@ -75,7 +75,7 @@ impl AuthService {
             AsAuthMethod::Client2Fa(auth_info) => {
                 // We authenticate opaque first.
                 let client_id = auth_info.client_credential_auth.client_id().clone();
-                let mut client_login_states = self.ephemeral_client_logins.lock().await;
+                let mut client_login_states = self.inner.ephemeral_client_logins.lock().await;
                 let opaque_state = client_login_states
                     .remove(&client_id)
                     .ok_or(AsVerificationError::UnknownClient)?;
@@ -101,7 +101,7 @@ impl AuthService {
             }
             // Authentication using only the user's password via an OPAQUE login flow.
             AsAuthMethod::User(user_auth) => {
-                let mut user_login_states = self.ephemeral_user_logins.lock().await;
+                let mut user_login_states = self.inner.ephemeral_user_logins.lock().await;
                 let opaque_state = user_login_states
                     .remove(&user_auth.user_name)
                     .ok_or(AsVerificationError::UnknownUser)?;
