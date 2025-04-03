@@ -69,21 +69,6 @@ check-frb-ci: install-cargo-binstall
     cargo binstall flutter_rust_bridge_codegen@2.9.0 cargo-expand
     just check-frb
 
-# integrate the Flutter Rust bridge (potentially destructive; commit changes before running)
-[working-directory: 'app']
-frb-integrate:
-    mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.tmp
-    rm -Rf rust_builder test_driver
-    flutter_rust_bridge_codegen integrate --rust-crate-name phnxapplogic --rust-crate-dir {{app_rust_base_dir}}
-    git restore --source=HEAD --staged --worktree {{app_rust_base_dir}} lib
-    git clean -fd {{app_rust_base_dir}} lib
-    mv flutter_rust_bridge.yaml flutter_rust_bridge.yaml.generated.tmp
-    echo "# This is only to inspect the generated flutter_rust_bridge.yaml file. Remove if not needed.\n" > /tmp/header.tmp
-    cat /tmp/header.tmp flutter_rust_bridge.yaml.generated.tmp > flutter_rust_bridge.yaml.generated
-    mv flutter_rust_bridge.yaml.tmp flutter_rust_bridge.yaml
-    rm flutter_rust_bridge.yaml.generated.tmp
-    just frb-generate
-
 # set up the CI environment for the app
 install-cargo-binstall:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
