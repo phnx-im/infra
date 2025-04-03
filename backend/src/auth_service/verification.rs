@@ -5,7 +5,7 @@
 use phnxtypes::{
     crypto::signatures::signable::Verifiable,
     errors::auth_service::AsVerificationError,
-    messages::{client_as::AsAuthMethod, client_as_out::ClientToAsMessageIn},
+    messages::{ApiVersion, client_as::AsAuthMethod, client_as_out::ClientToAsMessageIn},
 };
 use tls_codec::TlsDeserializeBytes;
 
@@ -17,18 +17,14 @@ use super::{AuthService, TlsSize, VerifiedAsRequestParams, client_record::Client
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct VerifiableClientToAsMessage(ClientToAsMessageIn);
 
-impl VerifiableClientToAsMessage {
-    fn into_auth_method(self) -> AsAuthMethod {
-        self.0.auth_method()
-    }
-}
-
 impl AuthService {
     pub(crate) async fn verify(
         &self,
         message: VerifiableClientToAsMessage,
-    ) -> Result<VerifiedAsRequestParams, AsVerificationError> {
-        let parameters = match message.into_auth_method() {
+    ) -> Result<(VerifiedAsRequestParams, ApiVersion), AsVerificationError> {
+        let versioned_params = message.0.into_body();
+        let (params, version) = versioned_params.into_unversioned()?;
+        let params = match params.into_auth_method() {
             // No authentication at all. We just return the parameters without
             // verification.
             AsAuthMethod::None(params) => params,
@@ -115,6 +111,6 @@ impl AuthService {
                 *user_auth.payload
             }
         };
-        Ok(parameters)
+        Ok((params, version))
     }
 }
