@@ -16,7 +16,7 @@ use crate::{
 use super::{Store, StoreNotification, StoreResult};
 
 impl Store for CoreUser {
-    fn user_name(&self) -> QualifiedUserName {
+    fn user_name(&self) -> &QualifiedUserName {
         self.user_name()
     }
 
@@ -67,8 +67,31 @@ impl Store for CoreUser {
         self.leave_conversation(conversation_id).await
     }
 
-    async fn add_contact(&self, user_name: &QualifiedUserName) -> StoreResult<ConversationId> {
-        self.add_contact(user_name.clone()).await
+    async fn update_key(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Vec<ConversationMessage>> {
+        self.update_key(conversation_id).await
+    }
+
+    async fn remove_users(
+        &self,
+        conversation_id: ConversationId,
+        target_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>> {
+        self.remove_users(conversation_id, target_users).await
+    }
+
+    async fn invite_users(
+        &self,
+        conversation_id: ConversationId,
+        invited_users: &[QualifiedUserName],
+    ) -> StoreResult<Vec<ConversationMessage>> {
+        self.invite_users(conversation_id, invited_users).await
+    }
+
+    async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId> {
+        self.add_contact(user_name).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
