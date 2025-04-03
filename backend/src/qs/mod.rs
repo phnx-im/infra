@@ -67,7 +67,6 @@ use phnxtypes::{
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
 
-use async_trait::*;
 use sqlx::PgPool;
 use thiserror::Error;
 
@@ -83,7 +82,7 @@ mod client_record;
 pub mod ds_api;
 pub mod errors;
 mod key_package;
-pub mod network_provider_trait;
+pub mod network_provider;
 pub mod qs_api;
 mod queue;
 mod user_record;
@@ -106,7 +105,6 @@ impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
     }
 }
 
-#[async_trait]
 impl InfraService for Qs {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         // Check if the requisite key material exists and if it doesn't, generate it.
@@ -135,7 +133,7 @@ pub enum WebsocketNotifierError {
 }
 
 /// TODO: This should be unified with push notifications later
-#[async_trait]
+#[expect(async_fn_in_trait)]
 pub trait WebsocketNotifier {
     async fn notify(
         &self,
@@ -162,13 +160,13 @@ pub enum PushNotificationError {
     InvalidConfiguration(String),
 }
 
-#[async_trait]
+#[expect(async_fn_in_trait)]
 pub trait PushNotificationProvider: std::fmt::Debug + Send + Sync + 'static {
     async fn push(&self, push_token: PushToken) -> Result<(), PushNotificationError>;
 }
 
-#[async_trait]
+#[expect(async_fn_in_trait)]
 pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
-    type EnqueueError: std::fmt::Debug;
+    type EnqueueError: std::error::Error;
     async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
 }
