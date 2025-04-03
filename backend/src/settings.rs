@@ -18,7 +18,7 @@ pub struct Settings {
 }
 
 /// Configuration for the application.
-#[derive(serde::Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct ApplicationSettings {
     pub port: u16,
     pub host: String,

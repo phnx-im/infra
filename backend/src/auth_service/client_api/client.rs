@@ -117,7 +117,7 @@ impl AuthService {
             .map_err(|_| InitClientAdditionError::LibraryError)?;
 
         // Store the client_credential in the ephemeral DB
-        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let mut client_credentials = self.inner.ephemeral_client_credentials.lock().await;
         client_credentials.insert(
             client_credential.identity().clone(),
             client_credential.clone(),
@@ -144,7 +144,7 @@ impl AuthService {
 
         // Look up the initial client's ClientCredentialn the ephemeral DB based
         // on the client_id
-        let mut client_credentials = self.ephemeral_client_credentials.lock().await;
+        let mut client_credentials = self.inner.ephemeral_client_credentials.lock().await;
         let client_credential = client_credentials
             .remove(&client_id)
             .ok_or(FinishClientAdditionError::ClientCredentialNotFound)?;
@@ -198,7 +198,7 @@ impl AuthService {
         })?;
 
         // Delete the entry in the ephemeral OPAQUE DB
-        let mut client_login_states = self.ephemeral_client_logins.lock().await;
+        let mut client_login_states = self.inner.ephemeral_client_logins.lock().await;
         client_login_states.remove(&client_id);
 
         Ok(())

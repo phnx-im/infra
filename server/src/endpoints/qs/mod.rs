@@ -8,7 +8,7 @@ use actix_web::{
 };
 use phnxbackend::{
     messages::qs_qs::QsToQsMessage,
-    qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider_trait::NetworkProvider},
+    qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider::NetworkProvider},
 };
 use phnxtypes::{
     ACCEPTED_API_VERSIONS_HEADER, errors::qs::QsProcessError,
