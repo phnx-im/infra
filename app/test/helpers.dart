@@ -37,9 +37,11 @@ class LocalFileComparatorWithThreshold extends LocalFileComparator {
       if ((result.diffPercent - threshold).abs() > 0.01) {
         final diff = (result.diffPercent * 10000.0).round() / 100.0;
         // ignore: avoid_print
-        print("Golden file comparison passed with $diff% difference, "
-            "which is more than 1%pt under the configured threshold of ${threshold * 100}%. "
-            "Consider making the threshold tighter.");
+        print(
+          "Golden file comparison passed with $diff% difference, "
+          "which is more than 1%pt under the configured threshold of ${threshold * 100}%. "
+          "Consider making the threshold tighter.",
+        );
       }
       return true;
     } else if (!result.passed) {
@@ -58,7 +60,8 @@ Future<void> withThreshold(double threshold, AsyncCallback test) async {
   final testUrl = (goldenFileComparator as LocalFileComparator).basedir;
   goldenFileComparator = LocalFileComparatorWithThreshold(
     // only the base dir is used from this URI, so pass a dummy file name
-    Uri.parse('$testUrl/test.dart'), threshold,
+    Uri.parse('$testUrl/test.dart'),
+    threshold,
   );
   try {
     await test();

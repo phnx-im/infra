@@ -21,11 +21,7 @@ import '../mocks.dart';
 
 final conversation = conversations[2];
 
-final members = [
-  "alice@localhost",
-  "bob@localhost",
-  "eve@localhost",
-];
+final members = ["alice@localhost", "bob@localhost", "eve@localhost"];
 
 void main() {
   setUpAll(() {
@@ -44,55 +40,51 @@ void main() {
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
-      when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: "alice@localhost"));
-      when(() => userCubit.userProfile(any()))
-          .thenAnswer((_) => Future.value(null));
+      when(
+        () => userCubit.state,
+      ).thenReturn(MockUiUser(userName: "alice@localhost"));
+      when(
+        () => userCubit.userProfile(any()),
+      ).thenAnswer((_) => Future.value(null));
       when(() => conversationDetailsCubit.state).thenReturn(
-        ConversationDetailsState(
-          conversation: conversation,
-          members: members,
-        ),
+        ConversationDetailsState(conversation: conversation, members: members),
       );
-      when(() => conversationDetailsCubit.markAsRead(
-            untilMessageId: any(named: "untilMessageId"),
-            untilTimestamp: any(named: "untilTimestamp"),
-          )).thenAnswer((_) => Future.value());
+      when(
+        () => conversationDetailsCubit.markAsRead(
+          untilMessageId: any(named: "untilMessageId"),
+          untilTimestamp: any(named: "untilTimestamp"),
+        ),
+      ).thenAnswer((_) => Future.value());
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<NavigationCubit>.value(
-              value: navigationCubit,
+      providers: [
+        BlocProvider<NavigationCubit>.value(value: navigationCubit),
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ConversationDetailsCubit>.value(
+          value: conversationDetailsCubit,
+        ),
+        BlocProvider<MessageListCubit>.value(value: messageListCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: const Scaffold(
+              body: ConversationScreenView(
+                createMessageCubit: createMockMessageCubit,
+              ),
             ),
-            BlocProvider<UserCubit>.value(
-              value: userCubit,
-            ),
-            BlocProvider<ConversationDetailsCubit>.value(
-              value: conversationDetailsCubit,
-            ),
-            BlocProvider<MessageListCubit>.value(
-              value: messageListCubit,
-            ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: const Scaffold(
-                  body: ConversationScreenView(
-                    createMessageCubit: createMockMessageCubit,
-                  ),
-                ),
-              );
-            },
-          ),
-        );
+          );
+        },
+      ),
+    );
 
     testWidgets('renders correctly when empty', (tester) async {
-      when(() => navigationCubit.state)
-          .thenReturn(const NavigationState.home());
+      when(
+        () => navigationCubit.state,
+      ).thenReturn(const NavigationState.home());
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());
@@ -104,10 +96,14 @@ void main() {
     });
 
     testWidgets('renders correctly', (tester) async {
-      when(() => navigationCubit.state).thenReturn(NavigationState.home(
-          home: HomeNavigationState(conversationId: conversation.id)));
-      when(() => messageListCubit.state)
-          .thenReturn(MockMessageListState(messages));
+      when(() => navigationCubit.state).thenReturn(
+        NavigationState.home(
+          home: HomeNavigationState(conversationId: conversation.id),
+        ),
+      );
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages));
 
       VisibilityDetectorController.instance.updateInterval = Duration.zero;
 

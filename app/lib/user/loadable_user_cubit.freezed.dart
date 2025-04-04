@@ -12,7 +12,8 @@ part of 'loadable_user_cubit.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$LoadableUser {}
@@ -20,8 +21,9 @@ mixin _$LoadableUser {}
 /// @nodoc
 abstract class $LoadableUserCopyWith<$Res> {
   factory $LoadableUserCopyWith(
-          LoadableUser value, $Res Function(LoadableUser) then) =
-      _$LoadableUserCopyWithImpl<$Res, LoadableUser>;
+    LoadableUser value,
+    $Res Function(LoadableUser) then,
+  ) = _$LoadableUserCopyWithImpl<$Res, LoadableUser>;
 }
 
 /// @nodoc
@@ -41,8 +43,9 @@ class _$LoadableUserCopyWithImpl<$Res, $Val extends LoadableUser>
 /// @nodoc
 abstract class _$$LoadingUserImplCopyWith<$Res> {
   factory _$$LoadingUserImplCopyWith(
-          _$LoadingUserImpl value, $Res Function(_$LoadingUserImpl) then) =
-      __$$LoadingUserImplCopyWithImpl<$Res>;
+    _$LoadingUserImpl value,
+    $Res Function(_$LoadingUserImpl) then,
+  ) = __$$LoadingUserImplCopyWithImpl<$Res>;
 }
 
 /// @nodoc
@@ -50,8 +53,9 @@ class __$$LoadingUserImplCopyWithImpl<$Res>
     extends _$LoadableUserCopyWithImpl<$Res, _$LoadingUserImpl>
     implements _$$LoadingUserImplCopyWith<$Res> {
   __$$LoadingUserImplCopyWithImpl(
-      _$LoadingUserImpl _value, $Res Function(_$LoadingUserImpl) _then)
-      : super(_value, _then);
+    _$LoadingUserImpl _value,
+    $Res Function(_$LoadingUserImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of LoadableUser
   /// with the given fields replaced by the non-null parameter values.
@@ -85,8 +89,9 @@ abstract class LoadingUser extends LoadableUser {
 /// @nodoc
 abstract class _$$LoadedUserImplCopyWith<$Res> {
   factory _$$LoadedUserImplCopyWith(
-          _$LoadedUserImpl value, $Res Function(_$LoadedUserImpl) then) =
-      __$$LoadedUserImplCopyWithImpl<$Res>;
+    _$LoadedUserImpl value,
+    $Res Function(_$LoadedUserImpl) then,
+  ) = __$$LoadedUserImplCopyWithImpl<$Res>;
   @useResult
   $Res call({User? user});
 }
@@ -96,22 +101,23 @@ class __$$LoadedUserImplCopyWithImpl<$Res>
     extends _$LoadableUserCopyWithImpl<$Res, _$LoadedUserImpl>
     implements _$$LoadedUserImplCopyWith<$Res> {
   __$$LoadedUserImplCopyWithImpl(
-      _$LoadedUserImpl _value, $Res Function(_$LoadedUserImpl) _then)
-      : super(_value, _then);
+    _$LoadedUserImpl _value,
+    $Res Function(_$LoadedUserImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of LoadableUser
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? user = freezed,
-  }) {
-    return _then(_$LoadedUserImpl(
-      freezed == user
-          ? _value.user
-          : user // ignore: cast_nullable_to_non_nullable
-              as User?,
-    ));
+  $Res call({Object? user = freezed}) {
+    return _then(
+      _$LoadedUserImpl(
+        freezed == user
+            ? _value.user
+            : user // ignore: cast_nullable_to_non_nullable
+                as User?,
+      ),
+    );
   }
 }
 

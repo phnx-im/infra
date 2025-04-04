@@ -84,6 +84,6 @@ class VariableFontWeight {
     w600,
     w700,
     w800,
-    w900
+    w900,
   ];
 }

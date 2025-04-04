@@ -31,8 +31,9 @@ class _LogsScreenState extends State<LogsScreen> {
 
   void _loadLogs() async {
     final appLogs = readAppLogs();
-    final backgroundLogs = getApplicationCacheDirectory()
-        .then((cacheDir) => readBackgroundLogs(cacheDir: cacheDir.path));
+    final backgroundLogs = getApplicationCacheDirectory().then(
+      (cacheDir) => readBackgroundLogs(cacheDir: cacheDir.path),
+    );
 
     setState(() {
       _appLogs = appLogs;
@@ -86,26 +87,26 @@ class LogsScreenView extends StatelessWidget {
           leading: const AppBarBackButton(),
           actions: [
             PopupMenuButton(
-              itemBuilder: (context) => [
-                if (Platform.isLinux || Platform.isMacOS || Platform.isWindows)
-                  PopupMenuItem(
-                    onTap: _saveLogs,
-                    child: const Text('Save'),
-                  ),
-                if (Platform.isAndroid || Platform.isIOS)
-                  PopupMenuItem(
-                    onTap: _shareLogs,
-                    child: const Text('Share'),
-                  ),
-                PopupMenuItem(
-                  onTap: reloadLogs,
-                  child: const Text('Reload'),
-                ),
-                PopupMenuItem(
-                  onTap: clearLogs,
-                  child: const Text('Clear'),
-                ),
-              ],
+              itemBuilder:
+                  (context) => [
+                    if (Platform.isLinux ||
+                        Platform.isMacOS ||
+                        Platform.isWindows)
+                      PopupMenuItem(
+                        onTap: _saveLogs,
+                        child: const Text('Save'),
+                      ),
+                    if (Platform.isAndroid || Platform.isIOS)
+                      PopupMenuItem(
+                        onTap: _shareLogs,
+                        child: const Text('Share'),
+                      ),
+                    PopupMenuItem(
+                      onTap: reloadLogs,
+                      child: const Text('Reload'),
+                    ),
+                    PopupMenuItem(onTap: clearLogs, child: const Text('Clear')),
+                  ],
             ),
           ],
         ),
@@ -114,12 +115,7 @@ class LogsScreenView extends StatelessWidget {
           right: false,
           top: false,
           bottom: true,
-          child: TabBar(
-            tabs: [
-              Tab(text: 'App'),
-              Tab(text: 'Background'),
-            ],
-          ),
+          child: TabBar(tabs: [Tab(text: 'App'), Tab(text: 'Background')]),
         ),
         body: SafeArea(
           child: Padding(
@@ -148,15 +144,18 @@ class LogsScreenView extends StatelessWidget {
     final data = await tarLogs(cacheDir: cacheDir.path);
 
     const String fileName = 'logs.tar.gz';
-    final FileSaveLocation? result =
-        await getSaveLocation(suggestedName: fileName);
+    final FileSaveLocation? result = await getSaveLocation(
+      suggestedName: fileName,
+    );
     if (result == null) {
       // Operation was canceled by the user.
       return;
     }
 
-    await XFile.fromData(data, mimeType: 'application/gzip')
-        .saveTo(result.path);
+    await XFile.fromData(
+      data,
+      mimeType: 'application/gzip',
+    ).saveTo(result.path);
   }
 }
 
@@ -184,9 +183,7 @@ class _LogsViewState extends State<_LogsView>
           return const Center(child: Text('Error loading logs'));
         }
         return const Center(
-          child: SizedBox(
-            child: CircularProgressIndicator(),
-          ),
+          child: SizedBox(child: CircularProgressIndicator()),
         );
       },
     );

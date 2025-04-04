@@ -60,7 +60,7 @@ class _DisplayMessageTileState extends State<DisplayMessageTile> {
               },
             ),
           ),
-          TileTimestamp(hovering: _hovering, timestamp: widget.timestamp)
+          TileTimestamp(hovering: _hovering, timestamp: widget.timestamp),
         ],
       ),
     );
@@ -68,10 +68,7 @@ class _DisplayMessageTileState extends State<DisplayMessageTile> {
 }
 
 class SystemMessageContent extends StatelessWidget {
-  const SystemMessageContent({
-    super.key,
-    required this.message,
-  });
+  const SystemMessageContent({super.key, required this.message});
 
   final UiSystemMessage message;
 
@@ -98,10 +95,7 @@ class SystemMessageContent extends StatelessWidget {
 }
 
 class ErrorMessageContent extends StatelessWidget {
-  const ErrorMessageContent({
-    super.key,
-    required this.message,
-  });
+  const ErrorMessageContent({super.key, required this.message});
 
   final UiErrorMessage message;
 

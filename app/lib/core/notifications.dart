@@ -46,10 +46,7 @@ class NotificationHandle {
   final NotificationId identifier;
   final ConversationId? conversationId;
 
-  const NotificationHandle({
-    required this.identifier,
-    this.conversationId,
-  });
+  const NotificationHandle({required this.identifier, this.conversationId});
 
   @override
   int get hashCode => identifier.hashCode ^ conversationId.hashCode;
@@ -66,9 +63,7 @@ class NotificationHandle {
 class NotificationId {
   final UuidValue field0;
 
-  const NotificationId({
-    required this.field0,
-  });
+  const NotificationId({required this.field0});
 
   @override
   int get hashCode => field0.hashCode;

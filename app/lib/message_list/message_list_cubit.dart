@@ -13,9 +13,9 @@ class MessageListCubit extends StateStreamableSource<MessageListState> {
     required UserCubit userCubit,
     required ConversationId conversationId,
   }) : _impl = MessageListCubitBase(
-          userCubit: userCubit.impl,
-          conversationId: conversationId,
-        );
+         userCubit: userCubit.impl,
+         conversationId: conversationId,
+       );
 
   final MessageListCubitBase _impl;
 

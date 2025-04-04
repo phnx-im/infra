@@ -26,10 +26,7 @@ final conversations = [
     conversationType: const UiConversationType_Connection('bob@localhost'),
     unreadMessages: 10,
     messagesCount: 10,
-    attributes: const UiConversationAttributes(
-      title: 'Bob',
-      picture: null,
-    ),
+    attributes: const UiConversationAttributes(title: 'Bob', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 1.conversationMessageId(),
@@ -52,14 +49,12 @@ final conversations = [
   UiConversationDetails(
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType:
-        const UiConversationType_UnconfirmedConnection('eve@localhost'),
+    conversationType: const UiConversationType_UnconfirmedConnection(
+      'eve@localhost',
+    ),
     unreadMessages: 0,
     messagesCount: 10,
-    attributes: const UiConversationAttributes(
-      title: 'Eve',
-      picture: null,
-    ),
+    attributes: const UiConversationAttributes(title: 'Eve', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 2.conversationMessageId(),
@@ -88,10 +83,7 @@ final conversations = [
     conversationType: const UiConversationType_Group(),
     unreadMessages: 0,
     messagesCount: 10,
-    attributes: const UiConversationAttributes(
-      title: 'Group',
-      picture: null,
-    ),
+    attributes: const UiConversationAttributes(title: 'Group', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: UiConversationMessage(
       id: 3.conversationMessageId(),
@@ -114,15 +106,21 @@ final conversations = [
 ];
 
 MessageContent simpleMessage(String msg) {
-  return MessageContent(content: [
-    RangedBlockElement(
+  return MessageContent(
+    content: [
+      RangedBlockElement(
         start: 0,
         end: msg.length,
         element: BlockElement_Paragraph([
           RangedInlineElement(
-              start: 0, end: msg.length, element: InlineElement_Text(msg))
-        ]))
-  ]);
+            start: 0,
+            end: msg.length,
+            element: InlineElement_Text(msg),
+          ),
+        ]),
+      ),
+    ],
+  );
 }
 
 void main() {
@@ -136,39 +134,37 @@ void main() {
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
 
-      when(() => navigationCubit.state)
-          .thenReturn(const NavigationState.home());
-      when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: 'alice@localhost'));
+      when(
+        () => navigationCubit.state,
+      ).thenReturn(const NavigationState.home());
+      when(
+        () => userCubit.state,
+      ).thenReturn(MockUiUser(userName: 'alice@localhost'));
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<NavigationCubit>.value(
-              value: navigationCubit,
-            ),
-            BlocProvider<UserCubit>.value(
-              value: userCubit,
-            ),
-            BlocProvider<ConversationListCubit>.value(
-              value: conversationListCubit,
-            ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: const Scaffold(body: ConversationListContent()),
-              );
-            },
-          ),
-        );
+      providers: [
+        BlocProvider<NavigationCubit>.value(value: navigationCubit),
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: const Scaffold(body: ConversationListContent()),
+          );
+        },
+      ),
+    );
 
-    testWidgets('renders correctly when there are no conversations',
-        (tester) async {
-      when(() => conversationListCubit.state)
-          .thenReturn(const ConversationListState(conversations: []));
+    testWidgets('renders correctly when there are no conversations', (
+      tester,
+    ) async {
+      when(
+        () => conversationListCubit.state,
+      ).thenReturn(const ConversationListState(conversations: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -182,13 +178,17 @@ void main() {
       when(() => navigationCubit.state).thenReturn(
         NavigationState.home(
           home: HomeNavigationState(
-              conversationOpen: true, conversationId: conversations[1].id),
+            conversationOpen: true,
+            conversationId: conversations[1].id,
+          ),
         ),
       );
       when(() => conversationListCubit.state).thenReturn(
         ConversationListState(
           conversations: List.generate(
-              20, (index) => conversations[index % conversations.length]),
+            20,
+            (index) => conversations[index % conversations.length],
+          ),
         ),
       );
 

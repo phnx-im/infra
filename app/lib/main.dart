@@ -36,10 +36,7 @@ void showErrorBanner(
       content: Text(errorDescription),
       actions: [
         TextButton(
-          child: const Text(
-            'OK',
-            style: TextStyle(color: Colors.white),
-          ),
+          child: const Text('OK', style: TextStyle(color: Colors.white)),
           onPressed: () {
             messengerState.hideCurrentMaterialBanner();
           },
