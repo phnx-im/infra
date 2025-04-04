@@ -53,7 +53,7 @@ impl Contact {
         friendship_package: FriendshipPackage,
     ) -> Self {
         Self {
-            user_name: client_id.user_name(),
+            user_name: client_id.user_name().clone(),
             clients: vec![client_id],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
@@ -71,13 +71,13 @@ impl Contact {
     pub(crate) async fn fetch_add_infos(
         &self,
         pool: &SqlitePool,
-        api_clients: ApiClients,
+        api_clients: &ApiClients,
     ) -> Result<ContactAddInfos> {
         let invited_user = self.user_name.clone();
         let invited_user_domain = invited_user.domain();
 
         let key_package_response = api_clients
-            .get(&invited_user_domain)?
+            .get(invited_user_domain)?
             .qs_key_package(
                 self.friendship_token.clone(),
                 self.key_package_ear_key.clone(),
@@ -95,12 +95,12 @@ impl Contact {
             pseudonymous_credential.derive_decrypt_and_verify(&self.connection_key)?;
         // Verify the client credential
         let incoming_client_credential =
-            StorableClientCredential::verify(pool, &api_clients, plaintext.client_credential)
+            StorableClientCredential::verify(pool, api_clients, plaintext.client_credential)
                 .await?;
         // Check that the client credential is the same as the one we have on file.
         let Some(current_client_credential) = StorableClientCredential::load_by_client_id(
             pool,
-            &incoming_client_credential.identity(),
+            incoming_client_credential.identity(),
         )
         .await?
         else {

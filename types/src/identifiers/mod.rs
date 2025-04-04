@@ -314,8 +314,8 @@ impl QualifiedUserName {
         &self.user_name
     }
 
-    pub fn domain(&self) -> Fqdn {
-        self.domain.clone()
+    pub fn domain(&self) -> &Fqdn {
+        &self.domain
     }
 }
 
@@ -363,9 +363,8 @@ impl AsClientId {
         Ok(Self::new(user_name, Uuid::new_v4()))
     }
 
-    pub fn user_name(&self) -> QualifiedUserName {
-        // TODO: avoid this clone
-        self.user_name.clone()
+    pub fn user_name(&self) -> &QualifiedUserName {
+        &self.user_name
     }
 
     pub fn client_id(&self) -> Uuid {

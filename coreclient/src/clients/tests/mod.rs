@@ -25,7 +25,10 @@ async fn user_stages() -> anyhow::Result<()> {
     let phnx_db = open_db_in_memory().await?;
     let client_db = open_db_in_memory().await?;
 
-    let api_clients = ApiClients::new(as_client_id.user_name().domain(), server_url.clone());
+    let api_clients = ApiClients::new(
+        as_client_id.user_name().domain().clone(),
+        server_url.clone(),
+    );
 
     let computed_state = UserCreationState::new(
         &client_db,

@@ -31,12 +31,13 @@ use crate::{
         ratchet::QueueRatchet,
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },
+    errors::version::VersionError,
     identifiers::{AsClientId, QualifiedUserName},
     time::ExpirationData,
 };
 
 use super::{
-    AsTokenType, EncryptedAsQueueMessage, MlsInfraVersion,
+    ApiVersion, AsTokenType, EncryptedAsQueueMessage, MlsInfraVersion,
     client_as_out::{
         ConnectionPackageIn, FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
         VerifiableConnectionPackage,
@@ -47,6 +48,10 @@ mod private_mod {
     #[derive(Default)]
     pub struct Seal;
 }
+
+pub const CURRENT_AS_API_VERSION: ApiVersion = ApiVersion::new(1).unwrap();
+
+pub const SUPPORTED_AS_API_VERSIONS: &[ApiVersion] = &[CURRENT_AS_API_VERSION];
 
 // === Authentication ===
 
@@ -382,7 +387,7 @@ impl FinishClientAdditionParams {
     // trait later on.
     pub(super) fn user_auth(self) -> UserAuth {
         UserAuth {
-            user_name: self.payload.client_id.user_name(),
+            user_name: self.payload.client_id.user_name().clone(),
             opaque_finish: self.opaque_login_finish.clone(),
             payload: Box::new(VerifiedAsRequestParams::FinishClientAddition(self.payload)),
         }
@@ -836,24 +841,80 @@ impl DeserializeBytes for IssueTokensResponse {
 // === Auth & Framing ===
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct ClientToAsMessage {
-    _version: MlsInfraVersion,
+pub struct ClientToAsMessageOut {
     // This essentially includes the wire format.
-    body: AsRequestParams,
+    body: AsVersionedRequestParamsOut,
 }
 
-impl ClientToAsMessage {
-    pub fn new(body: AsRequestParams) -> Self {
-        Self {
-            _version: MlsInfraVersion::default(),
-            body,
+impl ClientToAsMessageOut {
+    pub fn new(body: AsVersionedRequestParamsOut) -> Self {
+        Self { body }
+    }
+
+    pub fn into_body(self) -> AsVersionedRequestParamsOut {
+        self.body
+    }
+}
+
+#[derive(Debug)]
+pub enum AsVersionedRequestParamsOut {
+    Alpha(AsRequestParamsOut),
+}
+
+impl AsVersionedRequestParamsOut {
+    pub fn with_version(
+        params: AsRequestParamsOut,
+        version: ApiVersion,
+    ) -> Result<Self, VersionError> {
+        match version.value() {
+            1 => Ok(Self::Alpha(params)),
+            _ => Err(VersionError::new(version, SUPPORTED_AS_API_VERSIONS)),
+        }
+    }
+
+    pub fn change_version(
+        self,
+        to_version: ApiVersion,
+    ) -> Result<(Self, ApiVersion), VersionError> {
+        let from_version = self.version();
+        match (to_version.value(), self) {
+            (1, Self::Alpha(params)) => Ok((Self::Alpha(params), from_version)),
+            (_, _) => Err(VersionError::new(to_version, SUPPORTED_AS_API_VERSIONS)),
+        }
+    }
+
+    fn version(&self) -> ApiVersion {
+        match self {
+            Self::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+}
+
+impl tls_codec::Size for AsVersionedRequestParamsOut {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            Self::Alpha(params) => {
+                self.version().tls_value().tls_serialized_len() + params.tls_serialized_len()
+            }
+        }
+    }
+}
+
+// Note: Manual implementation because `TlsSerialize` does not support custom variant tags.
+impl tls_codec::Serialize for AsVersionedRequestParamsOut {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        match self {
+            Self::Alpha(params) => {
+                Ok(self.version().tls_value().tls_serialize(writer)?
+                    + params.tls_serialize(writer)?)
+            }
         }
     }
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
-pub enum AsRequestParams {
+pub enum AsRequestParamsOut {
     Initiate2FaAuthentication(Initiate2FaAuthenticationParams),
     InitUserRegistration(InitUserRegistrationParams),
     FinishUserRegistration(FinishUserRegistrationParams),
