@@ -383,11 +383,10 @@ impl Ds {
                 )
             }
             DsGroupRequestParams::CreateGroupParams(_) => (None, DsProcessResponse::Ok, vec![]),
-            DsGroupRequestParams::UpdateQsClientReference(update_queue_info_params) => {
-                group_state
-                    .update_queue_config(update_queue_info_params)
-                    .map_err(|_| DsProcessingError::UnknownSender)?;
-                (None, DsProcessResponse::Ok, vec![])
+            DsGroupRequestParams::_UpdateQsClientReference => {
+                return Err(DsProcessingError::DeprecatedParam(
+                    "UpdateQsClientReference",
+                ));
             }
             DsGroupRequestParams::ExternalCommitInfo(_) => {
                 group_state_has_changed = false;

@@ -32,7 +32,7 @@ use super::{
     ApiVersion,
     client_ds::{
         ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-        UpdateQsClientReferenceParams, WelcomeInfoParams,
+        WelcomeInfoParams,
     },
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
 };
@@ -136,7 +136,7 @@ pub struct JoinConnectionGroupParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct ResyncParamsOut {
     pub external_commit: AssistedMessageOut,
-    pub sender_index: LeafNodeIndex,
+    pub sender: LeafNodeIndex,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -230,7 +230,7 @@ pub enum DsGroupRequestParamsOut {
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
-    UpdateQsClientReference(UpdateQsClientReferenceParams),
+    _UpdateQsClientReference,
     Update(UpdateParamsOut),
     JoinConnectionGroup(JoinConnectionGroupParamsOut),
     Resync(ResyncParamsOut),

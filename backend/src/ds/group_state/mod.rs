@@ -23,9 +23,9 @@ use phnxtypes::{
         },
         errors::{DecryptionError, EncryptionError},
     },
-    errors::{CborMlsAssistStorage, UpdateQueueConfigError},
+    errors::CborMlsAssistStorage,
     identifiers::{QsReference, SealedClientReference},
-    messages::client_ds::{UpdateQsClientReferenceParams, WelcomeInfoParams},
+    messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -89,18 +89,6 @@ impl DsGroupState {
     /// Get a mutable reference to the public group state.
     pub(crate) fn group_mut(&mut self) -> &mut Group {
         &mut self.group
-    }
-
-    pub(crate) fn update_queue_config(
-        &mut self,
-        params: UpdateQsClientReferenceParams,
-    ) -> Result<(), UpdateQueueConfigError> {
-        let client_profile = self
-            .member_profiles
-            .get_mut(&params.sender())
-            .ok_or(UpdateQueueConfigError::UnknownSender)?;
-        client_profile.client_queue_config = params.new_qs_reference().clone();
-        Ok(())
     }
 
     pub(super) fn welcome_info(

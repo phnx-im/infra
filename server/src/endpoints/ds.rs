@@ -36,6 +36,10 @@ pub(crate) async fn ds_process_message<Qep: QsConnector>(
             let serialized_response = response.tls_serialize_detached().unwrap();
             HttpResponse::Ok().body(serialized_response)
         }
+        Err(DsProcessingError::DeprecatedParam(name)) => {
+            warn!(%name, "Deprecated parameter");
+            HttpResponse::NotAcceptable().body(format!("Deprecated parameter: {name}"))
+        }
         Err(DsProcessingError::Api(version_error)) => {
             info!(%version_error, "Unsupported QS API version");
             HttpResponse::NotAcceptable()
