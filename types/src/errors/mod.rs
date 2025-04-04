@@ -136,6 +136,9 @@ pub enum DsProcessingError {
     /// Error performing group operation.
     #[error(transparent)]
     GroupOperationError(#[from] GroupOperationError),
+    /// Deprecated parameter
+    #[error("Deprecated param: {0}")]
+    DeprecatedParam(&'static str),
 }
 
 /// Potential errors when joining a group.

@@ -383,7 +383,11 @@ impl Ds {
                 )
             }
             DsGroupRequestParams::CreateGroupParams(_) => (None, DsProcessResponse::Ok, vec![]),
-            DsGroupRequestParams::_UpdateQsClientReference => (None, DsProcessResponse::Ok, vec![]),
+            DsGroupRequestParams::_UpdateQsClientReference => {
+                return Err(DsProcessingError::DeprecatedParam(
+                    "UpdateQsClientReference",
+                ));
+            }
             DsGroupRequestParams::ExternalCommitInfo(_) => {
                 group_state_has_changed = false;
                 (
