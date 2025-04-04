@@ -52,7 +52,8 @@ final messages = [
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           topicId: Uint8List(0),
           content: simpleMessage(
-              'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.'),
+            'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
+          ),
         ),
       ),
     ),
@@ -105,9 +106,11 @@ final messages = [
 
 This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
           topicId: Uint8List(0),
-          content: simpleMessage('''Nice to see you both here! 👋
+          content: simpleMessage(
+            '''Nice to see you both here! 👋
 
-This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.'''),
+This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
+          ),
         ),
       ),
     ),
@@ -118,8 +121,7 @@ This is a message with multiple lines. It should be properly displayed in the me
 MessageCubit createMockMessageCubit({
   required UserCubit userCubit,
   required MessageState initialState,
-}) =>
-    MockMessageCubit(initialState: initialState);
+}) => MockMessageCubit(initialState: initialState);
 
 void main() {
   setUpAll(() {
@@ -136,42 +138,40 @@ void main() {
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
-      when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: 'alice@localhost'));
-      when(() => userCubit.userProfile(any()))
-          .thenAnswer((_) => Future.value(null));
-      when(() => conversationDetailsCubit.markAsRead(
-            untilMessageId: any(named: 'untilMessageId'),
-            untilTimestamp: any(named: 'untilTimestamp'),
-          )).thenAnswer((_) => Future.value());
+      when(
+        () => userCubit.state,
+      ).thenReturn(MockUiUser(userName: 'alice@localhost'));
+      when(
+        () => userCubit.userProfile(any()),
+      ).thenAnswer((_) => Future.value(null));
+      when(
+        () => conversationDetailsCubit.markAsRead(
+          untilMessageId: any(named: 'untilMessageId'),
+          untilTimestamp: any(named: 'untilTimestamp'),
+        ),
+      ).thenAnswer((_) => Future.value());
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<UserCubit>.value(
-              value: userCubit,
+      providers: [
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ConversationDetailsCubit>.value(
+          value: conversationDetailsCubit,
+        ),
+        BlocProvider<MessageListCubit>.value(value: messageListCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: const Scaffold(
+              body: MessageListView(createMessageCubit: createMockMessageCubit),
             ),
-            BlocProvider<ConversationDetailsCubit>.value(
-              value: conversationDetailsCubit,
-            ),
-            BlocProvider<MessageListCubit>.value(
-              value: messageListCubit,
-            ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: const Scaffold(
-                  body: MessageListView(
-                    createMessageCubit: createMockMessageCubit,
-                  ),
-                ),
-              );
-            },
-          ),
-        );
+          );
+        },
+      ),
+    );
 
     testWidgets('renders correctly when empty', (tester) async {
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
@@ -185,8 +185,9 @@ void main() {
     });
 
     testWidgets('renders correctly', (tester) async {
-      when(() => messageListCubit.state)
-          .thenReturn(MockMessageListState(messages));
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages));
 
       VisibilityDetectorController.instance.updateInterval = Duration.zero;
 

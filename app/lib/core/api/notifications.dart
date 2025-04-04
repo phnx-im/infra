@@ -18,10 +18,13 @@ import 'types.dart';
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DartNotificationService>>
 abstract class DartNotificationService implements RustOpaqueInterface {
-  factory DartNotificationService(
-          {required FutureOr<void> Function(NotificationContent) send,
-          required FutureOr<List<NotificationHandle>> Function() getActive,
-          required FutureOr<void> Function(List<NotificationId>) cancel}) =>
-      RustLib.instance.api.crateApiNotificationsDartNotificationServiceNew(
-          send: send, getActive: getActive, cancel: cancel);
+  factory DartNotificationService({
+    required FutureOr<void> Function(NotificationContent) send,
+    required FutureOr<List<NotificationHandle>> Function() getActive,
+    required FutureOr<void> Function(List<NotificationId>) cancel,
+  }) => RustLib.instance.api.crateApiNotificationsDartNotificationServiceNew(
+    send: send,
+    getActive: getActive,
+    cancel: cancel,
+  );
 }

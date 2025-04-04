@@ -13,13 +13,15 @@ use opaque_ke::{ServerLogin, rand::rngs::OsRng};
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{OpaqueCiphersuite, signatures::DEFAULT_SIGNATURE_SCHEME},
-    errors::auth_service::AsProcessingError,
+    errors::{auth_service::AsProcessingError, version::VersionError},
     identifiers::{AsClientId, Fqdn, QualifiedUserName},
     messages::{
+        ApiVersion,
         client_as::{
             AsClientConnectionPackageResponse, AsCredentialsResponse, Init2FactorAuthResponse,
             InitClientAdditionResponse, InitUserRegistrationResponse, IssueTokensResponse,
-            UserClientsResponse, UserConnectionPackagesResponse, VerifiedAsRequestParams,
+            SUPPORTED_AS_API_VERSIONS, UserClientsResponse, UserConnectionPackagesResponse,
+            VerifiedAsRequestParams,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -149,8 +151,8 @@ impl AuthService {
     pub async fn process(
         &self,
         message: VerifiableClientToAsMessage,
-    ) -> Result<AsProcessResponse, AsProcessingError> {
-        let verified_params = self.verify(message).await?;
+    ) -> Result<AsVersionedProcessResponse, AsProcessingError> {
+        let (verified_params, from_version) = self.verify(message).await?;
 
         let response: AsProcessResponse = match verified_params {
             VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self
@@ -214,7 +216,54 @@ impl AuthService {
                 .await
                 .map(AsProcessResponse::InitUserRegistration)?,
         };
-        Ok(response)
+
+        Ok(AsVersionedProcessResponse::with_version(
+            response,
+            from_version,
+        )?)
+    }
+}
+
+#[derive(Debug)]
+pub enum AsVersionedProcessResponse {
+    Alpha(AsProcessResponse),
+}
+
+impl AsVersionedProcessResponse {
+    pub(crate) fn version(&self) -> ApiVersion {
+        match self {
+            Self::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+        }
+    }
+
+    pub(crate) fn with_version(
+        response: AsProcessResponse,
+        version: ApiVersion,
+    ) -> Result<Self, VersionError> {
+        match version.value() {
+            1 => Ok(Self::Alpha(response)),
+            _ => Err(VersionError::new(version, SUPPORTED_AS_API_VERSIONS)),
+        }
+    }
+}
+
+impl tls_codec::Size for AsVersionedProcessResponse {
+    fn tls_serialized_len(&self) -> usize {
+        match self {
+            Self::Alpha(response) => {
+                self.version().tls_value().tls_serialized_len() + response.tls_serialized_len()
+            }
+        }
+    }
+}
+
+// Note: Manual implementation because `TlsSerialize` does not support custom variant tags.
+impl tls_codec::Serialize for AsVersionedProcessResponse {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        match self {
+            Self::Alpha(response) => Ok(self.version().tls_value().tls_serialize(writer)?
+                + response.tls_serialize(writer)?),
+        }
     }
 }
 

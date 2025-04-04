@@ -15,9 +15,9 @@ class ConversationDetailsCubit
     required UserCubit userCubit,
     required ConversationId conversationId,
   }) : _impl = ConversationDetailsCubitBase(
-          userCubit: userCubit.impl,
-          conversationId: conversationId,
-        );
+         userCubit: userCubit.impl,
+         conversationId: conversationId,
+       );
 
   final ConversationDetailsCubitBase _impl;
 
@@ -49,9 +49,8 @@ class ConversationDetailsCubit
   Future<void> markAsRead({
     required ConversationMessageId untilMessageId,
     required DateTime untilTimestamp,
-  }) =>
-      _impl.markAsRead(
-        untilMessageId: untilMessageId,
-        untilTimestamp: untilTimestamp,
-      );
+  }) => _impl.markAsRead(
+    untilMessageId: untilMessageId,
+    untilTimestamp: untilTimestamp,
+  );
 }

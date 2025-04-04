@@ -13,7 +13,8 @@ import 'package:uuid/uuid.dart';
 
 import '../mocks.dart';
 
-const deviceToken = "87aae6872b144c82f5aa3abf0a9eec640"
+const deviceToken =
+    "87aae6872b144c82f5aa3abf0a9eec640"
     "bd8a0937e4d3486fa67bc22f913ebc04c"
     "53550eb2a326dac9bb16051ffc75b622b"
     "d467eb4cb3606acb69468e4df4414";
@@ -29,30 +30,29 @@ void main() {
 
       when(() => user.userName).thenReturn("alice@localhost");
       when(() => user.clientId).thenReturn(
-          UuidValue.fromString("7c19e63f-b636-4808-a034-0b7cdb462bce"));
+        UuidValue.fromString("7c19e63f-b636-4808-a034-0b7cdb462bce"),
+      );
       when(() => loadableUserCubit.state).thenReturn(LoadableUser.loaded(user));
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<LoadableUserCubit>.value(
-              value: loadableUserCubit,
+      providers: [
+        BlocProvider<LoadableUserCubit>.value(value: loadableUserCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: DeveloperSettingsScreenView(
+              deviceToken: deviceToken,
+              isMobile: true,
+              onRefreshPushToken: () {},
             ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: DeveloperSettingsScreenView(
-                  deviceToken: deviceToken,
-                  isMobile: true,
-                  onRefreshPushToken: () {},
-                ),
-              );
-            },
-          ),
-        );
+          );
+        },
+      ),
+    );
 
     testWidgets('renders correctly', (tester) async {
       await tester.pumpWidget(buildSubject());

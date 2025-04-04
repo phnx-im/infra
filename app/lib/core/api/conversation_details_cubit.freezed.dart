@@ -12,7 +12,8 @@ part of 'conversation_details_cubit.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$ConversationDetailsState {
@@ -28,16 +29,19 @@ mixin _$ConversationDetailsState {
 
 /// @nodoc
 abstract class $ConversationDetailsStateCopyWith<$Res> {
-  factory $ConversationDetailsStateCopyWith(ConversationDetailsState value,
-          $Res Function(ConversationDetailsState) then) =
-      _$ConversationDetailsStateCopyWithImpl<$Res, ConversationDetailsState>;
+  factory $ConversationDetailsStateCopyWith(
+    ConversationDetailsState value,
+    $Res Function(ConversationDetailsState) then,
+  ) = _$ConversationDetailsStateCopyWithImpl<$Res, ConversationDetailsState>;
   @useResult
   $Res call({UiConversationDetails? conversation, List<String> members});
 }
 
 /// @nodoc
-class _$ConversationDetailsStateCopyWithImpl<$Res,
-        $Val extends ConversationDetailsState>
+class _$ConversationDetailsStateCopyWithImpl<
+  $Res,
+  $Val extends ConversationDetailsState
+>
     implements $ConversationDetailsStateCopyWith<$Res> {
   _$ConversationDetailsStateCopyWithImpl(this._value, this._then);
 
@@ -50,20 +54,22 @@ class _$ConversationDetailsStateCopyWithImpl<$Res,
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? conversation = freezed,
-    Object? members = null,
-  }) {
-    return _then(_value.copyWith(
-      conversation: freezed == conversation
-          ? _value.conversation
-          : conversation // ignore: cast_nullable_to_non_nullable
-              as UiConversationDetails?,
-      members: null == members
-          ? _value.members
-          : members // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-    ) as $Val);
+  $Res call({Object? conversation = freezed, Object? members = null}) {
+    return _then(
+      _value.copyWith(
+            conversation:
+                freezed == conversation
+                    ? _value.conversation
+                    : conversation // ignore: cast_nullable_to_non_nullable
+                        as UiConversationDetails?,
+            members:
+                null == members
+                    ? _value.members
+                    : members // ignore: cast_nullable_to_non_nullable
+                        as List<String>,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -71,9 +77,9 @@ class _$ConversationDetailsStateCopyWithImpl<$Res,
 abstract class _$$ConversationDetailsStateImplCopyWith<$Res>
     implements $ConversationDetailsStateCopyWith<$Res> {
   factory _$$ConversationDetailsStateImplCopyWith(
-          _$ConversationDetailsStateImpl value,
-          $Res Function(_$ConversationDetailsStateImpl) then) =
-      __$$ConversationDetailsStateImplCopyWithImpl<$Res>;
+    _$ConversationDetailsStateImpl value,
+    $Res Function(_$ConversationDetailsStateImpl) then,
+  ) = __$$ConversationDetailsStateImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({UiConversationDetails? conversation, List<String> members});
@@ -81,42 +87,47 @@ abstract class _$$ConversationDetailsStateImplCopyWith<$Res>
 
 /// @nodoc
 class __$$ConversationDetailsStateImplCopyWithImpl<$Res>
-    extends _$ConversationDetailsStateCopyWithImpl<$Res,
-        _$ConversationDetailsStateImpl>
+    extends
+        _$ConversationDetailsStateCopyWithImpl<
+          $Res,
+          _$ConversationDetailsStateImpl
+        >
     implements _$$ConversationDetailsStateImplCopyWith<$Res> {
   __$$ConversationDetailsStateImplCopyWithImpl(
-      _$ConversationDetailsStateImpl _value,
-      $Res Function(_$ConversationDetailsStateImpl) _then)
-      : super(_value, _then);
+    _$ConversationDetailsStateImpl _value,
+    $Res Function(_$ConversationDetailsStateImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of ConversationDetailsState
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? conversation = freezed,
-    Object? members = null,
-  }) {
-    return _then(_$ConversationDetailsStateImpl(
-      conversation: freezed == conversation
-          ? _value.conversation
-          : conversation // ignore: cast_nullable_to_non_nullable
-              as UiConversationDetails?,
-      members: null == members
-          ? _value._members
-          : members // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-    ));
+  $Res call({Object? conversation = freezed, Object? members = null}) {
+    return _then(
+      _$ConversationDetailsStateImpl(
+        conversation:
+            freezed == conversation
+                ? _value.conversation
+                : conversation // ignore: cast_nullable_to_non_nullable
+                    as UiConversationDetails?,
+        members:
+            null == members
+                ? _value._members
+                : members // ignore: cast_nullable_to_non_nullable
+                    as List<String>,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$ConversationDetailsStateImpl extends _ConversationDetailsState {
-  const _$ConversationDetailsStateImpl(
-      {this.conversation, required final List<String> members})
-      : _members = members,
-        super._();
+  const _$ConversationDetailsStateImpl({
+    this.conversation,
+    required final List<String> members,
+  }) : _members = members,
+       super._();
 
   @override
   final UiConversationDetails? conversation;
@@ -145,7 +156,10 @@ class _$ConversationDetailsStateImpl extends _ConversationDetailsState {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType, conversation, const DeepCollectionEquality().hash(_members));
+    runtimeType,
+    conversation,
+    const DeepCollectionEquality().hash(_members),
+  );
 
   /// Create a copy of ConversationDetailsState
   /// with the given fields replaced by the non-null parameter values.
@@ -153,14 +167,16 @@ class _$ConversationDetailsStateImpl extends _ConversationDetailsState {
   @override
   @pragma('vm:prefer-inline')
   _$$ConversationDetailsStateImplCopyWith<_$ConversationDetailsStateImpl>
-      get copyWith => __$$ConversationDetailsStateImplCopyWithImpl<
-          _$ConversationDetailsStateImpl>(this, _$identity);
+  get copyWith => __$$ConversationDetailsStateImplCopyWithImpl<
+    _$ConversationDetailsStateImpl
+  >(this, _$identity);
 }
 
 abstract class _ConversationDetailsState extends ConversationDetailsState {
-  const factory _ConversationDetailsState(
-      {final UiConversationDetails? conversation,
-      required final List<String> members}) = _$ConversationDetailsStateImpl;
+  const factory _ConversationDetailsState({
+    final UiConversationDetails? conversation,
+    required final List<String> members,
+  }) = _$ConversationDetailsStateImpl;
   const _ConversationDetailsState._() : super._();
 
   @override
@@ -173,5 +189,5 @@ abstract class _ConversationDetailsState extends ConversationDetailsState {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ConversationDetailsStateImplCopyWith<_$ConversationDetailsStateImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

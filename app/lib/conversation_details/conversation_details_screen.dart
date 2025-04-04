@@ -20,18 +20,20 @@ class ConversationDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversationId =
-        context.select((NavigationCubit cubit) => cubit.state.conversationId);
+    final conversationId = context.select(
+      (NavigationCubit cubit) => cubit.state.conversationId,
+    );
     if (conversationId == null) {
       throw StateError("an active conversation is obligatory");
     }
 
     return BlocProvider(
       key: ValueKey(conversationId),
-      create: (context) => ConversationDetailsCubit(
-        userCubit: context.read(),
-        conversationId: conversationId,
-      ),
+      create:
+          (context) => ConversationDetailsCubit(
+            userCubit: context.read(),
+            conversationId: conversationId,
+          ),
       child: const ConversationDetailsScreenView(),
     );
   }
@@ -43,8 +45,10 @@ class ConversationDetailsScreenView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversationType = context.select((ConversationDetailsCubit cubit) =>
-        cubit.state.conversation?.conversationType);
+    final conversationType = context.select(
+      (ConversationDetailsCubit cubit) =>
+          cubit.state.conversation?.conversationType,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -56,8 +60,7 @@ class ConversationDetailsScreenView extends StatelessWidget {
       ),
       body: switch (conversationType) {
         UiConversationType_UnconfirmedConnection() ||
-        UiConversationType_Connection() =>
-          const ConnectionDetails(),
+        UiConversationType_Connection() => const ConnectionDetails(),
         UiConversationType_Group() => const GroupDetails(),
         null => const Center(child: Text("Unknown conversation")),
       },

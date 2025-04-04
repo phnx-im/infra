@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use http::StatusCode;
 use phnxtypes::{
+    LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{
         RatchetEncryptionKey,
@@ -14,24 +16,26 @@ use phnxtypes::{
         signatures::signable::Signable,
     },
     endpoint_paths::ENDPOINT_AS,
-    errors::auth_service::AsProcessingError,
+    errors::version::VersionError,
     identifiers::{AsClientId, QualifiedUserName},
     messages::{
         AsTokenType,
         client_as::{
-            AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParams,
-            ClientConnectionPackageParamsTbs, ClientToAsMessage, ConnectionPackage,
-            DeleteClientParamsTbs, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
-            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams,
-            FinishClientAdditionParams, FinishClientAdditionParamsTbs,
+            AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParamsOut,
+            AsVersionedRequestParamsOut, ClientConnectionPackageParamsTbs, ClientToAsMessageOut,
+            ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
+            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
+            EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
             FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
-            IssueTokensResponse, UserClientsParams, UserConnectionPackagesParams,
+            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
+            UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            ConnectionPackageIn, InitClientAdditionResponseIn, InitUserRegistrationResponseIn,
-            UserClientsResponseIn, UserConnectionPackagesResponseIn,
+            AsVersionedProcessResponseIn, ConnectionPackageIn, InitClientAdditionResponseIn,
+            InitUserRegistrationResponseIn, UserClientsResponseIn,
+            UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -41,76 +45,64 @@ use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 use tracing::error;
 
-use crate::{ApiClient, Protocol};
+use crate::{
+    ApiClient, Protocol,
+    version::{extract_api_version_negotiation, negotiate_api_version},
+};
 
 #[derive(Error, Debug)]
 pub enum AsRequestError {
     #[error("Library Error")]
     LibraryError,
-    #[error("Couldn't deserialize response body.")]
-    BadResponse,
-    #[error("We received an unexpected response type.")]
-    UnexpectedResponse,
-    #[error("Network error: {0}")]
-    NetworkError(String),
     #[error(transparent)]
-    AsError(#[from] AsProcessingError),
+    Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    Tls(#[from] tls_codec::Error),
+    #[error("Received an unexpected response type")]
+    UnexpectedResponse,
+    #[error("API Error: {0}")]
+    Api(#[from] VersionError),
+    #[error("AS Error: {0}")]
+    AsError(String),
+    #[error("Unsuccessful response: status = {status}, error = {error}")]
+    RequestFailed { status: StatusCode, error: String },
+}
+
+impl From<LibraryError> for AsRequestError {
+    fn from(_: LibraryError) -> Self {
+        AsRequestError::LibraryError
+    }
 }
 
 impl ApiClient {
     async fn prepare_and_send_as_message(
         &self,
-        message: ClientToAsMessage,
+        request_params: AsRequestParamsOut,
     ) -> Result<AsProcessResponseIn, AsRequestError> {
-        let message_bytes = message
-            .tls_serialize_detached()
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let url = self.build_url(Protocol::Http, ENDPOINT_AS);
-        let res = self
-            .client
-            .post(url.clone())
-            .body(message_bytes)
-            .send()
-            .await;
-        match res {
-            Ok(res) => {
-                match res.status().as_u16() {
-                    // Success!
-                    x if (200..=299).contains(&x) => {
-                        let ds_proc_res_bytes =
-                            res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
-                        let ds_proc_res =
-                            AsProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)
-                                .map_err(|_| AsRequestError::BadResponse)?;
-                        Ok(ds_proc_res)
-                    }
-                    // DS Specific Error
-                    418 => {
-                        let ds_proc_err_bytes =
-                            res.bytes().await.map_err(|_| AsRequestError::BadResponse)?;
-                        let ds_proc_err =
-                            AsProcessingError::tls_deserialize_exact_bytes(&ds_proc_err_bytes)
-                                .map_err(|_| AsRequestError::BadResponse)?;
-                        Err(AsRequestError::AsError(ds_proc_err))
-                    }
-                    // All other errors
-                    other_status => {
-                        let error_text =
-                            res.text().await.map_err(|_| AsRequestError::BadResponse)?
-                                + &format!(" (status code {})", other_status);
-                        Err(AsRequestError::NetworkError(error_text))
-                    }
-                }
-            }
-            // A network error occurred.
-            Err(error) => {
-                error!(
-                    %url,
-                    ?error, "Got a POST message error while contacting the URL"
-                );
-                Err(AsRequestError::NetworkError(error.to_string()))
-            }
-        }
+        let api_version = self.negotiated_versions().as_api_version();
+
+        let request_params =
+            AsVersionedRequestParamsOut::with_version(request_params, api_version)?;
+        let message = ClientToAsMessageOut::new(request_params);
+
+        let response = self.send_as_http_request(&message).await?;
+
+        // check if we need to negotiate a new API version
+        let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
+            return handle_as_response(response).await;
+        };
+
+        let supported_versions = SUPPORTED_AS_API_VERSIONS;
+        let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
+            .ok_or_else(|| VersionError::new(api_version, supported_versions))?;
+        self.negotiated_versions()
+            .set_as_api_version(accepted_version);
+
+        let (request_params, _) = message.into_body().change_version(accepted_version)?;
+        let message = ClientToAsMessageOut::new(request_params);
+
+        let response = self.send_as_http_request(&message).await?;
+        handle_as_response(response).await
     }
 
     pub async fn as_initiate_create_user(
@@ -122,9 +114,8 @@ impl ApiClient {
             client_payload,
             opaque_registration_request,
         };
-        let params = AsRequestParams::InitUserRegistration(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::InitUserRegistration(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -149,9 +140,8 @@ impl ApiClient {
         let payload = tbs
             .sign(signing_key)
             .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::Initiate2FaAuthentication(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::Initiate2FaAuthentication(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -172,18 +162,15 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let tbs = FinishUserRegistrationParamsTbs {
-            client_id: signing_key.credential().identity(),
+            client_id: signing_key.credential().identity().clone(),
             queue_encryption_key,
             initial_ratchet_secret,
             connection_packages,
             opaque_registration_record,
         };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::FinishUserRegistration(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let payload = tbs.sign(signing_key)?;
+        let params = AsRequestParamsOut::FinishUserRegistration(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -207,12 +194,9 @@ impl ApiClient {
             user_name,
             opaque_finish,
         };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::DeleteUser(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let payload = tbs.sign(signing_key)?;
+        let params = AsRequestParamsOut::DeleteUser(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -233,9 +217,8 @@ impl ApiClient {
             client_credential_payload,
             opaque_login_request,
         };
-        let params = AsRequestParams::InitiateClientAddition(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::InitiateClientAddition(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -267,9 +250,8 @@ impl ApiClient {
             opaque_login_finish,
             payload: tbs,
         };
-        let params = AsRequestParams::FinishClientAddition(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::FinishClientAddition(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -289,12 +271,9 @@ impl ApiClient {
         // TODO: This means that clients can only ever delete themselves. Is
         // that what we want here?
         let tbs = DeleteClientParamsTbs(client_id);
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::DeleteClient(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let payload = tbs.sign(signing_key)?;
+        let params = AsRequestParamsOut::DeleteClient(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -313,16 +292,13 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<DequeueMessagesResponse, AsRequestError> {
         let tbs = DequeueMessagesParamsTbs {
-            sender: signing_key.credential().identity(),
+            sender: signing_key.credential().identity().clone(),
             sequence_number_start,
             max_message_number,
         };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::DequeueMessages(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let payload = tbs.sign(signing_key)?;
+        let params = AsRequestParamsOut::DequeueMessages(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -344,12 +320,9 @@ impl ApiClient {
             client_id,
             connection_packages,
         };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::PublishConnectionPackages(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let payload = tbs.sign(signing_key)?;
+        let params = AsRequestParamsOut::PublishConnectionPackages(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -370,12 +343,9 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<AsClientConnectionPackageResponseIn, AsRequestError> {
         let tbs = ClientConnectionPackageParamsTbs(client_id);
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::ClientConnectionPackage(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let payload = tbs.sign(signing_key)?;
+        let params = AsRequestParamsOut::ClientConnectionPackage(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -394,16 +364,13 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<IssueTokensResponse, AsRequestError> {
         let tbs = IssueTokensParamsTbs {
-            client_id: signing_key.credential().identity(),
+            client_id: signing_key.credential().identity().clone(),
             token_type,
             token_request,
         };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParams::IssueTokens(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let payload = tbs.sign(signing_key)?;
+        let params = AsRequestParamsOut::IssueTokens(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -420,9 +387,8 @@ impl ApiClient {
         user_name: QualifiedUserName,
     ) -> Result<UserClientsResponseIn, AsRequestError> {
         let payload = UserClientsParams { user_name };
-        let params = AsRequestParams::UserClients(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::UserClients(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -438,9 +404,8 @@ impl ApiClient {
         &self,
         payload: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {
-        let params = AsRequestParams::UserConnectionPackages(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::UserConnectionPackages(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -461,9 +426,8 @@ impl ApiClient {
             client_id,
             connection_establishment_ctxt,
         };
-        let params = AsRequestParams::EnqueueMessage(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::EnqueueMessage(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -477,9 +441,8 @@ impl ApiClient {
 
     pub async fn as_as_credentials(&self) -> Result<AsCredentialsResponseIn, AsRequestError> {
         let payload = AsCredentialsParams {};
-        let params = AsRequestParams::AsCredentials(payload);
-        let message = ClientToAsMessage::new(params);
-        self.prepare_and_send_as_message(message)
+        let params = AsRequestParamsOut::AsCredentials(payload);
+        self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
             .and_then(|response| {
@@ -489,5 +452,49 @@ impl ApiClient {
                     Err(AsRequestError::UnexpectedResponse)
                 }
             })
+    }
+
+    async fn send_as_http_request(
+        &self,
+        message: &ClientToAsMessageOut,
+    ) -> Result<reqwest::Response, AsRequestError> {
+        let message_bytes = message.tls_serialize_detached()?;
+        let endpoint = self.build_url(Protocol::Http, ENDPOINT_AS);
+        let response = self
+            .client
+            .post(endpoint)
+            .body(message_bytes)
+            .send()
+            .await?;
+        Ok(response)
+    }
+}
+
+async fn handle_as_response(res: reqwest::Response) -> Result<AsProcessResponseIn, AsRequestError> {
+    let status = res.status();
+    match status.as_u16() {
+        // Success!
+        _ if res.status().is_success() => {
+            let bytes = res.bytes().await?;
+            let response = AsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)?
+                .into_unversioned()?;
+            Ok(response)
+        }
+        // AS Specific Error
+        418 => {
+            let error = res
+                .text()
+                .await
+                .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
+            Err(AsRequestError::AsError(error))
+        }
+        // All other errors
+        _ => {
+            let error = res
+                .text()
+                .await
+                .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
+            Err(AsRequestError::RequestFailed { status, error })
+        }
     }
 }

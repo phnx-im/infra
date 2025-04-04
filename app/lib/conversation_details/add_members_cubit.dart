@@ -20,12 +20,7 @@ class AddMembersState with _$AddMembersState {
 
 class AddMembersCubit extends Cubit<AddMembersState> {
   AddMembersCubit()
-      : super(
-          const AddMembersState(
-            contacts: [],
-            selectedContacts: {},
-          ),
-        );
+    : super(const AddMembersState(contacts: [], selectedContacts: {}));
 
   void loadContacts(Future<List<UiContact>> futureContacts) async {
     final contacts = await futureContacts;
@@ -39,8 +34,6 @@ class AddMembersCubit extends Cubit<AddMembersState> {
     } else {
       selectedContacts.add(contact.userName);
     }
-    emit(state.copyWith(
-      selectedContacts: selectedContacts,
-    ));
+    emit(state.copyWith(selectedContacts: selectedContacts));
   }
 }

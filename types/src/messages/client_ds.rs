@@ -348,27 +348,25 @@ pub enum DsVersionedRequestParams {
 impl DsVersionedRequestParams {
     pub fn version(&self) -> ApiVersion {
         match self {
-            DsVersionedRequestParams::Other(version) => *version,
-            DsVersionedRequestParams::Alpha(_) => ApiVersion::new(1).expect("infallible"),
+            Self::Other(version) => *version,
+            Self::Alpha(_) => ApiVersion::new(1).expect("infallible"),
         }
     }
 
     fn unversioned(&self) -> Result<&DsRequestParams, VersionError> {
         match self {
-            DsVersionedRequestParams::Alpha(params) => Ok(params),
-            DsVersionedRequestParams::Other(version) => {
-                Err(VersionError::new(*version, SUPPORTED_DS_API_VERSIONS))
-            }
+            Self::Alpha(params) => Ok(params),
+            Self::Other(version) => Err(VersionError::new(*version, SUPPORTED_DS_API_VERSIONS)),
         }
     }
 
     pub fn into_unversioned(self) -> Result<(DsRequestParams, ApiVersion), VersionError> {
         let version = self.version();
         let params = match self {
-            DsVersionedRequestParams::Other(_) => {
+            Self::Other(_) => {
                 return Err(VersionError::new(version, SUPPORTED_DS_API_VERSIONS));
             }
-            DsVersionedRequestParams::Alpha(params) => params,
+            Self::Alpha(params) => params,
         };
         Ok((params, version))
     }
@@ -377,8 +375,8 @@ impl DsVersionedRequestParams {
 impl tls_codec::Size for DsVersionedRequestParams {
     fn tls_serialized_len(&self) -> usize {
         match self {
-            DsVersionedRequestParams::Other(_) => self.version().tls_value().tls_serialized_len(),
-            DsVersionedRequestParams::Alpha(ds_request_params) => {
+            Self::Other(_) => self.version().tls_value().tls_serialized_len(),
+            Self::Alpha(ds_request_params) => {
                 self.version().tls_value().tls_serialized_len()
                     + ds_request_params.tls_serialized_len()
             }
@@ -392,12 +390,9 @@ impl DeserializeBytes for DsVersionedRequestParams {
         match version.value() {
             1 => {
                 let (params, bytes) = DsRequestParams::tls_deserialize_bytes(bytes)?;
-                Ok((DsVersionedRequestParams::Alpha(params), bytes))
+                Ok((Self::Alpha(params), bytes))
             }
-            _ => Ok((
-                DsVersionedRequestParams::Other(ApiVersion::from_tls_value(version)),
-                bytes,
-            )),
+            _ => Ok((Self::Other(ApiVersion::from_tls_value(version)), bytes)),
         }
     }
 }

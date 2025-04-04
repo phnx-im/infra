@@ -29,7 +29,9 @@ abstract class UiUser implements RustOpaqueInterface {
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>>
 abstract class UserCubitBase implements RustOpaqueInterface {
   Future<void> addUserToConversation(
-      ConversationId conversationId, String userName);
+    ConversationId conversationId,
+    String userName,
+  );
 
   Future<void> close();
 
@@ -37,13 +39,18 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   bool get isClosed;
 
-  factory UserCubitBase(
-          {required User user, required NavigationCubitBase navigation}) =>
-      RustLib.instance.api.crateApiUserCubitUserCubitBaseNew(
-          user: user, navigation: navigation);
+  factory UserCubitBase({
+    required User user,
+    required NavigationCubitBase navigation,
+  }) => RustLib.instance.api.crateApiUserCubitUserCubitBaseNew(
+    user: user,
+    navigation: navigation,
+  );
 
   Future<void> removeUserFromConversation(
-      ConversationId conversationId, String userName);
+    ConversationId conversationId,
+    String userName,
+  );
 
   Future<void> setAppState({required AppState appState});
 
@@ -58,8 +65,4 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   Future<UiUserProfile?> userProfile(String userName);
 }
 
-enum AppState {
-  background,
-  foreground,
-  ;
-}
+enum AppState { background, foreground }
