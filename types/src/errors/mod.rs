@@ -17,15 +17,6 @@ pub mod version;
 
 pub type CborMlsAssistStorage = MlsAssistMemoryStorage<PhnxCodec>;
 
-/// Error updating queue config.
-#[derive(Debug, Error)]
-#[repr(u8)]
-pub enum UpdateQueueConfigError {
-    /// Couldn't find sender.
-    #[error("Couldn't find sender.")]
-    UnknownSender,
-}
-
 /// Potential errors when performing a group operation.
 #[derive(Debug, Error)]
 #[repr(u8)]

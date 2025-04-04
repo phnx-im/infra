@@ -225,23 +225,6 @@ pub struct CreateGroupParams {
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateQsClientReferenceParams {
-    pub group_id: GroupId,
-    pub sender: LeafNodeIndex,
-    pub new_qs_reference: QsReference,
-}
-
-impl UpdateQsClientReferenceParams {
-    pub fn sender(&self) -> LeafNodeIndex {
-        self.sender
-    }
-
-    pub fn new_qs_reference(&self) -> &QsReference {
-        &self.new_qs_reference
-    }
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
     // The Public key from the sender's PseudonymousCredential
@@ -417,7 +400,7 @@ pub enum DsGroupRequestParams {
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
-    UpdateQsClientReference(UpdateQsClientReferenceParams),
+    _UpdateQsClientReference,
     Update(UpdateParams),
     JoinConnectionGroup(JoinConnectionGroupParams),
     Resync(ResyncParams),
@@ -429,30 +412,32 @@ pub enum DsGroupRequestParams {
 }
 
 impl DsGroupRequestParams {
-    pub(crate) fn group_id(&self) -> &GroupId {
+    pub(crate) fn group_id(&self) -> Option<&GroupId> {
         match self {
-            Self::WelcomeInfo(welcome_info_params) => &welcome_info_params.group_id,
-            Self::CreateGroupParams(create_group_params) => &create_group_params.group_id,
-            Self::UpdateQsClientReference(update_queue_info_params) => {
-                &update_queue_info_params.group_id
-            }
+            Self::WelcomeInfo(welcome_info_params) => Some(&welcome_info_params.group_id),
+            Self::CreateGroupParams(create_group_params) => Some(&create_group_params.group_id),
+            Self::_UpdateQsClientReference => None,
             Self::ExternalCommitInfo(external_commit_info_params) => {
-                &external_commit_info_params.group_id
+                Some(&external_commit_info_params.group_id)
             }
-            Self::ConnectionGroupInfo(params) => &params.group_id,
-            Self::Update(update_client_params) => update_client_params.commit.group_id(),
+            Self::ConnectionGroupInfo(params) => Some(&params.group_id),
+            Self::Update(update_client_params) => Some(update_client_params.commit.group_id()),
             Self::JoinConnectionGroup(join_connection_group_params) => {
-                join_connection_group_params.external_commit.group_id()
+                Some(join_connection_group_params.external_commit.group_id())
             }
-            Self::Resync(resync_client_params) => resync_client_params.external_commit.group_id(),
+            Self::Resync(resync_client_params) => {
+                Some(resync_client_params.external_commit.group_id())
+            }
             Self::SelfRemove(self_remove_client_params) => {
-                self_remove_client_params.remove_proposal.group_id()
+                Some(self_remove_client_params.remove_proposal.group_id())
             }
-            Self::SendMessage(send_message_params) => send_message_params.message.group_id(),
-            Self::DeleteGroup(delete_group_params) => delete_group_params.commit.group_id(),
-            Self::DispatchEvent(dispatch_event_params) => dispatch_event_params.event.group_id(),
+            Self::SendMessage(send_message_params) => Some(send_message_params.message.group_id()),
+            Self::DeleteGroup(delete_group_params) => Some(delete_group_params.commit.group_id()),
+            Self::DispatchEvent(dispatch_event_params) => {
+                Some(dispatch_event_params.event.group_id())
+            }
             Self::GroupOperation(group_operation_params) => {
-                group_operation_params.commit.group_id()
+                Some(group_operation_params.commit.group_id())
             }
         }
     }
@@ -490,7 +475,7 @@ impl DsGroupRequestParams {
             // Since we're leaking the leaf index in the header, we could
             // technically return the MLS sender here.
             | Self::SendMessage(_)
-            | Self::UpdateQsClientReference(_) => None,
+            | Self::_UpdateQsClientReference => None,
         }
     }
 
@@ -500,9 +485,7 @@ impl DsGroupRequestParams {
             Self::WelcomeInfo(welcome_info_params) => Some(DsSender::LeafSignatureKey(
                 welcome_info_params.sender.clone(),
             )),
-            Self::UpdateQsClientReference(update_queue_info_params) => {
-                Some(DsSender::LeafIndex(update_queue_info_params.sender))
-            }
+            Self::_UpdateQsClientReference => None,
             Self::SendMessage(send_message_params) => {
                 Some(DsSender::LeafIndex(send_message_params.sender))
             }
@@ -606,7 +589,7 @@ impl VerifiableClientToDsMessage {
                 DsRequestParams::Group {
                     group_state_ear_key,
                     request_params,
-                } => Some((request_params.group_id(), group_state_ear_key)),
+                } => Some((request_params.group_id()?, group_state_ear_key)),
                 DsRequestParams::NonGroup(_) => None,
             })
     }

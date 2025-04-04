@@ -32,7 +32,7 @@ use super::{
     ApiVersion,
     client_ds::{
         ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-        UpdateQsClientReferenceParams, WelcomeInfoParams,
+        WelcomeInfoParams,
     },
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
 };
@@ -230,7 +230,7 @@ pub enum DsGroupRequestParamsOut {
     WelcomeInfo(WelcomeInfoParams),
     ExternalCommitInfo(ExternalCommitInfoParams),
     ConnectionGroupInfo(ConnectionGroupInfoParams),
-    UpdateQsClientReference(UpdateQsClientReferenceParams),
+    _UpdateQsClientReference,
     Update(UpdateParamsOut),
     JoinConnectionGroup(JoinConnectionGroupParamsOut),
     Resync(ResyncParamsOut),
