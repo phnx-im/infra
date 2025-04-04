@@ -4,7 +4,10 @@
 
 use actix_web::web::{self, Data};
 use phnxbackend::auth_service::{AuthService, VerifiableClientToAsMessage};
-use phnxtypes::{ACCEPTED_API_VERSIONS_HEADER, errors::auth_service::AsProcessingError};
+use phnxtypes::{
+    ACCEPTED_API_VERSIONS_HEADER,
+    errors::auth_service::{AsProcessingError, InitUserRegistrationError},
+};
 use tls_codec::{DeserializeBytes, Serialize};
 use tracing::{error, info, trace, warn};
 
@@ -39,6 +42,9 @@ pub(crate) async fn as_process_message(
                 ))
                 .body(version_error.to_string())
         }
+        Err(AsProcessingError::InitUserRegistrationError(
+            InitUserRegistrationError::UserAlreadyExists,
+        )) => HttpResponse::Conflict().body("User already exists"),
         // If the message could not be processed, return an error.
         Err(error) => {
             error!(%error, "AS failed to process message");
