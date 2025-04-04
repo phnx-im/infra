@@ -26,7 +26,7 @@ use phnxtypes::{
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-            UpdateQsClientReferenceParams, WelcomeInfoParams,
+            WelcomeInfoParams,
         },
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
