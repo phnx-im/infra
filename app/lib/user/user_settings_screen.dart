@@ -84,8 +84,9 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                         // Image picker
                         final ImagePicker picker = ImagePicker();
                         // Pick an image.
-                        final XFile? image =
-                            await picker.pickImage(source: ImageSource.gallery);
+                        final XFile? image = await picker.pickImage(
+                          source: ImageSource.gallery,
+                        );
                         final bytes = await image?.readAsBytes();
                         final data = bytes?.toImageData();
                         setState(() {
@@ -96,10 +97,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                     const SizedBox(height: 15),
                     Text(
                       userName,
-                      style: const TextStyle(
-                        color: colorDMB,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: colorDMB, fontSize: 12),
                     ),
                   ],
                 ),
@@ -113,8 +111,9 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                         constraints: BoxConstraints.tight(const Size(300, 80)),
                         child: TextFormField(
                           autofocus: isSmallScreen(context) ? false : true,
-                          decoration:
-                              const InputDecoration(hintText: 'DISPLAY NAME'),
+                          decoration: const InputDecoration(
+                            hintText: 'DISPLAY NAME',
+                          ),
                           initialValue: displayName,
                           style: inputTextStyle,
                           onChanged: (value) {
@@ -128,14 +127,16 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                   ],
                 ),
                 Column(
-                  crossAxisAlignment: isSmallScreen(context)
-                      ? CrossAxisAlignment.stretch
-                      : CrossAxisAlignment.center,
+                  crossAxisAlignment:
+                      isSmallScreen(context)
+                          ? CrossAxisAlignment.stretch
+                          : CrossAxisAlignment.center,
                   children: [
                     OutlinedButton(
-                      onPressed: _isChanged && !isSetting
-                          ? () => _save(context)
-                          : null,
+                      onPressed:
+                          _isChanged && !isSetting
+                              ? () => _save(context)
+                              : null,
                       style: buttonStyle(context, _isChanged && !isSetting),
                       child: const Text('Save'),
                     ),

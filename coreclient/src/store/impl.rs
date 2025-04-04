@@ -67,6 +67,13 @@ impl Store for CoreUser {
         self.leave_conversation(conversation_id).await
     }
 
+    async fn update_key(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Vec<ConversationMessage>> {
+        self.update_key(conversation_id).await
+    }
+
     async fn remove_users(
         &self,
         conversation_id: ConversationId,

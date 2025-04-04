@@ -42,70 +42,68 @@ void main() {
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
-      when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: "alice@localhost"));
-      when(() => userCubit.userProfile(any()))
-          .thenAnswer((_) => Future.value(null));
-      when(() => userCubit.state)
-          .thenReturn(MockUiUser(userName: "alice@localhost"));
+      when(
+        () => userCubit.state,
+      ).thenReturn(MockUiUser(userName: "alice@localhost"));
+      when(
+        () => userCubit.userProfile(any()),
+      ).thenAnswer((_) => Future.value(null));
+      when(
+        () => userCubit.state,
+      ).thenReturn(MockUiUser(userName: "alice@localhost"));
       when(() => conversationDetailsCubit.state).thenReturn(
-        ConversationDetailsState(
-          conversation: conversation,
-          members: members,
-        ),
+        ConversationDetailsState(conversation: conversation, members: members),
       );
-      when(() => conversationDetailsCubit.markAsRead(
-            untilMessageId: any(named: "untilMessageId"),
-            untilTimestamp: any(named: "untilTimestamp"),
-          )).thenAnswer((_) => Future.value());
+      when(
+        () => conversationDetailsCubit.markAsRead(
+          untilMessageId: any(named: "untilMessageId"),
+          untilTimestamp: any(named: "untilTimestamp"),
+        ),
+      ).thenAnswer((_) => Future.value());
     });
 
     Widget buildSubject() => MultiBlocProvider(
-          providers: [
-            BlocProvider<NavigationCubit>.value(
-              value: navigationCubit,
+      providers: [
+        BlocProvider<NavigationCubit>.value(value: navigationCubit),
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
+        BlocProvider<ConversationDetailsCubit>.value(
+          value: conversationDetailsCubit,
+        ),
+        BlocProvider<MessageListCubit>.value(value: messageListCubit),
+      ],
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: themeData(context),
+            home: const HomeScreenDesktopLayout(
+              conversationList: ConversationListView(),
+              conversation: ConversationScreenView(
+                createMessageCubit: createMockMessageCubit,
+              ),
             ),
-            BlocProvider<UserCubit>.value(
-              value: userCubit,
-            ),
-            BlocProvider<ConversationListCubit>.value(
-              value: conversationListCubit,
-            ),
-            BlocProvider<ConversationDetailsCubit>.value(
-              value: conversationDetailsCubit,
-            ),
-            BlocProvider<MessageListCubit>.value(
-              value: messageListCubit,
-            ),
-          ],
-          child: Builder(
-            builder: (context) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: themeData(context),
-                home: const HomeScreenDesktopLayout(
-                  conversationList: ConversationListView(),
-                  conversation: ConversationScreenView(
-                    createMessageCubit: createMockMessageCubit,
-                  ),
-                ),
-              );
-            },
-          ),
-        );
+          );
+        },
+      ),
+    );
 
     testWidgets('desktop layout empty', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize =
-          const Size(3840, 2160);
+      binding.platformDispatcher.views.first.physicalSize = const Size(
+        3840,
+        2160,
+      );
       addTearDown(() {
         binding.platformDispatcher.views.first.resetPhysicalSize();
       });
 
-      when(() => navigationCubit.state)
-          .thenReturn(const NavigationState.home());
-      when(() => conversationListCubit.state)
-          .thenReturn(const ConversationListState(conversations: []));
+      when(
+        () => navigationCubit.state,
+      ).thenReturn(const NavigationState.home());
+      when(
+        () => conversationListCubit.state,
+      ).thenReturn(const ConversationListState(conversations: []));
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());
@@ -118,18 +116,23 @@ void main() {
 
     testWidgets('desktop layout no conversation', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize =
-          const Size(3840, 2160);
+      binding.platformDispatcher.views.first.physicalSize = const Size(
+        3840,
+        2160,
+      );
       addTearDown(() {
         binding.platformDispatcher.views.first.resetPhysicalSize();
       });
 
-      when(() => navigationCubit.state)
-          .thenReturn(const NavigationState.home());
-      when(() => conversationListCubit.state)
-          .thenReturn(ConversationListState(conversations: conversations));
-      when(() => messageListCubit.state)
-          .thenReturn(MockMessageListState(messages));
+      when(
+        () => navigationCubit.state,
+      ).thenReturn(const NavigationState.home());
+      when(
+        () => conversationListCubit.state,
+      ).thenReturn(ConversationListState(conversations: conversations));
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages));
 
       VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
@@ -143,8 +146,10 @@ void main() {
 
     testWidgets('desktop layout selected conversation', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize =
-          const Size(3840, 2160);
+      binding.platformDispatcher.views.first.physicalSize = const Size(
+        3840,
+        2160,
+      );
       addTearDown(() {
         binding.platformDispatcher.views.first.resetPhysicalSize();
       });
@@ -157,10 +162,12 @@ void main() {
           ),
         ),
       );
-      when(() => conversationListCubit.state)
-          .thenReturn(ConversationListState(conversations: conversations));
-      when(() => messageListCubit.state)
-          .thenReturn(MockMessageListState(messages));
+      when(
+        () => conversationListCubit.state,
+      ).thenReturn(ConversationListState(conversations: conversations));
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages));
 
       VisibilityDetectorController.instance.updateInterval = Duration.zero;
 

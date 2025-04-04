@@ -163,7 +163,7 @@ impl TestBackend {
             .await
             .unwrap();
 
-        updater.update(conversation_id).await.unwrap();
+        updater.update_key(conversation_id).await.unwrap();
 
         let group_members_after = updater
             .conversation_participants(conversation_id)
@@ -237,7 +237,7 @@ impl TestBackend {
         let test_updater = self.users.get_mut(updater_name).unwrap();
         let updater = &mut test_updater.user;
 
-        updater.update(conversation_id).await.unwrap();
+        updater.update_key(conversation_id).await.unwrap();
 
         let group_members = self.groups.get(&conversation_id).unwrap();
         // Have all group members fetch and process messages.

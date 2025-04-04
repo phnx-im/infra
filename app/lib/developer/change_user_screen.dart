@@ -41,10 +41,7 @@ class _ChangeUserScreenState extends State<ChangeUserScreen> {
 const _maxDesktopWidth = 800.0;
 
 class ChangeUserScreenView extends StatelessWidget {
-  const ChangeUserScreenView({
-    this.clientRecords,
-    super.key,
-  });
+  const ChangeUserScreenView({this.clientRecords, super.key});
 
   final Future<List<UiClientRecord>>? clientRecords;
 
@@ -58,9 +55,10 @@ class ChangeUserScreenView extends StatelessWidget {
       ),
       body: Center(
         child: Container(
-          constraints: isPointer()
-              ? const BoxConstraints(maxWidth: _maxDesktopWidth)
-              : null,
+          constraints:
+              isPointer()
+                  ? const BoxConstraints(maxWidth: _maxDesktopWidth)
+                  : null,
           child: _ClientRecords(clientRecords: clientRecords),
         ),
       ),
@@ -69,9 +67,7 @@ class ChangeUserScreenView extends StatelessWidget {
 }
 
 class _ClientRecords extends StatelessWidget {
-  const _ClientRecords({
-    this.clientRecords,
-  });
+  const _ClientRecords({this.clientRecords});
 
   final Future<List<UiClientRecord>>? clientRecords;
 
@@ -102,56 +98,59 @@ class _ClientRecordsList extends StatelessWidget {
 
     return Center(
       child: ListView(
-        children: clientRecords.map((record) {
-          final isCurrentUser = user?.userName ==
-              "${record.userName.userName}@${record.userName.domain}";
-          final currentUserSuffix = isCurrentUser ? " (current)" : "";
+        children:
+            clientRecords.map((record) {
+              final isCurrentUser =
+                  user?.userName ==
+                  "${record.userName.userName}@${record.userName.domain}";
+              final currentUserSuffix = isCurrentUser ? " (current)" : "";
 
-          final textColor = isCurrentUser
-              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)
-              : null;
+              final textColor =
+                  isCurrentUser
+                      ? Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.38)
+                      : null;
 
-          return ListTile(
-            titleAlignment: ListTileTitleAlignment.top,
-            titleTextStyle: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: textColor)
-                .merge(VariableFontWeight.semiBold),
-            subtitleTextStyle: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: textColor),
-            leading: Transform.translate(
-              offset: const Offset(0, Spacings.xxs),
-              child: UserAvatar(
-                username: record.userName.userName,
-                image: record.userProfile?.profilePicture,
-                size: Spacings.xl,
-              ),
-            ),
-            title: Text(
-              record.userName.displayName(record.userProfile?.displayName) +
-                  currentUserSuffix,
-            ),
-            subtitle: Text(
-              "Domain: ${record.userName.domain}\n"
-              "ID: ${record.clientId}\n"
-              "Created: ${record.createdAt}\n"
-              "Fully registered: ${record.isFinished ? "yes" : "no"}",
-            ),
-            onTap: !isCurrentUser
-                ? () {
-                    final coreClient = context.read<CoreClient>();
-                    coreClient.logout();
-                    coreClient.loadUser(
-                      userName: record.userName,
-                      clientId: record.clientId,
-                    );
-                  }
-                : null,
-          );
-        }).toList(),
+              return ListTile(
+                titleAlignment: ListTileTitleAlignment.top,
+                titleTextStyle: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: textColor)
+                    .merge(VariableFontWeight.semiBold),
+                subtitleTextStyle: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: textColor),
+                leading: Transform.translate(
+                  offset: const Offset(0, Spacings.xxs),
+                  child: UserAvatar(
+                    username: record.userName.userName,
+                    image: record.userProfile?.profilePicture,
+                    size: Spacings.xl,
+                  ),
+                ),
+                title: Text(
+                  record.userName.displayName(record.userProfile?.displayName) +
+                      currentUserSuffix,
+                ),
+                subtitle: Text(
+                  "Domain: ${record.userName.domain}\n"
+                  "ID: ${record.clientId}\n"
+                  "Created: ${record.createdAt}\n"
+                  "Fully registered: ${record.isFinished ? "yes" : "no"}",
+                ),
+                onTap:
+                    !isCurrentUser
+                        ? () {
+                          final coreClient = context.read<CoreClient>();
+                          coreClient.logout();
+                          coreClient.loadUser(
+                            userName: record.userName,
+                            clientId: record.clientId,
+                          );
+                        }
+                        : null,
+              );
+            }).toList(),
       ),
     );
   }

@@ -10,9 +10,7 @@ import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 class ConversationListHeader extends StatelessWidget {
-  const ConversationListHeader({
-    super.key,
-  });
+  const ConversationListHeader({super.key});
 
   static height(BuildContext context) =>
       MediaQuery.of(context).padding.top + kToolbarHeight;
@@ -56,10 +54,7 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (userName, profilePicture) = context.select(
-      (UserCubit cubit) => (
-        cubit.state.userName,
-        cubit.state.profilePicture,
-      ),
+      (UserCubit cubit) => (cubit.state.userName, cubit.state.profilePicture),
     );
 
     return Padding(
@@ -75,7 +70,7 @@ class _Avatar extends StatelessWidget {
             onPressed: () {
               context.read<NavigationCubit>().openUserSettings();
             },
-          )
+          ),
         ],
       ),
     );
@@ -88,10 +83,7 @@ class _UsernameSpace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (userName, displayName) = context.select(
-      (UserCubit cubit) => (
-        cubit.state.userName,
-        cubit.state.displayName,
-      ),
+      (UserCubit cubit) => (cubit.state.userName, cubit.state.displayName),
     );
 
     return Column(
@@ -131,11 +123,7 @@ class _SettingsButton extends StatelessWidget {
       focusColor: Colors.transparent,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
-      icon: const Icon(
-        Icons.settings,
-        size: 20,
-        color: colorDMB,
-      ),
+      icon: const Icon(Icons.settings, size: 20, color: colorDMB),
     );
   }
 }

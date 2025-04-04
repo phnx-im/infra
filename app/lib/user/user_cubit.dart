@@ -18,11 +18,12 @@ class UserCubit implements StateStreamableSource<UiUser> {
     required NavigationCubit navigationCubit,
     required Stream<AppState> appStateStream,
   }) : _impl = UserCubitBase(
-          user: coreClient.user,
-          navigation: navigationCubit.base,
-        ) {
-    _appStateSubscription = appStateStream
-        .listen((appState) => _impl.setAppState(appState: appState));
+         user: coreClient.user,
+         navigation: navigationCubit.base,
+       ) {
+    _appStateSubscription = appStateStream.listen(
+      (appState) => _impl.setAppState(appState: appState),
+    );
   }
 
   final UserCubitBase _impl;
@@ -59,14 +60,12 @@ class UserCubit implements StateStreamableSource<UiUser> {
   Future<void> addUserToConversation(
     ConversationId conversationId,
     String userName,
-  ) =>
-      _impl.addUserToConversation(conversationId, userName);
+  ) => _impl.addUserToConversation(conversationId, userName);
 
   Future<void> removeUserFromConversation(
     ConversationId conversationId,
     String userName,
-  ) =>
-      _impl.removeUserFromConversation(conversationId, userName);
+  ) => _impl.removeUserFromConversation(conversationId, userName);
 
   Future<List<UiContact>> get contacts => _impl.contacts;
 }

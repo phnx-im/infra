@@ -26,7 +26,7 @@ use phnxtypes::{
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-            UpdateQsClientReferenceParams, WelcomeInfoParams,
+            WelcomeInfoParams,
         },
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
@@ -313,7 +313,7 @@ impl ApiClient {
     ) -> Result<TimeStamp, DsRequestError> {
         let payload = ResyncParamsOut {
             external_commit,
-            sender_index: own_leaf_index,
+            sender: own_leaf_index,
         };
         self.prepare_and_send_ds_group_message(
             DsGroupRequestParamsOut::Resync(payload),
@@ -394,36 +394,6 @@ impl ApiClient {
         .and_then(|response| {
             if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
                 Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    /// Update the client's queue info.
-    pub async fn ds_update_queue_info(
-        &self,
-        own_index: LeafNodeIndex,
-        group_id: GroupId,
-        new_queue_config: QsReference,
-        signing_key: &PseudonymousCredentialSigningKey,
-        group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<(), DsRequestError> {
-        let payload = UpdateQsClientReferenceParams {
-            group_id,
-            sender: own_index,
-            new_qs_reference: new_queue_config,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::UpdateQsClientReference(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }

@@ -17,15 +17,6 @@ pub mod version;
 
 pub type CborMlsAssistStorage = MlsAssistMemoryStorage<PhnxCodec>;
 
-/// Error updating queue config.
-#[derive(Debug, Error)]
-#[repr(u8)]
-pub enum UpdateQueueConfigError {
-    /// Couldn't find sender.
-    #[error("Couldn't find sender.")]
-    UnknownSender,
-}
-
 /// Potential errors when performing a group operation.
 #[derive(Debug, Error)]
 #[repr(u8)]
@@ -145,6 +136,9 @@ pub enum DsProcessingError {
     /// Error performing group operation.
     #[error(transparent)]
     GroupOperationError(#[from] GroupOperationError),
+    /// Deprecated parameter
+    #[error("Deprecated param: {0}")]
+    DeprecatedParam(&'static str),
 }
 
 /// Potential errors when joining a group.

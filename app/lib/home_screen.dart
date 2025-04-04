@@ -39,13 +39,8 @@ class HomeScreenDesktopLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        SizedBox(
-          width: 300,
-          child: conversationList,
-        ),
-        Expanded(
-          child: conversation,
-        ),
+        SizedBox(width: 300, child: conversationList),
+        Expanded(child: conversation),
       ],
     );
   }

@@ -37,188 +37,216 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_ConversationDetailsCubitBasePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase;
+  get rust_arc_decrement_strong_count_ConversationDetailsCubitBasePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase;
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_ConversationListCubitBasePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase;
+  get rust_arc_decrement_strong_count_ConversationListCubitBasePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase;
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_DartNotificationServicePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService;
+  get rust_arc_decrement_strong_count_DartNotificationServicePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService;
 
   CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_LogWriterPtr =>
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter;
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_MessageCubitBasePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase;
+  get rust_arc_decrement_strong_count_MessageCubitBasePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase;
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_MessageListCubitBasePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase;
+  get rust_arc_decrement_strong_count_MessageListCubitBasePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase;
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_MessageListStatePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState;
+  get rust_arc_decrement_strong_count_MessageListStatePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState;
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_NavigationCubitBasePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
+  get rust_arc_decrement_strong_count_NavigationCubitBasePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
 
-  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UiUserPtr => wire
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser;
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UiUserPtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser;
 
-  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UserPtr => wire
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser;
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UserPtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser;
 
   CrossPlatformFinalizerArg
-      get rust_arc_decrement_strong_count_UserCubitBasePtr => wire
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase;
+  get rust_arc_decrement_strong_count_UserCubitBasePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase;
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
   ConversationDetailsCubitBase
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    dynamic raw,
+  );
 
   @protected
   ConversationListCubitBase
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   DartNotificationService
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    dynamic raw,
+  );
 
   @protected
   LogWriter
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    dynamic raw,
+  );
 
   @protected
   MessageCubitBase
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageListCubitBase
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageListState
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    dynamic raw,
+  );
 
   @protected
   NavigationCubitBase
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    dynamic raw,
+  );
 
   @protected
   UiUser
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    dynamic raw,
+  );
 
   @protected
   User
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    dynamic raw,
+  );
 
   @protected
   UserCubitBase
-      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    dynamic raw,
+  );
 
   @protected
   ConversationDetailsCubitBase
-      dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          dynamic raw);
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    dynamic raw,
+  );
 
   @protected
   ConversationListCubitBase
-      dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          dynamic raw);
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageCubitBase
-      dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          dynamic raw);
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageListCubitBase
-      dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          dynamic raw);
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   NavigationCubitBase
-      dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          dynamic raw);
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    dynamic raw,
+  );
 
   @protected
   UserCubitBase
-      dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          dynamic raw);
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    dynamic raw,
+  );
 
   @protected
   ConversationDetailsCubitBase
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    dynamic raw,
+  );
 
   @protected
   ConversationListCubitBase
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   DartNotificationService
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    dynamic raw,
+  );
 
   @protected
   LogWriter
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    dynamic raw,
+  );
 
   @protected
   MessageCubitBase
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageListCubitBase
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageListState
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    dynamic raw,
+  );
 
   @protected
   NavigationCubitBase
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    dynamic raw,
+  );
 
   @protected
   UiUser
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    dynamic raw,
+  );
 
   @protected
   User
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    dynamic raw,
+  );
 
   @protected
   UserCubitBase
-      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          dynamic raw);
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    dynamic raw,
+  );
 
   @protected
   int dco_decode_CastedPrimitive_usize(dynamic raw);
@@ -228,105 +256,123 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   FutureOr<List<NotificationHandle>> Function()
-      dco_decode_DartFn_Inputs__Output_list_notification_handle_AnyhowException(
-          dynamic raw);
+  dco_decode_DartFn_Inputs__Output_list_notification_handle_AnyhowException(
+    dynamic raw,
+  );
 
   @protected
   FutureOr<void> Function(List<NotificationId>)
-      dco_decode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
-          dynamic raw);
+  dco_decode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
+    dynamic raw,
+  );
 
   @protected
   FutureOr<void> Function(NotificationContent)
-      dco_decode_DartFn_Inputs_notification_content_Output_unit_AnyhowException(
-          dynamic raw);
+  dco_decode_DartFn_Inputs_notification_content_Output_unit_AnyhowException(
+    dynamic raw,
+  );
 
   @protected
   Object dco_decode_DartOpaque(dynamic raw);
 
   @protected
   ConversationDetailsCubitBase
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    dynamic raw,
+  );
 
   @protected
   ConversationListCubitBase
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   DartNotificationService
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    dynamic raw,
+  );
 
   @protected
   LogWriter
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    dynamic raw,
+  );
 
   @protected
   MessageCubitBase
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageListCubitBase
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    dynamic raw,
+  );
 
   @protected
   MessageListState
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    dynamic raw,
+  );
 
   @protected
   NavigationCubitBase
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    dynamic raw,
+  );
 
   @protected
   UiUser
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    dynamic raw,
+  );
 
   @protected
   User
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    dynamic raw,
+  );
 
   @protected
   UserCubitBase
-      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          dynamic raw);
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    dynamic raw,
+  );
 
   @protected
   RustStreamSink<MessageListState>
-      dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
-          dynamic raw);
+  dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
+    dynamic raw,
+  );
 
   @protected
   RustStreamSink<UiUser>
-      dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
-          dynamic raw);
+  dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
+    dynamic raw,
+  );
 
   @protected
   RustStreamSink<ConversationDetailsState>
-      dco_decode_StreamSink_conversation_details_state_Sse(dynamic raw);
+  dco_decode_StreamSink_conversation_details_state_Sse(dynamic raw);
 
   @protected
   RustStreamSink<ConversationListState>
-      dco_decode_StreamSink_conversation_list_state_Sse(dynamic raw);
+  dco_decode_StreamSink_conversation_list_state_Sse(dynamic raw);
 
   @protected
   RustStreamSink<LogEntry> dco_decode_StreamSink_log_entry_Sse(dynamic raw);
 
   @protected
   RustStreamSink<MessageState> dco_decode_StreamSink_message_state_Sse(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   RustStreamSink<NavigationState> dco_decode_StreamSink_navigation_state_Sse(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   String dco_decode_String(dynamic raw);
@@ -345,19 +391,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   User
-      dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          dynamic raw);
+  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    dynamic raw,
+  );
 
   @protected
   ConversationId dco_decode_box_autoadd_conversation_id(dynamic raw);
 
   @protected
   ConversationMessageId dco_decode_box_autoadd_conversation_message_id(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   DeveloperSettingsScreenType
-      dco_decode_box_autoadd_developer_settings_screen_type(dynamic raw);
+  dco_decode_box_autoadd_developer_settings_screen_type(dynamic raw);
 
   @protected
   HomeNavigationState dco_decode_box_autoadd_home_navigation_state(dynamic raw);
@@ -373,11 +421,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiConversationDetails dco_decode_box_autoadd_ui_conversation_details(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   UiConversationMessage dco_decode_box_autoadd_ui_conversation_message(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   UiErrorMessage dco_decode_box_autoadd_ui_error_message(dynamic raw);
@@ -387,7 +437,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiInactiveConversation dco_decode_box_autoadd_ui_inactive_conversation(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   UiSystemMessage dco_decode_box_autoadd_ui_system_message(dynamic raw);
@@ -415,7 +466,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DeveloperSettingsScreenType dco_decode_developer_settings_screen_type(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   HomeNavigationState dco_decode_home_navigation_state(dynamic raw);
@@ -446,11 +498,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<List<List<RangedBlockElement>>>
-      dco_decode_list_list_list_ranged_block_element(dynamic raw);
+  dco_decode_list_list_list_ranged_block_element(dynamic raw);
 
   @protected
   List<List<RangedBlockElement>> dco_decode_list_list_ranged_block_element(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   List<NotificationHandle> dco_decode_list_notification_handle(dynamic raw);
@@ -481,7 +534,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<UiConversationDetails> dco_decode_list_ui_conversation_details(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   LogEntry dco_decode_log_entry(dynamic raw);
@@ -515,30 +569,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   User?
-      dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          dynamic raw);
+  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    dynamic raw,
+  );
 
   @protected
   ConversationId? dco_decode_opt_box_autoadd_conversation_id(dynamic raw);
 
   @protected
   DeveloperSettingsScreenType?
-      dco_decode_opt_box_autoadd_developer_settings_screen_type(dynamic raw);
+  dco_decode_opt_box_autoadd_developer_settings_screen_type(dynamic raw);
 
   @protected
   ImageData? dco_decode_opt_box_autoadd_image_data(dynamic raw);
 
   @protected
   PlatformPushToken? dco_decode_opt_box_autoadd_platform_push_token(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   UiConversationDetails? dco_decode_opt_box_autoadd_ui_conversation_details(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   UiConversationMessage? dco_decode_opt_box_autoadd_ui_conversation_message(
-      dynamic raw);
+    dynamic raw,
+  );
 
   @protected
   UiUserProfile? dco_decode_opt_box_autoadd_ui_user_profile(dynamic raw);
@@ -629,143 +687,171 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ConversationDetailsCubitBase
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationListCubitBase
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   DartNotificationService
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LogWriter
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageCubitBase
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageListCubitBase
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageListState
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    SseDeserializer deserializer,
+  );
 
   @protected
   NavigationCubitBase
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiUser
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   User
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   UserCubitBase
-      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationDetailsCubitBase
-      sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationListCubitBase
-      sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageCubitBase
-      sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageListCubitBase
-      sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   NavigationCubitBase
-      sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   UserCubitBase
-      sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationDetailsCubitBase
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationListCubitBase
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   DartNotificationService
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LogWriter
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageCubitBase
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageListCubitBase
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageListState
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    SseDeserializer deserializer,
+  );
 
   @protected
   NavigationCubitBase
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiUser
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   User
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   UserCubitBase
-      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_CastedPrimitive_usize(SseDeserializer deserializer);
@@ -778,90 +864,108 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ConversationDetailsCubitBase
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationListCubitBase
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   DartNotificationService
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LogWriter
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageCubitBase
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageListCubitBase
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageListState
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    SseDeserializer deserializer,
+  );
 
   @protected
   NavigationCubitBase
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiUser
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   User
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   UserCubitBase
-      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          SseDeserializer deserializer);
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RustStreamSink<MessageListState>
-      sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
-          SseDeserializer deserializer);
+  sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RustStreamSink<UiUser>
-      sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
-          SseDeserializer deserializer);
+  sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RustStreamSink<ConversationDetailsState>
-      sse_decode_StreamSink_conversation_details_state_Sse(
-          SseDeserializer deserializer);
+  sse_decode_StreamSink_conversation_details_state_Sse(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RustStreamSink<ConversationListState>
-      sse_decode_StreamSink_conversation_list_state_Sse(
-          SseDeserializer deserializer);
+  sse_decode_StreamSink_conversation_list_state_Sse(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RustStreamSink<LogEntry> sse_decode_StreamSink_log_entry_Sse(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   RustStreamSink<MessageState> sse_decode_StreamSink_message_state_Sse(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   RustStreamSink<NavigationState> sse_decode_StreamSink_navigation_state_Sse(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -880,94 +984,114 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   User
-      sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          SseDeserializer deserializer);
+  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationId sse_decode_box_autoadd_conversation_id(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationMessageId sse_decode_box_autoadd_conversation_message_id(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   DeveloperSettingsScreenType
-      sse_decode_box_autoadd_developer_settings_screen_type(
-          SseDeserializer deserializer);
+  sse_decode_box_autoadd_developer_settings_screen_type(
+    SseDeserializer deserializer,
+  );
 
   @protected
   HomeNavigationState sse_decode_box_autoadd_home_navigation_state(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   ImageData sse_decode_box_autoadd_image_data(SseDeserializer deserializer);
 
   @protected
   MessageState sse_decode_box_autoadd_message_state(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   PlatformPushToken sse_decode_box_autoadd_platform_push_token(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationDetails sse_decode_box_autoadd_ui_conversation_details(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationMessage sse_decode_box_autoadd_ui_conversation_message(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiErrorMessage sse_decode_box_autoadd_ui_error_message(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiEventMessage sse_decode_box_autoadd_ui_event_message(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiInactiveConversation sse_decode_box_autoadd_ui_inactive_conversation(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiSystemMessage sse_decode_box_autoadd_ui_system_message(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiUserName sse_decode_box_autoadd_ui_user_name(SseDeserializer deserializer);
 
   @protected
   UiUserProfile sse_decode_box_autoadd_ui_user_profile(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiContentMessage sse_decode_box_ui_content_message(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationDetailsState sse_decode_conversation_details_state(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationId sse_decode_conversation_id(SseDeserializer deserializer);
 
   @protected
   ConversationListState sse_decode_conversation_list_state(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationMessageId sse_decode_conversation_message_id(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   DeveloperSettingsScreenType sse_decode_developer_settings_screen_type(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   HomeNavigationState sse_decode_home_navigation_state(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -992,24 +1116,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<IntroScreenType> sse_decode_list_intro_screen_type(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<List<List<RangedBlockElement>>>
-      sse_decode_list_list_list_ranged_block_element(
-          SseDeserializer deserializer);
+  sse_decode_list_list_list_ranged_block_element(SseDeserializer deserializer);
 
   @protected
   List<List<RangedBlockElement>> sse_decode_list_list_ranged_block_element(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<NotificationHandle> sse_decode_list_notification_handle(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<NotificationId> sse_decode_list_notification_id(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
@@ -1019,26 +1146,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<RangedBlockElement> sse_decode_list_ranged_block_element(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<RangedCodeBlock> sse_decode_list_ranged_code_block(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<RangedInlineElement> sse_decode_list_ranged_inline_element(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<UiClientRecord> sse_decode_list_ui_client_record(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<UiContact> sse_decode_list_ui_contact(SseDeserializer deserializer);
 
   @protected
   List<UiConversationDetails> sse_decode_list_ui_conversation_details(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   LogEntry sse_decode_log_entry(SseDeserializer deserializer);
@@ -1057,11 +1189,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NotificationContent sse_decode_notification_content(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   NotificationHandle sse_decode_notification_handle(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   NotificationId sse_decode_notification_id(SseDeserializer deserializer);
@@ -1074,55 +1208,66 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   User?
-      sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          SseDeserializer deserializer);
+  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ConversationId? sse_decode_opt_box_autoadd_conversation_id(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   DeveloperSettingsScreenType?
-      sse_decode_opt_box_autoadd_developer_settings_screen_type(
-          SseDeserializer deserializer);
+  sse_decode_opt_box_autoadd_developer_settings_screen_type(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ImageData? sse_decode_opt_box_autoadd_image_data(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   PlatformPushToken? sse_decode_opt_box_autoadd_platform_push_token(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationDetails? sse_decode_opt_box_autoadd_ui_conversation_details(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationMessage? sse_decode_opt_box_autoadd_ui_conversation_message(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiUserProfile? sse_decode_opt_box_autoadd_ui_user_profile(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
   PlatformPushToken sse_decode_platform_push_token(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   RangedBlockElement sse_decode_ranged_block_element(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   RangedCodeBlock sse_decode_ranged_code_block(SseDeserializer deserializer);
 
   @protected
   RangedInlineElement sse_decode_ranged_inline_element(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -1144,23 +1289,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiConversationAttributes sse_decode_ui_conversation_attributes(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationDetails sse_decode_ui_conversation_details(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationMessage sse_decode_ui_conversation_message(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationStatus sse_decode_ui_conversation_status(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiConversationType sse_decode_ui_conversation_type(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiErrorMessage sse_decode_ui_error_message(SseDeserializer deserializer);
@@ -1173,7 +1323,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiInactiveConversation sse_decode_ui_inactive_conversation(
-      SseDeserializer deserializer);
+    SseDeserializer deserializer,
+  );
 
   @protected
   UiMessage sse_decode_ui_message(SseDeserializer deserializer);
@@ -1198,147 +1349,205 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_AnyhowException(
-      AnyhowException self, SseSerializer serializer);
+    AnyhowException self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          ConversationDetailsCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    ConversationDetailsCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          ConversationListCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    ConversationListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          DartNotificationService self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    DartNotificationService self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          LogWriter self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    LogWriter self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          MessageCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    MessageCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          MessageListCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    MessageListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          MessageListState self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    MessageListState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          NavigationCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    NavigationCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          UiUser self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    UiUser self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          User self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    User self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          UserCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    UserCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          ConversationDetailsCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    ConversationDetailsCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          ConversationListCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    ConversationListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          MessageCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    MessageCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          MessageListCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    MessageListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          NavigationCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    NavigationCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          UserCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    UserCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          ConversationDetailsCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    ConversationDetailsCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          ConversationListCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    ConversationListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          DartNotificationService self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    DartNotificationService self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          LogWriter self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    LogWriter self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          MessageCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    MessageCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          MessageListCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    MessageListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          MessageListState self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    MessageListState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          NavigationCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    NavigationCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          UiUser self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    UiUser self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          User self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    User self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          UserCubitBase self, SseSerializer serializer);
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    UserCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_CastedPrimitive_usize(int self, SseSerializer serializer);
@@ -1348,109 +1557,148 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-      sse_encode_DartFn_Inputs__Output_list_notification_handle_AnyhowException(
-          FutureOr<List<NotificationHandle>> Function() self,
-          SseSerializer serializer);
+  sse_encode_DartFn_Inputs__Output_list_notification_handle_AnyhowException(
+    FutureOr<List<NotificationHandle>> Function() self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
-          FutureOr<void> Function(List<NotificationId>) self,
-          SseSerializer serializer);
+  sse_encode_DartFn_Inputs_list_notification_id_Output_unit_AnyhowException(
+    FutureOr<void> Function(List<NotificationId>) self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_DartFn_Inputs_notification_content_Output_unit_AnyhowException(
-          FutureOr<void> Function(NotificationContent) self,
-          SseSerializer serializer);
+  sse_encode_DartFn_Inputs_notification_content_Output_unit_AnyhowException(
+    FutureOr<void> Function(NotificationContent) self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_DartOpaque(Object self, SseSerializer serializer);
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          ConversationDetailsCubitBase self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    ConversationDetailsCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          ConversationListCubitBase self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    ConversationListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          DartNotificationService self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    DartNotificationService self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          LogWriter self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    LogWriter self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          MessageCubitBase self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    MessageCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          MessageListCubitBase self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    MessageListCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          MessageListState self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    MessageListState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          NavigationCubitBase self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    NavigationCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          UiUser self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    UiUser self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          User self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    User self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          UserCubitBase self, SseSerializer serializer);
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    UserCubitBase self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
-          RustStreamSink<MessageListState> self, SseSerializer serializer);
+  sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
+    RustStreamSink<MessageListState> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void
-      sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
-          RustStreamSink<UiUser> self, SseSerializer serializer);
+  sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
+    RustStreamSink<UiUser> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_StreamSink_conversation_details_state_Sse(
-      RustStreamSink<ConversationDetailsState> self, SseSerializer serializer);
+    RustStreamSink<ConversationDetailsState> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_StreamSink_conversation_list_state_Sse(
-      RustStreamSink<ConversationListState> self, SseSerializer serializer);
+    RustStreamSink<ConversationListState> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_StreamSink_log_entry_Sse(
-      RustStreamSink<LogEntry> self, SseSerializer serializer);
+    RustStreamSink<LogEntry> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_StreamSink_message_state_Sse(
-      RustStreamSink<MessageState> self, SseSerializer serializer);
+    RustStreamSink<MessageState> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_StreamSink_navigation_state_Sse(
-      RustStreamSink<NavigationState> self, SseSerializer serializer);
+    RustStreamSink<NavigationState> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -1469,96 +1717,142 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-      sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          User self, SseSerializer serializer);
+  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    User self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_conversation_id(
-      ConversationId self, SseSerializer serializer);
+    ConversationId self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_conversation_message_id(
-      ConversationMessageId self, SseSerializer serializer);
+    ConversationMessageId self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_developer_settings_screen_type(
-      DeveloperSettingsScreenType self, SseSerializer serializer);
+    DeveloperSettingsScreenType self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_home_navigation_state(
-      HomeNavigationState self, SseSerializer serializer);
+    HomeNavigationState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_image_data(
-      ImageData self, SseSerializer serializer);
+    ImageData self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_message_state(
-      MessageState self, SseSerializer serializer);
+    MessageState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_platform_push_token(
-      PlatformPushToken self, SseSerializer serializer);
+    PlatformPushToken self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_conversation_details(
-      UiConversationDetails self, SseSerializer serializer);
+    UiConversationDetails self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_conversation_message(
-      UiConversationMessage self, SseSerializer serializer);
+    UiConversationMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_error_message(
-      UiErrorMessage self, SseSerializer serializer);
+    UiErrorMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_event_message(
-      UiEventMessage self, SseSerializer serializer);
+    UiEventMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_inactive_conversation(
-      UiInactiveConversation self, SseSerializer serializer);
+    UiInactiveConversation self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_system_message(
-      UiSystemMessage self, SseSerializer serializer);
+    UiSystemMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_user_name(
-      UiUserName self, SseSerializer serializer);
+    UiUserName self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_ui_user_profile(
-      UiUserProfile self, SseSerializer serializer);
+    UiUserProfile self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_ui_content_message(
-      UiContentMessage self, SseSerializer serializer);
+    UiContentMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_conversation_details_state(
-      ConversationDetailsState self, SseSerializer serializer);
+    ConversationDetailsState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_conversation_id(
-      ConversationId self, SseSerializer serializer);
+    ConversationId self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_conversation_list_state(
-      ConversationListState self, SseSerializer serializer);
+    ConversationListState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_conversation_message_id(
-      ConversationMessageId self, SseSerializer serializer);
+    ConversationMessageId self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_developer_settings_screen_type(
-      DeveloperSettingsScreenType self, SseSerializer serializer);
+    DeveloperSettingsScreenType self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_home_navigation_state(
-      HomeNavigationState self, SseSerializer serializer);
+    HomeNavigationState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
@@ -1574,7 +1868,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_intro_screen_type(
-      IntroScreenType self, SseSerializer serializer);
+    IntroScreenType self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_isize(PlatformInt64 self, SseSerializer serializer);
@@ -1584,54 +1880,78 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_intro_screen_type(
-      List<IntroScreenType> self, SseSerializer serializer);
+    List<IntroScreenType> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_list_list_ranged_block_element(
-      List<List<List<RangedBlockElement>>> self, SseSerializer serializer);
+    List<List<List<RangedBlockElement>>> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_list_ranged_block_element(
-      List<List<RangedBlockElement>> self, SseSerializer serializer);
+    List<List<RangedBlockElement>> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_notification_handle(
-      List<NotificationHandle> self, SseSerializer serializer);
+    List<NotificationHandle> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_notification_id(
-      List<NotificationId> self, SseSerializer serializer);
+    List<NotificationId> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(
-      Uint8List self, SseSerializer serializer);
+    Uint8List self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_ranged_block_element(
-      List<RangedBlockElement> self, SseSerializer serializer);
+    List<RangedBlockElement> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_ranged_code_block(
-      List<RangedCodeBlock> self, SseSerializer serializer);
+    List<RangedCodeBlock> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_ranged_inline_element(
-      List<RangedInlineElement> self, SseSerializer serializer);
+    List<RangedInlineElement> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_ui_client_record(
-      List<UiClientRecord> self, SseSerializer serializer);
+    List<UiClientRecord> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_ui_contact(
-      List<UiContact> self, SseSerializer serializer);
+    List<UiContact> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_ui_conversation_details(
-      List<UiConversationDetails> self, SseSerializer serializer);
+    List<UiConversationDetails> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_log_entry(LogEntry self, SseSerializer serializer);
@@ -1641,86 +1961,124 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_message_content(
-      MessageContent self, SseSerializer serializer);
+    MessageContent self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_message_state(MessageState self, SseSerializer serializer);
 
   @protected
   void sse_encode_navigation_state(
-      NavigationState self, SseSerializer serializer);
+    NavigationState self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_notification_content(
-      NotificationContent self, SseSerializer serializer);
+    NotificationContent self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_notification_handle(
-      NotificationHandle self, SseSerializer serializer);
+    NotificationHandle self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_notification_id(
-      NotificationId self, SseSerializer serializer);
+    NotificationId self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_CastedPrimitive_usize(
-      int? self, SseSerializer serializer);
+    int? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
   void
-      sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          User? self, SseSerializer serializer);
+  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    User? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_conversation_id(
-      ConversationId? self, SseSerializer serializer);
+    ConversationId? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_developer_settings_screen_type(
-      DeveloperSettingsScreenType? self, SseSerializer serializer);
+    DeveloperSettingsScreenType? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_image_data(
-      ImageData? self, SseSerializer serializer);
+    ImageData? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_platform_push_token(
-      PlatformPushToken? self, SseSerializer serializer);
+    PlatformPushToken? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_ui_conversation_details(
-      UiConversationDetails? self, SseSerializer serializer);
+    UiConversationDetails? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_ui_conversation_message(
-      UiConversationMessage? self, SseSerializer serializer);
+    UiConversationMessage? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_ui_user_profile(
-      UiUserProfile? self, SseSerializer serializer);
+    UiUserProfile? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_list_prim_u_8_strict(
-      Uint8List? self, SseSerializer serializer);
+    Uint8List? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_platform_push_token(
-      PlatformPushToken self, SseSerializer serializer);
+    PlatformPushToken self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ranged_block_element(
-      RangedBlockElement self, SseSerializer serializer);
+    RangedBlockElement self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ranged_code_block(
-      RangedCodeBlock self, SseSerializer serializer);
+    RangedCodeBlock self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ranged_inline_element(
-      RangedInlineElement self, SseSerializer serializer);
+    RangedInlineElement self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
@@ -1733,50 +2091,72 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_ui_client_record(
-      UiClientRecord self, SseSerializer serializer);
+    UiClientRecord self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_contact(UiContact self, SseSerializer serializer);
 
   @protected
   void sse_encode_ui_content_message(
-      UiContentMessage self, SseSerializer serializer);
+    UiContentMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_conversation_attributes(
-      UiConversationAttributes self, SseSerializer serializer);
+    UiConversationAttributes self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_conversation_details(
-      UiConversationDetails self, SseSerializer serializer);
+    UiConversationDetails self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_conversation_message(
-      UiConversationMessage self, SseSerializer serializer);
+    UiConversationMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_conversation_status(
-      UiConversationStatus self, SseSerializer serializer);
+    UiConversationStatus self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_conversation_type(
-      UiConversationType self, SseSerializer serializer);
+    UiConversationType self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_error_message(
-      UiErrorMessage self, SseSerializer serializer);
+    UiErrorMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_event_message(
-      UiEventMessage self, SseSerializer serializer);
+    UiEventMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_flight_position(
-      UiFlightPosition self, SseSerializer serializer);
+    UiFlightPosition self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_inactive_conversation(
-      UiInactiveConversation self, SseSerializer serializer);
+    UiInactiveConversation self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_message(UiMessage self, SseSerializer serializer);
@@ -1786,7 +2166,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_ui_system_message(
-      UiSystemMessage self, SseSerializer serializer);
+    UiSystemMessage self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_user_name(UiUserName self, SseSerializer serializer);
@@ -1806,137 +2188,181 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 class RustLibWire implements BaseWire {
   RustLibWire.fromExternalLibrary(ExternalLibrary lib);
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+        ptr,
+      );
 
-  void rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-              ptr);
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+        ptr,
+      );
 
-  void rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          int ptr) =>
-      wasmModule
-          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-              ptr);
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+        ptr,
+      );
 }
 
 @JS('wasm_bindgen')
@@ -1946,90 +2372,112 @@ external RustLibWasmModule get wasmModule;
 @anonymous
 extension type RustLibWasmModule._(JSObject _) implements JSObject {
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDartNotificationService(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLogWriter(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    int ptr,
+  );
 
   external void
-      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          int ptr);
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    int ptr,
+  );
 
   external void
-      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
-          int ptr);
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    int ptr,
+  );
 }

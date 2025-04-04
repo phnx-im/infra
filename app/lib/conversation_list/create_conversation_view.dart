@@ -13,8 +13,13 @@ class CreateConversationView extends StatefulWidget {
 
   @override
   const CreateConversationView(
-      BuildContext context, this.title, this.prompt, this.hint, this.action,
-      {super.key});
+    BuildContext context,
+    this.title,
+    this.prompt,
+    this.hint,
+    this.action, {
+    super.key,
+  });
 
   @override
   State<CreateConversationView> createState() => _CreateConversationViewState();
@@ -30,17 +35,14 @@ class _CreateConversationViewState extends State<CreateConversationView> {
     return AlertDialog(
       title: Text(widget.title),
       titlePadding: const EdgeInsets.all(20),
-      titleTextStyle: Theme.of(context)
-          .textTheme
-          .titleLarge
-          ?.copyWith(color: colorGreyDark),
+      titleTextStyle: Theme.of(
+        context,
+      ).textTheme.titleLarge?.copyWith(color: colorGreyDark),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actionsPadding: const EdgeInsets.all(20),
       buttonPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,7 +74,7 @@ class _CreateConversationViewState extends State<CreateConversationView> {
                 ),
               ),
             ],
-          )
+          ),
         ],
       ),
       actions: <Widget>[
@@ -85,11 +87,12 @@ class _CreateConversationViewState extends State<CreateConversationView> {
         ),
         TextButton(
           style: dynamicTextButtonStyle(context, _isInputValid, true),
-          onPressed: _controller.text.isNotEmpty
-              ? () {
-                  Navigator.of(context).pop(_controller.text);
-                }
-              : null,
+          onPressed:
+              _controller.text.isNotEmpty
+                  ? () {
+                    Navigator.of(context).pop(_controller.text);
+                  }
+                  : null,
           child: Text(widget.action),
         ),
       ],

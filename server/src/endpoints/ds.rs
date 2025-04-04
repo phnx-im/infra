@@ -9,7 +9,7 @@ use actix_web::{
 use phnxbackend::{ds::Ds, qs::QsConnector};
 use phnxtypes::{ACCEPTED_API_VERSIONS_HEADER, errors::DsProcessingError};
 use tls_codec::{DeserializeBytes, Serialize};
-use tracing::{info, trace, warn};
+use tracing::{error, info, trace, warn};
 
 /// DS endpoint for all group-based functionalities.
 #[tracing::instrument(name = "Perform DS operation", skip_all)]
@@ -24,9 +24,9 @@ pub(crate) async fn ds_process_message<Qep: QsConnector>(
     // Create a new group on the DS.
     let message = match DeserializeBytes::tls_deserialize_exact_bytes(&message) {
         Ok(message) => message,
-        Err(e) => {
-            warn!("Received invalid message: {:?}", e);
-            return HttpResponse::BadRequest().body(e.to_string());
+        Err(error) => {
+            warn!(%error, "Received invalid message");
+            return HttpResponse::BadRequest().body(error.to_string());
         }
     };
     match Ds::process(storage_provider, qs_connector, message).await {
@@ -35,6 +35,10 @@ pub(crate) async fn ds_process_message<Qep: QsConnector>(
             trace!("Processed message successfully");
             let serialized_response = response.tls_serialize_detached().unwrap();
             HttpResponse::Ok().body(serialized_response)
+        }
+        Err(DsProcessingError::DeprecatedParam(name)) => {
+            warn!(%name, "Deprecated parameter");
+            HttpResponse::NotAcceptable().body(format!("Deprecated parameter: {name}"))
         }
         Err(DsProcessingError::Api(version_error)) => {
             info!(%version_error, "Unsupported QS API version");
@@ -46,9 +50,9 @@ pub(crate) async fn ds_process_message<Qep: QsConnector>(
                 .body(version_error.to_string())
         }
         // If the message could not be processed, return an error.
-        Err(e) => {
-            warn!("DS failed to process message: {:?}", e);
-            HttpResponse::InternalServerError().body(e.to_string())
+        Err(error) => {
+            error!(%error, "DS failed to process message");
+            HttpResponse::InternalServerError().body(error.to_string())
         }
     }
 }

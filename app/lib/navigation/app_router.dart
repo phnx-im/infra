@@ -68,24 +68,25 @@ class AppRouterDelegate extends RouterDelegate<EmptyConfig> {
     // routing
     final List<MaterialPage> pages = switch (navigationState) {
       NavigationState_Intro(:final screens) => [
-          if (screens.isEmpty)
-            MaterialPage(
-              key: IntroScreenType.intro.key,
-              canPop: false,
-              child: IntroScreenType.intro.screen,
-            ),
-          for (final screenType in screens)
-            MaterialPage(
-              key: screenType.key,
-              canPop: screenType != IntroScreenType.intro,
-              child: screenType.screen,
-            ),
-        ],
+        if (screens.isEmpty)
+          MaterialPage(
+            key: IntroScreenType.intro.key,
+            canPop: false,
+            child: IntroScreenType.intro.screen,
+          ),
+        for (final screenType in screens)
+          MaterialPage(
+            key: screenType.key,
+            canPop: screenType != IntroScreenType.intro,
+            child: screenType.screen,
+          ),
+      ],
       NavigationState_Home(:final home) => home.pages(screenType),
     };
 
     _log.finer(
-        "AppRouterDelegate.build: navigationState = $navigationState, pages=$pages");
+      "AppRouterDelegate.build: navigationState = $navigationState, pages=$pages",
+    );
 
     return PageStorage(
       bucket: _bucket,
@@ -145,23 +146,26 @@ class AppBackButtonDispatcher extends RootBackButtonDispatcher {}
 /// Convert an [IntroScreenType] into a [ValueKey] and a screen [Widget].
 extension on IntroScreenType {
   ValueKey<String> get key => switch (this) {
-        IntroScreenType.intro => const ValueKey("intro-screen"),
-        IntroScreenType.serverChoice => const ValueKey("server-choice-screen"),
-        IntroScreenType.usernamePassword =>
-          const ValueKey("username-password-screen"),
-        IntroScreenType.displayNamePicture =>
-          const ValueKey("display-name-picture-screen"),
-        IntroScreenType.developerSettings =>
-          const ValueKey("developer-settings-screen"),
-      };
+    IntroScreenType.intro => const ValueKey("intro-screen"),
+    IntroScreenType.serverChoice => const ValueKey("server-choice-screen"),
+    IntroScreenType.usernamePassword => const ValueKey(
+      "username-password-screen",
+    ),
+    IntroScreenType.displayNamePicture => const ValueKey(
+      "display-name-picture-screen",
+    ),
+    IntroScreenType.developerSettings => const ValueKey(
+      "developer-settings-screen",
+    ),
+  };
 
   Widget get screen => switch (this) {
-        IntroScreenType.intro => const IntroScreen(),
-        IntroScreenType.serverChoice => const ServerChoice(),
-        IntroScreenType.usernamePassword => const UsernamePasswordChoice(),
-        IntroScreenType.displayNamePicture => const DisplayNameAvatarChoice(),
-        IntroScreenType.developerSettings => const DeveloperSettingsScreen(),
-      };
+    IntroScreenType.intro => const IntroScreen(),
+    IntroScreenType.serverChoice => const ServerChoice(),
+    IntroScreenType.usernamePassword => const UsernamePasswordChoice(),
+    IntroScreenType.displayNamePicture => const DisplayNameAvatarChoice(),
+    IntroScreenType.developerSettings => const DeveloperSettingsScreen(),
+  };
 }
 
 /// Convert [HomeNavigation] state into a list of pages.
@@ -210,31 +214,31 @@ extension on HomeNavigationState {
       ...switch (developerSettingsScreen) {
         null => [],
         DeveloperSettingsScreenType.root => [
-            const MaterialPage(
-              key: ValueKey("developer-settings-screen"),
-              child: DeveloperSettingsScreen(),
-            ),
-          ],
+          const MaterialPage(
+            key: ValueKey("developer-settings-screen"),
+            child: DeveloperSettingsScreen(),
+          ),
+        ],
         DeveloperSettingsScreenType.changeUser => [
-            const MaterialPage(
-              key: ValueKey("developer-settings-screen-root"),
-              child: DeveloperSettingsScreen(),
-            ),
-            const MaterialPage(
-              key: ValueKey("developer-settings-screen-change-user"),
-              child: ChangeUserScreen(),
-            ),
-          ],
+          const MaterialPage(
+            key: ValueKey("developer-settings-screen-root"),
+            child: DeveloperSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("developer-settings-screen-change-user"),
+            child: ChangeUserScreen(),
+          ),
+        ],
         DeveloperSettingsScreenType.logs => [
-            const MaterialPage(
-              key: ValueKey("developer-settings-screen-root"),
-              child: DeveloperSettingsScreen(),
-            ),
-            const MaterialPage(
-              key: ValueKey("developer-settings-screen-logs"),
-              child: LogsScreen(),
-            ),
-          ],
+          const MaterialPage(
+            key: ValueKey("developer-settings-screen-root"),
+            child: DeveloperSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("developer-settings-screen-logs"),
+            child: LogsScreen(),
+          ),
+        ],
       },
     ];
   }
@@ -258,14 +262,15 @@ class NoAnimationPage<T> extends MaterialPage<T> {
 }
 
 class NoAnimationMaterialPageRoute<T> extends MaterialPageRoute<T> {
-  NoAnimationMaterialPageRoute({
-    super.settings,
-    required super.builder,
-  });
+  NoAnimationMaterialPageRoute({super.settings, required super.builder});
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     // return child without transition animation
     return child;
   }
