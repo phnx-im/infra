@@ -1,0 +1,236 @@
+syntax = "proto3";
+
+package delivery_service.v1;
+
+import "common/v1/common.proto";
+
+service DeliveryService {
+  rpc RequestGroupId(RequestGroupIdRequest) returns (RequestGroupIdResponse);
+
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+
+  rpc WelcomeInfo(WelcomeInfoRequest) returns (WelcomeInfoResponse);
+
+  rpc ExternalCommitInfo(ExternalCommitInfoRequest) returns (ExternalCommitInfoResponse);
+
+  rpc ConnectionGroupInfo(ConnectionGroupInfoRequest) returns (ConnectionGroupInfoResponse);
+
+  rpc UpdateQsClientReference(UpdateQsClientReferenceRequest) returns (UpdateQsClientReferenceResponse);
+
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+
+  rpc JoinConnectionGroup(JoinConnectionGroupRequest) returns (JoinConnectionGroupResponse);
+
+  rpc Resync(ResyncRequest) returns (ResyncResponse);
+
+  rpc SelfRemove(SelfRemoveRequest) returns (SelfRemoveResponse);
+
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
+
+  rpc GroupOperation(GroupOperationRequest) returns (GroupOperationResponse);
+}
+
+// request group id
+
+message RequestGroupIdRequest {}
+
+message RequestGroupIdResponse {
+  common.v1.GroupId group_id = 1;
+}
+
+// create group
+
+message CreateGroupRequest {
+  common.v1.GroupId group_id = 1;
+  RatchetTree ratchet_tree = 2;
+  EncryptedIdentityLinkKey encrypted_identity_link_key = 3;
+  QsReference creator_client_reference = 4;
+  MlsMessage group_info = 5;
+}
+
+message RatchetTree {
+  bytes tls = 1 [
+    (common.v1.tls_serialize_type) = "openmls::treesync::RatchetTree",
+    (common.v1.tls_deserialize_type) = "openmls::treesync::RatchetTreeIn"
+  ];
+}
+
+message EncryptedIdentityLinkKey {
+  bytes ciphertext = 1;
+}
+
+message QsReference {
+  common.v1.Fqdn client_homeserver_domain = 1;
+  SealedClientReference sealed_reference = 2;
+}
+
+message SealedClientReference {
+  bytes ciphertext = 1;
+}
+
+message MlsMessage {
+  bytes tls = 1 [
+    (common.v1.tls_serialize_type) = "openmls::framing::MlsMessageOut",
+    (common.v1.tls_deserialize_type) = "openmls::framing::MlsMessageIn"
+  ];
+}
+
+message CreateGroupResponse {}
+
+// welcome info
+
+message WelcomeInfoRequest {
+  common.v1.GroupId group_id = 1;
+  SignaturePublicKey sender = 2;
+  GroupEpoch epoch = 3;
+}
+
+message SignaturePublicKey {
+  bytes bytes = 1;
+}
+
+message GroupEpoch {
+  uint64 epoch = 1;
+}
+
+message WelcomeInfoResponse {
+  optional RatchetTree public_tree = 1;
+  bytes credential_chains = 2;
+}
+
+// external commit info
+
+message ExternalCommitInfoRequest {
+  common.v1.GroupId group_id = 1;
+}
+
+message ExternalCommitInfoResponse {
+  VerifiableGroupInfo verifiable_group_info = 1;
+  RatchetTree ratchet_tree = 2;
+  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+}
+
+message VerifiableGroupInfo {
+  bytes tls = 1 [
+    (common.v1.tls_serialize_type) = "openmls::group_info::GroupInfo",
+    (common.v1.tls_deserialize_type) = "openmls::group_info::VerifiableGroupInfo"
+  ];
+}
+
+// connection group info
+
+message ConnectionGroupInfoRequest {
+  common.v1.GroupId group_id = 1;
+}
+
+message ConnectionGroupInfoResponse {
+  VerifiableGroupInfo verifiable_group_info = 1;
+  RatchetTree ratchet_tree = 2;
+  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+}
+
+// update qs client reference
+
+message UpdateQsClientReferenceRequest {
+  common.v1.GroupId group_id = 1;
+  LeafNodeIndex sender = 2;
+  QsReference new_qs_reference = 3;
+}
+
+message LeafNodeIndex {
+  uint32 index = 1;
+}
+
+message UpdateQsClientReferenceResponse {}
+
+// update
+
+message UpdateRequest {
+  AssistedMessage commit = 1;
+}
+
+message AssistedMessage {
+  bytes tls = 1 [
+    (common.v1.tls_serialize_type) = "mls_assist::messages::AssistedMessageOut",
+    (common.v1.tls_deserialize_type) = "mls_assist::messages::AssistedMessageIn"
+  ];
+}
+
+message UpdateResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// join connection group
+
+message JoinConnectionGroupRequest {
+  AssistedMessage extenal_commit = 1;
+  QsReference qs_client_reference = 2;
+}
+
+message JoinConnectionGroupResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// resync
+
+message ResyncRequest {
+  AssistedMessage extenal_commit = 1;
+  LeafNodeIndex sender = 2;
+}
+
+message ResyncResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// self remove
+
+message SelfRemoveRequest {
+  AssistedMessage remove_proposal = 1;
+}
+
+message SelfRemoveResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// send message
+
+message SendMessageRequest {
+  AssistedMessage message = 1;
+  LeafNodeIndex sender = 2;
+}
+
+message SendMessageResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// delete group
+
+message DeleteGroupRequest {
+  AssistedMessage commit = 1;
+}
+
+message DeleteGroupResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// group operation
+
+message GroupOperationRequest {
+  AssistedMessage commit = 1;
+  optional AddUsersInfo add_users_info = 2;
+}
+
+message AddUsersInfo {
+  MlsMessage welcome = 1;
+  repeated EncryptedWelcomeAttributionInfo encrypted_welcome_attribution_info = 2;
+}
+
+message EncryptedWelcomeAttributionInfo {
+  bytes ciphertext = 1;
+}
+
+message GroupOperationResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}

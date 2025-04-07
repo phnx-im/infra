@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package common.v1;
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.FieldOptions {
+  // Fully qualified Rust type name serialized as TLS in this field
+  string tls_serialize_type = 50000;
+  // Fully qualified Rust type name deserialized as TLS from this field
+  string tls_deserialize_type = 50001;
+}
+
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanos = 2;
+}
+
+message Uuid {
+  uint64 lo = 1;
+  uint64 hi = 2;
+}
+
+message GroupId {
+  bytes group_id = 1;
+}
+
+message RatchetEncryptionKey {
+  bytes bytes = 1;
+}
+
+message RatchetSecret {
+  bytes bytes = 1;
+}
+
+message Fqdn {
+  string value = 1;
+}
+
+message UserName {
+  string value = 1;
+}
+
+message QualifiedUserName {
+  UserName name = 1;
+  Fqdn domain = 2;
+}
