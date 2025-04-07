@@ -94,9 +94,12 @@ message CreateGroupResponse {}
 // welcome info
 
 message WelcomeInfoRequest {
-  common.v1.GroupId group_id = 1;
-  SignaturePublicKey sender = 2;
-  GroupEpoch epoch = 3;
+  common.v1.QualifiedGroupId qgid = 1;
+  GroupStateEarKey group_state_ear_key = 2;
+
+  common.v1.GroupId group_id = 3;
+  SignaturePublicKey sender = 4;
+  GroupEpoch epoch = 5;
 }
 
 message SignaturePublicKey {
@@ -104,12 +107,11 @@ message SignaturePublicKey {
 }
 
 message GroupEpoch {
-  uint64 epoch = 1;
+  uint64 value = 1;
 }
 
 message WelcomeInfoResponse {
-  optional RatchetTree public_tree = 1;
-  bytes credential_chains = 2;
+  RatchetTree ratchet_tree = 1;
 }
 
 // external commit info

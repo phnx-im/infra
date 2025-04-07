@@ -1,5 +1,5 @@
 pub mod v1 {
-    use tls_codec::DeserializeBytes;
+    use tls_codec::{DeserializeBytes, Serialize};
 
     tonic::include_proto!("delivery_service.v1");
 
@@ -58,6 +58,15 @@ pub mod v1 {
         }
     }
 
+    impl TryFrom<openmls::treesync::RatchetTree> for RatchetTree {
+        type Error = tls_codec::Error;
+
+        fn try_from(tree: openmls::treesync::RatchetTree) -> Result<Self, Self::Error> {
+            let tls = tree.tls_serialize_detached()?;
+            Ok(Self { tls })
+        }
+    }
+
     #[derive(Debug, thiserror::Error)]
     #[error("Invalid group state EAR key length")]
     pub struct InvalidGroupStateEarKeyLength;
@@ -73,6 +82,12 @@ pub mod v1 {
                 .map_err(|_| InvalidGroupStateEarKeyLength)?;
             let key = phnxtypes::crypto::ear::keys::GroupStateEarKeySecret::from(bytes);
             Ok(key.into())
+        }
+    }
+
+    impl From<GroupEpoch> for openmls::group::GroupEpoch {
+        fn from(epoch: GroupEpoch) -> Self {
+            epoch.value.into()
         }
     }
 }

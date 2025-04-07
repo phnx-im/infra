@@ -7,6 +7,7 @@ use mls_assist::{
     openmls::group::MergeCommitError,
 };
 use thiserror::Error;
+use tracing::error;
 use version::VersionError;
 
 use crate::codec::PhnxCodec;

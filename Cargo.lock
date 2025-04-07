@@ -3689,6 +3689,7 @@ dependencies = [
  "openmls",
  "phnxtypes",
  "privacypass",
+ "prost",
  "protos",
  "rand",
  "serde",

@@ -171,6 +171,21 @@ pub(super) enum DsGroupStateDecryptionError {
     DeserializationError(#[from] phnxtypes::codec::Error),
 }
 
+impl From<DsGroupStateDecryptionError> for tonic::Status {
+    fn from(error: DsGroupStateDecryptionError) -> Self {
+        match error {
+            DsGroupStateDecryptionError::DecryptionError(error) => {
+                error!(%error, "Failed to decrypt group state");
+                Self::internal("Failed to decrypt group state")
+            }
+            DsGroupStateDecryptionError::DeserializationError(error) => {
+                error!(%error, "Failed to deserialize group state");
+                Self::internal("Failed to deserialize group state")
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct EncryptedDsGroupState(Ciphertext);

@@ -1,12 +1,17 @@
 #![allow(unused_variables)]
 
 use phnxtypes::{
-    crypto::ear::{
-        Ciphertext,
-        keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
+    crypto::{
+        ear::{
+            Ciphertext,
+            keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
+        },
+        signatures::{keys::LeafVerifyingKey, signable::Signature, traits::VerifyingKeyBehaviour},
     },
     identifiers::{Fqdn, QualifiedGroupId},
+    messages::client_ds::DsSender,
 };
+use prost::Message;
 use protos::delivery_service::v1::{
     ConnectionGroupInfoRequest, ConnectionGroupInfoResponse, CreateGroupRequest,
     CreateGroupResponse, DeleteGroupRequest, DeleteGroupResponse, ExternalCommitInfoRequest,
@@ -20,7 +25,12 @@ use protos::delivery_service::v1::{
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
 
-use super::{Ds, group_state::StorableDsGroupData};
+use super::{
+    Ds,
+    group_state::{DsGroupState, StorableDsGroupData},
+};
+
+const SIGNATURE_METADATA_KEY: &str = "signature-bin";
 
 #[async_trait]
 impl protos::delivery_service::v1::delivery_service_server::DeliveryService for Ds {
@@ -38,10 +48,10 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
         &self,
         request: Request<CreateGroupRequest>,
     ) -> Result<Response<CreateGroupResponse>, Status> {
-        let mut message = request.into_inner();
+        let message = request.into_inner();
 
-        let qgid = message.qgid(self.own_domain())?;
-        let ear_key = message.group_state_ear_key()?;
+        let qgid = get_qgid(message.qgid, &self.own_domain)?;
+        let ear_key = get_group_state_ear_key(message.group_state_ear_key)?;
 
         let leaf_node = message
             .ratchet_tree
@@ -109,7 +119,53 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
         &self,
         request: Request<WelcomeInfoRequest>,
     ) -> Result<Response<WelcomeInfoResponse>, Status> {
-        todo!()
+        let signature = request
+            .metadata()
+            .get_bin(SIGNATURE_METADATA_KEY)
+            .ok_or(Status::invalid_argument("Missing signature"))?
+            .as_encoded_bytes();
+        let signature = Signature::from_bytes(signature.to_vec());
+
+        let mut message = request.into_inner();
+        message.verify_signature(&signature)?;
+
+        let qgid = get_qgid(message.qgid.take(), &self.own_domain)?;
+        let ear_key = get_group_state_ear_key(message.group_state_ear_key.take())?;
+
+        let mut group_data = StorableDsGroupData::load(&self.db_pool, &qgid)
+            .await?
+            .ok_or(Status::not_found("Group not found"))?;
+        if group_data.has_expired() {
+            StorableDsGroupData::delete(&self.db_pool, &qgid).await?;
+            return Err(Status::not_found("Group not found"));
+        }
+        let mut group_state = DsGroupState::decrypt(&group_data.encrypted_group_state, &ear_key)?;
+
+        let epoch = message
+            .epoch
+            .ok_or_else(|| Status::invalid_argument("Missing epoch"))?
+            .into();
+        let joiner = message
+            .sender
+            .ok_or_else(|| Status::invalid_argument("Missing sender"))?
+            .bytes
+            .into();
+        let ratchet_tree = group_state
+            .group_mut()
+            .past_group_state(&epoch, &joiner)
+            .ok_or_else(|| Status::not_found("No welcome info found"))?
+            .clone();
+
+        group_data.encrypted_group_state = group_state.encrypt(&ear_key)?;
+        group_data.update(&self.db_pool).await?;
+
+        let response = WelcomeInfoResponse {
+            ratchet_tree: Some(ratchet_tree.try_into().map_err(|error| {
+                error!(%error, "Failed to serialize ratchet tree");
+                Status::internal("Failed to serialize ratchet tree")
+            })?),
+        };
+        Ok(Response::new(response))
     }
 
     async fn external_commit_info(
@@ -183,44 +239,67 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
     }
 }
 
-trait RequestMessageExt {
-    fn qgid(&mut self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status>;
-    fn group_state_ear_key(&mut self) -> Result<GroupStateEarKey, Status>;
-}
+fn get_qgid(
+    qgid: Option<protos::common::v1::QualifiedGroupId>,
+    own_domain: &Fqdn,
+) -> Result<QualifiedGroupId, Status> {
+    let qgid: QualifiedGroupId = qgid
+        .ok_or_else(|| Status::invalid_argument("Missing group id"))?
+        .try_into()
+        .map_err(|error| {
+            error!(%error, "Invalid group id");
+            Status::invalid_argument("Invalid group id")
+        })?;
 
-impl RequestMessageExt for CreateGroupRequest {
-    fn qgid(&mut self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status> {
-        let qgid: QualifiedGroupId = self
-            .qgid
-            .take()
-            .ok_or_else(|| Status::invalid_argument("Missing group id"))?
-            .try_into()
-            .map_err(|error| {
-                error!(%error, "Invalid group id");
-                Status::invalid_argument("Invalid group id")
-            })?;
-
-        if qgid.owning_domain() != own_domain {
-            error!(
-                domain =% qgid.owning_domain(),
-                "Group id domain does not match own domain"
-            );
-            return Err(Status::invalid_argument(
-                "Group id domain does not match own domain",
-            ));
-        }
-
-        Ok(qgid)
+    if qgid.owning_domain() != own_domain {
+        error!(
+            domain =% qgid.owning_domain(),
+            "Group id domain does not match own domain"
+        );
+        return Err(Status::invalid_argument(
+            "Group id domain does not match own domain",
+        ));
     }
 
-    fn group_state_ear_key(&mut self) -> Result<GroupStateEarKey, Status> {
-        self.group_state_ear_key
-            .take()
-            .ok_or_else(|| Status::invalid_argument("Missing group state ear key"))?
-            .try_into()
-            .map_err(|error| {
-                error!(%error, "Invalid group state ear key");
-                Status::invalid_argument("Invalid group state ear key")
-            })
+    Ok(qgid)
+}
+
+fn get_group_state_ear_key(
+    key: Option<protos::delivery_service::v1::GroupStateEarKey>,
+) -> Result<GroupStateEarKey, Status> {
+    key.ok_or_else(|| Status::invalid_argument("Missing group state ear key"))?
+        .try_into()
+        .map_err(|error| {
+            error!(%error, "Invalid group state ear key");
+            Status::invalid_argument("Invalid group state ear key")
+        })
+}
+
+trait MessageExt: Message + Sized {
+    fn ds_sender(&self) -> Result<DsSender, Status>;
+
+    fn verify_signature(&self, signature: &Signature) -> Result<(), Status> {
+        match self.ds_sender()? {
+            DsSender::LeafSignatureKey(verifying_key) => {
+                let payload = self.encode_to_vec();
+                let public_key = LeafVerifyingKey::from(&verifying_key);
+                public_key.verify(&payload, signature).map_err(|error| {
+                    error!(%error, "Invalid signature");
+                    Status::invalid_argument("Invalid signature")
+                })?;
+            }
+            _ => todo!(),
+        }
+        Ok(())
+    }
+}
+
+impl MessageExt for protos::delivery_service::v1::WelcomeInfoRequest {
+    fn ds_sender(&self) -> Result<DsSender, Status> {
+        let signature = self
+            .sender
+            .clone()
+            .ok_or_else(|| Status::invalid_argument("Missing sender"))?;
+        Ok(DsSender::LeafSignatureKey(signature.bytes.into()))
     }
 }
