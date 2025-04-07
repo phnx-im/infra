@@ -57,4 +57,22 @@ pub mod v1 {
             Self::tls_deserialize_exact_bytes(&value.tls)
         }
     }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("Invalid group state EAR key length")]
+    pub struct InvalidGroupStateEarKeyLength;
+
+    impl TryFrom<GroupStateEarKey> for phnxtypes::crypto::ear::keys::GroupStateEarKey {
+        type Error = InvalidGroupStateEarKeyLength;
+
+        fn try_from(value: GroupStateEarKey) -> Result<Self, Self::Error> {
+            let bytes: [u8; 32] = value
+                .key
+                .as_slice()
+                .try_into()
+                .map_err(|_| InvalidGroupStateEarKeyLength)?;
+            let key = phnxtypes::crypto::ear::keys::GroupStateEarKeySecret::from(bytes);
+            Ok(key.into())
+        }
+    }
 }

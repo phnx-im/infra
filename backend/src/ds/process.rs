@@ -156,6 +156,7 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
+use openmls::prelude::{MlsMessageIn, RatchetTreeIn};
 use tls_codec::{TlsSerialize, TlsSize};
 use tracing::warn;
 use uuid::Uuid;
@@ -167,7 +168,7 @@ use phnxtypes::{
         signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
     errors::{DsProcessingError, version::VersionError},
-    identifiers::QualifiedGroupId,
+    identifiers::{QsReference, QualifiedGroupId},
     messages::{
         ApiVersion,
         client_ds::{
@@ -248,7 +249,22 @@ impl Ds {
         let (group_data, mut group_state) = if let Some(create_group_params) =
             message.create_group_params()?
         {
-            let (group_id, state) = self.create_group(&qgid, create_group_params).await?;
+            let CreateGroupParams {
+                group_id: _,
+                leaf_node,
+                encrypted_identity_link_key,
+                creator_qs_reference,
+                group_info,
+            } = create_group_params;
+            let (group_id, state) = self
+                .create_group(
+                    &qgid,
+                    leaf_node.clone(),
+                    encrypted_identity_link_key.clone(),
+                    creator_qs_reference.clone(),
+                    group_info.clone(),
+                )
+                .await?;
             (GroupData::NewGroup(group_id), state)
         } else {
             let group_data = StorableDsGroupData::load(&self.db_pool, &qgid)
@@ -490,30 +506,26 @@ impl Ds {
     pub async fn create_group(
         &self,
         qgid: &QualifiedGroupId,
-        create_group_params: &CreateGroupParams,
+        leaf_node: RatchetTreeIn,
+        encrypted_identity_link_key: EncryptedIdentityLinkKey,
+        creator_qs_reference: QsReference,
+        group_info: MlsMessageIn,
     ) -> Result<(ReservedGroupId, DsGroupState), DsProcessingError> {
         let reserved_group_id = self
             .claim_reserved_group_id(qgid.group_uuid())
             .await
             .ok_or(DsProcessingError::UnreservedGroupId)?;
-        let CreateGroupParams {
-            group_id: _,
-            leaf_node,
-            encrypted_identity_link_key,
-            creator_qs_reference: creator_queue_config,
-            group_info,
-        } = create_group_params;
-        let MlsMessageBodyIn::GroupInfo(group_info) = group_info.clone().extract() else {
+        let MlsMessageBodyIn::GroupInfo(group_info) = group_info.extract() else {
             return Err(DsProcessingError::InvalidMessage);
         };
         let provider = Provider::default();
-        let group = Group::new(&provider, group_info.clone(), leaf_node.clone())
+        let group = Group::new(&provider, group_info.clone(), leaf_node)
             .map_err(|_| DsProcessingError::InvalidMessage)?;
         let group_state = DsGroupState::new(
             provider,
             group,
             encrypted_identity_link_key.clone(),
-            creator_queue_config.clone(),
+            creator_qs_reference,
         );
         Ok((reserved_group_id, group_state))
     }

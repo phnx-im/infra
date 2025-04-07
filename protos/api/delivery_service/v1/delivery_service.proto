@@ -49,12 +49,10 @@ message GroupStateEarKey {
 message CreateGroupRequest {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
-
-  common.v1.GroupId group_id = 3;
-  RatchetTree ratchet_tree = 4;
-  EncryptedIdentityLinkKey encrypted_identity_link_key = 5;
-  QsReference creator_client_reference = 6;
-  MlsMessage group_info = 7;
+  RatchetTree ratchet_tree = 3;
+  EncryptedIdentityLinkKey encrypted_identity_link_key = 4;
+  QsReference creator_client_reference = 5;
+  MlsMessage group_info = 6;
 }
 
 message RatchetTree {

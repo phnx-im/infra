@@ -3,10 +3,9 @@
 use phnxtypes::{
     crypto::ear::{
         Ciphertext,
-        keys::{EncryptedIdentityLinkKey, GroupStateEarKey, GroupStateEarKeySecret},
+        keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
     },
     identifiers::{Fqdn, QualifiedGroupId},
-    messages::client_ds::CreateGroupParams,
 };
 use protos::delivery_service::v1::{
     ConnectionGroupInfoRequest, ConnectionGroupInfoResponse, CreateGroupRequest,
@@ -20,7 +19,6 @@ use protos::delivery_service::v1::{
 };
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
-use uuid::Uuid;
 
 use super::{Ds, group_state::StorableDsGroupData};
 
@@ -40,25 +38,10 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
         &self,
         request: Request<CreateGroupRequest>,
     ) -> Result<Response<CreateGroupResponse>, Status> {
-        let message = request.into_inner();
-        let Some((qgid, ear_key)) = message.group_id_and_ear_key() else {
-            return Err(Status::invalid_argument("Invalid group id or ear key"));
-        };
+        let mut message = request.into_inner();
 
-        if qgid.owning_domain() != self.own_domain() {
-            error!(
-                domain =% qgid.owning_domain(),
-                "Group id does not belong to own domain"
-            );
-            return Err(Status::invalid_argument(
-                "Group id does not belong to own domain",
-            ));
-        }
-
-        let group_id = message
-            .group_id
-            .ok_or_else(|| Status::invalid_argument("Missing group id"))?
-            .into();
+        let qgid = message.qgid(self.own_domain())?;
+        let ear_key = message.group_state_ear_key()?;
 
         let leaf_node = message
             .ratchet_tree
@@ -101,16 +84,16 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
                 Status::invalid_argument("Invalid group info")
             })?;
 
-        let params = CreateGroupParams {
-            group_id,
-            leaf_node,
-            encrypted_identity_link_key,
-            creator_qs_reference,
-            group_info,
-        };
-
-        let (reserved_group_id, group_state) =
-            self.create_group(&qgid, &params).await.map_err(|error| {
+        let (reserved_group_id, group_state) = self
+            .create_group(
+                &qgid,
+                leaf_node,
+                encrypted_identity_link_key,
+                creator_qs_reference,
+                group_info,
+            )
+            .await
+            .map_err(|error| {
                 error!(%error, "Failed to create group");
                 Status::internal("Failed to create group")
             })?;
@@ -201,26 +184,43 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
 }
 
 trait RequestMessageExt {
-    fn group_id_and_ear_key(&self) -> Option<(QualifiedGroupId, GroupStateEarKey)>;
+    fn qgid(&mut self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status>;
+    fn group_state_ear_key(&mut self) -> Result<GroupStateEarKey, Status>;
 }
 
 impl RequestMessageExt for CreateGroupRequest {
-    fn group_id_and_ear_key(&self) -> Option<(QualifiedGroupId, GroupStateEarKey)> {
-        let qgid = self.qgid.clone()?;
-        let group_uuid: Uuid = (*qgid.group_uuid.as_ref()?).into();
-        let fqdn: Fqdn = qgid.domain.as_ref()?.value.parse().ok()?;
-        let qgid = QualifiedGroupId::new(group_uuid, fqdn);
-
-        let bytes: [u8; 32] = self
-            .group_state_ear_key
-            .as_ref()?
-            .key
-            .as_slice()
+    fn qgid(&mut self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status> {
+        let qgid: QualifiedGroupId = self
+            .qgid
+            .take()
+            .ok_or_else(|| Status::invalid_argument("Missing group id"))?
             .try_into()
-            .unwrap();
-        let key = GroupStateEarKeySecret::from(bytes);
-        let key = GroupStateEarKey::from(key);
+            .map_err(|error| {
+                error!(%error, "Invalid group id");
+                Status::invalid_argument("Invalid group id")
+            })?;
 
-        Some((qgid, key))
+        if qgid.owning_domain() != own_domain {
+            error!(
+                domain =% qgid.owning_domain(),
+                "Group id domain does not match own domain"
+            );
+            return Err(Status::invalid_argument(
+                "Group id domain does not match own domain",
+            ));
+        }
+
+        Ok(qgid)
+    }
+
+    fn group_state_ear_key(&mut self) -> Result<GroupStateEarKey, Status> {
+        self.group_state_ear_key
+            .take()
+            .ok_or_else(|| Status::invalid_argument("Missing group state ear key"))?
+            .try_into()
+            .map_err(|error| {
+                error!(%error, "Invalid group state ear key");
+                Status::invalid_argument("Invalid group state ear key")
+            })
     }
 }
