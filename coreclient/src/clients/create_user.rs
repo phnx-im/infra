@@ -16,7 +16,7 @@ use phnxtypes::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },
     crypto::{
-        ear::{EarKey, GenericSerializable},
+        ear::{EarKey, GenericSerializable, keys::UserProfileKey},
         hpke::ClientIdEncryptionKey,
         kdf::keys::ConnectionKey,
         opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
@@ -254,13 +254,14 @@ impl PostRegistrationInitState {
         let qs_client_signing_key = QsClientSigningKey::random()?;
         let qs_user_signing_key = QsUserSigningKey::generate()?;
 
-        // TODO: The following five keys should be derived from a single
+        // TODO: The following keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random()?;
         let key_package_ear_key = KeyPackageEarKey::random()?;
         let connection_key = ConnectionKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
+        let user_profile_key = UserProfileKey::random()?;
 
         let connection_decryption_key = ConnectionDecryptionKey::generate()?;
 
@@ -284,6 +285,7 @@ impl PostRegistrationInitState {
             connection_key,
             wai_ear_key,
             qs_client_id_encryption_key: qs_encryption_key,
+            user_profile_key,
         };
 
         // TODO: For now, we use the same ConnectionDecryptionKey for all
@@ -364,6 +366,18 @@ impl UnfinalizedRegistrationState {
             .map_err(|e| anyhow!("Error deserializing opaque client message: {:?}", e))?,
         };
 
+        let user_profile = UserProfile::new(
+            key_store
+                .signing_key
+                .credential()
+                .identity()
+                .user_name()
+                .clone(),
+            None,
+            None,
+        );
+        let encrypted_user_profile = user_profile.encrypt(&key_store.user_profile_key)?;
+
         api_clients
             .default_client()?
             .as_finish_user_registration(
@@ -372,6 +386,7 @@ impl UnfinalizedRegistrationState {
                 connection_packages,
                 opaque_registration_record,
                 &key_store.signing_key,
+                encrypted_user_profile,
             )
             .await?;
         let as_registered_user_state = AsRegisteredUserState {

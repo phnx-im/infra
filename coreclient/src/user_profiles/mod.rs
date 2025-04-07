@@ -7,7 +7,11 @@
 
 use std::fmt::Display;
 
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::{
+    crypto::ear::{EarDecryptable, EarEncryptable, keys::UserProfileKey},
+    identifiers::QualifiedUserName,
+    messages::client_as_out::EncryptedUserProfile,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
@@ -180,3 +184,6 @@ impl Asset {
         }
     }
 }
+
+impl EarEncryptable<UserProfileKey, EncryptedUserProfile> for UserProfile {}
+impl EarDecryptable<UserProfileKey, EncryptedUserProfile> for UserProfile {}

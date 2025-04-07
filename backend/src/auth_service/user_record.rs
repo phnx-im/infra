@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::ServerRegistration;
-use phnxtypes::{crypto::OpaqueCiphersuite, identifiers::QualifiedUserName};
+use phnxtypes::{
+    crypto::OpaqueCiphersuite, identifiers::QualifiedUserName,
+    messages::client_as_out::EncryptedUserProfile,
+};
 
 use crate::errors::StorageError;
 
@@ -12,16 +15,19 @@ use crate::errors::StorageError;
 pub(super) struct UserRecord {
     user_name: QualifiedUserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
+    encrypted_user_profile: EncryptedUserProfile,
 }
 
 impl UserRecord {
     fn new(
         user_name: QualifiedUserName,
         password_file: ServerRegistration<OpaqueCiphersuite>,
+        encrypted_user_profile: EncryptedUserProfile,
     ) -> Self {
         Self {
             user_name,
             password_file,
+            encrypted_user_profile,
         }
     }
 
@@ -29,8 +35,13 @@ impl UserRecord {
         connection: impl sqlx::PgExecutor<'_>,
         user_name: &QualifiedUserName,
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
+        encrypted_user_profile: &EncryptedUserProfile,
     ) -> Result<Self, StorageError> {
-        let user_record = Self::new(user_name.clone(), opaque_record.clone());
+        let user_record = Self::new(
+            user_name.clone(),
+            opaque_record.clone(),
+            encrypted_user_profile.clone(),
+        );
         user_record.store(connection).await?;
         Ok(user_record)
     }
@@ -43,12 +54,20 @@ impl UserRecord {
     pub(super) fn into_password_file(self) -> ServerRegistration<OpaqueCiphersuite> {
         self.password_file
     }
+
+    pub(super) fn into_encrypted_user_profile(self) -> EncryptedUserProfile {
+        self.encrypted_user_profile
+    }
+
+    pub(super) fn set_user_profile(&mut self, encrypted_user_profile: EncryptedUserProfile) {
+        self.encrypted_user_profile = encrypted_user_profile;
+    }
 }
 
 pub(crate) mod persistence {
     use phnxtypes::{
-        codec::PhnxCodec,
-        identifiers::{QualifiedUserName, UserName},
+        codec::PhnxCodec, identifiers::QualifiedUserName, identifiers::UserName,
+        messages::client_as_out::EncryptedUserProfile,
     };
     use sqlx::PgExecutor;
 
@@ -64,7 +83,10 @@ pub(crate) mod persistence {
             user_name: &QualifiedUserName,
         ) -> Result<Option<UserRecord>, StorageError> {
             sqlx::query!(
-                r#"SELECT user_name as "user_name: UserName", password_file
+                r#"SELECT 
+                    user_name as "user_name: UserName",
+                    password_file, 
+                    encrypted_user_profile as "encrypted_user_profile: EncryptedUserProfile"
                 FROM as_user_records
                 WHERE user_name = $1"#,
                 user_name.to_string(),
@@ -73,7 +95,11 @@ pub(crate) mod persistence {
             .await?
             .map(|record| {
                 let password_file = PhnxCodec::from_slice(&record.password_file)?;
-                Ok(UserRecord::new(user_name.clone(), password_file))
+                Ok(UserRecord::new(
+                    user_name.clone(),
+                    password_file,
+                    record.encrypted_user_profile,
+                ))
             })
             .transpose()
         }
@@ -86,9 +112,28 @@ pub(crate) mod persistence {
         ) -> Result<(), StorageError> {
             let password_file_bytes = PhnxCodec::to_vec(&self.password_file)?;
             sqlx::query!(
-                "INSERT INTO as_user_records (user_name, password_file) VALUES ($1, $2)",
+                "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile) VALUES ($1, $2, $3)",
                 self.user_name.to_string(),
                 password_file_bytes,
+                &self.encrypted_user_profile as &EncryptedUserProfile,
+            )
+            .execute(connection)
+            .await?;
+            Ok(())
+        }
+
+        /// Updates the user record with the given user name. If no user record with
+        /// the given user name exists, an error is returned.
+        pub(in crate::auth_service) async fn update(
+            &self,
+            connection: impl PgExecutor<'_>,
+        ) -> Result<(), StorageError> {
+            let password_file_bytes = PhnxCodec::to_vec(&self.password_file)?;
+            sqlx::query!(
+                "UPDATE as_user_records SET password_file = $1, encrypted_user_profile = $2 WHERE user_name = $3",
+                password_file_bytes,
+                &self.encrypted_user_profile as &EncryptedUserProfile,
+                self.user_name.to_string(),
             )
             .execute(connection)
             .await?;
@@ -152,10 +197,12 @@ pub(crate) mod persistence {
                 .unwrap();
             let password_file =
                 ServerRegistration::finish(client_registration_finish_result.message);
+            let encrypted_user_profile = EncryptedUserProfile::dummy();
 
             let record = UserRecord {
                 user_name,
                 password_file,
+                encrypted_user_profile,
             };
             record.store(pool).await?;
             Ok(record)

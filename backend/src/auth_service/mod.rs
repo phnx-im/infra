@@ -23,6 +23,7 @@ use phnxtypes::{
             SUPPORTED_AS_API_VERSIONS, UserClientsResponse, UserConnectionPackagesResponse,
             VerifiedAsRequestParams,
         },
+        client_as_out::GetUserProfileResponse,
         client_qs::DequeueMessagesResponse,
     },
 };
@@ -215,6 +216,14 @@ impl AuthService {
                 .as_init_user_registration(params)
                 .await
                 .map(AsProcessResponse::InitUserRegistration)?,
+            VerifiedAsRequestParams::GetUserProfile(params) => {
+                self.as_get_user_profile(params).await?;
+                AsProcessResponse::Ok
+            }
+            VerifiedAsRequestParams::UpdateUserProfile(params) => {
+                self.as_update_user_profile(params).await?;
+                AsProcessResponse::Ok
+            }
         };
 
         Ok(AsVersionedProcessResponse::with_version(
@@ -280,4 +289,5 @@ pub enum AsProcessResponse {
     UserClients(UserClientsResponse),
     AsCredentials(AsCredentialsResponse),
     InitUserRegistration(InitUserRegistrationResponse),
+    GetUserProfile(GetUserProfileResponse),
 }

@@ -33,8 +33,8 @@ use phnxtypes::{
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            AsVersionedProcessResponseIn, ConnectionPackageIn, InitClientAdditionResponseIn,
-            InitUserRegistrationResponseIn, UserClientsResponseIn,
+            AsVersionedProcessResponseIn, ConnectionPackageIn, EncryptedUserProfile,
+            InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
             UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
@@ -160,6 +160,7 @@ impl ApiClient {
         connection_packages: Vec<ConnectionPackage>,
         opaque_registration_record: OpaqueRegistrationRecord,
         signing_key: &ClientSigningKey,
+        encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
         let tbs = FinishUserRegistrationParamsTbs {
             client_id: signing_key.credential().identity().clone(),
@@ -167,6 +168,7 @@ impl ApiClient {
             initial_ratchet_secret,
             connection_packages,
             opaque_registration_record,
+            encrypted_user_profile,
         };
         let payload = tbs.sign(signing_key)?;
         let params = AsRequestParamsOut::FinishUserRegistration(payload);
