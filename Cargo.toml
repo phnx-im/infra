@@ -14,6 +14,8 @@ members = [
     "test_harness",
     "types",
     "applogic",
+    "protos",
+    "tonic-server",
 ]
 
 [workspace.dependencies]
@@ -46,7 +48,10 @@ openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
 openmls_traits = { git = "https://github.com/openmls/openmls" }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
+
 phnxtypes = { path = "./types" }
+protos = { path = "./protos" }
+phnxbackend = { path = "./backend" }
 
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",

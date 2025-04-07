@@ -1,0 +1,20 @@
+[package]
+name = "tonic-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+phnxbackend = { workspace = true }
+protos = { workspace = true }
+phnxtypes = { workspace = true }
+
+tokio = { version = "1.44.2", features = [
+    "macros",
+    "parking_lot",
+    "rt-multi-thread",
+] }
+tonic = "0.13.0"
+tower-http = { version = "0.6.2", features = ["trace"] }
+clap = { version = "4.5.35", features = ["derive"] }
+url = "2.5.4"
+sqlx = { workspace = true, features = ["postgres"] }

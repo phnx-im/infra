@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use thiserror::Error;
+use tracing::error;
 
 #[derive(Debug, Error)]
 pub enum StorageError {
@@ -21,6 +22,21 @@ impl From<sqlx::Error> for StorageError {
 impl From<Box<dyn std::error::Error + Send + Sync>> for StorageError {
     fn from(e: Box<dyn std::error::Error + Send + Sync>) -> Self {
         Self::Database(e.into())
+    }
+}
+
+impl From<StorageError> for tonic::Status {
+    fn from(e: StorageError) -> Self {
+        match e {
+            StorageError::Database(error) => {
+                error!(%error, "Database error");
+                Self::internal("Database error")
+            }
+            StorageError::Serde(error) => {
+                error!(%error, "Seriazation error");
+                Self::internal("Seriazation error")
+            }
+        }
     }
 }
 

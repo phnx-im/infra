@@ -181,7 +181,6 @@ use phnxtypes::{
 
 use crate::{
     ds::ReservedGroupId,
-    errors::StorageError,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
 };
@@ -249,30 +248,8 @@ impl Ds {
         let (group_data, mut group_state) = if let Some(create_group_params) =
             message.create_group_params()?
         {
-            let reserved_group_id = self
-                .claim_reserved_group_id(qgid.group_uuid())
-                .await
-                .ok_or(DsProcessingError::UnreservedGroupId)?;
-            let CreateGroupParams {
-                group_id: _,
-                leaf_node,
-                encrypted_identity_link_key,
-                creator_qs_reference: creator_queue_config,
-                group_info,
-            } = create_group_params;
-            let MlsMessageBodyIn::GroupInfo(group_info) = group_info.clone().extract() else {
-                return Err(DsProcessingError::InvalidMessage);
-            };
-            let provider = Provider::default();
-            let group = Group::new(&provider, group_info.clone(), leaf_node.clone())
-                .map_err(|_| DsProcessingError::InvalidMessage)?;
-            let group_state = DsGroupState::new(
-                provider,
-                group,
-                encrypted_identity_link_key.clone(),
-                creator_queue_config.clone(),
-            );
-            (GroupData::NewGroup(reserved_group_id), group_state)
+            let (group_id, state) = self.create_group(&qgid, create_group_params).await?;
+            (GroupData::NewGroup(group_id), state)
         } else {
             let group_data = StorableDsGroupData::load(&self.db_pool, &qgid)
                 .await
@@ -510,6 +487,37 @@ impl Ds {
         )?)
     }
 
+    pub async fn create_group(
+        &self,
+        qgid: &QualifiedGroupId,
+        create_group_params: &CreateGroupParams,
+    ) -> Result<(ReservedGroupId, DsGroupState), DsProcessingError> {
+        let reserved_group_id = self
+            .claim_reserved_group_id(qgid.group_uuid())
+            .await
+            .ok_or(DsProcessingError::UnreservedGroupId)?;
+        let CreateGroupParams {
+            group_id: _,
+            leaf_node,
+            encrypted_identity_link_key,
+            creator_qs_reference: creator_queue_config,
+            group_info,
+        } = create_group_params;
+        let MlsMessageBodyIn::GroupInfo(group_info) = group_info.clone().extract() else {
+            return Err(DsProcessingError::InvalidMessage);
+        };
+        let provider = Provider::default();
+        let group = Group::new(&provider, group_info.clone(), leaf_node.clone())
+            .map_err(|_| DsProcessingError::InvalidMessage)?;
+        let group_state = DsGroupState::new(
+            provider,
+            group,
+            encrypted_identity_link_key.clone(),
+            creator_queue_config.clone(),
+        );
+        Ok((reserved_group_id, group_state))
+    }
+
     async fn process_non_group_message(
         &self,
         request_params: DsVersionedRequestParams,
@@ -520,10 +528,7 @@ impl Ds {
         };
         let response = match request_params {
             DsNonGroupRequestParams::RequestGroupId => {
-                self.request_group_id().await.map_err(|e| {
-                    tracing::warn!("Could not generate group id: {:?}", e);
-                    DsProcessingError::StorageError
-                })?
+                DsProcessResponse::GroupId(self.request_group_id().await)
             }
         };
         Ok(DsVersionedProcessResponse::with_version(
@@ -532,7 +537,7 @@ impl Ds {
         )?)
     }
 
-    pub async fn request_group_id(&self) -> Result<DsProcessResponse, StorageError> {
+    pub async fn request_group_id(&self) -> GroupId {
         // Generate UUIDs until we find one that is not yet reserved.
         let mut group_uuid = Uuid::new_v4();
         while !self.reserve_group_id(group_uuid).await {
@@ -541,8 +546,7 @@ impl Ds {
 
         let owning_domain = self.own_domain();
         let qgid = QualifiedGroupId::new(group_uuid, owning_domain.clone());
-        let group_id = GroupId::from(qgid);
-        Ok(DsProcessResponse::GroupId(group_id))
+        GroupId::from(qgid)
     }
 }
 

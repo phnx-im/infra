@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use phnxtypes::{identifiers::Fqdn, time::Duration};
 use sqlx::PgPool;
@@ -14,6 +14,7 @@ use crate::infra_service::{InfraService, ServiceCreationError};
 mod delete_group;
 mod group_operation;
 pub mod group_state;
+mod grpc;
 mod join_connection_group;
 pub mod process;
 mod resync;
@@ -24,20 +25,21 @@ mod update;
 /// expired.
 pub const GROUP_STATE_EXPIRATION: Duration = Duration::days(90);
 
+#[derive(Debug, Clone)]
 pub struct Ds {
     own_domain: Fqdn,
-    reserved_group_ids: Mutex<HashSet<Uuid>>,
+    reserved_group_ids: Arc<Mutex<HashSet<Uuid>>>,
     db_pool: PgPool,
 }
 
 #[derive(Debug)]
-pub(crate) struct ReservedGroupId(Uuid);
+pub struct ReservedGroupId(Uuid);
 
 impl InfraService for Ds {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         let ds = Self {
             own_domain: domain,
-            reserved_group_ids: Mutex::new(HashSet::new()),
+            reserved_group_ids: Default::default(),
             db_pool,
         };
 
@@ -60,7 +62,11 @@ impl Ds {
         }
     }
 
-    fn own_domain(&self) -> &Fqdn {
+    pub fn own_domain(&self) -> &Fqdn {
         &self.own_domain
+    }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.db_pool
     }
 }

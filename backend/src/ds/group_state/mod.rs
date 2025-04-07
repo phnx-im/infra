@@ -31,6 +31,7 @@ use phnxtypes::{
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 use thiserror::Error;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::errors::StorageError;
@@ -53,7 +54,7 @@ pub(super) struct MemberProfile {
 ///
 /// TODO: Past group states are now included in mls-assist. However, we might
 /// have to store client credentials externally.
-pub(crate) struct DsGroupState {
+pub struct DsGroupState {
     pub(super) group: Group,
     pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
@@ -145,6 +146,21 @@ pub(super) enum DsGroupStateEncryptionError {
     EncryptionError(#[from] EncryptionError),
     #[error("Error deserializing group state: {0}")]
     DeserializationError(#[from] phnxtypes::codec::Error),
+}
+
+impl From<DsGroupStateEncryptionError> for tonic::Status {
+    fn from(value: DsGroupStateEncryptionError) -> Self {
+        match value {
+            DsGroupStateEncryptionError::EncryptionError(error) => {
+                error!(%error, "Failed to encrypt group state");
+                Self::internal("Failed to encrypt group state")
+            }
+            DsGroupStateEncryptionError::DeserializationError(error) => {
+                error!(%error, "Failed to deserialize group state");
+                Self::internal("Failed to deserialize group state")
+            }
+        }
+    }
 }
 
 #[derive(Debug, Error)]
