@@ -22,7 +22,12 @@ message Uuid {
 }
 
 message GroupId {
-  bytes group_id = 1;
+  bytes value = 1;
+}
+
+message QualifiedGroupId {
+  Uuid group_uuid = 1;
+  Fqdn domain = 2;
 }
 
 message RatchetEncryptionKey {
@@ -44,4 +49,9 @@ message UserName {
 message QualifiedUserName {
   UserName name = 1;
   Fqdn domain = 2;
+}
+
+message Ciphertext {
+  bytes ciphertext = 1;
+  bytes nonce = 2;
 }

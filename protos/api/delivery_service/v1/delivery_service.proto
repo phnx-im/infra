@@ -40,14 +40,21 @@ message RequestGroupIdResponse {
   common.v1.GroupId group_id = 1;
 }
 
+message GroupStateEarKey {
+  bytes key = 1;
+}
+
 // create group
 
 message CreateGroupRequest {
-  common.v1.GroupId group_id = 1;
-  RatchetTree ratchet_tree = 2;
-  EncryptedIdentityLinkKey encrypted_identity_link_key = 3;
-  QsReference creator_client_reference = 4;
-  MlsMessage group_info = 5;
+  common.v1.QualifiedGroupId qgid = 1;
+  GroupStateEarKey group_state_ear_key = 2;
+
+  common.v1.GroupId group_id = 3;
+  RatchetTree ratchet_tree = 4;
+  EncryptedIdentityLinkKey encrypted_identity_link_key = 5;
+  QsReference creator_client_reference = 6;
+  MlsMessage group_info = 7;
 }
 
 message RatchetTree {
@@ -58,7 +65,7 @@ message RatchetTree {
 }
 
 message EncryptedIdentityLinkKey {
-  bytes ciphertext = 1;
+  common.v1.Ciphertext ciphertext = 1;
 }
 
 message QsReference {
@@ -67,7 +74,14 @@ message QsReference {
 }
 
 message SealedClientReference {
-  bytes ciphertext = 1;
+  HpkeCiphertext ciphertext = 1;
+}
+
+message HpkeCiphertext {
+  bytes tls = 1 [
+    (common.v1.tls_serialize_type) = "openmls::prelude::HpkeCiphertext",
+    (common.v1.tls_deserialize_type) = "openmls::prelude::HpkeCiphertext"
+  ];
 }
 
 message MlsMessage {
