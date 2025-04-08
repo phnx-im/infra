@@ -68,23 +68,23 @@ pub(crate) mod persistence {
         identifiers::QualifiedUserName,
     };
     use sqlx::{
-        PgExecutor,
+        PgExecutor, query,
         types::chrono::{DateTime, Utc},
     };
 
     use super::*;
+
+    type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
 
     impl ClientRecord {
         pub(super) async fn store(
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let queue_encryption_key_bytes = BlobEncoded(&self.queue_encryption_key);
-            let ratchet = BlobEncoded(&self.ratchet_key);
             let activity_time = DateTime::<Utc>::from(self.activity_time);
-            let client_credential = FlatClientCredential::from(self.credential.clone());
+            let client_credential = FlatClientCredential::from(&self.credential);
             let client_id = self.credential.identity();
-            sqlx::query!(
+            query!(
                 "INSERT INTO as_client_records (
                     client_id,
                     user_name,
@@ -96,8 +96,8 @@ pub(crate) mod persistence {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 client_id.client_id(),
                 client_id.user_name().to_string(),
-                queue_encryption_key_bytes as _,
-                ratchet as _,
+                BlobEncoded(&self.queue_encryption_key) as _,
+                BlobEncoded(&self.ratchet_key) as _,
                 activity_time,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
@@ -111,12 +111,10 @@ pub(crate) mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let queue_encryption_key_bytes = BlobEncoded(&self.queue_encryption_key);
-            let ratchet = BlobEncoded(&self.ratchet_key);
             let activity_time = DateTime::<Utc>::from(self.activity_time);
-            let client_credential = FlatClientCredential::from(self.credential.clone());
+            let client_credential = FlatClientCredential::from(&self.credential);
             let client_id = self.credential.identity();
-            sqlx::query!(
+            query!(
                 "UPDATE as_client_records SET
                     queue_encryption_key = $1,
                     ratchet = $2,
@@ -124,8 +122,8 @@ pub(crate) mod persistence {
                     credential = $4,
                     remaining_tokens = $5
                 WHERE client_id = $6",
-                queue_encryption_key_bytes as _,
-                ratchet as _,
+                BlobEncoded(&self.queue_encryption_key) as _,
+                BlobEncoded(&self.ratchet_key) as _,
                 activity_time,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
@@ -140,19 +138,11 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             client_id: &AsClientId,
         ) -> Result<Option<ClientRecord>, StorageError> {
-            struct SqlClientRecord {
-                queue_encryption_key: BlobDecoded<RatchetEncryptionKey>,
-                ratchet: BlobDecoded<QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>>,
-                activity_time: TimeStamp,
-                credential: ClientCredential,
-                remaining_tokens: i32,
-            }
-
-            sqlx::query_as!(
-                SqlClientRecord,
+            query!(
                 r#"SELECT
-                    queue_encryption_key AS "queue_encryption_key: _",
-                    ratchet AS "ratchet: _",
+                    queue_encryption_key
+                        AS "queue_encryption_key: BlobDecoded<RatchetEncryptionKey>",
+                    ratchet AS "ratchet: BlobDecoded<AsQueueRatchet>",
                     activity_time,
                     credential AS "credential: FlatClientCredential",
                     remaining_tokens
@@ -165,8 +155,8 @@ pub(crate) mod persistence {
                 Ok(ClientRecord {
                     queue_encryption_key: record.queue_encryption_key.into_inner(),
                     ratchet_key: record.ratchet.into_inner(),
-                    activity_time: record.activity_time,
-                    credential: record.credential,
+                    activity_time: record.activity_time.into(),
+                    credential: record.credential.into(),
                     token_allowance: record.remaining_tokens,
                 })
             })
@@ -177,7 +167,7 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             client_id: &AsClientId,
         ) -> Result<(), StorageError> {
-            sqlx::query!(
+            query!(
                 "DELETE FROM as_client_records WHERE client_id = $1",
                 client_id.client_id(),
             )

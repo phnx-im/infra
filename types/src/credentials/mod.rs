@@ -648,8 +648,8 @@ pub mod persistence {
         signature: Signature,
     }
 
-    impl From<ClientCredential> for FlatClientCredential {
-        fn from(credential: ClientCredential) -> Self {
+    impl From<&ClientCredential> for FlatClientCredential {
+        fn from(credential: &ClientCredential) -> Self {
             Self {
                 version: PhnxCodec::to_vec(&credential.payload.csr.version).unwrap(),
                 client_id: credential.payload.csr.client_id.clone(),
