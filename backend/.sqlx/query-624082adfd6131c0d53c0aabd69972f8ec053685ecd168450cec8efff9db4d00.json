@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    queue_encryption_key,\n                    ratchet,\n                    activity_time,\n                    credential as \"client_credential: FlatClientCredential\",\n                    remaining_tokens\n                FROM as_client_records WHERE client_id = $1",
+  "query": "SELECT\n                    queue_encryption_key AS \"queue_encryption_key: _\",\n                    ratchet AS \"ratchet: _\",\n                    activity_time,\n                    credential AS \"credential: FlatClientCredential\",\n                    remaining_tokens\n                FROM as_client_records WHERE client_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "queue_encryption_key",
+        "name": "queue_encryption_key: _",
         "type_info": "Bytea"
       },
       {
         "ordinal": 1,
-        "name": "ratchet",
+        "name": "ratchet: _",
         "type_info": "Bytea"
       },
       {
@@ -20,7 +20,7 @@
       },
       {
         "ordinal": 3,
-        "name": "client_credential: FlatClientCredential",
+        "name": "credential: FlatClientCredential",
         "type_info": {
           "Custom": {
             "name": "client_credential",
@@ -126,5 +126,5 @@
       false
     ]
   },
-  "hash": "85d7d1965b49129880928185c5a8f9e52944f0c35d6d7d5e8dce937979067b4c"
+  "hash": "624082adfd6131c0d53c0aabd69972f8ec053685ecd168450cec8efff9db4d00"
 }

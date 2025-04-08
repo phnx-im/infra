@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    password_file AS \"password_file: _\"\n                FROM as_user_records\n                WHERE user_name = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "password_file: _",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "973891122d0736c69c439a140d5cab6a2e59e00f0e52d14a214f5c48b8cbc0d8"
+}
