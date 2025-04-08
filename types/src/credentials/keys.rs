@@ -71,6 +71,10 @@ impl AsIntermediateSigningKey {
     pub fn credential(&self) -> &AsIntermediateCredential {
         &self.credential
     }
+
+    pub fn into_credential(self) -> AsIntermediateCredential {
+        self.credential
+    }
 }
 
 #[derive(Debug, Error)]
@@ -104,6 +108,10 @@ impl AsSigningKey {
 
     pub fn credential(&self) -> &AsCredential {
         &self.credential
+    }
+
+    pub fn into_credential(self) -> AsCredential {
+        self.credential
     }
 }
 

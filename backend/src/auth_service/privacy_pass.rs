@@ -3,16 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use async_trait::async_trait;
-use phnxtypes::codec::PhnxCodec;
+use phnxtypes::codec::{BlobDecoded, BlobEncoded};
 use privacypass::{
     TruncatedTokenKeyId,
     batched_tokens_ristretto255::server::BatchedKeyStore,
     private_tokens::{Ristretto255, VoprfServer},
 };
-use sqlx::{
-    Database, Decode, Encode, PgConnection, Postgres, Type, encode::IsNull, error::BoxDynError,
-    postgres::PgTypeInfo,
-};
+use sqlx::PgConnection;
 use tokio::sync::Mutex;
 use tracing::error;
 
@@ -30,31 +27,6 @@ impl<'a> AuthServiceBatchedKeyStoreProvider<'a> {
     }
 }
 
-struct StorableVorpfServer(VoprfServer<Ristretto255>);
-
-impl Type<Postgres> for StorableVorpfServer {
-    fn type_info() -> PgTypeInfo {
-        <Vec<u8> as Type<Postgres>>::type_info()
-    }
-}
-
-impl Encode<'_, Postgres> for StorableVorpfServer {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Postgres as Database>::ArgumentBuffer<'_>,
-    ) -> Result<IsNull, BoxDynError> {
-        let bytes = PhnxCodec::to_vec(&self.0)?;
-        Encode::<Postgres>::encode(bytes, buf)
-    }
-}
-
-impl Decode<'_, Postgres> for StorableVorpfServer {
-    fn decode(value: <Postgres as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
-        let bytes: &[u8] = Decode::<Postgres>::decode(value)?;
-        Ok(StorableVorpfServer(PhnxCodec::from_slice(bytes)?))
-    }
-}
-
 #[async_trait]
 impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
     /// Inserts a keypair with a given `truncated_token_key_id` into the key store.
@@ -65,12 +37,12 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
         truncated_token_key_id: TruncatedTokenKeyId,
         server: VoprfServer<Ristretto255>,
     ) {
-        let server = StorableVorpfServer(server);
+        let server = BlobEncoded(server);
         if let Err(error) = sqlx::query!(
             "INSERT INTO as_batched_keys (token_key_id, voprf_server)
             VALUES ($1, $2)",
             truncated_token_key_id as i16,
-            server as StorableVorpfServer
+            server as _
         )
         .execute(&mut **self.connection.lock().await)
         .await
@@ -86,7 +58,7 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
     ) -> Option<VoprfServer<Ristretto255>> {
         let token_key_id: i16 = (*truncated_token_key_id).into();
         sqlx::query_scalar!(
-            r#"SELECT voprf_server AS "voprf_server: StorableVorpfServer"
+            r#"SELECT voprf_server AS "voprf_server: BlobDecoded<VoprfServer<Ristretto255>>"
             FROM as_batched_keys
             WHERE token_key_id = $1"#,
             token_key_id
@@ -95,7 +67,7 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
         .await
         .inspect_err(|error| error!(%error, "Failed to fetch key from batched key store"))
         .ok()?
-        .map(|StorableVorpfServer(voprf_server)| voprf_server)
+        .map(|BlobDecoded(voprf_server)| voprf_server)
     }
 }
 
