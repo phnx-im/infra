@@ -148,8 +148,9 @@ impl AsCredential {
     ) -> Result<(Self, AsSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
         // Create lifetime valid until 5 years in the future.
-        let expiration_data =
-            expiration_data_option.unwrap_or(ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
+        let expiration_data = expiration_data_option
+            .unwrap_or_else(|| ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
+        dbg!(&expiration_data);
         let signing_key = SigningKey::generate()?;
         let verifying_key = AsVerifyingKey(signing_key.verifying_key().clone());
         let body = AsCredentialBody {

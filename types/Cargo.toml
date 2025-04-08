@@ -38,7 +38,7 @@ privacypass = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "postgres"] }
 
 [dev-dependencies]
-insta = "1.42.1"
+insta = { workspace = true }
 serde_json = "1.0"
 
 [features]
