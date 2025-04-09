@@ -18,17 +18,18 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
+    UserProfile,
     clients::connection_establishment::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
-    groups::Group,
+    groups::{Group, ProfileInfo},
     key_stores::leaf_keys::LeafKeys,
     store::StoreNotifier,
 };
 
 use super::{
     AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
-    EarEncryptable, FriendshipPackage, UserProfile, anyhow,
+    EarEncryptable, FriendshipPackage, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 
@@ -68,9 +69,22 @@ impl CoreUser {
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
 
                 // Join group
-                let (group, commit, group_info) = self
+                let (group, commit, group_info, mut member_profile_info) = self
                     .join_group_externally(eci, &cep_tbs, leaf_keys, aad)
                     .await?;
+
+                // There should be only one user profile
+                let contact_profile_info = member_profile_info.pop().ok_or(anyhow!(
+                    "No user profile returned when joining connection group"
+                ))?;
+
+                debug_assert!(
+                    member_profile_info.is_empty(),
+                    "More than one user profile returned when joining connection group"
+                );
+
+                // Fetch user profile
+                let user_profile = self.fetch_user_profile(contact_profile_info).await?;
 
                 // Create conversation
                 let (mut conversation, contact) =
@@ -78,13 +92,13 @@ impl CoreUser {
 
                 let mut notifier = self.store_notifier();
 
-                // Store group, conversation & contact
+                // Store group, conversation, contact & user profile
                 self.store_group_conversation_contact(
                     &mut notifier,
                     &group,
                     &mut conversation,
                     contact,
-                    &cep_tbs,
+                    &user_profile,
                 )
                 .await?;
 
@@ -177,13 +191,6 @@ impl CoreUser {
         Ok((leaf_keys, aad, qgid))
     }
 
-    async fn load_own_user_profile(&self) -> Result<UserProfile> {
-        // We unwrap here, because we know that the user exists.
-        Ok(UserProfile::load(self.pool(), self.user_name())
-            .await?
-            .unwrap())
-    }
-
     async fn fetch_external_commit_info(
         &self,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
@@ -206,9 +213,9 @@ impl CoreUser {
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         leaf_keys: LeafKeys,
         aad: InfraAadMessage,
-    ) -> Result<(Group, MlsMessageOut, MlsMessageOut)> {
+    ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
-        let (group, commit, group_info) = Group::join_group_externally(
+        let (group, commit, group_info, member_profile_info) = Group::join_group_externally(
             self.pool(),
             &self.inner.api_clients,
             eci,
@@ -220,7 +227,7 @@ impl CoreUser {
             self.inner.key_store.signing_key.credential(),
         )
         .await?;
-        Ok((group, commit, group_info))
+        Ok((group, commit, group_info, member_profile_info))
     }
 
     fn create_connection_conversation(
@@ -229,8 +236,6 @@ impl CoreUser {
         cep_tbs: &ConnectionEstablishmentPackageTbs,
     ) -> Result<(Conversation, Contact)> {
         let sender_client_id = cep_tbs.sender_client_credential.identity();
-
-        // TODO: Load user profile here and use user profile key from cep_tbs to decrypt
 
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
@@ -251,17 +256,16 @@ impl CoreUser {
         group: &Group,
         conversation: &mut Conversation,
         contact: Contact,
-        cep_tbs: &ConnectionEstablishmentPackageTbs,
+        user_profile: &UserProfile,
     ) -> Result<()> {
         let mut connection = self.pool().acquire().await?;
         group.store(&mut *connection).await?;
         conversation.store(&mut *connection, notifier).await?;
 
-        // TODO: Load user profile here and decrypt using the ky from cep_tbs.
+        user_profile.store(&mut *connection, notifier).await?;
 
         // TODO: For now, we automatically confirm conversations.
         conversation.confirm(&mut *connection, notifier).await?;
-        // TODO: Here, we want to store a contact
         contact.store(&mut *connection, notifier).await?;
         Ok(())
     }

@@ -26,7 +26,7 @@ use crate::{ConversationMessage, PartialContact, conversations::ConversationType
 
 use super::{
     Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
-    TimestampedMessage, UserProfile, anyhow,
+    TimestampedMessage, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
@@ -100,7 +100,7 @@ impl CoreUser {
     ) -> Result<ProcessQsMessageResult> {
         // WelcomeBundle Phase 1: Join the group. This might involve
         // loading AS credentials or fetching them from the AS.
-        let group = Group::join_group(
+        let (group, member_profile_info) = Group::join_group(
             welcome_bundle,
             &self.inner.key_store.wai_ear_key,
             self.pool(),
@@ -109,15 +109,24 @@ impl CoreUser {
         .await?;
         let group_id = group.group_id().clone();
 
-        // WelcomeBundle Phase 2: Store the user profiles of the group
+        // WelcomeBundle Phase 2: Fetch the user profiles of the group members
+        // and decrypt them.
+
+        // TODO: This can fail in some cases. If it does, we should fetch and
+        // process messages and then try again.
+        let mut user_profiles = Vec::with_capacity(member_profile_info.len());
+        for profile_info in member_profile_info {
+            let user_profile = self.fetch_user_profile(profile_info).await?;
+            user_profiles.push(user_profile);
+        }
+
+        // WelcomeBundle Phase 3: Store the user profiles of the group
         // members if they don't exist yet and store the group and the
         // new conversation.
         let conversation_id = self
             .with_transaction_and_notifier(async |connection, notifier| {
-                for user_name in group.members(&mut *connection).await.into_iter() {
-                    UserProfile::new(user_name, None, None)
-                        .store(&mut *connection, notifier)
-                        .await?;
+                for user_profile in user_profiles {
+                    user_profile.store(&mut *connection, notifier).await?;
                 }
 
                 // Set the conversation attributes according to the group's
@@ -301,10 +310,17 @@ impl CoreUser {
                 &encrypted_friendship_package,
             )?;
 
-            // UnconfirmedConnection Phase 2: Store the user profile of the sender and the contact.
+            // UnconfirmedConnection Phase 2: Fetch the user profile.
+            let user_profile = self
+                .fetch_user_profile((
+                    sender_client_id.clone(),
+                    friendship_package.user_profile_key.clone(),
+                ))
+                .await?;
 
-            // TODO: Fetch the user profile from the AS and decrypt it using the
-            // key from the friendship package
+            // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
+
+            user_profile.store(self.pool(), &mut notifier).await?;
 
             // Now we can turn the partial contact into a full one.
             partial_contact

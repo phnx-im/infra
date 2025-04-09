@@ -24,7 +24,7 @@ impl AuthService {
 
         let user_profile = user_record.into_encrypted_user_profile();
 
-        let response = GetUserProfileResponse { user_profile };
+        let response = GetUserProfileResponse { encrypted_user_profile: user_profile };
 
         Ok(response)
     }

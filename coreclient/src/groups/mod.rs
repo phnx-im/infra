@@ -140,6 +140,20 @@ impl PartialCreateGroupParams {
     }
 }
 
+pub(super) struct ProfileInfo {
+    pub(super) user_profile_key: UserProfileKey,
+    pub(super) member_id: AsClientId,
+}
+
+impl From<(AsClientId, UserProfileKey)> for ProfileInfo {
+    fn from((member_id, user_profile_key): (AsClientId, UserProfileKey)) -> Self {
+        Self {
+            member_id,
+            user_profile_key,
+        }
+    }
+}
+
 pub(crate) struct GroupData {
     bytes: Vec<u8>,
 }
@@ -260,7 +274,7 @@ impl Group {
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         pool: &SqlitePool,
         api_clients: &ApiClients,
-    ) -> Result<Self> {
+    ) -> Result<(Self, Vec<ProfileInfo>)> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
         let mls_group_config = Self::default_mls_group_join_config();
@@ -365,7 +379,7 @@ impl Group {
         // Phase 3: Decrypt and verify the infra credentials.
         {
             let mut connection = pool.acquire().await?;
-            for client_auth_info in client_information {
+            for client_auth_info in &client_information {
                 client_auth_info.store(&mut connection).await?;
             }
         }
@@ -378,20 +392,25 @@ impl Group {
 
         let leaf_signer = leaf_keys.into_leaf_signer();
 
-        let user_profile_keys = joiner_info
+        let member_profile_info = joiner_info
             .encrypted_user_profile_keys
             .into_iter()
-            .map(|eupk| {
+            .zip(
+                client_information
+                    .iter()
+                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
+            )
+            .map(|(eupk, ci)| {
                 UserProfileKey::decrypt(
                     &welcome_attribution_info.identity_link_wrapper_key(),
                     &eupk,
                 )
+                .map(|user_profile_key| ProfileInfo {
+                    user_profile_key,
+                    member_id: ci.clone(),
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
-
-        // Phase 4: Fetch user profiles
-
-        // TODO: Fetch user profiles
 
         let group = Self {
             group_id: mls_group.group_id().clone(),
@@ -402,7 +421,7 @@ impl Group {
             pending_diff: None,
         };
 
-        Ok(group)
+        Ok((group, member_profile_info))
     }
 
     /// Join a group using an external commit.
@@ -417,7 +436,7 @@ impl Group {
         identity_link_wrapper_key: IdentityLinkWrapperKey,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
-    ) -> Result<(Self, MlsMessageOut, MlsMessageOut)> {
+    ) -> Result<(Self, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         // TODO: We set the ratchet tree extension for now, as it is the only
         // way to make OpenMLS return a GroupInfo. This should change in the
         // future.
@@ -494,9 +513,21 @@ impl Group {
             }
         }
 
-        let user_profile_keys = encrypted_user_profile_keys
+        let member_profile_info = encrypted_user_profile_keys
             .into_iter()
-            .map(|eupk| UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk))
+            .zip(
+                client_information
+                    .iter()
+                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
+            )
+            .map(|(eupk, ci)| {
+                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk).map(|user_profile_key| {
+                    ProfileInfo {
+                        user_profile_key,
+                        member_id: ci.clone(),
+                    }
+                })
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         // Phase 4: Fetch user profiles
@@ -512,7 +543,7 @@ impl Group {
             pending_diff: None,
         };
 
-        Ok((group, commit, group_info.into()))
+        Ok((group, commit, group_info.into(), member_profile_info))
     }
 
     /// Invite the given list of contacts to join the group.

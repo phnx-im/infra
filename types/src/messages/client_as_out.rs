@@ -136,6 +136,7 @@ pub enum AsProcessResponseIn {
     UserClients(UserClientsResponseIn),
     AsCredentials(AsCredentialsResponseIn),
     InitUserRegistration(InitUserRegistrationResponseIn),
+    GetUserProfile(GetUserProfileResponse),
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -270,7 +271,7 @@ impl EncryptedUserProfile {
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GetUserProfileResponse {
-    pub user_profile: EncryptedUserProfile,
+    pub encrypted_user_profile: EncryptedUserProfile,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
