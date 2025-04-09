@@ -34,8 +34,8 @@ use phnxtypes::{
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
             AsVersionedProcessResponseIn, ConnectionPackageIn, EncryptedUserProfile,
-            InitClientAdditionResponseIn, InitUserRegistrationResponseIn, UserClientsResponseIn,
-            UserConnectionPackagesResponseIn,
+            InitClientAdditionResponseIn, InitUserRegistrationResponseIn,
+            UpdateUserProfileParamsTbs, UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -172,6 +172,30 @@ impl ApiClient {
         };
         let payload = tbs.sign(signing_key)?;
         let params = AsRequestParamsOut::FinishUserRegistration(payload);
+        self.prepare_and_send_as_message(params)
+            .await
+            // Check if the response is what we expected it to be.
+            .and_then(|response| {
+                if matches!(response, AsProcessResponseIn::Ok) {
+                    Ok(())
+                } else {
+                    Err(AsRequestError::UnexpectedResponse)
+                }
+            })
+    }
+
+    pub async fn as_update_user_profile(
+        &self,
+        client_id: AsClientId,
+        signing_key: &ClientSigningKey,
+        encrypted_user_profile: EncryptedUserProfile,
+    ) -> Result<(), AsRequestError> {
+        let payload = UpdateUserProfileParamsTbs {
+            client_id,
+            user_profile: encrypted_user_profile,
+        }
+        .sign(signing_key)?;
+        let params = AsRequestParamsOut::UpdateUserProfile(payload);
         self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.

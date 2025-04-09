@@ -261,6 +261,7 @@ impl PostRegistrationInitState {
         let connection_key = ConnectionKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
+
         let user_profile_key = UserProfileKey::random()?;
 
         let connection_decryption_key = ConnectionDecryptionKey::generate()?;

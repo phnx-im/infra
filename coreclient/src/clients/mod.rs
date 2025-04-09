@@ -81,6 +81,7 @@ pub mod store;
 #[cfg(test)]
 mod tests;
 mod update_key;
+mod user_profile;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;

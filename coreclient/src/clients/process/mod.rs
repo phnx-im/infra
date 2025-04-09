@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{
-    AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
+    AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
     EarEncryptable, FriendshipPackage, TimestampedMessage, UserProfile, anyhow,
 };
 

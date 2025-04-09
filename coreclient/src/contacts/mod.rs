@@ -8,7 +8,7 @@ use phnxtypes::{
     credentials::pseudonymous_credentials::PseudonymousCredential,
     crypto::{
         ear::keys::{
-            FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey,
+            FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey, UserProfileKey,
             WelcomeAttributionInfoEarKey,
         },
         kdf::keys::ConnectionKey,
@@ -36,6 +36,7 @@ pub struct Contact {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) key_package_ear_key: KeyPackageEarKey,
     pub(crate) connection_key: ConnectionKey,
+    pub(crate) user_profile_key: UserProfileKey,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
 }
@@ -44,6 +45,7 @@ pub struct Contact {
 pub(crate) struct ContactAddInfos {
     pub key_package: KeyPackage,
     pub identity_link_key: IdentityLinkKey,
+    pub user_profile_key: UserProfileKey,
 }
 
 impl Contact {
@@ -60,6 +62,7 @@ impl Contact {
             key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
             conversation_id,
+            user_profile_key: friendship_package.user_profile_key,
         }
     }
 
@@ -112,6 +115,7 @@ impl Contact {
         let add_info = ContactAddInfos {
             key_package: verified_key_package,
             identity_link_key,
+            user_profile_key: self.user_profile_key.clone(),
         };
         Ok(add_info)
     }

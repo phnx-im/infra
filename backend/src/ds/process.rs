@@ -163,7 +163,7 @@ use uuid::Uuid;
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
-        ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
+        ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
         signatures::{keys::LeafVerifyingKey, signable::Verifiable},
     },
     errors::{DsProcessingError, version::VersionError},
@@ -259,6 +259,7 @@ impl Ds {
                 encrypted_identity_link_key,
                 creator_qs_reference: creator_queue_config,
                 group_info,
+                encrypted_user_profile_key,
             } = create_group_params;
             let MlsMessageBodyIn::GroupInfo(group_info) = group_info.clone().extract() else {
                 return Err(DsProcessingError::InvalidMessage);
@@ -270,6 +271,7 @@ impl Ds {
                 provider,
                 group,
                 encrypted_identity_link_key.clone(),
+                encrypted_user_profile_key.clone(),
                 creator_queue_config.clone(),
             );
             (GroupData::NewGroup(reserved_group_id), group_state)
@@ -376,11 +378,12 @@ impl Ds {
                 let ratchet_tree = group_state
                     .welcome_info(welcome_info_params)
                     .ok_or(DsProcessingError::NoWelcomeInfoFound)?;
-                (
-                    None,
-                    DsProcessResponse::WelcomeInfo(ratchet_tree.clone()),
-                    vec![],
-                )
+                let welcome_info = WelcomeInfo {
+                    ratchet_tree: ratchet_tree.clone(),
+                    encrypted_identity_link_keys: group_state.encrypted_identity_link_keys(),
+                    encrypted_user_profile_keys: group_state.encrypted_user_profile_keys(),
+                };
+                (None, DsProcessResponse::WelcomeInfo(welcome_info), vec![])
             }
             DsGroupRequestParams::CreateGroupParams(_) => (None, DsProcessResponse::Ok, vec![]),
             DsGroupRequestParams::_UpdateQsClientReference => {
@@ -551,6 +554,14 @@ pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
+}
+
+#[derive(Debug, TlsSerialize, TlsSize)]
+pub struct WelcomeInfo {
+    pub ratchet_tree: RatchetTree,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
 }
 
 #[expect(clippy::large_enum_variant)]
@@ -559,7 +570,7 @@ pub struct ExternalCommitInfo {
 pub enum DsProcessResponse {
     Ok,
     FanoutTimestamp(TimeStamp),
-    WelcomeInfo(RatchetTree),
+    WelcomeInfo(WelcomeInfo),
     ExternalCommitInfo(ExternalCommitInfo),
     GroupId(GroupId),
 }

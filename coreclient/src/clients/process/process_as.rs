@@ -27,7 +27,7 @@ use crate::{
 };
 
 use super::{
-    AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
+    AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
     EarEncryptable, FriendshipPackage, UserProfile, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
@@ -61,11 +61,8 @@ impl CoreUser {
                     .parse_and_verify_connection_establishment_package(ecep)
                     .await?;
 
-                // Load user profile
-                let own_user_profile = self.load_own_user_profile().await?;
-
                 // Prepare group
-                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, own_user_profile)?;
+                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs)?;
 
                 // Fetch external commit info
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
@@ -138,7 +135,6 @@ impl CoreUser {
     fn prepare_group(
         &self,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-        own_user_profile: UserProfile,
     ) -> Result<(LeafKeys, InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
@@ -153,12 +149,18 @@ impl CoreUser {
             .identity_link_key()
             .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
+        let encrypted_user_profile_key = self
+            .inner
+            .key_store
+            .user_profile_key
+            .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
+
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
             key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
             connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
-            user_profile: own_user_profile,
+            user_profile_key: self.inner.key_store.user_profile_key.clone(),
         }
         .encrypt(&cep_tbs.friendship_package_ear_key)?;
 
@@ -166,6 +168,7 @@ impl CoreUser {
             InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
                 encrypted_friendship_package,
                 encrypted_identity_link_key,
+                encrypted_user_profile_key,
             })
             .into();
         let qgid =
@@ -226,20 +229,13 @@ impl CoreUser {
         cep_tbs: &ConnectionEstablishmentPackageTbs,
     ) -> Result<(Conversation, Contact)> {
         let sender_client_id = cep_tbs.sender_client_credential.identity();
-        let conversation_picture_option = cep_tbs
-            .friendship_package
-            .user_profile
-            .profile_picture()
-            .map(|asset| match asset {
-                Asset::Value(value) => value.to_owned(),
-            });
+
+        // TODO: Load user profile here and use user profile key from cep_tbs to decrypt
+
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
             sender_client_id.user_name().clone(),
-            ConversationAttributes::new(
-                sender_client_id.user_name().to_string(),
-                conversation_picture_option,
-            ),
+            ConversationAttributes::new(sender_client_id.user_name().to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
             sender_client_id.clone(),
@@ -260,12 +256,9 @@ impl CoreUser {
         let mut connection = self.pool().acquire().await?;
         group.store(&mut *connection).await?;
         conversation.store(&mut *connection, notifier).await?;
-        // Store the user profile of the sender.
-        cep_tbs
-            .friendship_package
-            .user_profile
-            .store_or_ignore(&mut *connection, notifier)
-            .await?;
+
+        // TODO: Load user profile here and decrypt using the ky from cep_tbs.
+
         // TODO: For now, we automatically confirm conversations.
         conversation.confirm(&mut *connection, notifier).await?;
         // TODO: Here, we want to store a contact

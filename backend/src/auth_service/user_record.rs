@@ -236,5 +236,26 @@ pub(crate) mod persistence {
 
             Ok(())
         }
+
+        #[sqlx::test]
+        async fn update(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+
+            let mut loaded = UserRecord::load(&pool, &user_record.user_name)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded, user_record);
+
+            let new_encrypted_user_profile = EncryptedUserProfile::dummy();
+            loaded.set_user_profile(new_encrypted_user_profile.clone());
+            loaded.update(&pool).await?;
+
+            let loaded = UserRecord::load(&pool, &user_record.user_name)
+                .await?
+                .expect("missing user record");
+            assert_eq!(loaded.encrypted_user_profile, new_encrypted_user_profile);
+
+            Ok(())
+        }
     }
 }

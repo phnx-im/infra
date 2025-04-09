@@ -29,7 +29,7 @@ use phnxtypes::{
             EarDecryptable, EarEncryptable,
             keys::{
                 EncryptedIdentityLinkKey, GroupStateEarKey, IdentityLinkKey,
-                IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
+                IdentityLinkWrapperKey, UserProfileKey, WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
@@ -378,6 +378,21 @@ impl Group {
 
         let leaf_signer = leaf_keys.into_leaf_signer();
 
+        let user_profile_keys = joiner_info
+            .encrypted_user_profile_keys
+            .into_iter()
+            .map(|eupk| {
+                UserProfileKey::decrypt(
+                    &welcome_attribution_info.identity_link_wrapper_key(),
+                    &eupk,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Phase 4: Fetch user profiles
+
+        // TODO: Fetch user profiles
+
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,
@@ -415,6 +430,7 @@ impl Group {
             verifiable_group_info,
             ratchet_tree_in,
             encrypted_identity_link_keys,
+            encrypted_user_profile_keys,
         } = external_commit_info;
 
         // Let's create the group first so that we can access the GroupId.
@@ -478,6 +494,15 @@ impl Group {
             }
         }
 
+        let user_profile_keys = encrypted_user_profile_keys
+            .into_iter()
+            .map(|eupk| UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Phase 4: Fetch user profiles
+
+        // TODO: Fetch user profiles
+
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,
@@ -507,19 +532,29 @@ impl Group {
         debug_assert!(add_infos.len() == client_credentials.len());
         // Prepare KeyPackages
 
-        let (key_packages, identity_link_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) = add_infos
-            .into_iter()
-            .map(|ai| (ai.key_package, ai.identity_link_key))
-            .unzip();
+        let (key_packages, keys): (Vec<KeyPackage>, Vec<(IdentityLinkKey, UserProfileKey)>) =
+            add_infos
+                .into_iter()
+                .map(|ai| (ai.key_package, (ai.identity_link_key, ai.user_profile_key)))
+                .unzip();
+
+        let (identity_link_keys, user_profile_keys): (Vec<IdentityLinkKey>, Vec<UserProfileKey>) =
+            keys.into_iter().unzip();
 
         let new_encrypted_identity_link_keys = identity_link_keys
             .iter()
             .map(|ilk| ilk.encrypt(&self.identity_link_wrapper_key))
             .collect::<Result<Vec<_>, _>>()?;
 
+        let new_encrypted_user_profile_keys = user_profile_keys
+            .iter()
+            .map(|upk| upk.encrypt(&self.identity_link_wrapper_key))
+            .collect::<Result<Vec<_>, _>>()?;
+
         let aad_message: InfraAadMessage =
             InfraAadPayload::GroupOperation(GroupOperationParamsAad {
                 new_encrypted_identity_link_keys,
+                new_encrypted_user_profile_keys,
                 credential_update_option: None,
             })
             .into();
@@ -615,6 +650,7 @@ impl Group {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys: vec![],
             new_encrypted_identity_link_keys: vec![],
             credential_update_option: None,
         });

@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, ensure};
+use anyhow::ensure;
 use openmls::group::GroupId;
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
-        ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable, signatures::signable::Signable,
+        ear::keys::{FriendshipPackageEarKey, UserProfileKey},
+        hpke::HpkeEncryptable,
+        signatures::signable::Signable,
     },
     identifiers::{Fqdn, QsReference, QualifiedUserName},
     messages::{
@@ -51,7 +53,7 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         // Phase 4: Prepare the connection locally
-        let local_group = self
+        let local_group: LocalGroup = self
             .with_transaction(async |transaction| {
                 connection_packages
                     .create_local_connection_group(
@@ -65,9 +67,6 @@ impl CoreUser {
             })
             .await?;
 
-        let user_profile = UserProfile::load(self.pool(), self.user_name())
-            .await?
-            .context("missing user profile")?;
         let client_reference = self.create_own_client_reference();
 
         let local_partial_contact = local_group
@@ -75,7 +74,7 @@ impl CoreUser {
                 self.pool(),
                 &mut notifier,
                 &self.inner.key_store,
-                user_profile,
+                self.inner.key_store.user_profile_key.clone(),
                 client_reference,
                 user_name.clone(),
             )
@@ -245,7 +244,7 @@ impl LocalGroup {
         pool: &SqlitePool,
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
-        own_user_profile: UserProfile,
+        own_user_profile_key: UserProfileKey,
         own_client_reference: QsReference,
         user_name: QualifiedUserName,
     ) -> anyhow::Result<LocalPartialContact> {
@@ -261,7 +260,7 @@ impl LocalGroup {
             key_package_ear_key: key_store.key_package_ear_key.clone(),
             connection_key: key_store.connection_key.clone(),
             wai_ear_key: key_store.wai_ear_key.clone(),
-            user_profile: own_user_profile,
+            user_profile_key: own_user_profile_key,
         };
 
         let friendship_package_ear_key = FriendshipPackageEarKey::random()?;

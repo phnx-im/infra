@@ -4,7 +4,7 @@
 
 use phnxtypes::{
     crypto::{
-        ear::keys::{KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+        ear::keys::{KeyPackageEarKey, UserProfileKey, WelcomeAttributionInfoEarKey},
         kdf::keys::ConnectionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -49,6 +49,7 @@ struct SqlContact {
     friendship_token: FriendshipToken,
     key_package_ear_key: KeyPackageEarKey,
     connection_key: ConnectionKey,
+    user_profile_key: UserProfileKey,
 }
 
 impl From<SqlContact> for Contact {
@@ -61,6 +62,7 @@ impl From<SqlContact> for Contact {
             conversation_id,
             key_package_ear_key,
             connection_key,
+            user_profile_key,
         }: SqlContact,
     ) -> Self {
         Self {
@@ -71,6 +73,7 @@ impl From<SqlContact> for Contact {
             key_package_ear_key,
             connection_key,
             conversation_id,
+            user_profile_key,
         }
     }
 }
@@ -89,7 +92,8 @@ impl Contact {
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 key_package_ear_key AS "key_package_ear_key: _",
-                connection_key AS "connection_key: _"
+                connection_key AS "connection_key: _",
+                user_profile_key AS "user_profile_key: _"
             FROM contacts WHERE user_name = ?"#,
             user_name
         )
@@ -108,7 +112,8 @@ impl Contact {
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 key_package_ear_key AS "key_package_ear_key: _",
-                connection_key AS "connection_key: _"
+                connection_key AS "connection_key: _",
+                user_profile_key AS "user_profile_key: _"
             FROM contacts"#
         )
         .fetch(executor)
@@ -132,8 +137,8 @@ impl Contact {
         query!(
             "INSERT INTO contacts
                 (user_name, conversation_id, clients, wai_ear_key, friendship_token,
-                key_package_ear_key, connection_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?)",
+                key_package_ear_key, connection_key, user_profile_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             self.user_name,
             self.conversation_id,
             clients_str,
@@ -141,6 +146,7 @@ impl Contact {
             self.friendship_token,
             self.key_package_ear_key,
             self.connection_key,
+            self.user_profile_key
         )
         .execute(executor)
         .await?;
@@ -241,6 +247,7 @@ impl PartialContact {
             friendship_token: friendship_package.friendship_token,
             key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
+            user_profile_key: friendship_package.user_profile_key,
         };
         contact.store(&mut *transaction, notifier).await?;
 
@@ -261,9 +268,7 @@ mod tests {
     use sqlx::SqlitePool;
     use uuid::Uuid;
 
-    use crate::{
-        ConversationId, UserProfile, conversations::persistence::tests::test_conversation,
-    };
+    use crate::{ConversationId, conversations::persistence::tests::test_conversation};
 
     use super::*;
 
@@ -278,6 +283,7 @@ mod tests {
             key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             conversation_id,
+            user_profile_key: UserProfileKey::random().unwrap(),
         }
     }
 
@@ -361,7 +367,7 @@ mod tests {
             key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
-            user_profile: UserProfile::new(user_name.clone(), None, None),
+            user_profile_key: UserProfileKey::random().unwrap(),
         };
         let contact = partial
             .mark_as_complete(

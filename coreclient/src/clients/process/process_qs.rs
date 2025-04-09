@@ -25,7 +25,7 @@ use tls_codec::DeserializeBytes;
 use crate::{ConversationMessage, PartialContact, conversations::ConversationType, groups::Group};
 
 use super::{
-    Asset, Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
+    Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
     TimestampedMessage, UserProfile, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
@@ -302,22 +302,10 @@ impl CoreUser {
             )?;
 
             // UnconfirmedConnection Phase 2: Store the user profile of the sender and the contact.
-            friendship_package
-                .user_profile
-                .update(self.pool(), &mut notifier)
-                .await?;
 
-            // Set the picture of the conversation to the one of the contact.
-            let conversation_picture_option = friendship_package
-                .user_profile
-                .profile_picture()
-                .map(|asset| match asset {
-                    Asset::Value(value) => value.to_owned(),
-                });
+            // TODO: Fetch the user profile from the AS and decrypt it using the
+            // key from the friendship package
 
-            conversation
-                .set_conversation_picture(self.pool(), &mut notifier, conversation_picture_option)
-                .await?;
             // Now we can turn the partial contact into a full one.
             partial_contact
                 .mark_as_complete(

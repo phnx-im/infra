@@ -15,7 +15,7 @@ use crate::{
         kdf::keys::RatchetSecret,
         opaque::{OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse},
         signatures::{
-            signable::{Signature, Verifiable},
+            signable::{Signable, Signature, SignedStruct, Verifiable},
             traits::SignatureVerificationError,
         },
     },
@@ -301,6 +301,24 @@ impl ClientCredentialAuthenticator for UpdateUserProfileParams {
     }
 
     const LABEL: &'static str = "Finish User Registration Parameters";
+}
+
+impl Signable for UpdateUserProfileParamsTbs {
+    type SignedOutput = UpdateUserProfileParams;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        UpdateUserProfileParams::LABEL
+    }
+}
+
+impl SignedStruct<UpdateUserProfileParamsTbs> for UpdateUserProfileParams {
+    fn from_payload(payload: UpdateUserProfileParamsTbs, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
