@@ -262,3 +262,47 @@ impl From<SerializableDsGroupState> for EncryptableDsGroupState {
 
 impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
 impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
+
+#[cfg(test)]
+mod test {
+    use std::sync::LazyLock;
+
+    use mls_assist::openmls::prelude::HpkeCiphertext;
+
+    use super::*;
+
+    #[test]
+    fn test_encrypted_ds_group_state_serde_codec() {
+        let state = EncryptedDsGroupState(Ciphertext::dummy());
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&state).unwrap());
+    }
+
+    #[test]
+    fn test_encrypted_ds_group_state_serde_json() {
+        let state = EncryptedDsGroupState(Ciphertext::dummy());
+        insta::assert_json_snapshot!(state);
+    }
+
+    static DELETED_QUEUES: LazyLock<Vec<SealedClientReference>> = LazyLock::new(|| {
+        vec![
+            SealedClientReference::from(HpkeCiphertext {
+                kem_output: vec![1, 2, 3].into(),
+                ciphertext: vec![4, 5, 6].into(),
+            }),
+            SealedClientReference::from(HpkeCiphertext {
+                kem_output: vec![7, 8, 9].into(),
+                ciphertext: vec![10, 11, 12].into(),
+            }),
+        ]
+    });
+
+    #[test]
+    fn test_deleted_queues_serde_codec() {
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*DELETED_QUEUES).unwrap());
+    }
+
+    #[test]
+    fn test_deleted_queues_serde_json() {
+        insta::assert_json_snapshot!(&*DELETED_QUEUES);
+    }
+}

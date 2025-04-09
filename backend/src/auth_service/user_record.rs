@@ -118,22 +118,27 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
+        use std::sync::LazyLock;
+
         use opaque_ke::{
             ClientRegistration, ClientRegistrationFinishParameters, ServerRegistration, ServerSetup,
         };
+        use phnxtypes::{codec::PhnxCodec, crypto::OpaqueCiphersuite};
+        use rand::{CryptoRng, RngCore, SeedableRng, rngs::StdRng};
         use sqlx::PgPool;
         use uuid::Uuid;
 
         use super::*;
 
-        pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
-            let user_name: QualifiedUserName = format!("{}@example.com", Uuid::new_v4()).parse()?;
+        pub(crate) fn generate_password_file(
+            user_name: &QualifiedUserName,
+            rng: &mut (impl CryptoRng + RngCore),
+        ) -> anyhow::Result<ServerRegistration<OpaqueCiphersuite>> {
             let password = b"password";
 
-            let mut rng = rand::thread_rng();
-            let server_setup = ServerSetup::new(&mut rng);
+            let server_setup = ServerSetup::new(rng);
             let client_registration_start_result =
-                ClientRegistration::start(&mut rng, password).unwrap();
+                ClientRegistration::start(rng, password).unwrap();
             let server_registration_start_result = ServerRegistration::start(
                 &server_setup,
                 client_registration_start_result.message,
@@ -143,15 +148,21 @@ pub(crate) mod persistence {
             let client_registration_finish_result = client_registration_start_result
                 .state
                 .finish(
-                    &mut rng,
+                    rng,
                     password,
                     server_registration_start_result.message,
                     ClientRegistrationFinishParameters::default(),
                 )
                 .unwrap();
-            let password_file =
-                ServerRegistration::finish(client_registration_finish_result.message);
 
+            Ok(ServerRegistration::finish(
+                client_registration_finish_result.message,
+            ))
+        }
+
+        pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
+            let user_name: QualifiedUserName = format!("{}@example.com", Uuid::new_v4()).parse()?;
+            let password_file = generate_password_file(&user_name, &mut rand::thread_rng())?;
             let record = UserRecord {
                 user_name,
                 password_file,
@@ -187,6 +198,26 @@ pub(crate) mod persistence {
             assert!(loaded.is_none());
 
             Ok(())
+        }
+
+        static PASSWORD_FILE: LazyLock<ServerRegistration<OpaqueCiphersuite>> =
+            LazyLock::new(|| {
+                let user_name: QualifiedUserName = "alice@example.com".parse().unwrap();
+                generate_password_file(
+                    &user_name,
+                    &mut StdRng::seed_from_u64(0x0DDB1A5E5BAD5EEDu64),
+                )
+                .unwrap()
+            });
+
+        #[test]
+        fn test_password_file_serde_codec() {
+            insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*PASSWORD_FILE).unwrap());
+        }
+
+        #[test]
+        fn test_password_file_serde_json() {
+            insta::assert_json_snapshot!(&*PASSWORD_FILE);
         }
     }
 }

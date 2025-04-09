@@ -73,6 +73,10 @@ impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
+    use phnxtypes::codec::PhnxCodec;
+    use rand::{SeedableRng, rngs::StdRng};
     use sqlx::PgPool;
 
     use super::*;
@@ -119,5 +123,19 @@ mod tests {
         assert_eq!(loaded, value_a);
 
         Ok(())
+    }
+
+    static SERVER: LazyLock<VoprfServer<Ristretto255>> = LazyLock::new(|| {
+        VoprfServer::new(&mut StdRng::seed_from_u64(0x0DDB1A5E5BAD5EEDu64)).unwrap()
+    });
+
+    #[test]
+    fn test_server_serde_codec() {
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*SERVER).unwrap());
+    }
+
+    #[test]
+    fn test_server_serde_json() {
+        insta::assert_json_snapshot!(&*SERVER);
     }
 }

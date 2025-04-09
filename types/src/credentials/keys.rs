@@ -96,7 +96,7 @@ impl AsRef<SigningKey> for AsSigningKey {
 }
 
 impl AsSigningKey {
-    pub(super) fn from_private_key_and_credential(
+    pub fn from_private_key_and_credential(
         private_key: SigningKey,
         credential: AsCredential,
     ) -> Self {
