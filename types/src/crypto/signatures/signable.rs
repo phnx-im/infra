@@ -67,7 +67,7 @@ impl Signature {
         Self(vec![])
     }
 
-    pub(crate) fn as_slice(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
 

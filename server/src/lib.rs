@@ -26,7 +26,7 @@ use phnxtypes::endpoint_paths::{
     ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
     ENDPOINT_QS_WS,
 };
-use std::net::TcpListener;
+use std::{fs::File, io::BufReader, net::TcpListener};
 use tracing_actix_web::TracingLogger;
 
 use crate::endpoints::{
@@ -66,6 +66,26 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>>, Np: NetworkProvid
             .port()
     );
 
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
+
+    let mut certs_file = BufReader::new(File::open("cert.pem").unwrap());
+    let mut key_file = BufReader::new(File::open("key.pem").unwrap());
+
+    let tls_certs = rustls_pemfile::certs(&mut certs_file)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    let tls_key = rustls_pemfile::pkcs8_private_keys(&mut key_file)
+        .next()
+        .unwrap()
+        .unwrap();
+
+    let tls_config = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(tls_certs, rustls::pki_types::PrivateKeyDer::Pkcs8(tls_key))
+        .unwrap();
+
     // Create & run the server
     let server = HttpServer::new(move || {
         App::new()
@@ -91,7 +111,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>>, Np: NetworkProvid
             // WS endpoint
             .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
     })
-    .listen(listener)?
+    .listen_rustls_0_23(listener, tls_config)?
     .run();
     Ok(server)
 }

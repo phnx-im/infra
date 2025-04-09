@@ -25,6 +25,8 @@ privacypass = { workspace = true }
 tls_codec = { workspace = true }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+rustls = { version = "0.23.25", features = ["ring"] }
+webpki-roots = "0.26.8"
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }

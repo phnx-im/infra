@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use core::time;
-use std::{pin::pin, time::Duration};
+use std::{pin::pin, sync::Arc, time::Duration};
 
 use base64::{Engine as _, engine::general_purpose};
 use futures_util::{SinkExt, StreamExt};
@@ -22,14 +22,14 @@ use tokio::{
     time::{Instant, sleep},
 };
 use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async,
+    Connector, MaybeTlsStream, WebSocketStream, connect_async, connect_async_tls_with_config,
     tungstenite::{client::IntoClientRequest, protocol::Message},
 };
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::{ApiClient, Protocol};
+use crate::{ApiClient, NoVerifier, Protocol};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum WsEvent {
@@ -310,8 +310,25 @@ impl ApiClient {
                         break;
                     }
                 };
+
+                let _ = rustls::crypto::ring::default_provider().install_default();
+                let root_store = rustls::RootCertStore {
+                    roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+                };
+                let mut tls = rustls::ClientConfig::builder()
+                    .with_root_certificates(root_store)
+                    .with_no_client_auth();
+                tls.key_log = Arc::new(rustls::KeyLogFile::new());
+                tls.alpn_protocols = vec!["http/1.1".into()];
+                tls.dangerous()
+                    .set_certificate_verifier(Arc::new(NoVerifier));
+
+                let connector = Connector::Rustls(Arc::new(tls));
+
+                dbg!(&req);
+
                 // Try to establish a connection
-                match connect_async(req).await {
+                match connect_async_tls_with_config(req, None, false, Some(connector)).await {
                     // The connection was established
                     Ok((ws_stream, _)) => {
                         info!(%connection_id, "Connected to QS WebSocket");
