@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, identifiers::QsClientId, messages::QueueMessage};
+use phnxtypes::{
+    codec::{BlobDecoded, BlobEncoded},
+    identifiers::QsClientId,
+    messages::QueueMessage,
+};
 use sqlx::{Connection, PgConnection, PgExecutor};
 use tokio_stream::StreamExt;
 
@@ -31,9 +35,6 @@ impl Queue {
         queue_id: &QsClientId,
         message: &QueueMessage,
     ) -> Result<(), QueueError> {
-        // Encode the message
-        let message_bytes = PhnxCodec::to_vec(&message)?;
-
         // Begin the transaction
         let mut transaction = connection.begin().await?;
 
@@ -53,7 +54,7 @@ impl Queue {
             RETURNING sequence_number
             "#,
             queue_id as &QsClientId,
-            message_bytes,
+            BlobEncoded(&message) as _,
         )
         .fetch_one(&mut *transaction)
         .await?;
@@ -103,7 +104,7 @@ impl Queue {
                 WHERE queue_id = $1 AND sequence_number >= $2
             )
             SELECT
-                fetched.message_bytes,
+                fetched.message_bytes AS "message: BlobDecoded<QueueMessage>",
                 remaining.count
             FROM fetched, remaining
             "#,
@@ -119,8 +120,7 @@ impl Queue {
             .map(|row| {
                 let row = row?;
                 remaining_count.get_or_insert(row.count.unwrap_or_default());
-                let message = PhnxCodec::from_slice(&row.message_bytes)?;
-                Ok(message)
+                Ok(row.message.into_inner())
             })
             .collect::<Result<Vec<_>, QueueError>>()
             .await?;

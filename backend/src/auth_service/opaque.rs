@@ -35,7 +35,8 @@ impl OpaqueSetup {
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
+    use phnxtypes::codec::{BlobDecoded, BlobEncoded};
+    use sqlx::query_scalar;
 
     use super::*;
 
@@ -46,7 +47,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             sqlx::query!(
                 "INSERT INTO opaque_setup (opaque_setup) VALUES ($1)",
-                PhnxCodec::to_vec(&self.0)?
+                BlobEncoded(&self.0) as _,
             )
             .execute(connection)
             .await?;
@@ -57,11 +58,11 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<ServerSetup<OpaqueCiphersuite>, StorageError> {
             // There is currently only one OPAQUE setup.
-            let opaque_setup_record = sqlx::query!("SELECT opaque_setup FROM opaque_setup")
+            query_scalar!(r#"SELECT opaque_setup AS "opaque_setup: _" FROM opaque_setup"#)
                 .fetch_one(connection)
-                .await?;
-            let opaque_setup = PhnxCodec::from_slice(&opaque_setup_record.opaque_setup)?;
-            Ok(opaque_setup)
+                .await
+                .map(|BlobDecoded(setup)| setup)
+                .map_err(From::from)
         }
     }
 

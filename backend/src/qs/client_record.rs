@@ -91,12 +91,14 @@ impl QsClientRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxtypes::codec::PhnxCodec;
-    use sqlx::PgExecutor;
+    use phnxtypes::codec::{BlobDecoded, BlobEncoded};
+    use sqlx::{PgExecutor, query};
 
     use super::*;
 
     use crate::errors::StorageError;
+
+    type QsQueueRatcher = QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
 
     impl QsClientRecord {
         pub(super) async fn store(
@@ -104,11 +106,11 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             // Create and store the client record.
-            let owner_public_key = PhnxCodec::to_vec(&self.queue_encryption_key)?;
-            let owner_signature_key = PhnxCodec::to_vec(&self.auth_key)?;
-            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
+            let owner_public_key = BlobEncoded(&self.queue_encryption_key);
+            let owner_signature_key = BlobEncoded(&self.auth_key);
+            let ratchet = BlobEncoded(&self.ratchet_key);
 
-            sqlx::query!(
+            query!(
                 "INSERT INTO
                     qs_client_records
                     (client_id, user_id, encrypted_push_token, owner_public_key,
@@ -118,10 +120,10 @@ pub(crate) mod persistence {
                 &self.client_id as &QsClientId,
                 &self.user_id as &QsUserId,
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
-                owner_public_key,
-                owner_signature_key,
-                ratchet,
-                &self.activity_time as &TimeStamp,
+                owner_public_key as _,
+                owner_signature_key as _,
+                ratchet as _,
+                &self.activity_time as _,
             )
             .execute(connection)
             .await?;
@@ -134,14 +136,14 @@ pub(crate) mod persistence {
             client_id: &QsClientId,
         ) -> Result<Option<QsClientRecord>, StorageError> {
             let client_id = client_id.as_uuid();
-            sqlx::query!(
+            let record = sqlx::query!(
                 r#"SELECT
                     user_id as "user_id: QsUserId",
                     encrypted_push_token as "encrypted_push_token: EncryptedPushToken",
-                    owner_public_key,
-                    owner_signature_key,
-                    ratchet,
-                    activity_time as "activity_time: TimeStamp"
+                    owner_public_key AS "owner_public_key: BlobDecoded<RatchetEncryptionKey>",
+                    owner_signature_key AS "owner_signature_key: BlobDecoded<QsClientVerifyingKey>",
+                    ratchet AS "ratchet: BlobDecoded<QsQueueRatcher>",
+                    activity_time AS "activity_time: TimeStamp"
                 FROM
                     qs_client_records
                 WHERE
@@ -149,34 +151,27 @@ pub(crate) mod persistence {
                 client_id,
             )
             .fetch_optional(connection)
-            .await?
-            .map(|record| {
-                let owner_public_key = PhnxCodec::from_slice(&record.owner_public_key)?;
-                let owner_signature_key = PhnxCodec::from_slice(&record.owner_signature_key)?;
-                let ratchet_key = PhnxCodec::from_slice(&record.ratchet)?;
-
-                Ok(QsClientRecord {
-                    user_id: record.user_id,
-                    client_id: (*client_id).into(),
-                    encrypted_push_token: record.encrypted_push_token,
-                    queue_encryption_key: owner_public_key,
-                    auth_key: owner_signature_key,
-                    ratchet_key,
-                    activity_time: record.activity_time,
-                })
-            })
-            .transpose()
+            .await?;
+            Ok(record.map(|record| QsClientRecord {
+                user_id: record.user_id,
+                client_id: (*client_id).into(),
+                encrypted_push_token: record.encrypted_push_token,
+                queue_encryption_key: record.owner_public_key.into_inner(),
+                auth_key: record.owner_signature_key.into_inner(),
+                ratchet_key: record.ratchet.into_inner(),
+                activity_time: record.activity_time,
+            }))
         }
 
         pub(in crate::qs) async fn update(
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let owner_public_key = PhnxCodec::to_vec(&self.queue_encryption_key)?;
-            let owner_signature_key = PhnxCodec::to_vec(&self.auth_key)?;
-            let ratchet = PhnxCodec::to_vec(&self.ratchet_key)?;
+            let owner_public_key = BlobEncoded(&self.queue_encryption_key);
+            let owner_signature_key = BlobEncoded(&self.auth_key);
+            let ratchet = BlobEncoded(&self.ratchet_key);
 
-            sqlx::query!(
+            query!(
                 "UPDATE qs_client_records
                 SET
                     encrypted_push_token = $1,
@@ -187,9 +182,9 @@ pub(crate) mod persistence {
                 WHERE
                     client_id = $6",
                 self.encrypted_push_token.as_ref() as Option<&EncryptedPushToken>,
-                owner_public_key,
-                owner_signature_key,
-                ratchet,
+                owner_public_key as _,
+                owner_signature_key as _,
+                ratchet as _,
                 &self.activity_time as &TimeStamp,
                 &self.client_id as &QsClientId,
             )
@@ -203,7 +198,7 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             client_id: &QsClientId,
         ) -> Result<(), StorageError> {
-            sqlx::query!(
+            query!(
                 "DELETE FROM qs_client_records WHERE client_id = $1",
                 client_id as &QsClientId
             )

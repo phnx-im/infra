@@ -46,18 +46,8 @@ pub mod signatures;
 pub type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    sqlx::Type,
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-#[sqlx(transparent)]
 pub struct RatchetEncryptionKey(EncryptionPublicKey);
 
 impl RatchetEncryptionKey {

@@ -47,10 +47,10 @@ impl UserRecord {
 
 pub(crate) mod persistence {
     use phnxtypes::{
-        codec::PhnxCodec,
-        identifiers::{QualifiedUserName, UserName},
+        codec::{BlobDecoded, BlobEncoded},
+        identifiers::QualifiedUserName,
     };
-    use sqlx::PgExecutor;
+    use sqlx::{PgExecutor, query, query_scalar};
 
     use crate::errors::StorageError;
 
@@ -63,19 +63,18 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             user_name: &QualifiedUserName,
         ) -> Result<Option<UserRecord>, StorageError> {
-            sqlx::query!(
-                r#"SELECT user_name as "user_name: UserName", password_file
+            let record = query_scalar!(
+                r#"SELECT
+                    password_file AS "password_file: _"
                 FROM as_user_records
                 WHERE user_name = $1"#,
                 user_name.to_string(),
             )
             .fetch_optional(connection)
-            .await?
-            .map(|record| {
-                let password_file = PhnxCodec::from_slice(&record.password_file)?;
-                Ok(UserRecord::new(user_name.clone(), password_file))
-            })
-            .transpose()
+            .await?;
+            Ok(record.map(|BlobDecoded(password_file)| {
+                UserRecord::new(user_name.clone(), password_file)
+            }))
         }
 
         /// Create a new user with the given user name. If a user with the given user
@@ -84,11 +83,11 @@ pub(crate) mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let password_file_bytes = PhnxCodec::to_vec(&self.password_file)?;
-            sqlx::query!(
+            let password_file = BlobEncoded(&self.password_file);
+            query!(
                 "INSERT INTO as_user_records (user_name, password_file) VALUES ($1, $2)",
                 self.user_name.to_string(),
-                password_file_bytes,
+                password_file as _,
             )
             .execute(connection)
             .await?;
@@ -107,7 +106,7 @@ pub(crate) mod persistence {
             user_name: &QualifiedUserName,
         ) -> Result<(), sqlx::Error> {
             // The database cascades the delete to the clients and their connection packages.
-            sqlx::query!(
+            query!(
                 "DELETE FROM as_user_records WHERE user_name = $1",
                 user_name.to_string()
             )
