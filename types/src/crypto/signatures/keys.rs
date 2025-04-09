@@ -133,3 +133,22 @@ impl AsRef<SigningKey> for QsUserSigningKey {
 }
 
 impl SigningKeyBehaviour for QsUserSigningKey {}
+
+#[cfg(test)]
+mod test {
+    use crate::codec::PhnxCodec;
+
+    use super::*;
+
+    #[test]
+    fn qs_client_verifying_key_serde_codec() {
+        let key = QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(vec![1, 2, 3]));
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&key).unwrap());
+    }
+
+    #[test]
+    fn qs_client_verifying_key_serde_json() {
+        let key = QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(vec![1, 2, 3]));
+        insta::assert_json_snapshot!(key);
+    }
+}

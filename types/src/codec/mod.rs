@@ -9,10 +9,12 @@ use serde::{Serialize, de::DeserializeOwned};
 
 mod cbor;
 mod error;
+mod persistence;
 #[cfg(test)]
 mod tests;
 
 pub use error::Error;
+pub use persistence::{BlobDecoded, BlobEncoded};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]

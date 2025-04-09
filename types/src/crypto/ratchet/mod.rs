@@ -187,3 +187,30 @@ mod sqlite {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        codec::PhnxCodec,
+        messages::{EncryptedQsQueueMessage, client_ds::QsQueueMessagePayload},
+    };
+
+    use super::*;
+
+    // Note: the type parameters are not important
+    fn queue_ratchet() -> QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload> {
+        let secret: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz012345";
+        let ratchet_secret = RatchetSecret::new_for_test((*secret).into());
+        QueueRatchet::try_from(ratchet_secret).unwrap()
+    }
+
+    #[test]
+    fn test_queue_ratchet_serde_codec() {
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&queue_ratchet()).unwrap());
+    }
+
+    #[test]
+    fn test_queue_ratchet_serde_json() {
+        insta::assert_json_snapshot!(queue_ratchet());
+    }
+}

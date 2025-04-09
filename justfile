@@ -14,6 +14,10 @@ init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
     cd backend && sqlx database create
     cd backend && sqlx database setup
 
+[working-directory: 'backend']
+prepare-db-statements $DATABASE_URL=(POSTGRES_DATABASE_URL):
+    cargo sqlx prepare --database-url $DATABASE_URL
+
 # generate postgres TLS certificates
 generate-db-certs:
     cd backend && TEST_CERT_DIR_NAME=test_certs scripts/generate_test_certs.sh
