@@ -7,9 +7,7 @@ use openmls::group::GroupId;
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
-        ear::keys::{FriendshipPackageEarKey, UserProfileKey},
-        hpke::HpkeEncryptable,
-        signatures::signable::Signable,
+        ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable, signatures::signable::Signable,
     },
     identifiers::{Fqdn, QsReference, QualifiedUserName},
     messages::{
@@ -25,7 +23,7 @@ use crate::{
     Conversation, ConversationAttributes, ConversationId, PartialContact, UserProfile,
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
-    key_stores::{MemoryUserKeyStore, as_credentials::AsCredentials},
+    key_stores::{MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::UserProfileKey},
     store::StoreNotifier,
 };
 

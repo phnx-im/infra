@@ -8,7 +8,7 @@ use phnxtypes::{
     credentials::pseudonymous_credentials::PseudonymousCredential,
     crypto::{
         ear::keys::{
-            FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey, UserProfileKey,
+            FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey,
             WelcomeAttributionInfoEarKey,
         },
         kdf::keys::ConnectionKey,
@@ -22,6 +22,7 @@ use crate::{
     ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
+    key_stores::indexed_keys::UserProfileKey,
 };
 use anyhow::Result;
 

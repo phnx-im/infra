@@ -11,7 +11,7 @@ use phnxtypes::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
             keys::{
                 FriendshipPackageEarKey, GroupStateEarKey, IdentityLinkWrapperKey,
-                KeyPackageEarKey, UserProfileKey, WelcomeAttributionInfoEarKey,
+                KeyPackageEarKey, WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
@@ -29,6 +29,8 @@ use phnxtypes::{
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
+
+use crate::key_stores::indexed_keys::UserProfileKey;
 
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub struct ConnectionEstablishmentPackageTbs {

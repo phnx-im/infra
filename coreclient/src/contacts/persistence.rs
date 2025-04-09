@@ -4,7 +4,7 @@
 
 use phnxtypes::{
     crypto::{
-        ear::keys::{KeyPackageEarKey, UserProfileKey, WelcomeAttributionInfoEarKey},
+        ear::keys::{KeyPackageEarKey, WelcomeAttributionInfoEarKey},
         kdf::keys::ConnectionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -18,7 +18,7 @@ use tokio_stream::StreamExt;
 
 use crate::{
     Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
-    store::StoreNotifier,
+    key_stores::indexed_keys::UserProfileKey, store::StoreNotifier,
 };
 
 /// Comma-separated list of [`AsClientId`]'s

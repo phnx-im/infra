@@ -488,62 +488,6 @@ impl From<Secret<AEAD_KEY_SIZE>> for IdentityLinkWrapperKey {
     }
 }
 
-pub type UserProfileKeySecret = Secret<AEAD_KEY_SIZE>;
-
-#[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
-pub struct UserProfileKey {
-    key: UserProfileKeySecret,
-}
-
-impl UserProfileKey {
-    pub fn random() -> Result<Self, RandomnessError> {
-        Ok(Self {
-            key: UserProfileKeySecret::random()?,
-        })
-    }
-}
-
-impl Type<Sqlite> for UserProfileKey {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <Vec<u8> as Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for UserProfileKey {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        Encode::<Sqlite>::encode_by_ref(&self.key, buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for UserProfileKey {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let key = Decode::<Sqlite>::decode(value)?;
-        Ok(Self { key })
-    }
-}
-
-impl EarKey for UserProfileKey {}
-
-impl AsRef<Secret<AEAD_KEY_SIZE>> for UserProfileKey {
-    fn as_ref(&self) -> &Secret<AEAD_KEY_SIZE> {
-        &self.key
-    }
-}
-
-impl From<Secret<AEAD_KEY_SIZE>> for UserProfileKey {
-    fn from(secret: Secret<AEAD_KEY_SIZE>) -> Self {
-        Self { key: secret }
-    }
-}
-
-impl EarEncryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileKey {}
-impl EarDecryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileKey {}
-
 #[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 pub struct EncryptedUserProfileKey {
     ciphertext: Ciphertext,

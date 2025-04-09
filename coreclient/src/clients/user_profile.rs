@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    crypto::ear::{EarDecryptable, EarEncryptable, keys::UserProfileKey},
+    crypto::ear::{EarDecryptable, EarEncryptable},
     messages::client_as_out::GetUserProfileResponse,
 };
 
-use crate::{UserProfile, groups::ProfileInfo};
+use crate::{UserProfile, groups::ProfileInfo, key_stores::indexed_keys::UserProfileKey};
 
 use super::CoreUser;
 
@@ -20,7 +20,6 @@ impl CoreUser {
 
         // Phase 2: Sample a new user profile key
         let user_profile_key = UserProfileKey::random()?;
-        self.inner.key_store.user_profile_key = user_profile_key;
 
         // Phase 2: Encrypt the user profile
         let encrypted_user_profile =

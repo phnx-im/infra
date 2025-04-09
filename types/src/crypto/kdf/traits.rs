@@ -14,7 +14,7 @@ use super::{KDF_KEY_SIZE, Kdf};
 
 /// A trait that allows the use of a symmetric secret of size [`KDF_KEY_SIZE`]
 /// to derive additional key material.
-pub trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> + From<Secret<KDF_KEY_SIZE>> {
+pub trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> {
     /// Label used as additional input in all derivations made with this KDF key.
     const ADDITIONAL_LABEL: &'static str;
 
@@ -35,19 +35,14 @@ pub trait KdfKey: AsRef<Secret<KDF_KEY_SIZE>> + From<Secret<KDF_KEY_SIZE>> {
 /// structs of type `AdditionalInfo` can be provided as context. [`Self::LABEL`]
 /// is used as label in the derivation.
 pub trait KdfDerivable<
-    DerivingKey: KdfKey + std::fmt::Debug,
-    AdditionalInfo: tls_codec::Serialize + std::fmt::Debug,
+    DerivingKey: KdfKey,
+    AdditionalInfo: tls_codec::Serialize,
     const OUTPUT_LENGTH: usize,
->: From<Secret<OUTPUT_LENGTH>> + std::fmt::Debug
+>: From<Secret<OUTPUT_LENGTH>>
 {
     /// This label is appended to the info given in the derivation.
     const LABEL: &'static str;
 
-    #[instrument(level = "trace", ret, skip_all, fields(
-        kdf_key_type = std::any::type_name::<Self>(),
-        label = %Self::LABEL,
-        additional_info = ?additional_info,
-    ))]
     fn derive(
         kdf_key: &DerivingKey,
         additional_info: AdditionalInfo,

@@ -38,9 +38,9 @@ use phnxtypes::{
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod as_credentials;
+pub(crate) mod indexed_keys;
 pub(crate) mod leaf_keys;
 pub(crate) mod queue_ratchets;
-pub(crate) mod user_profile_key;
 
 // For now we persist the key store along with the user. Any key material that gets rotated in the future needs to be persisted separately.
 #[derive(Clone, Serialize, Deserialize)]
