@@ -65,7 +65,10 @@ impl UserRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxtypes::identifiers::QualifiedUserName;
+    use phnxtypes::{
+        codec::{BlobDecoded, BlobEncoded},
+        identifiers::QualifiedUserName,
+    };
     use sqlx::{PgExecutor, query, query_scalar};
 
     use crate::errors::StorageError;
@@ -82,20 +85,38 @@ pub(crate) mod persistence {
             let record = query_scalar!(
                 r#"SELECT
                     password_file AS "password_file: _"
-                    encrypted_user_profile as "encrypted_user_profile: EncryptedUserProfile"
+                    encrypted_user_profile as "encrypted_user_profile: _"
                 FROM as_user_records
                 WHERE user_name = $1"#,
                 user_name.to_string(),
             )
             .fetch_optional(connection)
             .await?;
-            Ok(record.map(|BlobDecoded(password_file)| {
+            Ok(record.map(|record| {
+                let BlobDecoded(password_file) = record.password_file;
                 UserRecord::new(
                     user_name.clone(),
                     password_file,
                     record.encrypted_user_profile,
                 )
             }))
+        }
+
+        /// Update the AsUserRecord for a given UserId.
+        pub(crate) async fn update(
+            &self,
+            connection: impl PgExecutor<'_>,
+        ) -> Result<(), StorageError> {
+            let password_file = BlobEncoded(&self.password_file);
+            query!(
+                "UPDATE as_user_records SET password_file = $1, encrypted_user_profile = $2 WHERE user_name = $3",
+                password_file as _,
+                self.encrypted_user_profile as _,
+                self.user_name.to_string()
+            )
+            .execute(connection)
+            .await?;
+            Ok(())
         }
 
         /// Create a new user with the given user name. If a user with the given user
@@ -145,7 +166,10 @@ pub(crate) mod persistence {
         use opaque_ke::{
             ClientRegistration, ClientRegistrationFinishParameters, ServerRegistration, ServerSetup,
         };
-        use phnxtypes::{codec::PhnxCodec, crypto::OpaqueCiphersuite};
+        use phnxtypes::{
+            codec::PhnxCodec, crypto::OpaqueCiphersuite,
+            messages::client_as_out::EncryptedUserProfile,
+        };
         use rand::{CryptoRng, RngCore, SeedableRng, rngs::StdRng};
         use sqlx::PgPool;
         use uuid::Uuid;

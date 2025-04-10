@@ -4,23 +4,27 @@
 
 use std::marker::PhantomData;
 
-use phnxtypes::crypto::{
-    ear::{
-        AEAD_KEY_SIZE, EarDecryptable, EarEncryptable, EarKey,
-        keys::{EncryptedUserProfileKey, IdentityLinkWrapperKey},
+use phnxtypes::{
+    codec::PhnxCodec,
+    crypto::{
+        ear::{
+            AEAD_KEY_SIZE, EarDecryptable, EarEncryptable, EarKey,
+            keys::{EncryptedUserProfileKey, IdentityLinkWrapperKey},
+        },
+        errors::RandomnessError,
+        kdf::{KDF_KEY_SIZE, KdfDerivable, KdfKey},
+        secrets::Secret,
     },
-    errors::RandomnessError,
-    kdf::{KDF_KEY_SIZE, KdfDerivable, KdfKey},
-    secrets::Secret,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sqlx::{
     Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError, query, query_as,
     sqlite::SqliteTypeInfo,
 };
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
-trait KeyType {
+pub(crate) trait KeyType {
     const LABEL: &'static str;
 }
 
@@ -76,7 +80,9 @@ impl<KT: KeyType> tls_codec::Serialize for KeyTypeInstance<KT> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
+)]
 struct TypedSecret<KT, ST, const SIZE: usize> {
     value: Secret<SIZE>,
     _type: PhantomData<(KT, ST)>,
@@ -107,11 +113,17 @@ impl<'r, KT, ST, const SIZE: usize> Decode<'r, Sqlite> for TypedSecret<KT, ST, S
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
+)]
 struct BaseSecretType;
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
+)]
 struct KeySecretType;
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
+)]
 struct IndexSecretType;
 
 type BaseSecret<KT> = TypedSecret<KT, BaseSecretType, KDF_KEY_SIZE>;
@@ -157,33 +169,36 @@ impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, KeyTypeInstance<KT>, AEAD_KEY_SIZ
     const LABEL: &'static str = "index";
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
+)]
 pub(crate) struct IndexedAeadKey<KT> {
     base_secret: BaseSecret<KT>,
     key: Key<KT>,
     index: Index<KT>,
 }
 
-impl<'q, KT> Encode<'q, Sqlite> for IndexedAeadKey<KT> {
+impl<'q, KT: Serialize> Encode<'q, Sqlite> for IndexedAeadKey<KT> {
     fn encode_by_ref(
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        self.base_secret.encode_by_ref(buf)?;
-        self.key.encode_by_ref(buf)?;
-        self.index.encode_by_ref(buf)?;
-        Ok(IsNull::No)
+        let bytes = PhnxCodec::to_vec(&self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
     }
 }
 
-impl<'r, KT> Decode<'r, Sqlite> for IndexedAeadKey<KT> {
+impl<'r, KT: DeserializeOwned> Decode<'r, Sqlite> for IndexedAeadKey<KT> {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let (base_secret, key, index) = sqlx::decode::Decode::<Sqlite>::decode(value)?;
-        Ok(Self {
-            base_secret,
-            key,
-            index,
-        })
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        let key = PhnxCodec::from_slice(bytes)?;
+        Ok(key)
+    }
+}
+
+impl<KT: KeyType> Type<Sqlite> for IndexedAeadKey<KT> {
+    fn type_info() -> SqliteTypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
     }
 }
 
@@ -200,12 +215,13 @@ impl<KT: KeyType + Send + Unpin> IndexedAeadKey<KT> {
         &self,
         connection: impl sqlx::SqliteExecutor<'_>,
     ) -> Result<(), sqlx::Error> {
+        let key_type = KeyTypeInstance::<KT>::new();
         query!(
             "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index, key_type) VALUES ($1, $2, $3, $4)",
             self.base_secret,
             self.key,
             self.index,
-            KT
+            key_type
         )
         .execute(connection)
         .await?;
@@ -215,7 +231,8 @@ impl<KT: KeyType + Send + Unpin> IndexedAeadKey<KT> {
     pub(crate) async fn load(
         connection: impl sqlx::SqliteExecutor<'_>,
     ) -> Result<Self, sqlx::Error> {
-        query_as!(IndexedAeadKey, r#"SELECT base_secret AS "base_secret: _", key_value AS "key: _", key_index AS "index: _" FROM indexed_keys WHERE key_type = ? LIMIT 1"#, KT)
+        let key_type = KeyTypeInstance::<KT>::new();
+        query_as!(IndexedAeadKey, r#"SELECT base_secret AS "base_secret: _", key_value AS "key: _", key_index AS "index: _" FROM indexed_keys WHERE key_type = ? LIMIT 1"#, key_type)
             .fetch_one(connection)
             .await
     }
@@ -236,8 +253,10 @@ impl<KT: KeyType + Send + Unpin> IndexedAeadKey<KT> {
 
 // User profile key
 
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-struct UserProfileKeyType;
+#[derive(
+    Clone, Debug, Serialize, Deserialize, Eq, PartialEq, TlsDeserializeBytes, TlsSerialize, TlsSize,
+)]
+pub(crate) struct UserProfileKeyType;
 
 impl KeyType for UserProfileKeyType {
     const LABEL: &'static str = "user profile key";

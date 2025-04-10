@@ -29,7 +29,7 @@ use phnxtypes::{
             EarDecryptable, EarEncryptable,
             keys::{
                 EncryptedIdentityLinkKey, GroupStateEarKey, IdentityLinkKey,
-                IdentityLinkWrapperKey, UserProfileKey, WelcomeAttributionInfoEarKey,
+                IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
@@ -57,8 +57,11 @@ use sqlx::{SqliteExecutor, SqlitePool};
 use tracing::{debug, error};
 
 use crate::{
-    SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
+    SystemMessage,
+    clients::api_clients::ApiClients,
+    contacts::ContactAddInfos,
+    conversations::messages::TimestampedMessage,
+    key_stores::{indexed_keys::UserProfileKey, leaf_keys::LeafKeys},
 };
 use std::collections::HashSet;
 

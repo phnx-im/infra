@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT base_secret AS \"base_secret: _\", key_value AS \"key: _\", key_index AS \"index: _\" FROM indexed_keys LIMIT 1",
+  "query": "SELECT base_secret AS \"base_secret: _\", key_value AS \"key: _\", key_index AS \"index: _\" FROM indexed_keys WHERE key_type = ? LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,7 @@
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false,
@@ -28,5 +28,5 @@
       false
     ]
   },
-  "hash": "013742ec06592d10607c585317794623ba29ab5978e711c46572ce9aa550bb22"
+  "hash": "3b304fd3573158f04e689fca5591f0ca0cb8e523fb92d70f2554a4b2fc3b96c7"
 }

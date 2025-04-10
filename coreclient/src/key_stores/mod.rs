@@ -5,6 +5,7 @@
 use std::ops::Deref;
 
 use anyhow::Result;
+use indexed_keys::UserProfileKey;
 use leaf_keys::LeafKeys;
 use openmls::prelude::{
     CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
@@ -12,7 +13,6 @@ use openmls::prelude::{
 };
 use phnxtypes::{
     crypto::{
-        ear::keys::UserProfileKey,
         hpke::{ClientIdEncryptionKey, HpkeEncryptable},
         kdf::keys::ConnectionKey,
     },
