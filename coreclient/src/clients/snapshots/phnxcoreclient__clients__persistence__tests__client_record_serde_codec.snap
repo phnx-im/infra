@@ -1,0 +1,6 @@
+---
+source: coreclient/src/clients/persistence.rs
+expression: "PhnxCodec::to_vec(&record).unwrap()"
+extension: cbor
+snapshot_kind: binary
+---

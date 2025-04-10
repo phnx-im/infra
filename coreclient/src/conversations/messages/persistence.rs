@@ -5,14 +5,11 @@
 use anyhow::bail;
 use mimi_content::MimiContent;
 use phnxtypes::{
-    codec::{self, PhnxCodec},
+    codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{
-    Database, Decode, Encode, Sqlite, SqliteExecutor, encode::IsNull, error::BoxDynError, query,
-    query_as,
-};
+use sqlx::{SqliteExecutor, query, query_as};
 use tokio_stream::StreamExt;
 use tracing::{error, warn};
 
@@ -36,29 +33,6 @@ struct VersionedMessage {
 impl VersionedMessage {
     const fn unknown_message_version() -> u16 {
         UNKNOWN_MESSAGE_VERSION
-    }
-}
-
-impl sqlx::Type<Sqlite> for VersionedMessage {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <&[u8] as sqlx::Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for VersionedMessage {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let bytes = PhnxCodec::to_vec(self)?;
-        Encode::<Sqlite>::encode(bytes, buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for VersionedMessage {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        Ok(PhnxCodec::from_slice(bytes)?)
     }
 }
 
@@ -103,7 +77,7 @@ struct SqlConversationMessage {
     conversation_id: ConversationId,
     timestamp: TimeStamp,
     sender: String,
-    content: VersionedMessage,
+    content: BlobDecoded<VersionedMessage>,
     sent: bool,
 }
 
@@ -135,16 +109,19 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
         }: SqlConversationMessage,
     ) -> Result<Self, Self::Error> {
         let message = match sender.as_str() {
-            "system" => Message::Event(content.to_event_message().unwrap_or_else(|e| {
-                warn!("Event parsing failed: {e}");
-                EventMessage::Error(ErrorMessage::new("Event parsing failed".to_owned()))
-            })),
+            "system" => {
+                Message::Event(content.into_inner().to_event_message().unwrap_or_else(|e| {
+                    warn!("Event parsing failed: {e}");
+                    EventMessage::Error(ErrorMessage::new("Event parsing failed".to_owned()))
+                }))
+            }
             _ => {
                 let sender = sender
                     .strip_prefix("user:")
                     .ok_or_else(|| VersionedMessageError::InvalidUserPrefix)?
                     .to_owned();
                 content
+                    .into_inner()
                     .to_mimi_content()
                     .map(|content| {
                         Message::Content(Box::new(ContentMessage {
@@ -254,6 +231,7 @@ impl ConversationMessage {
             }
             Message::Event(event_message) => VersionedMessage::from_event_message(event_message)?,
         };
+        let content = BlobEncoded(&content);
         let sent = match &self.timestamped_message.message {
             Message::Content(content_message) => content_message.sent,
             Message::Event(_) => true,
@@ -395,6 +373,8 @@ impl ConversationMessage {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::sync::LazyLock;
+
     use chrono::Utc;
     use sqlx::SqlitePool;
 
@@ -565,5 +545,22 @@ pub(crate) mod tests {
         assert_eq!(loaded, Some(message_b));
 
         Ok(())
+    }
+
+    static VERSIONED_MESSAGE: LazyLock<VersionedMessage> = LazyLock::new(|| {
+        VersionedMessage::from_mimi_content(&MimiContent::simple_markdown_message(
+            "Hello world!".to_string(),
+        ))
+        .unwrap()
+    });
+
+    #[test]
+    fn versioned_message_serde_codec() {
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*VERSIONED_MESSAGE).unwrap());
+    }
+
+    #[test]
+    fn versioned_message_serde_json() {
+        insta::assert_json_snapshot!(&*VERSIONED_MESSAGE);
     }
 }

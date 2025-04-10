@@ -198,21 +198,29 @@ impl ClientRecord {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
+    use std::sync::LazyLock;
+
+    use chrono::{DateTime, Utc};
+    use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
     use sqlx::SqlitePool;
     use uuid::Uuid;
 
+    use crate::clients::create_user::BasicUserData;
+
     use super::*;
 
-    fn test_client_record() -> ClientRecord {
-        let id = Uuid::new_v4();
-        let client_id = AsClientId::new("{id}@localhost".parse().unwrap(), id);
+    fn new_client_record(id: Uuid, created_at: DateTime<Utc>) -> ClientRecord {
+        let client_id = AsClientId::new(format!("{id}@localhost").parse().unwrap(), id);
         ClientRecord {
             as_client_id: client_id.clone(),
             client_record_state: ClientRecordState::Finished,
-            created_at: Utc::now(),
+            created_at,
             is_default: false,
         }
+    }
+
+    fn test_client_record() -> ClientRecord {
+        new_client_record(Uuid::new_v4(), Utc::now())
     }
 
     #[sqlx::test]
@@ -246,5 +254,45 @@ mod tests {
         assert_eq!(records, []);
 
         Ok(())
+    }
+
+    static USER_CREATION_STATE_BASIC: LazyLock<UserCreationState> = LazyLock::new(|| {
+        let user_name = "alice@localhost".parse().unwrap();
+        let user_id = Uuid::from_u128(1);
+
+        UserCreationState::BasicUserData(BasicUserData {
+            as_client_id: AsClientId::new(user_name, user_id),
+            server_url: "localhost".to_owned(),
+            password: "swordfish".to_owned(),
+            push_token: Some(PushToken::new(
+                PushTokenOperator::Google,
+                "token".to_owned(),
+            )),
+        })
+    });
+
+    #[test]
+    fn user_creation_state_basic_serde_codec() {
+        insta::assert_binary_snapshot!(
+            ".cbor",
+            PhnxCodec::to_vec(&*USER_CREATION_STATE_BASIC).unwrap()
+        );
+    }
+
+    #[test]
+    fn user_creation_state_basic_json_codec() {
+        insta::assert_json_snapshot!(&*USER_CREATION_STATE_BASIC);
+    }
+
+    #[test]
+    fn client_record_serde_codec() {
+        let record = new_client_record(Uuid::from_u128(1), "2025-01-01T00:00:00Z".parse().unwrap());
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&record).unwrap());
+    }
+
+    #[test]
+    fn client_record_serde_json() {
+        let record = new_client_record(Uuid::from_u128(1), "2025-01-01T00:00:00Z".parse().unwrap());
+        insta::assert_json_snapshot!(&record);
     }
 }
