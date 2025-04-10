@@ -2,20 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::codec::PhnxCodec;
-use phnxtypes::identifiers::QualifiedGroupId;
+use phnxtypes::{
+    codec::{BlobDecoded, BlobEncoded},
+    identifiers::{QualifiedGroupId, SealedClientReference},
+};
 use sqlx::{
-    PgExecutor,
+    PgExecutor, query,
     types::chrono::{DateTime, Utc},
 };
 
-use crate::errors::StorageError;
+use crate::{ds::group_state::EncryptedDsGroupState, errors::StorageError};
 
 use super::StorableDsGroupData;
 
 impl StorableDsGroupData {
     pub(super) async fn store(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
-        sqlx::query!(
+        query!(
             "INSERT INTO
                 encrypted_groups
                 (group_id, ciphertext, last_used, deleted_queues)
@@ -23,9 +25,9 @@ impl StorableDsGroupData {
                 ($1, $2, $3, $4)
             ON CONFLICT (group_id) DO NOTHING",
             self.group_id,
-            PhnxCodec::to_vec(&self.encrypted_group_state)?,
+            BlobEncoded(&self.encrypted_group_state) as _,
             DateTime::<Utc>::from(self.last_used),
-            PhnxCodec::to_vec(&self.deleted_queues)?
+            BlobEncoded(&self.deleted_queues) as _,
         )
         .execute(connection)
         .await?;
@@ -35,32 +37,31 @@ impl StorableDsGroupData {
     pub(crate) async fn load(
         connection: impl PgExecutor<'_>,
         qgid: &QualifiedGroupId,
-    ) -> Result<Option<StorableDsGroupData>, StorageError> {
-        let Some(group_data_record) = sqlx::query!(
-            "SELECT
-                group_id, ciphertext, last_used, deleted_queues
+    ) -> Result<Option<Self>, StorageError> {
+        let record = query!(
+            r#"SELECT
+                group_id,
+                ciphertext AS "ciphertext: BlobDecoded<EncryptedDsGroupState>",
+                last_used,
+                deleted_queues AS "deleted_queues: BlobDecoded<Vec<SealedClientReference>>"
             FROM
                 encrypted_groups
             WHERE
-                group_id = $1",
+                group_id = $1"#,
             qgid.group_uuid()
         )
         .fetch_optional(connection)
-        .await?
-        else {
-            return Ok(None);
-        };
-        let storable_group_data = Self {
-            group_id: group_data_record.group_id,
-            encrypted_group_state: PhnxCodec::from_slice(&group_data_record.ciphertext)?,
-            last_used: group_data_record.last_used.into(),
-            deleted_queues: PhnxCodec::from_slice(&group_data_record.deleted_queues)?,
-        };
-        Ok(Some(storable_group_data))
+        .await?;
+        Ok(record.map(|record| Self {
+            group_id: record.group_id,
+            encrypted_group_state: record.ciphertext.into_inner(),
+            last_used: record.last_used.into(),
+            deleted_queues: record.deleted_queues.into_inner(),
+        }))
     }
 
     pub(crate) async fn update(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
-        sqlx::query!(
+        query!(
             "UPDATE
                 encrypted_groups
             SET
@@ -68,9 +69,9 @@ impl StorableDsGroupData {
             WHERE
                 group_id = $1",
             self.group_id,
-            PhnxCodec::to_vec(&self.encrypted_group_state)?,
+            BlobEncoded(&self.encrypted_group_state) as _,
             DateTime::<Utc>::from(self.last_used),
-            PhnxCodec::to_vec(&self.deleted_queues)?
+            BlobEncoded(&self.deleted_queues) as _,
         )
         .execute(connection)
         .await?;
@@ -81,7 +82,7 @@ impl StorableDsGroupData {
         connection: impl PgExecutor<'_>,
         qgid: &QualifiedGroupId,
     ) -> Result<(), StorageError> {
-        sqlx::query!(
+        query!(
             "DELETE FROM
                 encrypted_groups
             WHERE

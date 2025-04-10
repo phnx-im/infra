@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
+    codec::{BlobDecoded, BlobEncoded},
     identifiers::{AsClientId, QualifiedUserName},
     messages::client_as::ConnectionPackage,
 };
@@ -29,7 +30,7 @@ impl StorableConnectionPackage {
 
             // Add values to the query arguments. None of these should throw an error.
             query_args.add(client_id.client_id())?;
-            query_args.add(connection_package)?;
+            query_args.add(BlobEncoded(connection_package))?;
 
             if i > 0 {
                 query_string.push(',');
@@ -76,12 +77,14 @@ impl StorableConnectionPackage {
                 )
                 AND (SELECT count FROM remaining_packages) > 1
             )
-            SELECT connection_package AS "connection_package: StorableConnectionPackage"
+            SELECT connection_package
+                AS "connection_package: BlobDecoded<StorableConnectionPackage>"
             FROM next_connection_package"#,
             client_id,
         )
         .fetch_one(connection)
         .await
+        .map(|BlobDecoded(connection_package)| connection_package)
         .map_err(From::from)
     }
 

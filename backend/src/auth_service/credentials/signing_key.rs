@@ -66,7 +66,8 @@ impl StorableSigningKey {
 }
 
 mod persistence {
-    use phnxtypes::codec::PhnxCodec;
+    use phnxtypes::codec::{BlobDecoded, BlobEncoded};
+    use sqlx::query_scalar;
 
     use crate::{auth_service::credentials::CredentialType, errors::StorageError};
 
@@ -85,7 +86,7 @@ mod persistence {
                     ($1, $2, $3, $4)",
                 CredentialType::As as _,
                 self.fingerprint().as_bytes(),
-                PhnxCodec::to_vec(&self)?,
+                BlobEncoded(&self) as _,
                 false,
             )
             .execute(connection)
@@ -96,17 +97,15 @@ mod persistence {
         pub(in crate::auth_service) async fn load(
             connection: impl PgExecutor<'_>,
         ) -> Result<Option<AsSigningKey>, StorageError> {
-            sqlx::query!(
-                "SELECT signing_key FROM as_signing_keys WHERE currently_active = true AND cred_type = $1",
+            let signing_key = query_scalar!(
+                r#"SELECT signing_key AS "signing_key: BlobDecoded<StorableSigningKey>"
+                FROM as_signing_keys
+                WHERE currently_active = true AND cred_type = $1"#,
                 CredentialType::As as _
             )
             .fetch_optional(connection)
-            .await?
-            .map(|record| {
-                let signing_key: StorableSigningKey = PhnxCodec::from_slice(&record.signing_key)?;
-                Ok(signing_key.into())
-            })
-            .transpose()
+            .await?;
+            Ok(signing_key.map(|BlobDecoded(key)| key.into()))
         }
 
         pub(super) async fn activate(
@@ -132,24 +131,19 @@ mod persistence {
         pub(in crate::auth_service) async fn load_all(
             connection: impl PgExecutor<'_>,
         ) -> Result<Vec<AsCredential>, StorageError> {
-            let records = sqlx::query!(
-                "SELECT signing_key FROM as_signing_keys WHERE cred_type = $1",
+            let records = query_scalar!(
+                r#"SELECT signing_key AS "signing_key: BlobDecoded<StorableSigningKey>"
+                FROM as_signing_keys
+                WHERE cred_type = $1"#,
                 CredentialType::As as _
             )
             .fetch_all(connection)
             .await?;
 
-            let credentials = records
+            Ok(records
                 .into_iter()
-                .map(|record| {
-                    let signing_key: StorableSigningKey =
-                        PhnxCodec::from_slice(&record.signing_key)?;
-                    let as_signing_key = AsSigningKey::from(signing_key);
-                    Ok(as_signing_key.credential().clone())
-                })
-                .collect::<Result<Vec<_>, StorageError>>()?;
-
-            Ok(credentials)
+                .map(|BlobDecoded(signing_key)| AsSigningKey::from(signing_key).into_credential())
+                .collect())
         }
     }
 

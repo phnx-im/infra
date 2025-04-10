@@ -46,18 +46,8 @@ pub mod signatures;
 pub type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    sqlx::Type,
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-#[sqlx(transparent)]
 pub struct RatchetEncryptionKey(EncryptionPublicKey);
 
 impl RatchetEncryptionKey {
@@ -120,5 +110,24 @@ impl ConnectionDecryptionKey {
         ConnectionEncryptionKey {
             encryption_key: self.decryption_key.public_key().clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::codec::PhnxCodec;
+
+    use super::*;
+
+    #[test]
+    fn encryption_key_serde_codec() {
+        let key = RatchetEncryptionKey::new_for_test(EncryptionPublicKey::from(vec![1, 2, 3]));
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&key).unwrap());
+    }
+
+    #[test]
+    fn encryption_key_serde_json() {
+        let key = RatchetEncryptionKey::new_for_test(EncryptionPublicKey::from(vec![1, 2, 3]));
+        insta::assert_json_snapshot!(key);
     }
 }

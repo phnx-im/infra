@@ -27,7 +27,10 @@ impl<'a> Queue<'a> {
 }
 
 mod persistence {
-    use phnxtypes::{codec::PhnxCodec, messages::QueueMessage};
+    use phnxtypes::{
+        codec::{BlobDecoded, BlobEncoded},
+        messages::QueueMessage,
+    };
     use sqlx::{Connection, Row};
     use uuid::Uuid;
 
@@ -55,9 +58,6 @@ mod persistence {
             client_id: &AsClientId,
             message: &QueueMessage,
         ) -> Result<(), QueueError> {
-            // Encode the message
-            let message_bytes = PhnxCodec::to_vec(&message).map_err(StorageError::Serde)?;
-
             // Begin the transaction
             let mut transaction = connection.begin().await?;
 
@@ -92,7 +92,7 @@ mod persistence {
                 message_id,
                 client_id.client_id(),
                 sequence_number,
-                message_bytes,
+                BlobEncoded(&message) as _,
             )
             .execute(&mut *transaction)
             .await?;
@@ -162,9 +162,7 @@ mod persistence {
             let messages = rows
                 .iter()
                 .map(|row| {
-                    let message_bytes: &[u8] = row.try_get("message_bytes")?;
-                    let message =
-                        PhnxCodec::from_slice(message_bytes).map_err(StorageError::Serde)?;
+                    let BlobDecoded(message) = row.try_get("message_bytes")?;
                     Ok(message)
                 })
                 .collect::<Result<Vec<_>, QueueError>>()?;

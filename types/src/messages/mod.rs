@@ -193,3 +193,28 @@ impl fmt::Display for ApiVersion {
         write!(f, "{}", self.value())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::codec::PhnxCodec;
+
+    use super::*;
+
+    #[test]
+    fn test_queue_message_serde_codec() {
+        let message = QueueMessage {
+            sequence_number: 1,
+            ciphertext: Ciphertext::dummy(),
+        };
+        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&message).unwrap());
+    }
+
+    #[test]
+    fn test_queue_message_serde_json() {
+        let message = QueueMessage {
+            sequence_number: 1,
+            ciphertext: Ciphertext::dummy(),
+        };
+        insta::assert_json_snapshot!(message);
+    }
+}
