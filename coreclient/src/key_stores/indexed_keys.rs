@@ -11,14 +11,14 @@ use phnxtypes::{
             AEAD_KEY_SIZE, EarDecryptable, EarEncryptable, EarKey,
             keys::{EncryptedUserProfileKey, IdentityLinkWrapperKey},
         },
-        errors::RandomnessError,
+        errors::{DecryptionError, EncryptionError, RandomnessError},
         kdf::{KDF_KEY_SIZE, KdfDerivable, KdfKey},
         secrets::Secret,
     },
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{
-    Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError,
+    Connection, Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError,
     sqlite::SqliteTypeInfo,
 };
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -224,29 +224,38 @@ pub(crate) type UserProfileBaseSecret = BaseSecret<UserProfileKeyType>;
 pub(crate) type UserProfileKey = IndexedAeadKey<UserProfileKeyType>;
 
 impl UserProfileKey {
-    pub fn random() -> Result<Self, RandomnessError> {
+    pub(crate) fn random() -> Result<Self, RandomnessError> {
         let base_secret = BaseSecret::random()?;
-        let key = Key::derive(&base_secret, KeyTypeInstance::new()).map_err(|e| {
-            error!("Key derivation error: {:?}", e);
+        Self::from_base_secret(base_secret).map_err(|e| {
+            error!(error = %e, "Key derivation error");
             RandomnessError::InsufficientRandomness
-        })?;
-        let index = Index::derive(&base_secret, KeyTypeInstance::new()).map_err(|e| {
-            error!("Index derivation error: {:?}", e);
-            RandomnessError::InsufficientRandomness
-        })?;
-        Ok(Self {
-            base_secret,
-            key,
-            index,
+        })
+    }
+
+    pub(crate) fn encrypt(
+        &self,
+        wrapper_key: &IdentityLinkWrapperKey,
+    ) -> Result<EncryptedUserProfileKey, EncryptionError> {
+        self.base_secret.encrypt(wrapper_key)
+    }
+
+    pub(crate) fn decrypt(
+        wrapper_key: &IdentityLinkWrapperKey,
+        encrypted_key: &EncryptedUserProfileKey,
+    ) -> Result<Self, DecryptionError> {
+        let base_secret = BaseSecret::decrypt(wrapper_key, encrypted_key)?;
+        Self::from_base_secret(base_secret).map_err(|e| {
+            error!(error = %e, "Key derivation error");
+            DecryptionError::DecryptionError
         })
     }
 }
 
-impl EarEncryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileKey {}
-impl EarDecryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileKey {}
+impl EarEncryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileBaseSecret {}
+impl EarDecryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileBaseSecret {}
 
 mod persistence {
-    use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
+    use sqlx::{SqliteConnection, SqliteExecutor, query, query_as};
 
     use super::*;
 
@@ -266,11 +275,12 @@ mod persistence {
             Ok(())
         }
 
-        pub(crate) async fn store_own<'a>(
+        pub(crate) async fn store_own(
             &self,
-            mut transaction: SqliteTransaction<'a>,
+            connection: &mut SqliteConnection,
         ) -> Result<(), sqlx::Error> {
             let key_type = KeyTypeInstance::<KT>::new();
+            let mut transaction = connection.begin().await?;
             query!(
                 "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index) VALUES ($1, $2, $3)",
                 self.base_secret,
@@ -286,6 +296,7 @@ mod persistence {
             )
             .execute(&mut *transaction)
             .await?;
+            transaction.commit().await?;
             Ok(())
         }
 

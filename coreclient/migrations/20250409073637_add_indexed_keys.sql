@@ -30,6 +30,5 @@ CREATE TABLE IF NOT EXISTS contacts (
     connection_key BLOB NOT NULL,
     user_profile_key_index BLOB NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id),
-    FOREIGN KEY (user_name) REFERENCES users (user_name),
     FOREIGN KEY (user_profile_key_index) REFERENCES indexed_keys (key_index)
 );

@@ -277,10 +277,11 @@ mod tests {
 
     use super::*;
 
-    fn test_contact(conversation_id: ConversationId) -> Contact {
+    fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
         let user_id = Uuid::new_v4();
         let user_name: QualifiedUserName = format!("{user_id}@localhost").parse().unwrap();
-        Contact {
+        let user_profile_key = UserProfileKey::random().unwrap();
+        let contact = Contact {
             user_name: user_name.clone(),
             clients: vec![AsClientId::new(user_name, user_id)],
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
@@ -288,8 +289,9 @@ mod tests {
             key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             conversation_id,
-            user_profile_key_index: UserProfileKey::random().unwrap().index().clone(),
-        }
+            user_profile_key_index: user_profile_key.index().clone(),
+        };
+        (contact, user_profile_key)
     }
 
     fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
@@ -309,7 +311,8 @@ mod tests {
         let conversation = test_conversation();
         conversation.store(&pool, &mut store_notifier).await?;
 
-        let contact = test_contact(conversation.id());
+        let (contact, user_profile_key) = test_contact(conversation.id());
+        user_profile_key.store(&pool).await?;
         contact.store(&pool, &mut store_notifier).await?;
 
         let loaded = Contact::load(&pool, &contact.user_name).await?.unwrap();
@@ -362,6 +365,9 @@ mod tests {
         let conversation = test_conversation();
         conversation.store(&pool, &mut store_notifier).await?;
 
+        let user_profile_key = UserProfileKey::random().unwrap();
+        user_profile_key.store(&pool).await?;
+
         let partial = test_partial_contact(conversation.id());
         let user_name = partial.user_name.clone();
 
@@ -372,7 +378,7 @@ mod tests {
             key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
-            user_profile_base_secret: UserProfileKey::random().unwrap().base_secret().clone(),
+            user_profile_base_secret: user_profile_key.base_secret().clone(),
         };
         let contact = partial
             .mark_as_complete(

@@ -63,7 +63,8 @@ impl CoreUser {
                     .await?;
 
                 // Prepare group
-                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs)?;
+                let own_user_profile_key = UserProfileKey::load_own(self.pool()).await?;
+                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, &own_user_profile_key)?;
 
                 // Fetch external commit info
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
@@ -150,6 +151,7 @@ impl CoreUser {
     fn prepare_group(
         &self,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
+        own_user_profile_key: &UserProfileKey,
     ) -> Result<(LeafKeys, InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
@@ -164,18 +166,15 @@ impl CoreUser {
             .identity_link_key()
             .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
-        let encrypted_user_profile_key = self
-            .inner
-            .key_store
-            .user_profile_key
-            .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
+        let encrypted_user_profile_key =
+            own_user_profile_key.encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
             key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
             connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
-            user_profile_base_secret: self.inner.key_store.user_profile_key.base_secret().clone(),
+            user_profile_base_secret: own_user_profile_key.base_secret().clone(),
         }
         .encrypt(&cep_tbs.friendship_package_ear_key)?;
 

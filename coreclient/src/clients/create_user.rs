@@ -263,8 +263,6 @@ impl PostRegistrationInitState {
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
 
-        let user_profile_key = UserProfileKey::random()?;
-
         let connection_decryption_key = ConnectionDecryptionKey::generate()?;
 
         let encrypted_push_token = match push_token {
@@ -287,7 +285,6 @@ impl PostRegistrationInitState {
             connection_key,
             wai_ear_key,
             qs_client_id_encryption_key: qs_encryption_key,
-            user_profile_key,
         };
 
         // TODO: For now, we use the same ConnectionDecryptionKey for all
@@ -378,7 +375,9 @@ impl UnfinalizedRegistrationState {
             None,
             None,
         );
-        let encrypted_user_profile = user_profile.encrypt(&key_store.user_profile_key)?;
+
+        let user_profile_key = UserProfileKey::random()?;
+        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
 
         api_clients
             .default_client()?
@@ -393,6 +392,7 @@ impl UnfinalizedRegistrationState {
             .await?;
         let as_registered_user_state = AsRegisteredUserState {
             key_store,
+            user_profile_key,
             server_url,
             qs_initial_ratchet_secret,
             encrypted_push_token,
@@ -416,6 +416,7 @@ impl UnfinalizedRegistrationState {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct AsRegisteredUserState {
     key_store: MemoryUserKeyStore,
+    user_profile_key: UserProfileKey,
     server_url: String,
     qs_initial_ratchet_secret: RatchetSecret,
     encrypted_push_token: Option<EncryptedPushToken>,
@@ -428,6 +429,7 @@ impl AsRegisteredUserState {
     ) -> Result<QsRegisteredUserState> {
         let AsRegisteredUserState {
             key_store,
+            user_profile_key,
             server_url,
             qs_initial_ratchet_secret,
             encrypted_push_token,
@@ -447,6 +449,7 @@ impl AsRegisteredUserState {
 
         let qs_registered_user_state = QsRegisteredUserState {
             key_store,
+            user_profile_key,
             server_url,
             qs_user_id: user_id,
             qs_client_id: client_id,
@@ -471,6 +474,7 @@ impl AsRegisteredUserState {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct QsRegisteredUserState {
     key_store: MemoryUserKeyStore,
+    user_profile_key: UserProfileKey,
     server_url: String,
     qs_user_id: QsUserId,
     qs_client_id: QsClientId,
@@ -484,10 +488,15 @@ impl QsRegisteredUserState {
     ) -> Result<PersistedUserState> {
         let QsRegisteredUserState {
             ref key_store,
+            ref user_profile_key,
             server_url: _,
             qs_user_id: _,
             ref qs_client_id,
         } = self;
+
+        user_profile_key
+            .store_own(pool.acquire().await?.as_mut())
+            .await?;
 
         let mut qs_key_packages = vec![];
         for _ in 0..KEY_PACKAGES {
@@ -539,6 +548,7 @@ impl PersistedUserState {
     pub(super) fn into_self_user(self, pool: SqlitePool, api_clients: ApiClients) -> CoreUser {
         let QsRegisteredUserState {
             key_store,
+            user_profile_key: _,
             server_url: _,
             qs_user_id,
             qs_client_id,

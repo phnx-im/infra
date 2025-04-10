@@ -24,8 +24,7 @@ impl CoreUser {
         // TODO: Continue here.
 
         // Phase 2: Encrypt the user profile
-        let encrypted_user_profile =
-            user_profile.encrypt(&self.inner.key_store.user_profile_key)?;
+        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
 
         // Phase 3: Send the updated profile to the server
         let api_client = self.inner.api_clients.default_client()?;

@@ -72,7 +72,6 @@ impl CoreUser {
                 self.pool(),
                 &mut notifier,
                 &self.inner.key_store,
-                self.inner.key_store.user_profile_key.clone(),
                 client_reference,
                 user_name.clone(),
             )
@@ -242,7 +241,6 @@ impl LocalGroup {
         pool: &SqlitePool,
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
-        own_user_profile_key: UserProfileKey,
         own_client_reference: QsReference,
         user_name: QualifiedUserName,
     ) -> anyhow::Result<LocalPartialContact> {
@@ -252,6 +250,8 @@ impl LocalGroup {
             conversation_id,
             verified_connection_packages,
         } = self;
+
+        let own_user_profile_key = UserProfileKey::load_own(pool).await?;
 
         let friendship_package = FriendshipPackage {
             friendship_token: key_store.friendship_token.clone(),

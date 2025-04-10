@@ -5,7 +5,6 @@
 use std::ops::Deref;
 
 use anyhow::Result;
-use indexed_keys::UserProfileKey;
 use leaf_keys::LeafKeys;
 use openmls::prelude::{
     CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
@@ -61,8 +60,6 @@ pub(crate) struct MemoryUserKeyStore {
     pub(super) key_package_ear_key: KeyPackageEarKey,
     pub(super) connection_key: ConnectionKey,
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
-    // Other key material
-    pub(super) user_profile_key: UserProfileKey,
 }
 
 impl MemoryUserKeyStore {
