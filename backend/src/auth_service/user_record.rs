@@ -65,11 +65,14 @@ impl UserRecord {
 }
 
 pub(crate) mod persistence {
+    use opaque_ke::ServerRegistration;
     use phnxtypes::{
         codec::{BlobDecoded, BlobEncoded},
+        crypto::OpaqueCiphersuite,
         identifiers::QualifiedUserName,
+        messages::client_as_out::EncryptedUserProfile,
     };
-    use sqlx::{PgExecutor, query, query_scalar};
+    use sqlx::{PgExecutor, query, query_as};
 
     use crate::errors::StorageError;
 
@@ -82,10 +85,16 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             user_name: &QualifiedUserName,
         ) -> Result<Option<UserRecord>, StorageError> {
-            let record = query_scalar!(
+            struct AsUserRecord {
+                password_file: BlobDecoded<ServerRegistration<OpaqueCiphersuite>>,
+                encrypted_user_profile: EncryptedUserProfile,
+            }
+
+            let record = query_as!(
+                AsUserRecord,
                 r#"SELECT
-                    password_file AS "password_file: _"
-                    encrypted_user_profile as "encrypted_user_profile: _"
+                    password_file AS "password_file: _",
+                    encrypted_user_profile AS "encrypted_user_profile: _"
                 FROM as_user_records
                 WHERE user_name = $1"#,
                 user_name.to_string(),

@@ -1,21 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT \n                    user_name as \"user_name: UserName\",\n                    password_file, \n                    encrypted_user_profile as \"encrypted_user_profile: EncryptedUserProfile\"\n                FROM as_user_records\n                WHERE user_name = $1",
+  "query": "SELECT\n                    password_file AS \"password_file: _\",\n                    encrypted_user_profile AS \"encrypted_user_profile: _\"\n                FROM as_user_records\n                WHERE user_name = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "user_name: UserName",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 1,
-        "name": "password_file",
+        "name": "password_file: _",
         "type_info": "Bytea"
       },
       {
-        "ordinal": 2,
-        "name": "encrypted_user_profile: EncryptedUserProfile",
+        "ordinal": 1,
+        "name": "encrypted_user_profile: _",
         "type_info": {
           "Custom": {
             "name": "aead_ciphertext",
@@ -42,9 +37,8 @@
     },
     "nullable": [
       false,
-      false,
       false
     ]
   },
-  "hash": "b0855e71f490aad22fc72060b12fbb5dfed26265221801d5ea7f4e4d4e7907a6"
+  "hash": "75767ac0c4fd0d80b05374023441177850ad84c37d647ae99f623f6f0438ebf6"
 }

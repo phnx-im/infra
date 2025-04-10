@@ -5,6 +5,7 @@
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
+    LibraryError,
     credentials::pseudonymous_credentials::PseudonymousCredential,
     crypto::{
         ear::keys::{
@@ -22,7 +23,7 @@ use crate::{
     ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
-    key_stores::indexed_keys::UserProfileKey,
+    key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex},
 };
 use anyhow::Result;
 
@@ -37,7 +38,7 @@ pub struct Contact {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) key_package_ear_key: KeyPackageEarKey,
     pub(crate) connection_key: ConnectionKey,
-    pub(crate) user_profile_key: UserProfileKey,
+    pub(crate) user_profile_key_index: UserProfileKeyIndex,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
 }
@@ -54,8 +55,10 @@ impl Contact {
         client_id: AsClientId,
         conversation_id: ConversationId,
         friendship_package: FriendshipPackage,
-    ) -> Self {
-        Self {
+    ) -> Result<(Self, UserProfileKey), LibraryError> {
+        let user_profile_key =
+            UserProfileKey::from_base_secret(friendship_package.user_profile_base_secret)?;
+        let contact = Self {
             user_name: client_id.user_name().clone(),
             clients: vec![client_id],
             wai_ear_key: friendship_package.wai_ear_key,
@@ -63,8 +66,9 @@ impl Contact {
             key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
             conversation_id,
-            user_profile_key: friendship_package.user_profile_key,
-        }
+            user_profile_key_index: user_profile_key.index().clone(),
+        };
+        Ok((contact, user_profile_key))
     }
 
     /// Get the user name of this contact.
@@ -113,10 +117,11 @@ impl Contact {
         if current_client_credential.fingerprint() != incoming_client_credential.fingerprint() {
             anyhow::bail!("Client credential does not match");
         }
+        let user_profile_key = UserProfileKey::load(pool, &self.user_profile_key_index).await?;
         let add_info = ContactAddInfos {
             key_package: verified_key_package,
             identity_link_key,
-            user_profile_key: self.user_profile_key.clone(),
+            user_profile_key,
         };
         Ok(add_info)
     }

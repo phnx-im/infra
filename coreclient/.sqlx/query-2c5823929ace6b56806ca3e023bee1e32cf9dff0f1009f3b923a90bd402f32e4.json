@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                user_name AS \"user_name: _\",\n                conversation_id AS \"conversation_id: _\",\n                clients AS \"clients: _\",\n                wai_ear_key AS \"wai_ear_key: _\",\n                friendship_token AS \"friendship_token: _\",\n                key_package_ear_key AS \"key_package_ear_key: _\",\n                connection_key AS \"connection_key: _\",\n                user_profile_key AS \"user_profile_key: _\"\n            FROM contacts WHERE user_name = ?",
+  "query": "SELECT\n                user_name AS \"user_name: _\",\n                conversation_id AS \"conversation_id: _\",\n                clients AS \"clients: _\",\n                wai_ear_key AS \"wai_ear_key: _\",\n                friendship_token AS \"friendship_token: _\",\n                key_package_ear_key AS \"key_package_ear_key: _\",\n                connection_key AS \"connection_key: _\",\n                user_profile_key_index AS \"user_profile_key_index: _\"\n            FROM contacts",
   "describe": {
     "columns": [
       {
@@ -39,13 +39,13 @@
         "type_info": "Blob"
       },
       {
-        "name": "user_profile_key: _",
+        "name": "user_profile_key_index: _",
         "ordinal": 7,
         "type_info": "Blob"
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 0
     },
     "nullable": [
       false,
@@ -58,5 +58,5 @@
       false
     ]
   },
-  "hash": "4ad6c679689c3da0d2ebbd3812289ab1302b9b3af0e564bf24b11efe30b601e2"
+  "hash": "2c5823929ace6b56806ca3e023bee1e32cf9dff0f1009f3b923a90bd402f32e4"
 }

@@ -22,7 +22,10 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{ConversationMessage, PartialContact, conversations::ConversationType, groups::Group};
+use crate::{
+    ConversationMessage, PartialContact, conversations::ConversationType, groups::Group,
+    key_stores::indexed_keys::UserProfileKey,
+};
 
 use super::{
     Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
@@ -310,12 +313,12 @@ impl CoreUser {
                 &encrypted_friendship_package,
             )?;
 
+            let user_profile_key = UserProfileKey::from_base_secret(
+                friendship_package.user_profile_base_secret.clone(),
+            )?;
             // UnconfirmedConnection Phase 2: Fetch the user profile.
             let user_profile = self
-                .fetch_user_profile((
-                    sender_client_id.clone(),
-                    friendship_package.user_profile_key.clone(),
-                ))
+                .fetch_user_profile((sender_client_id.clone(), user_profile_key))
                 .await?;
 
             // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.

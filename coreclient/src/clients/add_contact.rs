@@ -258,7 +258,7 @@ impl LocalGroup {
             key_package_ear_key: key_store.key_package_ear_key.clone(),
             connection_key: key_store.connection_key.clone(),
             wai_ear_key: key_store.wai_ear_key.clone(),
-            user_profile_key: own_user_profile_key,
+            user_profile_base_secret: own_user_profile_key.base_secret().clone(),
         };
 
         let friendship_package_ear_key = FriendshipPackageEarKey::random()?;

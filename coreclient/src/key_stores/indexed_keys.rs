@@ -5,7 +5,7 @@
 use std::marker::PhantomData;
 
 use phnxtypes::{
-    codec::PhnxCodec,
+    LibraryError,
     crypto::{
         ear::{
             AEAD_KEY_SIZE, EarDecryptable, EarEncryptable, EarKey,
@@ -16,9 +16,9 @@ use phnxtypes::{
         secrets::Secret,
     },
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use sqlx::{
-    Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError, query, query_as,
+    Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError,
     sqlite::SqliteTypeInfo,
 };
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -83,7 +83,7 @@ impl<KT: KeyType> tls_codec::Serialize for KeyTypeInstance<KT> {
 #[derive(
     Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
 )]
-struct TypedSecret<KT, ST, const SIZE: usize> {
+pub(crate) struct TypedSecret<KT, ST, const SIZE: usize> {
     value: Secret<SIZE>,
     _type: PhantomData<(KT, ST)>,
 }
@@ -116,7 +116,7 @@ impl<'r, KT, ST, const SIZE: usize> Decode<'r, Sqlite> for TypedSecret<KT, ST, S
 #[derive(
     Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
 )]
-struct BaseSecretType;
+pub(crate) struct BaseSecretType;
 #[derive(
     Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
 )]
@@ -124,11 +124,11 @@ struct KeySecretType;
 #[derive(
     Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
 )]
-struct IndexSecretType;
+pub(crate) struct IndexSecretType;
 
-type BaseSecret<KT> = TypedSecret<KT, BaseSecretType, KDF_KEY_SIZE>;
+pub(crate) type BaseSecret<KT> = TypedSecret<KT, BaseSecretType, KDF_KEY_SIZE>;
 type Key<KT> = TypedSecret<KT, KeySecretType, AEAD_KEY_SIZE>;
-type Index<KT> = TypedSecret<KT, IndexSecretType, AEAD_KEY_SIZE>;
+pub(crate) type Index<KT> = TypedSecret<KT, IndexSecretType, AEAD_KEY_SIZE>;
 
 impl<KT> BaseSecret<KT> {
     pub fn random() -> Result<Self, RandomnessError> {
@@ -178,27 +178,23 @@ pub(crate) struct IndexedAeadKey<KT> {
     index: Index<KT>,
 }
 
-impl<'q, KT: Serialize> Encode<'q, Sqlite> for IndexedAeadKey<KT> {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let bytes = PhnxCodec::to_vec(&self)?;
-        Encode::<Sqlite>::encode(bytes, buf)
+impl<KT: KeyType> IndexedAeadKey<KT> {
+    pub(crate) fn from_base_secret(base_secret: BaseSecret<KT>) -> Result<Self, LibraryError> {
+        let key = Key::derive(&base_secret, KeyTypeInstance::new())?;
+        let index = Index::derive(&base_secret, KeyTypeInstance::new())?;
+        Ok(Self {
+            base_secret,
+            key,
+            index,
+        })
     }
-}
 
-impl<'r, KT: DeserializeOwned> Decode<'r, Sqlite> for IndexedAeadKey<KT> {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        let key = PhnxCodec::from_slice(bytes)?;
-        Ok(key)
+    pub(crate) fn base_secret(&self) -> &BaseSecret<KT> {
+        &self.base_secret
     }
-}
 
-impl<KT: KeyType> Type<Sqlite> for IndexedAeadKey<KT> {
-    fn type_info() -> SqliteTypeInfo {
-        <Vec<u8> as Type<Sqlite>>::type_info()
+    pub(crate) fn index(&self) -> &Index<KT> {
+        &self.index
     }
 }
 
@@ -210,47 +206,6 @@ impl<KT> AsRef<Secret<AEAD_KEY_SIZE>> for IndexedAeadKey<KT> {
 
 impl<KT> EarKey for IndexedAeadKey<KT> {}
 
-impl<KT: KeyType + Send + Unpin> IndexedAeadKey<KT> {
-    pub(crate) async fn store(
-        &self,
-        connection: impl sqlx::SqliteExecutor<'_>,
-    ) -> Result<(), sqlx::Error> {
-        let key_type = KeyTypeInstance::<KT>::new();
-        query!(
-            "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index, key_type) VALUES ($1, $2, $3, $4)",
-            self.base_secret,
-            self.key,
-            self.index,
-            key_type
-        )
-        .execute(connection)
-        .await?;
-        Ok(())
-    }
-
-    pub(crate) async fn load(
-        connection: impl sqlx::SqliteExecutor<'_>,
-    ) -> Result<Self, sqlx::Error> {
-        let key_type = KeyTypeInstance::<KT>::new();
-        query_as!(IndexedAeadKey, r#"SELECT base_secret AS "base_secret: _", key_value AS "key: _", key_index AS "index: _" FROM indexed_keys WHERE key_type = ? LIMIT 1"#, key_type)
-            .fetch_one(connection)
-            .await
-    }
-
-    pub(crate) async fn delete(
-        &self,
-        connection: impl sqlx::SqliteExecutor<'_>,
-    ) -> Result<(), sqlx::Error> {
-        query!(
-            "DELETE FROM indexed_keys WHERE key_index = $1",
-            self.index.value
-        )
-        .execute(connection)
-        .await?;
-        Ok(())
-    }
-}
-
 // User profile key
 
 #[derive(
@@ -261,6 +216,10 @@ pub(crate) struct UserProfileKeyType;
 impl KeyType for UserProfileKeyType {
     const LABEL: &'static str = "user profile key";
 }
+
+pub(crate) type UserProfileKeyIndex = Index<UserProfileKeyType>;
+
+pub(crate) type UserProfileBaseSecret = BaseSecret<UserProfileKeyType>;
 
 pub(crate) type UserProfileKey = IndexedAeadKey<UserProfileKeyType>;
 
@@ -285,3 +244,98 @@ impl UserProfileKey {
 
 impl EarEncryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileKey {}
 impl EarDecryptable<IdentityLinkWrapperKey, EncryptedUserProfileKey> for UserProfileKey {}
+
+mod persistence {
+    use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
+
+    use super::*;
+
+    impl<KT: KeyType + Send + Unpin> IndexedAeadKey<KT> {
+        pub(crate) async fn store(
+            &self,
+            connection: impl SqliteExecutor<'_>,
+        ) -> Result<(), sqlx::Error> {
+            query!(
+                "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index) VALUES ($1, $2, $3)",
+                self.base_secret,
+                self.key,
+                self.index
+            )
+            .execute(connection)
+            .await?;
+            Ok(())
+        }
+
+        pub(crate) async fn store_own<'a>(
+            &self,
+            mut transaction: SqliteTransaction<'a>,
+        ) -> Result<(), sqlx::Error> {
+            let key_type = KeyTypeInstance::<KT>::new();
+            query!(
+                "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index) VALUES ($1, $2, $3)",
+                self.base_secret,
+                self.key,
+                self.index
+            )
+            .execute(&mut *transaction)
+            .await?;
+            query!(
+                "INSERT OR IGNORE INTO own_key_indices (key_index, key_type) VALUES ($1, $2)",
+                self.index,
+                key_type
+            )
+            .execute(&mut *transaction)
+            .await?;
+            Ok(())
+        }
+
+        pub(crate) async fn load(
+            connection: impl SqliteExecutor<'_>,
+            index: &UserProfileKeyIndex,
+        ) -> Result<Self, sqlx::Error> {
+            query_as!(
+                IndexedAeadKey,
+                r#"
+                SELECT 
+                    base_secret AS "base_secret: _",
+                    key_value AS "key: _",
+                    key_index AS "index: _" 
+                FROM indexed_keys 
+                WHERE key_index = ?
+                LIMIT 1"#,
+                index,
+            )
+            .fetch_one(connection)
+            .await
+        }
+
+        pub(crate) async fn load_own(
+            connection: impl SqliteExecutor<'_>,
+        ) -> Result<Self, sqlx::Error> {
+            let key_type = KeyTypeInstance::<KT>::new();
+            query_as!(
+                IndexedAeadKey,
+                r#"SELECT 
+                    ik.key_index as "index: _",
+                    ik.key_value as "key: _",
+                    ik.base_secret as "base_secret: _"
+                FROM own_key_indices oki
+                JOIN indexed_keys ik ON oki.key_index = ik.key_index
+                WHERE oki.key_type = ?"#,
+                key_type
+            )
+            .fetch_one(connection)
+            .await
+        }
+
+        async fn delete(&self, connection: impl SqliteExecutor<'_>) -> Result<(), sqlx::Error> {
+            query!(
+                "DELETE FROM indexed_keys WHERE key_index = $1",
+                self.index.value
+            )
+            .execute(connection)
+            .await?;
+            Ok(())
+        }
+    }
+}

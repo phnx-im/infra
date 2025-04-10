@@ -21,6 +21,8 @@ impl CoreUser {
         // Phase 2: Sample a new user profile key
         let user_profile_key = UserProfileKey::random()?;
 
+        // TODO: Continue here.
+
         // Phase 2: Encrypt the user profile
         let encrypted_user_profile =
             user_profile.encrypt(&self.inner.key_store.user_profile_key)?;
