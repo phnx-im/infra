@@ -51,7 +51,7 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         // Phase 4: Prepare the connection locally
-        let local_group: LocalGroup = self
+        let local_group = self
             .with_transaction(async |transaction| {
                 connection_packages
                     .create_local_connection_group(

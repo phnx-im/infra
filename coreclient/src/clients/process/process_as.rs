@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use openmls::prelude::MlsMessageOut;
 use phnxtypes::{
     crypto::hpke::HpkeDecryptable,
@@ -75,9 +75,9 @@ impl CoreUser {
                     .await?;
 
                 // There should be only one user profile
-                let contact_profile_info = member_profile_info.pop().ok_or(anyhow!(
-                    "No user profile returned when joining connection group"
-                ))?;
+                let contact_profile_info = member_profile_info
+                    .pop()
+                    .context("No user profile returned when joining connection group")?;
 
                 debug_assert!(
                     member_profile_info.is_empty(),
