@@ -75,7 +75,7 @@ impl<KT: KeyType> KeyTypeInstance<KT> {
 
 impl<KT: KeyType> tls_codec::Size for KeyTypeInstance<KT> {
     fn tls_serialized_len(&self) -> usize {
-        KT::LABEL.as_bytes().len()
+        KT::LABEL.len()
     }
 }
 

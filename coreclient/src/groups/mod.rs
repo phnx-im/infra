@@ -410,7 +410,7 @@ impl Group {
             )
             .map(|(eupk, ci)| {
                 UserProfileKey::decrypt(
-                    &welcome_attribution_info.identity_link_wrapper_key(),
+                    welcome_attribution_info.identity_link_wrapper_key(),
                     &eupk,
                     ci.user_name().clone(),
                 )

@@ -98,7 +98,6 @@ pub struct WelcomeInfoIn {
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
 }
 
-#[expect(clippy::large_enum_variant)]
 #[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponseIn {
