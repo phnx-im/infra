@@ -37,6 +37,7 @@ use phnxtypes::{
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod as_credentials;
+pub(crate) mod indexed_keys;
 pub(crate) mod leaf_keys;
 pub(crate) mod queue_ratchets;
 

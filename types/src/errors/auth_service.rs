@@ -227,6 +227,26 @@ pub enum AsVerificationError {
 
 #[derive(Debug, Error)]
 #[repr(u8)]
+pub enum GetUserProfileError {
+    #[error("User not found")]
+    UserNotFound,
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
+}
+
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[repr(u8)]
+pub enum UpdateUserProfileError {
+    #[error("User not found")]
+    UserNotFound,
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
+}
+
+#[derive(Debug, Error)]
+#[repr(u8)]
 pub enum AsProcessingError {
     /// API Version error
     #[error(transparent)]
@@ -264,4 +284,8 @@ pub enum AsProcessingError {
     Init2FactorAuthError(#[from] Init2FactorAuthError),
     #[error(transparent)]
     AsCredentialsError(#[from] AsCredentialsError),
+    #[error(transparent)]
+    GetUserProfileError(#[from] GetUserProfileError),
+    #[error(transparent)]
+    UpdateUserProfileError(#[from] UpdateUserProfileError),
 }

@@ -92,26 +92,6 @@ impl UserProfile {
         Ok(())
     }
 
-    /// Stores this new [`UserProfile`] if one doesn't already exist.
-    pub(crate) async fn store_or_ignore(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-        notifier: &mut StoreNotifier,
-    ) -> sqlx::Result<()> {
-        query!(
-            "INSERT OR IGNORE INTO users
-                (user_name, display_name, profile_picture) VALUES (?, ?, ?)",
-            self.user_name,
-            self.display_name_option,
-            self.profile_picture_option
-        )
-        .execute(executor)
-        .await?;
-        // TODO: We can skip this notification if the user profile was already stored.
-        notifier.add(self.user_name.clone());
-        Ok(())
-    }
-
     /// Update the user's display name and profile picture in the database. To store a new profile,
     /// use [`register_as_conversation_participant`] instead.
     pub(crate) async fn update(

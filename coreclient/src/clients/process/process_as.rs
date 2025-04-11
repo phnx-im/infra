@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use openmls::prelude::MlsMessageOut;
 use phnxtypes::{
     crypto::hpke::HpkeDecryptable,
@@ -18,17 +18,18 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
+    UserProfile,
     clients::connection_establishment::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
-    groups::Group,
-    key_stores::leaf_keys::LeafKeys,
+    groups::{Group, ProfileInfo},
+    key_stores::{indexed_keys::UserProfileKey, leaf_keys::LeafKeys},
     store::StoreNotifier,
 };
 
 use super::{
-    AsCredentials, Asset, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
-    EarEncryptable, FriendshipPackage, UserProfile, anyhow,
+    AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
+    EarEncryptable, FriendshipPackage, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 
@@ -61,33 +62,45 @@ impl CoreUser {
                     .parse_and_verify_connection_establishment_package(ecep)
                     .await?;
 
-                // Load user profile
-                let own_user_profile = self.load_own_user_profile().await?;
-
                 // Prepare group
-                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, own_user_profile)?;
+                let own_user_profile_key = UserProfileKey::load_own(self.pool()).await?;
+                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, &own_user_profile_key)?;
 
                 // Fetch external commit info
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
 
                 // Join group
-                let (group, commit, group_info) = self
+                let (group, commit, group_info, mut member_profile_info) = self
                     .join_group_externally(eci, &cep_tbs, leaf_keys, aad)
                     .await?;
 
+                // There should be only one user profile
+                let contact_profile_info = member_profile_info
+                    .pop()
+                    .context("No user profile returned when joining connection group")?;
+
+                debug_assert!(
+                    member_profile_info.is_empty(),
+                    "More than one user profile returned when joining connection group"
+                );
+
+                // Fetch user profile
+                let user_profile = self.fetch_user_profile(contact_profile_info).await?;
+
                 // Create conversation
-                let (mut conversation, contact) =
+                let (mut conversation, contact, user_profile_key) =
                     self.create_connection_conversation(&group, &cep_tbs)?;
 
                 let mut notifier = self.store_notifier();
 
-                // Store group, conversation & contact
+                // Store group, conversation, contact & user profile
                 self.store_group_conversation_contact(
                     &mut notifier,
                     &group,
                     &mut conversation,
                     contact,
-                    &cep_tbs,
+                    &user_profile,
+                    &user_profile_key,
                 )
                 .await?;
 
@@ -138,7 +151,7 @@ impl CoreUser {
     fn prepare_group(
         &self,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-        own_user_profile: UserProfile,
+        own_user_profile_key: &UserProfileKey,
     ) -> Result<(LeafKeys, InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
@@ -153,12 +166,15 @@ impl CoreUser {
             .identity_link_key()
             .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
+        let encrypted_user_profile_key =
+            own_user_profile_key.encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
+
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
             key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
             connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
-            user_profile: own_user_profile,
+            user_profile_base_secret: own_user_profile_key.base_secret().clone(),
         }
         .encrypt(&cep_tbs.friendship_package_ear_key)?;
 
@@ -166,19 +182,13 @@ impl CoreUser {
             InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
                 encrypted_friendship_package,
                 encrypted_identity_link_key,
+                encrypted_user_profile_key,
             })
             .into();
         let qgid =
             QualifiedGroupId::tls_deserialize_exact_bytes(cep_tbs.connection_group_id.as_slice())?;
 
         Ok((leaf_keys, aad, qgid))
-    }
-
-    async fn load_own_user_profile(&self) -> Result<UserProfile> {
-        // We unwrap here, because we know that the user exists.
-        Ok(UserProfile::load(self.pool(), self.user_name())
-            .await?
-            .unwrap())
     }
 
     async fn fetch_external_commit_info(
@@ -203,9 +213,9 @@ impl CoreUser {
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         leaf_keys: LeafKeys,
         aad: InfraAadMessage,
-    ) -> Result<(Group, MlsMessageOut, MlsMessageOut)> {
+    ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
-        let (group, commit, group_info) = Group::join_group_externally(
+        let (group, commit, group_info, member_profile_info) = Group::join_group_externally(
             self.pool(),
             &self.inner.api_clients,
             eci,
@@ -217,36 +227,27 @@ impl CoreUser {
             self.inner.key_store.signing_key.credential(),
         )
         .await?;
-        Ok((group, commit, group_info))
+        Ok((group, commit, group_info, member_profile_info))
     }
 
     fn create_connection_conversation(
         &self,
         group: &Group,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-    ) -> Result<(Conversation, Contact)> {
+    ) -> Result<(Conversation, Contact, UserProfileKey)> {
         let sender_client_id = cep_tbs.sender_client_credential.identity();
-        let conversation_picture_option = cep_tbs
-            .friendship_package
-            .user_profile
-            .profile_picture()
-            .map(|asset| match asset {
-                Asset::Value(value) => value.to_owned(),
-            });
+
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
             sender_client_id.user_name().clone(),
-            ConversationAttributes::new(
-                sender_client_id.user_name().to_string(),
-                conversation_picture_option,
-            ),
+            ConversationAttributes::new(sender_client_id.user_name().to_string(), None),
         )?;
-        let contact = Contact::from_friendship_package(
+        let (contact, user_profile_key) = Contact::from_friendship_package(
             sender_client_id.clone(),
             conversation.id(),
             cep_tbs.friendship_package.clone(),
-        );
-        Ok((conversation, contact))
+        )?;
+        Ok((conversation, contact, user_profile_key))
     }
 
     async fn store_group_conversation_contact(
@@ -255,20 +256,19 @@ impl CoreUser {
         group: &Group,
         conversation: &mut Conversation,
         contact: Contact,
-        cep_tbs: &ConnectionEstablishmentPackageTbs,
+        user_profile: &UserProfile,
+        user_profile_key: &UserProfileKey,
     ) -> Result<()> {
         let mut connection = self.pool().acquire().await?;
         group.store(&mut *connection).await?;
         conversation.store(&mut *connection, notifier).await?;
-        // Store the user profile of the sender.
-        cep_tbs
-            .friendship_package
-            .user_profile
-            .store_or_ignore(&mut *connection, notifier)
-            .await?;
+
+        user_profile.store(&mut *connection, notifier).await?;
+
+        user_profile_key.store(&mut *connection).await?;
+
         // TODO: For now, we automatically confirm conversations.
         conversation.confirm(&mut *connection, notifier).await?;
-        // TODO: Here, we want to store a contact
         contact.store(&mut *connection, notifier).await?;
         Ok(())
     }

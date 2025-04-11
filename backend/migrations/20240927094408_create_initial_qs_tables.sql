@@ -28,11 +28,6 @@ CREATE TABLE qs_user_records (
     verifying_key BYTEA NOT NULL
 );
 
-CREATE TYPE aead_ciphertext AS (
-    ciphertext BYTEA,
-    nonce BYTEA
-);
-
 CREATE TABLE qs_client_records (
     client_id uuid PRIMARY KEY,
     user_id uuid NOT NULL,

@@ -39,8 +39,9 @@ use crate::{
 use super::{
     ApiVersion, AsTokenType, EncryptedAsQueueMessage, MlsInfraVersion,
     client_as_out::{
-        ConnectionPackageIn, FinishUserRegistrationParamsIn, FinishUserRegistrationParamsTbsIn,
-        VerifiableConnectionPackage,
+        ConnectionPackageIn, EncryptedUserProfile, FinishUserRegistrationParamsIn,
+        FinishUserRegistrationParamsTbsIn, GetUserProfileParams, UpdateUserProfileParams,
+        UpdateUserProfileParamsTbs, VerifiableConnectionPackage,
     },
 };
 
@@ -268,6 +269,7 @@ pub struct FinishUserRegistrationParamsTbs {
     pub initial_ratchet_secret: RatchetSecret,
     pub connection_packages: Vec<ConnectionPackage>,
     pub opaque_registration_record: OpaqueRegistrationRecord,
+    pub encrypted_user_profile: EncryptedUserProfile,
 }
 
 impl Signable for FinishUserRegistrationParamsTbs {
@@ -930,6 +932,8 @@ pub enum AsRequestParamsOut {
     EnqueueMessage(EnqueueMessageParams),
     AsCredentials(AsCredentialsParams),
     IssueTokens(IssueTokensParams),
+    GetUserProfile(GetUserProfileParams),
+    UpdateUserProfile(UpdateUserProfileParams),
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -944,13 +948,14 @@ pub enum VerifiedAsRequestParams {
     PublishConnectionPackages(AsPublishConnectionPackagesParamsTbs),
     ClientConnectionPackage(ClientConnectionPackageParamsTbs),
     IssueTokens(IssueTokensParamsTbs),
-    // Endpoints that don't require authentication
     UserConnectionPackages(UserConnectionPackagesParams),
     InitiateClientAddition(InitiateClientAdditionParams),
     UserClients(UserClientsParams),
     AsCredentials(AsCredentialsParams),
     EnqueueMessage(EnqueueMessageParams),
     InitUserRegistration(InitUserRegistrationParams),
+    GetUserProfile(GetUserProfileParams),
+    UpdateUserProfile(UpdateUserProfileParamsTbs),
 }
 
 #[derive(Debug)]
@@ -992,6 +997,7 @@ impl Verifiable for ClientCredentialAuth {
             VerifiedAsRequestParams::FinishUserRegistration(params) => {
                 params.tls_serialize_detached()
             }
+            VerifiedAsRequestParams::UpdateUserProfile(params) => params.tls_serialize_detached(),
             // All other endpoints aren't authenticated via client credential signatures.
             VerifiedAsRequestParams::DeleteUser(_)
             | VerifiedAsRequestParams::FinishClientAddition(_)
@@ -1000,7 +1006,8 @@ impl Verifiable for ClientCredentialAuth {
             | VerifiedAsRequestParams::UserClients(_)
             | VerifiedAsRequestParams::AsCredentials(_)
             | VerifiedAsRequestParams::EnqueueMessage(_)
-            | VerifiedAsRequestParams::InitUserRegistration(_) => Ok(vec![]),
+            | VerifiedAsRequestParams::InitUserRegistration(_)
+            | VerifiedAsRequestParams::GetUserProfile(_) => Ok(vec![]),
         }
     }
 

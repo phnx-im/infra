@@ -10,7 +10,7 @@ use sqlx::{
     Database, Decode, Encode, Postgres, Sqlite, Type, encode::IsNull, error::BoxDynError,
     postgres::PgValueRef,
 };
-use tls_codec_impls::{TlsString, TlsUuid};
+use tls_codec_impls::TlsUuid;
 use tracing::{debug, error};
 use url::Host;
 use uuid::Uuid;
@@ -24,6 +24,8 @@ use crate::crypto::{
 use super::*;
 
 mod tls_codec_impls;
+
+pub use tls_codec_impls::TlsString;
 
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 

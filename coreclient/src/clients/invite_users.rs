@@ -92,7 +92,7 @@ mod invite_users_flow {
 
             for invited_user in invited_users {
                 // Get the WAI keys and client credentials for the invited users.
-                let contact = Contact::load(pool, invited_user)
+                let contact = Contact::load(pool.acquire().await?.as_mut(), invited_user)
                     .await?
                     .with_context(|| format!("Can't find contact with user name {invited_user}"))?;
                 contact_wai_keys.push(contact.wai_ear_key().clone());

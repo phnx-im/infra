@@ -81,6 +81,7 @@ pub mod store;
 #[cfg(test)]
 mod tests;
 mod update_key;
+mod user_profile;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -282,9 +283,7 @@ impl CoreUser {
             };
             user_profile.set_profile_picture(Some(Asset::Value(new_image)));
         }
-        let mut notifier = self.store_notifier();
-        user_profile.update(self.pool(), &mut notifier).await?;
-        notifier.notify();
+        self.update_user_profile(&user_profile).await?;
         Ok(())
     }
 

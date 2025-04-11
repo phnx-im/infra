@@ -18,6 +18,7 @@ pub mod client;
 pub mod key_packages;
 pub mod privacypass;
 pub mod user;
+pub mod user_profile;
 
 impl AuthService {
     pub(crate) async fn as_init_two_factor_auth(

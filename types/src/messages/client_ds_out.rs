@@ -20,7 +20,7 @@ use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt
 
 use crate::{
     crypto::{
-        ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
+        ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
         signatures::signable::{Signable, Signature, SignedStruct},
     },
     errors::version::VersionError,
@@ -42,6 +42,7 @@ pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
 }
 
 #[expect(clippy::large_enum_variant)]
@@ -90,13 +91,19 @@ impl tls_codec::DeserializeBytes for DsVersionedProcessResponseIn {
     }
 }
 
-#[expect(clippy::large_enum_variant)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+pub struct WelcomeInfoIn {
+    pub ratchet_tree: RatchetTreeIn,
+    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
+}
+
 #[derive(TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum DsProcessResponseIn {
     Ok,
     FanoutTimestamp(TimeStamp),
-    WelcomeInfo(RatchetTreeIn),
+    WelcomeInfo(WelcomeInfoIn),
     ExternalCommitInfo(ExternalCommitInfoIn),
     GroupId(GroupId),
 }
@@ -106,6 +113,7 @@ pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
     pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
+    pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_client_reference: QsReference,
     pub group_info: MlsMessageOut,
 }

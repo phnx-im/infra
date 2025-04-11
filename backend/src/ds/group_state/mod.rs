@@ -19,7 +19,7 @@ use phnxtypes::{
     crypto::{
         ear::{
             Ciphertext, EarDecryptable, EarEncryptable,
-            keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
+            keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
         },
         errors::{DecryptionError, EncryptionError},
     },
@@ -46,6 +46,7 @@ pub(super) struct MemberProfile {
     pub(super) client_queue_config: QsReference,
     pub(super) activity_time: TimeStamp,
     pub(super) activity_epoch: GroupEpoch,
+    pub(super) encrypted_user_profile_key: EncryptedUserProfileKey,
 }
 
 /// The `DsGroupState` is the per-group state that the DS persists.
@@ -64,6 +65,7 @@ impl DsGroupState {
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
         creator_encrypted_identity_link_key: EncryptedIdentityLinkKey,
+        creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
     ) -> Self {
         let creator_client_profile = MemberProfile {
@@ -72,6 +74,7 @@ impl DsGroupState {
             activity_time: TimeStamp::now(),
             activity_epoch: 0u64.into(),
             leaf_index: LeafNodeIndex::new(0u32),
+            encrypted_user_profile_key: creator_encrypted_user_profile_key,
         };
         let client_profiles = [(LeafNodeIndex::new(0u32), creator_client_profile)].into();
         Self {
@@ -103,10 +106,12 @@ impl DsGroupState {
         let group_info = self.group().group_info().clone();
         let ratchet_tree = self.group().export_ratchet_tree();
         let encrypted_identity_link_keys = self.encrypted_identity_link_keys();
+        let encrypted_user_profile_keys = self.encrypted_user_profile_keys();
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
             encrypted_identity_link_keys,
+            encrypted_user_profile_keys,
         }
     }
 
@@ -116,6 +121,15 @@ impl DsGroupState {
         self.member_profiles
             .values()
             .map(|client_profile| client_profile.encrypted_identity_link_key.clone())
+            .collect()
+    }
+
+    /// Create a vector of encrypted user profile keys from the current list of
+    /// client records.
+    pub(super) fn encrypted_user_profile_keys(&self) -> Vec<EncryptedUserProfileKey> {
+        self.member_profiles
+            .values()
+            .map(|client_profile| client_profile.encrypted_user_profile_key.clone())
             .collect()
     }
 

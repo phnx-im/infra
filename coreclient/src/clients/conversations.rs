@@ -185,7 +185,9 @@ mod create_conversation_flow {
     use openmls::group::GroupId;
     use openmls_traits::OpenMlsProvider;
     use phnxtypes::{
-        codec::PhnxCodec, credentials::keys::ClientSigningKey, crypto::kdf::keys::ConnectionKey,
+        codec::PhnxCodec,
+        credentials::keys::ClientSigningKey,
+        crypto::{ear::keys::EncryptedUserProfileKey, kdf::keys::ConnectionKey},
         identifiers::QsReference,
     };
 
@@ -193,6 +195,7 @@ mod create_conversation_flow {
         Conversation, ConversationAttributes, ConversationId,
         clients::api_clients::ApiClients,
         groups::{Group, GroupData, PartialCreateGroupParams, client_auth_info::GroupMembership},
+        key_stores::indexed_keys::UserProfileKey,
         store::StoreNotifier,
     };
 
@@ -274,6 +277,10 @@ mod create_conversation_flow {
                 attributes,
             } = self;
 
+            let user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
+            let encrypted_user_profile_key =
+                user_profile_key.encrypt(group.identity_link_wrapper_key())?;
+
             group_membership.store(&mut *connection).await?;
             group.store(&mut *connection).await?;
 
@@ -283,6 +290,7 @@ mod create_conversation_flow {
 
             Ok(StoredGroup {
                 group,
+                encrypted_user_profile_key,
                 partial_params,
                 conversation_id: conversation.id(),
             })
@@ -291,6 +299,7 @@ mod create_conversation_flow {
 
     pub(super) struct StoredGroup {
         group: Group,
+        encrypted_user_profile_key: EncryptedUserProfileKey,
         partial_params: PartialCreateGroupParams,
         conversation_id: ConversationId,
     }
@@ -303,11 +312,12 @@ mod create_conversation_flow {
         ) -> Result<ConversationId> {
             let Self {
                 group,
+                encrypted_user_profile_key,
                 partial_params,
                 conversation_id,
             } = self;
 
-            let params = partial_params.into_params(client_reference);
+            let params = partial_params.into_params(client_reference, encrypted_user_profile_key);
             api_clients
                 .default_client()?
                 .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())

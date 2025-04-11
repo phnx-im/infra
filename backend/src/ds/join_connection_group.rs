@@ -112,6 +112,7 @@ impl DsGroupState {
             client_queue_config: params.qs_client_reference,
             activity_time: TimeStamp::now(),
             activity_epoch: self.group().epoch(),
+            encrypted_user_profile_key: aad_payload.encrypted_user_profile_key,
         };
 
         self.member_profiles.insert(sender, member_profile);

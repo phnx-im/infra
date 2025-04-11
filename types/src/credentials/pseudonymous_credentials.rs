@@ -97,7 +97,7 @@ impl PseudonymousCredential {
         connection_key: &ConnectionKey,
     ) -> Result<(PseudonymousCredentialPlaintext, IdentityLinkKey), IdentityLinkVerificationError>
     {
-        let identity_link_key = IdentityLinkKey::derive(connection_key, self.tbs.clone())?;
+        let identity_link_key = IdentityLinkKey::derive(connection_key, &self.tbs)?;
         let plaintext = self.decrypt_and_verify(&identity_link_key)?;
         Ok((plaintext, identity_link_key))
     }
