@@ -5,6 +5,7 @@
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
+    codec::{BlobDecoded, BlobEncoded},
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
@@ -19,7 +20,7 @@ struct SqlGroup {
     leaf_signer: PseudonymousCredentialSigningKey,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
-    pending_diff: Option<StagedGroupDiff>,
+    pending_diff: Option<BlobDecoded<StagedGroupDiff>>,
 }
 
 impl SqlGroup {
@@ -37,7 +38,7 @@ impl SqlGroup {
             identity_link_wrapper_key,
             group_state_ear_key,
             mls_group,
-            pending_diff,
+            pending_diff: pending_diff.map(|BlobDecoded(diff)| diff),
         }
     }
 }
@@ -45,6 +46,8 @@ impl SqlGroup {
 impl Group {
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
+        let pending_diff = self.pending_diff.as_ref().map(BlobEncoded);
+
         query!(
             "INSERT INTO groups (
                 group_id,
@@ -58,7 +61,7 @@ impl Group {
             self.leaf_signer,
             self.identity_link_wrapper_key,
             self.group_state_ear_key,
-            self.pending_diff,
+            pending_diff,
         )
         .execute(executor)
         .await?;
@@ -95,6 +98,7 @@ impl Group {
 
     pub(crate) async fn store_update(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
+        let pending_diff = self.pending_diff.as_ref().map(BlobEncoded);
         query!(
             "UPDATE groups SET
                 leaf_signer = ?,
@@ -105,7 +109,7 @@ impl Group {
             self.leaf_signer,
             self.identity_link_wrapper_key,
             self.group_state_ear_key,
-            self.pending_diff,
+            pending_diff,
             group_id,
         )
         .execute(executor)
