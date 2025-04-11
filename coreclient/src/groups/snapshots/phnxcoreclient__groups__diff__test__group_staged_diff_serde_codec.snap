@@ -1,0 +1,6 @@
+---
+source: coreclient/src/groups/diff.rs
+expression: "PhnxCodec::to_vec(&*STAGED_GROUP_DIFF).unwrap()"
+extension: cbor
+snapshot_kind: binary
+---
