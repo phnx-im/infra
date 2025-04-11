@@ -49,6 +49,8 @@ enumset = "1.1.5"
 phnxserver_test_harness = { path = "../test_harness" }
 actix-rt = "^2.7"
 phnxtypes = { path = "../types", features = ["test_utils"] }
+serde_json = "1.0.140"
+insta = { workspace = true, features = ["json"] }
 
 [build-dependencies]
 

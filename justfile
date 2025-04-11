@@ -26,8 +26,8 @@ generate-db-certs:
 
 [working-directory: 'coreclient']
 init-client-db:
-    sqlx database create --database-url sqlite://client.db
-    sqlx database setup --database-url sqlite://client.db
+    sqlx database create --database-url sqlite://{{justfile_directory()}}/coreclient/client.db
+    sqlx database setup --database-url sqlite://{{justfile_directory()}}/coreclient/client.db
 
 [working-directory: 'coreclient']
 prepare-client-db-statements: init-client-db

@@ -1,0 +1,25 @@
+---
+source: coreclient/src/clients/persistence.rs
+expression: "&*USER_CREATION_STATE_BASIC"
+---
+{
+  "BasicUserData": {
+    "as_client_id": {
+      "user_name": {
+        "user_name": "alice",
+        "domain": {
+          "domain": {
+            "Domain": "localhost"
+          }
+        }
+      },
+      "client_id": "00000000-0000-0000-0000-000000000001"
+    },
+    "server_url": "localhost",
+    "password": "swordfish",
+    "push_token": {
+      "operator": "Google",
+      "token": "token"
+    }
+  }
+}
