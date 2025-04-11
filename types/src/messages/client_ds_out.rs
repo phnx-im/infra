@@ -114,6 +114,7 @@ pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
     pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
+    pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_client_reference: QsReference,
     pub group_info: MlsMessageOut,
 }

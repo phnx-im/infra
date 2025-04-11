@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
+use serde::{Deserialize, Serialize};
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
     credentials::{
@@ -245,7 +246,18 @@ impl NoAuth for GetUserProfileParams {
     }
 }
 
-#[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq, sqlx::Type)]
+#[derive(
+    Debug,
+    Clone,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    sqlx::Type,
+    Serialize,
+    Deserialize,
+)]
 #[sqlx(transparent)]
 pub struct EncryptedUserProfile(Ciphertext);
 

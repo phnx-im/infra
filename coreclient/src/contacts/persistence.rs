@@ -17,7 +17,7 @@ use sqlx::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    Contact, ConversationId, PartialContact,
+    Contact, ConversationId, PartialContact, UserProfile,
     clients::connection_establishment::FriendshipPackage,
     key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex},
     store::StoreNotifier,
@@ -234,15 +234,12 @@ impl PartialContact {
         notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
+        user_profile: &UserProfile,
+        user_profile_key: &UserProfileKey,
     ) -> anyhow::Result<Contact> {
-        let mut transaction = pool.begin().await?;
-
         let user_name = self.user_name.clone();
         let conversation_id = self.conversation_id;
 
-        self.delete(&mut *transaction, notifier).await?;
-        let user_profile_key =
-            UserProfileKey::from_base_secret(friendship_package.user_profile_base_secret)?;
         let contact = Contact {
             user_name,
             conversation_id,
@@ -253,8 +250,13 @@ impl PartialContact {
             connection_key: friendship_package.connection_key,
             user_profile_key_index: user_profile_key.index().clone(),
         };
-        contact.store(&mut *transaction, notifier).await?;
+
+        let mut transaction = pool.begin().await?;
+
+        self.delete(&mut *transaction, notifier).await?;
+        user_profile.upsert(&mut *transaction, notifier).await?;
         user_profile_key.store(&mut *transaction).await?;
+        contact.store(&mut *transaction, notifier).await?;
 
         transaction.commit().await?;
         Ok(contact)
@@ -386,6 +388,8 @@ mod tests {
                 &mut store_notifier,
                 friendship_package,
                 AsClientId::new(user_name.clone(), Uuid::new_v4()),
+                &UserProfile::new(user_name.clone(), None, None),
+                &user_profile_key,
             )
             .await?;
 

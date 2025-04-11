@@ -12,16 +12,13 @@ use crate::{UserProfile, groups::ProfileInfo, key_stores::indexed_keys::UserProf
 use super::CoreUser;
 
 impl CoreUser {
-    pub async fn update_user_profile(&mut self, user_profile: &UserProfile) -> anyhow::Result<()> {
+    pub async fn update_user_profile(&self, user_profile: &UserProfile) -> anyhow::Result<()> {
         let mut notifier = self.store_notifier();
 
         // Phase 1: Store the user profile update in the database
         user_profile.update(self.pool(), &mut notifier).await?;
 
-        // Phase 2: Sample a new user profile key
-        let user_profile_key = UserProfileKey::random()?;
-
-        // TODO: Continue here.
+        let user_profile_key = UserProfileKey::load_own(self.pool()).await?;
 
         // Phase 2: Encrypt the user profile
         let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
@@ -36,8 +33,6 @@ impl CoreUser {
                 encrypted_user_profile,
             )
             .await?;
-
-        // Phase 4:
 
         Ok(())
     }

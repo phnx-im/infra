@@ -283,9 +283,7 @@ impl CoreUser {
             };
             user_profile.set_profile_picture(Some(Asset::Value(new_image)));
         }
-        let mut notifier = self.store_notifier();
-        user_profile.update(self.pool(), &mut notifier).await?;
-        notifier.notify();
+        self.update_user_profile(&user_profile).await?;
         Ok(())
     }
 

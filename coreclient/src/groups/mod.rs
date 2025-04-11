@@ -28,8 +28,8 @@ use phnxtypes::{
         ear::{
             EarDecryptable, EarEncryptable,
             keys::{
-                EncryptedIdentityLinkKey, GroupStateEarKey, IdentityLinkKey,
-                IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
+                EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey,
+                IdentityLinkKey, IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
@@ -132,11 +132,16 @@ pub(crate) struct PartialCreateGroupParams {
 }
 
 impl PartialCreateGroupParams {
-    pub(crate) fn into_params(self, client_reference: QsReference) -> CreateGroupParamsOut {
+    pub(crate) fn into_params(
+        self,
+        client_reference: QsReference,
+        encrypted_user_profile_key: EncryptedUserProfileKey,
+    ) -> CreateGroupParamsOut {
         CreateGroupParamsOut {
             group_id: self.group_id,
             ratchet_tree: self.ratchet_tree,
             encrypted_identity_link_key: self.encrypted_identity_link_key,
+            encrypted_user_profile_key,
             creator_client_reference: client_reference,
             group_info: self.group_info,
         }

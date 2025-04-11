@@ -216,10 +216,10 @@ impl AuthService {
                 .as_init_user_registration(params)
                 .await
                 .map(AsProcessResponse::InitUserRegistration)?,
-            VerifiedAsRequestParams::GetUserProfile(params) => {
-                self.as_get_user_profile(params).await?;
-                AsProcessResponse::Ok
-            }
+            VerifiedAsRequestParams::GetUserProfile(params) => self
+                .as_get_user_profile(params)
+                .await
+                .map(AsProcessResponse::GetUserProfile)?,
             VerifiedAsRequestParams::UpdateUserProfile(params) => {
                 self.as_update_user_profile(params).await?;
                 AsProcessResponse::Ok

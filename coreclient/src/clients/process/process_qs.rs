@@ -316,14 +316,11 @@ impl CoreUser {
             let user_profile_key = UserProfileKey::from_base_secret(
                 friendship_package.user_profile_base_secret.clone(),
             )?;
+
             // UnconfirmedConnection Phase 2: Fetch the user profile.
             let user_profile = self
-                .fetch_user_profile((sender_client_id.clone(), user_profile_key))
+                .fetch_user_profile((sender_client_id.clone(), user_profile_key.clone()))
                 .await?;
-
-            // UnconfirmedConnection Phase 3: Store the user profile of the sender and the contact.
-
-            user_profile.store(self.pool(), &mut notifier).await?;
 
             // Now we can turn the partial contact into a full one.
             partial_contact
@@ -332,6 +329,8 @@ impl CoreUser {
                     &mut notifier,
                     friendship_package,
                     sender_client_id.clone(),
+                    &user_profile,
+                    &user_profile_key,
                 )
                 .await?;
 

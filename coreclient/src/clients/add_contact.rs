@@ -272,11 +272,13 @@ impl LocalGroup {
         .store(pool, notifier)
         .await?;
 
-        // Store the user profile of the partial contact (we don't have a
-        // display name or a profile picture yet)
-        UserProfile::new(user_name, None, None)
-            .store(pool, notifier)
-            .await?;
+        // Check if we already have a user profile for this user. If not, store
+        // a basic one without display name and profile picture.
+        if UserProfile::load(pool, &user_name).await?.is_none() {
+            UserProfile::new(user_name, None, None)
+                .store(pool, notifier)
+                .await?;
+        };
 
         // Create a connection establishment package
         let connection_establishment_package = ConnectionEstablishmentPackageTbs {
@@ -289,7 +291,9 @@ impl LocalGroup {
         }
         .sign(&key_store.signing_key)?;
 
-        let params = partial_params.into_params(own_client_reference);
+        let encrypted_user_profile_key =
+            own_user_profile_key.encrypt(group.identity_link_wrapper_key())?;
+        let params = partial_params.into_params(own_client_reference, encrypted_user_profile_key);
 
         Ok(LocalPartialContact {
             group,

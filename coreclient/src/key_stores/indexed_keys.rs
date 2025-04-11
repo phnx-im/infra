@@ -24,6 +24,7 @@ use sqlx::{
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
+// The `LABEL` constant is used to identify the key type in the database.
 pub(crate) trait KeyType {
     const LABEL: &'static str;
 }
@@ -214,7 +215,7 @@ impl<KT> EarKey for IndexedAeadKey<KT> {}
 pub(crate) struct UserProfileKeyType;
 
 impl KeyType for UserProfileKeyType {
-    const LABEL: &'static str = "user profile key";
+    const LABEL: &'static str = "user_profile_key";
 }
 
 pub(crate) type UserProfileKeyIndex = Index<UserProfileKeyType>;
