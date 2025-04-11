@@ -40,5 +40,4 @@ CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON contacts FOR EACH ROW B
 DELETE FROM indexed_keys
 WHERE
     fingerprint = OLD.user_profile_key_index;
-
 END;

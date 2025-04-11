@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use phnxtypes::{
     errors::auth_service::{GetUserProfileError, UpdateUserProfileError},
     messages::client_as_out::{
@@ -24,7 +28,9 @@ impl AuthService {
 
         let user_profile = user_record.into_encrypted_user_profile();
 
-        let response = GetUserProfileResponse { encrypted_user_profile: user_profile };
+        let response = GetUserProfileResponse {
+            encrypted_user_profile: user_profile,
+        };
 
         Ok(response)
     }
