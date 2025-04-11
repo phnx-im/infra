@@ -15,6 +15,7 @@ use phnxtypes::{
         kdf::{KDF_KEY_SIZE, KdfDerivable, KdfKey},
         secrets::Secret,
     },
+    identifiers::QualifiedUserName,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{
@@ -26,8 +27,13 @@ use tracing::error;
 
 // The `LABEL` constant is used to identify the key type in the database.
 pub(crate) trait KeyType {
+    type DerivationContext: tls_codec::Serialize + Clone;
+
     const LABEL: &'static str;
 }
+
+#[allow(dead_code)]
+pub(crate) trait Deletable: KeyType {}
 
 // Dummy wrapper type to avoid orphan problem.
 struct KeyTypeInstance<KT: KeyType>(PhantomData<KT>);
@@ -162,11 +168,17 @@ impl<KT, ST, const LENGTH: usize> From<Secret<LENGTH>> for TypedSecret<KT, ST, L
 
 impl<KT, ST, const LENGTH: usize> TypedSecret<KT, ST, LENGTH> {}
 
-impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, KeyTypeInstance<KT>, AEAD_KEY_SIZE> for Key<KT> {
+#[derive(TlsSerialize, TlsSize)]
+struct DerivationContext<KT: KeyType> {
+    context: KT::DerivationContext,
+    key_type_instance: KeyTypeInstance<KT>,
+}
+
+impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<KT>, AEAD_KEY_SIZE> for Key<KT> {
     const LABEL: &'static str = "key";
 }
 
-impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, KeyTypeInstance<KT>, AEAD_KEY_SIZE> for Index<KT> {
+impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<KT>, AEAD_KEY_SIZE> for Index<KT> {
     const LABEL: &'static str = "index";
 }
 
@@ -180,9 +192,16 @@ pub(crate) struct IndexedAeadKey<KT> {
 }
 
 impl<KT: KeyType> IndexedAeadKey<KT> {
-    pub(crate) fn from_base_secret(base_secret: BaseSecret<KT>) -> Result<Self, LibraryError> {
-        let key = Key::derive(&base_secret, KeyTypeInstance::new())?;
-        let index = Index::derive(&base_secret, KeyTypeInstance::new())?;
+    pub(crate) fn from_base_secret(
+        base_secret: BaseSecret<KT>,
+        context: KT::DerivationContext,
+    ) -> Result<Self, LibraryError> {
+        let derive_context = DerivationContext {
+            context,
+            key_type_instance: KeyTypeInstance::<KT>::new(),
+        };
+        let key = Key::derive(&base_secret, &derive_context)?;
+        let index = Index::derive(&base_secret, &derive_context)?;
         Ok(Self {
             base_secret,
             key,
@@ -215,6 +234,8 @@ impl<KT> EarKey for IndexedAeadKey<KT> {}
 pub(crate) struct UserProfileKeyType;
 
 impl KeyType for UserProfileKeyType {
+    type DerivationContext = QualifiedUserName;
+
     const LABEL: &'static str = "user_profile_key";
 }
 
@@ -225,9 +246,9 @@ pub(crate) type UserProfileBaseSecret = BaseSecret<UserProfileKeyType>;
 pub(crate) type UserProfileKey = IndexedAeadKey<UserProfileKeyType>;
 
 impl UserProfileKey {
-    pub(crate) fn random() -> Result<Self, RandomnessError> {
+    pub(crate) fn random(user_name: QualifiedUserName) -> Result<Self, RandomnessError> {
         let base_secret = BaseSecret::random()?;
-        Self::from_base_secret(base_secret).map_err(|e| {
+        Self::from_base_secret(base_secret, user_name).map_err(|e| {
             error!(error = %e, "Key derivation error");
             RandomnessError::InsufficientRandomness
         })
@@ -243,9 +264,10 @@ impl UserProfileKey {
     pub(crate) fn decrypt(
         wrapper_key: &IdentityLinkWrapperKey,
         encrypted_key: &EncryptedUserProfileKey,
+        user_name: QualifiedUserName,
     ) -> Result<Self, DecryptionError> {
         let base_secret = BaseSecret::decrypt(wrapper_key, encrypted_key)?;
-        Self::from_base_secret(base_secret).map_err(|e| {
+        Self::from_base_secret(base_secret, user_name).map_err(|e| {
             error!(error = %e, "Key derivation error");
             DecryptionError::DecryptionError
         })
@@ -339,8 +361,14 @@ mod persistence {
             .fetch_one(connection)
             .await
         }
+    }
 
-        async fn delete(&self, connection: impl SqliteExecutor<'_>) -> Result<(), sqlx::Error> {
+    impl<KT: Deletable + Send + Unpin> IndexedAeadKey<KT> {
+        #[allow(dead_code)]
+        pub(crate) async fn delete(
+            &self,
+            connection: impl SqliteExecutor<'_>,
+        ) -> Result<(), sqlx::Error> {
             query!(
                 "DELETE FROM indexed_keys WHERE key_index = $1",
                 self.index.value

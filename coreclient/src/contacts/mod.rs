@@ -56,8 +56,10 @@ impl Contact {
         conversation_id: ConversationId,
         friendship_package: FriendshipPackage,
     ) -> Result<(Self, UserProfileKey), LibraryError> {
-        let user_profile_key =
-            UserProfileKey::from_base_secret(friendship_package.user_profile_base_secret)?;
+        let user_profile_key = UserProfileKey::from_base_secret(
+            friendship_package.user_profile_base_secret,
+            client_id.user_name().clone(),
+        )?;
         let contact = Self {
             user_name: client_id.user_name().clone(),
             clients: vec![client_id],

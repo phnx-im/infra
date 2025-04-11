@@ -45,7 +45,7 @@ pub trait KdfDerivable<
 
     fn derive(
         kdf_key: &DerivingKey,
-        additional_info: AdditionalInfo,
+        additional_info: &AdditionalInfo,
     ) -> Result<Self, LibraryError> {
         let info = [
             &additional_info

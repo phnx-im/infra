@@ -315,6 +315,7 @@ impl CoreUser {
 
             let user_profile_key = UserProfileKey::from_base_secret(
                 friendship_package.user_profile_base_secret.clone(),
+                user_name,
             )?;
 
             // UnconfirmedConnection Phase 2: Fetch the user profile.
