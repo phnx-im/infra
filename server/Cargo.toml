@@ -45,6 +45,9 @@ zeroize = "1.8.1"
 # Workspace dependencies
 tls_codec = { workspace = true }
 reqwest = { workspace = true }
+tonic = "0.13.0"
+tower-http = { version = "0.6.2", features = ["trace"] }
+protos = { version = "0.1.0", path = "../protos" }
 
 [dev-dependencies]
 actix-rt = "^2.7"

@@ -15,7 +15,6 @@ members = [
     "types",
     "applogic",
     "protos",
-    "tonic-server",
 ]
 
 [workspace.dependencies]

@@ -425,6 +425,12 @@ pub struct EncryptedIdentityLinkKey {
     ciphertext: Ciphertext,
 }
 
+impl From<EncryptedIdentityLinkKey> for Ciphertext {
+    fn from(value: EncryptedIdentityLinkKey) -> Self {
+        value.ciphertext
+    }
+}
+
 impl From<Ciphertext> for EncryptedIdentityLinkKey {
     fn from(ciphertext: Ciphertext) -> Self {
         Self { ciphertext }

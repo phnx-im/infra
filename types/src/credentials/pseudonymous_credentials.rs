@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
+
 use mls_assist::{
     openmls::{
         ciphersuite::signature::SignaturePublicKey,
@@ -205,8 +207,8 @@ pub struct SignedPseudonymousCredential {
 }
 
 impl Verifiable for SignedPseudonymousCredential {
-    fn signature(&self) -> &Signature {
-        &self.signature
+    fn signature(&self) -> Cow<Signature> {
+        Cow::Borrowed(&self.signature)
     }
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {

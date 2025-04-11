@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
+
 use mls_assist::openmls_traits::types::HpkeCiphertext;
 use privacypass::batched_tokens_ristretto255::{TokenRequest, TokenResponse};
 
@@ -1004,8 +1006,8 @@ impl Verifiable for ClientCredentialAuth {
         }
     }
 
-    fn signature(&self) -> &Signature {
-        &self.signature
+    fn signature(&self) -> Cow<Signature> {
+        Cow::Borrowed(&self.signature)
     }
 
     fn label(&self) -> &str {

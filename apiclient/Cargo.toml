@@ -25,6 +25,9 @@ privacypass = { workspace = true }
 tls_codec = { workspace = true }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+tonic = "0.13.0"
+protos = { version = "0.1.0", path = "../protos" }
+prost = "0.13.5"
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }

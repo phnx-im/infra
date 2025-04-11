@@ -28,9 +28,9 @@ impl Qs {
     /// queues, depending on the FQDN of the client.
     #[tracing::instrument(skip_all, err)]
     pub async fn enqueue_message<
-        W: WebsocketNotifier,
-        N: NetworkProvider,
-        P: PushNotificationProvider,
+        W: WebsocketNotifier + Send,
+        N: NetworkProvider + Send,
+        P: PushNotificationProvider + Send,
     >(
         &self,
         websocket_notifier: &W,

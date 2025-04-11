@@ -580,7 +580,7 @@ pub enum DsProcessResponse {
     GroupId(GroupId),
 }
 
-fn prepare_result(
+pub(crate) fn prepare_result(
     group_message: SerializedMlsMessage,
     welcome_bundles: Vec<DsFanOutMessage>,
 ) -> (

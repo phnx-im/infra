@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
+
 use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
@@ -189,8 +191,8 @@ impl Verifiable for VerifiableConnectionPackage {
         self.payload.tls_serialize_detached()
     }
 
-    fn signature(&self) -> &Signature {
-        &self.signature
+    fn signature(&self) -> Cow<Signature> {
+        Cow::Borrowed(&self.signature)
     }
 
     fn label(&self) -> &str {

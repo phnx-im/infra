@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
+
 use mls_assist::openmls::prelude::GroupId;
 use tls_codec::Serialize;
 
@@ -113,8 +115,8 @@ impl Verifiable for VerifiableWelcomeAttributionInfo {
         self.payload.tls_serialize_detached()
     }
 
-    fn signature(&self) -> &Signature {
-        &self.signature
+    fn signature(&self) -> Cow<Signature> {
+        Cow::Borrowed(&self.signature)
     }
 
     fn label(&self) -> &str {

@@ -55,3 +55,7 @@ message Ciphertext {
   bytes ciphertext = 1;
   bytes nonce = 2;
 }
+
+message Signature {
+  bytes value = 1;
+}

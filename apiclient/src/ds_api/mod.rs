@@ -42,12 +42,16 @@ use phnxtypes::{
 
 use tls_codec::DeserializeBytes;
 
+pub(crate) mod grpc;
+
 #[derive(Error, Debug)]
 pub enum DsRequestError {
     #[error("Library Error")]
     LibraryError,
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    Tonic(#[from] tonic::Status),
     #[error(transparent)]
     Tls(#[from] tls_codec::Error),
     #[error("We received an unexpected response type.")]
@@ -361,20 +365,25 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::SendMessage(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        info!("ds_send_message via grpc");
+        self.grpc_ds_client
+            .send_message(params, signing_key, group_state_ear_key)
+            .await
+
+        // self.prepare_and_send_ds_group_message(
+        //     DsGroupRequestParamsOut::SendMessage(params),
+        //     signing_key,
+        //     group_state_ear_key,
+        // )
+        // .await
+        // // Check if the response is what we expected it to be.
+        // .and_then(|response| {
+        //     if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
+        //         Ok(ts)
+        //     } else {
+        //         Err(DsRequestError::UnexpectedResponse)
+        //     }
+        // })
     }
 
     /// Delete the given group.

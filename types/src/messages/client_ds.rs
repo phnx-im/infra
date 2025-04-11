@@ -7,6 +7,8 @@
 //! TODO: We should eventually factor this module out, together with the crypto
 //! module, to allow re-use by the client implementation.
 
+use std::borrow::Cow;
+
 use mls_assist::{
     messages::{AssistedMessageIn, AssistedWelcome, SerializedMlsMessage},
     openmls::{
@@ -632,8 +634,8 @@ impl Verifiable for VerifiableClientToDsMessage {
         Ok(self.serialized_payload.clone())
     }
 
-    fn signature(&self) -> &Signature {
-        &self.message.signature
+    fn signature(&self) -> Cow<Signature> {
+        Cow::Borrowed(&self.message.signature)
     }
 
     fn label(&self) -> &str {

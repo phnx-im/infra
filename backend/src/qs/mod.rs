@@ -160,13 +160,17 @@ pub enum PushNotificationError {
     InvalidConfiguration(String),
 }
 
-#[expect(async_fn_in_trait)]
 pub trait PushNotificationProvider: std::fmt::Debug + Send + Sync + 'static {
-    async fn push(&self, push_token: PushToken) -> Result<(), PushNotificationError>;
+    fn push(
+        &self,
+        push_token: PushToken,
+    ) -> impl Future<Output = Result<(), PushNotificationError>> + Send;
 }
 
-#[expect(async_fn_in_trait)]
 pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
     type EnqueueError: std::error::Error;
-    async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError>;
+    fn dispatch(
+        &self,
+        message: DsFanOutMessage,
+    ) -> impl Future<Output = Result<(), Self::EnqueueError>> + Send;
 }

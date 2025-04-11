@@ -52,10 +52,15 @@ where
     // Write everything to stdout for now.
     let formatting_layer = BunyanFormattingLayer::new(name, sink);
     // Let's build the tracing subscriber.
-    Registry::default()
-        .with(env_filter)
-        .with(JsonStorageLayer)
-        .with(formatting_layer)
+
+    tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .finish()
+
+    // Registry::default()
+    //     .with(env_filter)
+    //     .with(JsonStorageLayer)
+    //     .with(formatting_layer)
 }
 
 /// Register a subscriber as global default to process span data.

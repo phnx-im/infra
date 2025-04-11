@@ -1,15 +1,21 @@
 #![allow(unused_variables)]
 
+use mls_assist::messages::AssistedMessageIn;
+use openmls::prelude::LeafNodeIndex;
 use phnxtypes::{
     crypto::{
         ear::{
             Ciphertext,
             keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
         },
-        signatures::{keys::LeafVerifyingKey, signable::Signature, traits::VerifyingKeyBehaviour},
+        signatures::{
+            keys::LeafVerifyingKey,
+            signable::{Signature, Verifiable},
+            traits::VerifyingKeyBehaviour,
+        },
     },
     identifiers::{Fqdn, QualifiedGroupId},
-    messages::client_ds::DsSender,
+    messages::client_ds::{DsSender, QsQueueMessagePayload},
 };
 use prost::Message;
 use protos::delivery_service::v1::{
@@ -18,12 +24,17 @@ use protos::delivery_service::v1::{
     ExternalCommitInfoResponse, GroupOperationRequest, GroupOperationResponse,
     JoinConnectionGroupRequest, JoinConnectionGroupResponse, RequestGroupIdRequest,
     RequestGroupIdResponse, ResyncRequest, ResyncResponse, SelfRemoveRequest, SelfRemoveResponse,
-    SendMessageRequest, SendMessageResponse, UpdateQsClientReferenceRequest,
+    SendMessagePayload, SendMessageRequest, SendMessageResponse, UpdateQsClientReferenceRequest,
     UpdateQsClientReferenceResponse, UpdateRequest, UpdateResponse, WelcomeInfoRequest,
     WelcomeInfoResponse,
 };
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
+
+use crate::{
+    messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
+    qs::QsConnector,
+};
 
 use super::{
     Ds,
@@ -32,13 +43,26 @@ use super::{
 
 const SIGNATURE_METADATA_KEY: &str = "signature-bin";
 
+pub struct GrpcDs<Qep: QsConnector> {
+    ds: Ds,
+    qs_connector: Qep,
+}
+
+impl<Qep: QsConnector> GrpcDs<Qep> {
+    pub fn new(ds: Ds, qs_connector: Qep) -> Self {
+        Self { ds, qs_connector }
+    }
+}
+
 #[async_trait]
-impl protos::delivery_service::v1::delivery_service_server::DeliveryService for Ds {
+impl<Qep: QsConnector> protos::delivery_service::v1::delivery_service_server::DeliveryService
+    for GrpcDs<Qep>
+{
     async fn request_group_id(
         &self,
         _request: Request<RequestGroupIdRequest>,
     ) -> Result<Response<RequestGroupIdResponse>, Status> {
-        let group_id = self.request_group_id().await;
+        let group_id = self.ds.request_group_id().await;
         Ok(Response::new(RequestGroupIdResponse {
             group_id: Some(group_id.into()),
         }))
@@ -50,7 +74,7 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
     ) -> Result<Response<CreateGroupResponse>, Status> {
         let message = request.into_inner();
 
-        let qgid = get_qgid(message.qgid, &self.own_domain)?;
+        let qgid = get_qgid(message.qgid, &self.ds.own_domain)?;
         let ear_key = get_group_state_ear_key(message.group_state_ear_key)?;
 
         let leaf_node = message
@@ -95,6 +119,7 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
             })?;
 
         let (reserved_group_id, group_state) = self
+            .ds
             .create_group(
                 &qgid,
                 leaf_node,
@@ -109,8 +134,12 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
             })?;
 
         let encrypted_group_state = group_state.encrypt(&ear_key)?;
-        StorableDsGroupData::new_and_store(self.pool(), reserved_group_id, encrypted_group_state)
-            .await?;
+        StorableDsGroupData::new_and_store(
+            self.ds.pool(),
+            reserved_group_id,
+            encrypted_group_state,
+        )
+        .await?;
 
         Ok(CreateGroupResponse {}.into())
     }
@@ -127,16 +156,16 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
         let signature = Signature::from_bytes(signature.to_vec());
 
         let mut message = request.into_inner();
-        message.verify_signature(&signature)?;
+        message.verify_signature(&signature, None)?;
 
-        let qgid = get_qgid(message.qgid.take(), &self.own_domain)?;
+        let qgid = get_qgid(message.qgid.take(), &self.ds.own_domain)?;
         let ear_key = get_group_state_ear_key(message.group_state_ear_key.take())?;
 
-        let mut group_data = StorableDsGroupData::load(&self.db_pool, &qgid)
+        let mut group_data = StorableDsGroupData::load(&self.ds.db_pool, &qgid)
             .await?
             .ok_or(Status::not_found("Group not found"))?;
         if group_data.has_expired() {
-            StorableDsGroupData::delete(&self.db_pool, &qgid).await?;
+            StorableDsGroupData::delete(&self.ds.db_pool, &qgid).await?;
             return Err(Status::not_found("Group not found"));
         }
         let mut group_state = DsGroupState::decrypt(&group_data.encrypted_group_state, &ear_key)?;
@@ -157,7 +186,7 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
             .clone();
 
         group_data.encrypted_group_state = group_state.encrypt(&ear_key)?;
-        group_data.update(&self.db_pool).await?;
+        group_data.update(&self.ds.db_pool).await?;
 
         let response = WelcomeInfoResponse {
             ratchet_tree: Some(ratchet_tree.try_into().map_err(|error| {
@@ -221,7 +250,104 @@ impl protos::delivery_service::v1::delivery_service_server::DeliveryService for 
         &self,
         request: Request<SendMessageRequest>,
     ) -> Result<Response<SendMessageResponse>, Status> {
-        todo!()
+        dbg!(&request);
+
+        let request = request.into_inner();
+        let payload = request
+            .payload
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("Missing payload"))?;
+        let signature = request
+            .signature
+            .clone()
+            .ok_or_else(|| Status::invalid_argument("Missing signature"))?;
+
+        let ear_key = get_group_state_ear_key(payload.group_state_ear_key.clone())?;
+
+        let mls_message: AssistedMessageIn = payload
+            .message
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("Missing message"))?
+            .try_into()
+            .map_err(|error| {
+                error!(%error, "Invalid message");
+                Status::invalid_argument("Invalid message")
+            })?;
+
+        let group_id = mls_message.group_id();
+        let qgid: QualifiedGroupId = group_id.try_into().map_err(|error| {
+            error!(%error, "Invalid group id");
+            Status::invalid_argument("Invalid group id")
+        })?;
+
+        let group_data = StorableDsGroupData::load(&self.ds.db_pool, &qgid)
+            .await?
+            .ok_or_else(|| {
+                error!("Group not found");
+                Status::not_found("Group not found")
+            })?;
+        if group_data.has_expired() {
+            StorableDsGroupData::delete(&self.ds.db_pool, &qgid).await?;
+            return Err(Status::not_found("Group not found"));
+        }
+        let group_state = DsGroupState::decrypt(&group_data.encrypted_group_state, &ear_key)?;
+
+        let sender_index: LeafNodeIndex = payload
+            .sender
+            .ok_or_else(|| {
+                error!("Missing sender");
+                Status::invalid_argument("Missing sender")
+            })?
+            .into();
+
+        // verify
+        let verifying_key: LeafVerifyingKey = group_state
+            .group()
+            .leaf(sender_index)
+            .ok_or_else(|| {
+                error!("Could not find leaf with index {sender_index}");
+                Status::invalid_argument("Unknown sender")
+            })?
+            .signature_key()
+            .into();
+        let _: SendMessagePayload = request.verify(&verifying_key).map_err(|error| {
+            error!(%error, "Invalid signature");
+            Status::invalid_argument("Invalid signature")
+        })?;
+
+        let destination_clients: Vec<_> = group_state
+            .member_profiles
+            .iter()
+            .filter_map(|(client_index, client_profile)| {
+                if client_index == &sender_index {
+                    None
+                } else {
+                    Some(client_profile.client_queue_config.clone())
+                }
+            })
+            .collect();
+
+        let group_message = mls_message.into_serialized_mls_message();
+        let queue_message_payload = QsQueueMessagePayload::from(group_message);
+        let timestamp = queue_message_payload.timestamp;
+        let fan_out_payload = DsFanOutPayload::QueueMessage(queue_message_payload);
+
+        for client_reference in destination_clients {
+            self.qs_connector
+                .dispatch(DsFanOutMessage {
+                    payload: fan_out_payload.clone(),
+                    client_reference,
+                })
+                .await
+                .map_err(|error| {
+                    error!(%error, "Failed to distribute message");
+                    Status::internal("Failed to distribute message")
+                })?;
+        }
+
+        Ok(Response::new(SendMessageResponse {
+            fanout_timestamp: Some(timestamp.into()),
+        }))
     }
 
     async fn delete_group(
@@ -278,12 +404,38 @@ fn get_group_state_ear_key(
 trait MessageExt: Message + Sized {
     fn ds_sender(&self) -> Result<DsSender, Status>;
 
-    fn verify_signature(&self, signature: &Signature) -> Result<(), Status> {
+    fn verify_signature(
+        &self,
+        signature: &Signature,
+        group_state: Option<&DsGroupState>,
+    ) -> Result<(), Status> {
         match self.ds_sender()? {
             DsSender::LeafSignatureKey(verifying_key) => {
-                let payload = self.encode_to_vec();
                 let public_key = LeafVerifyingKey::from(&verifying_key);
+                let payload = self.encode_to_vec();
                 public_key.verify(&payload, signature).map_err(|error| {
+                    error!(%error, "Invalid signature");
+                    Status::invalid_argument("Invalid signature")
+                })?;
+            }
+
+            DsSender::LeafIndex(leaf_index) => {
+                let group_state = group_state.ok_or_else(|| {
+                    error!("Missing group state");
+                    Status::internal("Missing group state")
+                })?;
+                let verifying_key: LeafVerifyingKey = group_state
+                    .group()
+                    .leaf(leaf_index)
+                    .ok_or_else(|| {
+                        error!("Could not find leaf with index {leaf_index}");
+                        Status::invalid_argument("Unknown sender")
+                    })?
+                    .signature_key()
+                    .into();
+                let payload = self.encode_to_vec();
+
+                verifying_key.verify(&payload, signature).map_err(|error| {
                     error!(%error, "Invalid signature");
                     Status::invalid_argument("Invalid signature")
                 })?;
@@ -296,10 +448,10 @@ trait MessageExt: Message + Sized {
 
 impl MessageExt for protos::delivery_service::v1::WelcomeInfoRequest {
     fn ds_sender(&self) -> Result<DsSender, Status> {
-        let signature = self
+        let sender = self
             .sender
             .clone()
             .ok_or_else(|| Status::invalid_argument("Missing sender"))?;
-        Ok(DsSender::LeafSignatureKey(signature.bytes.into()))
+        Ok(DsSender::LeafSignatureKey(sender.bytes.into()))
     }
 }

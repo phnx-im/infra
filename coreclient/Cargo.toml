@@ -44,6 +44,8 @@ openmls = { workspace = true }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 trait-variant = "0.1.2"
 enumset = "1.1.5"
+protos = { version = "0.1.0", path = "../protos" }
+tonic = "0.13.0"
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

@@ -7,7 +7,7 @@
 //! TODO: We should eventually factor this module out, together with the crypto
 //! module, to allow re-use by the client implementation.
 
-use std::io;
+use std::{borrow::Cow, io};
 
 use mls_assist::openmls::prelude::{KeyPackage, KeyPackageIn, SignaturePublicKey};
 use thiserror::Error;
@@ -270,8 +270,8 @@ impl Verifiable for VerifiableClientToQsMessage {
         self.message.payload.tls_serialize_detached()
     }
 
-    fn signature(&self) -> &Signature {
-        &self.message.token_or_signature
+    fn signature(&self) -> Cow<Signature> {
+        Cow::Borrowed(&self.message.token_or_signature)
     }
 
     fn label(&self) -> &str {

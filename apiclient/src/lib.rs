@@ -6,9 +6,13 @@
 
 use std::{sync::Arc, time::Duration};
 
+use ds_api::grpc::GrpcDsClient;
 use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
+use protos::delivery_service::v1::delivery_service_client::DeliveryServiceClient;
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
+use tonic::transport::Channel;
+use tracing::info;
 use url::ParseError;
 use version::NegotiatedApiVersions;
 
@@ -46,6 +50,7 @@ pub type HttpClient = reqwest::Client;
 #[derive(Clone)]
 pub struct ApiClient {
     client: HttpClient,
+    grpc_ds_client: GrpcDsClient,
     url: Url,
     api_versions: Arc<NegotiatedApiVersions>,
 }
@@ -91,8 +96,20 @@ impl ApiClient {
             }
             Err(_) => return Err(ApiClientInitError::UrlParsingError(domain_string.clone())),
         };
+
+        // TODO: reuse http client
+        let mut grpc_url = url.clone();
+        grpc_url.set_port(Some(50051)).unwrap();
+
+        let endpoint = Channel::from_shared(grpc_url.to_string())
+            .map_err(|error| ApiClientInitError::UrlParsingError(error.to_string()))?;
+        info!(%grpc_url, "connecting to gRPC");
+        let channel = endpoint.connect_lazy();
+        let ds_client = GrpcDsClient::new(DeliveryServiceClient::new(channel));
+
         Ok(Self {
             client,
+            grpc_ds_client: ds_client,
             url,
             api_versions: Arc::new(NegotiatedApiVersions::new()),
         })

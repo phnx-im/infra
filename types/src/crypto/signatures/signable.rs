@@ -34,7 +34,7 @@
 //! Similarly, only the [`Verifiable`] struct should implement the
 //! [`tls_codec::Deserialize`] trait.
 
-use std::vec;
+use std::{borrow::Cow, vec};
 
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
@@ -215,7 +215,7 @@ pub trait Verifiable: Sized + std::fmt::Debug {
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error>;
 
     /// A reference to the signature to be verified.
-    fn signature(&self) -> &Signature;
+    fn signature(&self) -> Cow<Signature>;
 
     /// Return the string label used for labeled verification.
     fn label(&self) -> &str;
@@ -240,7 +240,7 @@ pub trait Verifiable: Sized + std::fmt::Debug {
         let serialized_sign_content = sign_content
             .tls_serialize_detached()
             .map_err(LibraryError::missing_bound_check)?;
-        signature_public_key.verify(&serialized_sign_content, self.signature())?;
+        signature_public_key.verify(&serialized_sign_content, &self.signature())?;
         Ok(T::from_verifiable(self, T::SealingType::default()))
     }
 }

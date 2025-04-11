@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
+
 use openmls::group::GroupId;
 use phnxtypes::{
     credentials::{ClientCredential, VerifiableClientCredential, keys::AsIntermediateVerifyingKey},
@@ -157,8 +159,8 @@ impl Verifiable for ConnectionEstablishmentPackageIn {
         self.payload.tls_serialize_detached()
     }
 
-    fn signature(&self) -> &Signature {
-        &self.signature
+    fn signature(&self) -> Cow<Signature> {
+        Cow::Borrowed(&self.signature)
     }
 
     fn label(&self) -> &str {

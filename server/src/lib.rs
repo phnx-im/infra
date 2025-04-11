@@ -19,14 +19,17 @@ use actix_web::{
 };
 use phnxbackend::{
     auth_service::AuthService,
-    ds::Ds,
+    ds::{Ds, GrpcDs},
     qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider::NetworkProvider},
 };
 use phnxtypes::endpoint_paths::{
     ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
     ENDPOINT_QS_WS,
 };
+use protos::delivery_service::v1::delivery_service_server::DeliveryServiceServer;
 use std::net::TcpListener;
+use tower_http::trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tracing::Level;
 use tracing_actix_web::TracingLogger;
 
 use crate::endpoints::{
@@ -37,7 +40,7 @@ use crate::endpoints::{
 
 /// Configure and run the server application.
 #[allow(clippy::too_many_arguments)]
-pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>>, Np: NetworkProvider>(
+pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: NetworkProvider>(
     listener: TcpListener,
     ds: Ds,
     auth_service: AuthService,
@@ -47,12 +50,14 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>>, Np: NetworkProvid
     ws_dispatch_notifier: DispatchWebsocketNotifier,
 ) -> Result<Server, std::io::Error> {
     // Wrap providers in a Data<T>
-    let ds_data = Data::new(ds);
+    let ds_data = Data::new(ds.clone());
     let auth_service_data = Data::new(auth_service);
     let qs_data = Data::new(qs);
-    let qs_connector_data = Data::new(qs_connector);
+    let qs_connector_data = Data::new(qs_connector.clone());
     let network_provider_data = Data::new(network_provider);
     let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier);
+
+    let local_addr = listener.local_addr().expect("Could not get local address");
 
     tracing::info!(
         "Starting server, listening on {}:{}",
@@ -93,6 +98,32 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>>, Np: NetworkProvid
     })
     .listen(listener)?
     .run();
+
+    // GRPC server
+
+    let ip_addr = local_addr.ip();
+    const GRPC_PORT: u16 = 50051;
+    tracing::info!(%ip_addr, port = GRPC_PORT, "Starting gRPC server",);
+
+    let grpc_ds = GrpcDs::new(ds, qs_connector);
+
+    tokio::spawn(async move {
+        tonic::transport::Server::builder()
+            .layer(
+                TraceLayer::new_for_grpc()
+                    .on_request(DefaultOnRequest::new().level(Level::INFO))
+                    .on_response(DefaultOnResponse::new().level(Level::INFO)),
+            )
+            .add_service(DeliveryServiceServer::new(grpc_ds))
+            .serve(
+                format!("{ip_addr}:{GRPC_PORT}")
+                    .parse()
+                    .expect("invalid address"),
+            )
+            .await
+            .expect("grpc server failed");
+    });
+
     Ok(server)
 }
 

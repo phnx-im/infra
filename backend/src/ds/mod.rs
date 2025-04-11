@@ -21,6 +21,8 @@ mod resync;
 mod self_remove;
 mod update;
 
+pub use grpc::GrpcDs;
+
 /// Number of days after its last use upon which a group state is considered
 /// expired.
 pub const GROUP_STATE_EXPIRATION: Duration = Duration::days(90);
