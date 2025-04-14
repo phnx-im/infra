@@ -118,7 +118,9 @@ pub(crate) mod persistence {
         ) -> Result<(), StorageError> {
             let password_file = BlobEncoded(&self.password_file);
             query!(
-                "UPDATE as_user_records SET password_file = $1, encrypted_user_profile = $2 WHERE user_name = $3",
+                "UPDATE as_user_records
+                SET password_file = $1, encrypted_user_profile = $2
+                WHERE user_name = $3",
                 password_file as _,
                 self.encrypted_user_profile as _,
                 self.user_name.to_string()

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE as_user_records SET password_file = $1, encrypted_user_profile = $2 WHERE user_name = $3",
+  "query": "UPDATE as_user_records\n                SET password_file = $1, encrypted_user_profile = $2\n                WHERE user_name = $3",
   "describe": {
     "columns": [],
     "parameters": {
@@ -28,5 +28,5 @@
     },
     "nullable": []
   },
-  "hash": "a040c4f8d827be5ef6aa82143e9e110ae041e31f34b04ffa24a71a4254bda015"
+  "hash": "5c918b741638016d4dd8cc9940581d7eae69d7719543fe95279d3fe13825f5b5"
 }
