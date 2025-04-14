@@ -7,9 +7,12 @@ use phnxtypes::{
     messages::client_ds_out::{CreateGroupParamsOut, SendMessageParamsOut},
     time::TimeStamp,
 };
-use protos::delivery_service::v1::{
-    CreateGroupRequest, SendMessagePayload, WelcomeInfoPayload,
-    delivery_service_client::DeliveryServiceClient,
+use protos::{
+    IntoProto, ToProto, TryToProto,
+    delivery_service::v1::{
+        CreateGroupRequest, SendMessagePayload, WelcomeInfoPayload,
+        delivery_service_client::DeliveryServiceClient,
+    },
 };
 use tonic::transport::Channel;
 
@@ -33,12 +36,12 @@ impl GrpcDsClient {
     ) -> Result<(), DsRequestError> {
         let qgid: QualifiedGroupId = (&params.group_id).try_into()?;
         let request = CreateGroupRequest {
-            qgid: Some((&qgid).into()),
-            group_state_ear_key: Some(group_state_ear_key.into()),
-            ratchet_tree: Some((&params.ratchet_tree).try_into()?),
-            encrypted_identity_link_key: Some(params.encrypted_identity_link_key.into()),
-            creator_client_reference: Some((&params.creator_client_reference).try_into()?),
-            group_info: Some((&params.group_info).try_into()?),
+            qgid: Some(qgid.to_proto()),
+            group_state_ear_key: Some(group_state_ear_key.to_proto()),
+            ratchet_tree: Some(params.ratchet_tree.try_to_proto()?),
+            encrypted_identity_link_key: Some(params.encrypted_identity_link_key.into_proto()),
+            creator_client_reference: Some(params.creator_client_reference.try_to_proto()?),
+            group_info: Some(params.group_info.try_to_proto()?),
         };
         self.client.clone().create_group(request).await?;
         Ok(())
@@ -52,10 +55,10 @@ impl GrpcDsClient {
         signing_key: &PseudonymousCredentialSigningKey,
     ) -> Result<RatchetTreeIn, DsRequestError> {
         let payload = WelcomeInfoPayload {
-            qgid: Some((&qgid).into()),
-            group_state_ear_key: Some(group_state_ear_key.into()),
-            sender: Some(signing_key.credential().verifying_key().into()),
-            epoch: Some(epoch.into()),
+            qgid: Some(qgid.to_proto()),
+            group_state_ear_key: Some(group_state_ear_key.to_proto()),
+            sender: Some(signing_key.credential().verifying_key().to_proto()),
+            epoch: Some(epoch.into_proto()),
         };
 
         let request = payload.sign(signing_key)?;
@@ -69,7 +72,7 @@ impl GrpcDsClient {
         Ok(response
             .ratchet_tree
             .ok_or(DsRequestError::UnexpectedResponse)?
-            .try_into()?)
+            .try_to_typed()?)
     }
 
     pub async fn send_message(
@@ -79,9 +82,9 @@ impl GrpcDsClient {
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         let payload = SendMessagePayload {
-            group_state_ear_key: Some(group_state_ear_key.into()),
-            message: Some(params.message.try_into()?),
-            sender: Some(params.sender.into()),
+            group_state_ear_key: Some(group_state_ear_key.to_proto()),
+            message: Some(params.message.try_to_proto()?),
+            sender: Some(params.sender.into_proto()),
         };
 
         let request = payload.sign(signing_key)?;

@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 chrono.workspace = true
+derive_more.workspace = true
+display = "0.1.2"
 mls-assist.workspace = true
 openmls.workspace = true
 phnxtypes.workspace = true

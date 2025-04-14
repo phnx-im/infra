@@ -1,4 +1,11 @@
 use chrono::DateTime;
+use phnxtypes::{crypto::ear, identifiers};
+use tonic::Status;
+
+use crate::{
+    IntoProto, ToProto,
+    error::{MissingFieldError, MissingFieldExt},
+};
 
 use super::v1::{Ciphertext, Fqdn, GroupId, QualifiedGroupId, Signature, Timestamp, Uuid};
 
@@ -19,92 +26,96 @@ impl From<Uuid> for uuid::Uuid {
     }
 }
 
-impl From<GroupId> for openmls::group::GroupId {
-    fn from(value: GroupId) -> Self {
-        openmls::group::GroupId::from_slice(&value.value)
+impl GroupId {
+    pub fn to_openmls(&self) -> openmls::group::GroupId {
+        openmls::group::GroupId::from_slice(&self.value)
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum QualifiedGroupIdError {
-    #[error("missing group uuid")]
-    MissingGroupUuid,
-    #[error("missing domain")]
-    MissingDomain,
     #[error(transparent)]
-    InvalidDomain(#[from] phnxtypes::identifiers::FqdnError),
+    Field(#[from] MissingFieldError<QualifiedGroupIdField>),
+    #[error(transparent)]
+    Fqdn(#[from] identifiers::FqdnError),
 }
 
-impl TryFrom<&Fqdn> for phnxtypes::identifiers::Fqdn {
-    type Error = phnxtypes::identifiers::FqdnError;
-
-    fn try_from(value: &Fqdn) -> Result<Self, Self::Error> {
-        let domain = value.value.parse()?;
-        Ok(domain)
+impl From<QualifiedGroupIdError> for Status {
+    fn from(e: QualifiedGroupIdError) -> Self {
+        Status::invalid_argument(format!("invalid qualified group id: {e}"))
     }
 }
 
-impl From<&phnxtypes::identifiers::Fqdn> for Fqdn {
-    fn from(value: &phnxtypes::identifiers::Fqdn) -> Self {
-        Self {
-            value: value.to_string(),
+impl Fqdn {
+    pub fn try_to_typed(&self) -> Result<identifiers::Fqdn, identifiers::FqdnError> {
+        self.value.parse()
+    }
+}
+
+impl ToProto<Fqdn> for identifiers::Fqdn {
+    fn to_proto(&self) -> Fqdn {
+        Fqdn {
+            value: self.to_string(),
         }
     }
 }
 
-impl TryFrom<&QualifiedGroupId> for phnxtypes::identifiers::QualifiedGroupId {
-    type Error = QualifiedGroupIdError;
+#[derive(Debug, derive_more::Display)]
+pub enum QualifiedGroupIdField {
+    #[display(fmt = "group_uuid")]
+    GroupUuid,
+    #[display(fmt = "domain")]
+    Domain,
+}
 
-    fn try_from(value: &QualifiedGroupId) -> Result<Self, Self::Error> {
-        Ok(Self::new(
-            value
-                .group_uuid
-                .ok_or(QualifiedGroupIdError::MissingGroupUuid)?
-                .into(),
-            value
-                .domain
+impl QualifiedGroupId {
+    pub fn try_to_typed(&self) -> Result<identifiers::QualifiedGroupId, QualifiedGroupIdError> {
+        use QualifiedGroupIdField::*;
+        Ok(identifiers::QualifiedGroupId::new(
+            self.group_uuid.ok_or_missing_field(GroupUuid)?.into(),
+            self.domain
                 .as_ref()
-                .ok_or(QualifiedGroupIdError::MissingDomain)?
-                .try_into()?,
+                .ok_or_missing_field(Domain)?
+                .try_to_typed()?,
         ))
     }
 }
 
-impl From<&phnxtypes::identifiers::QualifiedGroupId> for QualifiedGroupId {
-    fn from(value: &phnxtypes::identifiers::QualifiedGroupId) -> Self {
+impl ToProto<QualifiedGroupId> for identifiers::QualifiedGroupId {
+    fn to_proto(&self) -> QualifiedGroupId {
         QualifiedGroupId {
-            group_uuid: Some(value.group_uuid().into()),
-            domain: Some(value.owning_domain().into()),
+            group_uuid: Some(self.group_uuid().into_proto()),
+            domain: Some(self.owning_domain().to_proto()),
         }
     }
 }
 
-impl From<openmls::group::GroupId> for GroupId {
-    fn from(group_id: openmls::group::GroupId) -> Self {
-        Self {
-            value: group_id.to_vec(),
+impl ToProto<GroupId> for openmls::group::GroupId {
+    fn to_proto(&self) -> GroupId {
+        GroupId {
+            value: self.to_vec(),
         }
+    }
+}
+
+impl Ciphertext {
+    pub fn try_into_typed(self) -> Result<ear::Ciphertext, InvalidNonceLen> {
+        let nonce_len = self.nonce.len();
+        let nonce = self
+            .nonce
+            .try_into()
+            .map_err(|_| InvalidNonceLen(nonce_len))?;
+        Ok(ear::Ciphertext::new(self.ciphertext, nonce))
     }
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum CiphertextError {
-    #[error("Invalid ciphertext nonce length {0}")]
-    InvalidNonceLength(usize),
-}
+#[error("invalid ciphertext nonce length {0}")]
+pub struct InvalidNonceLen(usize);
 
-impl TryFrom<Ciphertext> for phnxtypes::crypto::ear::Ciphertext {
-    type Error = CiphertextError;
-
-    fn try_from(ciphertext: Ciphertext) -> Result<Self, Self::Error> {
-        let nonce_len = ciphertext.nonce.len();
-        Ok(Self::new(
-            ciphertext.ciphertext,
-            ciphertext
-                .nonce
-                .try_into()
-                .map_err(|_| CiphertextError::InvalidNonceLength(nonce_len))?,
-        ))
+impl From<InvalidNonceLen> for Status {
+    fn from(e: InvalidNonceLen) -> Self {
+        Status::invalid_argument(format!("invalid ciphertext nonce length: {}", e.0))
     }
 }
 
