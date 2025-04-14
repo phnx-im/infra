@@ -18,6 +18,8 @@ impl CoreUser {
         // Phase 1: Store the user profile update in the database
         user_profile.update(self.pool(), &mut notifier).await?;
 
+        notifier.notify();
+
         let user_profile_key = UserProfileKey::load_own(self.pool()).await?;
 
         // Phase 2: Encrypt the user profile
