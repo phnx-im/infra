@@ -33,8 +33,9 @@ use phnxtypes::{
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            AsVersionedProcessResponseIn, ConnectionPackageIn, InitClientAdditionResponseIn,
-            InitUserRegistrationResponseIn, UserClientsResponseIn,
+            AsVersionedProcessResponseIn, ConnectionPackageIn, EncryptedUserProfile,
+            GetUserProfileParams, GetUserProfileResponse, InitClientAdditionResponseIn,
+            InitUserRegistrationResponseIn, UpdateUserProfileParamsTbs, UserClientsResponseIn,
             UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
@@ -160,6 +161,7 @@ impl ApiClient {
         connection_packages: Vec<ConnectionPackage>,
         opaque_registration_record: OpaqueRegistrationRecord,
         signing_key: &ClientSigningKey,
+        encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
         let tbs = FinishUserRegistrationParamsTbs {
             client_id: signing_key.credential().identity().clone(),
@@ -167,9 +169,52 @@ impl ApiClient {
             initial_ratchet_secret,
             connection_packages,
             opaque_registration_record,
+            encrypted_user_profile,
         };
         let payload = tbs.sign(signing_key)?;
         let params = AsRequestParamsOut::FinishUserRegistration(payload);
+        self.prepare_and_send_as_message(params)
+            .await
+            // Check if the response is what we expected it to be.
+            .and_then(|response| {
+                if matches!(response, AsProcessResponseIn::Ok) {
+                    Ok(())
+                } else {
+                    Err(AsRequestError::UnexpectedResponse)
+                }
+            })
+    }
+
+    pub async fn as_get_user_profile(
+        &self,
+        client_id: AsClientId,
+    ) -> Result<GetUserProfileResponse, AsRequestError> {
+        let payload = GetUserProfileParams { client_id };
+        let params = AsRequestParamsOut::GetUserProfile(payload);
+        self.prepare_and_send_as_message(params)
+            .await
+            // Check if the response is what we expected it to be.
+            .and_then(|response| {
+                if let AsProcessResponseIn::GetUserProfile(response) = response {
+                    Ok(response)
+                } else {
+                    Err(AsRequestError::UnexpectedResponse)
+                }
+            })
+    }
+
+    pub async fn as_update_user_profile(
+        &self,
+        client_id: AsClientId,
+        signing_key: &ClientSigningKey,
+        encrypted_user_profile: EncryptedUserProfile,
+    ) -> Result<(), AsRequestError> {
+        let payload = UpdateUserProfileParamsTbs {
+            client_id,
+            user_profile: encrypted_user_profile,
+        }
+        .sign(signing_key)?;
+        let params = AsRequestParamsOut::UpdateUserProfile(payload);
         self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.

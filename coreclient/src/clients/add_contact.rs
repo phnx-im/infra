@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, ensure};
+use anyhow::ensure;
 use openmls::group::GroupId;
 use phnxtypes::{
     codec::PhnxCodec,
@@ -23,7 +23,7 @@ use crate::{
     Conversation, ConversationAttributes, ConversationId, PartialContact, UserProfile,
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
-    key_stores::{MemoryUserKeyStore, as_credentials::AsCredentials},
+    key_stores::{MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::UserProfileKey},
     store::StoreNotifier,
 };
 
@@ -65,9 +65,6 @@ impl CoreUser {
             })
             .await?;
 
-        let user_profile = UserProfile::load(self.pool(), self.user_name())
-            .await?
-            .context("missing user profile")?;
         let client_reference = self.create_own_client_reference();
 
         let local_partial_contact = local_group
@@ -75,7 +72,6 @@ impl CoreUser {
                 self.pool(),
                 &mut notifier,
                 &self.inner.key_store,
-                user_profile,
                 client_reference,
                 user_name.clone(),
             )
@@ -245,7 +241,6 @@ impl LocalGroup {
         pool: &SqlitePool,
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
-        own_user_profile: UserProfile,
         own_client_reference: QsReference,
         user_name: QualifiedUserName,
     ) -> anyhow::Result<LocalPartialContact> {
@@ -256,12 +251,14 @@ impl LocalGroup {
             verified_connection_packages,
         } = self;
 
+        let own_user_profile_key = UserProfileKey::load_own(pool).await?;
+
         let friendship_package = FriendshipPackage {
             friendship_token: key_store.friendship_token.clone(),
             key_package_ear_key: key_store.key_package_ear_key.clone(),
             connection_key: key_store.connection_key.clone(),
             wai_ear_key: key_store.wai_ear_key.clone(),
-            user_profile: own_user_profile,
+            user_profile_base_secret: own_user_profile_key.base_secret().clone(),
         };
 
         let friendship_package_ear_key = FriendshipPackageEarKey::random()?;
@@ -275,11 +272,13 @@ impl LocalGroup {
         .store(pool, notifier)
         .await?;
 
-        // Store the user profile of the partial contact (we don't have a
-        // display name or a profile picture yet)
-        UserProfile::new(user_name, None, None)
-            .store(pool, notifier)
-            .await?;
+        // Check if we already have a user profile for this user. If not, store
+        // a basic one without display name and profile picture.
+        if UserProfile::load(pool, &user_name).await?.is_none() {
+            UserProfile::new(user_name, None, None)
+                .store(pool, notifier)
+                .await?;
+        };
 
         // Create a connection establishment package
         let connection_establishment_package = ConnectionEstablishmentPackageTbs {
@@ -292,7 +291,9 @@ impl LocalGroup {
         }
         .sign(&key_store.signing_key)?;
 
-        let params = partial_params.into_params(own_client_reference);
+        let encrypted_user_profile_key =
+            own_user_profile_key.encrypt(group.identity_link_wrapper_key())?;
+        let params = partial_params.into_params(own_client_reference, encrypted_user_profile_key);
 
         Ok(LocalPartialContact {
             group,

@@ -6,6 +6,7 @@ use crate::{
     groups::client_auth_info::StorableClientCredential,
     key_stores::{
         as_credentials::AsCredentials,
+        indexed_keys::UserProfileKey,
         queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
     },
 };
@@ -24,6 +25,7 @@ use phnxtypes::{
     },
     messages::{
         client_as::ConnectionPackage,
+        client_as_out::EncryptedUserProfile,
         client_qs::CreateUserRecordResponse,
         push_token::{EncryptedPushToken, PushToken},
     },
@@ -254,7 +256,7 @@ impl PostRegistrationInitState {
         let qs_client_signing_key = QsClientSigningKey::random()?;
         let qs_user_signing_key = QsUserSigningKey::generate()?;
 
-        // TODO: The following five keys should be derived from a single
+        // TODO: The following keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random()?;
         let key_package_ear_key = KeyPackageEarKey::random()?;
@@ -286,6 +288,16 @@ impl PostRegistrationInitState {
             qs_client_id_encryption_key: qs_encryption_key,
         };
 
+        let user_profile_key = UserProfileKey::random(user_name)?;
+        user_profile_key
+            .store_own(pool.acquire().await?.as_mut())
+            .await?;
+
+        let user_profile = UserProfile::load(pool, user_name)
+            .await?
+            .context("Own user profile not found")?;
+        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
+
         // TODO: For now, we use the same ConnectionDecryptionKey for all
         // connection packages.
 
@@ -304,6 +316,7 @@ impl PostRegistrationInitState {
 
         let unfinalized_registration_state = UnfinalizedRegistrationState {
             key_store,
+            encrypted_user_profile,
             opaque_client_message: client_registration_finish_result
                 .message
                 .serialize()
@@ -334,6 +347,7 @@ impl PostRegistrationInitState {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct UnfinalizedRegistrationState {
     key_store: MemoryUserKeyStore,
+    encrypted_user_profile: EncryptedUserProfile,
     opaque_client_message: Vec<u8>,
     server_url: String,
     as_initial_ratchet_secret: RatchetSecret,
@@ -349,6 +363,7 @@ impl UnfinalizedRegistrationState {
     ) -> Result<AsRegisteredUserState> {
         let UnfinalizedRegistrationState {
             key_store,
+            encrypted_user_profile,
             opaque_client_message,
             server_url,
             as_initial_ratchet_secret,
@@ -372,6 +387,7 @@ impl UnfinalizedRegistrationState {
                 connection_packages,
                 opaque_registration_record,
                 &key_store.signing_key,
+                encrypted_user_profile,
             )
             .await?;
         let as_registered_user_state = AsRegisteredUserState {

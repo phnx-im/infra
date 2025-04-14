@@ -28,8 +28,8 @@ use phnxtypes::{
         ear::{
             EarDecryptable, EarEncryptable,
             keys::{
-                EncryptedIdentityLinkKey, GroupStateEarKey, IdentityLinkKey,
-                IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
+                EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey,
+                IdentityLinkKey, IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
@@ -57,8 +57,11 @@ use sqlx::{SqliteExecutor, SqlitePool};
 use tracing::{debug, error};
 
 use crate::{
-    SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
+    SystemMessage,
+    clients::api_clients::ApiClients,
+    contacts::ContactAddInfos,
+    conversations::messages::TimestampedMessage,
+    key_stores::{indexed_keys::UserProfileKey, leaf_keys::LeafKeys},
 };
 use std::collections::HashSet;
 
@@ -129,13 +132,32 @@ pub(crate) struct PartialCreateGroupParams {
 }
 
 impl PartialCreateGroupParams {
-    pub(crate) fn into_params(self, client_reference: QsReference) -> CreateGroupParamsOut {
+    pub(crate) fn into_params(
+        self,
+        client_reference: QsReference,
+        encrypted_user_profile_key: EncryptedUserProfileKey,
+    ) -> CreateGroupParamsOut {
         CreateGroupParamsOut {
             group_id: self.group_id,
             ratchet_tree: self.ratchet_tree,
             encrypted_identity_link_key: self.encrypted_identity_link_key,
+            encrypted_user_profile_key,
             creator_client_reference: client_reference,
             group_info: self.group_info,
+        }
+    }
+}
+
+pub(super) struct ProfileInfo {
+    pub(super) user_profile_key: UserProfileKey,
+    pub(super) member_id: AsClientId,
+}
+
+impl From<(AsClientId, UserProfileKey)> for ProfileInfo {
+    fn from((member_id, user_profile_key): (AsClientId, UserProfileKey)) -> Self {
+        Self {
+            member_id,
+            user_profile_key,
         }
     }
 }
@@ -260,7 +282,7 @@ impl Group {
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         pool: &SqlitePool,
         api_clients: &ApiClients,
-    ) -> Result<Self> {
+    ) -> Result<(Self, Vec<ProfileInfo>)> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
         let mls_group_config = Self::default_mls_group_join_config();
@@ -365,7 +387,7 @@ impl Group {
         // Phase 3: Decrypt and verify the infra credentials.
         {
             let mut connection = pool.acquire().await?;
-            for client_auth_info in client_information {
+            for client_auth_info in &client_information {
                 client_auth_info.store(&mut connection).await?;
             }
         }
@@ -378,6 +400,27 @@ impl Group {
 
         let leaf_signer = leaf_keys.into_leaf_signer();
 
+        let member_profile_info = joiner_info
+            .encrypted_user_profile_keys
+            .into_iter()
+            .zip(
+                client_information
+                    .iter()
+                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
+            )
+            .map(|(eupk, ci)| {
+                UserProfileKey::decrypt(
+                    welcome_attribution_info.identity_link_wrapper_key(),
+                    &eupk,
+                    ci.user_name(),
+                )
+                .map(|user_profile_key| ProfileInfo {
+                    user_profile_key,
+                    member_id: ci.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,
@@ -387,7 +430,7 @@ impl Group {
             pending_diff: None,
         };
 
-        Ok(group)
+        Ok((group, member_profile_info))
     }
 
     /// Join a group using an external commit.
@@ -402,7 +445,7 @@ impl Group {
         identity_link_wrapper_key: IdentityLinkWrapperKey,
         aad: InfraAadMessage,
         own_client_credential: &ClientCredential,
-    ) -> Result<(Self, MlsMessageOut, MlsMessageOut)> {
+    ) -> Result<(Self, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         // TODO: We set the ratchet tree extension for now, as it is the only
         // way to make OpenMLS return a GroupInfo. This should change in the
         // future.
@@ -415,6 +458,7 @@ impl Group {
             verifiable_group_info,
             ratchet_tree_in,
             encrypted_identity_link_keys,
+            encrypted_user_profile_keys,
         } = external_commit_info;
 
         // Let's create the group first so that we can access the GroupId.
@@ -478,6 +522,27 @@ impl Group {
             }
         }
 
+        let member_profile_info = encrypted_user_profile_keys
+            .into_iter()
+            .zip(
+                client_information
+                    .iter()
+                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
+            )
+            .map(|(eupk, ci)| {
+                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.user_name()).map(
+                    |user_profile_key| ProfileInfo {
+                        user_profile_key,
+                        member_id: ci.clone(),
+                    },
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Phase 4: Fetch user profiles
+
+        // TODO: Fetch user profiles
+
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,
@@ -487,7 +552,7 @@ impl Group {
             pending_diff: None,
         };
 
-        Ok((group, commit, group_info.into()))
+        Ok((group, commit, group_info.into(), member_profile_info))
     }
 
     /// Invite the given list of contacts to join the group.
@@ -507,19 +572,29 @@ impl Group {
         debug_assert!(add_infos.len() == client_credentials.len());
         // Prepare KeyPackages
 
-        let (key_packages, identity_link_keys): (Vec<KeyPackage>, Vec<IdentityLinkKey>) = add_infos
-            .into_iter()
-            .map(|ai| (ai.key_package, ai.identity_link_key))
-            .unzip();
+        let (key_packages, keys): (Vec<KeyPackage>, Vec<(IdentityLinkKey, UserProfileKey)>) =
+            add_infos
+                .into_iter()
+                .map(|ai| (ai.key_package, (ai.identity_link_key, ai.user_profile_key)))
+                .unzip();
+
+        let (identity_link_keys, user_profile_keys): (Vec<IdentityLinkKey>, Vec<UserProfileKey>) =
+            keys.into_iter().unzip();
 
         let new_encrypted_identity_link_keys = identity_link_keys
             .iter()
             .map(|ilk| ilk.encrypt(&self.identity_link_wrapper_key))
             .collect::<Result<Vec<_>, _>>()?;
 
+        let new_encrypted_user_profile_keys = user_profile_keys
+            .iter()
+            .map(|upk| upk.encrypt(&self.identity_link_wrapper_key))
+            .collect::<Result<Vec<_>, _>>()?;
+
         let aad_message: InfraAadMessage =
             InfraAadPayload::GroupOperation(GroupOperationParamsAad {
                 new_encrypted_identity_link_keys,
+                new_encrypted_user_profile_keys,
                 credential_update_option: None,
             })
             .into();
@@ -615,6 +690,7 @@ impl Group {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys: vec![],
             new_encrypted_identity_link_keys: vec![],
             credential_update_option: None,
         });

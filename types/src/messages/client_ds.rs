@@ -28,7 +28,9 @@ use crate::{
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
-            keys::{EncryptedIdentityLinkKey, GroupStateEarKey, RatchetKey},
+            keys::{
+                EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey, RatchetKey,
+            },
         },
         hpke::{
             HpkeDecryptable, HpkeEncryptable, JoinerInfoDecryptionKey, JoinerInfoEncryptionKey,
@@ -220,6 +222,7 @@ pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
     pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
+    pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_qs_reference: QsReference,
     pub group_info: MlsMessageIn,
 }
@@ -268,6 +271,7 @@ pub struct CredentialUpdate {
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GroupOperationParamsAad {
     pub new_encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub new_encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub credential_update_option: Option<CredentialUpdate>,
 }
 
@@ -291,6 +295,7 @@ pub struct JoinConnectionGroupParams {
 pub struct JoinConnectionGroupParamsAad {
     pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_friendship_package: EncryptedFriendshipPackage,
+    pub encrypted_user_profile_key: EncryptedUserProfileKey,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -653,6 +658,7 @@ impl VerifiedStruct<VerifiableClientToDsMessage> for DsVersionedRequestParams {
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub ratchet_tree: RatchetTree,
 }
 
@@ -690,6 +696,7 @@ impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
+    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub ratchet_tree: RatchetTreeIn,
 }
 

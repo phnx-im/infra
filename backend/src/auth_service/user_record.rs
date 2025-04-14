@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use opaque_ke::ServerRegistration;
-use phnxtypes::{crypto::OpaqueCiphersuite, identifiers::QualifiedUserName};
+use phnxtypes::{
+    crypto::OpaqueCiphersuite, identifiers::QualifiedUserName,
+    messages::client_as_out::EncryptedUserProfile,
+};
 
 use crate::errors::StorageError;
 
@@ -12,16 +15,19 @@ use crate::errors::StorageError;
 pub(super) struct UserRecord {
     user_name: QualifiedUserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
+    encrypted_user_profile: EncryptedUserProfile,
 }
 
 impl UserRecord {
     fn new(
         user_name: QualifiedUserName,
         password_file: ServerRegistration<OpaqueCiphersuite>,
+        encrypted_user_profile: EncryptedUserProfile,
     ) -> Self {
         Self {
             user_name,
             password_file,
+            encrypted_user_profile,
         }
     }
 
@@ -29,8 +35,13 @@ impl UserRecord {
         connection: impl sqlx::PgExecutor<'_>,
         user_name: &QualifiedUserName,
         opaque_record: &ServerRegistration<OpaqueCiphersuite>,
+        encrypted_user_profile: &EncryptedUserProfile,
     ) -> Result<Self, StorageError> {
-        let user_record = Self::new(user_name.clone(), opaque_record.clone());
+        let user_record = Self::new(
+            user_name.clone(),
+            opaque_record.clone(),
+            encrypted_user_profile.clone(),
+        );
         user_record.store(connection).await?;
         Ok(user_record)
     }
@@ -43,14 +54,25 @@ impl UserRecord {
     pub(super) fn into_password_file(self) -> ServerRegistration<OpaqueCiphersuite> {
         self.password_file
     }
+
+    pub(super) fn into_encrypted_user_profile(self) -> EncryptedUserProfile {
+        self.encrypted_user_profile
+    }
+
+    pub(super) fn set_user_profile(&mut self, encrypted_user_profile: EncryptedUserProfile) {
+        self.encrypted_user_profile = encrypted_user_profile;
+    }
 }
 
 pub(crate) mod persistence {
+    use opaque_ke::ServerRegistration;
     use phnxtypes::{
         codec::{BlobDecoded, BlobEncoded},
+        crypto::OpaqueCiphersuite,
         identifiers::QualifiedUserName,
+        messages::client_as_out::EncryptedUserProfile,
     };
-    use sqlx::{PgExecutor, query, query_scalar};
+    use sqlx::{PgExecutor, query, query_as};
 
     use crate::errors::StorageError;
 
@@ -63,18 +85,49 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             user_name: &QualifiedUserName,
         ) -> Result<Option<UserRecord>, StorageError> {
-            let record = query_scalar!(
+            struct AsUserRecord {
+                password_file: BlobDecoded<ServerRegistration<OpaqueCiphersuite>>,
+                encrypted_user_profile: EncryptedUserProfile,
+            }
+
+            let record = query_as!(
+                AsUserRecord,
                 r#"SELECT
-                    password_file AS "password_file: _"
+                    password_file AS "password_file: _",
+                    encrypted_user_profile AS "encrypted_user_profile: _"
                 FROM as_user_records
                 WHERE user_name = $1"#,
                 user_name.to_string(),
             )
             .fetch_optional(connection)
             .await?;
-            Ok(record.map(|BlobDecoded(password_file)| {
-                UserRecord::new(user_name.clone(), password_file)
+            Ok(record.map(|record| {
+                let BlobDecoded(password_file) = record.password_file;
+                UserRecord::new(
+                    user_name.clone(),
+                    password_file,
+                    record.encrypted_user_profile,
+                )
             }))
+        }
+
+        /// Update the AsUserRecord for a given UserId.
+        pub(crate) async fn update(
+            &self,
+            connection: impl PgExecutor<'_>,
+        ) -> Result<(), StorageError> {
+            let password_file = BlobEncoded(&self.password_file);
+            query!(
+                "UPDATE as_user_records
+                SET password_file = $1, encrypted_user_profile = $2
+                WHERE user_name = $3",
+                password_file as _,
+                self.encrypted_user_profile as _,
+                self.user_name.to_string()
+            )
+            .execute(connection)
+            .await?;
+            Ok(())
         }
 
         /// Create a new user with the given user name. If a user with the given user
@@ -85,9 +138,10 @@ pub(crate) mod persistence {
         ) -> Result<(), StorageError> {
             let password_file = BlobEncoded(&self.password_file);
             query!(
-                "INSERT INTO as_user_records (user_name, password_file) VALUES ($1, $2)",
+                "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile) VALUES ($1, $2, $3)",
                 self.user_name.to_string(),
                 password_file as _,
+                self.encrypted_user_profile as _
             )
             .execute(connection)
             .await?;
@@ -123,7 +177,10 @@ pub(crate) mod persistence {
         use opaque_ke::{
             ClientRegistration, ClientRegistrationFinishParameters, ServerRegistration, ServerSetup,
         };
-        use phnxtypes::{codec::PhnxCodec, crypto::OpaqueCiphersuite};
+        use phnxtypes::{
+            codec::PhnxCodec, crypto::OpaqueCiphersuite,
+            messages::client_as_out::EncryptedUserProfile,
+        };
         use rand::{CryptoRng, RngCore, SeedableRng, rngs::StdRng};
         use sqlx::PgPool;
         use uuid::Uuid;
@@ -163,9 +220,11 @@ pub(crate) mod persistence {
         pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
             let user_name: QualifiedUserName = format!("{}@example.com", Uuid::new_v4()).parse()?;
             let password_file = generate_password_file(&user_name, &mut rand::thread_rng())?;
+            let encrypted_user_profile = EncryptedUserProfile::dummy();
             let record = UserRecord {
                 user_name,
                 password_file,
+                encrypted_user_profile,
             };
             record.store(pool).await?;
             Ok(record)
