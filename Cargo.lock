@@ -3586,6 +3586,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "derive_more",
  "insta",
  "mls-assist",
  "opaque-ke",

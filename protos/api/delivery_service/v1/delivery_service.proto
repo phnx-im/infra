@@ -94,12 +94,15 @@ message CreateGroupResponse {}
 // welcome info
 
 message WelcomeInfoRequest {
+  common.v1.Signature signature = 1;
+  WelcomeInfoPayload payload = 2;
+}
+
+message WelcomeInfoPayload {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
-
-  common.v1.GroupId group_id = 3;
-  SignaturePublicKey sender = 4;
-  GroupEpoch epoch = 5;
+  SignaturePublicKey sender = 3;
+  GroupEpoch epoch = 4;
 }
 
 message SignaturePublicKey {

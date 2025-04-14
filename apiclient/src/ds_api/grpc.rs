@@ -1,20 +1,17 @@
+use mls_assist::openmls::{group::GroupEpoch, prelude::RatchetTreeIn};
 use phnxtypes::crypto::signatures::signable::Signable;
 use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
-    crypto::{ear::keys::GroupStateEarKey, signatures::traits::SigningKeyBehaviour},
+    crypto::ear::keys::GroupStateEarKey,
     identifiers::QualifiedGroupId,
     messages::client_ds_out::{CreateGroupParamsOut, SendMessageParamsOut},
     time::TimeStamp,
 };
-use prost::Message;
-use protos::{
-    SIGNATURE_METADATA_KEY,
-    delivery_service::v1::{
-        CreateGroupRequest, SendMessagePayload, delivery_service_client::DeliveryServiceClient,
-    },
+use protos::delivery_service::v1::{
+    CreateGroupRequest, SendMessagePayload, WelcomeInfoPayload,
+    delivery_service_client::DeliveryServiceClient,
 };
-use tonic::{metadata::MetadataValue, transport::Channel};
-use tracing::info;
+use tonic::transport::Channel;
 
 use super::DsRequestError;
 
@@ -30,33 +27,49 @@ impl GrpcDsClient {
 
     pub(crate) async fn create_group(
         &self,
-        payload: CreateGroupParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        params: CreateGroupParamsOut,
+        _signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        info!("ds_create_group via grpc");
-
-        let qgid: QualifiedGroupId = (&payload.group_id).try_into()?;
+        let qgid: QualifiedGroupId = (&params.group_id).try_into()?;
         let request = CreateGroupRequest {
             qgid: Some((&qgid).into()),
             group_state_ear_key: Some(group_state_ear_key.into()),
-            ratchet_tree: Some((&payload.ratchet_tree).try_into()?),
-            encrypted_identity_link_key: Some(payload.encrypted_identity_link_key.into()),
-            creator_client_reference: Some((&payload.creator_client_reference).try_into()?),
-            group_info: Some((&payload.group_info).try_into()?),
+            ratchet_tree: Some((&params.ratchet_tree).try_into()?),
+            encrypted_identity_link_key: Some(params.encrypted_identity_link_key.into()),
+            creator_client_reference: Some((&params.creator_client_reference).try_into()?),
+            group_info: Some((&params.group_info).try_into()?),
+        };
+        self.client.clone().create_group(request).await?;
+        Ok(())
+    }
+
+    pub(crate) async fn welcome_info(
+        &self,
+        qgid: QualifiedGroupId,
+        epoch: GroupEpoch,
+        group_state_ear_key: &GroupStateEarKey,
+        signing_key: &PseudonymousCredentialSigningKey,
+    ) -> Result<RatchetTreeIn, DsRequestError> {
+        let payload = WelcomeInfoPayload {
+            qgid: Some((&qgid).into()),
+            group_state_ear_key: Some(group_state_ear_key.into()),
+            sender: Some(signing_key.credential().verifying_key().into()),
+            epoch: Some(epoch.into()),
         };
 
-        let signature = signing_key.sign(&request.encode_to_vec())?;
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .client
+            .clone()
+            .welcome_info(request)
+            .await?
+            .into_inner();
 
-        let mut request = tonic::Request::new(request);
-        request.metadata_mut().insert_bin(
-            SIGNATURE_METADATA_KEY,
-            MetadataValue::from_bytes(&signature.into_bytes()),
-        );
-
-        self.client.clone().create_group(request).await?;
-
-        Ok(())
+        Ok(response
+            .ratchet_tree
+            .ok_or(DsRequestError::UnexpectedResponse)?
+            .try_into()?)
     }
 
     pub async fn send_message(
@@ -65,19 +78,21 @@ impl GrpcDsClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        info!("ds_send_message via grpc");
-
-        let tbs = SendMessagePayload {
+        let payload = SendMessagePayload {
             group_state_ear_key: Some(group_state_ear_key.into()),
             message: Some(params.message.try_into()?),
             sender: Some(params.sender.into()),
         };
 
-        let request = tbs.sign(signing_key)?;
-        let response = self.client.clone().send_message(request).await?;
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .client
+            .clone()
+            .send_message(request)
+            .await?
+            .into_inner();
 
         Ok(response
-            .into_inner()
             .fanout_timestamp
             .ok_or(DsRequestError::UnexpectedResponse)?
             .into())

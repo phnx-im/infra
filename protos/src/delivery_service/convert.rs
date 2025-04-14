@@ -3,8 +3,8 @@ use tls_codec::{DeserializeBytes, Serialize};
 use crate::common::v1::Ciphertext;
 
 use super::v1::{
-    AssistedMessage, EncryptedIdentityLinkKey, GroupEpoch, GroupStateEarKey, LeafNodeIndex,
-    MlsMessage, QsReference, RatchetTree, SealedClientReference,
+    AssistedMessage, EncryptedIdentityLinkKey, GroupEpoch, GroupStateEarKey, HpkeCiphertext,
+    LeafNodeIndex, MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -25,6 +25,7 @@ impl TryFrom<QsReference> for phnxtypes::identifiers::QsReference {
     fn try_from(value: QsReference) -> Result<Self, Self::Error> {
         let client_homeserver_domain = value
             .client_homeserver_domain
+            .as_ref()
             .ok_or(QsReferenceError::MissingClientHomeserverDomain)?
             .try_into()?;
         let sealed_reference_bytes = value
@@ -63,7 +64,7 @@ impl TryFrom<&phnxtypes::identifiers::SealedClientReference> for SealedClientRef
         value: &phnxtypes::identifiers::SealedClientReference,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
-            ciphertext: Some(super::v1::HpkeCiphertext {
+            ciphertext: Some(HpkeCiphertext {
                 tls: value.as_ref().tls_serialize_detached()?,
             }),
         })
@@ -107,19 +108,6 @@ impl TryFrom<&openmls::framing::MlsMessageOut> for MlsMessage {
     }
 }
 
-impl RatchetTree {
-    // pub fn to_openmls(&self) -> Result<openmls::treesync::RatchetTreeIn, tls_codec::Error> {
-    //     Ok(openmls::treesync::RatchetTree::tls_deserialize_exact_bytes(
-    //         &self.tls,
-    //     ))
-    // }
-
-    pub fn from_openmls(tree: &openmls::treesync::RatchetTree) -> Result<Self, tls_codec::Error> {
-        let tls = tree.tls_serialize_detached()?;
-        Ok(Self { tls })
-    }
-}
-
 impl TryFrom<&openmls::treesync::RatchetTree> for RatchetTree {
     type Error = tls_codec::Error;
 
@@ -148,7 +136,7 @@ impl TryFrom<openmls::treesync::RatchetTree> for RatchetTree {
 
 #[derive(Debug, thiserror::Error)]
 #[error("Invalid group state EAR key length")]
-pub struct InvalidGroupStateEarKeyLength;
+pub struct InvalidGroupStateEarKeyLength(usize);
 
 impl From<&phnxtypes::crypto::ear::keys::GroupStateEarKey> for GroupStateEarKey {
     fn from(key: &phnxtypes::crypto::ear::keys::GroupStateEarKey) -> Self {
@@ -158,15 +146,15 @@ impl From<&phnxtypes::crypto::ear::keys::GroupStateEarKey> for GroupStateEarKey 
     }
 }
 
-impl TryFrom<GroupStateEarKey> for phnxtypes::crypto::ear::keys::GroupStateEarKey {
+impl TryFrom<&GroupStateEarKey> for phnxtypes::crypto::ear::keys::GroupStateEarKey {
     type Error = InvalidGroupStateEarKeyLength;
 
-    fn try_from(value: GroupStateEarKey) -> Result<Self, Self::Error> {
+    fn try_from(value: &GroupStateEarKey) -> Result<Self, Self::Error> {
         let bytes: [u8; 32] = value
             .key
             .as_slice()
             .try_into()
-            .map_err(|_| InvalidGroupStateEarKeyLength)?;
+            .map_err(|_| InvalidGroupStateEarKeyLength(value.key.len()))?;
         let key = phnxtypes::crypto::ear::keys::GroupStateEarKeySecret::from(bytes);
         Ok(key.into())
     }
@@ -175,6 +163,14 @@ impl TryFrom<GroupStateEarKey> for phnxtypes::crypto::ear::keys::GroupStateEarKe
 impl From<GroupEpoch> for openmls::group::GroupEpoch {
     fn from(epoch: GroupEpoch) -> Self {
         epoch.value.into()
+    }
+}
+
+impl From<openmls::group::GroupEpoch> for GroupEpoch {
+    fn from(epoch: openmls::group::GroupEpoch) -> Self {
+        Self {
+            value: epoch.as_u64(),
+        }
     }
 }
 
@@ -206,5 +202,19 @@ impl TryFrom<mls_assist::messages::AssistedMessageOut> for AssistedMessage {
     fn try_from(value: mls_assist::messages::AssistedMessageOut) -> Result<Self, Self::Error> {
         let tls = value.tls_serialize_detached()?;
         Ok(Self { tls })
+    }
+}
+
+impl From<SignaturePublicKey> for openmls::prelude::SignaturePublicKey {
+    fn from(value: SignaturePublicKey) -> Self {
+        value.bytes.into()
+    }
+}
+
+impl From<&openmls::prelude::SignaturePublicKey> for SignaturePublicKey {
+    fn from(value: &openmls::prelude::SignaturePublicKey) -> Self {
+        Self {
+            bytes: value.as_slice().to_vec(),
+        }
     }
 }

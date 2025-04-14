@@ -35,10 +35,10 @@ pub enum QualifiedGroupIdError {
     InvalidDomain(#[from] phnxtypes::identifiers::FqdnError),
 }
 
-impl TryFrom<Fqdn> for phnxtypes::identifiers::Fqdn {
+impl TryFrom<&Fqdn> for phnxtypes::identifiers::Fqdn {
     type Error = phnxtypes::identifiers::FqdnError;
 
-    fn try_from(value: Fqdn) -> Result<Self, Self::Error> {
+    fn try_from(value: &Fqdn) -> Result<Self, Self::Error> {
         let domain = value.value.parse()?;
         Ok(domain)
     }
@@ -52,10 +52,10 @@ impl From<&phnxtypes::identifiers::Fqdn> for Fqdn {
     }
 }
 
-impl TryFrom<QualifiedGroupId> for phnxtypes::identifiers::QualifiedGroupId {
+impl TryFrom<&QualifiedGroupId> for phnxtypes::identifiers::QualifiedGroupId {
     type Error = QualifiedGroupIdError;
 
-    fn try_from(value: QualifiedGroupId) -> Result<Self, Self::Error> {
+    fn try_from(value: &QualifiedGroupId) -> Result<Self, Self::Error> {
         Ok(Self::new(
             value
                 .group_uuid
@@ -63,6 +63,7 @@ impl TryFrom<QualifiedGroupId> for phnxtypes::identifiers::QualifiedGroupId {
                 .into(),
             value
                 .domain
+                .as_ref()
                 .ok_or(QualifiedGroupIdError::MissingDomain)?
                 .try_into()?,
         ))
@@ -88,20 +89,21 @@ impl From<openmls::group::GroupId> for GroupId {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CiphertextError {
-    #[error("Invalid ciphertext nonce length")]
-    InvalidNonceLength,
+    #[error("Invalid ciphertext nonce length {0}")]
+    InvalidNonceLength(usize),
 }
 
 impl TryFrom<Ciphertext> for phnxtypes::crypto::ear::Ciphertext {
     type Error = CiphertextError;
 
     fn try_from(ciphertext: Ciphertext) -> Result<Self, Self::Error> {
+        let nonce_len = ciphertext.nonce.len();
         Ok(Self::new(
             ciphertext.ciphertext,
             ciphertext
                 .nonce
                 .try_into()
-                .map_err(|_| CiphertextError::InvalidNonceLength)?,
+                .map_err(|_| CiphertextError::InvalidNonceLength(nonce_len))?,
         ))
     }
 }

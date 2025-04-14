@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use tracing::{Subscriber, subscriber::set_global_default};
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing_bunyan_formatter::BunyanFormattingLayer;
 use tracing_log::LogTracer;
-use tracing_subscriber::{EnvFilter, Registry, fmt::MakeWriter, layer::SubscriberExt};
+use tracing_subscriber::{EnvFilter, fmt::MakeWriter};
 
 /// Helper function that allows silencing a number of chatty modules when using
 /// the info level "trace". This is meant to be used only for tests.
@@ -50,7 +50,7 @@ where
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter));
     // Silence a few very chatty modules, such that "trace" actualy becomes useful
     // Write everything to stdout for now.
-    let formatting_layer = BunyanFormattingLayer::new(name, sink);
+    let _formatting_layer = BunyanFormattingLayer::new(name, sink);
     // Let's build the tracing subscriber.
 
     tracing_subscriber::fmt()

@@ -33,6 +33,7 @@ privacypass = { workspace = true }
 tokio-stream = "0.1.17"
 tonic = "0.13.0"
 prost = "0.13.5"
+derive_more = { workspace = true, features = ["from"] }
 
 [dev-dependencies]
 phnxtypes = { path = "../types", features = ["test_utils"] }
