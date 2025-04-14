@@ -139,8 +139,7 @@ impl DsGroupState {
                 return Err(GroupOperationError::InvalidMessage);
             };
 
-            let add_users_state =
-                validate_added_users(staged_commit, &aad_payload, add_users_info)?;
+            let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
             Some(add_users_state)
         };
 
@@ -378,7 +377,7 @@ struct AddUsersState {
 
 fn validate_added_users(
     staged_commit: &StagedCommit,
-    aad_payload: &GroupOperationParamsAad,
+    aad_payload: GroupOperationParamsAad,
     add_users_info: AddUsersInfo,
 ) -> Result<AddUsersState, GroupOperationError> {
     let number_of_added_users = staged_commit.add_proposals().count();
@@ -415,8 +414,8 @@ fn validate_added_users(
     let added_users = staged_commit
         .add_proposals()
         .map(|ap| ap.add_proposal().key_package().clone())
-        .zip(aad_payload.new_encrypted_identity_link_keys.clone())
-        .zip(aad_payload.new_encrypted_user_profile_keys.clone())
+        .zip(aad_payload.new_encrypted_identity_link_keys)
+        .zip(aad_payload.new_encrypted_user_profile_keys)
         .map(|((kp, eilk), eupk)| (kp, eilk, eupk))
         .zip(add_users_info.encrypted_welcome_attribution_infos)
         .collect();
