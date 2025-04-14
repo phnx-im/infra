@@ -65,7 +65,6 @@ CREATE TABLE IF NOT EXISTS contacts (
     friendship_token BLOB NOT NULL,
     key_package_ear_key BLOB NOT NULL,
     connection_key BLOB NOT NULL,
-    user_profile_key BLOB NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id)
 );
 
