@@ -282,16 +282,15 @@ impl CoreUser {
 
         if let ConversationType::UnconfirmedConnection(user_name) = conversation.conversation_type()
         {
-            let user_name = user_name.clone();
             // Check if it was an external commit and if the user name matches
             if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_id.user_name() == &user_name
+                && sender_client_id.user_name() == user_name
             {
                 // TODO: Handle the fact that an unexpected user joined the connection group.
             }
             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
             // friendship package
-            let partial_contact = PartialContact::load(self.pool(), &user_name)
+            let partial_contact = PartialContact::load(self.pool(), user_name)
                 .await?
                 .ok_or_else(|| anyhow!("No partial contact found for user name {}", user_name))?;
 

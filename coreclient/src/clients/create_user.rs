@@ -288,7 +288,7 @@ impl PostRegistrationInitState {
             qs_client_id_encryption_key: qs_encryption_key,
         };
 
-        let user_profile_key = UserProfileKey::random(user_name.clone())?;
+        let user_profile_key = UserProfileKey::random(user_name)?;
         user_profile_key
             .store_own(pool.acquire().await?.as_mut())
             .await?;

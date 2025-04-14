@@ -27,7 +27,7 @@ use tracing::error;
 
 // The `LABEL` constant is used to identify the key type in the database.
 pub(crate) trait KeyType {
-    type DerivationContext: tls_codec::Serialize + Clone;
+    type DerivationContext<'a>: tls_codec::Serialize + Clone;
 
     const LABEL: &'static str;
 }
@@ -169,16 +169,20 @@ impl<KT, ST, const LENGTH: usize> From<Secret<LENGTH>> for TypedSecret<KT, ST, L
 impl<KT, ST, const LENGTH: usize> TypedSecret<KT, ST, LENGTH> {}
 
 #[derive(TlsSerialize, TlsSize)]
-struct DerivationContext<KT: KeyType> {
-    context: KT::DerivationContext,
+struct DerivationContext<'a, KT: KeyType> {
+    context: KT::DerivationContext<'a>,
     key_type_instance: KeyTypeInstance<KT>,
 }
 
-impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<KT>, AEAD_KEY_SIZE> for Key<KT> {
+impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<'_, KT>, AEAD_KEY_SIZE>
+    for Key<KT>
+{
     const LABEL: &'static str = "key";
 }
 
-impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<KT>, AEAD_KEY_SIZE> for Index<KT> {
+impl<KT: KeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<'_, KT>, AEAD_KEY_SIZE>
+    for Index<KT>
+{
     const LABEL: &'static str = "index";
 }
 
@@ -194,7 +198,7 @@ pub(crate) struct IndexedAeadKey<KT> {
 impl<KT: KeyType> IndexedAeadKey<KT> {
     pub(crate) fn from_base_secret(
         base_secret: BaseSecret<KT>,
-        context: KT::DerivationContext,
+        context: KT::DerivationContext<'_>,
     ) -> Result<Self, LibraryError> {
         let derive_context = DerivationContext {
             context,
@@ -234,7 +238,7 @@ impl<KT> EarKey for IndexedAeadKey<KT> {}
 pub(crate) struct UserProfileKeyType;
 
 impl KeyType for UserProfileKeyType {
-    type DerivationContext = QualifiedUserName;
+    type DerivationContext<'a> = &'a QualifiedUserName;
 
     const LABEL: &'static str = "user_profile_key";
 }
@@ -246,7 +250,7 @@ pub(crate) type UserProfileBaseSecret = BaseSecret<UserProfileKeyType>;
 pub(crate) type UserProfileKey = IndexedAeadKey<UserProfileKeyType>;
 
 impl UserProfileKey {
-    pub(crate) fn random(user_name: QualifiedUserName) -> Result<Self, RandomnessError> {
+    pub(crate) fn random(user_name: &QualifiedUserName) -> Result<Self, RandomnessError> {
         let base_secret = BaseSecret::random()?;
         Self::from_base_secret(base_secret, user_name).map_err(|e| {
             error!(error = %e, "Key derivation error");
@@ -264,7 +268,7 @@ impl UserProfileKey {
     pub(crate) fn decrypt(
         wrapper_key: &IdentityLinkWrapperKey,
         encrypted_key: &EncryptedUserProfileKey,
-        user_name: QualifiedUserName,
+        user_name: &QualifiedUserName,
     ) -> Result<Self, DecryptionError> {
         let base_secret = BaseSecret::decrypt(wrapper_key, encrypted_key)?;
         Self::from_base_secret(base_secret, user_name).map_err(|e| {

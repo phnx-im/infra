@@ -282,7 +282,7 @@ mod tests {
     fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
         let user_id = Uuid::new_v4();
         let user_name: QualifiedUserName = format!("{user_id}@localhost").parse().unwrap();
-        let user_profile_key = UserProfileKey::random(user_name.clone()).unwrap();
+        let user_profile_key = UserProfileKey::random(&user_name).unwrap();
         let contact = Contact {
             user_name: user_name.clone(),
             clients: vec![AsClientId::new(user_name, user_id)],
@@ -370,7 +370,7 @@ mod tests {
         let partial = test_partial_contact(conversation.id());
         let user_name = partial.user_name.clone();
 
-        let user_profile_key = UserProfileKey::random(user_name.clone()).unwrap();
+        let user_profile_key = UserProfileKey::random(&user_name).unwrap();
         user_profile_key.store(&pool).await?;
 
         partial.store(&pool, &mut store_notifier).await?;

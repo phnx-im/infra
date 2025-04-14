@@ -412,7 +412,7 @@ impl Group {
                 UserProfileKey::decrypt(
                     welcome_attribution_info.identity_link_wrapper_key(),
                     &eupk,
-                    ci.user_name().clone(),
+                    ci.user_name(),
                 )
                 .map(|user_profile_key| ProfileInfo {
                     user_profile_key,
@@ -530,11 +530,12 @@ impl Group {
                     .map(|client_auth_info| client_auth_info.client_credential().identity()),
             )
             .map(|(eupk, ci)| {
-                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.user_name().clone())
-                    .map(|user_profile_key| ProfileInfo {
+                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.user_name()).map(
+                    |user_profile_key| ProfileInfo {
                         user_profile_key,
                         member_id: ci.clone(),
-                    })
+                    },
+                )
             })
             .collect::<Result<Vec<_>, _>>()?;
 
