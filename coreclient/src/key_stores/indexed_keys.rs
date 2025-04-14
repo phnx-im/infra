@@ -292,7 +292,8 @@ mod persistence {
             connection: impl SqliteExecutor<'_>,
         ) -> Result<(), sqlx::Error> {
             query!(
-                "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index) VALUES ($1, $2, $3)",
+                "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index) 
+                VALUES ($1, $2, $3)",
                 self.base_secret,
                 self.key,
                 self.index
@@ -309,7 +310,8 @@ mod persistence {
             let key_type = KeyTypeInstance::<KT>::new();
             let mut transaction = connection.begin().await?;
             query!(
-                "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index) VALUES ($1, $2, $3)",
+                "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index) 
+                VALUES ($1, $2, $3)",
                 self.base_secret,
                 self.key,
                 self.index
@@ -334,11 +336,11 @@ mod persistence {
             query_as!(
                 IndexedAeadKey,
                 r#"
-                SELECT 
+                SELECT
                     base_secret AS "base_secret: _",
                     key_value AS "key: _",
-                    key_index AS "index: _" 
-                FROM indexed_keys 
+                    key_index AS "index: _"
+                FROM indexed_keys
                 WHERE key_index = ?
                 LIMIT 1"#,
                 index,
@@ -353,7 +355,7 @@ mod persistence {
             let key_type = KeyTypeInstance::<KT>::new();
             query_as!(
                 IndexedAeadKey,
-                r#"SELECT 
+                r#"SELECT
                     ik.key_index as "index: _",
                     ik.key_value as "key: _",
                     ik.base_secret as "base_secret: _"

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT \n                    ik.key_index as \"index: _\",\n                    ik.key_value as \"key: _\",\n                    ik.base_secret as \"base_secret: _\"\n                FROM own_key_indices oki\n                JOIN indexed_keys ik ON oki.key_index = ik.key_index\n                WHERE oki.key_type = ?",
+  "query": "SELECT\n                    ik.key_index as \"index: _\",\n                    ik.key_value as \"key: _\",\n                    ik.base_secret as \"base_secret: _\"\n                FROM own_key_indices oki\n                JOIN indexed_keys ik ON oki.key_index = ik.key_index\n                WHERE oki.key_type = ?",
   "describe": {
     "columns": [
       {
@@ -28,5 +28,5 @@
       false
     ]
   },
-  "hash": "fc85fc86130968ccb77196298ea538b50ffeedd45163cb52cf216d45cfad72f4"
+  "hash": "094feee4584fe553b048645ac6657254c0d4e091eebea522822208005075cf38"
 }
