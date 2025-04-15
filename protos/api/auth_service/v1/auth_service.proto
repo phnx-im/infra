@@ -1,0 +1,402 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+syntax = "proto3";
+
+package auth_service.v1;
+
+import "common/v1/common.proto";
+
+service AuthService {
+  rpc Init2FaAuthentication(Init2FaAuthenticationRequest) returns (Init2FaAuthenticationResponse);
+
+  rpc InitUserRegistration(InitUserRegistrationRequest) returns (InitUserRegistrationResponse);
+  rpc FinishUserRegistration(FinishUserRegistrationRequest) returns (FinishUserRegistrationResponse);
+
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+
+  rpc InitClientAddition(InitClientAdditionRequest) returns (InitClientAdditionResponse);
+  rpc FinishClientAddition(FinishClientAdditionRequest) returns (FinishClientAdditionResponse);
+
+  rpc PublishConnectionPackage(PublishConnectionPackageRequest) returns (PublishConnectionPackageResponse);
+
+  rpc ClientConnectionPackage(ClientConnectionPackageRequest) returns (ClientConnectionPackageResponse);
+
+  rpc UserConnectionPackages(UserConnectionPackagesRequest) returns (UserConnectionPackagesResponse);
+
+  rpc UserClients(UserClientsRequest) returns (UserClientsResponse);
+
+  rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
+
+  rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
+
+  rpc EnqueueMessages(EnqueueMessagesRequest) returns (EnqueueMessagesResponse);
+  rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
+}
+
+// common
+
+message AsClientId {
+  common.v1.QualifiedUserName user_name = 1;
+  common.v1.Uuid client_id = 2;
+}
+
+message Signature {
+  bytes bytes = 1;
+}
+
+message MlsInfraVersion {
+  uint32 version = 1;
+}
+
+message ExprirationData {
+  common.v1.Timestamp not_before = 1;
+  common.v1.Timestamp not_after = 2;
+}
+
+// init 2fa authentication
+
+message Init2FaAuthenticationRequest {
+  Init2FaAuthenticationRequestTbs payload = 1;
+  string password = 2;
+}
+
+message Init2FaAuthenticationRequestTbs {
+  AsClientId client_id = 1;
+  OpaqueLoginRequest opaque_ke1 = 2;
+}
+
+message OpaqueLoginRequest {
+  bytes tls = 1;
+}
+
+message Init2FaAuthenticationResponse {
+  OpaqueLoginResponse opaque_ke2 = 1;
+}
+
+message OpaqueLoginResponse {
+  bytes tls = 1;
+}
+
+// init user registration
+
+message InitUserRegistrationRequest {
+  ClientPayload client_payload = 1;
+  OpaqueRegistrationRequest opaque_registration_request = 2;
+}
+
+message ClientPayload {
+  ClientCredentialCsr csr = 1;
+  ExprirationData expriration_data = 2;
+  CredentialFingerprint credential_fingerprint = 3;
+}
+
+message OpaqueRegistrationRequest {
+  bytes tls = 1;
+}
+
+message ClientCredentialCsr {
+  uint32 msl_version = 1;
+  AsClientId client_id = 2;
+  SignatureScheme signature_scheme = 3;
+  ClientVerifyingKey verifying_key = 4;
+}
+
+enum SignatureScheme {
+  SIGNATURE_SCHEME_UNSPECIFIED = 0;
+  SIGNATURE_SCHEME_ECDSA_SECP256R1_SHA256 = 0x0403;
+  SIGNATURE_SCHEME_ECDSA_SECP384R1_SHA384 = 0x0503;
+  SIGNATURE_SCHEME_ECDSA_SECP521R1_SHA512 = 0x0603;
+  SIGNATURE_SCHEME_ED25519 = 0x0807;
+  SIGNATURE_SCHEME_ED448 = 0x0808;
+}
+
+message ClientVerifyingKey {
+  bytes bytes = 1;
+}
+
+message CredentialFingerprint {
+  bytes bytes = 1;
+}
+
+message InitUserRegistrationResponse {
+  ClientCredential client_credential = 1;
+  OpaqueRegistrationResponse opaque_registration_response = 2;
+}
+
+message OpaqueRegistrationResponse {
+  bytes tls = 1;
+}
+
+message ClientCredential {
+  ClientCredentialPayload payload = 1;
+  Signature signature = 2;
+}
+
+message ClientCredentialPayload {
+  ClientCredentialCsr csr = 1;
+  ExprirationData expriration_data = 2;
+  CredentialFingerprint signer_fingerprint = 3;
+}
+
+// finish user registration
+
+message FinishUserRegistrationRequest {
+  FinishUserRegistrationRequestTbs payload = 1;
+  Signature signature = 2;
+}
+
+message FinishUserRegistrationRequestTbs {
+  AsClientId client_id = 1;
+  common.v1.RatchetEncryptionKey queeu_encryption_key = 2;
+  common.v1.RatchetSecret initi_ratchet_secret = 3;
+  repeated ConnectionPackage connection_packages = 4;
+  OpaqueRegistrationRecord opaque_registration_record = 5;
+}
+
+message ConnectionPackage {
+  ConnectionPackageTbs payload = 1;
+  Signature signature = 2;
+}
+
+message ConnectionPackageTbs {
+  MlsInfraVersion protocol_version = 1;
+  ConnectionEncryptionKey encryption_key = 2;
+  ExprirationData lifetime = 3;
+  ClientCredential client_credential = 4;
+}
+
+message OpaqueRegistrationRecord {
+  bytes tls = 1;
+}
+
+message ConnectionEncryptionKey {
+  bytes bytes = 1;
+}
+
+message FinishUserRegistrationResponse {}
+
+// delete user
+
+message DeleteUserRequest {
+  common.v1.QualifiedUserName user_name = 1;
+  AsClientId client_id = 2;
+  OpaqueLoginFinish opaque_finish = 3;
+}
+
+message OpaqueLoginFinish {
+  bytes tls = 1;
+}
+
+message DeleteUserResponse {}
+
+// init client addition
+
+message InitClientAdditionRequest {
+  ClientCredentialPayload client_credential_payload = 1;
+  OpaqueLoginRequest opaque_login_request = 2;
+}
+
+message InitClientAdditionResponse {
+  VerifiableClientCredential client_credential = 1;
+  OpaqueLoginResponse opaque_login_response = 2;
+}
+
+message VerifiableClientCredential {
+  ClientCredentialPayload payload = 1;
+  Signature signature = 2;
+}
+
+// finish client addition
+
+message FinishClientAdditionRequest {
+  FinishClientAdditionRequestTbs payload = 1;
+  OpaqueLoginFinish opaque_login_finish = 2;
+}
+
+message FinishClientAdditionRequestTbs {
+  AsClientId as_client_add = 1;
+  common.v1.RatchetEncryptionKey queue_encryption_key = 2;
+  common.v1.RatchetSecret initial_ratchet_secret = 3;
+  ConnectionPackage connection_package = 4;
+}
+
+message FinishClientAdditionResponse {}
+
+// publish connection package
+
+message PublishConnectionPackageRequest {
+  PublishConnectionPackageRequestTbs payload = 1;
+  Signature signature = 2;
+}
+
+message PublishConnectionPackageRequestTbs {
+  AsClientId as_client_id = 1;
+  repeated ConnectionPackage connection_packages = 2;
+}
+
+message PublishConnectionPackageResponse {}
+
+// client connection package
+
+message ClientConnectionPackageRequest {
+  ClientConnectionPackageRequestTbs payload = 1;
+  Signature signature = 2;
+}
+
+message ClientConnectionPackageRequestTbs {
+  AsClientId as_client_id = 1;
+}
+
+message ClientConnectionPackageResponse {
+  ConnectionPackage connection_package = 1;
+}
+
+// user connection package
+
+message UserConnectionPackagesRequest {
+  common.v1.QualifiedUserName user_name = 1;
+}
+
+message UserConnectionPackagesResponse {
+  repeated ConnectionPackage connection_packages = 1;
+}
+
+// user clients
+
+message UserClientsRequest {
+  common.v1.QualifiedUserName user_name = 1;
+}
+
+message UserClientsResponse {
+  repeated VerifiableClientCredential client_credentials = 1;
+}
+
+// as credentials
+
+message AsCredentialsRequest {}
+
+message AsCredentialsResponse {
+  repeated AsCredential as_credentials = 1;
+  repeated VerifiableAsIntermediateCredential as_intermediate_credentials = 2;
+  repeated CredentialFingerprint revoked_credentials = 3;
+}
+
+message AsCredential {
+  AsCredentialBody body = 1;
+  CredentialFingerprint fingerprint = 2;
+}
+
+message AsCredentialBody {
+  MlsInfraVersion version = 1;
+  common.v1.Fqdn as_domain = 2;
+  ExprirationData expiration_data = 3;
+  SignatureScheme signature_scheme = 4;
+  AsVerifyingKey verifying_key = 5;
+}
+
+message AsVerifyingKey {
+  bytes bytes = 1;
+}
+
+message VerifiableAsIntermediateCredential {
+  AsIntermediateCredentialPayload credential = 1;
+  Signature signature = 2;
+}
+
+message AsIntermediateCredentialPayload {
+  AsIntermediateCredentialCsr csr = 1;
+  ExprirationData expriration_data = 2;
+  CredentialFingerprint signer_fingerprint = 3;
+}
+
+message AsIntermediateCredentialCsr {
+  MlsInfraVersion version = 1;
+  common.v1.Fqdn as_domain = 2;
+  SignatureScheme signature_scheme = 3;
+  AsIntermediateVerifyingKey verifying_key = 4;
+}
+
+message AsIntermediateVerifyingKey {
+  bytes bytes = 1;
+}
+
+// issue tokens
+
+message IssueTokensRequest {
+  IssueTokensRequestTbs payload = 1;
+  Signature signature = 2;
+}
+
+message IssueTokensRequestTbs {
+  AsClientId client_id = 1;
+  AsTokenType token_type = 2;
+  TokenRequest token_request = 3;
+}
+
+enum AsTokenType {
+  AS_TOKEN_TYPE_UNSPECIFIED = 0;
+  AS_TOKEN_TYPE_AS_ENQEUEU = 1;
+  AS_TOKEN_TYPE_DS_GROUP_CREATION = 2;
+  AS_TOKEN_TYPE_DS_GROUP_OPERATION = 3;
+}
+
+enum TokenType {
+  TOKEN_TYPE_UNSPECIFIED = 0;
+  TOKEN_TYPE_PRIVATE_TOKEN = 1;
+  TOKEN_TYPE_PUBLIC_TOKEN = 2;
+  TOKEN_TYPE_BATCHED_TOKEN_RISTRETTO_255 = 0xF91A;
+  TOKEN_TYPE_BATCHED_TOKEN_P384 = 0xF901;
+}
+
+message TokenRequest {
+  TokenType token_type = 1;
+  uint32 truncated_token_id = 2;
+  repeated bytes blinded_elements = 3;
+}
+
+message IssueTokensResponse {
+  repeated TokenResponse token_responses = 1;
+}
+
+message TokenResponse {
+  repeated bytes evaluated_elements = 1;
+  bytes evaulated_proof = 2;
+}
+
+// enqueue messages
+
+message EnqueueMessagesRequest {
+  AsClientId client_id = 1;
+  EncryptedConnectionEstablishmentPackage connection_establishment_package = 2;
+}
+
+message EncryptedConnectionEstablishmentPackage {
+  bytes tls = 1;
+}
+
+message EnqueueMessagesResponse {}
+
+// dequeue messages
+
+message DequeueMessagesRequest {
+  DequeueMessagesRequestTbs payload = 1;
+  Signature signature = 2;
+}
+
+message DequeueMessagesRequestTbs {
+  AsClientId sender = 1;
+  uint64 sequence_number_start = 2;
+  uint64 max_messages_number = 3;
+}
+
+message DequeueMessagesResponse {
+  repeated QueueMessage messages = 1;
+  uint64 remaining_messages_number = 2;
+}
+
+message QueueMessage {
+  uint64 sequence_number = 1;
+  bytes ciphertext = 2;
+}

@@ -105,12 +105,13 @@ impl TestBackend {
         let domain: Fqdn = "example.com".parse().unwrap();
         let local = LocalSet::new();
         let _guard = local.enter();
-        let (address, _ws_dispatch) = spawn_app(domain.clone(), network_provider).await;
-        info!(%address, "spawned server");
+        let ((http_addr, grpc_addr), _ws_dispatch) =
+            spawn_app(domain.clone(), network_provider).await;
+        info!(%http_addr, %grpc_addr, "spawned server");
         Self {
             users: HashMap::new(),
             groups: HashMap::new(),
-            kind: TestKind::SingleBackend(address.to_string()),
+            kind: TestKind::SingleBackend(http_addr.to_string()),
             _guard: Some(_guard),
         }
     }

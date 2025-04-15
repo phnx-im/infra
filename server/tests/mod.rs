@@ -25,10 +25,10 @@ use png::Encoder;
 async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) =
+    let ((http_addr, _grpc_addr), _ws_dispatch) =
         spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
-    let address = format!("http://{}", address);
+    let address = format!("http://{http_addr}");
 
     // Initialize the client
     let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
@@ -213,11 +213,11 @@ async fn create_user() {
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) =
+    let ((http_addr, _grpc_addr), _ws_dispatch) =
         spawn_app(Some("localhost".parse().unwrap()), network_provider).await;
 
     // Initialize the client
-    let address = format!("http://{}", address);
+    let address = format!("http://{http_addr}");
     let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     // Call the inexistant endpoint
