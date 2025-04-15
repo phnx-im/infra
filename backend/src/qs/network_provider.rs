@@ -6,13 +6,12 @@ use std::fmt::Debug;
 
 use super::{Fqdn, qs_api::FederatedProcessingResult};
 
-#[expect(async_fn_in_trait)]
 pub trait NetworkProvider: Sync + Send + Debug + 'static {
     type NetworkError: std::error::Error;
 
-    async fn deliver(
+    fn deliver(
         &self,
         bytes: Vec<u8>,
         destination: Fqdn,
-    ) -> Result<FederatedProcessingResult, Self::NetworkError>;
+    ) -> impl Future<Output = Result<FederatedProcessingResult, Self::NetworkError>> + Send;
 }

@@ -48,7 +48,7 @@ const LOCAL_CONFIG: &str = include_str!("../../../server/configuration/local.yam
 pub async fn spawn_app(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
-) -> (SocketAddr, DispatchWebsocketNotifier) {
+) -> ((SocketAddr, SocketAddr), DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
 
@@ -64,6 +64,11 @@ pub async fn spawn_app(
         TcpListener::bind(format!("{host}:{port}")).expect("Failed to bind to random port.");
     let domain = domain.into().unwrap_or_else(|| host.parse().unwrap());
     let address = listener.local_addr().unwrap();
+
+    let grpc_listener = tokio::net::TcpListener::bind(format!("{host}:0"))
+        .await
+        .expect("Failed to bind to random port.");
+    let grpc_address = grpc_listener.local_addr().unwrap();
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
 
@@ -98,6 +103,7 @@ pub async fn spawn_app(
     // Start the server
     let server = run(
         listener,
+        grpc_listener,
         ds,
         auth_service,
         qs,
@@ -111,5 +117,5 @@ pub async fn spawn_app(
     tokio::spawn(server);
 
     // Return the address
-    (address, ws_dispatch_notifier)
+    ((address, grpc_address), ws_dispatch_notifier)
 }

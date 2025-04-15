@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[package]
+name = "phnxprotos"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Protobuf and gRPC definitions of the APIs"
+
+[dependencies]
+prost.workspace = true
+tonic.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true
+
+[package.metadata.cargo-machete]
+ignored = [
+    "prost", # neeeded for generated tonic code
+]

@@ -37,7 +37,16 @@ async fn main() -> std::io::Result<()> {
         "{}:{}",
         configuration.application.host, configuration.application.port
     );
-    let listener = TcpListener::bind(address).expect("Failed to bind to random port.");
+    let listener = TcpListener::bind(address).expect("Failed to bind");
+
+    let grpc_address = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.grpc_port
+    );
+    let grpc_listener = tokio::net::TcpListener::bind(grpc_address)
+        .await
+        .expect("Failed to bind");
+
     let domain: Fqdn = configuration
         .application
         .domain
@@ -94,6 +103,7 @@ async fn main() -> std::io::Result<()> {
     // Start the server
     run(
         listener,
+        grpc_listener,
         ds,
         auth_service,
         qs,

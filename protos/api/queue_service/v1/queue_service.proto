@@ -1,0 +1,197 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+syntax = "proto3";
+
+package queue_service.v1;
+
+import "common/v1/common.proto";
+
+service QueueService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+
+  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse);
+  rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse);
+  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
+
+  rpc PublishKeyPackages(PublishKeyPackagesRequest) returns (PublishKeyPackagesResponse);
+  rpc ClientKeyPackages(ClientKeyPackagesRequest) returns (ClientKeyPackagesResponse);
+  rpc KeyPackage(KeyPackageRequest) returns (KeyPackageResponse);
+
+  rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
+
+  rpc QsEncryptionKey(QsEncryptionKeyRequest) returns (QsEncryptionKeyResponse);
+}
+
+// common
+
+message QsUserId {
+  common.v1.Uuid value = 1;
+}
+
+message QsClientId {
+  common.v1.Uuid value = 1;
+}
+
+// create user
+
+message CreateUserRequest {
+  QsUserVerifyingKey user_record_auth_key = 1;
+  FriendshipToken friendship_token = 2;
+  QsClientVerifyingKey client_record_auth_key = 3;
+  common.v1.RatchetEncryptionKey queue_encryption_key = 4;
+  optional EncryptedPushToken encrypted_push_token = 5;
+  common.v1.RatchetSecret initial_ratched_secret = 6;
+}
+
+message QsUserVerifyingKey {
+  bytes bytes = 1;
+}
+
+message FriendshipToken {
+  bytes bytes = 1;
+}
+
+message QsClientVerifyingKey {
+  bytes bytes = 1;
+}
+
+message EncryptedPushToken {
+  bytes ciphertext = 1;
+}
+
+message CreateUserResponse {
+  QsUserId user_id = 1;
+  QsClientId client_id = 2;
+}
+
+// update user
+
+message UpdateUserRequest {
+  QsUserId sender = 1;
+  QsUserVerifyingKey user_record_auth_key = 2;
+  FriendshipToken friendship_token = 3;
+}
+
+message UpdateUserResponse {}
+
+// delete user
+
+message DeleteUserRequest {
+  QsUserId sender = 1;
+  // TODO: don't we need user_record_auth_key here?
+}
+
+message DeleteUserResponse {}
+
+// create client
+
+message CreateClientRequest {
+  QsUserId sender = 1;
+  QsClientVerifyingKey client_record_auth_key = 2;
+  common.v1.RatchetEncryptionKey queue_encryption_key = 3;
+  optional EncryptedPushToken encrypted_push_token = 4;
+  common.v1.RatchetSecret initial_ratched_secret = 5;
+}
+
+message CreateClientResponse {
+  QsClientId client_id = 1;
+}
+
+// update client
+
+message UpdateClientRequest {
+  QsClientId sender = 1;
+  QsClientVerifyingKey client_record_auth_key = 2;
+  common.v1.RatchetEncryptionKey queue_encryption_key = 3;
+  optional EncryptedPushToken encrypted_push_token = 4;
+}
+
+message UpdateClientResponse {}
+
+// delete client
+
+message DeleteClientRequest {
+  QsClientId sender = 1;
+}
+
+message DeleteClientResponse {}
+
+// publish key packages
+
+message PublishKeyPackagesRequest {
+  QsClientId client_id = 1;
+  repeated KeyPackage key_packages = 2;
+  KeyPackageEarKey key_package_ear_key = 3;
+}
+
+message KeyPackage {
+  bytes tls = 1;
+}
+
+message KeyPackageEarKey {
+  bytes bytes = 1;
+}
+
+message PublishKeyPackagesResponse {}
+
+// client key packages
+
+message ClientKeyPackagesRequest {
+  QsUserId sender = 1;
+  QsClientId client_id = 2;
+}
+
+message ClientKeyPackagesResponse {
+  QsEncryptedKeyPackage key_package = 1;
+}
+
+message QsEncryptedKeyPackage {
+  bytes ciphertext = 1;
+}
+
+// key package
+
+message KeyPackageRequest {
+  QsUserId sender = 1;
+  KeyPackageEarKey friendship_ear_key = 2;
+}
+
+message KeyPackageResponse {
+  KeyPackage key_package = 1;
+}
+
+// dequeue messages
+
+message DequeueMessagesRequest {
+  QsClientId sender = 1;
+  uint64 sequence_number_start = 2;
+  uint64 max_messages_number = 3;
+}
+
+message DequeueMessagesResponse {
+  repeated QueueMessage messages = 1;
+  uint64 remaining_messages_number = 2;
+}
+
+message QueueMessage {
+  uint64 sequence_number = 1;
+  bytes ciphertext = 2;
+}
+
+// qs encryption key
+
+message QsEncryptionKeyRequest {
+  QsUserId user_id = 1;
+}
+
+message QsEncryptionKeyResponse {
+  ClientIdEncryptionKey encryption_key = 1;
+}
+
+message ClientIdEncryptionKey {
+  bytes bytes = 1;
+}

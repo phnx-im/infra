@@ -1,0 +1,56 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+syntax = "proto3";
+
+package common.v1;
+
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanos = 2;
+}
+
+message Uuid {
+  uint64 lo = 1;
+  uint64 hi = 2;
+}
+
+message GroupId {
+  bytes value = 1;
+}
+
+message QualifiedGroupId {
+  Uuid group_uuid = 1;
+  Fqdn domain = 2;
+}
+
+message RatchetEncryptionKey {
+  bytes bytes = 1;
+}
+
+message RatchetSecret {
+  bytes bytes = 1;
+}
+
+message Fqdn {
+  string value = 1;
+}
+
+message UserName {
+  string value = 1;
+}
+
+message QualifiedUserName {
+  UserName name = 1;
+  Fqdn domain = 2;
+}
+
+message Ciphertext {
+  bytes ciphertext = 1;
+  bytes nonce = 2;
+}
+
+message Signature {
+  bytes value = 1;
+}
