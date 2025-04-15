@@ -7,9 +7,15 @@ CREATE TABLE as_batched_keys(
     voprf_server BYTEA NOT NULL
 );
 
+CREATE TYPE aead_ciphertext AS (
+    ciphertext BYTEA,
+    nonce BYTEA
+);
+
 CREATE TABLE as_user_records(
     user_name TEXT PRIMARY KEY,
-    password_file BYTEA NOT NULL
+    password_file BYTEA NOT NULL,
+    encrypted_user_profile aead_ciphertext NOT NULL
 );
 
 CREATE TYPE qualified_user_name AS (

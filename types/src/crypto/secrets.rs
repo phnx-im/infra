@@ -45,7 +45,7 @@ impl<const LENGTH: usize> Secret<LENGTH> {
     }
 
     /// Generate a fresh, random secret.
-    pub(super) fn random() -> Result<Self, RandomnessError> {
+    pub fn random() -> Result<Self, RandomnessError> {
         let mut secret = [0; LENGTH];
         // TODO: Use a proper rng provider.
         rand_chacha::ChaCha20Rng::from_entropy()

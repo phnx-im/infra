@@ -9,9 +9,7 @@ use crate::version::{extract_api_version_negotiation, negotiate_api_version};
 use super::*;
 use mls_assist::{
     messages::AssistedMessageOut,
-    openmls::prelude::{
-        GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, RatchetTreeIn, tls_codec::Serialize,
-    },
+    openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, tls_codec::Serialize},
 };
 use phnxtypes::{
     LibraryError,
@@ -34,7 +32,7 @@ use phnxtypes::{
             DsProcessResponseIn, DsRequestParamsOut, DsVersionedProcessResponseIn,
             DsVersionedRequestParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
             JoinConnectionGroupParamsOut, ResyncParamsOut, SelfRemoveParamsOut,
-            SendMessageParamsOut, UpdateParamsOut,
+            SendMessageParamsOut, UpdateParamsOut, WelcomeInfoIn,
         },
     },
     time::TimeStamp,
@@ -182,7 +180,7 @@ impl ApiClient {
         epoch: GroupEpoch,
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &PseudonymousCredentialSigningKey,
-    ) -> Result<RatchetTreeIn, DsRequestError> {
+    ) -> Result<WelcomeInfoIn, DsRequestError> {
         let payload = WelcomeInfoParams {
             sender: signing_key.credential().verifying_key().clone(),
             group_id,
@@ -196,8 +194,8 @@ impl ApiClient {
         .await
         // Check if the response is what we expected it to be.
         .and_then(|response| {
-            if let DsProcessResponseIn::WelcomeInfo(ratchet_tree) = response {
-                Ok(ratchet_tree)
+            if let DsProcessResponseIn::WelcomeInfo(welcome_info) = response {
+                Ok(welcome_info)
             } else {
                 Err(DsRequestError::UnexpectedResponse)
             }

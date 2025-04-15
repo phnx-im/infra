@@ -487,3 +487,20 @@ impl From<Secret<AEAD_KEY_SIZE>> for IdentityLinkWrapperKey {
         Self { key: secret }
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+pub struct EncryptedUserProfileKey {
+    ciphertext: Ciphertext,
+}
+
+impl From<Ciphertext> for EncryptedUserProfileKey {
+    fn from(ciphertext: Ciphertext) -> Self {
+        Self { ciphertext }
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedUserProfileKey {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.ciphertext
+    }
+}

@@ -17,7 +17,7 @@ use mls_assist::{
 
 use phnxtypes::{
     crypto::{
-        ear::keys::{EncryptedIdentityLinkKey, GroupStateEarKey},
+        ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
     },
     errors::GroupOperationError,
@@ -139,8 +139,7 @@ impl DsGroupState {
                 return Err(GroupOperationError::InvalidMessage);
             };
 
-            let add_users_state =
-                validate_added_users(staged_commit, &aad_payload, add_users_info)?;
+            let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
             Some(add_users_state)
         };
 
@@ -155,12 +154,13 @@ impl DsGroupState {
                 // Collect the encrypted client information and the client queue
                 // config of the original client. We need this later to create
                 // the new client profile.
-                let encrypted_identity_link_key = self
+                let sender_profile = self
                     .member_profiles
                     .get(&original_index)
-                    .ok_or(GroupOperationError::InvalidMessage)?
-                    .encrypted_identity_link_key
-                    .clone();
+                    .ok_or(GroupOperationError::InvalidMessage)?;
+                let encrypted_identity_link_key =
+                    sender_profile.encrypted_identity_link_key.clone();
+                let encrypted_user_profile_key = sender_profile.encrypted_user_profile_key.clone();
                 // Get the queue config from the leaf node extensions.
                 let client_queue_config = staged_commit
                     .update_path_leaf_node()
@@ -179,7 +179,11 @@ impl DsGroupState {
                         _ => None,
                     })
                     .ok_or(GroupOperationError::InvalidMessage)??;
-                Some((encrypted_identity_link_key, client_queue_config))
+                Some((
+                    encrypted_identity_link_key,
+                    encrypted_user_profile_key,
+                    client_queue_config,
+                ))
             }
             _ => None,
         };
@@ -222,8 +226,11 @@ impl DsGroupState {
         }
 
         // Process resync operations
-        if let Some((encrypted_identity_link_key, client_queue_config)) =
-            external_sender_information
+        if let Some((
+            encrypted_identity_link_key,
+            encrypted_user_profile_key,
+            client_queue_config,
+        )) = external_sender_information
         {
             // The original client profile was already removed. We just have to
             // add the new one.
@@ -233,6 +240,7 @@ impl DsGroupState {
                 client_queue_config,
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
+                encrypted_user_profile_key,
             };
             self.member_profiles
                 .insert(sender_index.leaf_index(), client_profile);
@@ -251,7 +259,9 @@ impl DsGroupState {
         added_users: &[(AddedUserInfo, EncryptedWelcomeAttributionInfo)],
     ) -> Result<(), GroupOperationError> {
         let mut client_profiles = vec![];
-        for ((key_package, encrypted_identity_link_key), _) in added_users.iter() {
+        for ((key_package, encrypted_identity_link_key, encrypted_user_profile_key), _) in
+            added_users.iter()
+        {
             let member = self
                 .group()
                 .members()
@@ -276,6 +286,7 @@ impl DsGroupState {
             let client_profile = MemberProfile {
                 leaf_index,
                 encrypted_identity_link_key: encrypted_identity_link_key.clone(),
+                encrypted_user_profile_key: encrypted_user_profile_key.clone(),
                 client_queue_config: client_queue_config.clone(),
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
@@ -298,7 +309,7 @@ impl DsGroupState {
         welcome: &AssistedWelcome,
     ) -> Result<Vec<DsFanOutMessage>, GroupOperationError> {
         let mut fan_out_messages = vec![];
-        for ((key_package, _), attribution_info) in added_users.into_iter() {
+        for ((key_package, _, _), attribution_info) in added_users.into_iter() {
             let client_queue_config = QsReference::tls_deserialize_exact_bytes(
                 key_package
                     .leaf_node()
@@ -322,6 +333,7 @@ impl DsGroupState {
                 group_state_ear_key: group_state_ear_key.clone(),
                 encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
                 ratchet_tree: self.group().export_ratchet_tree(),
+                encrypted_user_profile_keys: self.encrypted_user_profile_keys(),
             }
             .encrypt(&encryption_key, info, aad);
             let welcome_bundle = WelcomeBundle {
@@ -352,7 +364,11 @@ impl DsGroupState {
     }
 }
 
-type AddedUserInfo = (KeyPackage, EncryptedIdentityLinkKey);
+type AddedUserInfo = (
+    KeyPackage,
+    EncryptedIdentityLinkKey,
+    EncryptedUserProfileKey,
+);
 
 struct AddUsersState {
     added_users: Vec<(AddedUserInfo, EncryptedWelcomeAttributionInfo)>,
@@ -361,7 +377,7 @@ struct AddUsersState {
 
 fn validate_added_users(
     staged_commit: &StagedCommit,
-    aad_payload: &GroupOperationParamsAad,
+    aad_payload: GroupOperationParamsAad,
     add_users_info: AddUsersInfo,
 ) -> Result<AddUsersState, GroupOperationError> {
     let number_of_added_users = staged_commit.add_proposals().count();
@@ -398,7 +414,9 @@ fn validate_added_users(
     let added_users = staged_commit
         .add_proposals()
         .map(|ap| ap.add_proposal().key_package().clone())
-        .zip(aad_payload.new_encrypted_identity_link_keys.clone())
+        .zip(aad_payload.new_encrypted_identity_link_keys)
+        .zip(aad_payload.new_encrypted_user_profile_keys)
+        .map(|((kp, eilk), eupk)| (kp, eilk, eupk))
         .zip(add_users_info.encrypted_welcome_attribution_infos)
         .collect();
 

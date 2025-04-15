@@ -124,6 +124,7 @@ impl AuthService {
             initial_ratchet_secret: initial_ratchet_key,
             connection_packages,
             opaque_registration_record,
+            encrypted_user_profile,
         } = params;
 
         // Look up the initial client's ClientCredential in the ephemeral DB based on the user_name
@@ -139,12 +140,17 @@ impl AuthService {
         let password_file = ServerRegistration::finish(opaque_registration_record.client_message);
 
         // Create the user entry with the information given in the request
-        UserRecord::new_and_store(&self.db_pool, client_id.user_name(), &password_file)
-            .await
-            .map_err(|e| {
-                tracing::error!("Storage provider error: {:?}", e);
-                FinishUserRegistrationError::StorageError
-            })?;
+        UserRecord::new_and_store(
+            &self.db_pool,
+            client_id.user_name(),
+            &password_file,
+            &encrypted_user_profile,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Storage provider error: {:?}", e);
+            FinishUserRegistrationError::StorageError
+        })?;
 
         // Verify and store connection packages
         let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
