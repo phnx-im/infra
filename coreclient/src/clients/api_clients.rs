@@ -2,6 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    sync::Mutex,
+};
+
 use phnxapiclient::HttpClient;
 use phnxtypes::identifiers::Fqdn;
 
@@ -16,15 +21,23 @@ pub(crate) struct ApiClients {
     own_domain: Fqdn,
     own_domain_or_address: String,
     http_client: HttpClient,
+    clients: Arc<Mutex<HashMap<String, ApiClient>>>,
+    grpc_port: u16,
 }
 
 impl ApiClients {
-    pub(super) fn new(own_domain: Fqdn, own_domain_or_address: impl ToString) -> Self {
+    pub(super) fn new(
+        own_domain: Fqdn,
+        own_domain_or_address: impl ToString,
+        grpc_port: u16,
+    ) -> Self {
         let own_domain_or_address = own_domain_or_address.to_string();
         Self {
             own_domain,
             own_domain_or_address,
             http_client: ApiClient::new_http_client().expect("failed to initialize HTTP client"),
+            clients: Default::default(),
+            grpc_port,
         }
     }
 
@@ -34,7 +47,16 @@ impl ApiClients {
         } else {
             domain.to_string()
         };
-        Ok(ApiClient::initialize(self.http_client.clone(), domain)?)
+        let mut clients = self.clients.lock().unwrap();
+        let client = match clients.entry(domain) {
+            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Vacant(entry) => {
+                let client =
+                    ApiClient::initialize(self.http_client.clone(), entry.key(), self.grpc_port)?;
+                entry.insert(client).clone()
+            }
+        };
+        Ok(client)
     }
 
     pub(super) fn default_client(&self) -> Result<ApiClient, ApiClientsError> {

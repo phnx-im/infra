@@ -270,7 +270,7 @@ impl Verifiable for VerifiableClientToQsMessage {
         self.message.payload.tls_serialize_detached()
     }
 
-    fn signature(&self) -> &Signature {
+    fn signature(&self) -> impl AsRef<[u8]> {
         &self.message.token_or_signature
     }
 

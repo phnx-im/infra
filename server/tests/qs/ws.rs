@@ -29,7 +29,8 @@ async fn ws_reconnect() {
 
     // Initialize the client
     let address = format!("http://{http_addr}");
-    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
+        .expect("Failed to initialize client");
 
     let cancel = CancellationToken::new();
     let mut ws = client
@@ -68,7 +69,8 @@ async fn ws_sending() {
 
     // Initialize the client
     let address = format!("http://{http_addr}");
-    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
+        .expect("Failed to initialize client");
 
     let cancel = CancellationToken::new();
     let mut ws = client

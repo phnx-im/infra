@@ -53,6 +53,17 @@ impl Default for Ciphertext {
     }
 }
 
+impl Ciphertext {
+    pub fn new(ciphertext: Vec<u8>, nonce: [u8; AEAD_NONCE_SIZE]) -> Self {
+        Self { ciphertext, nonce }
+    }
+
+    pub fn into_parts(self) -> (Vec<u8>, [u8; AEAD_NONCE_SIZE]) {
+        let Self { ciphertext, nonce } = self;
+        (ciphertext, nonce)
+    }
+}
+
 #[cfg(any(feature = "test_utils", test))]
 impl Ciphertext {
     pub fn dummy() -> Self {

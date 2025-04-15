@@ -28,6 +28,7 @@ async fn user_stages() -> anyhow::Result<()> {
     let api_clients = ApiClients::new(
         as_client_id.user_name().domain().clone(),
         server_url.clone(),
+        setup.grpc_port(),
     );
 
     let computed_state = UserCreationState::new(

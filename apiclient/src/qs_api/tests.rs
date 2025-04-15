@@ -14,6 +14,7 @@ use actix_web::{
 use actix_web_actors::ws;
 use base64::{Engine as _, engine::general_purpose};
 use phnxtypes::{
+    DEFAULT_PORT_GRPC,
     codec::PhnxCodec,
     endpoint_paths::ENDPOINT_QS_WS,
     identifiers::QsClientId,
@@ -47,7 +48,8 @@ async fn ws_lifecycle() {
 
     // Initialize the client
     let address = format!("http://{}", address);
-    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address, DEFAULT_PORT_GRPC)
+        .expect("Failed to initialize client");
 
     // Spawn the websocket connection task
     let cancel = CancellationToken::new();

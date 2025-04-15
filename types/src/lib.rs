@@ -24,6 +24,7 @@ pub mod time;
 
 pub const DEFAULT_PORT_HTTP: u16 = 9420;
 pub const DEFAULT_PORT_HTTPS: u16 = 443;
+pub const DEFAULT_PORT_GRPC: u16 = 50051;
 
 pub const ACCEPTED_API_VERSIONS_HEADER: &str = "x-accepted-api-versions";
 

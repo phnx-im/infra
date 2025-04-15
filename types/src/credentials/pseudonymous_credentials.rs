@@ -205,7 +205,7 @@ pub struct SignedPseudonymousCredential {
 }
 
 impl Verifiable for SignedPseudonymousCredential {
-    fn signature(&self) -> &Signature {
+    fn signature(&self) -> impl AsRef<[u8]> {
         &self.signature
     }
 

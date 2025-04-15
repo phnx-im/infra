@@ -12,7 +12,7 @@ use std::{
 
 use once_cell::sync::Lazy;
 use phnxapiclient::ApiClient;
-use phnxtypes::{DEFAULT_PORT_HTTP, identifiers::Fqdn};
+use phnxtypes::{DEFAULT_PORT_GRPC, DEFAULT_PORT_HTTP, identifiers::Fqdn};
 
 use crate::{TRACING, test_scenarios::FederationTestScenario};
 
@@ -225,10 +225,11 @@ pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) -> boo
     let clients: HashMap<Fqdn, ApiClient> = domains
         .iter()
         .map(|domain| {
-            let domain_and_port = format!("http://{}:{}", domain, DEFAULT_PORT_HTTP);
+            let domain_and_port = format!("http://{domain}:{DEFAULT_PORT_HTTP}");
             (
                 domain.clone(),
-                ApiClient::initialize(http_client.clone(), domain_and_port).unwrap(),
+                ApiClient::initialize(http_client.clone(), domain_and_port, DEFAULT_PORT_GRPC)
+                    .unwrap(),
             )
         })
         .collect();
