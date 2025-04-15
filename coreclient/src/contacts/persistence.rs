@@ -11,13 +11,15 @@ use phnxtypes::{
     messages::FriendshipToken,
 };
 use sqlx::{
-    Database, Decode, Executor, Sqlite, SqliteExecutor, SqlitePool, error::BoxDynError,
-    prelude::Type, query, query_as,
+    Database, Decode, Sqlite, SqliteExecutor, SqlitePool, error::BoxDynError, prelude::Type, query,
+    query_as,
 };
 use tokio_stream::StreamExt;
 
 use crate::{
-    Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
+    Contact, ConversationId, PartialContact, UserProfile,
+    clients::connection_establishment::FriendshipPackage,
+    key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex},
     store::StoreNotifier,
 };
 
@@ -49,6 +51,7 @@ struct SqlContact {
     friendship_token: FriendshipToken,
     key_package_ear_key: KeyPackageEarKey,
     connection_key: ConnectionKey,
+    user_profile_key_index: UserProfileKeyIndex,
 }
 
 impl From<SqlContact> for Contact {
@@ -61,6 +64,7 @@ impl From<SqlContact> for Contact {
             conversation_id,
             key_package_ear_key,
             connection_key,
+            user_profile_key_index,
         }: SqlContact,
     ) -> Self {
         Self {
@@ -71,6 +75,7 @@ impl From<SqlContact> for Contact {
             key_package_ear_key,
             connection_key,
             conversation_id,
+            user_profile_key_index,
         }
     }
 }
@@ -89,7 +94,8 @@ impl Contact {
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 key_package_ear_key AS "key_package_ear_key: _",
-                connection_key AS "connection_key: _"
+                connection_key AS "connection_key: _",
+                user_profile_key_index AS "user_profile_key_index: _"
             FROM contacts WHERE user_name = ?"#,
             user_name
         )
@@ -108,7 +114,8 @@ impl Contact {
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 key_package_ear_key AS "key_package_ear_key: _",
-                connection_key AS "connection_key: _"
+                connection_key AS "connection_key: _",
+                user_profile_key_index AS "user_profile_key_index: _"
             FROM contacts"#
         )
         .fetch(executor)
@@ -119,7 +126,7 @@ impl Contact {
 
     pub(crate) async fn store(
         &self,
-        executor: impl Executor<'_, Database = Sqlite>,
+        executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         // TODO: Avoid creating Strings and collecting into a Vec.
@@ -132,8 +139,8 @@ impl Contact {
         query!(
             "INSERT INTO contacts
                 (user_name, conversation_id, clients, wai_ear_key, friendship_token,
-                key_package_ear_key, connection_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?)",
+                key_package_ear_key, connection_key, user_profile_key_index)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             self.user_name,
             self.conversation_id,
             clients_str,
@@ -141,6 +148,7 @@ impl Contact {
             self.friendship_token,
             self.key_package_ear_key,
             self.connection_key,
+            self.user_profile_key_index,
         )
         .execute(executor)
         .await?;
@@ -226,13 +234,12 @@ impl PartialContact {
         notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
-    ) -> sqlx::Result<Contact> {
-        let mut transaction = pool.begin().await?;
-
+        user_profile: &UserProfile,
+        user_profile_key: &UserProfileKey,
+    ) -> anyhow::Result<Contact> {
         let user_name = self.user_name.clone();
         let conversation_id = self.conversation_id;
 
-        self.delete(&mut *transaction, notifier).await?;
         let contact = Contact {
             user_name,
             conversation_id,
@@ -241,7 +248,14 @@ impl PartialContact {
             friendship_token: friendship_package.friendship_token,
             key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
+            user_profile_key_index: user_profile_key.index().clone(),
         };
+
+        let mut transaction = pool.begin().await?;
+
+        self.delete(&mut *transaction, notifier).await?;
+        user_profile.upsert(&mut *transaction, notifier).await?;
+        user_profile_key.store(&mut *transaction).await?;
         contact.store(&mut *transaction, notifier).await?;
 
         transaction.commit().await?;
@@ -261,16 +275,15 @@ mod tests {
     use sqlx::SqlitePool;
     use uuid::Uuid;
 
-    use crate::{
-        ConversationId, UserProfile, conversations::persistence::tests::test_conversation,
-    };
+    use crate::{ConversationId, conversations::persistence::tests::test_conversation};
 
     use super::*;
 
-    fn test_contact(conversation_id: ConversationId) -> Contact {
+    fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
         let user_id = Uuid::new_v4();
         let user_name: QualifiedUserName = format!("{user_id}@localhost").parse().unwrap();
-        Contact {
+        let user_profile_key = UserProfileKey::random(&user_name).unwrap();
+        let contact = Contact {
             user_name: user_name.clone(),
             clients: vec![AsClientId::new(user_name, user_id)],
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
@@ -278,7 +291,9 @@ mod tests {
             key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             conversation_id,
-        }
+            user_profile_key_index: user_profile_key.index().clone(),
+        };
+        (contact, user_profile_key)
     }
 
     fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
@@ -298,7 +313,8 @@ mod tests {
         let conversation = test_conversation();
         conversation.store(&pool, &mut store_notifier).await?;
 
-        let contact = test_contact(conversation.id());
+        let (contact, user_profile_key) = test_contact(conversation.id());
+        user_profile_key.store(&pool).await?;
         contact.store(&pool, &mut store_notifier).await?;
 
         let loaded = Contact::load(&pool, &contact.user_name).await?.unwrap();
@@ -354,6 +370,9 @@ mod tests {
         let partial = test_partial_contact(conversation.id());
         let user_name = partial.user_name.clone();
 
+        let user_profile_key = UserProfileKey::random(&user_name).unwrap();
+        user_profile_key.store(&pool).await?;
+
         partial.store(&pool, &mut store_notifier).await?;
 
         let friendship_package = FriendshipPackage {
@@ -361,7 +380,7 @@ mod tests {
             key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
-            user_profile: UserProfile::new(user_name.clone(), None, None),
+            user_profile_base_secret: user_profile_key.base_secret().clone(),
         };
         let contact = partial
             .mark_as_complete(
@@ -369,6 +388,8 @@ mod tests {
                 &mut store_notifier,
                 friendship_package,
                 AsClientId::new(user_name.clone(), Uuid::new_v4()),
+                &UserProfile::new(user_name.clone(), None, None),
+                &user_profile_key,
             )
             .await?;
 

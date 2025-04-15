@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use tls_codec::{Serialize, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
+use serde::{Deserialize, Serialize};
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::{
     credentials::{
@@ -11,10 +12,11 @@ use crate::{
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
+        ear::Ciphertext,
         kdf::keys::RatchetSecret,
         opaque::{OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse},
         signatures::{
-            signable::{Signature, Verifiable},
+            signable::{Signable, Signature, SignedStruct, Verifiable},
             traits::SignatureVerificationError,
         },
     },
@@ -135,6 +137,7 @@ pub enum AsProcessResponseIn {
     UserClients(UserClientsResponseIn),
     AsCredentials(AsCredentialsResponseIn),
     InitUserRegistration(InitUserRegistrationResponseIn),
+    GetUserProfile(GetUserProfileResponse),
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -205,6 +208,7 @@ pub struct FinishUserRegistrationParamsTbsIn {
     pub initial_ratchet_secret: RatchetSecret,
     pub connection_packages: Vec<ConnectionPackageIn>,
     pub opaque_registration_record: OpaqueRegistrationRecord,
+    pub encrypted_user_profile: EncryptedUserProfile,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -229,6 +233,105 @@ impl ClientCredentialAuthenticator for FinishUserRegistrationParamsIn {
     }
 
     const LABEL: &'static str = "Finish User Registration Parameters";
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct GetUserProfileParams {
+    pub client_id: AsClientId,
+}
+
+impl NoAuth for GetUserProfileParams {
+    fn into_verified(self) -> VerifiedAsRequestParams {
+        VerifiedAsRequestParams::GetUserProfile(self)
+    }
+}
+
+#[derive(
+    Debug,
+    Clone,
+    TlsSerialize,
+    TlsDeserializeBytes,
+    TlsSize,
+    PartialEq,
+    Eq,
+    sqlx::Type,
+    Serialize,
+    Deserialize,
+)]
+#[sqlx(transparent)]
+pub struct EncryptedUserProfile(Ciphertext);
+
+impl From<Ciphertext> for EncryptedUserProfile {
+    fn from(ciphertext: Ciphertext) -> Self {
+        Self(ciphertext)
+    }
+}
+
+impl AsRef<Ciphertext> for EncryptedUserProfile {
+    fn as_ref(&self) -> &Ciphertext {
+        &self.0
+    }
+}
+
+#[cfg(any(test, feature = "test_utils"))]
+impl EncryptedUserProfile {
+    pub fn dummy() -> Self {
+        let ctxt = Ciphertext::dummy();
+        Self(ctxt)
+    }
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct GetUserProfileResponse {
+    pub encrypted_user_profile: EncryptedUserProfile,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct UpdateUserProfileParamsTbs {
+    pub client_id: AsClientId,
+    pub user_profile: EncryptedUserProfile,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct UpdateUserProfileParams {
+    payload: UpdateUserProfileParamsTbs,
+    signature: Signature,
+}
+
+impl ClientCredentialAuthenticator for UpdateUserProfileParams {
+    type Tbs = FinishUserRegistrationParamsTbsIn;
+
+    fn client_id(&self) -> AsClientId {
+        self.payload.client_id.clone()
+    }
+
+    fn into_payload(self) -> VerifiedAsRequestParams {
+        VerifiedAsRequestParams::UpdateUserProfile(self.payload)
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    const LABEL: &'static str = "Finish User Registration Parameters";
+}
+
+impl Signable for UpdateUserProfileParamsTbs {
+    type SignedOutput = UpdateUserProfileParams;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        UpdateUserProfileParams::LABEL
+    }
+}
+
+impl SignedStruct<UpdateUserProfileParamsTbs> for UpdateUserProfileParams {
+    fn from_payload(payload: UpdateUserProfileParamsTbs, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -317,6 +420,8 @@ pub enum AsRequestParamsIn {
     EnqueueMessage(EnqueueMessageParams),
     AsCredentials(AsCredentialsParams),
     IssueTokens(IssueTokensParams),
+    GetUserProfile(GetUserProfileParams),
+    UpdateUserProfile(UpdateUserProfileParams),
 }
 
 impl AsRequestParamsIn {
@@ -349,6 +454,9 @@ impl AsRequestParamsIn {
             Self::IssueTokens(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
+            Self::UpdateUserProfile(params) => {
+                AsAuthMethod::ClientCredential(params.credential_auth_info())
+            }
             // We verify user registration finish requests like a
             // ClientCredentialAuth request and then additionally complete the
             // OPAQUE registration afterwards.
@@ -362,6 +470,7 @@ impl AsRequestParamsIn {
             Self::InitUserRegistration(params) => AsAuthMethod::None(params.into_verified()),
             Self::InitiateClientAddition(params) => AsAuthMethod::None(params.into_verified()),
             Self::AsCredentials(params) => AsAuthMethod::None(params.into_verified()),
+            Self::GetUserProfile(params) => AsAuthMethod::None(params.into_verified()),
         }
     }
 }

@@ -59,7 +59,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> TryFrom
     type Error = LibraryError;
 
     fn try_from(secret: RatchetSecret) -> Result<Self, Self::Error> {
-        let key = RatchetKey::derive(&secret, Vec::new()).map_err(|_| LibraryError)?;
+        let key = RatchetKey::derive(&secret, &Vec::new()).map_err(|_| LibraryError)?;
         Ok(Self {
             sequence_number: 0,
             secret,
@@ -82,9 +82,9 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
     }
 
     fn ratchet_forward(&mut self) -> Result<(), EncryptionError> {
-        let secret = RatchetSecret::derive(&self.secret, Vec::new())
+        let secret = RatchetSecret::derive(&self.secret, &Vec::new())
             .map_err(|_| EncryptionError::SerializationError)?;
-        let key = RatchetKey::derive(&secret, Vec::new())
+        let key = RatchetKey::derive(&secret, &Vec::new())
             .map_err(|_| EncryptionError::SerializationError)?;
 
         self.secret = secret;

@@ -25,7 +25,7 @@ use super::{AEAD_KEY_SIZE, AEAD_NONCE_SIZE, Aead, Ciphertext};
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].
 /// It enables use of these keys for encryption and decryption operations.
-pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> + From<Secret<AEAD_KEY_SIZE>> {
+pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
     // Encrypt the given plaintext under the given key. Generates a random nonce internally.
     #[instrument(level = "trace", skip_all, fields(key_type = std::any::type_name::<Self>()))]
     fn encrypt(&self, plaintext: &[u8]) -> Result<Ciphertext, EncryptionError> {

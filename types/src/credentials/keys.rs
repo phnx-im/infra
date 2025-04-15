@@ -261,11 +261,10 @@ impl PseudonymousCredentialSigningKey {
         };
 
         // Derive the identity link key based on the TBS
-        let identity_link_key =
-            IdentityLinkKey::derive(connection_key, tbs.clone()).map_err(|e| {
-                error!(%e, "Failed to derive identity link key");
-                CredentialCreationError::KeyDerivationFailed
-            })?;
+        let identity_link_key = IdentityLinkKey::derive(connection_key, &tbs).map_err(|e| {
+            error!(%e, "Failed to derive identity link key");
+            CredentialCreationError::KeyDerivationFailed
+        })?;
 
         // Sign the TBS and encrypt the identity link
         let signed_pseudonymous_credential = tbs.sign(client_signer).unwrap();

@@ -75,7 +75,7 @@ impl Serialize for TlsStr<'_> {
 )]
 #[sqlx(transparent)]
 #[serde(transparent)]
-pub(super) struct TlsString(pub String);
+pub struct TlsString(pub String);
 
 impl fmt::Display for TlsString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -22,11 +22,14 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{ConversationMessage, PartialContact, conversations::ConversationType, groups::Group};
+use crate::{
+    ConversationMessage, PartialContact, conversations::ConversationType, groups::Group,
+    key_stores::indexed_keys::UserProfileKey,
+};
 
 use super::{
-    Asset, Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
-    TimestampedMessage, UserProfile, anyhow,
+    Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
+    TimestampedMessage, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
@@ -100,7 +103,7 @@ impl CoreUser {
     ) -> Result<ProcessQsMessageResult> {
         // WelcomeBundle Phase 1: Join the group. This might involve
         // loading AS credentials or fetching them from the AS.
-        let group = Group::join_group(
+        let (group, member_profile_info) = Group::join_group(
             welcome_bundle,
             &self.inner.key_store.wai_ear_key,
             self.pool(),
@@ -109,15 +112,24 @@ impl CoreUser {
         .await?;
         let group_id = group.group_id().clone();
 
-        // WelcomeBundle Phase 2: Store the user profiles of the group
+        // WelcomeBundle Phase 2: Fetch the user profiles of the group members
+        // and decrypt them.
+
+        // TODO: This can fail in some cases. If it does, we should fetch and
+        // process messages and then try again.
+        let mut user_profiles = Vec::with_capacity(member_profile_info.len());
+        for profile_info in member_profile_info {
+            let user_profile = self.fetch_user_profile(profile_info).await?;
+            user_profiles.push(user_profile);
+        }
+
+        // WelcomeBundle Phase 3: Store the user profiles of the group
         // members if they don't exist yet and store the group and the
         // new conversation.
         let conversation_id = self
             .with_transaction_and_notifier(async |connection, notifier| {
-                for user_name in group.members(&mut *connection).await.into_iter() {
-                    UserProfile::new(user_name, None, None)
-                        .store(&mut *connection, notifier)
-                        .await?;
+                for user_profile in user_profiles {
+                    user_profile.store(&mut *connection, notifier).await?;
                 }
 
                 // Set the conversation attributes according to the group's
@@ -270,16 +282,15 @@ impl CoreUser {
 
         if let ConversationType::UnconfirmedConnection(user_name) = conversation.conversation_type()
         {
-            let user_name = user_name.clone();
             // Check if it was an external commit and if the user name matches
             if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_id.user_name() == &user_name
+                && sender_client_id.user_name() == user_name
             {
                 // TODO: Handle the fact that an unexpected user joined the connection group.
             }
             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
             // friendship package
-            let partial_contact = PartialContact::load(self.pool(), &user_name)
+            let partial_contact = PartialContact::load(self.pool(), user_name)
                 .await?
                 .ok_or_else(|| anyhow!("No partial contact found for user name {}", user_name))?;
 
@@ -301,23 +312,16 @@ impl CoreUser {
                 &encrypted_friendship_package,
             )?;
 
-            // UnconfirmedConnection Phase 2: Store the user profile of the sender and the contact.
-            friendship_package
-                .user_profile
-                .update(self.pool(), &mut notifier)
+            let user_profile_key = UserProfileKey::from_base_secret(
+                friendship_package.user_profile_base_secret.clone(),
+                user_name,
+            )?;
+
+            // UnconfirmedConnection Phase 2: Fetch the user profile.
+            let user_profile = self
+                .fetch_user_profile((sender_client_id.clone(), user_profile_key.clone()))
                 .await?;
 
-            // Set the picture of the conversation to the one of the contact.
-            let conversation_picture_option = friendship_package
-                .user_profile
-                .profile_picture()
-                .map(|asset| match asset {
-                    Asset::Value(value) => value.to_owned(),
-                });
-
-            conversation
-                .set_conversation_picture(self.pool(), &mut notifier, conversation_picture_option)
-                .await?;
             // Now we can turn the partial contact into a full one.
             partial_contact
                 .mark_as_complete(
@@ -325,6 +329,8 @@ impl CoreUser {
                     &mut notifier,
                     friendship_package,
                     sender_client_id.clone(),
+                    &user_profile,
+                    &user_profile_key,
                 )
                 .await?;
 
