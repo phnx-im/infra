@@ -71,7 +71,7 @@ impl Signature {
         &self.0
     }
 
-    pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
         Self(bytes)
     }
 
@@ -86,6 +86,12 @@ impl Signature {
     #[cfg(any(feature = "test_utils", test))]
     pub fn new_for_test(value: Vec<u8>) -> Self {
         Self::from_bytes(value)
+    }
+}
+
+impl AsRef<[u8]> for Signature {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
     }
 }
 
@@ -215,7 +221,7 @@ pub trait Verifiable: Sized + std::fmt::Debug {
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error>;
 
     /// A reference to the signature to be verified.
-    fn signature(&self) -> &Signature;
+    fn signature(&self) -> impl AsRef<[u8]>;
 
     /// Return the string label used for labeled verification.
     fn label(&self) -> &str;
@@ -240,7 +246,7 @@ pub trait Verifiable: Sized + std::fmt::Debug {
         let serialized_sign_content = sign_content
             .tls_serialize_detached()
             .map_err(LibraryError::missing_bound_check)?;
-        signature_public_key.verify(&serialized_sign_content, self.signature())?;
+        signature_public_key.verify(&serialized_sign_content, self.signature().as_ref())?;
         Ok(T::from_verifiable(self, T::SealingType::default()))
     }
 }

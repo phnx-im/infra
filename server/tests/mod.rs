@@ -19,19 +19,21 @@ use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
+use tracing_subscriber::EnvFilter;
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]
 async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
     let network_provider = MockNetworkProvider::new();
-    let ((http_addr, _grpc_addr), _ws_dispatch) =
+    let ((http_addr, grpc_addr), _ws_dispatch) =
         spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let address = format!("http://{http_addr}");
 
     // Initialize the client
-    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
+        .expect("Failed to initialize client");
 
     // Do the health check
     assert!(client.health_check().await);
@@ -189,6 +191,8 @@ async fn leave_group() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn delete_group() {
+    init_test_tracing();
+
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
@@ -213,12 +217,13 @@ async fn create_user() {
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
     let network_provider = MockNetworkProvider::new();
-    let ((http_addr, _grpc_addr), _ws_dispatch) =
+    let ((http_addr, grpc_addr), _ws_dispatch) =
         spawn_app(Some("localhost".parse().unwrap()), network_provider).await;
 
     // Initialize the client
     let address = format!("http://{http_addr}");
-    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
+        .expect("Failed to initialize client");
 
     // Call the inexistant endpoint
     assert!(client.inexistant_endpoint().await);
@@ -637,4 +642,11 @@ async fn error_if_user_doesnt_exist() {
     let res = alice.add_contact(BOB.clone()).await;
 
     assert!(res.is_err());
+}
+
+fn init_test_tracing() {
+    let _ = tracing_subscriber::fmt::fmt()
+        .with_test_writer()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init();
 }

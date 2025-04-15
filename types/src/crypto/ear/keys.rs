@@ -431,6 +431,12 @@ impl From<Ciphertext> for EncryptedIdentityLinkKey {
     }
 }
 
+impl From<EncryptedIdentityLinkKey> for Ciphertext {
+    fn from(EncryptedIdentityLinkKey { ciphertext }: EncryptedIdentityLinkKey) -> Self {
+        ciphertext
+    }
+}
+
 impl AsRef<Ciphertext> for EncryptedIdentityLinkKey {
     fn as_ref(&self) -> &Ciphertext {
         &self.ciphertext

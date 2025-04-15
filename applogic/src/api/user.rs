@@ -17,6 +17,7 @@ use phnxcoreclient::{
     open_client_db,
 };
 use phnxtypes::{
+    DEFAULT_PORT_GRPC,
     identifiers::{AsClientId, QualifiedUserName},
     messages::push_token::PushTokenOperator,
 };
@@ -81,6 +82,7 @@ impl User {
             user_name.clone(),
             &password,
             address,
+            DEFAULT_PORT_GRPC,
             &path,
             push_token.map(|p| p.into()),
         )
