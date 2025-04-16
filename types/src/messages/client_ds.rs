@@ -605,9 +605,7 @@ impl DeserializeBytes for VerifiableClientToDsMessage {
     where
         Self: Sized,
     {
-        println!("Deserializing ClientToDsMessageIn");
         let (message, remainder) = ClientToDsMessageIn::tls_deserialize_bytes(bytes)?;
-        println!("Deserialized ClientToDsMessageIn");
         // We want the payload to be the TBS bytes, which means we want all the bytes except the signature.
         let serialized_payload = bytes
             .get(..bytes.len() - remainder.len() - message.signature.tls_serialized_len())
