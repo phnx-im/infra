@@ -2,12 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use anyhow::Context;
 use phnxtypes::{
     crypto::ear::{EarDecryptable, EarEncryptable},
-    messages::client_as_out::GetUserProfileResponse,
+    messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
 
-use crate::{UserProfile, groups::ProfileInfo, key_stores::indexed_keys::UserProfileKey};
+use crate::{
+    UserProfile,
+    groups::{Group, ProfileInfo},
+    key_stores::indexed_keys::UserProfileKey,
+};
 
 use super::CoreUser;
 
@@ -20,7 +25,9 @@ impl CoreUser {
 
         notifier.notify();
 
-        let user_profile_key = UserProfileKey::load_own(self.pool()).await?;
+        let mut connection = self.pool().acquire().await?;
+
+        let user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
 
         // Phase 2: Encrypt the user profile
         let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
@@ -35,6 +42,29 @@ impl CoreUser {
                 encrypted_user_profile,
             )
             .await?;
+
+        // Phase 4: Send a notification to all groups
+        let groups_ids = Group::load_all_group_ids(&mut *connection).await?;
+        for group_id in groups_ids {
+            let group = Group::load(&mut *connection, &group_id)
+                .await?
+                .context("Failed to load group")?;
+            let own_index = group.own_index();
+            let user_profile_key = user_profile_key.encrypt(group.identity_link_wrapper_key())?;
+            let params = UserProfileKeyUpdateParams {
+                group_id,
+                sender_index: own_index,
+                epoch: group.epoch(),
+                user_profile_key: user_profile_key.clone(),
+            };
+            api_client
+                .ds_user_profile_key_update(
+                    params,
+                    group.leaf_signer(),
+                    group.group_state_ear_key(),
+                )
+                .await?;
+        }
 
         Ok(())
     }

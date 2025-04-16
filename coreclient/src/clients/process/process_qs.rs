@@ -15,7 +15,7 @@ use phnxtypes::{
         QueueMessage,
         client_ds::{
             ExtractedQsQueueMessage, ExtractedQsQueueMessagePayload, InfraAadMessage,
-            InfraAadPayload, WelcomeBundle,
+            InfraAadPayload, UserProfileKeyUpdateParams, WelcomeBundle,
         },
     },
     time::TimeStamp,
@@ -34,6 +34,7 @@ use super::{
 use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
 pub enum ProcessQsMessageResult {
+    None,
     NewConversation(ConversationId),
     ConversationChanged(ConversationId, Vec<ConversationMessage>),
     ConversationMessages(Vec<ConversationMessage>),
@@ -93,6 +94,12 @@ impl CoreUser {
             }
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                 self.handle_mls_message(*mls_message, ds_timestamp).await
+            }
+            ExtractedQsQueueMessagePayload::UserProfileKeyUpdate(
+                user_profile_key_update_params,
+            ) => {
+                self.handle_user_profile_key_update(user_profile_key_update_params)
+                    .await
             }
         }
     }
@@ -357,6 +364,41 @@ impl CoreUser {
         Ok((group_messages, conversation_changed))
     }
 
+    async fn handle_user_profile_key_update(
+        &self,
+        params: UserProfileKeyUpdateParams,
+    ) -> anyhow::Result<ProcessQsMessageResult> {
+        let mut connection = self.pool().acquire().await?;
+
+        // Phase 1: Load the group and the sender.
+        let group = Group::load(&mut connection, &params.group_id)
+            .await?
+            .context("No group found")?;
+        let sender = group
+            .client_by_index(&mut connection, params.sender_index)
+            .await
+            .context("No sender found")?;
+
+        // Phase 2: Decrypt the new user profile key
+        let new_user_profile_key = UserProfileKey::decrypt(
+            group.identity_link_wrapper_key(),
+            &params.user_profile_key,
+            sender.user_name(),
+        )?;
+
+        // Phase 3: Fetch the (new) user profile
+        let user_profile = self
+            .fetch_user_profile((sender, new_user_profile_key))
+            .await?;
+
+        // Phase 4: Store the new user profile
+        let mut notifier = self.store_notifier();
+        user_profile.upsert(&mut *connection, &mut notifier).await?;
+        notifier.notify();
+
+        Ok(ProcessQsMessageResult::None)
+    }
+
     fn handle_external_join_proposal_message(
         &self,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
@@ -389,6 +431,7 @@ impl CoreUser {
                 ProcessQsMessageResult::NewConversation(conversation_id) => {
                     new_conversations.push(conversation_id)
                 }
+                ProcessQsMessageResult::None => {}
             };
         }
 
