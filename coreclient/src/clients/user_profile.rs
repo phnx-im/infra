@@ -44,9 +44,9 @@ impl CoreUser {
             .await?;
 
         // Phase 4: Send a notification to all groups
-        let groups_ids = Group::load_all_group_ids(&mut *connection).await?;
+        let groups_ids = Group::load_all_group_ids(&mut connection).await?;
         for group_id in groups_ids {
-            let group = Group::load(&mut *connection, &group_id)
+            let group = Group::load(&mut connection, &group_id)
                 .await?
                 .context("Failed to load group")?;
             let own_index = group.own_index();
