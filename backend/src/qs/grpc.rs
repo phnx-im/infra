@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::pin::Pin;
+
 use phnxprotos::queue_service::v1::{queue_service_server::QueueService, *};
+use tokio_stream::Stream;
 use tonic::{Request, Response, Status, async_trait};
 
 use super::Qs;
@@ -94,6 +97,16 @@ impl QueueService for GrpcQs {
         &self,
         _request: Request<QsEncryptionKeyRequest>,
     ) -> Result<Response<QsEncryptionKeyResponse>, Status> {
+        todo!()
+    }
+
+    type ListenStream =
+        Pin<Box<dyn Stream<Item = Result<ListenResponse, Status>> + Send + 'static>>;
+
+    async fn listen(
+        &self,
+        _request: Request<ListenRequest>,
+    ) -> Result<Response<Self::ListenStream>, Status> {
         todo!()
     }
 }

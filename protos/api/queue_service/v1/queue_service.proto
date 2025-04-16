@@ -7,6 +7,7 @@ syntax = "proto3";
 package queue_service.v1;
 
 import "common/v1/common.proto";
+import "delivery_service/v1/delivery_service.proto";
 
 service QueueService {
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
@@ -24,6 +25,8 @@ service QueueService {
   rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
 
   rpc QsEncryptionKey(QsEncryptionKeyRequest) returns (QsEncryptionKeyResponse);
+
+  rpc Listen(ListenRequest) returns (stream ListenResponse);
 }
 
 // common
@@ -194,4 +197,27 @@ message QsEncryptionKeyResponse {
 
 message ClientIdEncryptionKey {
   bytes bytes = 1;
+}
+
+// listen
+
+message ListenRequest {
+  QsClientId client_id = 1;
+}
+
+message ListenResponse {
+  oneof event {
+    ListenQueueUpdate queue_update = 1;
+    ListenEventMessage message = 2;
+  }
+}
+
+message ListenQueueUpdate {}
+
+message ListenEventMessage {
+  common.v1.GroupId group_id = 1;
+  delivery_service.v1.LeafNodeIndex sender = 2;
+  delivery_service.v1.GroupEpoch epoch = 3;
+  common.v1.Timestamp timestamp = 4;
+  bytes payload = 5;
 }

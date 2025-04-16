@@ -38,11 +38,10 @@ impl Qs {
         network_provider: &N,
         message: DsFanOutMessage,
     ) -> Result<(), QsEnqueueError<N>> {
-        let own_domain = self.domain.clone();
-        if message.client_reference.client_homeserver_domain != own_domain {
+        if message.client_reference.client_homeserver_domain != self.domain {
             let qs_to_qs_message = QsToQsMessage {
                 protocol_version: MlsInfraVersion::Alpha,
-                sender: own_domain.clone(),
+                sender: self.domain.clone(),
                 recipient: message.client_reference.client_homeserver_domain.clone(),
                 payload: QsToQsPayload::FanOutMessageRequest(message.clone()),
             };
