@@ -9,13 +9,14 @@ use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::spawn_app;
 use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 /// Test the websocket reconnect.
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS Reconnect", skip_all)]
 async fn ws_reconnect() {
     let network_provider = MockNetworkProvider::new();
-    let (address, _ws_dispatch) =
+    let ((http_addr, grpc_addr), _ws_dispatch) =
         spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let client_id = QsClientId::random(&mut OsRng);
@@ -24,10 +25,10 @@ async fn ws_reconnect() {
     let timeout = 1;
     let retry_interval = 1;
 
-    tracing::info!("Server started: {}", address.to_string());
+    info!(%http_addr, %grpc_addr, "Server started");
 
     // Initialize the client
-    let address = format!("http://{}", address);
+    let address = format!("http://{http_addr}");
     let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     let cancel = CancellationToken::new();
@@ -54,7 +55,7 @@ async fn ws_reconnect() {
 #[tracing::instrument(name = "Test WS Sending", skip_all)]
 async fn ws_sending() {
     let network_provider = MockNetworkProvider::new();
-    let (address, ws_dispatch) =
+    let ((http_addr, grpc_addr), ws_dispatch) =
         spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let client_id = QsClientId::random(&mut OsRng);
@@ -63,10 +64,10 @@ async fn ws_sending() {
     let timeout = 1;
     let retry_interval = 1;
 
-    tracing::info!("Server started: {}", address.to_string());
+    info!(%http_addr, %grpc_addr, "Server started");
 
     // Initialize the client
-    let address = format!("http://{}", address);
+    let address = format!("http://{http_addr}");
     let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
 
     let cancel = CancellationToken::new();

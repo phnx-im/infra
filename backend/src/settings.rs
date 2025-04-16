@@ -21,8 +21,14 @@ pub struct Settings {
 #[derive(Deserialize, Clone, Debug)]
 pub struct ApplicationSettings {
     pub port: u16,
+    #[serde(default = "default_grpc_port")]
+    pub grpc_port: u16,
     pub host: String,
     pub domain: String,
+}
+
+fn default_grpc_port() -> u16 {
+    50051
 }
 
 /// Configuration for the database.

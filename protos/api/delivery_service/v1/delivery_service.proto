@@ -1,0 +1,248 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+syntax = "proto3";
+
+package delivery_service.v1;
+
+import "common/v1/common.proto";
+
+service DeliveryService {
+  rpc RequestGroupId(RequestGroupIdRequest) returns (RequestGroupIdResponse);
+
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+
+  rpc WelcomeInfo(WelcomeInfoRequest) returns (WelcomeInfoResponse);
+
+  rpc ExternalCommitInfo(ExternalCommitInfoRequest) returns (ExternalCommitInfoResponse);
+
+  rpc ConnectionGroupInfo(ConnectionGroupInfoRequest) returns (ConnectionGroupInfoResponse);
+
+  rpc UpdateQsClientReference(UpdateQsClientReferenceRequest) returns (UpdateQsClientReferenceResponse);
+
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+
+  rpc JoinConnectionGroup(JoinConnectionGroupRequest) returns (JoinConnectionGroupResponse);
+
+  rpc Resync(ResyncRequest) returns (ResyncResponse);
+
+  rpc SelfRemove(SelfRemoveRequest) returns (SelfRemoveResponse);
+
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
+
+  rpc GroupOperation(GroupOperationRequest) returns (GroupOperationResponse);
+}
+
+// request group id
+
+message RequestGroupIdRequest {}
+
+message RequestGroupIdResponse {
+  common.v1.GroupId group_id = 1;
+}
+
+message GroupStateEarKey {
+  bytes key = 1;
+}
+
+// create group
+
+message CreateGroupRequest {
+  common.v1.QualifiedGroupId qgid = 1;
+  GroupStateEarKey group_state_ear_key = 2;
+  RatchetTree ratchet_tree = 3;
+  EncryptedIdentityLinkKey encrypted_identity_link_key = 4;
+  QsReference creator_client_reference = 5;
+  MlsMessage group_info = 6;
+}
+
+message RatchetTree {
+  bytes tls = 1;
+}
+
+message EncryptedIdentityLinkKey {
+  common.v1.Ciphertext ciphertext = 1;
+}
+
+message QsReference {
+  common.v1.Fqdn client_homeserver_domain = 1;
+  SealedClientReference sealed_reference = 2;
+}
+
+message SealedClientReference {
+  HpkeCiphertext ciphertext = 1;
+}
+
+message HpkeCiphertext {
+  bytes tls = 1;
+}
+
+message MlsMessage {
+  bytes tls = 1;
+}
+
+message CreateGroupResponse {}
+
+// welcome info
+
+message WelcomeInfoRequest {
+  common.v1.Signature signature = 1;
+  WelcomeInfoPayload payload = 2;
+}
+
+message WelcomeInfoPayload {
+  common.v1.QualifiedGroupId qgid = 1;
+  GroupStateEarKey group_state_ear_key = 2;
+  SignaturePublicKey sender = 3;
+  GroupEpoch epoch = 4;
+}
+
+message SignaturePublicKey {
+  bytes bytes = 1;
+}
+
+message GroupEpoch {
+  uint64 value = 1;
+}
+
+message WelcomeInfoResponse {
+  RatchetTree ratchet_tree = 1;
+}
+
+// external commit info
+
+message ExternalCommitInfoRequest {
+  common.v1.GroupId group_id = 1;
+}
+
+message ExternalCommitInfoResponse {
+  VerifiableGroupInfo verifiable_group_info = 1;
+  RatchetTree ratchet_tree = 2;
+  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+}
+
+message VerifiableGroupInfo {
+  bytes tls = 1;
+}
+
+// connection group info
+
+message ConnectionGroupInfoRequest {
+  common.v1.GroupId group_id = 1;
+}
+
+message ConnectionGroupInfoResponse {
+  VerifiableGroupInfo verifiable_group_info = 1;
+  RatchetTree ratchet_tree = 2;
+  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+}
+
+// update qs client reference
+
+message UpdateQsClientReferenceRequest {
+  common.v1.GroupId group_id = 1;
+  LeafNodeIndex sender = 2;
+  QsReference new_qs_reference = 3;
+}
+
+message LeafNodeIndex {
+  uint32 index = 1;
+}
+
+message UpdateQsClientReferenceResponse {}
+
+// update
+
+message UpdateRequest {
+  AssistedMessage commit = 1;
+}
+
+message AssistedMessage {
+  bytes tls = 1;
+}
+
+message UpdateResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// join connection group
+
+message JoinConnectionGroupRequest {
+  AssistedMessage extenal_commit = 1;
+  QsReference qs_client_reference = 2;
+}
+
+message JoinConnectionGroupResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// resync
+
+message ResyncRequest {
+  AssistedMessage extenal_commit = 1;
+  LeafNodeIndex sender = 2;
+}
+
+message ResyncResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// self remove
+
+message SelfRemoveRequest {
+  AssistedMessage remove_proposal = 1;
+}
+
+message SelfRemoveResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// send message
+
+message SendMessageRequest {
+  SendMessagePayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message SendMessagePayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage message = 2;
+  LeafNodeIndex sender = 3;
+}
+
+message SendMessageResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// delete group
+
+message DeleteGroupRequest {
+  AssistedMessage commit = 1;
+}
+
+message DeleteGroupResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}
+
+// group operation
+
+message GroupOperationRequest {
+  AssistedMessage commit = 1;
+  optional AddUsersInfo add_users_info = 2;
+}
+
+message AddUsersInfo {
+  MlsMessage welcome = 1;
+  repeated EncryptedWelcomeAttributionInfo encrypted_welcome_attribution_info = 2;
+}
+
+message EncryptedWelcomeAttributionInfo {
+  bytes ciphertext = 1;
+}
+
+message GroupOperationResponse {
+  common.v1.Timestamp fanout_timestamp = 1;
+}

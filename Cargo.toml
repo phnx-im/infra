@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [workspace]
-
 resolver = "2"
 
 members = [
@@ -14,9 +13,15 @@ members = [
     "test_harness",
     "types",
     "applogic",
+    "protos",
 ]
 
 [workspace.dependencies]
+# internal dependencies
+phnxtypes = { path = "./types" }
+phnxprotos = { path = "./protos" }
+
+uuid = "1.16.0"
 
 sqlx = { version = "0.8.2", default-features = false, features = [
     "macros",
@@ -46,7 +51,6 @@ openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
 openmls_traits = { git = "https://github.com/openmls/openmls" }
 mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
-phnxtypes = { path = "./types" }
 
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
@@ -54,12 +58,19 @@ tracing-subscriber = { version = "0.3", features = [
     "parking_lot",
 ] }
 
+tokio-stream = "0.1.17"
 tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }
 
 mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "71495dc8fc794111c381649c4c6cbc6e258a0135" }
 
 insta = { version = "1.42.1", features = ["json"] }
+
+# grpc/protobuf
+prost = "0.13.5"
+tonic = "0.13.0"
+tonic-build = "0.13.0"
+tower-http = { version = "0.6.2", features = ["trace"] }
 
 [patch.crates-io]
 #opaque-ke = { git = "https://github.com/facebook/opaque-ke", branch = "dependabot/cargo/voprf-eq-0.5.0" }

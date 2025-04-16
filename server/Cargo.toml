@@ -23,6 +23,8 @@ api_docs = []
 [dependencies]
 phnxbackend = { path = "../backend" }
 phnxtypes = { path = "../types" }
+phnxprotos = { path = "../protos" }
+
 actix-web = "^4.0"
 serde = "1"
 serde_json = "1.0"
@@ -41,10 +43,11 @@ tracing-actix-web = "0.7"
 jsonwebtoken = "9"
 opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 zeroize = "1.8.1"
-
-# Workspace dependencies
 tls_codec = { workspace = true }
 reqwest = { workspace = true }
+tonic = { workspace = true }
+tower-http = { workspace = true }
+tokio-stream = { workspace = true, features = ["net"] }
 
 [dev-dependencies]
 actix-rt = "^2.7"

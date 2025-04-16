@@ -12,7 +12,7 @@ use phnxbackend::{
 
 use crate::endpoints::qs::ws::DispatchWebsocketNotifier;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider> {
     pub qs: Qs,
     pub notifier: DispatchWebsocketNotifier,
@@ -23,7 +23,10 @@ pub struct SimpleEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider
 impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for SimpleEnqueueProvider<N, P> {
     type EnqueueError = QsEnqueueError<N>;
 
-    async fn dispatch(&self, message: DsFanOutMessage) -> Result<(), Self::EnqueueError> {
+    fn dispatch(
+        &self,
+        message: DsFanOutMessage,
+    ) -> impl Future<Output = Result<(), Self::EnqueueError>> + Send {
         Qs::enqueue_message(
             &self.qs,
             &self.notifier,
@@ -31,6 +34,5 @@ impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for SimpleEnqu
             &self.network,
             message,
         )
-        .await
     }
 }
