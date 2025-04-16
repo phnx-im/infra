@@ -135,4 +135,27 @@ impl Group {
         transaction.commit().await?;
         Ok(())
     }
+
+    pub(crate) async fn load_all_group_ids(
+        connection: &mut sqlx::SqliteConnection,
+    ) -> sqlx::Result<Vec<GroupId>> {
+        struct SqlGroupId {
+            group_id: GroupIdWrapper,
+        }
+        let group_ids = query_as!(
+            SqlGroupId,
+            r#"SELECT group_id AS "group_id: _" FROM groups"#,
+        )
+        .fetch_all(connection)
+        .await?;
+
+        Ok(group_ids
+            .into_iter()
+            .map(
+                |SqlGroupId {
+                     group_id: GroupIdWrapper(group_id),
+                 }| group_id,
+            )
+            .collect())
+    }
 }

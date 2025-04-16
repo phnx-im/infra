@@ -458,20 +458,32 @@ async fn exchange_user_profiles() {
 
     assert!(bob_user_profile.display_name().unwrap() == &bob_display_name);
 
-    let alice_user_profile = setup
-        .users
-        .get(&BOB)
-        .unwrap()
-        .user
-        .user_profile(&ALICE)
-        .await
-        .unwrap()
-        .unwrap();
+    let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
+
+    let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
 
     assert_eq!(
         alice_user_profile.display_name().unwrap(),
         &alice_display_name
     );
+
+    let new_user_profile = UserProfile::new(
+        (*ALICE).clone(),
+        Some(DisplayName::try_from("New Alice".to_string()).unwrap()),
+        None,
+    );
+
+    alice
+        .set_own_user_profile(new_user_profile.clone())
+        .await
+        .unwrap();
+
+    let bob = &mut setup.users.get_mut(&BOB).unwrap().user;
+    let qs_messages = bob.qs_fetch_messages().await.unwrap();
+    bob.fully_process_qs_messages(qs_messages).await.unwrap();
+    let alice_user_profile = bob.user_profile(&ALICE).await.unwrap().unwrap();
+
+    assert_eq!(alice_user_profile, new_user_profile);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

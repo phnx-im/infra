@@ -24,7 +24,7 @@ use phnxtypes::{
     messages::{
         client_ds::{
             ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-            WelcomeInfoParams,
+            UserProfileKeyUpdateParams, WelcomeInfoParams,
         },
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
@@ -398,7 +398,29 @@ impl ApiClient {
         })
     }
 
-    /// Delete the given group.
+    /// Update the user's user profile key
+    pub async fn ds_user_profile_key_update(
+        &self,
+        params: UserProfileKeyUpdateParams,
+        signing_key: &PseudonymousCredentialSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<(), DsRequestError> {
+        self.prepare_and_send_ds_group_message(
+            DsGroupRequestParamsOut::UserProfileKeyUpdate(params),
+            signing_key,
+            group_state_ear_key,
+        )
+        .await
+        .and_then(|response| {
+            if let DsProcessResponseIn::Ok = response {
+                Ok(())
+            } else {
+                Err(DsRequestError::UnexpectedResponse)
+            }
+        })
+    }
+
+    /// Request a group ID.
     pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
         let ds_response = self
             .prepare_and_send_ds_message::<ClientSigningKey>(
