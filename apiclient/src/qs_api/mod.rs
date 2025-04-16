@@ -45,6 +45,7 @@ use crate::{
     version::{extract_api_version_negotiation, negotiate_api_version},
 };
 
+pub mod grpc;
 pub mod ws;
 
 #[cfg(test)]
@@ -396,7 +397,7 @@ impl ApiClient {
         let message_bytes = message.tls_serialize_detached()?;
         let endpoint = self.build_url(Protocol::Http, ENDPOINT_QS);
         let response = self
-            .client
+            .http_client()
             .post(&endpoint)
             .body(message_bytes)
             .send()

@@ -506,7 +506,7 @@ impl ApiClient {
         let message_bytes = message.tls_serialize_detached()?;
         let endpoint = self.build_url(Protocol::Http, ENDPOINT_AS);
         let response = self
-            .client
+            .http_client()
             .post(endpoint)
             .body(message_bytes)
             .send()

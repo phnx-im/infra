@@ -19,14 +19,19 @@ use actix_web::{
 use phnxbackend::{
     auth_service::AuthService,
     ds::{Ds, GrpcDs},
-    qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider::NetworkProvider},
+    qs::{
+        Qs, QsConnector, errors::QsEnqueueError, grpc::GrpcQs, network_provider::NetworkProvider,
+    },
 };
-use phnxprotos::delivery_service::v1::delivery_service_server::DeliveryServiceServer;
+use phnxprotos::{
+    delivery_service::v1::delivery_service_server::DeliveryServiceServer,
+    queue_service::v1::queue_service_server::QueueServiceServer,
+};
 use phnxtypes::endpoint_paths::{
     ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
     ENDPOINT_QS_WS,
 };
-use std::{io, net::TcpListener};
+use std::{io, net::TcpListener, time::Duration};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{body::Body, codegen::http};
 use tower_http::trace::{DefaultOnRequest, TraceLayer};
@@ -55,7 +60,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds.clone());
     let auth_service_data = Data::new(auth_service);
-    let qs_data = Data::new(qs);
+    let qs_data = Data::new(qs.clone());
     let qs_connector_data = Data::new(qs_connector.clone());
     let network_provider_data = Data::new(network_provider);
     let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier);
@@ -99,6 +104,8 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
 
     // GRPC server
     let grpc_ds = GrpcDs::new(ds, qs_connector);
+    let grpc_qs = GrpcQs::new(qs);
+
     tokio::spawn(async move {
         tonic::transport::Server::builder()
             .layer(
@@ -109,18 +116,22 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
                             request_id = %Uuid::new_v4(),
                             path = %request.uri().path(),
                             status = tracing::field::Empty,
-                            latency = tracing::field::Empty,
+                            latency_ms = tracing::field::Empty,
                         )
                     })
                     .on_request(DefaultOnRequest::new().level(Level::INFO))
-                    .on_response(|response: &http::Response<Body>, latency, span: &Span| {
-                        span.record("latency", tracing::field::debug(latency));
-                        span.record("status", tracing::field::display(response.status()));
-                        info!("finished processing request");
-                    }),
+                    .on_response(
+                        |response: &http::Response<Body>, latency: Duration, span: &Span| {
+                            span.record("latency_ms", latency.as_millis());
+                            span.record("status", tracing::field::display(response.status()));
+                            info!("finished processing request");
+                        },
+                    ),
             )
             .add_service(DeliveryServiceServer::new(grpc_ds))
+            .add_service(QueueServiceServer::new(grpc_qs))
             .serve_with_incoming_shutdown(TcpListenerStream::new(grpc_listener), async move {
+                info!("shutting down gRPC server");
                 shutdown_rx.await.ok();
             })
             .await
@@ -129,6 +140,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
 
     Ok(async move {
         let res = server.await;
+        info!("shutting down HTTP server");
         shutdown_tx.send(()).ok();
         res
     })

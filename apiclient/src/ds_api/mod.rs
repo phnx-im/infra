@@ -362,7 +362,7 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.ds_grpc_client
+        self.ds_grpc_client()
             .send_message(params, signing_key, group_state_ear_key)
             .await
     }
@@ -412,7 +412,7 @@ impl ApiClient {
         let message_bytes = message.tls_serialize_detached()?;
         let endpoint = self.build_url(Protocol::Http, ENDPOINT_DS_GROUPS);
         let response = self
-            .client
+            .http_client()
             .post(endpoint)
             .body(message_bytes)
             .send()

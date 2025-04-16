@@ -7,10 +7,15 @@
 use std::{sync::Arc, time::Duration};
 
 use ds_api::grpc::DsGrpcClient;
-use phnxprotos::delivery_service::v1::delivery_service_client::DeliveryServiceClient;
+use phnxprotos::{
+    delivery_service::v1::delivery_service_client::DeliveryServiceClient,
+    queue_service::v1::queue_service_client::QueueServiceClient,
+};
 use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
+use qs_api::grpc::QsGrpcClient;
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
+use tracing::info;
 use url::ParseError;
 use version::NegotiatedApiVersions;
 
@@ -49,10 +54,15 @@ pub type HttpClient = reqwest::Client;
 // It exposes a single function for each API endpoint.
 #[derive(Clone)]
 pub struct ApiClient {
-    client: HttpClient,
+    inner: Arc<ApiClientInner>,
+}
+
+pub(crate) struct ApiClientInner {
+    http_client: HttpClient,
     ds_grpc_client: DsGrpcClient,
+    qs_grpc_client: QsGrpcClient,
     url: Url,
-    api_versions: Arc<NegotiatedApiVersions>,
+    api_versions: NegotiatedApiVersions,
 }
 
 impl ApiClient {
@@ -103,17 +113,22 @@ impl ApiClient {
         // For now, we are running grpc on the same domain but under a different port.
         let mut grpc_url = url.clone();
         grpc_url.set_port(Some(grpc_port)).expect("invalid url");
+        info!(url = %grpc_url, "Creating connection to gRPC server");
         // TODO: Reuse HTTP client here
         let endpoint = tonic::transport::Endpoint::from_shared(grpc_url.to_string())
             .map_err(|_| ApiClientInitError::InvalidUrl(grpc_url.to_string()))?;
         let channel = endpoint.connect_lazy();
-        let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel));
+        let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel.clone()));
+        let qs_grpc_client = QsGrpcClient::new(QueueServiceClient::new(channel));
 
         Ok(Self {
-            client,
-            ds_grpc_client,
-            url,
-            api_versions: Arc::new(NegotiatedApiVersions::new()),
+            inner: Arc::new(ApiClientInner {
+                http_client: client,
+                ds_grpc_client,
+                qs_grpc_client,
+                url,
+                api_versions: NegotiatedApiVersions::new(),
+            }),
         })
     }
 
@@ -124,15 +139,15 @@ impl ApiClient {
             Protocol::Ws => "ws",
         }
         .to_string();
-        let tls_enabled = self.url.scheme() == "https";
+        let tls_enabled = self.inner.url.scheme() == "https";
         if tls_enabled {
             protocol_str.push('s')
         };
         let url = format!(
             "{}://{}:{}{}",
             protocol_str,
-            self.url.host_str().unwrap_or_default(),
-            self.url.port().unwrap_or(if tls_enabled {
+            self.inner.url.host_str().unwrap_or_default(),
+            self.inner.url.port().unwrap_or(if tls_enabled {
                 DEFAULT_PORT_HTTPS
             } else {
                 DEFAULT_PORT_HTTP
@@ -144,7 +159,8 @@ impl ApiClient {
 
     /// Call the health check endpoint
     pub async fn health_check(&self) -> bool {
-        self.client
+        self.inner
+            .http_client
             .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
             .send()
             .await
@@ -154,7 +170,8 @@ impl ApiClient {
     /// Call an inexistant endpoint
     pub async fn inexistant_endpoint(&self) -> bool {
         let res = self
-            .client
+            .inner
+            .http_client
             .post(self.build_url(Protocol::Http, "/null"))
             .body("test")
             .send()
@@ -171,6 +188,18 @@ impl ApiClient {
     }
 
     pub(crate) fn negotiated_versions(&self) -> &NegotiatedApiVersions {
-        &self.api_versions
+        &self.inner.api_versions
+    }
+
+    pub(crate) fn http_client(&self) -> &HttpClient {
+        &self.inner.http_client
+    }
+
+    pub(crate) fn ds_grpc_client(&self) -> &DsGrpcClient {
+        &self.inner.ds_grpc_client
+    }
+
+    pub(crate) fn qs_grpc_client(&self) -> &QsGrpcClient {
+        &self.inner.qs_grpc_client
     }
 }
