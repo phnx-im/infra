@@ -6,7 +6,7 @@ use mls_assist::openmls::prelude::GroupId;
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
-        CreateGroupPayload, RequestGroupIdRequest, SendMessagePayload,
+        CreateGroupPayload, DeleteGroupPayload, RequestGroupIdRequest, SendMessagePayload,
         delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
@@ -15,7 +15,7 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::QualifiedGroupId,
-    messages::client_ds_out::{CreateGroupParamsOut, SendMessageParamsOut},
+    messages::client_ds_out::{CreateGroupParamsOut, DeleteGroupParamsOut, SendMessageParamsOut},
     time::TimeStamp,
 };
 use tonic::transport::Channel;
@@ -100,5 +100,28 @@ impl DsGrpcClient {
         let request = payload.sign(signing_key)?;
         self.client.clone().create_group(request).await?;
         Ok(())
+    }
+
+    pub(crate) async fn delete_group(
+        &self,
+        params: DeleteGroupParamsOut,
+        signing_key: &PseudonymousCredentialSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<TimeStamp, DsRequestError> {
+        let payload = DeleteGroupPayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            commit: Some(params.commit.try_ref_into()?),
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .client
+            .clone()
+            .delete_group(request)
+            .await?
+            .into_inner();
+        Ok(response
+            .fanout_timestamp
+            .ok_or(DsRequestError::UnexpectedResponse)?
+            .into())
     }
 }

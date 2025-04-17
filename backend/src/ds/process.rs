@@ -418,7 +418,7 @@ impl Ds {
                 prepare_result(group_message, welcome_bundles)
             }
             DsGroupRequestParams::DeleteGroup(delete_group) => {
-                let group_message = group_state.delete_group(delete_group)?;
+                let group_message = group_state.delete_group(delete_group.commit)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Externally Committing Endpoints =======

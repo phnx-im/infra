@@ -5,8 +5,8 @@
 use prost::Message;
 
 use super::v1::{
-    CreateGroupPayload, CreateGroupRequest, SendMessagePayload, SendMessageRequest,
-    WelcomeInfoPayload, WelcomeInfoRequest,
+    CreateGroupPayload, CreateGroupRequest, DeleteGroupPayload, DeleteGroupRequest,
+    SendMessagePayload, SendMessageRequest, WelcomeInfoPayload, WelcomeInfoRequest,
 };
 
 use phnxtypes::crypto::signatures::signable::{
@@ -160,6 +160,56 @@ impl Verifiable for CreateGroupRequest {
 
     fn label(&self) -> &str {
         "CreateGroupPayload"
+    }
+}
+
+impl SignedStruct<DeleteGroupPayload> for DeleteGroupRequest {
+    fn from_payload(payload: DeleteGroupPayload, signature: Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for DeleteGroupPayload {
+    type SignedOutput = DeleteGroupRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        "DeleteGroupPayload"
+    }
+}
+
+impl VerifiedStruct<DeleteGroupRequest> for DeleteGroupPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: DeleteGroupRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for DeleteGroupRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or_else(|| tls_codec::Error::EncodingError("missing payload".to_owned()))?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        "DeleteGroupPayload"
     }
 }
 

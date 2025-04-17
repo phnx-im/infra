@@ -232,7 +232,13 @@ message SendMessageResponse {
 // delete group
 
 message DeleteGroupRequest {
-  AssistedMessage commit = 1;
+  DeleteGroupPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message DeleteGroupPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage commit = 2;
 }
 
 message DeleteGroupResponse {
