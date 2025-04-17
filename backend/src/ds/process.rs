@@ -447,7 +447,7 @@ impl Ds {
             }
             // ======= Non-MLS group state updates =======
             DsGroupRequestParams::UserProfileKeyUpdate(user_profile_update_params) => {
-                group_state.update_user_profile_key(user_profile_update_params.clone());
+                group_state.update_user_profile_key(user_profile_update_params.clone())?;
                 let message = DsFanOutPayload::QueueMessage(
                     QsQueueMessagePayload::try_from(user_profile_update_params)
                         .map_err(|_| DsProcessingError::ProcessingError)?,

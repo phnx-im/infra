@@ -54,7 +54,6 @@ impl CoreUser {
             let params = UserProfileKeyUpdateParams {
                 group_id,
                 sender_index: own_index,
-                epoch: group.epoch(),
                 user_profile_key: user_profile_key.clone(),
             };
             api_client

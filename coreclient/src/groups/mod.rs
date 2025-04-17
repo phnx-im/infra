@@ -66,7 +66,7 @@ use crate::{
 use std::collections::HashSet;
 
 use openmls::{
-    group::{GroupEpoch, ProcessedWelcome},
+    group::ProcessedWelcome,
     key_packages::KeyPackageBundle,
     prelude::{
         Capabilities, Ciphersuite, CredentialType, CredentialWithKey, Extension, ExtensionType,
@@ -1039,10 +1039,6 @@ impl Group {
 
     pub(crate) fn own_index(&self) -> LeafNodeIndex {
         self.mls_group().own_leaf_index()
-    }
-
-    pub(crate) fn epoch(&self) -> GroupEpoch {
-        self.mls_group().epoch()
     }
 }
 

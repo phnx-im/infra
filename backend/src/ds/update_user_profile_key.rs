@@ -19,7 +19,6 @@ impl DsGroupState {
             .ok_or(DsProcessingError::UnknownSender)?;
         client_profile.encrypted_user_profile_key = params.user_profile_key;
         client_profile.activity_time = TimeStamp::now();
-        client_profile.activity_epoch = params.epoch;
         Ok(())
     }
 }

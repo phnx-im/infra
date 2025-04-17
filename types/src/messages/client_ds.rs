@@ -351,7 +351,6 @@ pub struct DeleteGroupParams {
 pub struct UserProfileKeyUpdateParams {
     pub group_id: GroupId,
     pub sender_index: LeafNodeIndex,
-    pub epoch: GroupEpoch,
     pub user_profile_key: EncryptedUserProfileKey,
 }
 
