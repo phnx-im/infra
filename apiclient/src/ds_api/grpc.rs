@@ -2,17 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mls_assist::openmls::prelude::GroupId;
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
-    delivery_service::v1::{SendMessagePayload, delivery_service_client::DeliveryServiceClient},
+    delivery_service::v1::{
+        RequestGroupIdRequest, SendMessagePayload, delivery_service_client::DeliveryServiceClient,
+    },
+    validation::MissingFieldExt,
 };
 use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
+    identifiers::QualifiedGroupId,
     messages::client_ds_out::SendMessageParamsOut,
     time::TimeStamp,
 };
 use tonic::transport::Channel;
+use tracing::error;
 
 use super::DsRequestError;
 
@@ -24,6 +30,28 @@ pub(crate) struct DsGrpcClient {
 impl DsGrpcClient {
     pub(crate) fn new(client: DeliveryServiceClient<Channel>) -> Self {
         Self { client }
+    }
+
+    pub(crate) async fn request_group_id(&self) -> Result<GroupId, DsRequestError> {
+        let response = self
+            .client
+            .clone()
+            .request_group_id(RequestGroupIdRequest {})
+            .await?
+            .into_inner();
+        let qgid: QualifiedGroupId = response
+            .group_id
+            .ok_or_missing_field("group_id")
+            .map_err(|error| {
+                error!(%error, "unexpected response");
+                DsRequestError::UnexpectedResponse
+            })?
+            .try_ref_into()
+            .map_err(|error| {
+                error!(%error, "unexpected response");
+                DsRequestError::UnexpectedResponse
+            })?;
+        Ok(qgid.into())
     }
 
     pub(crate) async fn send_message(

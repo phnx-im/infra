@@ -4,7 +4,7 @@
 
 use mls_assist::{messages::AssistedMessageIn, openmls::prelude::LeafNodeIndex};
 use phnxprotos::{
-    convert::TryRefInto,
+    convert::{RefInto, TryRefInto},
     delivery_service::v1::{
         ConnectionGroupInfoRequest, ConnectionGroupInfoResponse, CreateGroupRequest,
         CreateGroupResponse, DeleteGroupRequest, DeleteGroupResponse, ExternalCommitInfoRequest,
@@ -77,7 +77,10 @@ impl<Qep: QsConnector> phnxprotos::delivery_service::v1::delivery_service_server
         &self,
         _request: Request<RequestGroupIdRequest>,
     ) -> Result<Response<RequestGroupIdResponse>, Status> {
-        todo!()
+        let qgid = self.ds.request_group_id().await;
+        Ok(Response::new(RequestGroupIdResponse {
+            group_id: Some(qgid.ref_into()),
+        }))
     }
 
     async fn create_group(

@@ -13,7 +13,7 @@ use mls_assist::{
 };
 use phnxtypes::{
     LibraryError,
-    credentials::keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
+    credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{
         ear::keys::GroupStateEarKey,
         signatures::{signable::Signable, traits::SigningKeyBehaviour},
@@ -28,11 +28,10 @@ use phnxtypes::{
         },
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
-            DeleteGroupParamsOut, DsGroupRequestParamsOut, DsNonGroupRequestParamsOut,
-            DsProcessResponseIn, DsRequestParamsOut, DsVersionedProcessResponseIn,
-            DsVersionedRequestParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
-            JoinConnectionGroupParamsOut, ResyncParamsOut, SelfRemoveParamsOut,
-            SendMessageParamsOut, UpdateParamsOut, WelcomeInfoIn,
+            DeleteGroupParamsOut, DsGroupRequestParamsOut, DsProcessResponseIn, DsRequestParamsOut,
+            DsVersionedProcessResponseIn, DsVersionedRequestParamsOut, ExternalCommitInfoIn,
+            GroupOperationParamsOut, JoinConnectionGroupParamsOut, ResyncParamsOut,
+            SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut, WelcomeInfoIn,
         },
     },
     time::TimeStamp,
@@ -392,17 +391,7 @@ impl ApiClient {
 
     /// Delete the given group.
     pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
-        let ds_response = self
-            .prepare_and_send_ds_message::<ClientSigningKey>(
-                DsRequestParamsOut::NonGroup(DsNonGroupRequestParamsOut::RequestGroupId),
-                AuthenticationMethod::None,
-            )
-            .await?;
-        if let DsProcessResponseIn::GroupId(group_id) = ds_response {
-            Ok(group_id)
-        } else {
-            Err(DsRequestError::UnexpectedResponse)
-        }
+        self.ds_grpc_client.request_group_id().await
     }
 
     async fn send_ds_http_request(

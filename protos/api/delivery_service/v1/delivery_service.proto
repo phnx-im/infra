@@ -9,6 +9,7 @@ package delivery_service.v1;
 import "common/v1/common.proto";
 
 service DeliveryService {
+  // unauthenticated
   rpc RequestGroupId(RequestGroupIdRequest) returns (RequestGroupIdResponse);
 
   rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
@@ -41,7 +42,7 @@ service DeliveryService {
 message RequestGroupIdRequest {}
 
 message RequestGroupIdResponse {
-  common.v1.GroupId group_id = 1;
+  common.v1.QualifiedGroupId group_id = 1;
 }
 
 message GroupStateEarKey {

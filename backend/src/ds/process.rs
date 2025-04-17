@@ -181,7 +181,6 @@ use phnxtypes::{
 
 use crate::{
     ds::ReservedGroupId,
-    errors::StorageError,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
 };
@@ -523,10 +522,8 @@ impl Ds {
         };
         let response = match request_params {
             DsNonGroupRequestParams::RequestGroupId => {
-                self.request_group_id().await.map_err(|e| {
-                    tracing::warn!("Could not generate group id: {:?}", e);
-                    DsProcessingError::StorageError
-                })?
+                let qgid = self.request_group_id().await;
+                DsProcessResponse::GroupId(qgid.into())
             }
         };
         Ok(DsVersionedProcessResponse::with_version(
@@ -535,17 +532,13 @@ impl Ds {
         )?)
     }
 
-    pub async fn request_group_id(&self) -> Result<DsProcessResponse, StorageError> {
+    pub(crate) async fn request_group_id(&self) -> QualifiedGroupId {
         // Generate UUIDs until we find one that is not yet reserved.
         let mut group_uuid = Uuid::new_v4();
         while !self.reserve_group_id(group_uuid).await {
             group_uuid = Uuid::new_v4();
         }
-
-        let owning_domain = self.own_domain();
-        let qgid = QualifiedGroupId::new(group_uuid, owning_domain.clone());
-        let group_id = GroupId::from(qgid);
-        Ok(DsProcessResponse::GroupId(group_id))
+        QualifiedGroupId::new(group_uuid, self.own_domain.clone())
     }
 }
 

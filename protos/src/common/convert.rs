@@ -96,6 +96,12 @@ impl FromRef<'_, identifiers::QualifiedGroupId> for QualifiedGroupId {
     }
 }
 
+impl FromRef<'_, GroupId> for openmls::group::GroupId {
+    fn from_ref(proto: &GroupId) -> Self {
+        Self::from_slice(&proto.value)
+    }
+}
+
 impl FromRef<'_, openmls::group::GroupId> for GroupId {
     fn from_ref(value: &openmls::group::GroupId) -> GroupId {
         GroupId {
