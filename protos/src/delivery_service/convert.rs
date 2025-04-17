@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt;
-
 use phnxtypes::{crypto::ear, identifiers};
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
@@ -15,8 +13,9 @@ use crate::{
 };
 
 use super::v1::{
-    AssistedMessage, EncryptedIdentityLinkKey, GroupEpoch, GroupStateEarKey, HpkeCiphertext,
-    LeafNodeIndex, MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
+    AssistedMessage, EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupEpoch,
+    GroupStateEarKey, HpkeCiphertext, LeafNodeIndex, MlsMessage, QsReference, RatchetTree,
+    SealedClientReference, SignaturePublicKey,
 };
 
 impl TryFromRef<'_, openmls::prelude::HpkeCiphertext> for HpkeCiphertext {
@@ -129,15 +128,6 @@ impl From<QsReferenceError> for Status {
     }
 }
 
-impl From<ear::keys::EncryptedIdentityLinkKey> for EncryptedIdentityLinkKey {
-    fn from(value: ear::keys::EncryptedIdentityLinkKey) -> Self {
-        let ciphertext: ear::Ciphertext = value.into();
-        Self {
-            ciphertext: Some(ciphertext.into()),
-        }
-    }
-}
-
 impl From<ear::Ciphertext> for Ciphertext {
     fn from(value: ear::Ciphertext) -> Self {
         let (ciphertext, nonce) = value.into_parts();
@@ -148,8 +138,17 @@ impl From<ear::Ciphertext> for Ciphertext {
     }
 }
 
+impl From<ear::keys::EncryptedIdentityLinkKey> for EncryptedIdentityLinkKey {
+    fn from(value: ear::keys::EncryptedIdentityLinkKey) -> Self {
+        let ciphertext: ear::Ciphertext = value.into();
+        Self {
+            ciphertext: Some(ciphertext.into()),
+        }
+    }
+}
+
 impl TryFrom<EncryptedIdentityLinkKey> for ear::keys::EncryptedIdentityLinkKey {
-    type Error = EncryptedIdentityLinkKeyError<CiphertextField>;
+    type Error = EncryptedIdentityLinkKeyError;
 
     fn try_from(proto: EncryptedIdentityLinkKey) -> Result<Self, Self::Error> {
         let ciphertext: ear::Ciphertext = proto
@@ -160,23 +159,58 @@ impl TryFrom<EncryptedIdentityLinkKey> for ear::keys::EncryptedIdentityLinkKey {
     }
 }
 
-#[derive(Debug, derive_more::Display)]
-#[display(fmt = "ciphertext")]
-pub struct CiphertextField;
-
 #[derive(Debug, thiserror::Error)]
-pub enum EncryptedIdentityLinkKeyError<E: fmt::Display> {
+pub enum EncryptedIdentityLinkKeyError {
     #[error(transparent)]
-    Field(#[from] MissingFieldError<E>),
+    Field(#[from] MissingFieldError<CiphertextField>),
     #[error(transparent)]
     Ciphertext(#[from] InvalidNonceLen),
 }
 
-impl<E: fmt::Display> From<EncryptedIdentityLinkKeyError<E>> for Status {
-    fn from(e: EncryptedIdentityLinkKeyError<E>) -> Self {
+impl From<EncryptedIdentityLinkKeyError> for Status {
+    fn from(e: EncryptedIdentityLinkKeyError) -> Self {
         Status::invalid_argument(format!("invalid encrypted identity link key: {e}"))
     }
 }
+
+impl From<ear::keys::EncryptedUserProfileKey> for EncryptedUserProfileKey {
+    fn from(value: ear::keys::EncryptedUserProfileKey) -> Self {
+        let ciphertext: ear::Ciphertext = value.into();
+        Self {
+            ciphertext: Some(ciphertext.into()),
+        }
+    }
+}
+
+impl TryFrom<EncryptedUserProfileKey> for ear::keys::EncryptedUserProfileKey {
+    type Error = EncryptedUserProfileKeyError;
+
+    fn try_from(proto: EncryptedUserProfileKey) -> Result<Self, Self::Error> {
+        let ciphertext: ear::Ciphertext = proto
+            .ciphertext
+            .ok_or_missing_field(CiphertextField)?
+            .try_into()?;
+        Ok(ciphertext.into())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptedUserProfileKeyError {
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<CiphertextField>),
+    #[error(transparent)]
+    Ciphertext(#[from] InvalidNonceLen),
+}
+
+impl From<EncryptedUserProfileKeyError> for Status {
+    fn from(e: EncryptedUserProfileKeyError) -> Self {
+        Status::invalid_argument(format!("invalid encrypted user profil key: {e}"))
+    }
+}
+
+#[derive(Debug, derive_more::Display)]
+#[display(fmt = "ciphertext")]
+pub struct CiphertextField;
 
 impl TryFromRef<'_, openmls::framing::MlsMessageOut> for MlsMessage {
     type Error = tls_codec::Error;

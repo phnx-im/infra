@@ -2,19 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{messages::AssistedMessageIn, openmls::prelude::LeafNodeIndex};
+use mls_assist::{
+    group::Group,
+    messages::AssistedMessageIn,
+    openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn},
+};
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
-    delivery_service::v1::{
-        ConnectionGroupInfoRequest, ConnectionGroupInfoResponse, CreateGroupRequest,
-        CreateGroupResponse, DeleteGroupRequest, DeleteGroupResponse, ExternalCommitInfoRequest,
-        ExternalCommitInfoResponse, GroupOperationRequest, GroupOperationResponse,
-        JoinConnectionGroupRequest, JoinConnectionGroupResponse, RequestGroupIdRequest,
-        RequestGroupIdResponse, ResyncRequest, ResyncResponse, SelfRemoveRequest,
-        SelfRemoveResponse, SendMessagePayload, SendMessageRequest, SendMessageResponse,
-        UpdateQsClientReferenceRequest, UpdateQsClientReferenceResponse, UpdateRequest,
-        UpdateResponse, WelcomeInfoRequest, WelcomeInfoResponse,
-    },
+    delivery_service::v1::{self, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
 use phnxtypes::crypto::signatures::signable::Verifiable;
@@ -30,6 +25,7 @@ use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
 
 use crate::{
+    ds::process::Provider,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
 };
@@ -70,9 +66,7 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
 }
 
 #[async_trait]
-impl<Qep: QsConnector> phnxprotos::delivery_service::v1::delivery_service_server::DeliveryService
-    for GrpcDs<Qep>
-{
+impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Qep> {
     async fn request_group_id(
         &self,
         _request: Request<RequestGroupIdRequest>,
@@ -85,9 +79,83 @@ impl<Qep: QsConnector> phnxprotos::delivery_service::v1::delivery_service_server
 
     async fn create_group(
         &self,
-        _request: Request<CreateGroupRequest>,
+        request: Request<CreateGroupRequest>,
     ) -> Result<Response<CreateGroupResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        // TODO: signature verification?
+        let payload = request.payload.ok_or_missing_field("payload")?;
+        let qgid = payload.validated_qgid(&self.ds.own_domain)?;
+        let ear_key = payload.ear_key()?;
+
+        let reserved_group_id = self
+            .ds
+            .claim_reserved_group_id(qgid.group_uuid())
+            .await
+            .ok_or_else(|| Status::invalid_argument("unreserved group id"))?;
+
+        // create group
+        let group_info: MlsMessageIn = payload
+            .group_info
+            .as_ref()
+            .ok_or_missing_field("group_info")?
+            .try_ref_into()
+            .invalid_tls("group_info")?;
+        let MlsMessageBodyIn::GroupInfo(group_info) = group_info.extract() else {
+            return Err(Status::invalid_argument("invalid message"));
+        };
+
+        let ratchet_tree: RatchetTreeIn = payload
+            .ratchet_tree
+            .as_ref()
+            .ok_or_missing_field("ratchet_tree")?
+            .try_ref_into()
+            .invalid_tls("ratchet_tree")?;
+
+        let provider = Provider::default();
+        let group = Group::new(&provider, group_info.clone(), ratchet_tree).map_err(|error| {
+            error!(%error, "failed to create group");
+            Status::internal("failed to create group")
+        })?;
+
+        // encrypt and store group state
+        let encrypted_identity_link_key = payload
+            .encrypted_identity_link_key
+            .ok_or_missing_field("encrypted_identity_link_key")?
+            .try_into()?;
+        let encrypted_user_profile_key = payload
+            .encrypted_user_profile_key
+            .ok_or_missing_field("encrypted_user_profile_key")?
+            .try_into()?;
+        let creator_client_reference = payload
+            .creator_client_reference
+            .as_ref()
+            .ok_or_missing_field("creator_client_reference")?
+            .try_ref_into()?;
+        let group_state = DsGroupState::new(
+            provider,
+            group,
+            encrypted_identity_link_key,
+            encrypted_user_profile_key,
+            creator_client_reference,
+        );
+        let encrypted_group_state = group_state.encrypt(&ear_key).map_err(|error| {
+            error!(%error, "failed to encrypt group state");
+            Status::internal("failed to encrypt group state")
+        })?;
+
+        StorableDsGroupData::new_and_store(
+            &self.ds.db_pool,
+            reserved_group_id,
+            encrypted_group_state,
+        )
+        .await
+        .map_err(|error| {
+            error!(%error, "failed to store group state");
+            Status::internal("failed to store group state")
+        })?;
+
+        Ok(Response::new(CreateGroupResponse {}))
     }
 
     async fn welcome_info(
@@ -294,9 +362,19 @@ impl QualifiedGroupIdExt for AssistedMessageIn {
     }
 }
 
+impl QualifiedGroupIdExt for CreateGroupPayload {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status> {
+        self.qgid
+            .as_ref()
+            .ok_or_missing_field("qgid")?
+            .try_ref_into()
+            .map_err(From::from)
+    }
+}
+
 /// Extension trait for extracting the group state ear key from a protobuf message
 trait GroupStateEarKeyExt {
-    fn ear_key_proto(&self) -> Option<&phnxprotos::delivery_service::v1::GroupStateEarKey>;
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
 
     fn ear_key(&self) -> Result<GroupStateEarKey, Status> {
         self.ear_key_proto()
@@ -307,7 +385,13 @@ trait GroupStateEarKeyExt {
 }
 
 impl GroupStateEarKeyExt for SendMessagePayload {
-    fn ear_key_proto(&self) -> Option<&phnxprotos::delivery_service::v1::GroupStateEarKey> {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.group_state_ear_key.as_ref()
+    }
+}
+
+impl GroupStateEarKeyExt for CreateGroupPayload {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.group_state_ear_key.as_ref()
     }
 }

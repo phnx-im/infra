@@ -6,7 +6,8 @@ use mls_assist::openmls::prelude::GroupId;
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
-        RequestGroupIdRequest, SendMessagePayload, delivery_service_client::DeliveryServiceClient,
+        CreateGroupPayload, RequestGroupIdRequest, SendMessagePayload,
+        delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
 };
@@ -14,7 +15,7 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::QualifiedGroupId,
-    messages::client_ds_out::SendMessageParamsOut,
+    messages::client_ds_out::{CreateGroupParamsOut, SendMessageParamsOut},
     time::TimeStamp,
 };
 use tonic::transport::Channel;
@@ -78,5 +79,26 @@ impl DsGrpcClient {
             .fanout_timestamp
             .ok_or(DsRequestError::UnexpectedResponse)?
             .into())
+    }
+
+    pub(crate) async fn create_group(
+        &self,
+        payload: CreateGroupParamsOut,
+        signing_key: &PseudonymousCredentialSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<(), DsRequestError> {
+        let qgid: QualifiedGroupId = payload.group_id.try_into()?;
+        let payload = CreateGroupPayload {
+            qgid: Some(qgid.ref_into()),
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            ratchet_tree: Some(payload.ratchet_tree.try_ref_into()?),
+            encrypted_identity_link_key: Some(payload.encrypted_identity_link_key.into()),
+            encrypted_user_profile_key: Some(payload.encrypted_user_profile_key.into()),
+            creator_client_reference: Some(payload.creator_client_reference.try_ref_into()?),
+            group_info: Some(payload.group_info.try_ref_into()?),
+        };
+        let request = payload.sign(signing_key)?;
+        self.client.clone().create_group(request).await?;
+        Ok(())
     }
 }

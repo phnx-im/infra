@@ -505,6 +505,12 @@ impl From<Ciphertext> for EncryptedUserProfileKey {
     }
 }
 
+impl From<EncryptedUserProfileKey> for Ciphertext {
+    fn from(EncryptedUserProfileKey { ciphertext }: EncryptedUserProfileKey) -> Self {
+        ciphertext
+    }
+}
+
 impl AsRef<Ciphertext> for EncryptedUserProfileKey {
     fn as_ref(&self) -> &Ciphertext {
         &self.ciphertext

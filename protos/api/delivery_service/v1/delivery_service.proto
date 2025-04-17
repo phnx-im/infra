@@ -52,12 +52,20 @@ message GroupStateEarKey {
 // create group
 
 message CreateGroupRequest {
+  CreateGroupPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message CreateGroupResponse {}
+
+message CreateGroupPayload {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
   RatchetTree ratchet_tree = 3;
   EncryptedIdentityLinkKey encrypted_identity_link_key = 4;
-  QsReference creator_client_reference = 5;
-  MlsMessage group_info = 6;
+  EncryptedUserProfileKey encrypted_user_profile_key = 5;
+  QsReference creator_client_reference = 6;
+  MlsMessage group_info = 7;
 }
 
 message RatchetTree {
@@ -65,6 +73,10 @@ message RatchetTree {
 }
 
 message EncryptedIdentityLinkKey {
+  common.v1.Ciphertext ciphertext = 1;
+}
+
+message EncryptedUserProfileKey {
   common.v1.Ciphertext ciphertext = 1;
 }
 
@@ -85,7 +97,6 @@ message MlsMessage {
   bytes tls = 1;
 }
 
-message CreateGroupResponse {}
 
 // welcome info
 
