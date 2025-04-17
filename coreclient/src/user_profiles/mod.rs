@@ -8,7 +8,10 @@
 use std::fmt::Display;
 
 use phnxtypes::{
-    crypto::ear::{EarDecryptable, EarEncryptable},
+    crypto::{
+        ear::{EarDecryptable, EarEncryptable},
+        indexed_aead::keys::UserProfileKey,
+    },
     identifiers::QualifiedUserName,
     messages::client_as_out::EncryptedUserProfile,
 };
@@ -16,8 +19,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
-
-use crate::key_stores::indexed_keys::UserProfileKey;
 
 pub(crate) mod persistence;
 

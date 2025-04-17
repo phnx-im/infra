@@ -12,6 +12,7 @@ use phnxtypes::{
             FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey,
             WelcomeAttributionInfoEarKey,
         },
+        indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -23,7 +24,7 @@ use crate::{
     ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
-    key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex},
+    key_stores::indexed_keys::StorableIndexedKey,
 };
 use anyhow::Result;
 

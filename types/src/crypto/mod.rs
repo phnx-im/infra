@@ -35,6 +35,7 @@ pub type Hash = Sha256;
 pub mod ear;
 pub mod errors;
 pub mod hpke;
+pub mod indexed_aead;
 pub mod kdf;
 pub mod mac;
 pub mod opaque;

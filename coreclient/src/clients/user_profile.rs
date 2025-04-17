@@ -3,11 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    crypto::ear::{EarDecryptable, EarEncryptable},
+    crypto::{
+        ear::{EarDecryptable, EarEncryptable},
+        indexed_aead::keys::UserProfileKey,
+    },
     messages::client_as_out::GetUserProfileResponse,
 };
 
-use crate::{UserProfile, groups::ProfileInfo, key_stores::indexed_keys::UserProfileKey};
+use crate::{UserProfile, groups::ProfileInfo, key_stores::indexed_keys::StorableIndexedKey};
 
 use super::CoreUser;
 

@@ -15,6 +15,7 @@ use phnxtypes::{
             },
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
+        indexed_aead::keys::UserProfileBaseSecret,
         kdf::keys::ConnectionKey,
         signatures::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -29,8 +30,6 @@ use phnxtypes::{
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
-
-use crate::key_stores::indexed_keys::UserProfileBaseSecret;
 
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub struct ConnectionEstablishmentPackageTbs {

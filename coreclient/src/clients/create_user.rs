@@ -6,7 +6,7 @@ use crate::{
     groups::client_auth_info::StorableClientCredential,
     key_stores::{
         as_credentials::AsCredentials,
-        indexed_keys::UserProfileKey,
+        indexed_keys::StorableIndexedKey,
         queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
     },
 };
@@ -19,6 +19,7 @@ use phnxtypes::{
     crypto::{
         ear::{EarKey, GenericSerializable},
         hpke::ClientIdEncryptionKey,
+        indexed_aead::keys::UserProfileKey,
         kdf::keys::ConnectionKey,
         opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
