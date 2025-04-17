@@ -19,13 +19,12 @@ use super::CoreUser;
 impl CoreUser {
     pub async fn update_user_profile(&self, user_profile: &UserProfile) -> anyhow::Result<()> {
         let mut notifier = self.store_notifier();
+        let mut connection = self.pool().acquire().await?;
 
         // Phase 1: Store the user profile update in the database
-        user_profile.update(self.pool(), &mut notifier).await?;
+        user_profile.update(&mut *connection, &mut notifier).await?;
 
         notifier.notify();
-
-        let mut connection = self.pool().acquire().await?;
 
         let user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
 
@@ -44,13 +43,15 @@ impl CoreUser {
             .await?;
 
         // Phase 4: Send a notification to all groups
+        let own_user_name = self.user_name();
         let groups_ids = Group::load_all_group_ids(&mut connection).await?;
         for group_id in groups_ids {
             let group = Group::load(&mut connection, &group_id)
                 .await?
                 .context("Failed to load group")?;
             let own_index = group.own_index();
-            let user_profile_key = user_profile_key.encrypt(group.identity_link_wrapper_key())?;
+            let user_profile_key =
+                user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_name)?;
             let params = UserProfileKeyUpdateParams {
                 group_id,
                 sender_index: own_index,

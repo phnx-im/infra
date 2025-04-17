@@ -166,8 +166,10 @@ impl CoreUser {
             .identity_link_key()
             .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
-        let encrypted_user_profile_key =
-            own_user_profile_key.encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
+        let encrypted_user_profile_key = own_user_profile_key.encrypt(
+            &cep_tbs.connection_group_identity_link_wrapper_key,
+            self.user_name(),
+        )?;
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),

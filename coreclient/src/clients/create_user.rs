@@ -268,7 +268,7 @@ impl PostRegistrationInitState {
 
         let encrypted_push_token = match push_token {
             Some(push_token) => Some(EncryptedPushToken::from(
-                push_token_ear_key.encrypt(&push_token.serialize()?)?,
+                push_token_ear_key.encrypt(push_token.serialize()?.as_slice())?,
             )),
             None => None,
         };

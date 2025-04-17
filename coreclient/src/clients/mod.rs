@@ -569,7 +569,7 @@ impl CoreUser {
                     self.inner
                         .key_store
                         .push_token_ear_key
-                        .encrypt(&GenericSerializable::serialize(&push_token)?)?,
+                        .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
                 );
                 Some(encrypted_push_token)
             }
