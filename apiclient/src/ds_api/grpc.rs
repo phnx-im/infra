@@ -6,8 +6,8 @@ use mls_assist::openmls::prelude::GroupId;
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
-        CreateGroupPayload, DeleteGroupPayload, RequestGroupIdRequest, SendMessagePayload,
-        delivery_service_client::DeliveryServiceClient,
+        AddUsersInfo, CreateGroupPayload, DeleteGroupPayload, GroupOperationPayload,
+        RequestGroupIdRequest, SendMessagePayload, delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
 };
@@ -15,7 +15,9 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::QualifiedGroupId,
-    messages::client_ds_out::{CreateGroupParamsOut, DeleteGroupParamsOut, SendMessageParamsOut},
+    messages::client_ds_out::{
+        CreateGroupParamsOut, DeleteGroupParamsOut, GroupOperationParamsOut, SendMessageParamsOut,
+    },
     time::TimeStamp,
 };
 use tonic::transport::Channel;
@@ -117,6 +119,43 @@ impl DsGrpcClient {
             .client
             .clone()
             .delete_group(request)
+            .await?
+            .into_inner();
+        Ok(response
+            .fanout_timestamp
+            .ok_or(DsRequestError::UnexpectedResponse)?
+            .into())
+    }
+
+    pub(crate) async fn group_operation(
+        &self,
+        payload: GroupOperationParamsOut,
+        signing_key: &PseudonymousCredentialSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<TimeStamp, DsRequestError> {
+        let add_users_info = payload
+            .add_users_info_option
+            .map(|add_user_infos| {
+                Ok::<_, DsRequestError>(AddUsersInfo {
+                    welcome: Some(add_user_infos.welcome.try_ref_into()?),
+                    encrypted_welcome_attribution_info: add_user_infos
+                        .encrypted_welcome_attribution_infos
+                        .into_iter()
+                        .map(From::from)
+                        .collect(),
+                })
+            })
+            .transpose()?;
+        let payload = GroupOperationPayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            commit: Some(payload.commit.try_ref_into()?),
+            add_users_info,
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .client
+            .clone()
+            .group_operation(request)
             .await?
             .into_inner();
         Ok(response

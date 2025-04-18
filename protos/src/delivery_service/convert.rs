@@ -2,7 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{crypto::ear, identifiers};
+use mls_assist::messages::AssistedWelcome;
+use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn};
+use phnxtypes::{
+    crypto::ear,
+    identifiers,
+    messages::{client_ds, client_ds_out::AddUsersInfoOut, welcome_attribution_info},
+};
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
 
@@ -13,9 +19,9 @@ use crate::{
 };
 
 use super::v1::{
-    AssistedMessage, EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupEpoch,
-    GroupStateEarKey, HpkeCiphertext, LeafNodeIndex, MlsMessage, QsReference, RatchetTree,
-    SealedClientReference, SignaturePublicKey,
+    AddUsersInfo, AssistedMessage, EncryptedIdentityLinkKey, EncryptedUserProfileKey,
+    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupStateEarKey, HpkeCiphertext, LeafNodeIndex,
+    MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
 };
 
 impl TryFromRef<'_, openmls::prelude::HpkeCiphertext> for HpkeCiphertext {
@@ -339,3 +345,102 @@ impl From<SignaturePublicKey> for openmls::prelude::SignaturePublicKey {
         proto.bytes.into()
     }
 }
+
+impl From<welcome_attribution_info::EncryptedWelcomeAttributionInfo>
+    for EncryptedWelcomeAttributionInfo
+{
+    fn from(value: welcome_attribution_info::EncryptedWelcomeAttributionInfo) -> Self {
+        let ciphertext: ear::Ciphertext = value.into();
+        Self {
+            ciphertext: Some(ciphertext.into()),
+        }
+    }
+}
+
+impl TryFrom<EncryptedWelcomeAttributionInfo>
+    for welcome_attribution_info::EncryptedWelcomeAttributionInfo
+{
+    type Error = EncryptedWelcomeAttributionInfoError;
+
+    fn try_from(proto: EncryptedWelcomeAttributionInfo) -> Result<Self, Self::Error> {
+        let ciphertext: ear::Ciphertext = proto
+            .ciphertext
+            .ok_or_missing_field(CiphertextField)?
+            .try_into()?;
+        Ok(ciphertext.into())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptedWelcomeAttributionInfoError {
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<CiphertextField>),
+    #[error(transparent)]
+    Ciphertext(#[from] InvalidNonceLen),
+}
+
+impl From<EncryptedWelcomeAttributionInfoError> for Status {
+    fn from(e: EncryptedWelcomeAttributionInfoError) -> Self {
+        Status::invalid_argument(format!("invalid encrypted welcome attribution info: {e}"))
+    }
+}
+
+impl TryFrom<AddUsersInfoOut> for AddUsersInfo {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: AddUsersInfoOut) -> Result<Self, Self::Error> {
+        Ok(Self {
+            welcome: Some(value.welcome.try_ref_into()?),
+            encrypted_welcome_attribution_info: value
+                .encrypted_welcome_attribution_infos
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        })
+    }
+}
+
+impl TryFrom<AddUsersInfo> for client_ds::AddUsersInfo {
+    type Error = AddUsersInfoError;
+
+    fn try_from(proto: AddUsersInfo) -> Result<Self, Self::Error> {
+        let message: MlsMessageIn = proto
+            .welcome
+            .ok_or_missing_field(WelcomeField)?
+            .try_ref_into()?;
+        let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
+            return Err(AddUsersInfoError::InvalidWelcome);
+        };
+        let welcome = AssistedWelcome { welcome };
+        Ok(Self {
+            welcome,
+            encrypted_welcome_attribution_infos: proto
+                .encrypted_welcome_attribution_info
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AddUsersInfoError {
+    #[error(transparent)]
+    Tls(#[from] tls_codec::Error),
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<WelcomeField>),
+    #[error("invalid welcome message")]
+    InvalidWelcome,
+    #[error(transparent)]
+    Info(#[from] EncryptedWelcomeAttributionInfoError),
+}
+
+impl From<AddUsersInfoError> for Status {
+    fn from(e: AddUsersInfoError) -> Self {
+        Status::invalid_argument(format!("invalid add users info: {e}"))
+    }
+}
+
+#[derive(Debug, derive_more::Display)]
+#[display(fmt = "welcome")]
+pub struct WelcomeField;

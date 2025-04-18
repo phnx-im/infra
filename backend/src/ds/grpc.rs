@@ -12,7 +12,10 @@ use phnxprotos::{
     delivery_service::v1::{self, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
-use phnxtypes::{crypto::signatures::signable::Verifiable, identifiers, time::TimeStamp};
+use phnxtypes::{
+    crypto::signatures::signable::Verifiable, errors, identifiers,
+    messages::client_ds::GroupOperationParams, time::TimeStamp,
+};
 use phnxtypes::{
     crypto::{
         ear::keys::GroupStateEarKey,
@@ -344,17 +347,7 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
             .into();
         let _: DeleteGroupPayload = request.verify(&verifying_key).map_err(InvalidSignature)?;
 
-        let destination_clients: Vec<_> = group_state
-            .member_profiles
-            .iter()
-            .filter_map(|(client_index, client_profile)| {
-                if client_index == &sender_index {
-                    None
-                } else {
-                    Some(client_profile.client_queue_config.clone())
-                }
-            })
-            .collect();
+        let destination_clients = group_state.destination_clients(sender_index);
 
         let group_message = group_state.delete_group(commit).map_err(|error| {
             error!(%error, "Failed to delete group");
@@ -376,9 +369,76 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
 
     async fn group_operation(
         &self,
-        _request: Request<GroupOperationRequest>,
+        request: Request<GroupOperationRequest>,
     ) -> Result<Response<GroupOperationResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
+
+        let commit: AssistedMessageIn = payload
+            .commit
+            .as_ref()
+            .ok_or_missing_field("commit")?
+            .try_ref_into()
+            .invalid_tls("commit")?;
+
+        let qgid = commit.validated_qgid(self.ds.own_domain())?;
+        let ear_key = payload.ear_key()?;
+        let (group_data, mut group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        // verify signature
+        let Sender::Member(sender_index) = *commit.sender().ok_or_missing_field("commit.sender")?
+        else {
+            return Err(Status::invalid_argument(
+                "expected a member sender in commit",
+            ));
+        };
+        let verifying_key: LeafVerifyingKey = group_state
+            .group()
+            .leaf(sender_index)
+            .ok_or(Status::invalid_argument("unknown sender"))?
+            .signature_key()
+            .into();
+        let payload: GroupOperationPayload =
+            request.verify(&verifying_key).map_err(InvalidSignature)?;
+
+        let params = GroupOperationParams {
+            commit,
+            add_users_info_option: payload
+                .add_users_info
+                .map(|info| info.try_into())
+                .transpose()?,
+        };
+
+        let destination_clients = group_state.destination_clients(sender_index);
+
+        let (group_message, welcome_bundles) = group_state
+            .group_operation(params, &ear_key)
+            .await
+            .map_err(GroupOperationError)?;
+
+        self.update_group_data(group_data, group_state, &ear_key)
+            .await?;
+
+        let timestamp = self
+            .fan_out_message(group_message, destination_clients)
+            .await?;
+
+        for message in welcome_bundles {
+            self.qs_connector
+                .dispatch(message)
+                .await
+                .map_err(DistributeMessageError)?;
+        }
+
+        Ok(GroupOperationResponse {
+            fanout_timestamp: Some(timestamp.into()),
+        }
+        .into())
     }
 }
 
@@ -487,5 +547,38 @@ impl GroupStateEarKeyExt for CreateGroupPayload {
 impl GroupStateEarKeyExt for DeleteGroupPayload {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.group_state_ear_key.as_ref()
+    }
+}
+
+impl GroupStateEarKeyExt for GroupOperationPayload {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.group_state_ear_key.as_ref()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("group operation failed: {0}")]
+struct GroupOperationError(#[from] errors::GroupOperationError);
+
+impl From<GroupOperationError> for tonic::Status {
+    fn from(error: GroupOperationError) -> Self {
+        match error.0 {
+            errors::GroupOperationError::InvalidMessage
+            | errors::GroupOperationError::MissingQueueConfig
+            | errors::GroupOperationError::DuplicatedUserAddition => {
+                Status::invalid_argument(error.to_string())
+            }
+            errors::GroupOperationError::LibraryError
+            | errors::GroupOperationError::ProcessingError
+            | errors::GroupOperationError::FailedToObtainVerifyingKey
+            | errors::GroupOperationError::IncompleteWelcome => {
+                error!(error = %error.0, "group operation failed");
+                Status::internal(error.to_string())
+            }
+            errors::GroupOperationError::MergeCommitError(merge_commit_error) => {
+                error!(error = %merge_commit_error, "group operation failed");
+                Status::internal("group operation failed due to merge commit")
+            }
+        }
     }
 }

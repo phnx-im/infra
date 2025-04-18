@@ -6,12 +6,15 @@ use prost::Message;
 
 use super::v1::{
     CreateGroupPayload, CreateGroupRequest, DeleteGroupPayload, DeleteGroupRequest,
-    SendMessagePayload, SendMessageRequest, WelcomeInfoPayload, WelcomeInfoRequest,
+    GroupOperationPayload, GroupOperationRequest, SendMessagePayload, SendMessageRequest,
+    WelcomeInfoPayload, WelcomeInfoRequest,
 };
 
 use phnxtypes::crypto::signatures::signable::{
     self, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
 };
+
+const SEND_MESSAGE_PAYLOAD_LABEL: &str = "SendMessagePayload";
 
 impl SignedStruct<SendMessagePayload> for SendMessageRequest {
     fn from_payload(payload: SendMessagePayload, signature: signable::Signature) -> Self {
@@ -30,7 +33,7 @@ impl Signable for SendMessagePayload {
     }
 
     fn label(&self) -> &str {
-        "SendMessagePayload"
+        SEND_MESSAGE_PAYLOAD_LABEL
     }
 }
 
@@ -47,7 +50,7 @@ impl Verifiable for SendMessageRequest {
         Ok(self
             .payload
             .as_ref()
-            .ok_or_else(|| tls_codec::Error::EncodingError("missing payload".to_owned()))?
+            .ok_or(MissingPayloadError)?
             .encode_to_vec())
     }
 
@@ -59,9 +62,11 @@ impl Verifiable for SendMessageRequest {
     }
 
     fn label(&self) -> &str {
-        "SendMessagePayload"
+        SEND_MESSAGE_PAYLOAD_LABEL
     }
 }
+
+const WELCOME_INFO_PAYLOAD_LABEL: &str = "WelcomeInfoPayload";
 
 impl SignedStruct<WelcomeInfoPayload> for WelcomeInfoRequest {
     fn from_payload(payload: WelcomeInfoPayload, signature: Signature) -> Self {
@@ -80,7 +85,7 @@ impl Signable for WelcomeInfoPayload {
     }
 
     fn label(&self) -> &str {
-        "WelcomeInfoPayload"
+        WELCOME_INFO_PAYLOAD_LABEL
     }
 }
 
@@ -89,7 +94,7 @@ impl Verifiable for WelcomeInfoRequest {
         Ok(self
             .payload
             .as_ref()
-            .ok_or_else(|| tls_codec::Error::EncodingError("missing payload".to_owned()))?
+            .ok_or(MissingPayloadError)?
             .encode_to_vec())
     }
 
@@ -101,9 +106,11 @@ impl Verifiable for WelcomeInfoRequest {
     }
 
     fn label(&self) -> &str {
-        "WelcomeInfoPayload"
+        WELCOME_INFO_PAYLOAD_LABEL
     }
 }
+
+const CREATE_GROUP_PAYLOAD_LABEL: &str = "CreateGroupPayload";
 
 impl VerifiedStruct<WelcomeInfoRequest> for WelcomeInfoPayload {
     type SealingType = private_mod::Seal;
@@ -130,7 +137,7 @@ impl Signable for CreateGroupPayload {
     }
 
     fn label(&self) -> &str {
-        "CreateGroupPayload"
+        CREATE_GROUP_PAYLOAD_LABEL
     }
 }
 
@@ -147,7 +154,7 @@ impl Verifiable for CreateGroupRequest {
         Ok(self
             .payload
             .as_ref()
-            .ok_or_else(|| tls_codec::Error::EncodingError("missing payload".to_owned()))?
+            .ok_or(MissingPayloadError)?
             .encode_to_vec())
     }
 
@@ -159,9 +166,11 @@ impl Verifiable for CreateGroupRequest {
     }
 
     fn label(&self) -> &str {
-        "CreateGroupPayload"
+        CREATE_GROUP_PAYLOAD_LABEL
     }
 }
+
+const DELETE_GROUP_PAYLOAD_LABEL: &str = "DeleteGroupPayload";
 
 impl SignedStruct<DeleteGroupPayload> for DeleteGroupRequest {
     fn from_payload(payload: DeleteGroupPayload, signature: Signature) -> Self {
@@ -180,7 +189,7 @@ impl Signable for DeleteGroupPayload {
     }
 
     fn label(&self) -> &str {
-        "DeleteGroupPayload"
+        DELETE_GROUP_PAYLOAD_LABEL
     }
 }
 
@@ -197,7 +206,7 @@ impl Verifiable for DeleteGroupRequest {
         Ok(self
             .payload
             .as_ref()
-            .ok_or_else(|| tls_codec::Error::EncodingError("missing payload".to_owned()))?
+            .ok_or(MissingPayloadError)?
             .encode_to_vec())
     }
 
@@ -209,7 +218,67 @@ impl Verifiable for DeleteGroupRequest {
     }
 
     fn label(&self) -> &str {
-        "DeleteGroupPayload"
+        DELETE_GROUP_PAYLOAD_LABEL
+    }
+}
+
+const GROUP_OPERATION_PAYLOAD_LABEL: &str = "GroupOperationPayload";
+
+impl SignedStruct<GroupOperationPayload> for GroupOperationRequest {
+    fn from_payload(payload: GroupOperationPayload, signature: Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for GroupOperationPayload {
+    type SignedOutput = GroupOperationRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        GROUP_OPERATION_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<GroupOperationRequest> for GroupOperationPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: GroupOperationRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for GroupOperationRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        GROUP_OPERATION_PAYLOAD_LABEL
+    }
+}
+
+struct MissingPayloadError;
+
+impl From<MissingPayloadError> for tls_codec::Error {
+    fn from(_: MissingPayloadError) -> Self {
+        tls_codec::Error::EncodingError("missing payload".to_owned())
     }
 }
 

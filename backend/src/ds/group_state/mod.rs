@@ -152,6 +152,19 @@ impl DsGroupState {
         let group_state = SerializableDsGroupState::into_group_state(encryptable.into())?;
         Ok(group_state)
     }
+
+    pub(crate) fn destination_clients(&self, sender_index: LeafNodeIndex) -> Vec<QsReference> {
+        self.member_profiles
+            .iter()
+            .filter_map(|(client_index, client_profile)| {
+                if client_index == &sender_index {
+                    None
+                } else {
+                    Some(client_profile.client_queue_config.clone())
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Error)]

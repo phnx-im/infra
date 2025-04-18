@@ -139,21 +139,6 @@ impl ApiClient {
         self.ds_grpc_client
             .create_group(payload, signing_key, group_state_ear_key)
             .await
-
-        // self.prepare_and_send_ds_group_message(
-        //     DsGroupRequestParamsOut::CreateGroupParams(payload),
-        //     signing_key,
-        //     group_state_ear_key,
-        // )
-        // .await
-        // // Check if the response is what we expected it to be.
-        // .and_then(|response| {
-        //     if matches!(response, DsProcessResponseIn::Ok) {
-        //         Ok(())
-        //     } else {
-        //         Err(DsRequestError::UnexpectedResponse)
-        //     }
-        // })
     }
 
     /// Performs a group operation.
@@ -163,20 +148,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::GroupOperation(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .group_operation(payload, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Get welcome information for a group.

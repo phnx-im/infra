@@ -97,7 +97,6 @@ message MlsMessage {
   bytes tls = 1;
 }
 
-
 // welcome info
 
 message WelcomeInfoRequest {
@@ -248,8 +247,14 @@ message DeleteGroupResponse {
 // group operation
 
 message GroupOperationRequest {
-  AssistedMessage commit = 1;
-  optional AddUsersInfo add_users_info = 2;
+  GroupOperationPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message GroupOperationPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage commit = 2;
+  optional AddUsersInfo add_users_info = 3;
 }
 
 message AddUsersInfo {
@@ -258,7 +263,7 @@ message AddUsersInfo {
 }
 
 message EncryptedWelcomeAttributionInfo {
-  bytes ciphertext = 1;
+  common.v1.Ciphertext ciphertext = 1;
 }
 
 message GroupOperationResponse {

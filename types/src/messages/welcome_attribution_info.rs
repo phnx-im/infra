@@ -155,6 +155,12 @@ impl From<Ciphertext> for EncryptedWelcomeAttributionInfo {
     }
 }
 
+impl From<EncryptedWelcomeAttributionInfo> for Ciphertext {
+    fn from(value: EncryptedWelcomeAttributionInfo) -> Self {
+        value.ciphertext
+    }
+}
+
 impl EarEncryptable<WelcomeAttributionInfoEarKey, EncryptedWelcomeAttributionInfo>
     for WelcomeAttributionInfo
 {
