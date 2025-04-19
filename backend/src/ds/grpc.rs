@@ -5,7 +5,9 @@
 use mls_assist::{
     group::Group,
     messages::{AssistedMessageIn, SerializedMlsMessage},
-    openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
+    openmls::prelude::{
+        LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender, signature,
+    },
 };
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
@@ -23,7 +25,9 @@ use phnxtypes::{
     },
     errors,
     identifiers::{self, Fqdn, QualifiedGroupId},
-    messages::client_ds::{GroupOperationParams, JoinConnectionGroupParams, QsQueueMessagePayload},
+    messages::client_ds::{
+        GroupOperationParams, JoinConnectionGroupParams, QsQueueMessagePayload, WelcomeInfoParams,
+    },
     time::TimeStamp,
 };
 use tonic::{Request, Response, Status, async_trait};
@@ -266,9 +270,52 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
     async fn welcome_info(
         &self,
-        _request: Request<WelcomeInfoRequest>,
+        request: Request<WelcomeInfoRequest>,
     ) -> Result<Response<WelcomeInfoResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+
+        let sender: signature::SignaturePublicKey = request
+            .payload
+            .as_ref()
+            .ok_or_missing_field("sender")?
+            .sender
+            .clone()
+            .ok_or_missing_field("sender")?
+            .into();
+        let verifying_key = LeafVerifyingKey::from(&sender);
+        let payload: WelcomeInfoPayload =
+            request.verify(&verifying_key).map_err(InvalidSignature)?;
+
+        let qgid = payload.validated_qgid(&self.ds.own_domain)?;
+        let ear_key = payload.ear_key()?;
+        let (_, mut group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        let welcome_info_params = WelcomeInfoParams {
+            sender: sender.clone(),
+            epoch: payload.epoch.ok_or_missing_field("epoch")?.into(),
+            group_id: qgid.into(),
+        };
+        let ratchet_tree = group_state
+            .welcome_info(welcome_info_params)
+            .ok_or(NoWelcomeInfoFound)?;
+        Ok(Response::new(WelcomeInfoResponse {
+            ratchet_tree: Some(ratchet_tree.try_ref_into().invalid_tls("ratchet_tree")?),
+            encrypted_identity_link_keys: group_state
+                .encrypted_identity_link_keys()
+                .into_iter()
+                .map(From::from)
+                .collect(),
+            encrypted_user_profile_keys: group_state
+                .encrypted_user_profile_keys()
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        }))
     }
 
     async fn external_commit_info(
@@ -338,9 +385,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             sender_index,
             message: commit,
             ..
-        } = self
-            .leaf_verify_with_sender::<_, UpdatePayload>(request, None)
-            .await?;
+        } = self.leaf_verify::<_, UpdatePayload>(request).await?;
 
         let destination_clients: Vec<_> = group_state
             .other_destination_clients(sender_index)
@@ -663,6 +708,16 @@ impl WithQualifiedGroupId for CreateGroupPayload {
     }
 }
 
+impl WithQualifiedGroupId for WelcomeInfoPayload {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status> {
+        self.qgid
+            .as_ref()
+            .ok_or_missing_field("qgid")?
+            .try_ref_into()
+            .map_err(From::from)
+    }
+}
+
 /// Protobuf containing a group state ear key
 trait WithGroupStateEarKey {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
@@ -708,6 +763,12 @@ impl WithGroupStateEarKey for UpdateRequest {
 impl WithGroupStateEarKey for SelfRemoveRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
+impl WithGroupStateEarKey for WelcomeInfoPayload {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.group_state_ear_key.as_ref()
     }
 }
 
@@ -826,5 +887,13 @@ impl From<SelfRemoveError> for Status {
     fn from(e: SelfRemoveError) -> Self {
         error!(error =% e.0, "failed to self remove");
         Status::internal("failed to self remove")
+    }
+}
+
+struct NoWelcomeInfoFound;
+
+impl From<NoWelcomeInfoFound> for Status {
+    fn from(_: NoWelcomeInfoFound) -> Self {
+        Status::not_found("no welcome info found")
     }
 }

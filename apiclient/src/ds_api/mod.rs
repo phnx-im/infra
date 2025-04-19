@@ -22,7 +22,7 @@ use phnxtypes::{
     errors::version::VersionError,
     identifiers::QsReference,
     messages::{
-        client_ds::{ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS, WelcomeInfoParams},
+        client_ds::{ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS},
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
             DeleteGroupParamsOut, DsGroupRequestParamsOut, DsProcessResponseIn, DsRequestParamsOut,
@@ -158,25 +158,28 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &PseudonymousCredentialSigningKey,
     ) -> Result<WelcomeInfoIn, DsRequestError> {
-        let payload = WelcomeInfoParams {
-            sender: signing_key.credential().verifying_key().clone(),
-            group_id,
-            epoch,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::WelcomeInfo(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::WelcomeInfo(welcome_info) = response {
-                Ok(welcome_info)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .welcome_info(group_id, epoch, group_state_ear_key, signing_key)
+            .await
+        // let payload = WelcomeInfoParams {
+        //     sender: signing_key.credential().verifying_key().clone(),
+        //     group_id,
+        //     epoch,
+        // };
+        // self.prepare_and_send_ds_group_message(
+        //     DsGroupRequestParamsOut::WelcomeInfo(payload),
+        //     signing_key,
+        //     group_state_ear_key,
+        // )
+        // .await
+        // // Check if the response is what we expected it to be.
+        // .and_then(|response| {
+        //     if let DsProcessResponseIn::WelcomeInfo(welcome_info) = response {
+        //         Ok(welcome_info)
+        //     } else {
+        //         Err(DsRequestError::UnexpectedResponse)
+        //     }
+        // })
     }
 
     /// Get external commit information for a group.

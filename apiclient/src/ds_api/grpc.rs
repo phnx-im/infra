@@ -2,13 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::{messages::AssistedMessageOut, openmls::prelude::GroupId};
+use mls_assist::{
+    messages::AssistedMessageOut,
+    openmls::{group::GroupEpoch, prelude::GroupId},
+};
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
         GroupOperationPayload, JoinConnectionGroupRequest, RequestGroupIdRequest,
-        SelfRemovePayload, SendMessagePayload, UpdatePayload,
+        SelfRemovePayload, SendMessagePayload, UpdatePayload, WelcomeInfoPayload,
         delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
@@ -19,7 +22,7 @@ use phnxtypes::{
     identifiers::{QsReference, QualifiedGroupId},
     messages::client_ds_out::{
         CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
-        SendMessageParamsOut,
+        SendMessageParamsOut, WelcomeInfoIn,
     },
     time::TimeStamp,
 };
@@ -264,5 +267,46 @@ impl DsGrpcClient {
             .fanout_timestamp
             .ok_or(DsRequestError::UnexpectedResponse)?
             .into())
+    }
+
+    pub(crate) async fn welcome_info(
+        &self,
+        group_id: GroupId,
+        epoch: GroupEpoch,
+        group_state_ear_key: &GroupStateEarKey,
+        signing_key: &PseudonymousCredentialSigningKey,
+    ) -> Result<WelcomeInfoIn, DsRequestError> {
+        let qgid: QualifiedGroupId = group_id.try_into()?;
+        let payload = WelcomeInfoPayload {
+            qgid: Some(qgid.ref_into()),
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            sender: Some(signing_key.credential().verifying_key().ref_into()),
+            epoch: Some(epoch.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .client
+            .clone()
+            .welcome_info(request)
+            .await?
+            .into_inner();
+        Ok(WelcomeInfoIn {
+            ratchet_tree: response
+                .ratchet_tree
+                .ok_or(DsRequestError::UnexpectedResponse)?
+                .try_ref_into()?,
+            encrypted_identity_link_keys: response
+                .encrypted_identity_link_keys
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| DsRequestError::UnexpectedResponse)?,
+            encrypted_user_profile_keys: response
+                .encrypted_user_profile_keys
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| DsRequestError::UnexpectedResponse)?,
+        })
     }
 }
