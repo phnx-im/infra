@@ -27,8 +27,8 @@ use phnxtypes::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
             DeleteGroupParamsOut, DsGroupRequestParamsOut, DsProcessResponseIn, DsRequestParamsOut,
             DsVersionedProcessResponseIn, DsVersionedRequestParamsOut, ExternalCommitInfoIn,
-            GroupOperationParamsOut, JoinConnectionGroupParamsOut, ResyncParamsOut,
-            SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut, WelcomeInfoIn,
+            GroupOperationParamsOut, ResyncParamsOut, SelfRemoveParamsOut, SendMessageParamsOut,
+            UpdateParamsOut, WelcomeInfoIn,
         },
     },
     time::TimeStamp,
@@ -235,24 +235,9 @@ impl ApiClient {
     ) -> Result<TimeStamp, DsRequestError> {
         // We unwrap here, because we know that the group_info is present.
         let external_commit = AssistedMessageOut::new(commit, Some(group_info)).unwrap();
-        let payload = JoinConnectionGroupParamsOut {
-            external_commit,
-            qs_client_reference,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::JoinConnectionGroup(payload),
-            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .join_connection_group(external_commit, qs_client_reference, group_state_ear_key)
+            .await
     }
 
     /// Resync a client to rejoin a group.

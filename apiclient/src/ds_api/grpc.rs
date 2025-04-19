@@ -7,15 +7,15 @@ use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
-        GroupOperationPayload, RequestGroupIdRequest, SendMessagePayload, UpdatePayload,
-        delivery_service_client::DeliveryServiceClient,
+        GroupOperationPayload, JoinConnectionGroupRequest, RequestGroupIdRequest,
+        SendMessagePayload, UpdatePayload, delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
 };
 use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
-    identifiers::QualifiedGroupId,
+    identifiers::{QsReference, QualifiedGroupId},
     messages::client_ds_out::{
         CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
         SendMessageParamsOut,
@@ -218,6 +218,29 @@ impl DsGrpcClient {
         };
         let request = payload.sign(signing_key)?;
         let response = self.client.clone().update(request).await?.into_inner();
+        Ok(response
+            .fanout_timestamp
+            .ok_or(DsRequestError::UnexpectedResponse)?
+            .into())
+    }
+
+    pub(crate) async fn join_connection_group(
+        &self,
+        external_commit: AssistedMessageOut,
+        qs_client_reference: QsReference,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<TimeStamp, DsRequestError> {
+        let request = JoinConnectionGroupRequest {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            external_commit: Some(external_commit.try_ref_into()?),
+            qs_client_reference: Some(qs_client_reference.try_ref_into()?),
+        };
+        let response = self
+            .client
+            .clone()
+            .join_connection_group(request)
+            .await?
+            .into_inner();
         Ok(response
             .fanout_timestamp
             .ok_or(DsRequestError::UnexpectedResponse)?

@@ -23,7 +23,7 @@ use phnxtypes::{
     },
     errors,
     identifiers::{self, Fqdn, QualifiedGroupId},
-    messages::client_ds::{GroupOperationParams, QsQueueMessagePayload},
+    messages::client_ds::{GroupOperationParams, JoinConnectionGroupParams, QsQueueMessagePayload},
     time::TimeStamp,
 };
 use tonic::{Request, Response, Status, async_trait};
@@ -349,7 +349,9 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .leaf_verify_with_sender::<_, UpdatePayload>(request, None)
             .await?;
 
-        let destination_clients: Vec<_> = group_state.destination_clients(sender_index).collect();
+        let destination_clients: Vec<_> = group_state
+            .other_destination_clients(sender_index)
+            .collect();
 
         let group_message = group_state.update_client(commit).map_err(UpdateError)?;
         self.update_group_data(group_data, group_state, &ear_key)
@@ -366,9 +368,46 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
     async fn join_connection_group(
         &self,
-        _request: Request<JoinConnectionGroupRequest>,
+        request: Request<JoinConnectionGroupRequest>,
     ) -> Result<Response<JoinConnectionGroupResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let external_commit: AssistedMessageIn = request
+            .external_commit
+            .ok_or_missing_field("external_commit")?
+            .try_ref_into()
+            .invalid_tls("external_commit")?;
+        let qgid = external_commit.validated_qgid(self.ds.own_domain())?;
+        let ear_key = request
+            .group_state_ear_key
+            .ok_or_missing_field("group_state_ear_key")?
+            .try_ref_into()?;
+
+        let (group_data, mut group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        let params = JoinConnectionGroupParams {
+            external_commit,
+            qs_client_reference: request
+                .qs_client_reference
+                .ok_or_missing_field("qs_client_reference")?
+                .try_ref_into()?,
+        };
+
+        let destination_clients: Vec<_> = group_state.destination_clients().collect();
+        let group_message = group_state
+            .join_connection_group(params)
+            .map_err(JoinConnectionGroupError)?;
+
+        self.update_group_data(group_data, group_state, &ear_key)
+            .await?;
+
+        let timestamp = self
+            .fan_out_message(group_message, destination_clients)
+            .await?;
+
+        Ok(Response::new(JoinConnectionGroupResponse {
+            fanout_timestamp: Some(timestamp.into()),
+        }))
     }
 
     async fn resync(
@@ -412,7 +451,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .leaf_verify_with_sender::<_, SendMessagePayload>(request, Some(sender_index))
             .await?;
 
-        let destination_clients = group_state.destination_clients(sender_index);
+        let destination_clients = group_state.other_destination_clients(sender_index);
 
         let timestamp = self
             .fan_out_message(
@@ -446,7 +485,9 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             ..
         } = self.leaf_verify::<_, DeleteGroupPayload>(request).await?;
 
-        let destination_clients: Vec<_> = group_state.destination_clients(sender_index).collect();
+        let destination_clients: Vec<_> = group_state
+            .other_destination_clients(sender_index)
+            .collect();
 
         let group_message = group_state.delete_group(commit).map_err(DeleteGroupError)?;
 
@@ -491,7 +532,9 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .transpose()?,
         };
 
-        let destination_clients: Vec<_> = group_state.destination_clients(sender_index).collect();
+        let destination_clients: Vec<_> = group_state
+            .other_destination_clients(sender_index)
+            .collect();
 
         let (group_message, welcome_bundles) = group_state
             .group_operation(params, &ear_key)
@@ -720,5 +763,14 @@ impl From<UpdateError> for Status {
     fn from(e: UpdateError) -> Self {
         error!(error =% e.0, "failed to update client");
         Status::internal("failed to update client")
+    }
+}
+
+struct JoinConnectionGroupError(errors::JoinConnectionGroupError);
+
+impl From<JoinConnectionGroupError> for Status {
+    fn from(e: JoinConnectionGroupError) -> Self {
+        error!(error =% e.0, "failed to join connection group");
+        Status::internal("failed to join connection group")
     }
 }

@@ -153,7 +153,13 @@ impl DsGroupState {
         Ok(group_state)
     }
 
-    pub(crate) fn destination_clients(
+    pub(crate) fn destination_clients(&self) -> impl Iterator<Item = QsReference> {
+        self.member_profiles
+            .iter()
+            .map(move |(_, client_profile)| client_profile.client_queue_config.clone())
+    }
+
+    pub(crate) fn other_destination_clients(
         &self,
         sender_index: LeafNodeIndex,
     ) -> impl Iterator<Item = QsReference> {

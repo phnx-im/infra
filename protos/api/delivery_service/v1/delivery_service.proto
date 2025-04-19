@@ -190,8 +190,9 @@ message UpdateResponse {
 // join connection group
 
 message JoinConnectionGroupRequest {
-  AssistedMessage extenal_commit = 1;
-  QsReference qs_client_reference = 2;
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage external_commit = 2;
+  QsReference qs_client_reference = 3;
 }
 
 message JoinConnectionGroupResponse {
