@@ -320,13 +320,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         }))
     }
 
-    async fn update_qs_client_reference(
-        &self,
-        _request: Request<UpdateQsClientReferenceRequest>,
-    ) -> Result<Response<UpdateQsClientReferenceResponse>, Status> {
-        todo!()
-    }
-
     async fn update(
         &self,
         request: Request<UpdateRequest>,
