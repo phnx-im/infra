@@ -6,8 +6,9 @@ use prost::Message;
 
 use super::v1::{
     CreateGroupPayload, CreateGroupRequest, DeleteGroupPayload, DeleteGroupRequest,
-    GroupOperationPayload, GroupOperationRequest, SendMessagePayload, SendMessageRequest,
-    UpdatePayload, UpdateRequest, WelcomeInfoPayload, WelcomeInfoRequest,
+    GroupOperationPayload, GroupOperationRequest, SelfRemovePayload, SelfRemoveRequest,
+    SendMessagePayload, SendMessageRequest, UpdatePayload, UpdateRequest, WelcomeInfoPayload,
+    WelcomeInfoRequest,
 };
 
 use phnxtypes::crypto::signatures::signable::{
@@ -323,6 +324,58 @@ impl Verifiable for UpdateRequest {
 
     fn label(&self) -> &str {
         UPDATE_PAYLOAD_LABEL
+    }
+}
+
+const SELF_REMOVE_PAYLOAD_LABEL: &str = "SelfRemovePayload";
+
+impl SignedStruct<SelfRemovePayload> for SelfRemoveRequest {
+    fn from_payload(payload: SelfRemovePayload, signature: Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for SelfRemovePayload {
+    type SignedOutput = SelfRemoveRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        SELF_REMOVE_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<SelfRemoveRequest> for SelfRemovePayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: SelfRemoveRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for SelfRemoveRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        SELF_REMOVE_PAYLOAD_LABEL
     }
 }
 

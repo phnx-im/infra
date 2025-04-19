@@ -275,20 +275,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::SelfRemove(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .self_remove(params.remove_proposal, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Send a message to the given group.

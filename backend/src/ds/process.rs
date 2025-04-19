@@ -433,7 +433,8 @@ impl Ds {
             }
             // ======= Proposal Endpoints =======
             DsGroupRequestParams::SelfRemove(self_remove_client_params) => {
-                let group_message = group_state.self_remove_client(self_remove_client_params)?;
+                let group_message =
+                    group_state.self_remove_client(self_remove_client_params.remove_proposal)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Sending messages =======

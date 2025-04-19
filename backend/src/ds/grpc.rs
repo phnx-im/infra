@@ -419,9 +419,41 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
     async fn self_remove(
         &self,
-        _request: Request<SelfRemoveRequest>,
+        request: Request<SelfRemoveRequest>,
     ) -> Result<Response<SelfRemoveResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+
+        let LeafVerificationData {
+            ear_key,
+            group_data,
+            mut group_state,
+            sender_index,
+            message: remove_proposal,
+            ..
+        } = self.leaf_verify::<_, SelfRemovePayload>(request).await?;
+
+        let destination_clients: Vec<_> = group_state
+            .other_destination_clients(sender_index)
+            .collect();
+
+        let group_message = group_state
+            .self_remove_client(remove_proposal)
+            .map_err(SelfRemoveError)?;
+        self.update_group_data(group_data, group_state, &ear_key)
+            .await?;
+
+        let timestamp = self
+            .fan_out_message(group_message, destination_clients)
+            .await?;
+
+        Ok(Response::new(SelfRemoveResponse {
+            fanout_timestamp: Some(timestamp.into()),
+        }))
     }
 
     async fn send_message(
@@ -680,6 +712,12 @@ impl WithGroupStateEarKey for UpdateRequest {
     }
 }
 
+impl WithGroupStateEarKey for SelfRemoveRequest {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("group operation failed: {0}")]
 struct GroupOperationError(#[from] errors::GroupOperationError);
@@ -757,6 +795,20 @@ impl WithMessage for UpdateRequest {
     }
 }
 
+impl WithMessage for SelfRemoveRequest {
+    fn message(&self) -> Result<AssistedMessageIn, Status> {
+        let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
+        let remove_proposal = payload
+            .remove_proposal
+            .as_ref()
+            .ok_or_missing_field("remove_proposal")?;
+        let remove_proposal = remove_proposal
+            .try_ref_into()
+            .invalid_tls("remove_proposal")?;
+        Ok(remove_proposal)
+    }
+}
+
 struct UpdateError(errors::ClientUpdateError);
 
 impl From<UpdateError> for Status {
@@ -772,5 +824,14 @@ impl From<JoinConnectionGroupError> for Status {
     fn from(e: JoinConnectionGroupError) -> Self {
         error!(error =% e.0, "failed to join connection group");
         Status::internal("failed to join connection group")
+    }
+}
+
+struct SelfRemoveError(errors::ClientSelfRemovalError);
+
+impl From<SelfRemoveError> for Status {
+    fn from(e: SelfRemoveError) -> Self {
+        error!(error =% e.0, "failed to self remove");
+        Status::internal("failed to self remove")
     }
 }

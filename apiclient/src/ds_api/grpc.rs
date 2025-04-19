@@ -8,7 +8,8 @@ use phnxprotos::{
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
         GroupOperationPayload, JoinConnectionGroupRequest, RequestGroupIdRequest,
-        SendMessagePayload, UpdatePayload, delivery_service_client::DeliveryServiceClient,
+        SelfRemovePayload, SendMessagePayload, UpdatePayload,
+        delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
 };
@@ -241,6 +242,24 @@ impl DsGrpcClient {
             .join_connection_group(request)
             .await?
             .into_inner();
+        Ok(response
+            .fanout_timestamp
+            .ok_or(DsRequestError::UnexpectedResponse)?
+            .into())
+    }
+
+    pub(crate) async fn self_remove(
+        &self,
+        remove_proposal: AssistedMessageOut,
+        signing_key: &PseudonymousCredentialSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<TimeStamp, DsRequestError> {
+        let payload = SelfRemovePayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            remove_proposal: Some(remove_proposal.try_ref_into()?),
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self.client.clone().self_remove(request).await?.into_inner();
         Ok(response
             .fanout_timestamp
             .ok_or(DsRequestError::UnexpectedResponse)?

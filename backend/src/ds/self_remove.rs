@@ -4,13 +4,11 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    messages::SerializedMlsMessage,
+    messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{
-    errors::ClientSelfRemovalError, messages::client_ds::SelfRemoveParams, time::Duration,
-};
+use phnxtypes::{errors::ClientSelfRemovalError, time::Duration};
 
 use super::process::USER_EXPIRATION_DAYS;
 
@@ -19,7 +17,7 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn self_remove_client(
         &mut self,
-        params: SelfRemoveParams,
+        remove_proposal: AssistedMessageIn,
     ) -> Result<SerializedMlsMessage, ClientSelfRemovalError> {
         // Process message (but don't apply it yet). This performs
         // mls-assist-level validations and puts the proposal into mls-assist's
@@ -27,7 +25,7 @@ impl DsGroupState {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(self.provider.crypto(), params.remove_proposal)
+            .process_assisted_message(self.provider.crypto(), remove_proposal)
             .map_err(|_| ClientSelfRemovalError::ProcessingError)?;
 
         // Perform DS-level validation

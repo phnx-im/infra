@@ -213,7 +213,13 @@ message ResyncResponse {
 // self remove
 
 message SelfRemoveRequest {
-  AssistedMessage remove_proposal = 1;
+  common.v1.Signature signature = 1;
+  SelfRemovePayload payload = 2;
+}
+
+message SelfRemovePayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage remove_proposal = 2;
 }
 
 message SelfRemoveResponse {
