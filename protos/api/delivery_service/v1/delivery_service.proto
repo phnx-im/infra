@@ -130,25 +130,27 @@ message ExternalCommitInfoRequest {
 }
 
 message ExternalCommitInfoResponse {
-  VerifiableGroupInfo verifiable_group_info = 1;
+  GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
 }
 
-message VerifiableGroupInfo {
+message GroupInfo {
   bytes tls = 1;
 }
 
 // connection group info
 
 message ConnectionGroupInfoRequest {
-  common.v1.GroupId group_id = 1;
+  common.v1.QualifiedGroupId group_id = 1;
+  GroupStateEarKey group_state_ear_key = 2;
 }
 
 message ConnectionGroupInfoResponse {
-  VerifiableGroupInfo verifiable_group_info = 1;
+  GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+  repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
 }
 
 // update qs client reference

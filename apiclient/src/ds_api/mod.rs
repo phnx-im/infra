@@ -22,10 +22,7 @@ use phnxtypes::{
     errors::version::VersionError,
     identifiers::QsReference,
     messages::{
-        client_ds::{
-            ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-            WelcomeInfoParams,
-        },
+        client_ds::{ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS, WelcomeInfoParams},
         client_ds_out::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
             DeleteGroupParamsOut, DsGroupRequestParamsOut, DsProcessResponseIn, DsRequestParamsOut,
@@ -211,21 +208,30 @@ impl ApiClient {
         group_id: GroupId,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<ExternalCommitInfoIn, DsRequestError> {
-        let payload = ConnectionGroupInfoParams { group_id };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::ConnectionGroupInfo(payload),
-            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
-                Ok(info)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .connection_group_info(group_id, group_state_ear_key)
+            .await
+        //
+        // let qgid: QualifiedGroupId = group_id.try_into()?;
+        // let payload = ConnectionGroupInfoParams {
+        //     group_id: qgid.into(),
+        // };
+        //
+        // let payload = ConnectionGroupInfoParams { group_id };
+        // self.prepare_and_send_ds_group_message(
+        //     DsGroupRequestParamsOut::ConnectionGroupInfo(payload),
+        //     AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
+        //     group_state_ear_key,
+        // )
+        // .await
+        // // Check if the response is what we expected it to be.
+        // .and_then(|response| {
+        //     if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
+        //         Ok(info)
+        //     } else {
+        //         Err(DsRequestError::UnexpectedResponse)
+        //     }
+        // })
     }
 
     /// Update your client in this group.

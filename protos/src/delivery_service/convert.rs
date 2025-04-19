@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::messages::AssistedWelcome;
-use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn};
+use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn, group_info};
 use phnxtypes::{
     crypto::ear,
     identifiers,
@@ -20,8 +20,8 @@ use crate::{
 
 use super::v1::{
     AddUsersInfo, AssistedMessage, EncryptedIdentityLinkKey, EncryptedUserProfileKey,
-    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupStateEarKey, HpkeCiphertext, LeafNodeIndex,
-    MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
+    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupInfo, GroupStateEarKey, HpkeCiphertext,
+    LeafNodeIndex, MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
 };
 
 impl TryFromRef<'_, openmls::prelude::HpkeCiphertext> for HpkeCiphertext {
@@ -444,3 +444,21 @@ impl From<AddUsersInfoError> for Status {
 #[derive(Debug, derive_more::Display)]
 #[display(fmt = "welcome")]
 pub struct WelcomeField;
+
+impl TryFrom<group_info::GroupInfo> for GroupInfo {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: group_info::GroupInfo) -> Result<Self, Self::Error> {
+        Ok(Self {
+            tls: value.tls_serialize_detached()?,
+        })
+    }
+}
+
+impl TryFromRef<'_, GroupInfo> for group_info::VerifiableGroupInfo {
+    type Error = tls_codec::Error;
+
+    fn try_from_ref(proto: &GroupInfo) -> Result<Self, Self::Error> {
+        DeserializeBytes::tls_deserialize_exact_bytes(&proto.tls)
+    }
+}

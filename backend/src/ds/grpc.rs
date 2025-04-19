@@ -280,9 +280,44 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
     async fn connection_group_info(
         &self,
-        _request: Request<ConnectionGroupInfoRequest>,
+        request: Request<ConnectionGroupInfoRequest>,
     ) -> Result<Response<ConnectionGroupInfoResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let qgid: QualifiedGroupId = request
+            .group_id
+            .ok_or_missing_field("group_id")?
+            .try_ref_into()?;
+        let ear_key: GroupStateEarKey = request
+            .group_state_ear_key
+            .ok_or_missing_field("group_state_ear_key")?
+            .try_ref_into()?;
+
+        let (_, group_state) = self.load_group_state(&qgid, &ear_key).await?;
+        let commit_info = group_state.external_commit_info();
+
+        let group_info = commit_info
+            .group_info
+            .try_into()
+            .invalid_tls("group_info")?;
+        let ratchet_tree = commit_info
+            .ratchet_tree
+            .try_ref_into()
+            .invalid_tls("ratchet_tree")?;
+        Ok(Response::new(ConnectionGroupInfoResponse {
+            group_info: Some(group_info),
+            ratchet_tree: Some(ratchet_tree),
+            encrypted_identity_link_keys: commit_info
+                .encrypted_identity_link_keys
+                .into_iter()
+                .map(From::from)
+                .collect(),
+            encrypted_user_profile_keys: commit_info
+                .encrypted_user_profile_keys
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        }))
     }
 
     async fn update_qs_client_reference(

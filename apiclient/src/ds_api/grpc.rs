@@ -6,8 +6,9 @@ use mls_assist::openmls::prelude::GroupId;
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
-        AddUsersInfo, CreateGroupPayload, DeleteGroupPayload, GroupOperationPayload,
-        RequestGroupIdRequest, SendMessagePayload, delivery_service_client::DeliveryServiceClient,
+        AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
+        GroupOperationPayload, RequestGroupIdRequest, SendMessagePayload,
+        delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
 };
@@ -16,7 +17,8 @@ use phnxtypes::{
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::QualifiedGroupId,
     messages::client_ds_out::{
-        CreateGroupParamsOut, DeleteGroupParamsOut, GroupOperationParamsOut, SendMessageParamsOut,
+        CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
+        SendMessageParamsOut,
     },
     time::TimeStamp,
 };
@@ -162,5 +164,45 @@ impl DsGrpcClient {
             .fanout_timestamp
             .ok_or(DsRequestError::UnexpectedResponse)?
             .into())
+    }
+
+    pub(crate) async fn connection_group_info(
+        &self,
+        group_id: GroupId,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<ExternalCommitInfoIn, DsRequestError> {
+        let qgid: QualifiedGroupId = group_id.try_into()?;
+        let request = ConnectionGroupInfoRequest {
+            group_id: Some(qgid.ref_into()),
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+        };
+        let response = self
+            .client
+            .clone()
+            .connection_group_info(request)
+            .await?
+            .into_inner();
+        Ok(ExternalCommitInfoIn {
+            verifiable_group_info: response
+                .group_info
+                .ok_or(DsRequestError::UnexpectedResponse)?
+                .try_ref_into()?,
+            ratchet_tree_in: response
+                .ratchet_tree
+                .ok_or(DsRequestError::UnexpectedResponse)?
+                .try_ref_into()?,
+            encrypted_identity_link_keys: response
+                .encrypted_identity_link_keys
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| DsRequestError::UnexpectedResponse)?,
+            encrypted_user_profile_keys: response
+                .encrypted_user_profile_keys
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| DsRequestError::UnexpectedResponse)?,
+        })
     }
 }
