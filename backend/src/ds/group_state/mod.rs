@@ -153,17 +153,19 @@ impl DsGroupState {
         Ok(group_state)
     }
 
-    pub(crate) fn destination_clients(&self, sender_index: LeafNodeIndex) -> Vec<QsReference> {
+    pub(crate) fn destination_clients(
+        &self,
+        sender_index: LeafNodeIndex,
+    ) -> impl Iterator<Item = QsReference> {
         self.member_profiles
             .iter()
-            .filter_map(|(client_index, client_profile)| {
+            .filter_map(move |(client_index, client_profile)| {
                 if client_index == &sender_index {
                     None
                 } else {
                     Some(client_profile.client_queue_config.clone())
                 }
             })
-            .collect()
     }
 }
 

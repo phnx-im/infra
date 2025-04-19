@@ -9,20 +9,22 @@ use mls_assist::{
 };
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
-    delivery_service::v1::{self, *},
+    delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
-};
-use phnxtypes::{
-    crypto::signatures::signable::Verifiable, errors, identifiers,
-    messages::client_ds::GroupOperationParams, time::TimeStamp,
 };
 use phnxtypes::{
     crypto::{
         ear::keys::GroupStateEarKey,
-        signatures::{keys::LeafVerifyingKey, traits::SignatureVerificationError},
+        signatures::{
+            keys::LeafVerifyingKey,
+            signable::{Verifiable, VerifiedStruct},
+            traits::SignatureVerificationError,
+        },
     },
-    identifiers::{Fqdn, QualifiedGroupId},
-    messages::client_ds::QsQueueMessagePayload,
+    errors,
+    identifiers::{self, Fqdn, QualifiedGroupId},
+    messages::client_ds::{GroupOperationParams, QsQueueMessagePayload},
+    time::TimeStamp,
 };
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
@@ -48,6 +50,63 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
         Self { ds, qs_connector }
     }
 
+    /// Extract and verify the payload with leaf verifying key from an MLS message.
+    ///
+    /// Also loads the group data and group state from the database.
+    async fn leaf_verify<R, P>(&self, request: R) -> Result<LeafVerificationData<P>, Status>
+    where
+        R: WithGroupStateEarKey + WithMessage + Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        self.leaf_verify_with_sender(request, None).await
+    }
+
+    /// Same as `leaf_verify` but allows to specify the sender index.
+    ///
+    /// If the sender index is not specified, the sender is extracted from the message.
+    async fn leaf_verify_with_sender<R, P>(
+        &self,
+        request: R,
+        sender_index: Option<LeafNodeIndex>,
+    ) -> Result<LeafVerificationData<P>, Status>
+    where
+        R: WithGroupStateEarKey + WithMessage + Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        let ear_key = request.ear_key()?;
+        let message = request.message()?;
+        let qgid = message.validated_qgid(self.ds.own_domain())?;
+
+        let (group_data, group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        // verify signature
+        let sender_index = sender_index.map(Ok).unwrap_or_else(|| {
+            match *message.sender().ok_or_missing_field("sender")? {
+                Sender::Member(sender_index) => Ok(sender_index),
+                _ => Err(Status::invalid_argument(
+                    "unexpected sender: expected member",
+                )),
+            }
+        })?;
+
+        let verifying_key: LeafVerifyingKey = group_state
+            .group()
+            .leaf(sender_index)
+            .ok_or(Status::invalid_argument("unknown sender"))?
+            .signature_key()
+            .into();
+        let payload: P = request.verify(&verifying_key).map_err(InvalidSignature)?;
+
+        Ok(LeafVerificationData {
+            ear_key,
+            group_data,
+            group_state,
+            sender_index,
+            payload,
+            message,
+        })
+    }
+
     /// Loads encrypted group state from the database and decrypts it.
     ///
     /// If the group state has expired, the group is deleted and not found is returned.
@@ -70,8 +129,8 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
     async fn fan_out_message(
         &self,
         mls_message: SerializedMlsMessage,
-        destination_clients: Vec<identifiers::QsReference>,
-    ) -> Result<TimeStamp, tonic::Status> {
+        destination_clients: impl IntoIterator<Item = identifiers::QsReference>,
+    ) -> Result<TimeStamp, Status> {
         let queue_message_payload = QsQueueMessagePayload::from(mls_message);
         let timestamp = queue_message_payload.timestamp;
         let fan_out_payload = DsFanOutPayload::QueueMessage(queue_message_payload);
@@ -94,7 +153,7 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
         mut group_data: StorableDsGroupData,
         group_state: DsGroupState,
         ear_key: &GroupStateEarKey,
-    ) -> Result<(), tonic::Status> {
+    ) -> Result<(), Status> {
         let encrypted_group_state = group_state.encrypt(ear_key)?;
         group_data.encrypted_group_state = encrypted_group_state;
         group_data.update(&self.ds.db_pool).await.map_err(|error| {
@@ -105,8 +164,18 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
     }
 }
 
+/// Extracted data in leaf verification
+struct LeafVerificationData<P> {
+    ear_key: GroupStateEarKey,
+    group_data: StorableDsGroupData,
+    group_state: DsGroupState,
+    sender_index: LeafNodeIndex,
+    payload: P,
+    message: AssistedMessageIn,
+}
+
 #[async_trait]
-impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Qep> {
+impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
     async fn request_group_id(
         &self,
         _request: Request<RequestGroupIdRequest>,
@@ -261,40 +330,24 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
             .signature
             .as_ref()
             .ok_or_missing_field("signature")?;
-        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
 
-        let mls_message: AssistedMessageIn = payload
-            .message
+        let sender_index: LeafNodeIndex = request
+            .payload
             .as_ref()
-            .ok_or_missing_field("message")?
-            .try_ref_into()
-            .invalid_tls("message")?;
-
-        let qgid = mls_message.validated_qgid(self.ds.own_domain())?;
-        let ear_key = payload.ear_key()?;
-        let (_, group_state) = self.load_group_state(&qgid, &ear_key).await?;
-
-        // verify
-        let sender_index: LeafNodeIndex = payload.sender.ok_or_missing_field("sender")?.into();
-        let verifying_key: LeafVerifyingKey = group_state
-            .group()
-            .leaf(sender_index)
-            .ok_or(UnknownSenderError(sender_index))?
-            .signature_key()
+            .ok_or_missing_field("sender")?
+            .sender
+            .ok_or_missing_field("sender")?
             .into();
-        let _: SendMessagePayload = request.verify(&verifying_key).map_err(InvalidSignature)?;
 
-        let destination_clients: Vec<_> = group_state
-            .member_profiles
-            .iter()
-            .filter_map(|(client_index, client_profile)| {
-                if client_index == &sender_index {
-                    None
-                } else {
-                    Some(client_profile.client_queue_config.clone())
-                }
-            })
-            .collect();
+        let LeafVerificationData {
+            group_state,
+            message: mls_message,
+            ..
+        } = self
+            .leaf_verify_with_sender::<_, SendMessagePayload>(request, Some(sender_index))
+            .await?;
+
+        let destination_clients = group_state.destination_clients(sender_index);
 
         let timestamp = self
             .fan_out_message(
@@ -312,47 +365,25 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
         &self,
         request: Request<DeleteGroupRequest>,
     ) -> Result<Response<DeleteGroupResponse>, Status> {
-        let inner = request.into_inner();
-        let request = inner;
+        let request = request.into_inner();
 
         request
             .signature
             .as_ref()
             .ok_or_missing_field("signature")?;
-        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
 
-        let commit: AssistedMessageIn = payload
-            .commit
-            .as_ref()
-            .ok_or_missing_field("message")?
-            .try_ref_into()
-            .invalid_tls("message")?;
+        let LeafVerificationData {
+            ear_key,
+            group_data,
+            mut group_state,
+            sender_index,
+            message: commit,
+            ..
+        } = self.leaf_verify::<_, DeleteGroupPayload>(request).await?;
 
-        let qgid = commit.validated_qgid(self.ds.own_domain())?;
-        let ear_key = payload.ear_key()?;
-        let (group_data, mut group_state) = self.load_group_state(&qgid, &ear_key).await?;
+        let destination_clients: Vec<_> = group_state.destination_clients(sender_index).collect();
 
-        // verify
-        let Sender::Member(sender_index) = *commit.sender().ok_or_missing_field("commit.sender")?
-        else {
-            return Err(Status::invalid_argument(
-                "expected a member sender in commit",
-            ));
-        };
-        let verifying_key: LeafVerifyingKey = group_state
-            .group()
-            .leaf(sender_index)
-            .ok_or(UnknownSenderError(sender_index))?
-            .signature_key()
-            .into();
-        let _: DeleteGroupPayload = request.verify(&verifying_key).map_err(InvalidSignature)?;
-
-        let destination_clients = group_state.destination_clients(sender_index);
-
-        let group_message = group_state.delete_group(commit).map_err(|error| {
-            error!(%error, "Failed to delete group");
-            Status::internal("Failed to delete group")
-        })?;
+        let group_message = group_state.delete_group(commit).map_err(DeleteGroupError)?;
 
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
@@ -361,10 +392,9 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
             .fan_out_message(group_message, destination_clients)
             .await?;
 
-        Ok(DeleteGroupResponse {
+        Ok(Response::new(DeleteGroupResponse {
             fanout_timestamp: Some(timestamp.into()),
-        }
-        .into())
+        }))
     }
 
     async fn group_operation(
@@ -377,34 +407,16 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
             .signature
             .as_ref()
             .ok_or_missing_field("signature")?;
-        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
 
-        let commit: AssistedMessageIn = payload
-            .commit
-            .as_ref()
-            .ok_or_missing_field("commit")?
-            .try_ref_into()
-            .invalid_tls("commit")?;
-
-        let qgid = commit.validated_qgid(self.ds.own_domain())?;
-        let ear_key = payload.ear_key()?;
-        let (group_data, mut group_state) = self.load_group_state(&qgid, &ear_key).await?;
-
-        // verify signature
-        let Sender::Member(sender_index) = *commit.sender().ok_or_missing_field("commit.sender")?
-        else {
-            return Err(Status::invalid_argument(
-                "expected a member sender in commit",
-            ));
-        };
-        let verifying_key: LeafVerifyingKey = group_state
-            .group()
-            .leaf(sender_index)
-            .ok_or(Status::invalid_argument("unknown sender"))?
-            .signature_key()
-            .into();
-        let payload: GroupOperationPayload =
-            request.verify(&verifying_key).map_err(InvalidSignature)?;
+        let LeafVerificationData {
+            ear_key,
+            group_data,
+            mut group_state,
+            sender_index,
+            payload,
+            message: commit,
+            ..
+        }: LeafVerificationData<GroupOperationPayload> = self.leaf_verify(request).await?;
 
         let params = GroupOperationParams {
             commit,
@@ -414,7 +426,7 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
                 .transpose()?,
         };
 
-        let destination_clients = group_state.destination_clients(sender_index);
+        let destination_clients: Vec<_> = group_state.destination_clients(sender_index).collect();
 
         let (group_message, welcome_bundles) = group_state
             .group_operation(params, &ear_key)
@@ -435,10 +447,9 @@ impl<Qep: QsConnector> v1::delivery_service_server::DeliveryService for GrpcDs<Q
                 .map_err(DistributeMessageError)?;
         }
 
-        Ok(GroupOperationResponse {
+        Ok(Response::new(GroupOperationResponse {
             fanout_timestamp: Some(timestamp.into()),
-        }
-        .into())
+        }))
     }
 }
 
@@ -447,7 +458,7 @@ struct DistributeMessageError<E>(E);
 impl<E: std::error::Error> From<DistributeMessageError<E>> for Status {
     fn from(e: DistributeMessageError<E>) -> Self {
         error!(error =% e.0, "Failed to distribute message");
-        Status::internal("Failed to distribute message")
+        Status::internal("failed to distribute message")
     }
 }
 
@@ -455,7 +466,7 @@ struct GroupNotFoundError;
 
 impl From<GroupNotFoundError> for Status {
     fn from(_: GroupNotFoundError) -> Self {
-        Status::not_found("Group not found")
+        Status::not_found("group not found")
     }
 }
 
@@ -463,8 +474,8 @@ struct UnknownSenderError(LeafNodeIndex);
 
 impl From<UnknownSenderError> for Status {
     fn from(e: UnknownSenderError) -> Self {
-        error!("Could not find leaf with index {}", e.0);
-        Status::invalid_argument("Unknown sender")
+        error!(index =% e.0, "could not find leaf");
+        Status::invalid_argument("unknown sender")
     }
 }
 
@@ -472,14 +483,13 @@ struct InvalidSignature(SignatureVerificationError);
 
 impl From<InvalidSignature> for Status {
     fn from(e: InvalidSignature) -> Self {
-        error!(error =% e.0, "Invalid signature");
-        Status::unauthenticated("Invalid signature")
+        error!(error =% e.0, "invalid signature");
+        Status::unauthenticated("invalid signature")
     }
 }
 
-/// Extension trait for extracting and validating a fully qualified group id from a protobuf
-/// message
-trait QualifiedGroupIdExt {
+/// Protobuf containing a qualified group id
+trait WithQualifiedGroupId {
     fn qgid(&self) -> Result<QualifiedGroupId, Status>;
 
     fn validated_qgid(&self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status> {
@@ -496,12 +506,12 @@ struct NonMatchingOwnDomain(QualifiedGroupId);
 
 impl From<NonMatchingOwnDomain> for Status {
     fn from(e: NonMatchingOwnDomain) -> Self {
-        error!(qgid =% e.0, "Group id domain does not match own domain");
-        Status::invalid_argument("Group id domain does not match own domain")
+        error!(qgid =% e.0, "group id domain does not match own domain");
+        Status::invalid_argument("group id domain does not match own domain")
     }
 }
 
-impl QualifiedGroupIdExt for AssistedMessageIn {
+impl WithQualifiedGroupId for AssistedMessageIn {
     fn qgid(&self) -> Result<QualifiedGroupId, Status> {
         self.group_id()
             .try_into()
@@ -510,7 +520,7 @@ impl QualifiedGroupIdExt for AssistedMessageIn {
     }
 }
 
-impl QualifiedGroupIdExt for CreateGroupPayload {
+impl WithQualifiedGroupId for CreateGroupPayload {
     fn qgid(&self) -> Result<QualifiedGroupId, Status> {
         self.qgid
             .as_ref()
@@ -520,8 +530,8 @@ impl QualifiedGroupIdExt for CreateGroupPayload {
     }
 }
 
-/// Extension trait for extracting the group state ear key from a protobuf message
-trait GroupStateEarKeyExt {
+/// Protobuf containing a group state ear key
+trait WithGroupStateEarKey {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
 
     fn ear_key(&self) -> Result<GroupStateEarKey, Status> {
@@ -532,27 +542,27 @@ trait GroupStateEarKeyExt {
     }
 }
 
-impl GroupStateEarKeyExt for SendMessagePayload {
+impl WithGroupStateEarKey for SendMessageRequest {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
+impl WithGroupStateEarKey for CreateGroupPayload {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.group_state_ear_key.as_ref()
     }
 }
 
-impl GroupStateEarKeyExt for CreateGroupPayload {
+impl WithGroupStateEarKey for DeleteGroupRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
-        self.group_state_ear_key.as_ref()
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
     }
 }
 
-impl GroupStateEarKeyExt for DeleteGroupPayload {
+impl WithGroupStateEarKey for GroupOperationRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
-        self.group_state_ear_key.as_ref()
-    }
-}
-
-impl GroupStateEarKeyExt for GroupOperationPayload {
-    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
-        self.group_state_ear_key.as_ref()
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
     }
 }
 
@@ -560,7 +570,7 @@ impl GroupStateEarKeyExt for GroupOperationPayload {
 #[error("group operation failed: {0}")]
 struct GroupOperationError(#[from] errors::GroupOperationError);
 
-impl From<GroupOperationError> for tonic::Status {
+impl From<GroupOperationError> for Status {
     fn from(error: GroupOperationError) -> Self {
         match error.0 {
             errors::GroupOperationError::InvalidMessage
@@ -580,5 +590,46 @@ impl From<GroupOperationError> for tonic::Status {
                 Status::internal("group operation failed due to merge commit")
             }
         }
+    }
+}
+
+struct DeleteGroupError(errors::GroupDeletionError);
+
+impl From<DeleteGroupError> for Status {
+    fn from(error: DeleteGroupError) -> Self {
+        error!(error = %error.0, "failed to delete group");
+        Status::internal("failed to delete group")
+    }
+}
+
+/// Request containing an MLS message
+trait WithMessage {
+    fn message(&self) -> Result<AssistedMessageIn, Status>;
+}
+
+impl WithMessage for SendMessageRequest {
+    fn message(&self) -> Result<AssistedMessageIn, Status> {
+        let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
+        let message = payload.message.as_ref().ok_or_missing_field("message")?;
+        let message = message.try_ref_into().invalid_tls("message")?;
+        Ok(message)
+    }
+}
+
+impl WithMessage for GroupOperationRequest {
+    fn message(&self) -> Result<AssistedMessageIn, Status> {
+        let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
+        let commit = payload.commit.as_ref().ok_or_missing_field("commit")?;
+        let commit = commit.try_ref_into().invalid_tls("commit")?;
+        Ok(commit)
+    }
+}
+
+impl WithMessage for DeleteGroupRequest {
+    fn message(&self) -> Result<AssistedMessageIn, Status> {
+        let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
+        let commit = payload.commit.as_ref().ok_or_missing_field("commit")?;
+        let commit = commit.try_ref_into().invalid_tls("commit")?;
+        Ok(commit)
     }
 }
