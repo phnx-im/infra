@@ -320,9 +320,44 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
     async fn external_commit_info(
         &self,
-        _request: Request<ExternalCommitInfoRequest>,
+        request: Request<ExternalCommitInfoRequest>,
     ) -> Result<Response<ExternalCommitInfoResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let qgid = request.qgid.ok_or_missing_field("qgid")?.try_ref_into()?;
+        let ear_key = request
+            .group_state_ear_key
+            .ok_or_missing_field("group_state_ear_key")?
+            .try_ref_into()?;
+
+        let (_, group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        let commit_info = group_state.external_commit_info();
+
+        Ok(Response::new(ExternalCommitInfoResponse {
+            group_info: Some(
+                commit_info
+                    .group_info
+                    .try_into()
+                    .invalid_tls("group_info")?,
+            ),
+            ratchet_tree: Some(
+                commit_info
+                    .ratchet_tree
+                    .try_ref_into()
+                    .invalid_tls("ratchet_tree")?,
+            ),
+            encrypted_identity_link_keys: commit_info
+                .encrypted_identity_link_keys
+                .into_iter()
+                .map(From::from)
+                .collect(),
+            encrypted_user_profile_keys: commit_info
+                .encrypted_user_profile_keys
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        }))
     }
 
     async fn connection_group_info(

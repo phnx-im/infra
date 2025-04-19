@@ -136,13 +136,15 @@ message WelcomeInfoResponse {
 // external commit info
 
 message ExternalCommitInfoRequest {
-  common.v1.GroupId group_id = 1;
+  common.v1.QualifiedGroupId qgid = 1;
+  GroupStateEarKey group_state_ear_key = 2;
 }
 
 message ExternalCommitInfoResponse {
   GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+  repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
 }
 
 message GroupInfo {

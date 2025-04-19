@@ -169,21 +169,25 @@ impl ApiClient {
         group_id: GroupId,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<ExternalCommitInfoIn, DsRequestError> {
-        let payload = ExternalCommitInfoParams { group_id };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::ExternalCommitInfo(payload),
-            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
-                Ok(info)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .external_commit_info(group_id, group_state_ear_key)
+            .await
+
+        // let payload = ExternalCommitInfoParams { group_id };
+        // self.prepare_and_send_ds_group_message(
+        //     DsGroupRequestParamsOut::ExternalCommitInfo(payload),
+        //     AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
+        //     group_state_ear_key,
+        // )
+        // .await
+        // // Check if the response is what we expected it to be.
+        // .and_then(|response| {
+        //     if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
+        //         Ok(info)
+        //     } else {
+        //         Err(DsRequestError::UnexpectedResponse)
+        //     }
+        // })
     }
 
     /// Get external commit information for a connection group.
