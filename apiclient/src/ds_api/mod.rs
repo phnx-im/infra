@@ -27,8 +27,8 @@ use phnxtypes::{
             ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
             DeleteGroupParamsOut, DsGroupRequestParamsOut, DsProcessResponseIn, DsRequestParamsOut,
             DsVersionedProcessResponseIn, DsVersionedRequestParamsOut, ExternalCommitInfoIn,
-            GroupOperationParamsOut, ResyncParamsOut, SelfRemoveParamsOut, SendMessageParamsOut,
-            UpdateParamsOut, WelcomeInfoIn,
+            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
+            WelcomeInfoIn,
         },
     },
     time::TimeStamp,
@@ -161,25 +161,6 @@ impl ApiClient {
         self.ds_grpc_client
             .welcome_info(group_id, epoch, group_state_ear_key, signing_key)
             .await
-        // let payload = WelcomeInfoParams {
-        //     sender: signing_key.credential().verifying_key().clone(),
-        //     group_id,
-        //     epoch,
-        // };
-        // self.prepare_and_send_ds_group_message(
-        //     DsGroupRequestParamsOut::WelcomeInfo(payload),
-        //     signing_key,
-        //     group_state_ear_key,
-        // )
-        // .await
-        // // Check if the response is what we expected it to be.
-        // .and_then(|response| {
-        //     if let DsProcessResponseIn::WelcomeInfo(welcome_info) = response {
-        //         Ok(welcome_info)
-        //     } else {
-        //         Err(DsRequestError::UnexpectedResponse)
-        //     }
-        // })
     }
 
     /// Get external commit information for a group.
@@ -251,24 +232,14 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         own_leaf_index: LeafNodeIndex,
     ) -> Result<TimeStamp, DsRequestError> {
-        let payload = ResyncParamsOut {
-            external_commit,
-            sender: own_leaf_index,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::Resync(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .resync(
+                external_commit,
+                signing_key,
+                own_leaf_index,
+                group_state_ear_key,
+            )
+            .await
     }
 
     /// Leave the given group with this client.

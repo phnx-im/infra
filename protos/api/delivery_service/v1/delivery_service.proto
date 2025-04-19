@@ -194,8 +194,14 @@ message JoinConnectionGroupResponse {
 // resync
 
 message ResyncRequest {
-  AssistedMessage extenal_commit = 1;
-  LeafNodeIndex sender = 2;
+  ResyncPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message ResyncPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage external_commit = 2;
+  LeafNodeIndex sender = 3;
 }
 
 message ResyncResponse {

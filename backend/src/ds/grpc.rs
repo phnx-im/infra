@@ -450,9 +450,41 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
     async fn resync(
         &self,
-        _request: Request<ResyncRequest>,
+        request: Request<ResyncRequest>,
     ) -> Result<Response<ResyncResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+
+        let LeafVerificationData {
+            ear_key,
+            group_data,
+            mut group_state,
+            sender_index,
+            message: external_commit,
+            ..
+        } = self.leaf_verify::<_, ResyncPayload>(request).await?;
+
+        let destination_clients: Vec<_> = group_state
+            .other_destination_clients(sender_index)
+            .collect();
+
+        let group_message = group_state
+            .resync_client(external_commit, sender_index)
+            .map_err(ResyncError)?;
+        self.update_group_data(group_data, group_state, &ear_key)
+            .await?;
+
+        let timestamp = self
+            .fan_out_message(group_message, destination_clients)
+            .await?;
+
+        Ok(Response::new(ResyncResponse {
+            fanout_timestamp: Some(timestamp.into()),
+        }))
     }
 
     async fn self_remove(
@@ -772,6 +804,12 @@ impl WithGroupStateEarKey for WelcomeInfoPayload {
     }
 }
 
+impl WithGroupStateEarKey for ResyncRequest {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("group operation failed: {0}")]
 struct GroupOperationError(#[from] errors::GroupOperationError);
@@ -863,6 +901,20 @@ impl WithMessage for SelfRemoveRequest {
     }
 }
 
+impl WithMessage for ResyncRequest {
+    fn message(&self) -> Result<AssistedMessageIn, Status> {
+        let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
+        let external_commit = payload
+            .external_commit
+            .as_ref()
+            .ok_or_missing_field("external_commit")?;
+        let message = external_commit
+            .try_ref_into()
+            .invalid_tls("external_commit")?;
+        Ok(message)
+    }
+}
+
 struct UpdateError(errors::ClientUpdateError);
 
 impl From<UpdateError> for Status {
@@ -895,5 +947,14 @@ struct NoWelcomeInfoFound;
 impl From<NoWelcomeInfoFound> for Status {
     fn from(_: NoWelcomeInfoFound) -> Self {
         Status::not_found("no welcome info found")
+    }
+}
+
+struct ResyncError(errors::ResyncClientError);
+
+impl From<ResyncError> for Status {
+    fn from(e: ResyncError) -> Self {
+        error!(error =% e.0, "failed to resync client");
+        Status::internal("failed to resync client")
     }
 }

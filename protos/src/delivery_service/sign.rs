@@ -6,9 +6,9 @@ use prost::Message;
 
 use super::v1::{
     CreateGroupPayload, CreateGroupRequest, DeleteGroupPayload, DeleteGroupRequest,
-    GroupOperationPayload, GroupOperationRequest, SelfRemovePayload, SelfRemoveRequest,
-    SendMessagePayload, SendMessageRequest, UpdatePayload, UpdateRequest, WelcomeInfoPayload,
-    WelcomeInfoRequest,
+    GroupOperationPayload, GroupOperationRequest, ResyncPayload, ResyncRequest, SelfRemovePayload,
+    SelfRemoveRequest, SendMessagePayload, SendMessageRequest, UpdatePayload, UpdateRequest,
+    WelcomeInfoPayload, WelcomeInfoRequest,
 };
 
 use phnxtypes::crypto::signatures::signable::{
@@ -376,6 +376,58 @@ impl Verifiable for SelfRemoveRequest {
 
     fn label(&self) -> &str {
         SELF_REMOVE_PAYLOAD_LABEL
+    }
+}
+
+const RESYNC_PAYLOAD_LABEL: &str = "ResyncPayload";
+
+impl SignedStruct<ResyncPayload> for ResyncRequest {
+    fn from_payload(payload: ResyncPayload, signature: Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for ResyncPayload {
+    type SignedOutput = ResyncRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        RESYNC_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<ResyncRequest> for ResyncPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: ResyncRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for ResyncRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        RESYNC_PAYLOAD_LABEL
     }
 }
 

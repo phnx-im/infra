@@ -428,7 +428,10 @@ impl Ds {
                 prepare_result(group_message, vec![])
             }
             DsGroupRequestParams::Resync(resync_client_params) => {
-                let group_message = group_state.resync_client(resync_client_params)?;
+                let group_message = group_state.resync_client(
+                    resync_client_params.external_commit,
+                    resync_client_params.sender_index,
+                )?;
                 prepare_result(group_message, vec![])
             }
             // ======= Proposal Endpoints =======

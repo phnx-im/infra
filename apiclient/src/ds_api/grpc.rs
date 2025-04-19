@@ -4,13 +4,16 @@
 
 use mls_assist::{
     messages::AssistedMessageOut,
-    openmls::{group::GroupEpoch, prelude::GroupId},
+    openmls::{
+        group::GroupEpoch,
+        prelude::{GroupId, LeafNodeIndex},
+    },
 };
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
-        GroupOperationPayload, JoinConnectionGroupRequest, RequestGroupIdRequest,
+        GroupOperationPayload, JoinConnectionGroupRequest, RequestGroupIdRequest, ResyncPayload,
         SelfRemovePayload, SendMessagePayload, UpdatePayload, WelcomeInfoPayload,
         delivery_service_client::DeliveryServiceClient,
     },
@@ -308,5 +311,25 @@ impl DsGrpcClient {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
         })
+    }
+
+    pub(crate) async fn resync(
+        &self,
+        external_commit: AssistedMessageOut,
+        signing_key: &PseudonymousCredentialSigningKey,
+        own_leaf_index: LeafNodeIndex,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<TimeStamp, DsRequestError> {
+        let payload = ResyncPayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            external_commit: Some(external_commit.try_ref_into()?),
+            sender: Some(own_leaf_index.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self.client.clone().resync(request).await?.into_inner();
+        Ok(response
+            .fanout_timestamp
+            .ok_or(DsRequestError::UnexpectedResponse)?
+            .into())
     }
 }
