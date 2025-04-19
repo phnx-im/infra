@@ -408,7 +408,7 @@ impl Ds {
             }
             // ======= Committing Endpoints =======
             DsGroupRequestParams::Update(update_client_params) => {
-                let group_message = group_state.update_client(update_client_params)?;
+                let group_message = group_state.update_client(update_client_params.commit)?;
                 prepare_result(group_message, vec![])
             }
             DsGroupRequestParams::GroupOperation(group_operation_params) => {

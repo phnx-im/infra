@@ -211,27 +211,6 @@ impl ApiClient {
         self.ds_grpc_client
             .connection_group_info(group_id, group_state_ear_key)
             .await
-        //
-        // let qgid: QualifiedGroupId = group_id.try_into()?;
-        // let payload = ConnectionGroupInfoParams {
-        //     group_id: qgid.into(),
-        // };
-        //
-        // let payload = ConnectionGroupInfoParams { group_id };
-        // self.prepare_and_send_ds_group_message(
-        //     DsGroupRequestParamsOut::ConnectionGroupInfo(payload),
-        //     AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
-        //     group_state_ear_key,
-        // )
-        // .await
-        // // Check if the response is what we expected it to be.
-        // .and_then(|response| {
-        //     if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
-        //         Ok(info)
-        //     } else {
-        //         Err(DsRequestError::UnexpectedResponse)
-        //     }
-        // })
     }
 
     /// Update your client in this group.
@@ -241,20 +220,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::Update(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .update(params.commit, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Join the connection group with a new client.

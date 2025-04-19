@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::GroupId;
+use mls_assist::{messages::AssistedMessageOut, openmls::prelude::GroupId};
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
-        GroupOperationPayload, RequestGroupIdRequest, SendMessagePayload,
+        GroupOperationPayload, RequestGroupIdRequest, SendMessagePayload, UpdatePayload,
         delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
@@ -204,5 +204,23 @@ impl DsGrpcClient {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
         })
+    }
+
+    pub(crate) async fn update(
+        &self,
+        commit: AssistedMessageOut,
+        signing_key: &PseudonymousCredentialSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<TimeStamp, DsRequestError> {
+        let payload = UpdatePayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            commit: Some(commit.try_ref_into()?),
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self.client.clone().update(request).await?.into_inner();
+        Ok(response
+            .fanout_timestamp
+            .ok_or(DsRequestError::UnexpectedResponse)?
+            .into())
     }
 }

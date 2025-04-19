@@ -170,7 +170,13 @@ message UpdateQsClientReferenceResponse {}
 // update
 
 message UpdateRequest {
-  AssistedMessage commit = 1;
+  UpdatePayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message UpdatePayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage commit = 2;
 }
 
 message AssistedMessage {

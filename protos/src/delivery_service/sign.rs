@@ -7,7 +7,7 @@ use prost::Message;
 use super::v1::{
     CreateGroupPayload, CreateGroupRequest, DeleteGroupPayload, DeleteGroupRequest,
     GroupOperationPayload, GroupOperationRequest, SendMessagePayload, SendMessageRequest,
-    WelcomeInfoPayload, WelcomeInfoRequest,
+    UpdatePayload, UpdateRequest, WelcomeInfoPayload, WelcomeInfoRequest,
 };
 
 use phnxtypes::crypto::signatures::signable::{
@@ -271,6 +271,58 @@ impl Verifiable for GroupOperationRequest {
 
     fn label(&self) -> &str {
         GROUP_OPERATION_PAYLOAD_LABEL
+    }
+}
+
+const UPDATE_PAYLOAD_LABEL: &str = "UpdatePayload";
+
+impl SignedStruct<UpdatePayload> for UpdateRequest {
+    fn from_payload(payload: UpdatePayload, signature: Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for UpdatePayload {
+    type SignedOutput = UpdateRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        UPDATE_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<UpdateRequest> for UpdatePayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: UpdateRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for UpdateRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        UPDATE_PAYLOAD_LABEL
     }
 }
 
