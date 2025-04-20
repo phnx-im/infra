@@ -154,7 +154,7 @@ impl AuthService {
         &self,
         message: VerifiableClientToAsMessage,
     ) -> Result<AsVersionedProcessResponse, AsProcessingError> {
-        let (verified_params, from_version) = self.verify(message).await?;
+        let (verified_params, from_version) = self.verify_params(message).await?;
 
         let response: AsProcessResponse = match verified_params {
             VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self

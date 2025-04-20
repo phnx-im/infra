@@ -26,10 +26,9 @@ use phnxtypes::{
             ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
             DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
             EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
-            FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
-            InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
-            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
-            UserConnectionPackagesParams,
+            FinishUserRegistrationParamsTbs, Init2FactorAuthResponse, InitUserRegistrationParams,
+            InitiateClientAdditionParams, IssueTokensParamsTbs, IssueTokensResponse,
+            SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
@@ -51,12 +50,16 @@ use crate::{
     version::{extract_api_version_negotiation, negotiate_api_version},
 };
 
+pub mod grpc;
+
 #[derive(Error, Debug)]
 pub enum AsRequestError {
     #[error("Library Error")]
     LibraryError,
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    Tonic(#[from] tonic::Status),
     #[error(transparent)]
     Tls(#[from] tls_codec::Error),
     #[error("Received an unexpected response type")]
@@ -134,24 +137,9 @@ impl ApiClient {
         opaque_ke1: OpaqueLoginRequest,
         signing_key: &ClientSigningKey,
     ) -> Result<Init2FactorAuthResponse, AsRequestError> {
-        let tbs = Init2FactorAuthParamsTbs {
-            client_id,
-            opaque_ke1,
-        };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParamsOut::Initiate2FaAuthentication(payload);
-        self.prepare_and_send_as_message(params)
+        self.as_grpc_client
+            .initiate_2fa_auth(client_id, opaque_ke1, signing_key)
             .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::Init2FactorAuth(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
     }
 
     pub async fn as_finish_user_registration(

@@ -5,7 +5,11 @@
 use phnxtypes::{
     crypto::signatures::signable::Verifiable,
     errors::auth_service::AsVerificationError,
-    messages::{ApiVersion, client_as::AsAuthMethod, client_as_out::ClientToAsMessageIn},
+    messages::{
+        ApiVersion,
+        client_as::{AsAuthMethod, AsPayload},
+        client_as_out::ClientToAsMessageIn,
+    },
 };
 use tls_codec::TlsDeserializeBytes;
 
@@ -18,13 +22,21 @@ use super::{AuthService, TlsSize, VerifiedAsRequestParams, client_record::Client
 pub struct VerifiableClientToAsMessage(ClientToAsMessageIn);
 
 impl AuthService {
-    pub(crate) async fn verify(
+    pub(crate) async fn verify_params(
         &self,
         message: VerifiableClientToAsMessage,
     ) -> Result<(VerifiedAsRequestParams, ApiVersion), AsVerificationError> {
         let versioned_params = message.0.into_body();
         let (params, version) = versioned_params.into_unversioned()?;
-        let params = match params.into_auth_method() {
+        let params = self.verify(params.into_auth_method()).await?;
+        Ok((params, version))
+    }
+
+    pub(crate) async fn verify<P: AsPayload>(
+        &self,
+        auth_method: AsAuthMethod<P>,
+    ) -> Result<P, AsVerificationError> {
+        let params = match auth_method {
             // No authentication at all. We just return the parameters without
             // verification.
             AsAuthMethod::None(params) => params,
@@ -35,7 +47,7 @@ impl AuthService {
                 // Depending on the request type, we either load the client
                 // credential from the persistend storage, or the ephemeral
                 // storage.
-                if cca.is_finish_user_registration_request() {
+                if cca.payload().is_finish_user_registration_request() {
                     let client_credentials = self.inner.ephemeral_client_credentials.lock().await;
                     let client_credential = client_credentials
                         .get(cca.client_id())
@@ -111,6 +123,6 @@ impl AuthService {
                 *user_auth.payload
             }
         };
-        Ok((params, version))
+        Ok(params)
     }
 }

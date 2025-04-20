@@ -14,7 +14,10 @@ use crate::{
     validation::{MissingFieldError, MissingFieldExt},
 };
 
-use super::v1::{Ciphertext, Fqdn, GroupId, QualifiedGroupId, Signature, Timestamp, Uuid};
+use super::v1::{
+    Ciphertext, Fqdn, GroupId, QualifiedGroupId, QualifiedUserName, Signature, Timestamp, UserName,
+    Uuid,
+};
 
 impl From<uuid::Uuid> for Uuid {
     fn from(value: uuid::Uuid) -> Self {
@@ -165,6 +168,66 @@ impl From<Signature> for signable::Signature {
     fn from(value: Signature) -> Self {
         signable::Signature::from_bytes(value.value)
     }
+}
+
+impl FromRef<'_, identifiers::UserName> for UserName {
+    fn from_ref(value: &identifiers::UserName) -> Self {
+        Self {
+            value: value.to_string(),
+        }
+    }
+}
+
+impl TryFrom<UserName> for identifiers::UserName {
+    type Error = identifiers::UserNameError;
+
+    fn try_from(proto: UserName) -> Result<Self, Self::Error> {
+        proto.value.try_into()
+    }
+}
+
+impl FromRef<'_, identifiers::QualifiedUserName> for QualifiedUserName {
+    fn from_ref(value: &identifiers::QualifiedUserName) -> Self {
+        Self {
+            name: Some(value.user_name().ref_into()),
+            domain: Some(value.domain().ref_into()),
+        }
+    }
+}
+
+impl TryFrom<QualifiedUserName> for identifiers::QualifiedUserName {
+    type Error = QualifiedUserNameError;
+
+    fn try_from(proto: QualifiedUserName) -> Result<Self, Self::Error> {
+        let user_name = proto
+            .name
+            .ok_or_missing_field(QualifiedUserNameField::UserName)?
+            .try_into()?;
+        let domain = proto
+            .domain
+            .as_ref()
+            .ok_or_missing_field(QualifiedUserNameField::Domain)?
+            .try_ref_into()?;
+        Ok(identifiers::QualifiedUserName::new(user_name, domain))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum QualifiedUserNameError {
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<QualifiedUserNameField>),
+    #[error(transparent)]
+    Domain(#[from] identifiers::FqdnError),
+    #[error(transparent)]
+    UserName(#[from] identifiers::UserNameError),
+}
+
+#[derive(Debug, derive_more::Display)]
+pub enum QualifiedUserNameField {
+    #[display(fmt = "user_name")]
+    UserName,
+    #[display(fmt = "domain")]
+    Domain,
 }
 
 #[cfg(test)]

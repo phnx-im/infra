@@ -58,11 +58,11 @@ message ExprirationData {
 // init 2fa authentication
 
 message Init2FaAuthenticationRequest {
-  Init2FaAuthenticationRequestTbs payload = 1;
-  string password = 2;
+  Init2FaAuthenticationPayload payload = 1;
+  common.v1.Signature signature = 2;
 }
 
-message Init2FaAuthenticationRequestTbs {
+message Init2FaAuthenticationPayload {
   AsClientId client_id = 1;
   OpaqueLoginRequest opaque_ke1 = 2;
 }

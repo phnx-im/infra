@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::fmt;
+
 use mls_assist::openmls_traits::types::HpkeCiphertext;
 use privacypass::batched_tokens_ristretto255::{TokenRequest, TokenResponse};
 
@@ -68,36 +70,36 @@ where
 
     const LABEL: &'static str;
 
-    fn credential_auth_info(self) -> ClientCredentialAuth {
+    fn credential_auth_info(self) -> ClientCredentialAuth<VerifiedAsRequestParams> {
         let signature = self.signature().clone();
         ClientCredentialAuth {
             client_id: self.client_id(),
-            payload: Box::new(self.into_payload()),
+            payload: self.into_payload(),
             label: Self::LABEL,
             signature,
         }
     }
 }
 
-pub(super) trait TwoFactorAuthenticator
+pub(super) trait TwoFactorAuthenticator<P>
 where
     Self: Sized,
 {
     type Tbs: TlsSerializeTrait;
 
     fn client_id(&self) -> AsClientId;
-    fn into_payload(self) -> VerifiedAsRequestParams;
+    fn into_payload(self) -> P;
     fn signature(&self) -> &Signature;
     fn opaque_finish(&self) -> &OpaqueLoginFinish;
 
     const LABEL: &'static str;
 
-    fn two_factor_auth_info(self) -> Client2FaAuth {
+    fn two_factor_auth_info(self) -> Client2FaAuth<P> {
         let signature = self.signature().clone();
         let opaque_finish = self.opaque_finish().clone();
         let client_credential_auth = ClientCredentialAuth {
             client_id: self.client_id(),
-            payload: Box::new(self.into_payload()),
+            payload: self.into_payload(),
             label: Self::LABEL,
             signature,
         };
@@ -327,7 +329,7 @@ pub struct DeleteUserParams {
     signature: Signature,
 }
 
-impl TwoFactorAuthenticator for DeleteUserParams {
+impl TwoFactorAuthenticator<VerifiedAsRequestParams> for DeleteUserParams {
     type Tbs = DeleteUserParamsTbs;
 
     fn client_id(&self) -> AsClientId {
@@ -387,7 +389,7 @@ impl FinishClientAdditionParams {
     // TODO: This is currently implemented manually since this is the only
     // request that needs user auth. We might want to generalize this into a
     // trait later on.
-    pub(super) fn user_auth(self) -> UserAuth {
+    pub(super) fn user_auth(self) -> UserAuth<VerifiedAsRequestParams> {
         UserAuth {
             user_name: self.payload.client_id.user_name().clone(),
             opaque_finish: self.opaque_login_finish.clone(),
@@ -959,56 +961,75 @@ pub enum VerifiedAsRequestParams {
 }
 
 #[derive(Debug)]
-pub struct ClientCredentialAuth {
+pub struct ClientCredentialAuth<P> {
     client_id: AsClientId,
-    payload: Box<VerifiedAsRequestParams>,
+    payload: P,
     label: &'static str,
     signature: Signature,
 }
 
-impl ClientCredentialAuth {
+impl<P> ClientCredentialAuth<P> {
+    pub fn new(
+        client_id: AsClientId,
+        payload: P,
+        label: &'static str,
+        signature: Signature,
+    ) -> Self {
+        Self {
+            client_id,
+            payload,
+            label,
+            signature,
+        }
+    }
+
     pub fn client_id(&self) -> &AsClientId {
         &self.client_id
     }
 
-    pub fn is_finish_user_registration_request(&self) -> bool {
-        matches!(
-            self.payload.as_ref(),
-            VerifiedAsRequestParams::FinishUserRegistration(_)
-        )
+    pub fn payload(&self) -> &P {
+        &self.payload
     }
 }
 
-impl Verifiable for ClientCredentialAuth {
+pub trait AsPayload: fmt::Debug {
+    fn is_finish_user_registration_request(&self) -> bool;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error>;
+}
+
+impl AsPayload for VerifiedAsRequestParams {
+    fn is_finish_user_registration_request(&self) -> bool {
+        matches!(self, VerifiedAsRequestParams::FinishUserRegistration(_))
+    }
+
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        match self.payload.as_ref() {
-            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => {
-                params.tls_serialize_detached()
-            }
-            VerifiedAsRequestParams::DeleteClient(params) => params.tls_serialize_detached(),
-            VerifiedAsRequestParams::DequeueMessages(params) => params.tls_serialize_detached(),
-            VerifiedAsRequestParams::PublishConnectionPackages(params) => {
-                params.tls_serialize_detached()
-            }
-            VerifiedAsRequestParams::ClientConnectionPackage(params) => {
-                params.tls_serialize_detached()
-            }
-            VerifiedAsRequestParams::IssueTokens(params) => params.tls_serialize_detached(),
-            VerifiedAsRequestParams::FinishUserRegistration(params) => {
-                params.tls_serialize_detached()
-            }
-            VerifiedAsRequestParams::UpdateUserProfile(params) => params.tls_serialize_detached(),
+        match self {
+            Self::Initiate2FaAuthentication(params) => params.tls_serialize_detached(),
+            Self::DeleteClient(params) => params.tls_serialize_detached(),
+            Self::DequeueMessages(params) => params.tls_serialize_detached(),
+            Self::PublishConnectionPackages(params) => params.tls_serialize_detached(),
+            Self::ClientConnectionPackage(params) => params.tls_serialize_detached(),
+            Self::IssueTokens(params) => params.tls_serialize_detached(),
+            Self::FinishUserRegistration(params) => params.tls_serialize_detached(),
+            Self::UpdateUserProfile(params) => params.tls_serialize_detached(),
             // All other endpoints aren't authenticated via client credential signatures.
-            VerifiedAsRequestParams::DeleteUser(_)
-            | VerifiedAsRequestParams::FinishClientAddition(_)
-            | VerifiedAsRequestParams::UserConnectionPackages(_)
-            | VerifiedAsRequestParams::InitiateClientAddition(_)
-            | VerifiedAsRequestParams::UserClients(_)
-            | VerifiedAsRequestParams::AsCredentials(_)
-            | VerifiedAsRequestParams::EnqueueMessage(_)
-            | VerifiedAsRequestParams::InitUserRegistration(_)
-            | VerifiedAsRequestParams::GetUserProfile(_) => Ok(vec![]),
+            Self::DeleteUser(_)
+            | Self::FinishClientAddition(_)
+            | Self::UserConnectionPackages(_)
+            | Self::InitiateClientAddition(_)
+            | Self::UserClients(_)
+            | Self::AsCredentials(_)
+            | Self::EnqueueMessage(_)
+            | Self::InitUserRegistration(_)
+            | Self::GetUserProfile(_) => Ok(vec![]),
         }
+    }
+}
+
+impl<P: AsPayload> Verifiable for ClientCredentialAuth<P> {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.payload.unsigned_payload()
     }
 
     fn signature(&self) -> impl AsRef<[u8]> {
@@ -1020,33 +1041,32 @@ impl Verifiable for ClientCredentialAuth {
     }
 }
 
-impl VerifiedStruct<ClientCredentialAuth> for VerifiedAsRequestParams {
+impl<P: AsPayload> VerifiedStruct<ClientCredentialAuth<P>> for P {
     type SealingType = private_mod::Seal;
 
-    fn from_verifiable(verifiable: ClientCredentialAuth, _seal: Self::SealingType) -> Self {
-        *verifiable.payload
+    fn from_verifiable(verifiable: ClientCredentialAuth<P>, _seal: Self::SealingType) -> Self {
+        verifiable.payload
     }
 }
 
 #[derive(Debug)]
-pub struct Client2FaAuth {
-    pub client_credential_auth: ClientCredentialAuth,
+pub struct Client2FaAuth<P> {
+    pub client_credential_auth: ClientCredentialAuth<P>,
     pub opaque_finish: OpaqueLoginFinish,
 }
 
 #[derive(Debug)]
-pub struct UserAuth {
+pub struct UserAuth<P> {
     pub user_name: QualifiedUserName,
     pub opaque_finish: OpaqueLoginFinish,
-    pub payload: Box<VerifiedAsRequestParams>,
+    pub payload: Box<P>,
 }
 
 #[derive(Debug)]
 #[repr(u8)]
-#[allow(clippy::large_enum_variant)]
-pub enum AsAuthMethod {
-    None(VerifiedAsRequestParams),
-    ClientCredential(ClientCredentialAuth),
-    Client2Fa(Client2FaAuth),
-    User(UserAuth),
+pub enum AsAuthMethod<P> {
+    None(P),
+    ClientCredential(ClientCredentialAuth<P>),
+    Client2Fa(Client2FaAuth<P>),
+    User(UserAuth<P>),
 }

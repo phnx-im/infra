@@ -425,7 +425,7 @@ pub enum AsRequestParamsIn {
 }
 
 impl AsRequestParamsIn {
-    pub fn into_auth_method(self) -> AsAuthMethod {
+    pub fn into_auth_method(self) -> AsAuthMethod<VerifiedAsRequestParams> {
         match self {
             // Requests authenticated only by the user's password.
             // TODO: We should probably sign/verify the CSR with the verifying

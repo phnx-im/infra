@@ -6,8 +6,12 @@
 
 use std::{sync::Arc, time::Duration};
 
+use as_api::grpc::AsGrpcClient;
 use ds_api::grpc::DsGrpcClient;
-use phnxprotos::delivery_service::v1::delivery_service_client::DeliveryServiceClient;
+use phnxprotos::{
+    auth_service::v1::auth_service_client::AuthServiceClient,
+    delivery_service::v1::delivery_service_client::DeliveryServiceClient,
+};
 use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
@@ -50,6 +54,7 @@ pub type HttpClient = reqwest::Client;
 #[derive(Clone)]
 pub struct ApiClient {
     client: HttpClient,
+    as_grpc_client: AsGrpcClient,
     ds_grpc_client: DsGrpcClient,
     url: Url,
     api_versions: Arc<NegotiatedApiVersions>,
@@ -107,10 +112,13 @@ impl ApiClient {
         let endpoint = tonic::transport::Endpoint::from_shared(grpc_url.to_string())
             .map_err(|_| ApiClientInitError::InvalidUrl(grpc_url.to_string()))?;
         let channel = endpoint.connect_lazy();
+
+        let as_grpc_client = AsGrpcClient::new(AuthServiceClient::new(channel.clone()));
         let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel));
 
         Ok(Self {
             client,
+            as_grpc_client,
             ds_grpc_client,
             url,
             api_versions: Arc::new(NegotiatedApiVersions::new()),

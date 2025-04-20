@@ -312,6 +312,10 @@ impl FromStr for QualifiedUserName {
 }
 
 impl QualifiedUserName {
+    pub fn new(user_name: UserName, domain: Fqdn) -> Self {
+        Self { user_name, domain }
+    }
+
     pub fn user_name(&self) -> &UserName {
         &self.user_name
     }
