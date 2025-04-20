@@ -17,11 +17,14 @@ use actix_web::{
     web::{self, Data},
 };
 use phnxbackend::{
-    auth_service::AuthService,
+    auth_service::{AuthService, grpc::GrpcAs},
     ds::{Ds, GrpcDs},
     qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider::NetworkProvider},
 };
-use phnxprotos::delivery_service::v1::delivery_service_server::DeliveryServiceServer;
+use phnxprotos::{
+    auth_service::v1::auth_service_server::AuthServiceServer,
+    delivery_service::v1::delivery_service_server::DeliveryServiceServer,
+};
 use phnxtypes::endpoint_paths::{
     ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
     ENDPOINT_QS_WS,
@@ -54,7 +57,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
 ) -> Result<impl Future<Output = io::Result<()>>, io::Error> {
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds.clone());
-    let auth_service_data = Data::new(auth_service);
+    let auth_service_data = Data::new(auth_service.clone());
     let qs_data = Data::new(qs);
     let qs_connector_data = Data::new(qs_connector.clone());
     let network_provider_data = Data::new(network_provider);
@@ -99,6 +102,8 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
 
     // GRPC server
     let grpc_ds = GrpcDs::new(ds, qs_connector);
+    let grpc_as = GrpcAs::new(auth_service);
+
     tokio::spawn(async move {
         tonic::transport::Server::builder()
             .layer(
@@ -120,6 +125,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
                     }),
             )
             .add_service(DeliveryServiceServer::new(grpc_ds))
+            .add_service(AuthServiceServer::new(grpc_as))
             .serve_with_incoming_shutdown(TcpListenerStream::new(grpc_listener), async move {
                 shutdown_rx.await.ok();
             })

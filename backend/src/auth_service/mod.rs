@@ -41,6 +41,7 @@ pub mod client_api;
 mod client_record;
 mod connection_package;
 mod credentials;
+pub mod grpc;
 mod opaque;
 mod privacy_pass;
 mod queue;
