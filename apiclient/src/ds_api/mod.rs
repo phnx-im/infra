@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! API endpoints of the DS
+//! API client implementation for the DS
 
 use mls_assist::{
     messages::AssistedMessageOut,
