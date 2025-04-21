@@ -42,15 +42,11 @@ message AsClientId {
   common.v1.Uuid client_id = 2;
 }
 
-message Signature {
-  bytes bytes = 1;
-}
-
 message MlsInfraVersion {
   uint32 version = 1;
 }
 
-message ExprirationData {
+message ExpirationData {
   common.v1.Timestamp not_before = 1;
   common.v1.Timestamp not_after = 2;
 }
@@ -88,7 +84,7 @@ message InitUserRegistrationRequest {
 
 message ClientPayload {
   ClientCredentialCsr csr = 1;
-  ExprirationData expriration_data = 2;
+  ExpirationData expiration_data = 2;
   CredentialFingerprint credential_fingerprint = 3;
 }
 
@@ -131,12 +127,12 @@ message OpaqueRegistrationResponse {
 
 message ClientCredential {
   ClientCredentialPayload payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message ClientCredentialPayload {
   ClientCredentialCsr csr = 1;
-  ExprirationData expriration_data = 2;
+  ExpirationData expiration_data = 2;
   CredentialFingerprint signer_fingerprint = 3;
 }
 
@@ -144,26 +140,26 @@ message ClientCredentialPayload {
 
 message FinishUserRegistrationRequest {
   FinishUserRegistrationRequestTbs payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message FinishUserRegistrationRequestTbs {
   AsClientId client_id = 1;
   common.v1.RatchetEncryptionKey queeu_encryption_key = 2;
-  common.v1.RatchetSecret initi_ratchet_secret = 3;
+  common.v1.RatchetSecret initial_ratchet_secret = 3;
   repeated ConnectionPackage connection_packages = 4;
   OpaqueRegistrationRecord opaque_registration_record = 5;
 }
 
 message ConnectionPackage {
   ConnectionPackageTbs payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message ConnectionPackageTbs {
   MlsInfraVersion protocol_version = 1;
   ConnectionEncryptionKey encryption_key = 2;
-  ExprirationData lifetime = 3;
+  ExpirationData lifetime = 3;
   ClientCredential client_credential = 4;
 }
 
@@ -205,7 +201,7 @@ message InitClientAdditionResponse {
 
 message VerifiableClientCredential {
   ClientCredentialPayload payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 // finish client addition
@@ -228,7 +224,7 @@ message FinishClientAdditionResponse {}
 
 message PublishConnectionPackageRequest {
   PublishConnectionPackageRequestTbs payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message PublishConnectionPackageRequestTbs {
@@ -242,7 +238,7 @@ message PublishConnectionPackageResponse {}
 
 message ClientConnectionPackageRequest {
   ClientConnectionPackageRequestTbs payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message ClientConnectionPackageRequestTbs {
@@ -291,7 +287,7 @@ message AsCredential {
 message AsCredentialBody {
   MlsInfraVersion version = 1;
   common.v1.Fqdn as_domain = 2;
-  ExprirationData expiration_data = 3;
+  ExpirationData expiration_data = 3;
   SignatureScheme signature_scheme = 4;
   AsVerifyingKey verifying_key = 5;
 }
@@ -302,12 +298,12 @@ message AsVerifyingKey {
 
 message VerifiableAsIntermediateCredential {
   AsIntermediateCredentialPayload credential = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message AsIntermediateCredentialPayload {
   AsIntermediateCredentialCsr csr = 1;
-  ExprirationData expriration_data = 2;
+  ExpirationData expiration_data = 2;
   CredentialFingerprint signer_fingerprint = 3;
 }
 
@@ -326,7 +322,7 @@ message AsIntermediateVerifyingKey {
 
 message IssueTokensRequest {
   IssueTokensRequestTbs payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message IssueTokensRequestTbs {
@@ -382,7 +378,7 @@ message EnqueueMessagesResponse {}
 
 message DequeueMessagesRequest {
   DequeueMessagesRequestTbs payload = 1;
-  Signature signature = 2;
+  common.v1.Signature signature = 2;
 }
 
 message DequeueMessagesRequestTbs {

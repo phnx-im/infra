@@ -84,8 +84,16 @@ impl CredentialFingerprint {
         Self(value)
     }
 
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
     }
 }
 
@@ -396,10 +404,10 @@ const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
     Debug, Clone, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
 )]
 pub struct ClientCredentialCsr {
-    version: MlsInfraVersion,
-    client_id: AsClientId,
-    signature_scheme: SignatureScheme,
-    verifying_key: ClientVerifyingKey,
+    pub version: MlsInfraVersion,
+    pub client_id: AsClientId,
+    pub signature_scheme: SignatureScheme,
+    pub verifying_key: ClientVerifyingKey,
 }
 
 impl ClientCredentialCsr {
@@ -432,9 +440,9 @@ impl ClientCredentialCsr {
     Debug, Clone, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
 )]
 pub struct ClientCredentialPayload {
-    csr: ClientCredentialCsr,
-    expiration_data: ExpirationData,
-    signer_fingerprint: CredentialFingerprint,
+    pub csr: ClientCredentialCsr,
+    pub expiration_data: ExpirationData,
+    pub signer_fingerprint: CredentialFingerprint,
 }
 
 impl ClientCredentialPayload {
@@ -490,6 +498,10 @@ pub struct ClientCredential {
 }
 
 impl ClientCredential {
+    pub fn into_parts(self) -> (ClientCredentialPayload, Signature) {
+        (self.payload, self.signature)
+    }
+
     pub fn identity(&self) -> &AsClientId {
         self.payload.identity()
     }
@@ -577,6 +589,10 @@ pub struct VerifiableClientCredential {
 }
 
 impl VerifiableClientCredential {
+    pub fn new(payload: ClientCredentialPayload, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+
     pub fn domain(&self) -> &Fqdn {
         self.payload.csr.client_id.user_name().domain()
     }

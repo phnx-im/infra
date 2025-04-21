@@ -189,6 +189,16 @@ impl ClientSigningKey {
 #[sqlx(transparent)]
 pub struct ClientVerifyingKey(pub(super) VerifyingKey);
 
+impl ClientVerifyingKey {
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(VerifyingKey::from_bytes(bytes))
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
+}
+
 impl VerifyingKeyBehaviour for ClientVerifyingKey {}
 
 impl AsRef<VerifyingKey> for ClientVerifyingKey {

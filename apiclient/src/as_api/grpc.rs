@@ -3,14 +3,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxprotos::{
-    auth_service::v1::{Init2FaAuthenticationPayload, auth_service_client::AuthServiceClient},
+    auth_service::v1::{
+        Init2FaAuthenticationPayload, InitUserRegistrationRequest,
+        auth_service_client::AuthServiceClient,
+    },
     convert::TryRefInto,
 };
 use phnxtypes::{
-    credentials::keys::ClientSigningKey,
-    crypto::{opaque::OpaqueLoginRequest, signatures::signable::Signable},
+    credentials::{ClientCredentialPayload, keys::ClientSigningKey},
+    crypto::{
+        opaque::{OpaqueLoginRequest, OpaqueRegistrationRequest},
+        signatures::signable::Signable,
+    },
     identifiers::AsClientId,
-    messages::client_as::Init2FactorAuthResponse,
+    messages::{client_as::Init2FactorAuthResponse, client_as_out::InitUserRegistrationResponseIn},
 };
 use tonic::transport::Channel;
 
@@ -49,5 +55,33 @@ impl AsGrpcClient {
             .try_ref_into()
             .map_err(|_| AsRequestError::UnexpectedResponse)?;
         Ok(Init2FactorAuthResponse { opaque_ke2 })
+    }
+
+    pub(crate) async fn initiate_create_user(
+        &self,
+        client_payload: ClientCredentialPayload,
+        opaque_registration_request: OpaqueRegistrationRequest,
+    ) -> Result<InitUserRegistrationResponseIn, AsRequestError> {
+        let request = InitUserRegistrationRequest {
+            client_payload: Some(client_payload.into()),
+            opaque_registration_request: Some(opaque_registration_request.try_ref_into()?),
+        };
+        let response = self
+            .client
+            .clone()
+            .init_user_registration(request)
+            .await?
+            .into_inner();
+        Ok(InitUserRegistrationResponseIn {
+            client_credential: response
+                .client_credential
+                .ok_or(AsRequestError::UnexpectedResponse)?
+                .try_into()
+                .map_err(|_| AsRequestError::UnexpectedResponse)?,
+            opaque_registration_response: response
+                .opaque_registration_response
+                .ok_or(AsRequestError::UnexpectedResponse)?
+                .try_into()?,
+        })
     }
 }

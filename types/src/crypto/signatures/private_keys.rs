@@ -48,8 +48,16 @@ impl VerifyingKey {
         Self(value)
     }
 
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+
     pub fn as_slice(&self) -> &[u8] {
         &self.0
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
     }
 }
 

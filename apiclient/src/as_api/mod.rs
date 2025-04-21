@@ -26,9 +26,9 @@ use phnxtypes::{
             ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
             DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
             EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
-            FinishUserRegistrationParamsTbs, Init2FactorAuthResponse, InitUserRegistrationParams,
-            InitiateClientAdditionParams, IssueTokensParamsTbs, IssueTokensResponse,
-            SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
+            FinishUserRegistrationParamsTbs, Init2FactorAuthResponse, InitiateClientAdditionParams,
+            IssueTokensParamsTbs, IssueTokensResponse, SUPPORTED_AS_API_VERSIONS,
+            UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
@@ -114,21 +114,25 @@ impl ApiClient {
         client_payload: ClientCredentialPayload,
         opaque_registration_request: OpaqueRegistrationRequest,
     ) -> Result<InitUserRegistrationResponseIn, AsRequestError> {
-        let payload = InitUserRegistrationParams {
-            client_payload,
-            opaque_registration_request,
-        };
-        let params = AsRequestParamsOut::InitUserRegistration(payload);
-        self.prepare_and_send_as_message(params)
+        self.as_grpc_client
+            .initiate_create_user(client_payload, opaque_registration_request)
             .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::InitUserRegistration(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+
+        // let payload = InitUserRegistrationParams {
+        //     client_payload,
+        //     opaque_registration_request,
+        // };
+        // let params = AsRequestParamsOut::InitUserRegistration(payload);
+        // self.prepare_and_send_as_message(params)
+        //     .await
+        //     // Check if the response is what we expected it to be.
+        //     .and_then(|response| {
+        //         if let AsProcessResponseIn::InitUserRegistration(response) = response {
+        //             Ok(response)
+        //         } else {
+        //             Err(AsRequestError::UnexpectedResponse)
+        //         }
+        //     })
     }
 
     pub async fn as_initiate_2fa_auth(

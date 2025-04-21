@@ -163,6 +163,13 @@ impl ExpirationData {
         }
     }
 
+    pub fn from_parts(not_before: TimeStamp, not_after: TimeStamp) -> Self {
+        Self {
+            not_before,
+            not_after,
+        }
+    }
+
     /// Return false either if the `not_after` date has passed, or if the
     /// `not_before` date has not passed yet.
     pub fn validate(&self) -> bool {

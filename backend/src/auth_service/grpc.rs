@@ -8,8 +8,11 @@ use phnxprotos::{
     validation::{InvalidTlsExt, MissingFieldExt},
 };
 use phnxtypes::{
-    errors::auth_service::{AsVerificationError, Init2FactorAuthError},
-    messages::client_as::Init2FactorAuthParamsTbs,
+    errors::{
+        self,
+        auth_service::{AsVerificationError, Init2FactorAuthError},
+    },
+    messages::client_as::{Init2FactorAuthParamsTbs, InitUserRegistrationParams},
 };
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
@@ -67,9 +70,35 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn init_user_registration(
         &self,
-        _request: Request<InitUserRegistrationRequest>,
+        request: Request<InitUserRegistrationRequest>,
     ) -> Result<Response<InitUserRegistrationResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let params = InitUserRegistrationParams {
+            client_payload: request
+                .client_payload
+                .ok_or_missing_field("client_payload")?
+                .try_into()?,
+            opaque_registration_request: request
+                .opaque_registration_request
+                .ok_or_missing_field("opaque_registration_request")?
+                .try_ref_into()
+                .invalid_tls("opaque_registration_request")?,
+        };
+        let response = self
+            .auth_service
+            .as_init_user_registration(params)
+            .await
+            .map_err(InitUserRegistrationError)?;
+        Ok(Response::new(InitUserRegistrationResponse {
+            client_credential: Some(response.client_credential.into()),
+            opaque_registration_response: Some(
+                response
+                    .opaque_registration_response
+                    .try_into()
+                    .tls_failed("opaque_registration_response")?,
+            ),
+        }))
     }
 
     async fn finish_user_registration(
@@ -181,5 +210,22 @@ impl From<Init2FaAuthError> for Status {
     fn from(e: Init2FaAuthError) -> Self {
         error!(error =% e.0, "init 2fa auth failed");
         Status::internal(e.0.to_string())
+    }
+}
+
+struct InitUserRegistrationError(errors::auth_service::InitUserRegistrationError);
+
+impl From<InitUserRegistrationError> for Status {
+    fn from(e: InitUserRegistrationError) -> Self {
+        use errors::auth_service::InitUserRegistrationError::*;
+        error!(error =% e.0, "init user registration failed");
+        match e.0 {
+            LibraryError | StorageError | OpaqueRegistrationFailed => {
+                Status::internal(e.0.to_string())
+            }
+            UserAlreadyExists => Status::already_exists(e.0.to_string()),
+            InvalidCsr(..) => Status::invalid_argument(e.0.to_string()),
+            SigningKeyNotFound => Status::unauthenticated(e.0.to_string()),
+        }
     }
 }
