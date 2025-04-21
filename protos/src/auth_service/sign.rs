@@ -11,7 +11,10 @@ use tonic::Status;
 
 use crate::validation::MissingFieldExt;
 
-use super::v1::{Init2FaAuthenticationPayload, Init2FaAuthenticationRequest};
+use super::v1::{
+    FinishUserRegistrationPayload, FinishUserRegistrationRequest, Init2FaAuthenticationPayload,
+    Init2FaAuthenticationRequest,
+};
 
 impl Init2FaAuthenticationRequest {
     pub fn into_auth_method(self) -> Result<AsAuthMethod<Init2FaAuthenticationPayload>, Status> {
@@ -32,7 +35,6 @@ impl Init2FaAuthenticationRequest {
         Ok(AsAuthMethod::ClientCredential(auth))
     }
 }
-
 impl AsPayload for Init2FaAuthenticationPayload {
     fn is_finish_user_registration_request(&self) -> bool {
         false
@@ -75,5 +77,61 @@ impl Signable for Init2FaAuthenticationPayload {
 
     fn label(&self) -> &str {
         INIT_2FA_AUTHENTICATION_PAYLOAD_LABEL
+    }
+}
+
+const FINISH_USER_REGISTRATION_PAYLOAD_LABEL: &str = "FinishUserRegistrationPayload";
+
+impl SignedStruct<FinishUserRegistrationPayload> for FinishUserRegistrationRequest {
+    fn from_payload(
+        payload: FinishUserRegistrationPayload,
+        signature: signable::Signature,
+    ) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for FinishUserRegistrationPayload {
+    type SignedOutput = FinishUserRegistrationRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        FINISH_USER_REGISTRATION_PAYLOAD_LABEL
+    }
+}
+
+impl FinishUserRegistrationRequest {
+    pub fn into_auth_method(self) -> Result<AsAuthMethod<FinishUserRegistrationPayload>, Status> {
+        let payload = self.payload.ok_or_missing_field(PayloadField)?;
+        let client_id = payload
+            .client_id
+            .as_ref()
+            .ok_or_missing_field(ClientIdField)?
+            .clone()
+            .try_into()?;
+        let signature = self.signature.ok_or_missing_field(SignatureField)?.into();
+        let auth = ClientCredentialAuth::new(
+            client_id,
+            payload,
+            FINISH_USER_REGISTRATION_PAYLOAD_LABEL,
+            signature,
+        );
+        Ok(AsAuthMethod::ClientCredential(auth))
+    }
+}
+
+impl AsPayload for FinishUserRegistrationPayload {
+    fn is_finish_user_registration_request(&self) -> bool {
+        true
+    }
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
     }
 }

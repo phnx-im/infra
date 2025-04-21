@@ -12,7 +12,10 @@ use phnxtypes::{
         self,
         auth_service::{AsVerificationError, Init2FactorAuthError},
     },
-    messages::client_as::{Init2FactorAuthParamsTbs, InitUserRegistrationParams},
+    messages::{
+        client_as::{Init2FactorAuthParamsTbs, InitUserRegistrationParams},
+        client_as_out::FinishUserRegistrationParamsTbsIn,
+    },
 };
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
@@ -103,9 +106,47 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn finish_user_registration(
         &self,
-        _request: Request<FinishUserRegistrationRequest>,
+        request: Request<FinishUserRegistrationRequest>,
     ) -> Result<Response<FinishUserRegistrationResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let payload = self
+            .auth_service
+            .verify(request.into_auth_method()?)
+            .await
+            .map_err(AuthError)?;
+        let params = FinishUserRegistrationParamsTbsIn {
+            client_id: payload
+                .client_id
+                .ok_or_missing_field("client_id")?
+                .try_into()?,
+            queue_encryption_key: payload
+                .queue_encryption_key
+                .ok_or_missing_field("queue_encryption_key")?
+                .into(),
+            initial_ratchet_secret: payload
+                .initial_ratchet_secret
+                .ok_or_missing_field("initial_ratchet_secret")?
+                .try_into()?,
+            connection_packages: payload
+                .connection_packages
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
+            opaque_registration_record: payload
+                .opaque_registration_record
+                .ok_or_missing_field("opaque_registration_record")?
+                .try_into()
+                .invalid_tls("opaque_registration_record")?,
+            encrypted_user_profile: payload
+                .encrypted_user_profile
+                .ok_or_missing_field("encrypted_user_profile")?
+                .try_into()?,
+        };
+        self.auth_service
+            .as_finish_user_registration(params)
+            .await
+            .map_err(FinishUserRegistrationError)?;
+        Ok(Response::new(FinishUserRegistrationResponse {}))
     }
 
     async fn delete_user(
@@ -226,6 +267,20 @@ impl From<InitUserRegistrationError> for Status {
             UserAlreadyExists => Status::already_exists(e.0.to_string()),
             InvalidCsr(..) => Status::invalid_argument(e.0.to_string()),
             SigningKeyNotFound => Status::unauthenticated(e.0.to_string()),
+        }
+    }
+}
+
+struct FinishUserRegistrationError(errors::auth_service::FinishUserRegistrationError);
+
+impl From<FinishUserRegistrationError> for Status {
+    fn from(e: FinishUserRegistrationError) -> Self {
+        use errors::auth_service::FinishUserRegistrationError::*;
+        error!(error =% e.0, "finish user registration failed");
+        match e.0 {
+            StorageError | OpaqueLoginFinishFailed => Status::internal(e.0.to_string()),
+            ClientCredentialNotFound => Status::unauthenticated(e.0.to_string()),
+            InvalidConnectionPackage => Status::invalid_argument(e.0.to_string()),
         }
     }
 }

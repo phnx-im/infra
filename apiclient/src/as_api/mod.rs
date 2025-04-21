@@ -26,9 +26,9 @@ use phnxtypes::{
             ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
             DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
             EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
-            FinishUserRegistrationParamsTbs, Init2FactorAuthResponse, InitiateClientAdditionParams,
-            IssueTokensParamsTbs, IssueTokensResponse, SUPPORTED_AS_API_VERSIONS,
-            UserClientsParams, UserConnectionPackagesParams,
+            Init2FactorAuthResponse, InitiateClientAdditionParams, IssueTokensParamsTbs,
+            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
+            UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
@@ -155,26 +155,16 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
-        let tbs = FinishUserRegistrationParamsTbs {
-            client_id: signing_key.credential().identity().clone(),
-            queue_encryption_key,
-            initial_ratchet_secret,
-            connection_packages,
-            opaque_registration_record,
-            encrypted_user_profile,
-        };
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::FinishUserRegistration(payload);
-        self.prepare_and_send_as_message(params)
+        self.as_grpc_client
+            .finish_user_registration(
+                queue_encryption_key,
+                initial_ratchet_secret,
+                connection_packages,
+                opaque_registration_record,
+                signing_key,
+                encrypted_user_profile,
+            )
             .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
     }
 
     pub async fn as_get_user_profile(

@@ -2,20 +2,29 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{credentials, crypto::opaque, identifiers, messages, time};
+use phnxtypes::{
+    credentials,
+    crypto::{self, ear, kdf::KDF_KEY_SIZE, opaque, secrets::Secret},
+    identifiers, messages, time,
+};
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
 
 use crate::{
-    common::convert::QualifiedUserNameError,
+    common::{
+        convert::{InvalidNonceLen, QualifiedUserNameError},
+        v1::{RatchetEncryptionKey, RatchetSecret},
+    },
     convert::{RefInto, TryFromRef},
     validation::{MissingFieldError, MissingFieldExt},
 };
 
 use super::v1::{
     AsClientId, ClientCredential, ClientCredentialCsr, ClientCredentialPayload, ClientPayload,
-    ClientVerifyingKey, CredentialFingerprint, ExpirationData, MlsInfraVersion, OpaqueLoginRequest,
-    OpaqueLoginResponse, OpaqueRegistrationRequest, OpaqueRegistrationResponse, SignatureScheme,
+    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
+    CredentialFingerprint, EncryptedUserProfile, ExpirationData, MlsInfraVersion,
+    OpaqueLoginRequest, OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationRequest,
+    OpaqueRegistrationResponse, SignatureScheme,
 };
 
 impl From<identifiers::AsClientId> for AsClientId {
@@ -249,7 +258,7 @@ impl TryFrom<MlsInfraVersion> for messages::MlsInfraVersion {
 
     fn try_from(value: MlsInfraVersion) -> Result<Self, Self::Error> {
         match value.version {
-            1 => Ok(messages::MlsInfraVersion::Alpha),
+            0 => Ok(messages::MlsInfraVersion::Alpha),
             _ => Err(UnsupportedMlsVersion(value.version)),
         }
     }
@@ -395,4 +404,196 @@ pub enum ClientCredentialPayloadError {
     Csr(#[from] ClientCredentialCsrError),
     #[error(transparent)]
     ExpirationData(#[from] ExpirationDataError),
+}
+
+impl From<crypto::RatchetEncryptionKey> for RatchetEncryptionKey {
+    fn from(value: crypto::RatchetEncryptionKey) -> Self {
+        Self {
+            bytes: value.into_bytes(),
+        }
+    }
+}
+
+impl From<RatchetEncryptionKey> for crypto::RatchetEncryptionKey {
+    fn from(proto: RatchetEncryptionKey) -> Self {
+        Self::from_bytes(proto.bytes)
+    }
+}
+
+impl From<crypto::kdf::keys::RatchetSecret> for RatchetSecret {
+    fn from(value: crypto::kdf::keys::RatchetSecret) -> Self {
+        Self {
+            bytes: value.as_ref().secret().to_vec(),
+        }
+    }
+}
+
+impl TryFrom<RatchetSecret> for crypto::kdf::keys::RatchetSecret {
+    type Error = InvalidSecretLen<KDF_KEY_SIZE>;
+
+    fn try_from(proto: RatchetSecret) -> Result<Self, Self::Error> {
+        let len = proto.bytes.len();
+        let secret: [u8; KDF_KEY_SIZE] = proto
+            .bytes
+            .try_into()
+            .map_err(|_| InvalidSecretLen::<KDF_KEY_SIZE>(len))?;
+        Ok(Self::from(Secret::from(secret)))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("invalid secret length: {0}, expected {LEN}")]
+pub struct InvalidSecretLen<const LEN: usize>(usize);
+
+impl<const LEN: usize> From<InvalidSecretLen<LEN>> for Status {
+    fn from(e: InvalidSecretLen<LEN>) -> Self {
+        Status::invalid_argument(e.to_string())
+    }
+}
+
+impl From<messages::client_as::ConnectionPackage> for ConnectionPackage {
+    fn from(value: messages::client_as::ConnectionPackage) -> Self {
+        let (payload, signature) = value.into_parts();
+        Self {
+            payload: Some(payload.into()),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl TryFrom<ConnectionPackage> for messages::client_as_out::ConnectionPackageIn {
+    type Error = ConnectionPackageError;
+
+    fn try_from(proto: ConnectionPackage) -> Result<Self, Self::Error> {
+        Ok(Self::new(
+            proto.payload.ok_or_missing_field("payload")?.try_into()?,
+            proto.signature.ok_or_missing_field("signature")?.into(),
+        ))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConnectionPackageError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Payload(#[from] ConnectionPackagePayloadError),
+}
+
+impl From<ConnectionPackageError> for Status {
+    fn from(error: ConnectionPackageError) -> Self {
+        Status::invalid_argument(format!("invalid connection package: {error}"))
+    }
+}
+
+impl From<messages::client_as::ConnectionPackageTbs> for ConnectionPackagePayload {
+    fn from(value: messages::client_as::ConnectionPackageTbs) -> Self {
+        Self {
+            protocol_version: Some(value.protocol_version.into()),
+            encryption_key: Some(value.encryption_key.into()),
+            lifetime: Some(value.lifetime.into()),
+            client_credential: Some(value.client_credential.into()),
+        }
+    }
+}
+
+impl TryFrom<ConnectionPackagePayload> for messages::client_as_out::ConnectionPackageTbsIn {
+    type Error = ConnectionPackagePayloadError;
+
+    fn try_from(proto: ConnectionPackagePayload) -> Result<Self, Self::Error> {
+        Ok(Self {
+            protocol_version: proto
+                .protocol_version
+                .ok_or_missing_field("protocol_version")?
+                .try_into()?,
+            encryption_key: proto
+                .encryption_key
+                .ok_or_missing_field("encryption_key")?
+                .into(),
+            lifetime: proto.lifetime.ok_or_missing_field("lifetime")?.try_into()?,
+            client_credential: proto
+                .client_credential
+                .ok_or_missing_field("client_credential")?
+                .try_into()?,
+        })
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConnectionPackagePayloadError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Version(#[from] UnsupportedMlsVersion),
+    #[error(transparent)]
+    Lifetime(#[from] ExpirationDataError),
+    #[error(transparent)]
+    ClientCredential(#[from] ClientCredentialError),
+}
+
+impl From<crypto::ConnectionEncryptionKey> for ConnectionEncryptionKey {
+    fn from(value: crypto::ConnectionEncryptionKey) -> Self {
+        Self {
+            bytes: value.into_key().into_bytes(),
+        }
+    }
+}
+
+impl From<ConnectionEncryptionKey> for crypto::ConnectionEncryptionKey {
+    fn from(proto: ConnectionEncryptionKey) -> Self {
+        Self::new(proto.bytes.into())
+    }
+}
+
+impl TryFrom<opaque::OpaqueRegistrationRecord> for OpaqueRegistrationRecord {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: opaque::OpaqueRegistrationRecord) -> Result<Self, Self::Error> {
+        Ok(Self {
+            tls: value.tls_serialize_detached()?,
+        })
+    }
+}
+
+impl TryFrom<OpaqueRegistrationRecord> for opaque::OpaqueRegistrationRecord {
+    type Error = tls_codec::Error;
+
+    fn try_from(proto: OpaqueRegistrationRecord) -> Result<Self, Self::Error> {
+        DeserializeBytes::tls_deserialize_exact_bytes(&proto.tls)
+    }
+}
+
+impl From<messages::client_as_out::EncryptedUserProfile> for EncryptedUserProfile {
+    fn from(value: messages::client_as_out::EncryptedUserProfile) -> Self {
+        let ciphertext: ear::Ciphertext = value.into();
+        Self {
+            ciphertext: Some(ciphertext.into()),
+        }
+    }
+}
+
+impl TryFrom<EncryptedUserProfile> for messages::client_as_out::EncryptedUserProfile {
+    type Error = EncryptedUserProfileError;
+
+    fn try_from(proto: EncryptedUserProfile) -> Result<Self, Self::Error> {
+        let ciphertext: ear::Ciphertext = proto
+            .ciphertext
+            .ok_or_missing_field("ciphertext")?
+            .try_into()?;
+        Ok(ciphertext.into())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptedUserProfileError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Ciphertext(#[from] InvalidNonceLen),
+}
+
+impl From<EncryptedUserProfileError> for Status {
+    fn from(e: EncryptedUserProfileError) -> Self {
+        Status::invalid_argument(format!("invalid encrypted user profile: {e}"))
+    }
 }

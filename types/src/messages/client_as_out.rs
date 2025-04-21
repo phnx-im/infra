@@ -155,6 +155,10 @@ pub struct ConnectionPackageIn {
 }
 
 impl ConnectionPackageIn {
+    pub fn new(payload: ConnectionPackageTbsIn, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+
     pub fn client_credential_signer_fingerprint(&self) -> &CredentialFingerprint {
         self.payload.client_credential.signer_fingerprint()
     }
@@ -264,6 +268,12 @@ pub struct EncryptedUserProfile(Ciphertext);
 impl From<Ciphertext> for EncryptedUserProfile {
     fn from(ciphertext: Ciphertext) -> Self {
         Self(ciphertext)
+    }
+}
+
+impl From<EncryptedUserProfile> for Ciphertext {
+    fn from(value: EncryptedUserProfile) -> Self {
+        value.0
     }
 }
 

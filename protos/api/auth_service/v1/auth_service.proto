@@ -139,24 +139,25 @@ message ClientCredentialPayload {
 // finish user registration
 
 message FinishUserRegistrationRequest {
-  FinishUserRegistrationRequestTbs payload = 1;
+  FinishUserRegistrationPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message FinishUserRegistrationRequestTbs {
+message FinishUserRegistrationPayload {
   AsClientId client_id = 1;
-  common.v1.RatchetEncryptionKey queeu_encryption_key = 2;
+  common.v1.RatchetEncryptionKey queue_encryption_key = 2;
   common.v1.RatchetSecret initial_ratchet_secret = 3;
   repeated ConnectionPackage connection_packages = 4;
   OpaqueRegistrationRecord opaque_registration_record = 5;
+  EncryptedUserProfile encrypted_user_profile = 6;
 }
 
 message ConnectionPackage {
-  ConnectionPackageTbs payload = 1;
+  ConnectionPackagePayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message ConnectionPackageTbs {
+message ConnectionPackagePayload {
   MlsInfraVersion protocol_version = 1;
   ConnectionEncryptionKey encryption_key = 2;
   ExpirationData lifetime = 3;
@@ -169,6 +170,10 @@ message OpaqueRegistrationRecord {
 
 message ConnectionEncryptionKey {
   bytes bytes = 1;
+}
+
+message EncryptedUserProfile {
+  common.v1.Ciphertext ciphertext = 1;
 }
 
 message FinishUserRegistrationResponse {}

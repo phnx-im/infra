@@ -42,6 +42,12 @@ use super::{
 #[sqlx(transparent)]
 pub struct EncryptionPublicKey(Vec<u8>);
 
+impl EncryptionPublicKey {
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+}
+
 impl From<Vec<u8>> for EncryptionPublicKey {
     fn from(value: Vec<u8>) -> Self {
         Self(value)

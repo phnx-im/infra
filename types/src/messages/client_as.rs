@@ -172,10 +172,10 @@ pub struct Init2FactorAuthResponse {
 
 #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackageTbs {
-    pub(super) protocol_version: MlsInfraVersion,
-    pub(super) encryption_key: ConnectionEncryptionKey,
-    pub(super) lifetime: ExpirationData,
-    pub(super) client_credential: ClientCredential,
+    pub protocol_version: MlsInfraVersion,
+    pub encryption_key: ConnectionEncryptionKey,
+    pub lifetime: ExpirationData,
+    pub client_credential: ClientCredential,
 }
 
 impl ConnectionPackageTbs {
@@ -201,12 +201,20 @@ pub struct ConnectionPackage {
 }
 
 impl ConnectionPackage {
+    pub fn new(payload: ConnectionPackageTbs, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+
     pub fn client_credential(&self) -> &ClientCredential {
         &self.payload.client_credential
     }
 
     pub fn encryption_key(&self) -> &ConnectionEncryptionKey {
         &self.payload.encryption_key
+    }
+
+    pub fn into_parts(self) -> (ConnectionPackageTbs, Signature) {
+        (self.payload, self.signature)
     }
 
     #[cfg(feature = "test_utils")]

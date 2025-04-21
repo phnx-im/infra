@@ -4,7 +4,7 @@
 
 use phnxprotos::{
     auth_service::v1::{
-        Init2FaAuthenticationPayload, InitUserRegistrationRequest,
+        FinishUserRegistrationPayload, Init2FaAuthenticationPayload, InitUserRegistrationRequest,
         auth_service_client::AuthServiceClient,
     },
     convert::TryRefInto,
@@ -12,11 +12,16 @@ use phnxprotos::{
 use phnxtypes::{
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{
-        opaque::{OpaqueLoginRequest, OpaqueRegistrationRequest},
+        RatchetEncryptionKey,
+        kdf::keys::RatchetSecret,
+        opaque::{OpaqueLoginRequest, OpaqueRegistrationRecord, OpaqueRegistrationRequest},
         signatures::signable::Signable,
     },
     identifiers::AsClientId,
-    messages::{client_as::Init2FactorAuthResponse, client_as_out::InitUserRegistrationResponseIn},
+    messages::{
+        client_as::{ConnectionPackage, Init2FactorAuthResponse},
+        client_as_out::{EncryptedUserProfile, InitUserRegistrationResponseIn},
+    },
 };
 use tonic::transport::Channel;
 
@@ -83,5 +88,31 @@ impl AsGrpcClient {
                 .ok_or(AsRequestError::UnexpectedResponse)?
                 .try_into()?,
         })
+    }
+
+    pub(crate) async fn finish_user_registration(
+        &self,
+        queue_encryption_key: RatchetEncryptionKey,
+        initial_ratchet_secret: RatchetSecret,
+        connection_packages: Vec<ConnectionPackage>,
+        opaque_registration_record: OpaqueRegistrationRecord,
+        signing_key: &ClientSigningKey,
+        encrypted_user_profile: EncryptedUserProfile,
+    ) -> Result<(), AsRequestError> {
+        let payload = FinishUserRegistrationPayload {
+            client_id: Some(signing_key.credential().identity().clone().into()),
+            queue_encryption_key: Some(queue_encryption_key.into()),
+            initial_ratchet_secret: Some(initial_ratchet_secret.into()),
+            connection_packages: connection_packages.into_iter().map(Into::into).collect(),
+            opaque_registration_record: Some(opaque_registration_record.try_into()?),
+            encrypted_user_profile: Some(encrypted_user_profile.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        self.client
+            .clone()
+            .finish_user_registration(request)
+            .await?
+            .into_inner();
+        Ok(())
     }
 }

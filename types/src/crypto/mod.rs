@@ -55,6 +55,14 @@ impl RatchetEncryptionKey {
     pub fn new_for_test(encryption_key: EncryptionPublicKey) -> Self {
         Self(encryption_key)
     }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(EncryptionPublicKey::from(bytes))
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, sqlx::Type)]
@@ -76,6 +84,16 @@ impl RatchetDecryptionKey {
 )]
 pub struct ConnectionEncryptionKey {
     encryption_key: EncryptionPublicKey,
+}
+
+impl ConnectionEncryptionKey {
+    pub fn new(encryption_key: EncryptionPublicKey) -> Self {
+        Self { encryption_key }
+    }
+
+    pub fn into_key(self) -> EncryptionPublicKey {
+        self.encryption_key
+    }
 }
 
 impl AsRef<EncryptionPublicKey> for ConnectionEncryptionKey {
