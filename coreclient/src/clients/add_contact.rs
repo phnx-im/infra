@@ -20,7 +20,7 @@ use sqlx::SqlitePool;
 use tracing::info;
 
 use crate::{
-    Conversation, ConversationAttributes, ConversationId, PartialContact, UserProfile,
+    Conversation, ConversationAttributes, ConversationId, PartialContact,
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
     key_stores::{MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::UserProfileKey},
@@ -273,14 +273,6 @@ impl LocalGroup {
         )
         .store(pool, notifier)
         .await?;
-
-        // Check if we already have a user profile for this user. If not, store
-        // a basic one without display name and profile picture.
-        if UserProfile::load(pool, &contact_user_name).await?.is_none() {
-            UserProfile::new(contact_user_name, None, None)
-                .store(pool, notifier)
-                .await?;
-        };
 
         // Create a connection establishment package
         let connection_establishment_package = ConnectionEstablishmentPackageTbs {

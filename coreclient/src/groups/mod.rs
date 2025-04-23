@@ -540,10 +540,6 @@ impl Group {
             }
         }
 
-        // Phase 4: Fetch user profiles
-
-        // TODO: Fetch user profiles
-
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,

@@ -418,11 +418,14 @@ pub struct UiUserProfile {
 impl UiUserProfile {
     pub(crate) fn from_profile(user_profile: &UserProfile) -> Self {
         Self {
-            user_name: user_profile.user_name().to_string(),
-            display_name: user_profile.display_name().map(|name| name.to_string()),
+            user_name: user_profile.user_name.to_string(),
+            display_name: user_profile
+                .display_name
+                .clone()
+                .map(|name| name.to_string()),
             profile_picture: user_profile
-                .profile_picture()
-                .cloned()
+                .profile_picture
+                .clone()
                 .map(ImageData::from_asset),
         }
     }

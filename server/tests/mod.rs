@@ -132,7 +132,7 @@ async fn remove_from_group() {
     // he hasn't connected with them.
     let charlie = setup.get_user(&CHARLIE);
     let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap().unwrap();
-    assert!(charlie_user_profile_bob.user_name() == &*BOB);
+    assert!(charlie_user_profile_bob.user_name == *BOB);
 
     setup
         .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE, &BOB])
@@ -404,11 +404,11 @@ async fn exchange_user_profiles() {
 
     let alice_profile_picture = Asset::Value(png_bytes.clone());
 
-    let alice_profile = UserProfile::new(
-        (*ALICE).clone(),
-        Some(alice_display_name.clone()),
-        Some(alice_profile_picture.clone()),
-    );
+    let alice_profile = UserProfile {
+        user_name: (*ALICE).clone(),
+        display_name: Some(alice_display_name.clone()),
+        profile_picture: Some(alice_profile_picture.clone()),
+    };
     setup
         .users
         .get(&ALICE)
@@ -423,16 +423,16 @@ async fn exchange_user_profiles() {
     // Set a user profile for
     let bob_display_name = DisplayName::try_from("B0b".to_string()).unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
-    let bob_user_profile = UserProfile::new(
-        (*BOB).clone(),
-        Some(bob_display_name.clone()),
-        Some(bob_profile_picture.clone()),
-    );
+    let bob_user_profile = UserProfile {
+        user_name: (*BOB).clone(),
+        display_name: Some(bob_display_name.clone()),
+        profile_picture: Some(bob_profile_picture.clone()),
+    };
 
     let user = &setup.users.get(&BOB).unwrap().user;
     user.set_own_user_profile(bob_user_profile).await.unwrap();
     let new_profile = user.own_user_profile().await.unwrap();
-    let Asset::Value(compressed_profile_picture) = new_profile.profile_picture().unwrap().clone();
+    let Asset::Value(compressed_profile_picture) = new_profile.profile_picture.unwrap().clone();
 
     setup.connect_users(&ALICE, &BOB).await;
 
@@ -447,7 +447,7 @@ async fn exchange_user_profiles() {
         .unwrap();
 
     let profile_picture = bob_user_profile
-        .profile_picture()
+        .profile_picture
         .unwrap()
         .clone()
         .value()
@@ -456,22 +456,19 @@ async fn exchange_user_profiles() {
 
     assert_eq!(profile_picture, compressed_profile_picture);
 
-    assert!(bob_user_profile.display_name().unwrap() == &bob_display_name);
+    assert!(bob_user_profile.display_name.unwrap() == bob_display_name);
 
     let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
 
     let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
 
-    assert_eq!(
-        alice_user_profile.display_name().unwrap(),
-        &alice_display_name
-    );
+    assert_eq!(alice_user_profile.display_name.unwrap(), alice_display_name);
 
-    let new_user_profile = UserProfile::new(
-        (*ALICE).clone(),
-        Some(DisplayName::try_from("New Alice".to_string()).unwrap()),
-        None,
-    );
+    let new_user_profile = UserProfile {
+        user_name: (*ALICE).clone(),
+        display_name: Some(DisplayName::try_from("New Alice".to_string()).unwrap()),
+        profile_picture: None,
+    };
 
     alice
         .set_own_user_profile(new_user_profile.clone())

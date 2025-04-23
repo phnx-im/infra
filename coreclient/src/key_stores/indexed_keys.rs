@@ -138,7 +138,7 @@ type Key<KT> = TypedSecret<KT, KeySecretType, AEAD_KEY_SIZE>;
 pub(crate) type Index<KT> = TypedSecret<KT, IndexSecretType, AEAD_KEY_SIZE>;
 
 impl<KT> BaseSecret<KT> {
-    pub fn random() -> Result<Self, RandomnessError> {
+    pub(crate) fn random() -> Result<Self, RandomnessError> {
         let value = Secret::<KDF_KEY_SIZE>::random()?;
         Ok(Self {
             value,
@@ -271,8 +271,6 @@ impl UserProfileKey {
         encrypted_key: &EncryptedUserProfileKey,
         user_name: &QualifiedUserName,
     ) -> Result<Self, DecryptionError> {
-        println!("Decrypting with user name: {:?}", user_name);
-        println!("Encrypted key: {:?}", encrypted_key);
         let base_secret = BaseSecret::decrypt_with_aad(wrapper_key, encrypted_key, user_name)?;
         Self::from_base_secret(base_secret, user_name).map_err(|e| {
             error!(error = %e, "Key derivation error");
