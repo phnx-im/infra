@@ -386,12 +386,6 @@ mod tests {
                 &mut store_notifier,
                 friendship_package,
                 AsClientId::new(user_name.clone(), Uuid::new_v4()),
-                //&UserProfile::new(
-                //    user_name.clone(),
-                //    user_profile_key.index().clone(),
-                //    None,
-                //    None,
-                //),
                 user_profile_key.index().clone(),
             )
             .await?;
