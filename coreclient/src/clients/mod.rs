@@ -335,10 +335,7 @@ impl CoreUser {
     }
 
     /// Get the user profile of the user with the given [`QualifiedUserName`].
-    pub async fn user_profile(
-        &self,
-        user_name: &QualifiedUserName,
-    ) -> Result<Option<UserProfile>> {
+    pub async fn user_profile(&self, user_name: &QualifiedUserName) -> Result<Option<UserProfile>> {
         let user = IndexedUserProfile::load(self.pool(), user_name).await?;
         Ok(user.map(From::from))
     }
