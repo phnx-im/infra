@@ -18,7 +18,6 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    UserProfile,
     clients::connection_establishment::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
@@ -84,23 +83,22 @@ impl CoreUser {
                     "More than one user profile returned when joining connection group"
                 );
 
-                // Fetch user profile
-                let user_profile = self.fetch_user_profile(contact_profile_info).await?;
+                // Fetch and store user profile
+                self.fetch_and_store_user_profile(contact_profile_info)
+                    .await?;
 
                 // Create conversation
-                let (mut conversation, contact, user_profile_key) =
+                let (mut conversation, contact) =
                     self.create_connection_conversation(&group, &cep_tbs)?;
 
                 let mut notifier = self.store_notifier();
 
-                // Store group, conversation, contact & user profile
+                // Store group, conversation & contact
                 self.store_group_conversation_contact(
                     &mut notifier,
                     &group,
                     &mut conversation,
                     contact,
-                    &user_profile,
-                    &user_profile_key,
                 )
                 .await?;
 
@@ -166,8 +164,10 @@ impl CoreUser {
             .identity_link_key()
             .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
-        let encrypted_user_profile_key =
-            own_user_profile_key.encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
+        let encrypted_user_profile_key = own_user_profile_key.encrypt(
+            &cep_tbs.connection_group_identity_link_wrapper_key,
+            self.user_name(),
+        )?;
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
@@ -234,7 +234,7 @@ impl CoreUser {
         &self,
         group: &Group,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-    ) -> Result<(Conversation, Contact, UserProfileKey)> {
+    ) -> Result<(Conversation, Contact)> {
         let sender_client_id = cep_tbs.sender_client_credential.identity();
 
         let conversation = Conversation::new_connection_conversation(
@@ -242,12 +242,12 @@ impl CoreUser {
             sender_client_id.user_name().clone(),
             ConversationAttributes::new(sender_client_id.user_name().to_string(), None),
         )?;
-        let (contact, user_profile_key) = Contact::from_friendship_package(
+        let contact = Contact::from_friendship_package(
             sender_client_id.clone(),
             conversation.id(),
             cep_tbs.friendship_package.clone(),
         )?;
-        Ok((conversation, contact, user_profile_key))
+        Ok((conversation, contact))
     }
 
     async fn store_group_conversation_contact(
@@ -256,16 +256,10 @@ impl CoreUser {
         group: &Group,
         conversation: &mut Conversation,
         contact: Contact,
-        user_profile: &UserProfile,
-        user_profile_key: &UserProfileKey,
     ) -> Result<()> {
         let mut connection = self.pool().acquire().await?;
         group.store(&mut *connection).await?;
         conversation.store(&mut *connection, notifier).await?;
-
-        user_profile.store(&mut *connection, notifier).await?;
-
-        user_profile_key.store(&mut *connection).await?;
 
         // TODO: For now, we automatically confirm conversations.
         conversation.confirm(&mut *connection, notifier).await?;

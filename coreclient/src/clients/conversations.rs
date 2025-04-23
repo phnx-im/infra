@@ -278,8 +278,10 @@ mod create_conversation_flow {
             } = self;
 
             let user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
-            let encrypted_user_profile_key =
-                user_profile_key.encrypt(group.identity_link_wrapper_key())?;
+            let encrypted_user_profile_key = user_profile_key.encrypt(
+                group.identity_link_wrapper_key(),
+                group_membership.client_id().user_name(),
+            )?;
 
             group_membership.store(&mut *connection).await?;
             group.store(&mut *connection).await?;
