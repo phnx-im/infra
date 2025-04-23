@@ -114,7 +114,6 @@ impl CoreUser {
             Ok(())
         })
         .await?;
-        println!("User profile stored: {:?}", user_profile);
 
         Ok(())
     }

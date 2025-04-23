@@ -333,7 +333,6 @@ impl CoreUser {
                     user_profile_key_index,
                 )
                 .await?;
-            println!("Partial contact {} was marked as complete", user_name);
 
             conversation.confirm(self.pool(), &mut notifier).await?;
             conversation_changed = true;
@@ -362,7 +361,6 @@ impl CoreUser {
         &self,
         params: UserProfileKeyUpdateParams,
     ) -> anyhow::Result<ProcessQsMessageResult> {
-        println!("Handling user profile key update");
         let mut connection = self.pool().acquire().await?;
 
         // Phase 1: Load the group and the sender.
@@ -383,7 +381,6 @@ impl CoreUser {
         )?;
 
         // Phase 3: Fetch and store the (new) user profile
-        println!("Fetching and storing user profile");
         self.fetch_and_store_user_profile((sender, new_user_profile_key))
             .await?;
 

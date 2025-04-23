@@ -64,10 +64,6 @@ impl IndexedUserProfile {
             profile_picture,
         }
     }
-
-    pub(crate) fn decryption_key_index(&self) -> &UserProfileKeyIndex {
-        &self.decryption_key_index
-    }
 }
 
 /// A display name is a human-readable name that can be used to identify a user.
