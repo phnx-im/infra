@@ -91,7 +91,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
             // WS endpoint
             .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
     })
-    .listen(listener)?
+    .listen_auto_h2c(listener)?
     .run();
 
     // GRPC server
