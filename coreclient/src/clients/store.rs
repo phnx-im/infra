@@ -69,11 +69,6 @@ impl UserCreationState {
             push_token,
         };
 
-        // Create user profile entry for own user.
-        UserProfile::new(as_client_id.user_name().clone(), None, None)
-            .upsert(client_db, &mut StoreNotifier::noop())
-            .await?;
-
         let user_creation_state = UserCreationState::BasicUserData(basic_user_data);
 
         user_creation_state.store(client_db).await?;

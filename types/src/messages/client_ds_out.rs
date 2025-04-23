@@ -32,7 +32,7 @@ use super::{
     ApiVersion,
     client_ds::{
         ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-        WelcomeInfoParams,
+        UserProfileKeyUpdateParams, WelcomeInfoParams,
     },
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
 };
@@ -246,6 +246,7 @@ pub enum DsGroupRequestParamsOut {
     SendMessage(SendMessageParamsOut),
     DeleteGroup(DeleteGroupParamsOut),
     GroupOperation(GroupOperationParamsOut),
+    UserProfileKeyUpdate(UserProfileKeyUpdateParams),
 }
 
 impl Signable for ClientToDsMessageTbsOut {

@@ -25,6 +25,9 @@ pub enum DecryptionError {
     /// Error deserializing payload.
     #[error("Error deserializing payload.")]
     DeserializationError,
+    /// Error serializing AAD.
+    #[error("Error serializing AAD.")]
+    SerializationError,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
