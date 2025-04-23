@@ -17,52 +17,52 @@ use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError}
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::key_stores::indexed_keys::UserProfileKey;
+use crate::key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex};
 
 pub(crate) mod persistence;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UserProfile {
+    pub user_name: QualifiedUserName,
+    pub display_name: Option<DisplayName>,
+    pub profile_picture: Option<Asset>,
+}
+
+impl From<IndexedUserProfile> for UserProfile {
+    fn from(user_profile: IndexedUserProfile) -> Self {
+        Self {
+            user_name: user_profile.user_name,
+            display_name: user_profile.display_name,
+            profile_picture: user_profile.profile_picture,
+        }
+    }
+}
 
 /// A user profile contains information about a user, such as their display name
 /// and profile picture.
 #[derive(
     Debug, Clone, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
 )]
-pub struct UserProfile {
+pub(crate) struct IndexedUserProfile {
     user_name: QualifiedUserName,
-    display_name_option: Option<DisplayName>,
-    profile_picture_option: Option<Asset>,
+    decryption_key_index: UserProfileKeyIndex,
+    display_name: Option<DisplayName>,
+    profile_picture: Option<Asset>,
 }
 
-impl UserProfile {
-    pub fn new(
+impl IndexedUserProfile {
+    pub(crate) fn new(
         user_name: QualifiedUserName,
-        display_name_option: Option<DisplayName>,
-        profile_picture_option: Option<Asset>,
+        decryption_key_index: UserProfileKeyIndex,
+        display_name: Option<DisplayName>,
+        profile_picture: Option<Asset>,
     ) -> Self {
         Self {
             user_name,
-            display_name_option,
-            profile_picture_option,
+            decryption_key_index,
+            display_name,
+            profile_picture,
         }
-    }
-
-    pub fn user_name(&self) -> &QualifiedUserName {
-        &self.user_name
-    }
-
-    pub fn display_name(&self) -> Option<&DisplayName> {
-        self.display_name_option.as_ref()
-    }
-
-    pub fn profile_picture(&self) -> Option<&Asset> {
-        self.profile_picture_option.as_ref()
-    }
-
-    pub fn set_display_name(&mut self, display_name: Option<DisplayName>) {
-        self.display_name_option = display_name;
-    }
-
-    pub fn set_profile_picture(&mut self, profile_picture: Option<Asset>) {
-        self.profile_picture_option = profile_picture;
     }
 }
 
@@ -187,5 +187,5 @@ impl Asset {
     }
 }
 
-impl EarEncryptable<UserProfileKey, EncryptedUserProfile> for UserProfile {}
-impl EarDecryptable<UserProfileKey, EncryptedUserProfile> for UserProfile {}
+impl EarEncryptable<UserProfileKey, EncryptedUserProfile> for IndexedUserProfile {}
+impl EarDecryptable<UserProfileKey, EncryptedUserProfile> for IndexedUserProfile {}

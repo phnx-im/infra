@@ -17,10 +17,8 @@ use sqlx::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    Contact, ConversationId, PartialContact, UserProfile,
-    clients::connection_establishment::FriendshipPackage,
-    key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex},
-    store::StoreNotifier,
+    Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
+    key_stores::indexed_keys::UserProfileKeyIndex, store::StoreNotifier,
 };
 
 /// Comma-separated list of [`AsClientId`]'s
@@ -234,8 +232,7 @@ impl PartialContact {
         notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
-        user_profile: &UserProfile,
-        user_profile_key: &UserProfileKey,
+        user_profile_key_index: UserProfileKeyIndex,
     ) -> anyhow::Result<Contact> {
         let user_name = self.user_name.clone();
         let conversation_id = self.conversation_id;
@@ -248,14 +245,12 @@ impl PartialContact {
             friendship_token: friendship_package.friendship_token,
             key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
-            user_profile_key_index: user_profile_key.index().clone(),
+            user_profile_key_index,
         };
 
         let mut transaction = pool.begin().await?;
 
         self.delete(&mut *transaction, notifier).await?;
-        user_profile.upsert(&mut *transaction, notifier).await?;
-        user_profile_key.store(&mut *transaction).await?;
         contact.store(&mut *transaction, notifier).await?;
 
         transaction.commit().await?;
@@ -275,7 +270,10 @@ mod tests {
     use sqlx::SqlitePool;
     use uuid::Uuid;
 
-    use crate::{ConversationId, conversations::persistence::tests::test_conversation};
+    use crate::{
+        ConversationId, conversations::persistence::tests::test_conversation,
+        key_stores::indexed_keys::UserProfileKey,
+    };
 
     use super::*;
 
@@ -388,8 +386,7 @@ mod tests {
                 &mut store_notifier,
                 friendship_package,
                 AsClientId::new(user_name.clone(), Uuid::new_v4()),
-                &UserProfile::new(user_name.clone(), None, None),
-                &user_profile_key,
+                user_profile_key.index().clone(),
             )
             .await?;
 

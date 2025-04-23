@@ -8,7 +8,7 @@
 
 use aes_gcm::{
     KeyInit,
-    aead::{Aead as AesGcmAead, Key, Nonce},
+    aead::{Aead as AesGcmAead, Key, Nonce, Payload},
 };
 use serde::de::DeserializeOwned;
 use tracing::{error, instrument};
@@ -28,7 +28,10 @@ use super::{AEAD_KEY_SIZE, AEAD_NONCE_SIZE, Aead, Ciphertext};
 pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
     // Encrypt the given plaintext under the given key. Generates a random nonce internally.
     #[instrument(level = "trace", skip_all, fields(key_type = std::any::type_name::<Self>()))]
-    fn encrypt(&self, plaintext: &[u8]) -> Result<Ciphertext, EncryptionError> {
+    fn encrypt<'msg, 'aad>(
+        &self,
+        plaintext: impl Into<Payload<'msg, 'aad>>,
+    ) -> Result<Ciphertext, EncryptionError> {
         // TODO: from_slice can potentially panic. However, we can rule this out
         // with a single test, since both the AEAD algorithm and the key size
         // are static.
@@ -53,23 +56,51 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
     // Decrypt the given ciphertext (including the nonce) using the given key.
     #[instrument(level = "trace", skip_all, fields(key_type = std::any::type_name::<Self>()))]
     fn decrypt(&self, ciphertext: &Ciphertext) -> Result<Vec<u8>, DecryptionError> {
-        // TODO: from_slice can potentially panic. However, we can rule this out
-        // with a single test, since both the AEAD algorithm and the key size
-        // are static.
-        let key = Key::<Aead>::from_slice(self.as_ref().secret());
-        let cipher: Aead = Aead::new(key);
-        // TODO: Use a proper RNG provider instead.
-        cipher
-            .decrypt(&ciphertext.nonce.into(), ciphertext.ciphertext.as_slice())
-            .map_err(|e| {
-                error!(%e,"Decryption error");
-                DecryptionError::DecryptionError
-            })
+        decrypt(
+            self,
+            &ciphertext.nonce,
+            Payload {
+                aad: &[],
+                msg: ciphertext.ciphertext.as_slice(),
+            },
+        )
+    }
+
+    fn decrypt_with_aad(
+        &self,
+        ciphertext: &Ciphertext,
+        aad: &[u8],
+    ) -> Result<Vec<u8>, DecryptionError> {
+        decrypt(
+            self,
+            &ciphertext.nonce,
+            Payload {
+                aad,
+                msg: ciphertext.ciphertext.as_slice(),
+            },
+        )
     }
 }
 
+fn decrypt<'ctxt, 'aad>(
+    key: impl AsRef<Secret<AEAD_KEY_SIZE>>,
+    nonce: &[u8; AEAD_NONCE_SIZE],
+    ciphertext: impl Into<Payload<'ctxt, 'aad>>,
+) -> Result<Vec<u8>, DecryptionError> {
+    // TODO: from_slice can potentially panic. However, we can rule this out
+    // with a single test, since both the AEAD algorithm and the key size
+    // are static.
+    let key = Key::<Aead>::from_slice(key.as_ref().secret());
+    let cipher: Aead = Aead::new(key);
+    // TODO: Use a proper RNG provider instead.
+    cipher.decrypt(nonce.into(), ciphertext).map_err(|e| {
+        error!(%e,"Decryption error");
+        DecryptionError::DecryptionError
+    })
+}
+
 pub trait GenericSerializable: Sized {
-    type Error: std::fmt::Debug;
+    type Error: std::error::Error;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error>;
 }
@@ -108,7 +139,28 @@ pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
             tracing::error!("Could not serialize plaintext: {:?}", e);
             EncryptionError::SerializationError
         })?;
-        let ciphertext = ear_key.encrypt(&plaintext)?;
+        let ciphertext = ear_key.encrypt(plaintext.as_slice())?;
+        Ok(ciphertext.into())
+    }
+
+    fn encrypt_with_aad<Aad: GenericSerializable>(
+        &self,
+        ear_key: &EarKeyType,
+        aad: &Aad,
+    ) -> Result<CiphertextType, EncryptionError> {
+        let plaintext = self.serialize().map_err(|e| {
+            tracing::error!("Could not serialize plaintext: {:?}", e);
+            EncryptionError::SerializationError
+        })?;
+        let aad = aad.serialize().map_err(|e| {
+            tracing::error!("Could not serialize plaintext: {:?}", e);
+            EncryptionError::SerializationError
+        })?;
+        let payload = Payload {
+            msg: plaintext.as_slice(),
+            aad: aad.as_slice(),
+        };
+        let ciphertext = ear_key.encrypt(payload)?;
         Ok(ciphertext.into())
     }
 }
@@ -123,8 +175,20 @@ pub trait EarDecryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
     fn decrypt(ear_key: &EarKeyType, ciphertext: &CiphertextType) -> Result<Self, DecryptionError> {
         let ciphertext = ciphertext.as_ref();
         let plaintext = ear_key.decrypt(ciphertext)?;
-        let res =
-            Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)?;
-        Ok(res)
+        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
+    }
+
+    fn decrypt_with_aad<Aad: GenericSerializable>(
+        ear_key: &EarKeyType,
+        ciphertext: &CiphertextType,
+        aad: &Aad,
+    ) -> Result<Self, DecryptionError> {
+        let ciphertext = ciphertext.as_ref();
+        let aad = aad.serialize().map_err(|e| {
+            tracing::error!(error = %e, "Could not serialize aad");
+            DecryptionError::SerializationError
+        })?;
+        let plaintext = ear_key.decrypt_with_aad(ciphertext, aad.as_slice())?;
+        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
     }
 }

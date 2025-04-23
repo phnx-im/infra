@@ -445,6 +445,15 @@ impl Ds {
                 let group_message = send_message_params.message.into_serialized_mls_message();
                 prepare_result(group_message, vec![])
             }
+            // ======= Non-MLS group state updates =======
+            DsGroupRequestParams::UserProfileKeyUpdate(user_profile_update_params) => {
+                group_state.update_user_profile_key(user_profile_update_params.clone())?;
+                let message = DsFanOutPayload::QueueMessage(
+                    QsQueueMessagePayload::try_from(user_profile_update_params)
+                        .map_err(|_| DsProcessingError::ProcessingError)?,
+                );
+                (Some(message), DsProcessResponse::Ok, vec![])
+            }
             // ======= Events =======
             DsGroupRequestParams::DispatchEvent(dispatch_event_params) => {
                 group_state_has_changed = false;
