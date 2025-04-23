@@ -11,6 +11,8 @@ use phnxprotos::delivery_service::v1::delivery_service_client::DeliveryServiceCl
 use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
+use tonic::transport::ClientTlsConfig;
+use tracing::info;
 use url::ParseError;
 use version::NegotiatedApiVersions;
 
@@ -41,6 +43,8 @@ pub enum ApiClientInitError {
     NoHostname(String),
     #[error("The use of TLS is mandatory")]
     TlsRequired,
+    #[error(transparent)]
+    TonicTranspor(#[from] tonic::transport::Error),
 }
 
 pub type HttpClient = reqwest::Client;
@@ -103,10 +107,13 @@ impl ApiClient {
         // For now, we are running grpc on the same domain but under a different port.
         let mut grpc_url = url.clone();
         grpc_url.set_port(Some(grpc_port)).expect("invalid url");
+        info!(%grpc_url, "Connecting lazily to GRPC server");
         // TODO: Reuse HTTP client here
         let endpoint = tonic::transport::Endpoint::from_shared(grpc_url.to_string())
             .map_err(|_| ApiClientInitError::InvalidUrl(grpc_url.to_string()))?;
-        let channel = endpoint.connect_lazy();
+        let channel = endpoint
+            .tls_config(ClientTlsConfig::new().with_webpki_roots())?
+            .connect_lazy();
         let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel));
 
         Ok(Self {
