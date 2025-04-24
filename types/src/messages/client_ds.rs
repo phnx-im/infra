@@ -673,7 +673,7 @@ impl Verifiable for VerifiableClientToDsMessage {
         Ok(self.serialized_payload.clone())
     }
 
-    fn signature(&self) -> &Signature {
+    fn signature(&self) -> impl AsRef<[u8]> {
         &self.message.signature
     }
 

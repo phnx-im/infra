@@ -37,8 +37,9 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
-
 use tls_codec::DeserializeBytes;
+
+pub mod grpc;
 
 #[derive(Error, Debug)]
 pub enum DsRequestError {
@@ -46,6 +47,8 @@ pub enum DsRequestError {
     LibraryError,
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    Tonic(#[from] tonic::Status),
     #[error(transparent)]
     Tls(#[from] tls_codec::Error),
     #[error("We received an unexpected response type.")]
@@ -359,20 +362,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::SendMessage(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .send_message(params, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Delete the given group.

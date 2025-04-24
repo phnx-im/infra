@@ -10,8 +10,17 @@ publish = false
 description = "Protobuf and gRPC definitions of the APIs"
 
 [dependencies]
+phnxtypes.workspace = true
+
 prost.workspace = true
 tonic.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+tls_codec.workspace = true
+openmls.workspace = true
+derive_more.workspace = true
+mls-assist.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

@@ -36,7 +36,7 @@ impl<const LENGTH: usize> From<[u8; LENGTH]> for Secret<LENGTH> {
 
 impl<const LENGTH: usize> Secret<LENGTH> {
     /// Get the internal secret value
-    pub(super) fn secret(&self) -> &[u8; LENGTH] {
+    pub fn secret(&self) -> &[u8; LENGTH] {
         &self.secret
     }
 

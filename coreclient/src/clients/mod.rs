@@ -15,6 +15,7 @@ use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
 use phnxtypes::{
+    DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
@@ -111,6 +112,7 @@ impl CoreUser {
         user_name: QualifiedUserName,
         password: &str,
         server_url: impl ToString,
+        grpc_port: u16,
         db_path: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
@@ -125,6 +127,7 @@ impl CoreUser {
             as_client_id,
             password,
             server_url,
+            grpc_port,
             push_token,
             phnx_db,
             client_db,
@@ -136,6 +139,7 @@ impl CoreUser {
         as_client_id: AsClientId,
         password: &str,
         server_url: impl ToString,
+        grpc_port: u16,
         push_token: Option<PushToken>,
         phnx_db: SqlitePool,
         client_db: SqlitePool,
@@ -144,6 +148,7 @@ impl CoreUser {
         let api_clients = ApiClients::new(
             as_client_id.user_name().domain().clone(),
             server_url.clone(),
+            grpc_port,
         );
 
         let user_creation_state = UserCreationState::new(
@@ -180,6 +185,7 @@ impl CoreUser {
         user_name: impl Into<QualifiedUserName>,
         password: &str,
         server_url: impl ToString,
+        grpc_port: u16,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
         let user_name = user_name.into();
@@ -195,6 +201,7 @@ impl CoreUser {
             as_client_id,
             password,
             server_url,
+            grpc_port,
             push_token,
             phnx_db,
             client_db,
@@ -216,6 +223,7 @@ impl CoreUser {
         let api_clients = ApiClients::new(
             as_client_id.user_name().domain().clone(),
             user_creation_state.server_url(),
+            DEFAULT_PORT_GRPC,
         );
         let final_state = user_creation_state
             .complete_user_creation(&phnx_db, &client_db, &api_clients)
