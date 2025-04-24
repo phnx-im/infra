@@ -56,8 +56,8 @@ pub struct ServerRunParams<Qc, Np> {
     pub rate_limits: RateLimitsConfig,
 }
 
-/// Every `period`, allow bursts of up to `burst`-many requests, and replenish one element after
-/// the `period`.
+/// Every `period`, allow bursts of up to `burst_size`-many requests, and replenish one element
+/// after the `period`.
 pub struct RateLimitsConfig {
     pub period: Duration,
     pub burst_size: u32,
