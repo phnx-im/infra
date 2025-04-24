@@ -993,3 +993,89 @@ impl From<ResyncError> for Status {
         Status::internal("failed to resync client")
     }
 }
+
+struct DistributeMessageError<E>(E);
+
+impl<E: std::error::Error> From<DistributeMessageError<E>> for Status {
+    fn from(e: DistributeMessageError<E>) -> Self {
+        error!(error =% e.0, "Failed to distribute message");
+        Status::internal("Failed to distribute message")
+    }
+}
+
+struct GroupNotFoundError;
+
+impl From<GroupNotFoundError> for Status {
+    fn from(_: GroupNotFoundError) -> Self {
+        Status::not_found("Group not found")
+    }
+}
+
+struct UnknownSenderError(LeafNodeIndex);
+
+impl From<UnknownSenderError> for Status {
+    fn from(e: UnknownSenderError) -> Self {
+        error!("Could not find leaf with index {}", e.0);
+        Status::invalid_argument("Unknown sender")
+    }
+}
+
+struct InvalidSignature(SignatureVerificationError);
+
+impl From<InvalidSignature> for Status {
+    fn from(e: InvalidSignature) -> Self {
+        error!(error =% e.0, "Invalid signature");
+        Status::unauthenticated("Invalid signature")
+    }
+}
+
+/// Extension trait for extracting and validating a fully qualified group id from a protobuf
+/// message
+trait QualifiedGroupIdExt {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status>;
+
+    fn validated_qgid(&self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status> {
+        let qgid = self.qgid()?;
+        if qgid.owning_domain() == own_domain {
+            Ok(qgid)
+        } else {
+            Err(NonMatchingOwnDomain(qgid).into())
+        }
+    }
+}
+
+struct NonMatchingOwnDomain(QualifiedGroupId);
+
+impl From<NonMatchingOwnDomain> for Status {
+    fn from(e: NonMatchingOwnDomain) -> Self {
+        error!(qgid =% e.0, "Group id domain does not match own domain");
+        Status::invalid_argument("Group id domain does not match own domain")
+    }
+}
+
+impl QualifiedGroupIdExt for AssistedMessageIn {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status> {
+        self.group_id()
+            .try_into()
+            .invalid_tls("group_id")
+            .map_err(From::from)
+    }
+}
+
+/// Extension trait for extracting the group state ear key from a protobuf message
+trait GroupStateEarKeyExt {
+    fn ear_key_proto(&self) -> Option<&phnxprotos::delivery_service::v1::GroupStateEarKey>;
+
+    fn ear_key(&self) -> Result<GroupStateEarKey, Status> {
+        self.ear_key_proto()
+            .ok_or_missing_field("group_state_ear_key")?
+            .try_ref_into()
+            .map_err(From::from)
+    }
+}
+
+impl GroupStateEarKeyExt for SendMessagePayload {
+    fn ear_key_proto(&self) -> Option<&phnxprotos::delivery_service::v1::GroupStateEarKey> {
+        self.group_state_ear_key.as_ref()
+    }
+}

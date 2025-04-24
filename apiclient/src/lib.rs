@@ -11,6 +11,8 @@ use phnxprotos::delivery_service::v1::delivery_service_client::DeliveryServiceCl
 use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
+use tonic::transport::ClientTlsConfig;
+use tracing::info;
 use url::ParseError;
 use version::NegotiatedApiVersions;
 
@@ -41,6 +43,8 @@ pub enum ApiClientInitError {
     NoHostname(String),
     #[error("The use of TLS is mandatory")]
     TlsRequired,
+    #[error(transparent)]
+    TonicTranspor(#[from] tonic::transport::Error),
 }
 
 pub type HttpClient = reqwest::Client;

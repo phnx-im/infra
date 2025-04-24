@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET decryption_key_index = ?2, display_name = ?3, profile_picture = ?4 WHERE user_name = ?1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "ef12461c4e795f5fc84e2bab0021df78fb0a7bd9fb4c4bb70283c2bc60941d7f"
+}

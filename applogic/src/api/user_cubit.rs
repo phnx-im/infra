@@ -88,13 +88,13 @@ impl UiUser {
     #[frb(getter, sync)]
     pub fn display_name(&self) -> Option<String> {
         let profile = self.inner.profile.as_ref()?;
-        Some(profile.display_name()?.to_string())
+        Some(profile.display_name.clone()?.to_string())
     }
 
     #[frb(getter, sync)]
     pub fn profile_picture(&self) -> Option<ImageData> {
         let profile = self.inner.profile.as_ref()?;
-        Some(ImageData::from_asset(profile.profile_picture()?.clone()))
+        Some(ImageData::from_asset(profile.profile_picture.clone()?))
     }
 }
 
@@ -218,10 +218,10 @@ impl UserCubitBase {
             };
             let mut user_profile = user_profile.clone();
             if let Some(value) = display_name {
-                user_profile.set_display_name(Some(value));
+                user_profile.display_name = Some(value);
             }
             if let Some(value) = profile_picture {
-                user_profile.set_profile_picture(Some(value));
+                user_profile.profile_picture = Some(value);
             }
             self.core_user
                 .set_own_user_profile(user_profile.clone())
