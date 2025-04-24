@@ -18,7 +18,9 @@ impl Interceptor for ConnectInfoInterceptor {
             return Ok(request);
         }
         // fallback to remote_addr: this won't work behind a reverse proxy
-        let addr = request.remote_addr().expect("not running on a TCP socket");
+        let addr = request
+            .remote_addr()
+            .ok_or_else(|| Status::internal("failed to extract remote address from request"))?;
         request.extensions_mut().insert(addr);
         Ok(request)
     }
