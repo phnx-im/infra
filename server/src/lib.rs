@@ -26,9 +26,17 @@ use phnxtypes::endpoint_paths::{
     ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
     ENDPOINT_QS_WS,
 };
-use std::{io, net::TcpListener};
+use std::{io, net::TcpListener, time::Duration};
 use tokio_stream::wrappers::TcpListenerStream;
-use tonic::{body::Body, codegen::http};
+use tonic::{
+    Status,
+    body::Body,
+    codegen::http,
+    service::{Interceptor, InterceptorLayer},
+};
+use tower_governor::{
+    GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
+};
 use tower_http::trace::{DefaultOnRequest, TraceLayer};
 use tracing::{Level, Span, info, info_span};
 use tracing_actix_web::TracingLogger;
@@ -99,8 +107,20 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
 
     // GRPC server
     let grpc_ds = GrpcDs::new(ds, qs_connector);
+
+    // Every 500ms, allow bursts of up to 8 requests, and replenish one element after 500ms.
+    //
+    // TOOD: make it configurable
+    let governor_config = GovernorConfigBuilder::default()
+        .period(Duration::from_millis(500))
+        .burst_size(20)
+        .key_extractor(SmartIpKeyExtractor)
+        .finish()
+        .expect("invalid governor config");
+
     tokio::spawn(async move {
         tonic::transport::Server::builder()
+            .layer(InterceptorLayer::new(ConnectInfoInterceptor))
             .layer(
                 TraceLayer::new_for_grpc()
                     .make_span_with(|request: &http::Request<Body>| {
@@ -119,6 +139,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
                         info!("finished processing request");
                     }),
             )
+            .layer(GovernorLayer::new(governor_config))
             .add_service(DeliveryServiceServer::new(grpc_ds))
             .serve_with_incoming_shutdown(TcpListenerStream::new(grpc_listener), async move {
                 shutdown_rx.await.ok();
@@ -134,6 +155,25 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     })
 }
 
+// Extracts the IP for the `key_extractor` being able to use it
+#[derive(Debug, Clone)]
+struct ConnectInfoInterceptor;
+
+impl Interceptor for ConnectInfoInterceptor {
+    fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
+        let metadata = request.metadata();
+        if metadata.contains_key("x-real-ip")
+            || metadata.contains_key("x-forwarded-for")
+            || metadata.contains_key("forwarded")
+        {
+            return Ok(request);
+        }
+        // fallback to remote_addr: this won't work behind a reverse proxy
+        let addr = request.remote_addr().expect("not running on a TCP socket");
+        request.extensions_mut().insert(addr);
+        Ok(request)
+    }
+}
 // QS endpoints
 
 // Create pseudonymous user record:
