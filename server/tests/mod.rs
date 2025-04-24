@@ -79,8 +79,8 @@ async fn rate_limit() {
     init_test_tracing();
 
     let mut setup = TestBackend::single_with_rate_limits(RateLimitsConfig {
-        period: Duration::from_secs(1000), // replenish one token every 500ms
-        burst_size: 10,                    // allow total 10 request
+        period: Duration::from_secs(1), // replenish one token every 500ms
+        burst_size: 10,                 // allow total 10 request
     })
     .await;
     setup.add_user(&ALICE).await;
@@ -92,7 +92,7 @@ async fn rate_limit() {
     let mut resource_exhausted = false;
 
     // should stop with `resource_exhausted = true` at some point
-    for i in 0..20 {
+    for i in 0..100 {
         info!(i, "sending message");
         let res = alice
             .user
