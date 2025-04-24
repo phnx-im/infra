@@ -107,10 +107,13 @@ impl ApiClient {
         // For now, we are running grpc on the same domain but under a different port.
         let mut grpc_url = url.clone();
         grpc_url.set_port(Some(grpc_port)).expect("invalid url");
+        info!(%grpc_url, "Connecting lazily to GRPC server");
         // TODO: Reuse HTTP client here
         let endpoint = tonic::transport::Endpoint::from_shared(grpc_url.to_string())
             .map_err(|_| ApiClientInitError::InvalidUrl(grpc_url.to_string()))?;
-        let channel = endpoint.connect_lazy();
+        let channel = endpoint
+            .tls_config(ClientTlsConfig::new().with_webpki_roots())?
+            .connect_lazy();
         let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel));
 
         Ok(Self {
