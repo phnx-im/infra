@@ -5,11 +5,13 @@
 //! Server that makes the logic implemented in the backend available to clients via a REST API
 
 pub mod configurations;
+mod connect_info;
 pub mod endpoints;
 pub mod enqueue_provider;
 pub mod network_provider;
 pub mod telemetry;
 
+use connect_info::ConnectInfoInterceptor;
 use endpoints::{ds::*, qs::ws::DispatchWebsocketNotifier};
 
 use actix_web::{
@@ -28,12 +30,7 @@ use phnxtypes::endpoint_paths::{
 };
 use std::{io, net::TcpListener, time::Duration};
 use tokio_stream::wrappers::TcpListenerStream;
-use tonic::{
-    Status,
-    body::Body,
-    codegen::http,
-    service::{Interceptor, InterceptorLayer},
-};
+use tonic::{body::Body, codegen::http, service::InterceptorLayer};
 use tower_governor::{
     GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
 };
@@ -48,17 +45,38 @@ use crate::endpoints::{
     qs::{qs_process_federated_message, qs_process_message, ws::upgrade_connection},
 };
 
+pub struct ServerRunParams<Qc, Np> {
+    pub listener: TcpListener,
+    pub grpc_listener: tokio::net::TcpListener,
+    pub ds: Ds,
+    pub auth_service: AuthService,
+    pub qs: Qs,
+    pub qs_connector: Qc,
+    pub network_provider: Np,
+    pub ws_dispatch_notifier: DispatchWebsocketNotifier,
+    pub rate_limits: RateLimitsConfig,
+}
+
+/// Every `period`, allow bursts of up to `burst`-many requests, and replenish one element after
+/// the `period`.
+pub struct RateLimitsConfig {
+    pub period: Duration,
+    pub burst_size: u32,
+}
+
 /// Configure and run the server application.
-#[allow(clippy::too_many_arguments)]
 pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: NetworkProvider>(
-    listener: TcpListener,
-    grpc_listener: tokio::net::TcpListener,
-    ds: Ds,
-    auth_service: AuthService,
-    qs: Qs,
-    qs_connector: Qc,
-    network_provider: Np,
-    ws_dispatch_notifier: DispatchWebsocketNotifier,
+    ServerRunParams {
+        listener,
+        grpc_listener,
+        ds,
+        auth_service,
+        qs,
+        qs_connector,
+        network_provider,
+        ws_dispatch_notifier,
+        rate_limits,
+    }: ServerRunParams<Qc, Np>,
 ) -> Result<impl Future<Output = io::Result<()>>, io::Error> {
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds.clone());
@@ -108,15 +126,22 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     // GRPC server
     let grpc_ds = GrpcDs::new(ds, qs_connector);
 
-    // Every 500ms, allow bursts of up to 20 requests, and replenish one element after 500ms.
-    //
-    // TOOD: make it configurable
+    let RateLimitsConfig { period, burst_size } = rate_limits;
     let governor_config = GovernorConfigBuilder::default()
-        .period(Duration::from_millis(500))
-        .burst_size(20)
+        .period(period)
+        .burst_size(burst_size)
         .key_extractor(SmartIpKeyExtractor)
         .finish()
         .expect("invalid governor config");
+
+    // task cleaning up limiter tokens
+    let governor_limiter = governor_config.limiter().clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            governor_limiter.retain_recent();
+        }
+    });
 
     tokio::spawn(async move {
         tonic::transport::Server::builder()
@@ -155,25 +180,6 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     })
 }
 
-// Extracts the IP for the `key_extractor` being able to use it
-#[derive(Debug, Clone)]
-struct ConnectInfoInterceptor;
-
-impl Interceptor for ConnectInfoInterceptor {
-    fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
-        let metadata = request.metadata();
-        if metadata.contains_key("x-real-ip")
-            || metadata.contains_key("x-forwarded-for")
-            || metadata.contains_key("forwarded")
-        {
-            return Ok(request);
-        }
-        // fallback to remote_addr: this won't work behind a reverse proxy
-        let addr = request.remote_addr().expect("not running on a TCP socket");
-        request.extensions_mut().insert(addr);
-        Ok(request)
-    }
-}
 // QS endpoints
 
 // Create pseudonymous user record:

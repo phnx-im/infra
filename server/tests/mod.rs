@@ -4,18 +4,18 @@
 
 mod qs;
 
-use std::{fs, io::Cursor, sync::LazyLock};
+use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
 use opaque_ke::rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
-use phnxapiclient::ApiClient;
+use phnxapiclient::{ApiClient, ds_api::DsRequestError};
 
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
     store::Store,
 };
-use phnxserver::network_provider::MockNetworkProvider;
+use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
@@ -70,6 +70,37 @@ async fn send_message() {
     setup
         .send_message(conversation_id, &BOB, vec![&ALICE])
         .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tracing::instrument(name = "Rate limit test", skip_all)]
+async fn rate_limit() {
+    let mut setup = TestBackend::single_with_rate_limits(RateLimitsConfig {
+        period: Duration::from_secs(100), // technically, never replenish tokens
+        burst_size: 2,                    // allow in total 2 request
+    })
+    .await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+
+    let alice = setup.users.get_mut(&ALICE).unwrap();
+    let error = alice
+        .user
+        .send_message(
+            conversation_id,
+            MimiContent::simple_markdown_message("Hello bob".into()),
+        )
+        .await
+        .unwrap_err();
+
+    let error: DsRequestError = error.downcast().expect("should be a DsRequestError");
+    match error {
+        DsRequestError::Tonic(status) => {
+            assert_eq!(status.code(), tonic::Code::ResourceExhausted);
+        }
+        _ => panic!("unexpected error type: {:?}", error),
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
