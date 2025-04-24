@@ -19,6 +19,7 @@ use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 #[actix_rt::test]
@@ -75,9 +76,11 @@ async fn send_message() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[tracing::instrument(name = "Rate limit test", skip_all)]
 async fn rate_limit() {
+    init_test_tracing();
+
     let mut setup = TestBackend::single_with_rate_limits(RateLimitsConfig {
-        period: Duration::from_secs(100), // technically, never replenish tokens
-        burst_size: 2,                    // allow in total 2 request
+        period: Duration::from_millis(500), // replenish one token every 500ms
+        burst_size: 10,                     // allow total 10 request
     })
     .await;
     setup.add_user(&ALICE).await;
@@ -85,21 +88,50 @@ async fn rate_limit() {
     let conversation_id = setup.connect_users(&ALICE, &BOB).await;
 
     let alice = setup.users.get_mut(&ALICE).unwrap();
-    let error = alice
+
+    let mut resource_exhausted = false;
+
+    // should stop with `resource_exhausted = true` at some point
+    for i in 0..10 {
+        info!(i, "sending message");
+        let res = alice
+            .user
+            .send_message(
+                conversation_id,
+                MimiContent::simple_markdown_message("Hello bob".into()),
+            )
+            .await;
+
+        let Err(error) = res else {
+            continue;
+        };
+
+        let error: DsRequestError = error.downcast().expect("should be a DsRequestError");
+        match error {
+            DsRequestError::Tonic(status) => {
+                assert_eq!(status.code(), tonic::Code::ResourceExhausted);
+                resource_exhausted = true;
+                break;
+            }
+            _ => panic!("unexpected error type: {error:?}"),
+        }
+    }
+    assert!(resource_exhausted);
+
+    info!("waiting for rate limit tokens to replenish");
+    tokio::time::sleep(Duration::from_millis(500)).await; // replenish
+
+    info!("sending message after rate limit tokens replenished");
+    let res = alice
         .user
         .send_message(
             conversation_id,
             MimiContent::simple_markdown_message("Hello bob".into()),
         )
-        .await
-        .unwrap_err();
+        .await;
 
-    let error: DsRequestError = error.downcast().expect("should be a DsRequestError");
-    match error {
-        DsRequestError::Tonic(status) => {
-            assert_eq!(status.code(), tonic::Code::ResourceExhausted);
-        }
-        _ => panic!("unexpected error type: {:?}", error),
+    if let Err(error) = res {
+        panic!("rate limit did not replenish: {error:?}");
     }
 }
 
