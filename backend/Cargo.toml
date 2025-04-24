@@ -29,7 +29,6 @@ tls_codec = { workspace = true }
 privacypass = { workspace = true }
 tokio-stream = "0.1.17"
 tonic = { workspace = true }
-derive_more = { workspace = true, features = ["from"] }
 
 [dev-dependencies]
 phnxtypes = { path = "../types", features = ["test_utils"] }
