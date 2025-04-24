@@ -21,7 +21,7 @@ use sqlx::SqlitePool;
 use tracing::info;
 
 use crate::{
-    Conversation, ConversationAttributes, ConversationId, PartialContact, UserProfile,
+    Conversation, ConversationAttributes, ConversationId, PartialContact,
     clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
     key_stores::{
@@ -76,6 +76,7 @@ impl CoreUser {
                 &mut notifier,
                 &self.inner.key_store,
                 client_reference,
+                self.user_name(),
                 user_name.clone(),
             )
             .await?;
@@ -245,7 +246,8 @@ impl LocalGroup {
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
         own_client_reference: QsReference,
-        user_name: QualifiedUserName,
+        own_user_name: &QualifiedUserName,
+        contact_user_name: QualifiedUserName,
     ) -> anyhow::Result<LocalPartialContact> {
         let Self {
             group,
@@ -268,20 +270,12 @@ impl LocalGroup {
 
         // Create and persist a new partial contact
         PartialContact::new(
-            user_name.clone(),
+            contact_user_name.clone(),
             conversation_id,
             friendship_package_ear_key.clone(),
         )
         .store(pool, notifier)
         .await?;
-
-        // Check if we already have a user profile for this user. If not, store
-        // a basic one without display name and profile picture.
-        if UserProfile::load(pool, &user_name).await?.is_none() {
-            UserProfile::new(user_name, None, None)
-                .store(pool, notifier)
-                .await?;
-        };
 
         // Create a connection establishment package
         let connection_establishment_package = ConnectionEstablishmentPackageTbs {
@@ -295,7 +289,7 @@ impl LocalGroup {
         .sign(&key_store.signing_key)?;
 
         let encrypted_user_profile_key =
-            own_user_profile_key.encrypt(group.identity_link_wrapper_key())?;
+            own_user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_name)?;
         let params = partial_params.into_params(own_client_reference, encrypted_user_profile_key);
 
         Ok(LocalPartialContact {

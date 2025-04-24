@@ -15,7 +15,7 @@ use phnxtypes::{
         QueueMessage,
         client_ds::{
             ExtractedQsQueueMessage, ExtractedQsQueueMessagePayload, InfraAadMessage,
-            InfraAadPayload, WelcomeBundle,
+            InfraAadPayload, UserProfileKeyUpdateParams, WelcomeBundle,
         },
     },
     time::TimeStamp,
@@ -31,6 +31,7 @@ use super::{
 use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
 pub enum ProcessQsMessageResult {
+    None,
     NewConversation(ConversationId),
     ConversationChanged(ConversationId, Vec<ConversationMessage>),
     ConversationMessages(Vec<ConversationMessage>),
@@ -91,6 +92,12 @@ impl CoreUser {
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
                 self.handle_mls_message(*mls_message, ds_timestamp).await
             }
+            ExtractedQsQueueMessagePayload::UserProfileKeyUpdate(
+                user_profile_key_update_params,
+            ) => {
+                self.handle_user_profile_key_update(user_profile_key_update_params)
+                    .await
+            }
         }
     }
 
@@ -114,10 +121,8 @@ impl CoreUser {
 
         // TODO: This can fail in some cases. If it does, we should fetch and
         // process messages and then try again.
-        let mut user_profiles = Vec::with_capacity(member_profile_info.len());
         for profile_info in member_profile_info {
-            let user_profile = self.fetch_user_profile(profile_info).await?;
-            user_profiles.push(user_profile);
+            self.fetch_and_store_user_profile(profile_info).await?;
         }
 
         // WelcomeBundle Phase 3: Store the user profiles of the group
@@ -125,10 +130,6 @@ impl CoreUser {
         // new conversation.
         let conversation_id = self
             .with_transaction_and_notifier(async |connection, notifier| {
-                for user_profile in user_profiles {
-                    user_profile.store(&mut *connection, notifier).await?;
-                }
-
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().context("No group data")?;
@@ -315,8 +316,8 @@ impl CoreUser {
             )?;
 
             // UnconfirmedConnection Phase 2: Fetch the user profile.
-            let user_profile = self
-                .fetch_user_profile((sender_client_id.clone(), user_profile_key.clone()))
+            let user_profile_key_index = user_profile_key.index().clone();
+            self.fetch_and_store_user_profile((sender_client_id.clone(), user_profile_key))
                 .await?;
 
             // Now we can turn the partial contact into a full one.
@@ -326,8 +327,7 @@ impl CoreUser {
                     &mut notifier,
                     friendship_package,
                     sender_client_id.clone(),
-                    &user_profile,
-                    &user_profile_key,
+                    user_profile_key_index,
                 )
                 .await?;
 
@@ -352,6 +352,36 @@ impl CoreUser {
         notifier.notify();
 
         Ok((group_messages, conversation_changed))
+    }
+
+    async fn handle_user_profile_key_update(
+        &self,
+        params: UserProfileKeyUpdateParams,
+    ) -> anyhow::Result<ProcessQsMessageResult> {
+        let mut connection = self.pool().acquire().await?;
+
+        // Phase 1: Load the group and the sender.
+        let group = Group::load(&mut connection, &params.group_id)
+            .await?
+            .context("No group found")?;
+        let sender = group
+            .client_by_index(&mut connection, params.sender_index)
+            .await
+            .context("No sender found")?;
+        drop(connection);
+
+        // Phase 2: Decrypt the new user profile key
+        let new_user_profile_key = UserProfileKey::decrypt(
+            group.identity_link_wrapper_key(),
+            &params.user_profile_key,
+            sender.user_name(),
+        )?;
+
+        // Phase 3: Fetch and store the (new) user profile
+        self.fetch_and_store_user_profile((sender, new_user_profile_key))
+            .await?;
+
+        Ok(ProcessQsMessageResult::None)
     }
 
     fn handle_external_join_proposal_message(
@@ -386,6 +416,7 @@ impl CoreUser {
                 ProcessQsMessageResult::NewConversation(conversation_id) => {
                     new_conversations.push(conversation_id)
                 }
+                ProcessQsMessageResult::None => {}
             };
         }
 

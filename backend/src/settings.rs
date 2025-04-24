@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxtypes::DEFAULT_PORT_GRPC;
 use serde::Deserialize;
 
 /// Configuration for the server.
@@ -28,7 +29,7 @@ pub struct ApplicationSettings {
 }
 
 fn default_grpc_port() -> u16 {
-    50051
+    DEFAULT_PORT_GRPC
 }
 
 /// Configuration for the database.

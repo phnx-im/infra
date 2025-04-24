@@ -273,8 +273,9 @@ impl UserProfileKey {
     pub fn encrypt(
         &self,
         wrapper_key: &IdentityLinkWrapperKey,
+        user_name: &QualifiedUserName,
     ) -> Result<EncryptedUserProfileKey, EncryptionError> {
-        self.base_secret.encrypt(wrapper_key)
+        self.base_secret.encrypt_with_aad(wrapper_key, user_name)
     }
 
     pub fn decrypt(
@@ -282,7 +283,7 @@ impl UserProfileKey {
         encrypted_key: &EncryptedUserProfileKey,
         user_name: &QualifiedUserName,
     ) -> Result<Self, DecryptionError> {
-        let base_secret = BaseSecret::decrypt(wrapper_key, encrypted_key)?;
+        let base_secret = BaseSecret::decrypt_with_aad(wrapper_key, encrypted_key, user_name)?;
         Self::from_base_secret(base_secret, user_name).map_err(|e| {
             error!(error = %e, "Key derivation error");
             DecryptionError::DecryptionError

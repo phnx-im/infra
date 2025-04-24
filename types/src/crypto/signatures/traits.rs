@@ -45,11 +45,7 @@ pub const SIGNATURE_PUBLIC_KEY_SIZE: usize = 32;
 pub trait VerifyingKeyBehaviour: AsRef<VerifyingKey> + std::fmt::Debug {
     /// Verify the given signature with the given payload. Returns an error if the
     /// verification fails or if the signature does not have the right length.
-    fn verify(
-        &self,
-        payload: &[u8],
-        signature: &Signature,
-    ) -> Result<(), SignatureVerificationError> {
+    fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), SignatureVerificationError> {
         let rust_crypto = OpenMlsRustCrypto::default();
         rust_crypto
             .crypto()
@@ -57,7 +53,7 @@ pub trait VerifyingKeyBehaviour: AsRef<VerifyingKey> + std::fmt::Debug {
                 DEFAULT_SIGNATURE_SCHEME,
                 payload,
                 self.as_ref().as_slice(),
-                signature.as_slice(),
+                signature,
             )
             .map_err(|_| SignatureVerificationError::VerificationFailure)
     }

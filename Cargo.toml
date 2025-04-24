@@ -68,7 +68,7 @@ insta = { version = "1.42.1", features = ["json"] }
 
 # grpc/protobuf
 prost = "0.13.5"
-tonic = "0.13.0"
+tonic = { version = "0.13.0", features = ["tls-ring", "tls-webpki-roots"] }
 tonic-build = "0.13.0"
 tower-http = { version = "0.6.2", features = ["trace"] }
 

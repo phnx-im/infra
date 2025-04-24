@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, UserProfile, clients::CoreUser,
+    PartialContact, clients::CoreUser, user_profiles::UserProfile,
 };
 
 use super::{Store, StoreNotification, StoreResult};

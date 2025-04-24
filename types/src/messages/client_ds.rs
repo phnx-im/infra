@@ -74,6 +74,7 @@ pub type QsQueueRatchet = QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePa
 pub enum QsQueueMessageType {
     WelcomeBundle,
     MlsMessage,
+    UserProfileKeyUpdate,
 }
 
 #[derive(
@@ -96,6 +97,12 @@ impl QsQueueMessagePayload {
                 let message = MlsMessageIn::tls_deserialize_exact_bytes(self.payload.as_slice())?;
                 ExtractedQsQueueMessagePayload::MlsMessage(Box::new(message))
             }
+            QsQueueMessageType::UserProfileKeyUpdate => {
+                let message = UserProfileKeyUpdateParams::tls_deserialize_exact_bytes(
+                    self.payload.as_slice(),
+                )?;
+                ExtractedQsQueueMessagePayload::UserProfileKeyUpdate(message)
+            }
         };
         Ok(ExtractedQsQueueMessage {
             timestamp: self.timestamp,
@@ -114,6 +121,7 @@ pub struct ExtractedQsQueueMessage {
 pub enum ExtractedQsQueueMessagePayload {
     WelcomeBundle(WelcomeBundle),
     MlsMessage(Box<MlsMessageIn>),
+    UserProfileKeyUpdate(UserProfileKeyUpdateParams),
 }
 
 impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
@@ -124,6 +132,19 @@ impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
         Ok(Self {
             timestamp: TimeStamp::now(),
             message_type: QsQueueMessageType::WelcomeBundle,
+            payload,
+        })
+    }
+}
+
+impl TryFrom<UserProfileKeyUpdateParams> for QsQueueMessagePayload {
+    type Error = tls_codec::Error;
+
+    fn try_from(params: UserProfileKeyUpdateParams) -> Result<Self, Self::Error> {
+        let payload = params.tls_serialize_detached()?;
+        Ok(Self {
+            timestamp: TimeStamp::now(),
+            message_type: QsQueueMessageType::UserProfileKeyUpdate,
             payload,
         })
     }
@@ -326,6 +347,13 @@ pub struct DeleteGroupParams {
     pub commit: AssistedMessageIn,
 }
 
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSize, TlsSerialize)]
+pub struct UserProfileKeyUpdateParams {
+    pub group_id: GroupId,
+    pub sender_index: LeafNodeIndex,
+    pub user_profile_key: EncryptedUserProfileKey,
+}
+
 #[derive(Debug)]
 #[expect(clippy::large_enum_variant)]
 pub enum DsVersionedRequestParams {
@@ -413,6 +441,7 @@ pub enum DsGroupRequestParams {
     SendMessage(SendMessageParams),
     DeleteGroup(DeleteGroupParams),
     GroupOperation(GroupOperationParams),
+    UserProfileKeyUpdate(UserProfileKeyUpdateParams),
     DispatchEvent(DispatchEventParams),
 }
 
@@ -443,6 +472,9 @@ impl DsGroupRequestParams {
             }
             Self::GroupOperation(group_operation_params) => {
                 Some(group_operation_params.commit.group_id())
+            }
+            Self::UserProfileKeyUpdate(user_profile_update_params) => {
+                Some(&user_profile_update_params.group_id)
             }
         }
     }
@@ -480,7 +512,8 @@ impl DsGroupRequestParams {
             // Since we're leaking the leaf index in the header, we could
             // technically return the MLS sender here.
             | Self::SendMessage(_)
-            | Self::_UpdateQsClientReference => None,
+            | Self::_UpdateQsClientReference
+            | Self::UserProfileKeyUpdate(_) => None,
         }
     }
 
@@ -497,6 +530,9 @@ impl DsGroupRequestParams {
             Self::DispatchEvent(dispatch_event_params) => Some(DsSender::LeafIndex(
                 dispatch_event_params.event.sender_index(),
             )),
+            Self::UserProfileKeyUpdate(user_profile_update_params) => {
+                Some(DsSender::LeafIndex(user_profile_update_params.sender_index))
+            }
             // Messages that don't require additional auth
             Self::CreateGroupParams(_)
             | Self::ExternalCommitInfo(_)
@@ -637,7 +673,7 @@ impl Verifiable for VerifiableClientToDsMessage {
         Ok(self.serialized_payload.clone())
     }
 
-    fn signature(&self) -> &Signature {
+    fn signature(&self) -> impl AsRef<[u8]> {
         &self.message.signature
     }
 

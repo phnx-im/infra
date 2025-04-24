@@ -156,7 +156,7 @@ impl Verifiable for ConnectionEstablishmentPackageIn {
         self.payload.tls_serialize_detached()
     }
 
-    fn signature(&self) -> &Signature {
+    fn signature(&self) -> impl AsRef<[u8]> {
         &self.signature
     }
 

@@ -3527,6 +3527,7 @@ dependencies = [
  "futures-util",
  "http 1.3.1",
  "mls-assist",
+ "phnxprotos",
  "phnxtypes",
  "privacypass",
  "reqwest",
@@ -3535,6 +3536,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
+ "tonic",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -3642,10 +3644,18 @@ dependencies = [
 name = "phnxprotos"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "derive_more 0.99.19",
+ "mls-assist",
+ "openmls",
+ "phnxtypes",
  "prost",
  "protoc-bin-vendored",
+ "thiserror 2.0.12",
+ "tls_codec",
  "tonic",
  "tonic-build",
+ "uuid",
 ]
 
 [[package]]
@@ -3686,6 +3696,7 @@ dependencies = [
  "tracing-futures",
  "tracing-log 0.2.0",
  "tracing-subscriber",
+ "uuid",
  "zeroize",
 ]
 
@@ -4606,6 +4617,7 @@ version = "0.23.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "822ee9188ac4ec04a2f0531e55d035fb2de73f18b41a63c70c2712503b6fb13c"
 dependencies = [
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -5566,11 +5578,13 @@ dependencies = [
  "prost",
  "socket2",
  "tokio",
+ "tokio-rustls",
  "tokio-stream",
  "tower",
  "tower-layer",
  "tower-service",
  "tracing",
+ "webpki-roots",
 ]
 
 [[package]]

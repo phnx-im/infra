@@ -6,9 +6,13 @@
 
 use std::{sync::Arc, time::Duration};
 
+use ds_api::grpc::DsGrpcClient;
+use phnxprotos::delivery_service::v1::delivery_service_client::DeliveryServiceClient;
 use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
+use tonic::transport::ClientTlsConfig;
+use tracing::info;
 use url::ParseError;
 use version::NegotiatedApiVersions;
 
@@ -33,10 +37,14 @@ pub enum ApiClientInitError {
     ReqwestError(#[from] reqwest::Error),
     #[error("Failed to parse URL {0}")]
     UrlParsingError(String),
+    #[error("Invalid URL {0}")]
+    InvalidUrl(String),
     #[error("Could not find hostname in URL {0}")]
     NoHostname(String),
     #[error("The use of TLS is mandatory")]
     TlsRequired,
+    #[error(transparent)]
+    TonicTranspor(#[from] tonic::transport::Error),
 }
 
 pub type HttpClient = reqwest::Client;
@@ -46,6 +54,7 @@ pub type HttpClient = reqwest::Client;
 #[derive(Clone)]
 pub struct ApiClient {
     client: HttpClient,
+    ds_grpc_client: DsGrpcClient,
     url: Url,
     api_versions: Arc<NegotiatedApiVersions>,
 }
@@ -59,9 +68,12 @@ impl ApiClient {
             .build()
     }
 
-    pub fn with_default_http_client(domain: impl ToString) -> Result<Self, ApiClientInitError> {
+    pub fn with_default_http_client(
+        domain: impl AsRef<str>,
+        grpc_port: u16,
+    ) -> Result<Self, ApiClientInitError> {
         let client = Self::new_http_client();
-        Self::initialize(client?, domain)
+        Self::initialize(client?, domain, grpc_port)
     }
 
     /// Creates a new API client that connects to the given base URL.
@@ -76,23 +88,37 @@ impl ApiClient {
     /// A new [`ApiClient`].
     pub fn initialize(
         client: HttpClient,
-        domain: impl ToString,
+        domain: impl AsRef<str>,
+        grpc_port: u16,
     ) -> Result<Self, ApiClientInitError> {
-        let mut domain_string = domain.to_string();
         // We first check if the domain is a valid URL.
-        let url = match Url::parse(&domain_string) {
+        let domain = domain.as_ref();
+        let url = match Url::parse(domain) {
             Ok(url) => url,
             // If not, we try to parse it as a hostname.
             Err(ParseError::RelativeUrlWithoutBase) => {
-                let protocol_str = if HTTPS_BY_DEFAULT { "https" } else { "http" };
-                domain_string = format!("{}://{}", protocol_str, domain_string);
-                Url::parse(&domain_string)
-                    .map_err(|_| ApiClientInitError::UrlParsingError(domain_string.clone()))?
+                let protocol = if HTTPS_BY_DEFAULT { "https" } else { "http" };
+                let domain = format!("{protocol}://{domain}");
+                Url::parse(&domain).map_err(|_| ApiClientInitError::UrlParsingError(domain))?
             }
-            Err(_) => return Err(ApiClientInitError::UrlParsingError(domain_string.clone())),
+            Err(_) => return Err(ApiClientInitError::UrlParsingError(domain.to_owned())),
         };
+
+        // For now, we are running grpc on the same domain but under a different port.
+        let mut grpc_url = url.clone();
+        grpc_url.set_port(Some(grpc_port)).expect("invalid url");
+        info!(%grpc_url, "Connecting lazily to GRPC server");
+        // TODO: Reuse HTTP client here
+        let endpoint = tonic::transport::Endpoint::from_shared(grpc_url.to_string())
+            .map_err(|_| ApiClientInitError::InvalidUrl(grpc_url.to_string()))?;
+        let channel = endpoint
+            .tls_config(ClientTlsConfig::new().with_webpki_roots())?
+            .connect_lazy();
+        let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel));
+
         Ok(Self {
             client,
+            ds_grpc_client,
             url,
             api_versions: Arc::new(NegotiatedApiVersions::new()),
         })

@@ -17,6 +17,7 @@ use phnxcoreclient::{
     open_client_db,
 };
 use phnxtypes::{
+    DEFAULT_PORT_GRPC,
     identifiers::{AsClientId, QualifiedUserName},
     messages::push_token::PushTokenOperator,
 };
@@ -71,20 +72,22 @@ impl User {
         profile_picture: Option<Vec<u8>>,
     ) -> Result<User> {
         let user_name: QualifiedUserName = user_name.parse()?;
-        let user_profile = UserProfile::new(
-            user_name.clone(),
-            display_name.map(TryFrom::try_from).transpose()?,
-            profile_picture.map(Asset::Value),
-        );
 
         let user = CoreUser::new(
             user_name.clone(),
             &password,
             address,
+            DEFAULT_PORT_GRPC,
             &path,
             push_token.map(|p| p.into()),
         )
         .await?;
+
+        let user_profile = UserProfile {
+            user_name: user_name.clone(),
+            display_name: display_name.map(TryFrom::try_from).transpose()?,
+            profile_picture: profile_picture.map(Asset::Value),
+        };
 
         if let Err(error) = CoreUser::set_own_user_profile(&user, user_profile).await {
             error!(%error, "Could not set own user profile");

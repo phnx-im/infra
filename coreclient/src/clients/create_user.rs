@@ -269,7 +269,7 @@ impl PostRegistrationInitState {
 
         let encrypted_push_token = match push_token {
             Some(push_token) => Some(EncryptedPushToken::from(
-                push_token_ear_key.encrypt(&push_token.serialize()?)?,
+                push_token_ear_key.encrypt(push_token.serialize()?.as_slice())?,
             )),
             None => None,
         };
@@ -289,14 +289,22 @@ impl PostRegistrationInitState {
             qs_client_id_encryption_key: qs_encryption_key,
         };
 
+        let mut connection = pool.acquire().await?;
+
         let user_profile_key = UserProfileKey::random(user_name)?;
-        user_profile_key
-            .store_own(pool.acquire().await?.as_mut())
+        user_profile_key.store_own(connection.as_mut()).await?;
+
+        let user_profile = IndexedUserProfile::new(
+            user_name.clone(),
+            user_profile_key.index().clone(),
+            None,
+            None,
+        );
+
+        user_profile
+            .upsert(connection.as_mut(), &mut StoreNotifier::noop())
             .await?;
 
-        let user_profile = UserProfile::load(pool, user_name)
-            .await?
-            .context("Own user profile not found")?;
         let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
 
         // TODO: For now, we use the same ConnectionDecryptionKey for all

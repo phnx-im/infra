@@ -56,7 +56,7 @@ impl Contact {
         client_id: AsClientId,
         conversation_id: ConversationId,
         friendship_package: FriendshipPackage,
-    ) -> Result<(Self, UserProfileKey), LibraryError> {
+    ) -> Result<Self, LibraryError> {
         let user_profile_key = UserProfileKey::from_base_secret(
             friendship_package.user_profile_base_secret,
             client_id.user_name(),
@@ -71,7 +71,7 @@ impl Contact {
             conversation_id,
             user_profile_key_index: user_profile_key.index().clone(),
         };
-        Ok((contact, user_profile_key))
+        Ok(contact)
     }
 
     /// Get the user name of this contact.
