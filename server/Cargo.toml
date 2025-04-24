@@ -19,6 +19,9 @@ name = "phnxserver"
 [features]
 api_docs = []
 
+[[bench]]
+name = "bench"
+harness = false
 
 [dependencies]
 phnxbackend = { path = "../backend" }
@@ -60,3 +63,8 @@ phnxserver_test_harness = { path = "../test_harness" }
 image = "0.25"
 png = "0.17"
 mimi_content = { workspace = true }
+criterion = { version = "0.5.1", features = [
+    "html_reports",
+    "async",
+    "async_tokio",
+] }
