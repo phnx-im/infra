@@ -4,13 +4,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::net::{SocketAddr, TcpListener};
+use std::{
+    net::{SocketAddr, TcpListener},
+    time::Duration,
+};
 
 pub mod setup;
 
 use once_cell::sync::Lazy;
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
+    RateLimitsConfig, ServerRunParams,
     configurations::get_configuration_from_str,
     endpoints::qs::{
         push_notification_provider::ProductionPushNotificationProvider,
@@ -42,12 +46,28 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 const BASE_CONFIG: &str = include_str!("../../../server/configuration/base.yaml");
 const LOCAL_CONFIG: &str = include_str!("../../../server/configuration/local.yaml");
 
+const TEST_RATE_LIMITS: RateLimitsConfig = RateLimitsConfig {
+    period: Duration::from_millis(1),
+    burst_size: 1000,
+};
+
 /// Start the server and initialize the database connection. Returns the
 /// address and a DispatchWebsocketNotifier to dispatch notofication over the
 /// websocket.
 pub async fn spawn_app(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
+) -> ((SocketAddr, SocketAddr), DispatchWebsocketNotifier) {
+    spawn_app_with_rate_limits(domain, network_provider, TEST_RATE_LIMITS).await
+}
+
+/// Start the server and initialize the database connection. Returns the
+/// address and a DispatchWebsocketNotifier to dispatch notofication over the
+/// websocket.
+pub async fn spawn_app_with_rate_limits(
+    domain: impl Into<Option<Fqdn>>,
+    network_provider: MockNetworkProvider,
+    rate_limits: RateLimitsConfig,
 ) -> ((SocketAddr, SocketAddr), DispatchWebsocketNotifier) {
     // Initialize tracing subscription only once.
     Lazy::force(&TRACING);
@@ -101,7 +121,7 @@ pub async fn spawn_app(
     };
 
     // Start the server
-    let server = run(
+    let server = run(ServerRunParams {
         listener,
         grpc_listener,
         ds,
@@ -109,8 +129,9 @@ pub async fn spawn_app(
         qs,
         qs_connector,
         network_provider,
-        ws_dispatch_notifier.clone(),
-    )
+        ws_dispatch_notifier: ws_dispatch_notifier.clone(),
+        rate_limits,
+    })
     .expect("Failed to bind to address.");
 
     // Execute the server in the background
