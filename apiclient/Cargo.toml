@@ -7,12 +7,14 @@ name = "phnxapiclient"
 version = "0.1.0"
 edition = "2024"
 publish = false
-description = "HTTP client for the server REST API"
+description = "HTTP and GRPC client for the server API"
 
 [dependencies]
+phnxprotos.workspace = true
+phnxtypes.workspace = true
+
 reqwest = { workspace = true }
 thiserror = { workspace = true }
-phnxtypes = { path = "../types" }
 tokio = { version = "1.18.2", features = ["macros"] }
 tokio-util = { workspace = true }
 tokio-tungstenite = { version = "0.25", features = ["rustls-tls-webpki-roots"] }
@@ -25,6 +27,7 @@ privacypass = { workspace = true }
 tls_codec = { workspace = true }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+tonic.workspace = true
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }

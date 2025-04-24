@@ -31,6 +31,7 @@ use phnxtypes::{
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 use thiserror::Error;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::errors::StorageError;
@@ -167,6 +168,20 @@ pub(super) enum DsGroupStateDecryptionError {
     DecryptionError(#[from] DecryptionError),
     #[error("Error deserializing group state: {0}")]
     DeserializationError(#[from] phnxtypes::codec::Error),
+}
+
+impl From<DsGroupStateDecryptionError> for tonic::Status {
+    fn from(error: DsGroupStateDecryptionError) -> Self {
+        error!(%error, "group state decryption failed");
+        match error {
+            DsGroupStateDecryptionError::DecryptionError(_) => {
+                Self::internal("Failed to decrypt group state")
+            }
+            DsGroupStateDecryptionError::DeserializationError(_) => {
+                Self::internal("Failed to deserialize group state")
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]

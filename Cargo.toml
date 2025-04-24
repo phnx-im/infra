@@ -68,7 +68,7 @@ insta = { version = "1.42.1", features = ["json"] }
 
 # grpc/protobuf
 prost = "0.13.5"
-tonic = "0.13.0"
+tonic = { version = "0.13.0", features = ["tls-ring", "tls-webpki-roots"] }
 tonic-build = "0.13.0"
 tower-http = { version = "0.6.2", features = ["trace"] }
 
@@ -76,6 +76,11 @@ tower-http = { version = "0.6.2", features = ["trace"] }
 #opaque-ke = { git = "https://github.com/facebook/opaque-ke", branch = "dependabot/cargo/voprf-eq-0.5.0" }
 # PR: <https://github.com/RustCrypto/formats/pull/1656/files>
 tls_codec = { git = "https://github.com/boxdot/formats", rev = "9846c69f91e732b493dcccf92f4c163bfc711b7d" }
+# PR: <https://github.com/benwis/tower-governor/pull/53>
+tower_governor = { git = "https://github.com/boxdot/tower-governor", rev = "556d9f8", default-features = false, features = [
+    "tonic",
+] }
+
 
 [profile.release]
 strip = true

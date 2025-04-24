@@ -19,19 +19,21 @@ use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
+use tracing_subscriber::EnvFilter;
 
 #[actix_rt::test]
 #[tracing::instrument(name = "Test WS", skip_all)]
 async fn health_check_works() {
     tracing::info!("Tracing: Spawning websocket connection task");
     let network_provider = MockNetworkProvider::new();
-    let ((http_addr, _grpc_addr), _ws_dispatch) =
+    let ((http_addr, grpc_addr), _ws_dispatch) =
         spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
 
     let address = format!("http://{http_addr}");
 
     // Initialize the client
-    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
+        .expect("Failed to initialize client");
 
     // Do the health check
     assert!(client.health_check().await);
@@ -132,7 +134,7 @@ async fn remove_from_group() {
     // he hasn't connected with them.
     let charlie = setup.get_user(&CHARLIE);
     let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap().unwrap();
-    assert!(charlie_user_profile_bob.user_name() == &*BOB);
+    assert!(charlie_user_profile_bob.user_name == *BOB);
 
     setup
         .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE, &BOB])
@@ -189,6 +191,8 @@ async fn leave_group() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn delete_group() {
+    init_test_tracing();
+
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
@@ -213,12 +217,13 @@ async fn create_user() {
 #[tracing::instrument(name = "Inexistant endpoint", skip_all)]
 async fn inexistant_endpoint() {
     let network_provider = MockNetworkProvider::new();
-    let ((http_addr, _grpc_addr), _ws_dispatch) =
+    let ((http_addr, grpc_addr), _ws_dispatch) =
         spawn_app(Some("localhost".parse().unwrap()), network_provider).await;
 
     // Initialize the client
     let address = format!("http://{http_addr}");
-    let client = ApiClient::with_default_http_client(address).expect("Failed to initialize client");
+    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
+        .expect("Failed to initialize client");
 
     // Call the inexistant endpoint
     assert!(client.inexistant_endpoint().await);
@@ -313,11 +318,11 @@ async fn exchange_user_profiles() {
 
     let alice_profile_picture = Asset::Value(png_bytes.clone());
 
-    let alice_profile = UserProfile::new(
-        (*ALICE).clone(),
-        Some(alice_display_name.clone()),
-        Some(alice_profile_picture.clone()),
-    );
+    let alice_profile = UserProfile {
+        user_name: (*ALICE).clone(),
+        display_name: Some(alice_display_name.clone()),
+        profile_picture: Some(alice_profile_picture.clone()),
+    };
     setup
         .users
         .get(&ALICE)
@@ -332,16 +337,16 @@ async fn exchange_user_profiles() {
     // Set a user profile for
     let bob_display_name = DisplayName::try_from("B0b".to_string()).unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
-    let bob_user_profile = UserProfile::new(
-        (*BOB).clone(),
-        Some(bob_display_name.clone()),
-        Some(bob_profile_picture.clone()),
-    );
+    let bob_user_profile = UserProfile {
+        user_name: (*BOB).clone(),
+        display_name: Some(bob_display_name.clone()),
+        profile_picture: Some(bob_profile_picture.clone()),
+    };
 
     let user = &setup.users.get(&BOB).unwrap().user;
     user.set_own_user_profile(bob_user_profile).await.unwrap();
     let new_profile = user.own_user_profile().await.unwrap();
-    let Asset::Value(compressed_profile_picture) = new_profile.profile_picture().unwrap().clone();
+    let Asset::Value(compressed_profile_picture) = new_profile.profile_picture.unwrap().clone();
 
     setup.connect_users(&ALICE, &BOB).await;
 
@@ -356,7 +361,7 @@ async fn exchange_user_profiles() {
         .unwrap();
 
     let profile_picture = bob_user_profile
-        .profile_picture()
+        .profile_picture
         .unwrap()
         .clone()
         .value()
@@ -365,22 +370,31 @@ async fn exchange_user_profiles() {
 
     assert_eq!(profile_picture, compressed_profile_picture);
 
-    assert!(bob_user_profile.display_name().unwrap() == &bob_display_name);
+    assert!(bob_user_profile.display_name.unwrap() == bob_display_name);
 
-    let alice_user_profile = setup
-        .users
-        .get(&BOB)
-        .unwrap()
-        .user
-        .user_profile(&ALICE)
+    let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
+
+    let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
+
+    assert_eq!(alice_user_profile.display_name.unwrap(), alice_display_name);
+
+    let new_user_profile = UserProfile {
+        user_name: (*ALICE).clone(),
+        display_name: Some(DisplayName::try_from("New Alice".to_string()).unwrap()),
+        profile_picture: None,
+    };
+
+    alice
+        .set_own_user_profile(new_user_profile.clone())
         .await
-        .unwrap()
         .unwrap();
 
-    assert_eq!(
-        alice_user_profile.display_name().unwrap(),
-        &alice_display_name
-    );
+    let bob = &mut setup.users.get_mut(&BOB).unwrap().user;
+    let qs_messages = bob.qs_fetch_messages().await.unwrap();
+    bob.fully_process_qs_messages(qs_messages).await.unwrap();
+    let alice_user_profile = bob.user_profile(&ALICE).await.unwrap().unwrap();
+
+    assert_eq!(alice_user_profile, new_user_profile);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -546,4 +560,11 @@ async fn error_if_user_doesnt_exist() {
     let res = alice.add_contact(BOB.clone()).await;
 
     assert!(res.is_err());
+}
+
+fn init_test_tracing() {
+    let _ = tracing_subscriber::fmt::fmt()
+        .with_test_writer()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init();
 }

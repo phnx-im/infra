@@ -499,6 +499,24 @@ impl Group {
         )
         .await?;
 
+        // Compile a list of user profile keys for the members.
+        let member_profile_info = encrypted_user_profile_keys
+            .into_iter()
+            .zip(
+                client_information
+                    .iter()
+                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
+            )
+            .map(|(eupk, ci)| {
+                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.user_name()).map(
+                    |user_profile_key| ProfileInfo {
+                        user_profile_key,
+                        member_id: ci.clone(),
+                    },
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         // We still have to add ourselves to the encrypted client credentials.
         let own_index = mls_group.own_leaf_index().usize();
         let own_group_membership = GroupMembership::new(
@@ -521,27 +539,6 @@ impl Group {
                 client_auth_info.store(&mut connection).await?;
             }
         }
-
-        let member_profile_info = encrypted_user_profile_keys
-            .into_iter()
-            .zip(
-                client_information
-                    .iter()
-                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
-            )
-            .map(|(eupk, ci)| {
-                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.user_name()).map(
-                    |user_profile_key| ProfileInfo {
-                        user_profile_key,
-                        member_id: ci.clone(),
-                    },
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        // Phase 4: Fetch user profiles
-
-        // TODO: Fetch user profiles
 
         let group = Self {
             group_id: mls_group.group_id().clone(),
@@ -588,7 +585,13 @@ impl Group {
 
         let new_encrypted_user_profile_keys = user_profile_keys
             .iter()
-            .map(|upk| upk.encrypt(&self.identity_link_wrapper_key))
+            .zip(client_credentials.iter())
+            .map(|(upk, client_credential)| {
+                upk.encrypt(
+                    &self.identity_link_wrapper_key,
+                    client_credential.identity().user_name(),
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let aad_message: InfraAadMessage =
@@ -1035,6 +1038,10 @@ impl Group {
             }
             _ => None,
         })
+    }
+
+    pub(crate) fn own_index(&self) -> LeafNodeIndex {
+        self.mls_group().own_leaf_index()
     }
 }
 

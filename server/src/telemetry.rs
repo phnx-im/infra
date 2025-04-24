@@ -60,6 +60,6 @@ where
 
 /// Register a subscriber as global default to process span data.
 pub fn init_subscriber(subscriber: impl Subscriber + Send + Sync) {
-    LogTracer::init().expect("Failed to set logger");
-    set_global_default(subscriber).expect("Failed to set subscriber");
+    let _ = LogTracer::init();
+    let _ = set_global_default(subscriber);
 }

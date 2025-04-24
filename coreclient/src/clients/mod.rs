@@ -15,6 +15,7 @@ use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
 use phnxtypes::{
+    DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
@@ -46,7 +47,6 @@ use tokio_stream::Stream;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::store::StoreNotificationsSender;
 use crate::{Asset, groups::Group};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
@@ -60,9 +60,10 @@ use crate::{
     groups::openmls_provider::PhnxOpenMlsProvider,
     key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
     store::{StoreNotification, StoreNotifier},
-    user_profiles::UserProfile,
+    user_profiles::IndexedUserProfile,
     utils::persistence::{open_client_db, open_db_in_memory, open_phnx_db},
 };
+use crate::{store::StoreNotificationsSender, user_profiles::UserProfile};
 
 use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCreationState};
 
@@ -111,6 +112,7 @@ impl CoreUser {
         user_name: QualifiedUserName,
         password: &str,
         server_url: impl ToString,
+        grpc_port: u16,
         db_path: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
@@ -125,6 +127,7 @@ impl CoreUser {
             as_client_id,
             password,
             server_url,
+            grpc_port,
             push_token,
             phnx_db,
             client_db,
@@ -136,6 +139,7 @@ impl CoreUser {
         as_client_id: AsClientId,
         password: &str,
         server_url: impl ToString,
+        grpc_port: u16,
         push_token: Option<PushToken>,
         phnx_db: SqlitePool,
         client_db: SqlitePool,
@@ -144,6 +148,7 @@ impl CoreUser {
         let api_clients = ApiClients::new(
             as_client_id.user_name().domain().clone(),
             server_url.clone(),
+            grpc_port,
         );
 
         let user_creation_state = UserCreationState::new(
@@ -180,6 +185,7 @@ impl CoreUser {
         user_name: impl Into<QualifiedUserName>,
         password: &str,
         server_url: impl ToString,
+        grpc_port: u16,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
         let user_name = user_name.into();
@@ -195,6 +201,7 @@ impl CoreUser {
             as_client_id,
             password,
             server_url,
+            grpc_port,
             push_token,
             phnx_db,
             client_db,
@@ -216,6 +223,7 @@ impl CoreUser {
         let api_clients = ApiClients::new(
             as_client_id.user_name().domain().clone(),
             user_creation_state.server_url(),
+            DEFAULT_PORT_GRPC,
         );
         let final_state = user_creation_state
             .complete_user_creation(&phnx_db, &client_db, &api_clients)
@@ -274,16 +282,16 @@ impl CoreUser {
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
-        if user_profile.user_name() != self.user_name() {
+        if &user_profile.user_name != self.user_name() {
             bail!("Can't set user profile for users other than the current user.",);
         }
-        if let Some(profile_picture) = user_profile.profile_picture() {
+        if let Some(profile_picture) = user_profile.profile_picture {
             let new_image = match profile_picture {
-                Asset::Value(image_bytes) => self.resize_image(image_bytes)?,
+                Asset::Value(image_bytes) => self.resize_image(&image_bytes)?,
             };
-            user_profile.set_profile_picture(Some(Asset::Value(new_image)));
+            user_profile.profile_picture = Some(Asset::Value(new_image));
         }
-        self.update_user_profile(&user_profile).await?;
+        self.update_user_profile(user_profile).await?;
         Ok(())
     }
 
@@ -336,8 +344,8 @@ impl CoreUser {
 
     /// Get the user profile of the user with the given [`QualifiedUserName`].
     pub async fn user_profile(&self, user_name: &QualifiedUserName) -> Result<Option<UserProfile>> {
-        let user = UserProfile::load(self.pool(), user_name).await?;
-        Ok(user)
+        let user = IndexedUserProfile::load(self.pool(), user_name).await?;
+        Ok(user.map(From::from))
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
@@ -569,7 +577,7 @@ impl CoreUser {
                     self.inner
                         .key_store
                         .push_token_ear_key
-                        .encrypt(&GenericSerializable::serialize(&push_token)?)?,
+                        .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
                 );
                 Some(encrypted_push_token)
             }
@@ -616,10 +624,10 @@ impl CoreUser {
 
     /// Returns the user profile of this [`CoreUser`].
     pub async fn own_user_profile(&self) -> sqlx::Result<UserProfile> {
-        UserProfile::load(self.pool(), self.user_name())
+        IndexedUserProfile::load(self.pool(), self.user_name())
             .await
             // We unwrap here, because we know that the user exists.
-            .map(|user_option| user_option.unwrap())
+            .map(|user_option| user_option.unwrap().into())
     }
 
     /// Executes a function with a transaction.

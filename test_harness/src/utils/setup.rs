@@ -10,7 +10,7 @@ use phnxcoreclient::{
 };
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxtypes::{
-    DEFAULT_PORT_HTTP,
+    DEFAULT_PORT_GRPC, DEFAULT_PORT_HTTP,
     identifiers::{Fqdn, QualifiedUserName},
 };
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
@@ -37,22 +37,32 @@ impl AsMut<CoreUser> for TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_name: &QualifiedUserName, address_option: Option<String>) -> Self {
+    pub async fn new(
+        user_name: &QualifiedUserName,
+        address_option: Option<String>,
+        grpc_port: u16,
+    ) -> Self {
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user =
-            CoreUser::new_ephemeral(user_name.clone(), &user_name.to_string(), server_url, None)
-                .await
-                .unwrap();
+        let user = CoreUser::new_ephemeral(
+            user_name.clone(),
+            &user_name.to_string(),
+            server_url,
+            grpc_port,
+            None,
+        )
+        .await
+        .unwrap();
         Self { user }
     }
 
     pub async fn new_persisted(
         user_name: &QualifiedUserName,
         address_option: Option<String>,
+        grpc_port: u16,
         db_dir: &str,
     ) -> Self {
         let hostname_str = address_option
@@ -64,6 +74,7 @@ impl TestUser {
             user_name.clone(),
             &user_name.to_string(),
             server_url,
+            grpc_port,
             db_dir,
             None,
         )
@@ -87,6 +98,7 @@ pub struct TestBackend {
     pub groups: HashMap<ConversationId, HashSet<QualifiedUserName>>,
     // This is what we feed to the test clients.
     kind: TestKind,
+    grpc_port: u16,
     _guard: Option<LocalEnterGuard>,
 }
 
@@ -96,6 +108,7 @@ impl TestBackend {
             users: HashMap::new(),
             groups: HashMap::new(),
             kind: TestKind::Federated,
+            grpc_port: DEFAULT_PORT_GRPC,
             _guard: None,
         }
     }
@@ -112,6 +125,7 @@ impl TestBackend {
             users: HashMap::new(),
             groups: HashMap::new(),
             kind: TestKind::SingleBackend(http_addr.to_string()),
+            grpc_port: grpc_addr.port(),
             _guard: Some(_guard),
         }
     }
@@ -124,15 +138,19 @@ impl TestBackend {
         }
     }
 
+    pub fn grpc_port(&self) -> u16 {
+        self.grpc_port
+    }
+
     pub async fn add_persisted_user(&mut self, user_name: &QualifiedUserName) {
         info!("Creating {user_name}");
-        let user = TestUser::new_persisted(user_name, self.url(), "./").await;
+        let user = TestUser::new_persisted(user_name, self.url(), self.grpc_port, "./").await;
         self.users.insert(user_name.clone(), user);
     }
 
     pub async fn add_user(&mut self, user_name: &QualifiedUserName) {
         info!("Creating {user_name}");
-        let user = TestUser::new(user_name, self.url()).await;
+        let user = TestUser::new(user_name, self.url(), self.grpc_port).await;
         self.users.insert(user_name.clone(), user);
     }
 

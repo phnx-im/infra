@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, UserProfile,
+    PartialContact, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
