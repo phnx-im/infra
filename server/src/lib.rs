@@ -30,14 +30,13 @@ use phnxtypes::endpoint_paths::{
 };
 use std::{io, net::TcpListener, time::Duration};
 use tokio_stream::wrappers::TcpListenerStream;
-use tonic::{body::Body, codegen::http, service::InterceptorLayer};
+use tonic::service::InterceptorLayer;
 use tower_governor::{
     GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
 };
-use tower_http::trace::{DefaultOnRequest, TraceLayer};
-use tracing::{Level, Span, info, info_span};
+use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tracing::{Level, enabled, info};
 use tracing_actix_web::TracingLogger;
-use uuid::Uuid;
 
 use crate::endpoints::{
     auth_service::as_process_message,
@@ -148,21 +147,17 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
             .layer(InterceptorLayer::new(ConnectInfoInterceptor))
             .layer(
                 TraceLayer::new_for_grpc()
-                    .make_span_with(|request: &http::Request<Body>| {
-                        info_span!(
-                            "grpc",
-                            request_id = %Uuid::new_v4(),
-                            path = %request.uri().path(),
-                            status = tracing::field::Empty,
-                            latency = tracing::field::Empty,
-                        )
-                    })
+                    .make_span_with(
+                        DefaultMakeSpan::new()
+                            .level(Level::INFO)
+                            .include_headers(enabled!(Level::DEBUG)),
+                    )
                     .on_request(DefaultOnRequest::new().level(Level::INFO))
-                    .on_response(|response: &http::Response<Body>, latency, span: &Span| {
-                        span.record("latency", tracing::field::debug(latency));
-                        span.record("status", tracing::field::display(response.status()));
-                        info!("finished processing request");
-                    }),
+                    .on_response(
+                        DefaultOnResponse::new()
+                            .level(Level::INFO)
+                            .include_headers(enabled!(Level::DEBUG)),
+                    ),
             )
             .layer(GovernorLayer::new(governor_config))
             .add_service(DeliveryServiceServer::new(grpc_ds))
