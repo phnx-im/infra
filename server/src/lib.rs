@@ -108,7 +108,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     // GRPC server
     let grpc_ds = GrpcDs::new(ds, qs_connector);
 
-    // Every 500ms, allow bursts of up to 8 requests, and replenish one element after 500ms.
+    // Every 500ms, allow bursts of up to 20 requests, and replenish one element after 500ms.
     //
     // TOOD: make it configurable
     let governor_config = GovernorConfigBuilder::default()
