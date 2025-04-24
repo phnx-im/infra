@@ -13,9 +13,13 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::ear::keys::GroupStateEarKey,
     identifiers::QsReference,
-    messages::client_ds_out::{
-        CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
-        SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut, WelcomeInfoIn,
+    messages::{
+        client_ds::UserProfileKeyUpdateParams,
+        client_ds_out::{
+            CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
+            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
+            WelcomeInfoIn,
+        },
     },
     time::TimeStamp,
 };
@@ -28,8 +32,6 @@ pub mod grpc;
 pub enum DsRequestError {
     #[error("Library Error")]
     LibraryError,
-    #[error(transparent)]
-    Tonic(#[from] tonic::Status),
     #[error(transparent)]
     Tonic(#[from] tonic::Status),
     #[error(transparent)]
@@ -192,19 +194,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::UserProfileKeyUpdate(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        .and_then(|response| {
-            if let DsProcessResponseIn::Ok = response {
-                Ok(())
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .user_profile_key_update(params, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Request a group ID.

@@ -15,7 +15,8 @@ use phnxprotos::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
         ExternalCommitInfoRequest, GroupOperationPayload, JoinConnectionGroupRequest,
         RequestGroupIdRequest, ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
-        WelcomeInfoPayload, delivery_service_client::DeliveryServiceClient,
+        UpdateProfileKeyPayload, WelcomeInfoPayload,
+        delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
 };
@@ -23,9 +24,12 @@ use phnxtypes::{
     credentials::keys::PseudonymousCredentialSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::{QsReference, QualifiedGroupId},
-    messages::client_ds_out::{
-        CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
-        SendMessageParamsOut, WelcomeInfoIn,
+    messages::{
+        client_ds::UserProfileKeyUpdateParams,
+        client_ds_out::{
+            CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
+            GroupOperationParamsOut, SendMessageParamsOut, WelcomeInfoIn,
+        },
     },
     time::TimeStamp,
 };
@@ -371,5 +375,23 @@ impl DsGrpcClient {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
         })
+    }
+
+    pub(crate) async fn user_profile_key_update(
+        &self,
+        params: UserProfileKeyUpdateParams,
+        signing_key: &PseudonymousCredentialSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+    ) -> Result<(), DsRequestError> {
+        let qgid: QualifiedGroupId = params.group_id.try_into()?;
+        let payload = UpdateProfileKeyPayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            group_id: Some(qgid.ref_into()),
+            sender: Some(params.sender_index.into()),
+            encrypted_user_profile_key: Some(params.user_profile_key.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        self.client.clone().update_profile_key(request).await?;
+        Ok(())
     }
 }

@@ -33,6 +33,8 @@ service DeliveryService {
   rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
 
   rpc GroupOperation(GroupOperationRequest) returns (GroupOperationResponse);
+
+  rpc UpdateProfileKey(UpdateProfileKeyRequest) returns (UpdateProfileKeyResponse);
 }
 
 // common messages
@@ -284,3 +286,19 @@ message EncryptedWelcomeAttributionInfo {
 message GroupOperationResponse {
   common.v1.Timestamp fanout_timestamp = 1;
 }
+
+// update profile key
+
+message UpdateProfileKeyRequest {
+  common.v1.Signature signature = 1;
+  UpdateProfileKeyPayload payload = 2;
+}
+
+message UpdateProfileKeyPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  common.v1.QualifiedGroupId group_id = 2;
+  LeafNodeIndex sender = 3;
+  EncryptedUserProfileKey encrypted_user_profile_key = 4;
+}
+
+message UpdateProfileKeyResponse {}

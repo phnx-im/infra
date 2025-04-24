@@ -7,8 +7,9 @@ use prost::Message;
 use super::v1::{
     CreateGroupPayload, CreateGroupRequest, DeleteGroupPayload, DeleteGroupRequest,
     GroupOperationPayload, GroupOperationRequest, ResyncPayload, ResyncRequest, SelfRemovePayload,
-    SelfRemoveRequest, SendMessagePayload, SendMessageRequest, UpdatePayload, UpdateRequest,
-    WelcomeInfoPayload, WelcomeInfoRequest,
+    SelfRemoveRequest, SendMessagePayload, SendMessageRequest, UpdatePayload,
+    UpdateProfileKeyPayload, UpdateProfileKeyRequest, UpdateRequest, WelcomeInfoPayload,
+    WelcomeInfoRequest,
 };
 
 use phnxtypes::crypto::signatures::signable::{
@@ -428,6 +429,58 @@ impl Verifiable for ResyncRequest {
 
     fn label(&self) -> &str {
         RESYNC_PAYLOAD_LABEL
+    }
+}
+
+const UPDATE_PROFILE_KEY_PAYLOAD_LABEL: &str = "UpdateProfileKeyPayload";
+
+impl SignedStruct<UpdateProfileKeyPayload> for UpdateProfileKeyRequest {
+    fn from_payload(payload: UpdateProfileKeyPayload, signature: Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for UpdateProfileKeyPayload {
+    type SignedOutput = UpdateProfileKeyRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        UPDATE_PROFILE_KEY_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<UpdateProfileKeyRequest> for UpdateProfileKeyPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: UpdateProfileKeyRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for UpdateProfileKeyRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        UPDATE_PROFILE_KEY_PAYLOAD_LABEL
     }
 }
 
