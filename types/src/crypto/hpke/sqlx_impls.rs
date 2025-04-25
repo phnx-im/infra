@@ -53,7 +53,6 @@ where
 }
 
 impl<
-    'q,
     KT: for<'encode> ::sqlx::encode::Encode<'encode, ::sqlx::Postgres>
         + ::sqlx::types::Type<::sqlx::Postgres>,
 > ::sqlx::encode::Encode<'_, ::sqlx::Postgres> for DecryptionKey<KT>

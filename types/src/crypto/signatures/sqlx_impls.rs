@@ -12,7 +12,6 @@ use crate::crypto::secrets::SecretBytes;
 use super::private_keys::{SigningKey, VerifyingKey};
 
 impl<
-    'q,
     KT: for<'encode> ::sqlx::encode::Encode<'encode, ::sqlx::Postgres>
         + ::sqlx::types::Type<::sqlx::Postgres>,
 > ::sqlx::encode::Encode<'_, ::sqlx::Postgres> for SigningKey<KT>

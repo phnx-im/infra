@@ -37,6 +37,7 @@ pub trait IndexedKeyType {
 pub trait RandomlyGeneratable {}
 
 // Dummy wrapper type to avoid orphan problem.
+#[derive(Default)]
 pub struct KeyTypeInstance<KT: IndexedKeyType>(PhantomData<KT>);
 
 impl<'q, KT: IndexedKeyType> Encode<'q, Sqlite> for KeyTypeInstance<KT> {
