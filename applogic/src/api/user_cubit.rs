@@ -11,7 +11,7 @@ use anyhow::bail;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     Asset, UserProfile,
-    clients::{ListenResponse, listen_response},
+    cliets::{ListenResponse, listen_response},
 };
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use phnxtypes::identifiers::QualifiedUserName;
@@ -295,33 +295,28 @@ fn spawn_listen(
 ) {
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
-        let mut listen_cancel = cancel.child_token();
         loop {
             let res = run_listen(
                 &core_user,
                 &navigation_state,
                 &mut app_state,
                 &notification_service,
-                &listen_cancel,
+                &cancel,
                 &mut backoff,
             )
             .await;
 
-            // stop handler on websocket cancellation
+            // stop handler on cancellation
             if let Ok(true) = res {
-                break;
+                return;
             }
-
-            // stop internal websocket loop and issue a new token
-            listen_cancel.cancel();
-            listen_cancel = cancel.child_token();
 
             // wait for app to be foreground
             let _ = app_state
                 .wait_for(|app_state| matches!(app_state, AppState::Foreground))
                 .await;
 
-            // if websocket failed, retry with backoff
+            // if listen failed, retry with backoff
             if let Err(error) = res {
                 let timeout = backoff.next_backoff();
                 info!(%error, retry_in =? timeout, "listen failed");
@@ -332,7 +327,7 @@ fn spawn_listen(
     });
 }
 
-/// Returns `true` if the listening was cancelled.
+/// Returns `true` if `cancel` was cancelled.
 ///
 /// Otherwise, returns `false` or an error.
 async fn run_listen(
