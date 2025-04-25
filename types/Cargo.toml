@@ -10,9 +10,7 @@ publish = false
 description = "Common data model used in the server and client"
 
 [dependencies]
-hmac = { version = "0.12" }
 sha2 = { version = "0.10" }
-digest = { version = "0.10.2" }
 rand = { version = "0.8" }
 rand_chacha = { version = "0.3" }
 hkdf = { version = "0.12" }
