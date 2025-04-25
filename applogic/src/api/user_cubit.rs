@@ -11,7 +11,7 @@ use anyhow::bail;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     Asset, UserProfile,
-    cliets::{ListenResponse, listen_response},
+    clients::{ListenResponse, listen_response},
 };
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use phnxtypes::identifiers::QualifiedUserName;
