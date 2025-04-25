@@ -4,21 +4,22 @@
 
 mod qs;
 
-use std::{fs, io::Cursor, sync::LazyLock};
+use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
 use opaque_ke::rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
-use phnxapiclient::ApiClient;
+use phnxapiclient::{ApiClient, ds_api::DsRequestError};
 
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
     store::Store,
 };
-use phnxserver::network_provider::MockNetworkProvider;
+use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 #[actix_rt::test]
@@ -70,6 +71,68 @@ async fn send_message() {
     setup
         .send_message(conversation_id, &BOB, vec![&ALICE])
         .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tracing::instrument(name = "Rate limit test", skip_all)]
+async fn rate_limit() {
+    init_test_tracing();
+
+    let mut setup = TestBackend::single_with_rate_limits(RateLimitsConfig {
+        period: Duration::from_secs(1), // replenish one token every 500ms
+        burst_size: 10,                 // allow total 10 request
+    })
+    .await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+
+    let alice = setup.users.get_mut(&ALICE).unwrap();
+
+    let mut resource_exhausted = false;
+
+    // should stop with `resource_exhausted = true` at some point
+    for i in 0..100 {
+        info!(i, "sending message");
+        let res = alice
+            .user
+            .send_message(
+                conversation_id,
+                MimiContent::simple_markdown_message("Hello bob".into()),
+            )
+            .await;
+
+        let Err(error) = res else {
+            continue;
+        };
+
+        let error: DsRequestError = error.downcast().expect("should be a DsRequestError");
+        match error {
+            DsRequestError::Tonic(status) => {
+                assert_eq!(status.code(), tonic::Code::ResourceExhausted);
+                resource_exhausted = true;
+                break;
+            }
+            _ => panic!("unexpected error type: {error:?}"),
+        }
+    }
+    assert!(resource_exhausted);
+
+    info!("waiting for rate limit tokens to replenish");
+    tokio::time::sleep(Duration::from_secs(1)).await; // replenish
+
+    info!("sending message after rate limit tokens replenished");
+    let res = alice
+        .user
+        .send_message(
+            conversation_id,
+            MimiContent::simple_markdown_message("Hello bob".into()),
+        )
+        .await;
+
+    if let Err(error) = res {
+        panic!("rate limit did not replenish: {error:?}");
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -282,97 +345,6 @@ async fn full_cycle() {
     setup.leave_group(conversation_id, &CHARLIE).await;
 
     setup.delete_group(conversation_id, &DAVE).await
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn benchmarks() {
-    let mut setup = TestBackend::single().await;
-
-    const NUM_USERS: usize = 10;
-    const NUM_MESSAGES: usize = 10;
-
-    // Create alice
-    setup.add_user(&ALICE).await;
-
-    // Create bob
-    setup.add_user(&BOB).await;
-
-    // Create many different bobs
-    let bobs: Vec<QualifiedUserName> = (0..NUM_USERS)
-        .map(|i| format!("bob{i}@example.com").parse().unwrap())
-        .collect();
-
-    // Measure the time it takes to create all the users
-    let start = std::time::Instant::now();
-    for bob in bobs.clone() {
-        setup.add_user(&bob).await;
-    }
-    let elapsed = start.elapsed();
-    println!(
-        "Creating {} users took {}ms on average",
-        NUM_USERS,
-        elapsed.as_millis() / NUM_USERS as u128
-    );
-
-    // Measure the time it takes to connect all bobs with alice
-    let start = std::time::Instant::now();
-    for bob in bobs.clone() {
-        setup.connect_users(&ALICE, &bob).await;
-    }
-    let elapsed = start.elapsed();
-    println!(
-        "Connecting {} users took {}ms on average",
-        NUM_USERS,
-        elapsed.as_millis() / NUM_USERS as u128
-    );
-
-    // Connect them
-    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
-
-    // Measure the time it takes to send a message
-    let start = std::time::Instant::now();
-    for _ in 0..NUM_MESSAGES {
-        setup
-            .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
-            .await;
-    }
-    let elapsed = start.elapsed();
-    println!(
-        "Sending {} messages in a connection group took {}ms on average",
-        NUM_MESSAGES,
-        elapsed.as_millis() / NUM_MESSAGES as u128
-    );
-
-    // Create an independent group
-    let conversation_id = setup.create_group(&ALICE).await;
-
-    // Measure the time it takes to invite a user
-    let start = std::time::Instant::now();
-    for bob in bobs.clone() {
-        setup
-            .invite_to_group(conversation_id, &ALICE, vec![&bob])
-            .await;
-    }
-    let elapsed = start.elapsed();
-    println!(
-        "Inviting {} users took {}ms on average",
-        NUM_USERS,
-        elapsed.as_millis() / NUM_USERS as u128
-    );
-
-    // Measure the time it takes to send a message
-    let start = std::time::Instant::now();
-    for _ in 0..NUM_MESSAGES {
-        setup
-            .send_message(conversation_id, &ALICE, bobs.iter().collect())
-            .await;
-    }
-    let elapsed = start.elapsed();
-    println!(
-        "Sending {} messages in an independent group took {}ms on average",
-        NUM_MESSAGES,
-        elapsed.as_millis() / NUM_MESSAGES as u128
-    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

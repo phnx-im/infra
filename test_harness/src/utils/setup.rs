@@ -8,7 +8,7 @@ use mimi_content::MimiContent;
 use phnxcoreclient::{
     ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
 };
-use phnxserver::network_provider::MockNetworkProvider;
+use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use phnxtypes::{
     DEFAULT_PORT_GRPC, DEFAULT_PORT_HTTP,
     identifiers::{Fqdn, QualifiedUserName},
@@ -18,7 +18,9 @@ use rand_chacha::rand_core::OsRng;
 use tokio::task::{LocalEnterGuard, LocalSet};
 use tracing::info;
 
-use super::spawn_app;
+use crate::utils::spawn_app_with_rate_limits;
+
+use super::TEST_RATE_LIMITS;
 
 pub struct TestUser {
     pub user: CoreUser,
@@ -114,12 +116,16 @@ impl TestBackend {
     }
 
     pub async fn single() -> Self {
+        Self::single_with_rate_limits(TEST_RATE_LIMITS).await
+    }
+
+    pub async fn single_with_rate_limits(rate_limits: RateLimitsConfig) -> Self {
         let network_provider = MockNetworkProvider::new();
         let domain: Fqdn = "example.com".parse().unwrap();
         let local = LocalSet::new();
         let _guard = local.enter();
         let ((http_addr, grpc_addr), _ws_dispatch) =
-            spawn_app(domain.clone(), network_provider).await;
+            spawn_app_with_rate_limits(domain.clone(), network_provider, rate_limits).await;
         info!(%http_addr, %grpc_addr, "spawned server");
         Self {
             users: HashMap::new(),
