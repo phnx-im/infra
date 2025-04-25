@@ -8,7 +8,6 @@ pub const DEFAULT_SIGNATURE_SCHEME: SignatureScheme = SignatureScheme::ED25519;
 pub type SignatureType = ed25519::Signature;
 
 pub mod keys;
-pub mod traits;
-
 pub mod private_keys;
 pub mod signable;
+pub mod sqlx_impls;

@@ -569,7 +569,7 @@ pub enum QsSender {
 mod tests {
     use uuid::Uuid;
 
-    use crate::crypto::ear::Ciphertext;
+    use crate::crypto::ear::AeadCiphertext;
 
     use super::*;
 
@@ -619,7 +619,7 @@ mod tests {
     #[test]
     fn qs_response_client_key_package_api_stability() {
         let response = ClientKeyPackageResponse {
-            encrypted_key_package: QsEncryptedKeyPackage::from(Ciphertext::dummy()),
+            encrypted_key_package: QsEncryptedKeyPackage::dummy(),
         };
         let response =
             QsVersionedProcessResponse::Alpha(QsProcessResponse::ClientKeyPackage(response));
@@ -641,11 +641,11 @@ mod tests {
             messages: vec![
                 QueueMessage {
                     sequence_number: 1,
-                    ciphertext: Ciphertext::dummy(),
+                    ciphertext: AeadCiphertext::dummy().into(),
                 },
                 QueueMessage {
                     sequence_number: 2,
-                    ciphertext: Ciphertext::dummy(),
+                    ciphertext: AeadCiphertext::dummy().into(),
                 },
             ],
             remaining_messages_number: 42,
@@ -669,7 +669,7 @@ mod tests {
     #[test]
     fn qs_response_encryption_key_api_stability() {
         let response = EncryptionKeyResponse {
-            encryption_key: ClientIdEncryptionKey::new_for_test(b"encryption_key".to_vec().into()),
+            encryption_key: ClientIdEncryptionKey::from(b"encryption_key".to_vec()),
         };
         let response =
             QsVersionedProcessResponse::Alpha(QsProcessResponse::EncryptionKey(response.clone()));

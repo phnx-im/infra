@@ -12,8 +12,8 @@ use phnxtypes::{
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
+            private_keys::SigningKey,
             signable::Signable,
-            traits::SigningKeyBehaviour,
         },
     },
     endpoint_paths::ENDPOINT_QS,
@@ -72,15 +72,14 @@ impl From<LibraryError> for QsRequestError {
     }
 }
 
-// TODO: This is a workaround that allows us to use the Signable trait.
-enum AuthenticationMethod<'a, T: SigningKeyBehaviour> {
+enum AuthenticationMethod<'a, T> {
     Token(FriendshipToken),
-    SigningKey(&'a T),
+    SigningKey(&'a SigningKey<T>),
     None,
 }
 
 impl ApiClient {
-    async fn prepare_and_send_qs_message<T: SigningKeyBehaviour>(
+    async fn prepare_and_send_qs_message<T>(
         &self,
         request_params: QsRequestParamsOut,
         token_or_signing_key: AuthenticationMethod<'_, T>,
@@ -405,7 +404,7 @@ impl ApiClient {
     }
 }
 
-fn sign_params<T: SigningKeyBehaviour>(
+fn sign_params<T>(
     request_params: QsVersionedRequestParamsOut,
     token_or_signing_key: &AuthenticationMethod<'_, T>,
 ) -> Result<ClientToQsMessageOut, QsRequestError> {

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::crypto::indexed_aead::keys::{
-    BaseSecret, Deletable, Index, IndexedAeadKey, Key, KeyType, KeyTypeInstance,
+    BaseSecret, Index, IndexedAeadKey, IndexedKeyType, Key, KeyTypeInstance,
 };
 use sqlx::{Connection, SqliteConnection, SqliteExecutor, query, query_as};
 
@@ -13,13 +13,13 @@ pub(crate) struct SqlIndexedAeadKey<KT> {
     index: Index<KT>,
 }
 
-impl<KT: KeyType> From<SqlIndexedAeadKey<KT>> for IndexedAeadKey<KT> {
+impl<KT: IndexedKeyType> From<SqlIndexedAeadKey<KT>> for IndexedAeadKey<KT> {
     fn from(sql_key: SqlIndexedAeadKey<KT>) -> Self {
         IndexedAeadKey::from_parts(sql_key.base_secret, sql_key.key, sql_key.index)
     }
 }
 
-impl<KT: KeyType + Send + Unpin> StorableIndexedKey<KT> for IndexedAeadKey<KT> {
+impl<KT: IndexedKeyType + Send + Unpin> StorableIndexedKey<KT> for IndexedAeadKey<KT> {
     fn base_secret(&self) -> &BaseSecret<KT> {
         self.base_secret()
     }
@@ -33,7 +33,7 @@ impl<KT: KeyType + Send + Unpin> StorableIndexedKey<KT> for IndexedAeadKey<KT> {
     }
 }
 
-pub(crate) trait StorableIndexedKey<KT: KeyType + Send + Unpin>:
+pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin>:
     From<SqlIndexedAeadKey<KT>>
 {
     fn base_secret(&self) -> &BaseSecret<KT>;
@@ -119,16 +119,5 @@ pub(crate) trait StorableIndexedKey<KT: KeyType + Send + Unpin>:
         .fetch_one(connection)
         .await
         .map(From::from)
-    }
-}
-
-trait DeletableIndexedKey<KT: Deletable + Send + Unpin>: StorableIndexedKey<KT> {
-    #[allow(dead_code)]
-    async fn delete(&self, connection: impl SqliteExecutor<'_>) -> Result<(), sqlx::Error> {
-        let index = self.index();
-        query!("DELETE FROM indexed_keys WHERE key_index = $1", index)
-            .execute(connection)
-            .await?;
-        Ok(())
     }
 }

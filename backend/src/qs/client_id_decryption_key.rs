@@ -78,7 +78,7 @@ mod persistence {
             let loaded = StorableClientIdDecryptionKey::load(&pool)
                 .await?
                 .expect("missing decryption key");
-            assert_eq!(loaded.0.as_ref(), key.0.as_ref());
+            assert_eq!(loaded.0, key.0);
 
             Ok(())
         }

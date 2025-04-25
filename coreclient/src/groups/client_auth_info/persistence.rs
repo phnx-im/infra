@@ -5,7 +5,7 @@
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
-    crypto::ear::keys::{IdentityLinkKey, IdentityLinkKeySecret},
+    crypto::ear::keys::IdentityLinkKey,
     identifiers::{AsClientId, QualifiedUserName},
 };
 use sqlx::{Row, SqliteExecutor, query, query_as, query_scalar};
@@ -73,7 +73,7 @@ struct SqlGroupMembership {
     client_uuid: Uuid,
     user_name: QualifiedUserName,
     leaf_index: u32,
-    identity_link_key: IdentityLinkKeySecret,
+    identity_link_key: IdentityLinkKey,
 }
 
 impl From<SqlGroupMembership> for GroupMembership {

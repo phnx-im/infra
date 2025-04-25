@@ -185,8 +185,8 @@ impl From<DsGroupStateDecryptionError> for tonic::Status {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-#[serde(transparent)]
-pub struct EncryptedDsGroupState(Ciphertext);
+pub struct EncryptedDsGroupStateCtype;
+pub type EncryptedDsGroupState = Ciphertext<EncryptedDsGroupStateCtype>;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -215,18 +215,6 @@ impl StorableDsGroupData {
 
     pub(super) fn has_expired(&self) -> bool {
         self.last_used.has_expired(GROUP_STATE_EXPIRATION)
-    }
-}
-
-impl From<Ciphertext> for EncryptedDsGroupState {
-    fn from(ciphertext: Ciphertext) -> Self {
-        Self(ciphertext)
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedDsGroupState {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.0
     }
 }
 
@@ -289,8 +277,8 @@ impl From<SerializableDsGroupState> for EncryptableDsGroupState {
     }
 }
 
-impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
-impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
+impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupStateCtype> for EncryptableDsGroupState {}
+impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupStateCtype> for EncryptableDsGroupState {}
 
 #[cfg(test)]
 mod test {
@@ -302,13 +290,13 @@ mod test {
 
     #[test]
     fn test_encrypted_ds_group_state_serde_codec() {
-        let state = EncryptedDsGroupState(Ciphertext::dummy());
+        let state = EncryptedDsGroupState::dummy();
         insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&state).unwrap());
     }
 
     #[test]
     fn test_encrypted_ds_group_state_serde_json() {
-        let state = EncryptedDsGroupState(Ciphertext::dummy());
+        let state = EncryptedDsGroupState::dummy();
         insta::assert_json_snapshot!(state);
     }
 

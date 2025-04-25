@@ -104,7 +104,7 @@ impl FromRef<'_, openmls::group::GroupId> for GroupId {
     }
 }
 
-impl TryFrom<Ciphertext> for ear::Ciphertext {
+impl<CT> TryFrom<Ciphertext> for ear::Ciphertext<CT> {
     type Error = InvalidNonceLen;
 
     fn try_from(proto: Ciphertext) -> Result<Self, Self::Error> {
@@ -113,7 +113,7 @@ impl TryFrom<Ciphertext> for ear::Ciphertext {
             .nonce
             .try_into()
             .map_err(|_| InvalidNonceLen(nonce_len))?;
-        Ok(ear::Ciphertext::new(proto.ciphertext, nonce))
+        Ok(ear::AeadCiphertext::new(proto.ciphertext, nonce).into())
     }
 }
 

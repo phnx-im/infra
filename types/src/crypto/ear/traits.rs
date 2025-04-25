@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-use super::{AEAD_KEY_SIZE, AEAD_NONCE_SIZE, Aead, Ciphertext};
+use super::{AEAD_KEY_SIZE, AEAD_NONCE_SIZE, Aead, AeadCiphertext, Ciphertext};
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].
 /// It enables use of these keys for encryption and decryption operations.
@@ -31,7 +31,7 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
     fn encrypt<'msg, 'aad>(
         &self,
         plaintext: impl Into<Payload<'msg, 'aad>>,
-    ) -> Result<Ciphertext, EncryptionError> {
+    ) -> Result<AeadCiphertext, EncryptionError> {
         // TODO: from_slice can potentially panic. However, we can rule this out
         // with a single test, since both the AEAD algorithm and the key size
         // are static.
@@ -47,7 +47,7 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
         let ciphertext = cipher
             .encrypt(&nonce, plaintext)
             .map_err(|_| EncryptionError::EncryptionError)?;
-        Ok(Ciphertext {
+        Ok(AeadCiphertext {
             ciphertext,
             nonce: nonce.into(),
         })
@@ -55,7 +55,7 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
 
     // Decrypt the given ciphertext (including the nonce) using the given key.
     #[instrument(level = "trace", skip_all, fields(key_type = std::any::type_name::<Self>()))]
-    fn decrypt(&self, ciphertext: &Ciphertext) -> Result<Vec<u8>, DecryptionError> {
+    fn decrypt(&self, ciphertext: &AeadCiphertext) -> Result<Vec<u8>, DecryptionError> {
         decrypt(
             self,
             &ciphertext.nonce,
@@ -68,7 +68,7 @@ pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
 
     fn decrypt_with_aad(
         &self,
-        ciphertext: &Ciphertext,
+        ciphertext: &AeadCiphertext,
         aad: &[u8],
     ) -> Result<Vec<u8>, DecryptionError> {
         decrypt(
@@ -129,12 +129,10 @@ impl<T: DeserializeOwned> GenericDeserializable for T {
 
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
-pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> + From<Ciphertext>>:
-    GenericSerializable
-{
+pub trait EarEncryptable<EarKeyType: EarKey, CT>: GenericSerializable {
     /// Encrypt the value under the given [`EarKey`]. Returns an
     /// [`EncryptionError`] or the ciphertext.
-    fn encrypt(&self, ear_key: &EarKeyType) -> Result<CiphertextType, EncryptionError> {
+    fn encrypt(&self, ear_key: &EarKeyType) -> Result<Ciphertext<CT>, EncryptionError> {
         let plaintext = self.serialize().map_err(|e| {
             tracing::error!("Could not serialize plaintext: {:?}", e);
             EncryptionError::SerializationError
@@ -147,7 +145,7 @@ pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
         &self,
         ear_key: &EarKeyType,
         aad: &Aad,
-    ) -> Result<CiphertextType, EncryptionError> {
+    ) -> Result<Ciphertext<CT>, EncryptionError> {
         let plaintext = self.serialize().map_err(|e| {
             tracing::error!("Could not serialize plaintext: {:?}", e);
             EncryptionError::SerializationError
@@ -167,28 +165,24 @@ pub trait EarEncryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> +
 
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
-pub trait EarDecryptable<EarKeyType: EarKey, CiphertextType: AsRef<Ciphertext> + From<Ciphertext>>:
-    GenericDeserializable
-{
+pub trait EarDecryptable<EarKeyType: EarKey, CT>: GenericDeserializable {
     /// Decrypt the given ciphertext using the given [`EarKey`]. Returns a
     /// [`DecryptionError`] or the resulting plaintext.
-    fn decrypt(ear_key: &EarKeyType, ciphertext: &CiphertextType) -> Result<Self, DecryptionError> {
-        let ciphertext = ciphertext.as_ref();
-        let plaintext = ear_key.decrypt(ciphertext)?;
+    fn decrypt(ear_key: &EarKeyType, ciphertext: &Ciphertext<CT>) -> Result<Self, DecryptionError> {
+        let plaintext = ear_key.decrypt(&ciphertext.ct)?;
         Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
     }
 
     fn decrypt_with_aad<Aad: GenericSerializable>(
         ear_key: &EarKeyType,
-        ciphertext: &CiphertextType,
+        ciphertext: &Ciphertext<CT>,
         aad: &Aad,
     ) -> Result<Self, DecryptionError> {
-        let ciphertext = ciphertext.as_ref();
         let aad = aad.serialize().map_err(|e| {
             tracing::error!(error = %e, "Could not serialize aad");
             DecryptionError::SerializationError
         })?;
-        let plaintext = ear_key.decrypt_with_aad(ciphertext, aad.as_slice())?;
+        let plaintext = ear_key.decrypt_with_aad(&ciphertext.ct, aad.as_slice())?;
         Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
     }
 }

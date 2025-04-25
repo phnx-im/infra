@@ -33,31 +33,10 @@ impl PushToken {
     }
 }
 #[derive(
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Clone,
-    Debug,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    sqlx::Type,
+    Serialize, Deserialize, PartialEq, Eq, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-#[sqlx(transparent)]
-pub struct EncryptedPushToken(Ciphertext);
+pub struct EncryptedPushTokenCtype;
+pub type EncryptedPushToken = Ciphertext<EncryptedPushTokenCtype>;
 
-impl AsRef<Ciphertext> for EncryptedPushToken {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.0
-    }
-}
-
-impl From<Ciphertext> for EncryptedPushToken {
-    fn from(ctxt: Ciphertext) -> Self {
-        Self(ctxt)
-    }
-}
-
-impl EarEncryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
-impl EarDecryptable<PushTokenEarKey, EncryptedPushToken> for PushToken {}
+impl EarEncryptable<PushTokenEarKey, EncryptedPushTokenCtype> for PushToken {}
+impl EarDecryptable<PushTokenEarKey, EncryptedPushTokenCtype> for PushToken {}

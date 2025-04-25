@@ -16,8 +16,8 @@ use crate::{
         kdf::keys::RatchetSecret,
         opaque::{OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse},
         signatures::{
+            private_keys::SignatureVerificationError,
             signable::{Signable, Signature, SignedStruct, Verifiable},
-            traits::SignatureVerificationError,
         },
     },
     errors::version::VersionError,
@@ -247,39 +247,10 @@ impl NoAuth for GetUserProfileParams {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    PartialEq,
-    Eq,
-    sqlx::Type,
-    Serialize,
-    Deserialize,
+    Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize, PartialEq, Eq, Serialize, Deserialize,
 )]
-#[sqlx(transparent)]
-pub struct EncryptedUserProfile(Ciphertext);
-
-impl From<Ciphertext> for EncryptedUserProfile {
-    fn from(ciphertext: Ciphertext) -> Self {
-        Self(ciphertext)
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedUserProfile {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.0
-    }
-}
-
-#[cfg(any(test, feature = "test_utils"))]
-impl EncryptedUserProfile {
-    pub fn dummy() -> Self {
-        let ctxt = Ciphertext::dummy();
-        Self(ctxt)
-    }
-}
+pub struct EncryptedUserProfileCtype;
+pub type EncryptedUserProfile = Ciphertext<EncryptedUserProfileCtype>;
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GetUserProfileResponse {

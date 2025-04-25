@@ -314,6 +314,7 @@ impl Ds {
                     .leaf(leaf_index)
                     .ok_or(DsProcessingError::UnknownSender)?
                     .signature_key()
+                    .clone()
                     .into();
                 let params = message.verify(&verifying_key).map_err(|_| {
                     warn!("Could not verify message based on leaf index");
@@ -323,7 +324,7 @@ impl Ds {
             }
             DsSender::LeafSignatureKey(verifying_key) => {
                 let message = message
-                    .verify(&LeafVerifyingKey::from(&verifying_key))
+                    .verify(&LeafVerifyingKey::from(verifying_key.clone()))
                     .map_err(|_| {
                         warn!("Could not verify message based on leaf signature key");
                         DsProcessingError::InvalidSignature

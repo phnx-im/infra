@@ -254,7 +254,7 @@ impl PostRegistrationInitState {
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
         StorableQsQueueRatchet::initialize(pool, qs_initial_ratchet_secret.clone()).await?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
-        let qs_client_signing_key = QsClientSigningKey::random()?;
+        let qs_client_signing_key = QsClientSigningKey::generate()?;
         let qs_user_signing_key = QsUserSigningKey::generate()?;
 
         // TODO: The following keys should be derived from a single
@@ -315,7 +315,7 @@ impl PostRegistrationInitState {
             let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
             let connection_package_tbs = ConnectionPackageTbs::new(
                 MlsInfraVersion::default(),
-                key_store.connection_decryption_key.encryption_key(),
+                key_store.connection_decryption_key.encryption_key().clone(),
                 lifetime,
                 key_store.signing_key.credential().clone(),
             );
@@ -391,7 +391,7 @@ impl UnfinalizedRegistrationState {
         api_clients
             .default_client()?
             .as_finish_user_registration(
-                key_store.as_queue_decryption_key.encryption_key(),
+                key_store.as_queue_decryption_key.encryption_key().clone(),
                 as_initial_ratchet_secret,
                 connection_packages,
                 opaque_registration_record,
@@ -446,7 +446,7 @@ impl AsRegisteredUserState {
             .qs_create_user(
                 key_store.friendship_token.clone(),
                 key_store.qs_client_signing_key.verifying_key().clone(),
-                key_store.qs_queue_decryption_key.encryption_key(),
+                key_store.qs_queue_decryption_key.encryption_key().clone(),
                 encrypted_push_token,
                 qs_initial_ratchet_secret,
                 &key_store.qs_user_signing_key,

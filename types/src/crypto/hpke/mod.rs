@@ -27,24 +27,23 @@ use super::{
     secrets::SecretBytes,
 };
 
-#[derive(
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Debug,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    sqlx::Type,
-)]
-#[sqlx(transparent)]
-pub struct EncryptionPublicKey(Vec<u8>);
+pub mod sqlx_impls;
 
-impl From<Vec<u8>> for EncryptionPublicKey {
+#[derive(
+    Clone, PartialEq, Eq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
+)]
+#[serde(transparent)]
+pub struct EncryptionKey<KT> {
+    key: Vec<u8>,
+    _type: std::marker::PhantomData<KT>,
+}
+
+impl<KT> From<Vec<u8>> for EncryptionKey<KT> {
     fn from(value: Vec<u8>) -> Self {
-        Self(value)
+        Self {
+            key: value,
+            _type: std::marker::PhantomData,
+        }
     }
 }
 
@@ -54,27 +53,26 @@ pub const HPKE_CONFIG: HpkeConfig = HpkeConfig(
     HpkeAeadType::AesGcm256,
 );
 
-impl EncryptionPublicKey {
+impl<KT> EncryptionKey<KT> {
     /// Encrypt the given plaintext using this key.
     pub(crate) fn encrypt(&self, info: &[u8], aad: &[u8], plain_txt: &[u8]) -> HpkeCiphertext {
         let rust_crypto = OpenMlsRustCrypto::default();
         rust_crypto
             .crypto()
-            .hpke_seal(HPKE_CONFIG, &self.0, info, aad, plain_txt)
+            .hpke_seal(HPKE_CONFIG, &self.key, info, aad, plain_txt)
             // TODO: get rid of unwrap
             .unwrap()
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "decryption_key_data")]
-pub struct DecryptionKey {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecryptionKey<KT> {
     decryption_key: SecretBytes,
-    encryption_key: EncryptionPublicKey,
+    encryption_key: EncryptionKey<KT>,
 }
 
 #[cfg(any(test, feature = "test_utils"))]
-impl PartialEq for DecryptionKey {
+impl<KT: PartialEq> PartialEq for DecryptionKey<KT> {
     fn eq(&self, other: &Self) -> bool {
         let decryption_key: &[u8] = self.decryption_key.as_ref();
         let other_decryption_key: &[u8] = other.decryption_key.as_ref();
@@ -83,10 +81,10 @@ impl PartialEq for DecryptionKey {
 }
 
 #[cfg(any(test, feature = "test_utils"))]
-impl Eq for DecryptionKey {}
+impl<KT: Eq> Eq for DecryptionKey<KT> {}
 
-impl DecryptionKey {
-    pub fn new(decryption_key: HpkePrivateKey, encryption_key: EncryptionPublicKey) -> Self {
+impl<KT> DecryptionKey<KT> {
+    pub fn new(decryption_key: HpkePrivateKey, encryption_key: EncryptionKey<KT>) -> Self {
         Self {
             decryption_key: decryption_key.as_ref().to_vec().into(),
             encryption_key,
@@ -116,53 +114,41 @@ impl DecryptionKey {
             .crypto()
             .derive_hpke_keypair(HPKE_CONFIG, &key_seed)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        Ok(Self::new(
-            keypair.private,
-            EncryptionPublicKey(keypair.public),
-        ))
+        Ok(Self::new(keypair.private, keypair.public.into()))
     }
 
-    pub fn public_key(&self) -> &EncryptionPublicKey {
+    pub fn encryption_key(&self) -> &EncryptionKey<KT> {
         &self.encryption_key
     }
 }
 
 // TODO: We might want to properly fix AAD and Info at some point.
-pub trait HpkeEncryptable<
-    HpkeEncryptionKeyType: HpkeEncryptionKey,
-    HpkeCiphertextType: From<HpkeCiphertext>,
->: GenericSerializable
+pub trait HpkeEncryptable<KT, HpkeCiphertextType: From<HpkeCiphertext>>:
+    GenericSerializable
 {
     /// Encrypts the data with the given encryption key.
     fn encrypt(
         &self,
-        encryption_key: &HpkeEncryptionKeyType,
+        encryption_key: &EncryptionKey<KT>,
         info: &[u8],
         aad: &[u8],
     ) -> HpkeCiphertextType {
         // Hiding a LibraryError behind an empty vec.
         let plain_txt = self.serialize().unwrap_or_default();
-        encryption_key
-            .as_ref()
-            .encrypt(info, aad, &plain_txt)
-            .into()
+        encryption_key.encrypt(info, aad, &plain_txt).into()
     }
 }
 
-pub trait HpkeEncryptionKey: AsRef<EncryptionPublicKey> {}
-
-pub trait HpkeDecryptable<
-    HpkeDecryptionKeyType: HpkeDecryptionKey,
-    HpkeCiphertextType: AsRef<HpkeCiphertext>,
->: GenericDeserializable
+pub trait HpkeDecryptable<KT, HpkeCiphertextType: AsRef<HpkeCiphertext>>:
+    GenericDeserializable
 {
     fn decrypt(
         ct: HpkeCiphertextType,
-        decryption_key: &HpkeDecryptionKeyType,
+        decryption_key: &DecryptionKey<KT>,
         info: &[u8],
         aad: &[u8],
     ) -> Result<Self, DecryptionError> {
-        let plaintext = decryption_key.as_ref().decrypt(info, aad, ct.as_ref())?;
+        let plaintext = decryption_key.decrypt(info, aad, ct.as_ref())?;
         Self::deserialize(&plaintext).map_err(|e| {
             error!(%e, "Error deserializing decrypted data");
             DecryptionError::DeserializationError
@@ -170,56 +156,24 @@ pub trait HpkeDecryptable<
     }
 }
 
-pub trait HpkeDecryptionKey: AsRef<DecryptionKey> {}
-
-pub struct JoinerInfoEncryptionKey {
-    encryption_key: EncryptionPublicKey,
-}
+pub struct JoinerInfoKeyType;
+pub type JoinerInfoEncryptionKey = EncryptionKey<JoinerInfoKeyType>;
 
 // We need this From trait, because we have to work with the hpke init key from
 // the KeyPackage, which we get as HpkePublicKey from OpenMLS.
 impl From<HpkePublicKey> for JoinerInfoEncryptionKey {
     fn from(value: HpkePublicKey) -> Self {
-        Self {
-            encryption_key: EncryptionPublicKey::from(value.as_slice().to_vec()),
-        }
+        value.as_slice().to_vec().into()
     }
 }
 
 impl From<InitKey> for JoinerInfoEncryptionKey {
     fn from(value: InitKey) -> Self {
-        Self {
-            encryption_key: EncryptionPublicKey::from(value.key().as_slice().to_vec()),
-        }
+        value.as_slice().to_vec().into()
     }
 }
 
-impl AsRef<EncryptionPublicKey> for JoinerInfoEncryptionKey {
-    fn as_ref(&self) -> &EncryptionPublicKey {
-        &self.encryption_key
-    }
-}
-
-impl HpkeEncryptionKey for JoinerInfoEncryptionKey {}
-
-pub struct JoinerInfoDecryptionKey {
-    decryption_key: DecryptionKey,
-}
-
-impl JoinerInfoDecryptionKey {
-    pub fn public_key(&self) -> JoinerInfoEncryptionKey {
-        let encryption_key: HpkePublicKey = self.decryption_key.encryption_key.0.clone().into();
-        encryption_key.into()
-    }
-}
-
-impl HpkeDecryptionKey for JoinerInfoDecryptionKey {}
-
-impl AsRef<DecryptionKey> for JoinerInfoDecryptionKey {
-    fn as_ref(&self) -> &DecryptionKey {
-        &self.decryption_key
-    }
-}
+pub type JoinerInfoDecryptionKey = DecryptionKey<JoinerInfoKeyType>;
 
 // We need this From trait, because we have to work with the hpke init key from
 // the KeyPackage, which we get as HpkePrivateKey and HpkePublicKey from
@@ -227,32 +181,17 @@ impl AsRef<DecryptionKey> for JoinerInfoDecryptionKey {
 impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
     fn from((sk, init_key): (HpkePrivateKey, InitKey)) -> Self {
         let vec: Vec<u8> = init_key.key().as_slice().to_vec();
-        Self {
-            decryption_key: DecryptionKey::new(sk, vec.into()),
-        }
+        DecryptionKey::new(sk, vec.into())
     }
 }
 
-#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
-pub struct ClientIdEncryptionKey {
-    public_key: EncryptionPublicKey,
-}
-
-impl AsRef<EncryptionPublicKey> for ClientIdEncryptionKey {
-    fn as_ref(&self) -> &EncryptionPublicKey {
-        &self.public_key
-    }
-}
-
-impl HpkeEncryptionKey for ClientIdEncryptionKey {}
+#[derive(
+    Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize, PartialEq, Eq,
+)]
+pub struct ClientIdKeyType;
+pub type ClientIdEncryptionKey = EncryptionKey<ClientIdKeyType>;
 
 impl ClientIdEncryptionKey {
-    #[cfg(test)]
-    pub fn new_for_test(public_key: EncryptionPublicKey) -> Self {
-        Self { public_key }
-    }
-
     pub fn seal_client_config(
         &self,
         client_config: ClientConfig,
@@ -260,44 +199,9 @@ impl ClientIdEncryptionKey {
         let bytes = client_config
             .tls_serialize_detached()
             .map_err(|_| EncryptionError::SerializationError)?;
-        let ciphertext = self.public_key.encrypt(&[], &[], &bytes);
+        let ciphertext = self.encrypt(&[], &[], &bytes);
         Ok(SealedClientReference { ciphertext })
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-#[serde(transparent)]
-pub struct ClientIdDecryptionKey(DecryptionKey);
-
-impl AsRef<DecryptionKey> for ClientIdDecryptionKey {
-    fn as_ref(&self) -> &DecryptionKey {
-        &self.0
-    }
-}
-
-impl HpkeDecryptionKey for ClientIdDecryptionKey {}
-
-impl ClientIdDecryptionKey {
-    //pub(super) fn unseal_client_config(
-    //    &self,
-    //    sealed_client_reference: &SealedClientReference,
-    //) -> Result<ClientConfig, UnsealError> {
-    //    let bytes = self
-    //        .private_key
-    //        .decrypt(&[], &[], &sealed_client_reference.ciphertext)
-    //        .map_err(|_| UnsealError::DecryptionError)?;
-    //    ClientConfig::tls_deserialize_exact_bytes(&bytes).map_err(|_| UnsealError::CodecError)
-    //}
-
-    pub fn generate() -> Result<Self, RandomnessError> {
-        let private_key = DecryptionKey::generate()?;
-        Ok(Self(private_key))
-    }
-
-    pub fn encryption_key(&self) -> ClientIdEncryptionKey {
-        ClientIdEncryptionKey {
-            public_key: self.0.encryption_key.clone(),
-        }
-    }
-}
+pub type ClientIdDecryptionKey = DecryptionKey<ClientIdKeyType>;

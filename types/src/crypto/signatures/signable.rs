@@ -45,7 +45,7 @@ use crate::{
     messages::FriendshipToken,
 };
 
-use super::traits::{SignatureVerificationError, SigningKeyBehaviour, VerifyingKeyBehaviour};
+use super::private_keys::{SignatureVerificationError, SigningKey, VerifyingKey};
 
 #[derive(
     Debug,
@@ -98,24 +98,11 @@ impl AsRef<[u8]> for Signature {
 #[derive(
     Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize, PartialEq, Eq,
 )]
-pub struct EncryptedSignature {
-    ciphertext: Ciphertext,
-}
+pub struct EncryptedSignatureCtype;
+pub type EncryptedSignature = Ciphertext<EncryptedSignatureCtype>;
 
-impl From<Ciphertext> for EncryptedSignature {
-    fn from(ciphertext: Ciphertext) -> Self {
-        Self { ciphertext }
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedSignature {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.ciphertext
-    }
-}
-
-impl EarEncryptable<IdentityLinkKey, EncryptedSignature> for Signature {}
-impl EarDecryptable<IdentityLinkKey, EncryptedSignature> for Signature {}
+impl EarEncryptable<IdentityLinkKey, EncryptedSignatureCtype> for Signature {}
+impl EarDecryptable<IdentityLinkKey, EncryptedSignatureCtype> for Signature {}
 
 /// This trait must be implemented by all structs that contain a self-signature.
 pub trait SignedStruct<T> {
@@ -188,10 +175,7 @@ pub trait Signable: Sized + std::fmt::Debug {
     /// Sign the payload.
     ///
     /// Returns a `Signature`.
-    fn sign(
-        self,
-        signing_key: &impl SigningKeyBehaviour,
-    ) -> Result<Self::SignedOutput, LibraryError>
+    fn sign<KT>(self, signing_key: &SigningKey<KT>) -> Result<Self::SignedOutput, LibraryError>
     where
         Self::SignedOutput: SignedStruct<Self>,
     {
@@ -232,9 +216,9 @@ pub trait Verifiable: Sized + std::fmt::Debug {
     ///
     /// Returns `Ok(Self::VerifiedOutput)` if the signature is valid and
     /// `CredentialError::InvalidSignature` otherwise.
-    fn verify<T>(
+    fn verify<T, KT>(
         self,
-        signature_public_key: &impl VerifyingKeyBehaviour,
+        signature_public_key: &VerifyingKey<KT>,
     ) -> Result<T, SignatureVerificationError>
     where
         T: VerifiedStruct<Self>,

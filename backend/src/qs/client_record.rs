@@ -11,13 +11,12 @@ use phnxtypes::{
     crypto::{
         RatchetEncryptionKey, RatchetKeyUpdate,
         ear::{EarDecryptable, keys::PushTokenEarKey},
-        ratchet::QueueRatchet,
         signatures::keys::QsClientVerifyingKey,
     },
     identifiers::{QsClientId, QsUserId},
     messages::{
-        EncryptedQsQueueMessage, QueueMessage,
-        client_ds::QsQueueMessagePayload,
+        QueueMessage,
+        client_ds::QsQueueRatchet,
         push_token::{EncryptedPushToken, PushToken},
     },
     time::TimeStamp,
@@ -51,7 +50,7 @@ pub(super) struct QsClientRecord {
     pub(super) encrypted_push_token: Option<EncryptedPushToken>,
     pub(super) queue_encryption_key: RatchetEncryptionKey,
     pub(super) auth_key: QsClientVerifyingKey,
-    pub(super) ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
+    pub(super) ratchet_key: QsQueueRatchet,
     pub(super) activity_time: TimeStamp,
 }
 
@@ -65,7 +64,7 @@ impl QsClientRecord {
         encrypted_push_token: Option<EncryptedPushToken>,
         queue_encryption_key: RatchetEncryptionKey,
         auth_key: QsClientVerifyingKey,
-        ratchet_key: QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>,
+        ratchet_key: QsQueueRatchet,
     ) -> Result<Self, StorageError> {
         let client_id = QsClientId::random(rng);
 
@@ -97,8 +96,6 @@ pub(crate) mod persistence {
     use super::*;
 
     use crate::errors::StorageError;
-
-    type QsQueueRatcher = QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
 
     impl QsClientRecord {
         pub(super) async fn store(
@@ -142,7 +139,7 @@ pub(crate) mod persistence {
                     encrypted_push_token as "encrypted_push_token: EncryptedPushToken",
                     owner_public_key AS "owner_public_key: BlobDecoded<RatchetEncryptionKey>",
                     owner_signature_key AS "owner_signature_key: BlobDecoded<QsClientVerifyingKey>",
-                    ratchet AS "ratchet: BlobDecoded<QsQueueRatcher>",
+                    ratchet AS "ratchet: BlobDecoded<QsQueueRatchet>",
                     activity_time AS "activity_time: TimeStamp"
                 FROM
                     qs_client_records
@@ -210,7 +207,7 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use phnxtypes::crypto::{ear::Ciphertext, signatures::private_keys::VerifyingKey};
+        use phnxtypes::crypto::ratchet::QueueRatchet;
         use sqlx::PgPool;
 
         use crate::qs::user_record::persistence::tests::store_random_user_record;
@@ -221,13 +218,11 @@ pub(crate) mod persistence {
             QsClientRecord {
                 user_id,
                 client_id: QsClientId::random(&mut rand::thread_rng()),
-                encrypted_push_token: Some(EncryptedPushToken::from(Ciphertext::dummy())),
-                queue_encryption_key: RatchetEncryptionKey::new_for_test(
-                    b"encryption_key_32_bytes".to_vec().into(),
+                encrypted_push_token: Some(EncryptedPushToken::dummy()),
+                queue_encryption_key: RatchetEncryptionKey::from(
+                    b"encryption_key_32_bytes".to_vec(),
                 ),
-                auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
-                    b"auth_key".to_vec(),
-                )),
+                auth_key: QsClientVerifyingKey::new_for_test(b"auth_key".to_vec()),
                 ratchet_key: QueueRatchet::random().unwrap(),
                 activity_time: TimeStamp::now(),
             }

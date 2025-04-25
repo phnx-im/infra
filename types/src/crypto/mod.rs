@@ -12,7 +12,8 @@
 #![allow(unused_variables)]
 use std::marker::PhantomData;
 
-use hpke::{DecryptionKey, EncryptionPublicKey};
+use hpke::{DecryptionKey, EncryptionKey};
+use kdf::keys::ConnectionKeyType;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use thiserror::Error;
@@ -21,9 +22,8 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use crate::{LibraryError, crypto::ear::EarEncryptable, messages::QueueMessage};
 
 use self::{
-    ear::{Ciphertext, EarDecryptable, keys::RatchetKey},
+    ear::{EarDecryptable, keys::RatchetKey},
     errors::RandomnessError,
-    hpke::{HpkeDecryptionKey, HpkeEncryptionKey},
     kdf::{KdfDerivable, keys::RatchetSecret},
 };
 
@@ -37,7 +37,6 @@ pub mod errors;
 pub mod hpke;
 pub mod indexed_aead;
 pub mod kdf;
-pub mod mac;
 pub mod opaque;
 pub mod ratchet;
 pub mod secrets;
@@ -49,70 +48,13 @@ pub type RatchetKeyUpdate = Vec<u8>;
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
 )]
-pub struct RatchetEncryptionKey(EncryptionPublicKey);
+pub struct RatchetKeyType;
+pub type RatchetEncryptionKey = EncryptionKey<RatchetKeyType>;
 
-impl RatchetEncryptionKey {
-    #[cfg(any(test, feature = "test_utils"))]
-    pub fn new_for_test(encryption_key: EncryptionPublicKey) -> Self {
-        Self(encryption_key)
-    }
-}
+pub type RatchetDecryptionKey = DecryptionKey<RatchetKeyType>;
 
-#[derive(Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct RatchetDecryptionKey(DecryptionKey);
-
-impl RatchetDecryptionKey {
-    pub fn generate() -> Result<Self, RandomnessError> {
-        Ok(Self(DecryptionKey::generate()?))
-    }
-
-    pub fn encryption_key(&self) -> RatchetEncryptionKey {
-        RatchetEncryptionKey(self.0.public_key().clone())
-    }
-}
-
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
-pub struct ConnectionEncryptionKey {
-    encryption_key: EncryptionPublicKey,
-}
-
-impl AsRef<EncryptionPublicKey> for ConnectionEncryptionKey {
-    fn as_ref(&self) -> &EncryptionPublicKey {
-        &self.encryption_key
-    }
-}
-
-impl HpkeEncryptionKey for ConnectionEncryptionKey {}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ConnectionDecryptionKey {
-    decryption_key: DecryptionKey,
-}
-
-impl AsRef<DecryptionKey> for ConnectionDecryptionKey {
-    fn as_ref(&self) -> &DecryptionKey {
-        &self.decryption_key
-    }
-}
-
-impl HpkeDecryptionKey for ConnectionDecryptionKey {}
-
-impl ConnectionDecryptionKey {
-    pub fn generate() -> Result<Self, RandomnessError> {
-        Ok(Self {
-            decryption_key: DecryptionKey::generate()?,
-        })
-    }
-
-    pub fn encryption_key(&self) -> ConnectionEncryptionKey {
-        ConnectionEncryptionKey {
-            encryption_key: self.decryption_key.public_key().clone(),
-        }
-    }
-}
+pub type ConnectionEncryptionKey = EncryptionKey<ConnectionKeyType>;
+pub type ConnectionDecryptionKey = DecryptionKey<ConnectionKeyType>;
 
 #[cfg(test)]
 mod test {
@@ -122,13 +64,13 @@ mod test {
 
     #[test]
     fn encryption_key_serde_codec() {
-        let key = RatchetEncryptionKey::new_for_test(EncryptionPublicKey::from(vec![1, 2, 3]));
+        let key = RatchetEncryptionKey::from(vec![1, 2, 3]);
         insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&key).unwrap());
     }
 
     #[test]
     fn encryption_key_serde_json() {
-        let key = RatchetEncryptionKey::new_for_test(EncryptionPublicKey::from(vec![1, 2, 3]));
+        let key = RatchetEncryptionKey::from(vec![1, 2, 3]);
         insta::assert_json_snapshot!(key);
     }
 }

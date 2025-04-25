@@ -13,7 +13,7 @@ use phnxtypes::{
         indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
     },
     identifiers::QualifiedUserName,
-    messages::client_as_out::EncryptedUserProfile,
+    messages::client_as_out::EncryptedUserProfileCtype,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
@@ -188,5 +188,5 @@ impl Asset {
     }
 }
 
-impl EarEncryptable<UserProfileKey, EncryptedUserProfile> for IndexedUserProfile {}
-impl EarDecryptable<UserProfileKey, EncryptedUserProfile> for IndexedUserProfile {}
+impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
+impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
