@@ -7,8 +7,12 @@
 use std::{sync::Arc, time::Duration};
 
 use ds_api::grpc::DsGrpcClient;
-use phnxprotos::delivery_service::v1::delivery_service_client::DeliveryServiceClient;
+use phnxprotos::{
+    delivery_service::v1::delivery_service_client::DeliveryServiceClient,
+    queue_service::v1::queue_service_client::QueueServiceClient,
+};
 use phnxtypes::{DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_HEALTH_CHECK};
+use qs_api::grpc::QsGrpcClient;
 use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use thiserror::Error;
 use tonic::transport::ClientTlsConfig;
@@ -55,6 +59,7 @@ pub type HttpClient = reqwest::Client;
 pub struct ApiClient {
     client: HttpClient,
     ds_grpc_client: DsGrpcClient,
+    qs_grpc_client: QsGrpcClient,
     url: Url,
     api_versions: Arc<NegotiatedApiVersions>,
 }
@@ -113,12 +118,15 @@ impl ApiClient {
             .map_err(|_| ApiClientInitError::InvalidUrl(grpc_url.to_string()))?;
         let channel = endpoint
             .tls_config(ClientTlsConfig::new().with_webpki_roots())?
+            .http2_keep_alive_interval(Duration::from_secs(30))
             .connect_lazy();
-        let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel));
+        let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel.clone()));
+        let qs_grpc_client = QsGrpcClient::new(QueueServiceClient::new(channel));
 
         Ok(Self {
             client,
             ds_grpc_client,
+            qs_grpc_client,
             url,
             api_versions: Arc::new(NegotiatedApiVersions::new()),
         })

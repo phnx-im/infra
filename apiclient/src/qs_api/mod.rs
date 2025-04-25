@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use futures_util::Stream;
 use http::StatusCode;
 use mls_assist::openmls::prelude::KeyPackage;
+use phnxprotos::queue_service::v1::ListenResponse;
 use phnxtypes::{
     LibraryError,
     crypto::{
@@ -45,6 +47,7 @@ use crate::{
     version::{extract_api_version_negotiation, negotiate_api_version},
 };
 
+pub mod grpc;
 pub mod ws;
 
 #[cfg(test)]
@@ -64,6 +67,8 @@ pub enum QsRequestError {
     RequestFailed { status: StatusCode, error: String },
     #[error(transparent)]
     Version(#[from] VersionError),
+    #[error(transparent)]
+    Tonic(#[from] tonic::Status),
 }
 
 impl From<LibraryError> for QsRequestError {
@@ -402,6 +407,13 @@ impl ApiClient {
             .send()
             .await?;
         Ok(response)
+    }
+
+    pub async fn listen_queue(
+        &self,
+        queue_id: QsClientId,
+    ) -> Result<impl Stream<Item = ListenResponse> + use<>, QsRequestError> {
+        self.qs_grpc_client.listen(queue_id).await
     }
 }
 

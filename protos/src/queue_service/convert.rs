@@ -9,6 +9,15 @@ use crate::validation::{MissingFieldError, MissingFieldExt};
 
 use super::v1::QsClientId;
 
+impl From<identifiers::QsClientId> for QsClientId {
+    fn from(value: identifiers::QsClientId) -> Self {
+        let uuid = *value.as_uuid();
+        Self {
+            value: Some(uuid.into()),
+        }
+    }
+}
+
 impl TryFrom<QsClientId> for identifiers::QsClientId {
     type Error = MissingFieldError<&'static str>;
 
