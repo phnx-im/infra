@@ -81,6 +81,7 @@ mod client_id_decryption_key;
 mod client_record;
 pub mod ds_api;
 pub mod errors;
+pub mod grpc;
 mod key_package;
 pub mod network_provider;
 pub mod qs_api;

@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use actix::prelude::{Message, Recipient};
+use phnxprotos::queue_service::v1::ListenResponse;
 use phnxtypes::identifiers::QsClientId;
+use tokio::sync::mpsc;
 
 use super::InternalQsWsMessage;
 
@@ -12,6 +14,14 @@ use super::InternalQsWsMessage;
 #[rtype(result = "()")]
 pub struct Connect {
     pub addr: Recipient<InternalQsWsMessage>,
+    pub own_queue_id: QsClientId,
+}
+
+/// Grpc connect message for the [`Dispatch`] actor.
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct GrpcConnect {
+    pub tx: mpsc::UnboundedSender<ListenResponse>,
     pub own_queue_id: QsClientId,
 }
 
