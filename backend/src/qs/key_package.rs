@@ -19,7 +19,7 @@ impl StorableKeyPackage for KeyPackage {}
 
 #[async_trait]
 pub(super) trait StorableKeyPackage:
-    Sized + Serialize + DeserializeOwned + Clone + Send + Sync + Unpin
+    Sized + Serialize + DeserializeOwned + Send + Sync + Unpin
 {
     async fn store_multiple(
         connection: impl PgExecutor<'_>,
@@ -34,7 +34,7 @@ pub(super) trait StorableKeyPackage:
         connection: impl PgExecutor<'_>,
         client_id: &QsClientId,
     ) -> Result<(), StorageError> {
-        Self::store_multiple_internal(connection, client_id, &[self.clone()], true).await
+        Self::store_multiple_internal(connection, client_id, std::slice::from_ref(self), true).await
     }
 
     async fn store_multiple_internal(
