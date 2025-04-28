@@ -2,26 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
-
 use super::private_keys::{SigningKey, VerifyingKey, VerifyingKeyRef};
 
 #[derive(Debug)]
 pub struct LeafVerifyingKeyType;
 pub type LeafVerifyingKeyRef<'a> = VerifyingKeyRef<'a, LeafVerifyingKeyType>;
 
-#[derive(
-    Clone, PartialEq, Eq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug)]
 pub struct QsClientVerifyingKeyType;
 pub type QsClientVerifyingKey = VerifyingKey<QsClientVerifyingKeyType>;
 
 pub type QsClientSigningKey = SigningKey<QsClientVerifyingKeyType>;
 
-#[derive(
-    Clone, PartialEq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug)]
 pub struct QsUserVerifyingKeyType;
 pub type QsUserVerifyingKey = VerifyingKey<QsUserVerifyingKeyType>;
 

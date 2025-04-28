@@ -51,9 +51,7 @@ where
     }
 }
 
-impl<KT: for<'encode> Encode<'encode, Postgres> + Type<Postgres>> Encode<'_, Postgres>
-    for SigningKey<KT>
-{
+impl<KT> Encode<'_, Postgres> for SigningKey<KT> {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
         let mut encoder = PgRecordEncoder::new(buf);
         encoder.encode(&self.signing_key)?;
@@ -63,9 +61,7 @@ impl<KT: for<'encode> Encode<'encode, Postgres> + Type<Postgres>> Encode<'_, Pos
     }
 }
 
-impl<'r, KT: for<'decode> Decode<'decode, Postgres> + Type<Postgres>> Decode<'r, Postgres>
-    for SigningKey<KT>
-{
+impl<'r, KT> Decode<'r, Postgres> for SigningKey<KT> {
     fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
         let mut decoder = PgRecordDecoder::new(value)?;
         let signing_key = decoder.try_decode::<SecretBytes>()?;
@@ -88,3 +84,36 @@ impl<KT> PgHasArrayType for SigningKey<KT> {
         PgTypeInfo::array_of("signing_key_data")
     }
 }
+
+impl<KT> tls_codec::Size for VerifyingKey<KT> {
+    fn tls_serialized_len(&self) -> usize {
+        self.key.tls_serialized_len()
+    }
+}
+
+impl<KT> tls_codec::Serialize for VerifyingKey<KT> {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        self.key.tls_serialize(writer)
+    }
+}
+
+impl<KT> tls_codec::DeserializeBytes for VerifyingKey<KT> {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        let (key, remaining) = Vec::<u8>::tls_deserialize_bytes(bytes)?;
+        Ok((Self::from_bytes(key), remaining))
+    }
+}
+
+impl<KT> Clone for VerifyingKey<KT> {
+    fn clone(&self) -> Self {
+        Self::from_bytes(self.key.clone())
+    }
+}
+
+impl<KT> PartialEq for VerifyingKey<KT> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<KT> Eq for VerifyingKey<KT> {}

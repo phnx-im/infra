@@ -46,7 +46,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             sqlx::query!(
                 "INSERT INTO qs_decryption_key (decryption_key) VALUES ($1)",
-                self as &Self
+                self as &Self,
             )
             .execute(connection)
             .await?;

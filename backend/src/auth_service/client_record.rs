@@ -220,7 +220,9 @@ pub(crate) mod persistence {
             let (csr, _) = ClientCredentialCsr::new(client_id, SignatureScheme::ED25519)?;
             let expiration_data = ExpirationData::new(Duration::days(90));
             let record = ClientRecord {
-                queue_encryption_key: RatchetEncryptionKey::from(b"encryption_key".to_vec()),
+                queue_encryption_key: RatchetEncryptionKey::new_for_test(
+                    b"encryption_key".to_vec(),
+                ),
                 ratchet: QueueRatchet::random()?,
                 activity_time: TimeStamp::now(),
                 credential: ClientCredential::new_for_test(

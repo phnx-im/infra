@@ -32,9 +32,7 @@ impl PushToken {
         &self.token
     }
 }
-#[derive(
-    Serialize, Deserialize, PartialEq, Eq, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug)]
 pub struct EncryptedPushTokenCtype;
 pub type EncryptedPushToken = Ciphertext<EncryptedPushTokenCtype>;
 

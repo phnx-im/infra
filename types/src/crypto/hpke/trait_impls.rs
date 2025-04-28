@@ -15,7 +15,7 @@ use sqlx::{
 
 use crate::crypto::secrets::SecretBytes;
 
-use super::{ClientIdKeyType, DecryptionKey, EncryptionKey};
+use super::{DecryptionKey, EncryptionKey};
 
 impl<'q, KT, DB: Database> Encode<'q, DB> for EncryptionKey<KT>
 where
@@ -34,7 +34,7 @@ where
     Vec<u8>: Decode<'r, DB>,
 {
     fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        <Vec<u8> as Decode<'r, DB>>::decode(value).map(From::from)
+        <Vec<u8> as Decode<'r, DB>>::decode(value).map(Self::from_bytes)
     }
 }
 
@@ -56,9 +56,7 @@ where
     }
 }
 
-impl<KT: for<'encode> Encode<'encode, Postgres> + Type<Postgres>> Encode<'_, Postgres>
-    for DecryptionKey<KT>
-{
+impl<KT> Encode<'_, Postgres> for DecryptionKey<KT> {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
         let mut encoder = PgRecordEncoder::new(buf);
         encoder.encode(&self.decryption_key)?;
@@ -68,9 +66,7 @@ impl<KT: for<'encode> Encode<'encode, Postgres> + Type<Postgres>> Encode<'_, Pos
     }
 }
 
-impl<'r, KT: for<'decode> Decode<'decode, Postgres> + Type<Postgres>> Decode<'r, Postgres>
-    for DecryptionKey<KT>
-{
+impl<'r, KT> Decode<'r, Postgres> for DecryptionKey<KT> {
     fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
         let mut decoder = PgRecordDecoder::new(value)?;
         let decryption_key = decoder.try_decode::<SecretBytes>()?;
@@ -94,23 +90,44 @@ impl<KT> PgHasArrayType for DecryptionKey<KT> {
     }
 }
 
-impl sqlx::Encode<'_, Postgres> for ClientIdKeyType {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Postgres as Database>::ArgumentBuffer<'_>,
-    ) -> Result<IsNull, BoxDynError> {
-        Ok(IsNull::No)
+impl<KT> tls_codec::Size for EncryptionKey<KT> {
+    fn tls_serialized_len(&self) -> usize {
+        self.key.tls_serialized_len()
     }
 }
 
-impl sqlx::Decode<'_, Postgres> for ClientIdKeyType {
-    fn decode(value: <Postgres as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(ClientIdKeyType)
+impl<KT> tls_codec::Serialize for EncryptionKey<KT> {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        self.key.tls_serialize(writer)
     }
 }
 
-impl sqlx::Type<Postgres> for ClientIdKeyType {
-    fn type_info() -> sqlx::postgres::PgTypeInfo {
-        <bool as sqlx::Type<Postgres>>::type_info()
+impl<KT> tls_codec::DeserializeBytes for EncryptionKey<KT> {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        let (key, remaining) = Vec::<u8>::tls_deserialize_bytes(bytes)?;
+        Ok((Self::from_bytes(key), remaining))
+    }
+}
+
+impl<KT> PartialEq for EncryptionKey<KT> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<KT> Eq for EncryptionKey<KT> {}
+
+impl<KT> Clone for EncryptionKey<KT> {
+    fn clone(&self) -> Self {
+        Self::from_bytes(self.key.clone())
+    }
+}
+
+impl<KT> Clone for DecryptionKey<KT> {
+    fn clone(&self) -> Self {
+        Self {
+            decryption_key: self.decryption_key.clone(),
+            encryption_key: self.encryption_key.clone(),
+        }
     }
 }

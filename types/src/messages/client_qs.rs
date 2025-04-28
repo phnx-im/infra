@@ -641,11 +641,11 @@ mod tests {
             messages: vec![
                 QueueMessage {
                     sequence_number: 1,
-                    ciphertext: AeadCiphertext::dummy().into(),
+                    ciphertext: AeadCiphertext::dummy(),
                 },
                 QueueMessage {
                     sequence_number: 2,
-                    ciphertext: AeadCiphertext::dummy().into(),
+                    ciphertext: AeadCiphertext::dummy(),
                 },
             ],
             remaining_messages_number: 42,
@@ -669,7 +669,7 @@ mod tests {
     #[test]
     fn qs_response_encryption_key_api_stability() {
         let response = EncryptionKeyResponse {
-            encryption_key: ClientIdEncryptionKey::from(b"encryption_key".to_vec()),
+            encryption_key: ClientIdEncryptionKey::new_for_test(b"encryption_key".to_vec()),
         };
         let response =
             QsVersionedProcessResponse::Alpha(QsProcessResponse::EncryptionKey(response.clone()));

@@ -96,14 +96,12 @@ pub struct QueueMessage {
     pub ciphertext: AeadCiphertext,
 }
 
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug, Clone)]
 pub struct EncryptedQsQueueMessageCtype;
 
 pub type EncryptedQsQueueMessage = Ciphertext<EncryptedQsQueueMessageCtype>;
 
-#[derive(Clone, Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug, Clone)]
 pub struct EncryptedAsQueueMessageCtype;
 
 pub type EncryptedAsQueueMessage = Ciphertext<EncryptedAsQueueMessageCtype>;
@@ -118,7 +116,7 @@ pub enum AsTokenType {
 
 /// Ciphertext that contains a KeyPackage and an intermediary client certficate.
 /// TODO: do we want a key committing scheme here?
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 #[cfg_attr(feature = "test_utils", derive(PartialEq, Eq))]
 pub struct QsEncryptedKeyPackageCtype;
 pub type QsEncryptedKeyPackage = Ciphertext<QsEncryptedKeyPackageCtype>;

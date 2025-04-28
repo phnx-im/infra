@@ -215,7 +215,7 @@ mod tests {
             client_record_auth_key: QsClientVerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
             ),
-            queue_encryption_key: RatchetEncryptionKey::from(b"encryption_key".to_vec()),
+            queue_encryption_key: RatchetEncryptionKey::new_for_test(b"encryption_key".to_vec()),
             encrypted_push_token: Some(EncryptedPushToken::dummy()),
             initial_ratchet_secret: RatchetSecret::from(Secret::from(
                 *b"_initial_ratchet_secret_32_bytes",
@@ -305,7 +305,7 @@ mod tests {
             client_record_auth_key: QsClientVerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
             ),
-            queue_encryption_key: RatchetEncryptionKey::from(b"encryption_key".to_vec()),
+            queue_encryption_key: RatchetEncryptionKey::new_for_test(b"encryption_key".to_vec()),
             encrypted_push_token: Some(EncryptedPushToken::dummy()),
             initial_ratchet_secret: RatchetSecret::from(Secret::from(
                 *b"_initial_ratchet_secret_32_bytes",
@@ -339,7 +339,7 @@ mod tests {
             client_record_auth_key: QsClientVerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
             ),
-            queue_encryption_key: RatchetEncryptionKey::from(b"encryption_key".to_vec()),
+            queue_encryption_key: RatchetEncryptionKey::new_for_test(b"encryption_key".to_vec()),
             encrypted_push_token: Some(EncryptedPushToken::dummy()),
         };
         let message_out = ClientToQsMessageOut {

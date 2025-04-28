@@ -11,7 +11,6 @@ use mls_assist::{
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     LibraryError,
@@ -22,9 +21,7 @@ use super::{DEFAULT_SIGNATURE_SCHEME, signable::Signature};
 
 /// A key that can be used to verify signatures. It should be parameterized by a
 /// unique key type to ensure type safety.
-#[derive(
-    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TlsSize, TlsSerialize, TlsDeserializeBytes,
-)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct VerifyingKey<KT> {
     pub(super) key: Vec<u8>,
@@ -119,10 +116,20 @@ impl<KT> VerifyingKey<KT> {
 /// This is the key that is used to sign messages. It also contains the public
 /// key of the same type. This struct should be parameterized by a unique key
 /// type to ensure type safety.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SigningKey<KT> {
     pub(super) signing_key: SecretBytes,
+    #[serde(bound = "")]
     pub(super) verifying_key: VerifyingKey<KT>,
+}
+
+impl<KT> Clone for SigningKey<KT> {
+    fn clone(&self) -> Self {
+        Self {
+            signing_key: self.signing_key.clone(),
+            verifying_key: self.verifying_key.clone(),
+        }
+    }
 }
 
 impl<KT> SigningKey<KT> {

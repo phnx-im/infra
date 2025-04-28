@@ -184,7 +184,7 @@ impl From<DsGroupStateDecryptionError> for tonic::Status {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct EncryptedDsGroupStateCtype;
 pub type EncryptedDsGroupState = Ciphertext<EncryptedDsGroupStateCtype>;
 

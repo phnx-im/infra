@@ -219,7 +219,7 @@ pub(crate) mod persistence {
                 user_id,
                 client_id: QsClientId::random(&mut rand::thread_rng()),
                 encrypted_push_token: Some(EncryptedPushToken::dummy()),
-                queue_encryption_key: RatchetEncryptionKey::from(
+                queue_encryption_key: RatchetEncryptionKey::new_for_test(
                     b"encryption_key_32_bytes".to_vec(),
                 ),
                 auth_key: QsClientVerifyingKey::new_for_test(b"auth_key".to_vec()),

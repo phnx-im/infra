@@ -7,19 +7,11 @@
 //! keys, the target key (or value) needs to implement the [`KdfDerivable`]
 //! trait.
 
-use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
-
-use crate::crypto::{
-    indexed_aead::keys::{Key, RandomlyGeneratable},
-    secrets::Secret,
-};
+use crate::crypto::indexed_aead::keys::{Key, RandomlyGeneratable};
 
 use super::{KDF_KEY_SIZE, KdfDerivable, traits::KdfKey};
 
-#[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug)]
 pub struct RatchetSecretKeyType;
 pub type RatchetSecret = Key<RatchetSecretKeyType>;
 
@@ -33,11 +25,7 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
     const LABEL: &'static str = "RatchetSecret derive";
 }
 
-pub type ConnectionKeyKey = Secret<KDF_KEY_SIZE>;
-
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug)]
 pub struct ConnectionKeyType;
 pub type ConnectionKey = Key<ConnectionKeyType>;
 impl RandomlyGeneratable for ConnectionKeyType {}

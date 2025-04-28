@@ -16,7 +16,7 @@ use mls_assist::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::Serialize as TlsSerializeTrait;
 use tracing::error;
 
 use crate::identifiers::{ClientConfig, SealedClientReference};
@@ -27,24 +27,13 @@ use super::{
     secrets::SecretBytes,
 };
 
-pub mod sqlx_impls;
+pub mod trait_impls;
 
-#[derive(
-    Clone, PartialEq, Eq, Serialize, Deserialize, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EncryptionKey<KT> {
     key: Vec<u8>,
     _type: std::marker::PhantomData<KT>,
-}
-
-impl<KT> From<Vec<u8>> for EncryptionKey<KT> {
-    fn from(value: Vec<u8>) -> Self {
-        Self {
-            key: value,
-            _type: std::marker::PhantomData,
-        }
-    }
 }
 
 pub const HPKE_CONFIG: HpkeConfig = HpkeConfig(
@@ -63,16 +52,29 @@ impl<KT> EncryptionKey<KT> {
             // TODO: get rid of unwrap
             .unwrap()
     }
+
+    fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            key: bytes,
+            _type: std::marker::PhantomData,
+        }
+    }
+
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn new_for_test(bytes: Vec<u8>) -> Self {
+        Self::from_bytes(bytes)
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DecryptionKey<KT> {
     decryption_key: SecretBytes,
+    #[serde(bound = "")]
     encryption_key: EncryptionKey<KT>,
 }
 
 #[cfg(any(test, feature = "test_utils"))]
-impl<KT: PartialEq> PartialEq for DecryptionKey<KT> {
+impl<KT> PartialEq for DecryptionKey<KT> {
     fn eq(&self, other: &Self) -> bool {
         let decryption_key: &[u8] = self.decryption_key.as_ref();
         let other_decryption_key: &[u8] = other.decryption_key.as_ref();
@@ -81,7 +83,7 @@ impl<KT: PartialEq> PartialEq for DecryptionKey<KT> {
 }
 
 #[cfg(any(test, feature = "test_utils"))]
-impl<KT: Eq> Eq for DecryptionKey<KT> {}
+impl<KT> Eq for DecryptionKey<KT> {}
 
 impl<KT> DecryptionKey<KT> {
     pub fn new(decryption_key: HpkePrivateKey, encryption_key: EncryptionKey<KT>) -> Self {
@@ -114,7 +116,10 @@ impl<KT> DecryptionKey<KT> {
             .crypto()
             .derive_hpke_keypair(HPKE_CONFIG, &key_seed)
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        Ok(Self::new(keypair.private, keypair.public.into()))
+        Ok(Self::new(
+            keypair.private,
+            EncryptionKey::from_bytes(keypair.public),
+        ))
     }
 
     pub fn encryption_key(&self) -> &EncryptionKey<KT> {
@@ -163,13 +168,13 @@ pub type JoinerInfoEncryptionKey = EncryptionKey<JoinerInfoKeyType>;
 // the KeyPackage, which we get as HpkePublicKey from OpenMLS.
 impl From<HpkePublicKey> for JoinerInfoEncryptionKey {
     fn from(value: HpkePublicKey) -> Self {
-        value.as_slice().to_vec().into()
+        Self::from_bytes(value.as_slice().to_vec())
     }
 }
 
 impl From<InitKey> for JoinerInfoEncryptionKey {
     fn from(value: InitKey) -> Self {
-        value.as_slice().to_vec().into()
+        Self::from_bytes(value.as_slice().to_vec())
     }
 }
 
@@ -181,13 +186,11 @@ pub type JoinerInfoDecryptionKey = DecryptionKey<JoinerInfoKeyType>;
 impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
     fn from((sk, init_key): (HpkePrivateKey, InitKey)) -> Self {
         let vec: Vec<u8> = init_key.key().as_slice().to_vec();
-        DecryptionKey::new(sk, vec.into())
+        DecryptionKey::new(sk, EncryptionKey::from_bytes(vec))
     }
 }
 
-#[derive(
-    Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize, PartialEq, Eq,
-)]
+#[derive(Debug)]
 pub struct ClientIdKeyType;
 pub type ClientIdEncryptionKey = EncryptionKey<ClientIdKeyType>;
 

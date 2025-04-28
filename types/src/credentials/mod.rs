@@ -607,9 +607,7 @@ impl Verifiable for VerifiableClientCredential {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq,
-)]
+#[derive(Debug)]
 pub struct EncryptedClientCredentialCtype;
 pub type EncryptedClientCredential = Ciphertext<EncryptedClientCredentialCtype>;
 

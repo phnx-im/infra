@@ -95,9 +95,7 @@ impl AsRef<[u8]> for Signature {
     }
 }
 
-#[derive(
-    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize, PartialEq, Eq,
-)]
+#[derive(Debug)]
 pub struct EncryptedSignatureCtype;
 pub type EncryptedSignature = Ciphertext<EncryptedSignatureCtype>;
 

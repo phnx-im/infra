@@ -134,8 +134,7 @@ mod test {
             .await
             .expect("Error creating ephemeral Ds instance.");
 
-        let dummy_ciphertext = Ciphertext::dummy();
-        let test_state: EncryptedDsGroupState = dummy_ciphertext.into();
+        let test_state = Ciphertext::dummy();
 
         // Create/store a dummy group state
         let group_uuid = Uuid::new_v4();

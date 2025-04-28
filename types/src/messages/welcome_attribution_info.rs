@@ -138,7 +138,7 @@ impl VerifiedStruct<VerifiableWelcomeAttributionInfo> for WelcomeAttributionInfo
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
+#[derive(Debug)]
 pub struct EncryptedWelcomeAttributionInfoCtype;
 pub type EncryptedWelcomeAttributionInfo = Ciphertext<EncryptedWelcomeAttributionInfoCtype>;
 

@@ -18,12 +18,10 @@ use crate::{
     identifiers::QualifiedUserName,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{
-    Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError,
-    sqlite::SqliteTypeInfo,
-};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{TlsSerialize, TlsSize};
 use tracing::error;
+
+mod trait_impls;
 
 /// Marker trait for indexed keys
 pub trait IndexedKeyType {
@@ -40,101 +38,25 @@ pub trait RandomlyGeneratable {}
 #[derive(Default)]
 pub struct KeyTypeInstance<KT: IndexedKeyType>(PhantomData<KT>);
 
-impl<'q, KT: IndexedKeyType> Encode<'q, Sqlite> for KeyTypeInstance<KT> {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        <&str as Encode<Sqlite>>::encode_by_ref(&KT::LABEL, buf)
-    }
-}
-
-impl<'r, KT: IndexedKeyType> Decode<'r, Sqlite> for KeyTypeInstance<KT> {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let label: &str = Decode::<Sqlite>::decode(value)?;
-        if label != KT::LABEL {
-            return Err(BoxDynError::from(format!(
-                "Invalid key type label: expected {}, got {}",
-                KT::LABEL,
-                label
-            )));
-        }
-        Ok(Self(PhantomData))
-    }
-}
-
-impl<KT: IndexedKeyType> Type<Sqlite> for KeyTypeInstance<KT> {
-    fn type_info() -> SqliteTypeInfo {
-        <&str as Type<Sqlite>>::type_info()
-    }
-}
-
 impl<KT: IndexedKeyType> KeyTypeInstance<KT> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<KT: IndexedKeyType> tls_codec::Size for KeyTypeInstance<KT> {
-    fn tls_serialized_len(&self) -> usize {
-        KT::LABEL.len()
-    }
-}
-
-impl<KT: IndexedKeyType> tls_codec::Serialize for KeyTypeInstance<KT> {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        let label = KT::LABEL.as_bytes();
-        let written = writer.write(label)?;
-        Ok(written)
-    }
-}
-
 /// A wrapper type for secrets that are associated with a specific key type.
-#[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
-)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TypedSecret<KT, ST, const SIZE: usize> {
     secret: Secret<SIZE>,
     _type: PhantomData<(KT, ST)>,
 }
 
-impl<'q, KT, ST, const SIZE: usize> Encode<'q, Sqlite> for TypedSecret<KT, ST, SIZE> {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        self.secret.encode_by_ref(buf)
-    }
-}
-
-impl<KT, ST, const SIZE: usize> Type<Sqlite> for TypedSecret<KT, ST, SIZE> {
-    fn type_info() -> SqliteTypeInfo {
-        Secret::<SIZE>::type_info()
-    }
-}
-
-impl<'r, KT, ST, const SIZE: usize> Decode<'r, Sqlite> for TypedSecret<KT, ST, SIZE> {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let secret: Secret<SIZE> = Decode::<Sqlite>::decode(value)?;
-        Ok(Self {
-            secret,
-            _type: PhantomData,
-        })
-    }
-}
-
-#[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
-)]
+#[derive(Debug)]
 pub struct BaseSecretType;
-#[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
-)]
+#[derive(Debug)]
 pub struct KeySecretType;
-#[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
-)]
+#[derive(Debug)]
 pub struct IndexSecretType;
 
 /// A base secret is meant to derive a key and an index for the key type `KT`.
@@ -211,9 +133,7 @@ impl<KT: IndexedKeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<'_, KT>,
 
 /// An [`IndexedAeadKey`] is an indexed key that can be derive from a base
 /// secret. It implements the `EarKey` trait.
-#[derive(
-    Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
-)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct IndexedAeadKey<KT> {
     base_secret: BaseSecret<KT>,
     key: Key<KT>,
@@ -270,9 +190,7 @@ impl<KT> EarKey for IndexedAeadKey<KT> {}
 
 // User profile key
 
-#[derive(
-    Clone, Debug, Serialize, Deserialize, Eq, PartialEq, TlsDeserializeBytes, TlsSerialize, TlsSize,
-)]
+#[derive(Debug)]
 pub struct UserProfileKeyType;
 
 impl IndexedKeyType for UserProfileKeyType {

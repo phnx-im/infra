@@ -490,7 +490,7 @@ impl ClientCredentialAuthenticator for AsDequeueMessagesParams {
     const LABEL: &'static str = "Dequeue Messages Parameters";
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct EncryptedFriendshipPackageCtype;
 pub type EncryptedFriendshipPackage = Ciphertext<EncryptedFriendshipPackageCtype>;
 

@@ -45,9 +45,7 @@ pub mod signatures;
 
 pub type RatchetKeyUpdate = Vec<u8>;
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize,
-)]
+#[derive(Debug)]
 pub struct RatchetKeyType;
 pub type RatchetEncryptionKey = EncryptionKey<RatchetKeyType>;
 
@@ -64,13 +62,13 @@ mod test {
 
     #[test]
     fn encryption_key_serde_codec() {
-        let key = RatchetEncryptionKey::from(vec![1, 2, 3]);
+        let key = RatchetEncryptionKey::new_for_test(vec![1, 2, 3]);
         insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&key).unwrap());
     }
 
     #[test]
     fn encryption_key_serde_json() {
-        let key = RatchetEncryptionKey::from(vec![1, 2, 3]);
+        let key = RatchetEncryptionKey::new_for_test(vec![1, 2, 3]);
         insta::assert_json_snapshot!(key);
     }
 }

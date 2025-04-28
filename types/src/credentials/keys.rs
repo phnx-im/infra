@@ -41,9 +41,7 @@ use thiserror::Error;
 
 use super::ClientCredential;
 
-#[derive(
-    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
-)]
+#[derive(Debug)]
 pub struct AsIntermediateKeyType;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -92,7 +90,7 @@ pub enum SigningKeyCreationError {
     PublicKeyMismatch,
 }
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct AsKeyType;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -133,9 +131,7 @@ pub type AsVerifyingKey = VerifyingKey<AsKeyType>;
 
 pub type AsIntermediateVerifyingKey = VerifyingKey<AsIntermediateKeyType>;
 
-#[derive(
-    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
-)]
+#[derive(Debug)]
 pub struct ClientKeyType;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -176,7 +172,7 @@ impl ClientSigningKey {
 
 pub type ClientVerifyingKey = VerifyingKey<ClientKeyType>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct PseudonymousKeyType;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
