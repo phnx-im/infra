@@ -7,59 +7,84 @@
 //! The `Type` derive macro couldn't be used because the sqlx(type_name) macro doesn't
 //! support generic types.
 
+use sqlx::{
+    Database, Decode, Encode, Postgres, Type,
+    encode::IsNull,
+    error::BoxDynError,
+    postgres::{
+        PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef,
+        types::{PgRecordDecoder, PgRecordEncoder},
+    },
+};
+
 use crate::crypto::secrets::SecretBytes;
 
 use super::private_keys::{SigningKey, VerifyingKey};
 
-impl<
-    KT: for<'encode> ::sqlx::encode::Encode<'encode, ::sqlx::Postgres>
-        + ::sqlx::types::Type<::sqlx::Postgres>,
-> ::sqlx::encode::Encode<'_, ::sqlx::Postgres> for SigningKey<KT>
+impl<KT, DB: Database> Type<DB> for VerifyingKey<KT>
+where
+    Vec<u8>: Type<DB>,
 {
-    fn encode_by_ref(
-        &self,
-        buf: &mut ::sqlx::postgres::PgArgumentBuffer,
-    ) -> ::std::result::Result<::sqlx::encode::IsNull, ::sqlx::error::BoxDynError> {
-        let mut encoder = ::sqlx::postgres::types::PgRecordEncoder::new(buf);
-        encoder.encode(&self.signing_key)?;
-        encoder.encode(&self.verifying_key)?;
-        encoder.finish();
-        ::std::result::Result::Ok(::sqlx::encode::IsNull::No)
+    fn type_info() -> <DB as Database>::TypeInfo {
+        <Vec<u8> as Type<DB>>::type_info()
     }
 }
 
-impl<
-    'r,
-    KT: for<'decode> ::sqlx::decode::Decode<'decode, ::sqlx::Postgres>
-        + ::sqlx::types::Type<::sqlx::Postgres>,
-> ::sqlx::decode::Decode<'r, ::sqlx::Postgres> for SigningKey<KT>
+impl<'a, KT, DB: Database> Encode<'a, DB> for VerifyingKey<KT>
+where
+    Vec<u8>: Encode<'a, DB>,
 {
-    fn decode(
-        value: ::sqlx::postgres::PgValueRef<'r>,
-    ) -> ::std::result::Result<
-        Self,
-        ::std::boxed::Box<
-            dyn ::std::error::Error + 'static + ::std::marker::Send + ::std::marker::Sync,
-        >,
-    > {
-        let mut decoder = ::sqlx::postgres::types::PgRecordDecoder::new(value)?;
+    fn encode_by_ref(
+        &self,
+        buf: &mut <DB as Database>::ArgumentBuffer<'a>,
+    ) -> Result<IsNull, BoxDynError> {
+        <Vec<u8> as Encode<DB>>::encode_by_ref(&self.key, buf)
+    }
+}
+
+impl<'r, KT, DB: Database> Decode<'r, DB> for VerifyingKey<KT>
+where
+    Vec<u8>: Decode<'r, DB>,
+{
+    fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        <Vec<u8> as Decode<DB>>::decode(value).map(Self::from_bytes)
+    }
+}
+
+impl<KT: for<'encode> Encode<'encode, Postgres> + Type<Postgres>> Encode<'_, Postgres>
+    for SigningKey<KT>
+{
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
+        let mut encoder = PgRecordEncoder::new(buf);
+        encoder.encode(&self.signing_key)?;
+        encoder.encode(&self.verifying_key)?;
+        encoder.finish();
+        Result::Ok(IsNull::No)
+    }
+}
+
+impl<'r, KT: for<'decode> Decode<'decode, Postgres> + Type<Postgres>> Decode<'r, Postgres>
+    for SigningKey<KT>
+{
+    fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
+        let mut decoder = PgRecordDecoder::new(value)?;
         let signing_key = decoder.try_decode::<SecretBytes>()?;
         let verifying_key = decoder.try_decode::<VerifyingKey<KT>>()?;
-        ::std::result::Result::Ok(SigningKey {
+        Result::Ok(SigningKey {
             signing_key,
             verifying_key,
         })
     }
 }
 
-impl<KT> ::sqlx::Type<::sqlx::Postgres> for SigningKey<KT> {
-    fn type_info() -> ::sqlx::postgres::PgTypeInfo {
-        ::sqlx::postgres::PgTypeInfo::with_name("signing_key_data")
+impl<KT> Type<Postgres> for SigningKey<KT> {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("signing_key_data")
     }
 }
 
-impl<KT> ::sqlx::postgres::PgHasArrayType for SigningKey<KT> {
-    fn array_type_info() -> ::sqlx::postgres::PgTypeInfo {
-        ::sqlx::postgres::PgTypeInfo::array_of("signing_key_data")
+impl<KT> PgHasArrayType for SigningKey<KT> {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::array_of("signing_key_data")
     }
 }

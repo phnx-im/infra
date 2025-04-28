@@ -25,45 +25,13 @@ use super::{DEFAULT_SIGNATURE_SCHEME, signable::Signature};
 )]
 #[serde(transparent)]
 pub struct VerifyingKey<KT> {
-    key: Vec<u8>,
+    pub(super) key: Vec<u8>,
     _type: PhantomData<KT>,
 }
 
 pub struct VerifyingKeyRef<'a, KT> {
     key: &'a [u8],
     _type: PhantomData<KT>,
-}
-
-impl<KT, DB: sqlx::Database> sqlx::Type<DB> for VerifyingKey<KT>
-where
-    Vec<u8>: sqlx::Type<DB>,
-{
-    fn type_info() -> <DB as sqlx::Database>::TypeInfo {
-        <Vec<u8> as sqlx::Type<DB>>::type_info()
-    }
-}
-
-impl<'a, KT, DB: sqlx::Database> sqlx::Encode<'a, DB> for VerifyingKey<KT>
-where
-    Vec<u8>: sqlx::Encode<'a, DB>,
-{
-    fn encode_by_ref(
-        &self,
-        buf: &mut <DB as sqlx::Database>::ArgumentBuffer<'a>,
-    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
-        <Vec<u8> as sqlx::Encode<DB>>::encode_by_ref(&self.key, buf)
-    }
-}
-
-impl<'r, KT, DB: sqlx::Database> sqlx::Decode<'r, DB> for VerifyingKey<KT>
-where
-    Vec<u8>: sqlx::Decode<'r, DB>,
-{
-    fn decode(
-        value: <DB as sqlx::Database>::ValueRef<'r>,
-    ) -> Result<Self, sqlx::error::BoxDynError> {
-        <Vec<u8> as sqlx::Decode<DB>>::decode(value).map(Self::from_bytes)
-    }
 }
 
 // We need these traits to interop the MLS leaf keys.
@@ -129,7 +97,7 @@ impl<KT> VerifyingKey<KT> {
         &self.key
     }
 
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub(super) fn from_bytes(bytes: Vec<u8>) -> Self {
         Self {
             key: bytes,
             _type: PhantomData,
