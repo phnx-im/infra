@@ -45,7 +45,7 @@ pub(super) trait StorableKeyPackage:
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
         let mut query_string = String::from(
-            "INSERT INTO key_packages (client_id, encrypted_key_package, is_last_resort) VALUES",
+            "INSERT INTO key_packages (client_id, key_package, is_last_resort) VALUES",
         );
 
         for (i, key_package) in key_packages.into_iter().enumerate() {
@@ -84,7 +84,7 @@ pub(super) trait StorableKeyPackage:
     ) -> Result<Self, StorageError> {
         let mut transaction = connection.begin().await?;
 
-        let encrypted_key_package = sqlx::query_scalar!(
+        let key_package = sqlx::query_scalar!(
                 r#"WITH user_info AS (
                     -- Step 1: Fetch the user_id based on the friendship token.
                     SELECT user_id FROM qs_user_records WHERE friendship_token = $1
@@ -97,7 +97,7 @@ pub(super) trait StorableKeyPackage:
 
                 ranked_packages AS (
                     -- Step 3: Rank key packages for each client.
-                    SELECT p.id, p.encrypted_key_package, p.is_last_resort,
+                    SELECT p.id, p.key_package, p.is_last_resort,
                            ROW_NUMBER() OVER (PARTITION BY p.client_id ORDER BY p.is_last_resort ASC) AS rn
                     FROM key_packages p
                     INNER JOIN client_ids c ON p.client_id = c.client_id
@@ -105,7 +105,7 @@ pub(super) trait StorableKeyPackage:
 
                 selected_key_packages AS (
                     -- Step 4: Select the best-ranked package per client (rn = 1), skipping locked rows.
-                    SELECT id, encrypted_key_package, is_last_resort
+                    SELECT id, key_package, is_last_resort
                     FROM ranked_packages
                     WHERE rn = 1
                     FOR UPDATE SKIP LOCKED
@@ -115,17 +115,17 @@ pub(super) trait StorableKeyPackage:
                     -- Step 5: Delete the selected packages that are not marked as last_resort.
                     DELETE FROM key_packages
                     WHERE id IN (SELECT id FROM selected_key_packages WHERE is_last_resort = FALSE)
-                    RETURNING encrypted_key_package
+                    RETURNING key_package
                 )
 
-                -- Step 6: Return the encrypted_key_package from the selected packages.
-                SELECT encrypted_key_package as "key_package: BlobDecoded<Self>" FROM selected_key_packages"#,
+                -- Step 6: Return the key_package from the selected packages.
+                SELECT key_package as "key_package: BlobDecoded<Self>" FROM selected_key_packages"#,
                 friendship_token as &FriendshipToken
             ).fetch_one(&mut *transaction).await.map(|BlobDecoded(key_package)| key_package)?;
 
         transaction.commit().await?;
 
-        Ok(encrypted_key_package)
+        Ok(key_package)
     }
 }
 

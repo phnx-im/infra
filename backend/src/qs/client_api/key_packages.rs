@@ -29,7 +29,7 @@ impl Qs {
             key_packages,
         } = params;
 
-        let mut encrypted_key_packages = vec![];
+        let mut verified_key_packages = vec![];
         let mut last_resort_key_package = None;
         for key_package in key_packages {
             let verified_key_package: KeyPackage = key_package
@@ -44,7 +44,7 @@ impl Qs {
             if is_last_resort {
                 last_resort_key_package = Some(verified_key_package);
             } else {
-                encrypted_key_packages.push(verified_key_package);
+                verified_key_packages.push(verified_key_package);
             }
         }
 
@@ -58,7 +58,7 @@ impl Qs {
                 })?;
         }
 
-        KeyPackage::store_multiple(&self.db_pool, &sender, &encrypted_key_packages)
+        KeyPackage::store_multiple(&self.db_pool, &sender, &verified_key_packages)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to store last resort key package: {:?}", e);

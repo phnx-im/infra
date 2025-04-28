@@ -255,7 +255,7 @@ impl PartialContact {
 mod tests {
     use phnxtypes::{
         crypto::{
-            ear::keys::{FriendshipPackageEarKey, KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+            ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
             indexed_aead::keys::UserProfileKey,
             kdf::keys::ConnectionKey,
         },
@@ -280,7 +280,6 @@ mod tests {
             clients: vec![AsClientId::new(user_name, user_id)],
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             friendship_token: FriendshipToken::random().unwrap(),
-            key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             conversation_id,
             user_profile_key_index: user_profile_key.index().clone(),
@@ -369,7 +368,6 @@ mod tests {
 
         let friendship_package = FriendshipPackage {
             friendship_token: FriendshipToken::random().unwrap(),
-            key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             user_profile_base_secret: user_profile_key.base_secret().clone(),
