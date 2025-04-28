@@ -47,6 +47,12 @@ impl PushToken {
 #[sqlx(transparent)]
 pub struct EncryptedPushToken(Ciphertext);
 
+impl EncryptedPushToken {
+    pub fn into_ciphertext(self) -> Ciphertext {
+        self.0
+    }
+}
+
 impl AsRef<Ciphertext> for EncryptedPushToken {
     fn as_ref(&self) -> &Ciphertext {
         &self.0

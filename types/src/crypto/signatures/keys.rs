@@ -46,6 +46,14 @@ impl From<&SignaturePublicKey> for LeafVerifyingKey {
 pub struct QsClientVerifyingKey(VerifyingKey);
 
 impl QsClientVerifyingKey {
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(VerifyingKey::from_bytes(bytes))
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
+
     #[cfg(any(test, feature = "test_utils"))]
     pub fn new_for_test(verifying_key: VerifyingKey) -> Self {
         Self(verifying_key)
@@ -98,6 +106,14 @@ impl super::traits::SigningKeyBehaviour for QsClientSigningKey {}
 pub struct QsUserVerifyingKey(VerifyingKey);
 
 impl QsUserVerifyingKey {
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(VerifyingKey::from_bytes(bytes))
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
+
     #[cfg(any(test, feature = "test_utils"))]
     pub fn new_for_test(verifying_key: VerifyingKey) -> Self {
         Self(verifying_key)

@@ -33,8 +33,7 @@ use phnxtypes::{
         },
         client_qs_out::{
             ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
-            CreateUserRecordParamsOut, PublishKeyPackagesParamsOut, QsRequestParamsOut,
-            QsVersionedRequestParamsOut,
+            PublishKeyPackagesParamsOut, QsRequestParamsOut, QsVersionedRequestParamsOut,
         },
         push_token::EncryptedPushToken,
     },
@@ -128,27 +127,38 @@ impl ApiClient {
         initial_ratchet_key: RatchetSecret,
         signing_key: &QsUserSigningKey,
     ) -> Result<CreateUserRecordResponse, QsRequestError> {
-        let payload = CreateUserRecordParamsOut {
-            user_record_auth_key: signing_key.verifying_key().clone(),
-            friendship_token,
-            client_record_auth_key,
-            queue_encryption_key,
-            encrypted_push_token,
-            initial_ratchet_secret: initial_ratchet_key,
-        };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::CreateUser(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::CreateUser(resp) = response {
-                Ok(resp)
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
+        self.qs_grpc_client
+            .create_user(
+                friendship_token,
+                client_record_auth_key,
+                queue_encryption_key,
+                encrypted_push_token,
+                initial_ratchet_key,
+                signing_key,
+            )
+            .await
+
+        // let payload = CreateUserRecordParamsOut {
+        //     user_record_auth_key: signing_key.verifying_key().clone(),
+        //     friendship_token,
+        //     client_record_auth_key,
+        //     queue_encryption_key,
+        //     encrypted_push_token,
+        //     initial_ratchet_secret: initial_ratchet_key,
+        // };
+        // self.prepare_and_send_qs_message(
+        //     QsRequestParamsOut::CreateUser(payload),
+        //     AuthenticationMethod::SigningKey(signing_key),
+        // )
+        // .await
+        // // Check if the response is what we expected it to be.
+        // .and_then(|response| {
+        //     if let QsProcessResponseIn::CreateUser(resp) = response {
+        //         Ok(resp)
+        //     } else {
+        //         Err(QsRequestError::UnexpectedResponse)
+        //     }
+        // })
     }
 
     pub async fn qs_update_user(

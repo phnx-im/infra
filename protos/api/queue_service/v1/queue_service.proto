@@ -63,7 +63,7 @@ message QsClientVerifyingKey {
 }
 
 message EncryptedPushToken {
-  bytes ciphertext = 1;
+  common.v1.Ciphertext ciphertext = 1;
 }
 
 message CreateUserResponse {
@@ -153,7 +153,7 @@ message ClientKeyPackagesResponse {
 }
 
 message QsEncryptedKeyPackage {
-  bytes ciphertext = 1;
+  common.v1.Ciphertext ciphertext = 1;
 }
 
 // key package
@@ -182,7 +182,7 @@ message DequeueMessagesResponse {
 
 message QueueMessage {
   uint64 sequence_number = 1;
-  bytes ciphertext = 2;
+  common.v1.Ciphertext ciphertext = 2;
 }
 
 // qs encryption key

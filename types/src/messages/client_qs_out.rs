@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn qs_request_create_user_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = CreateUserRecordParamsOut {
             user_record_auth_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
                 b"user_record_auth_key".to_vec(),
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn qs_request_update_user_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = UpdateUserRecordParams {
             sender: QsUserId::from(Uuid::from_u128(1)),
             user_record_auth_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn qs_request_delete_user_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = DeleteUserRecordParams {
             sender: QsUserId::from(Uuid::from_u128(1)),
         };
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn qs_request_create_client_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = CreateClientRecordParamsOut {
             sender: QsUserId::from(Uuid::from_u128(1)),
             client_record_auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
@@ -337,7 +337,7 @@ mod tests {
 
     #[test]
     fn qs_request_update_client_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = UpdateClientRecordParams {
             sender: QsClientId::from(Uuid::from_u128(1)),
             client_record_auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn qs_request_delete_client_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = DeleteClientRecordParams {
             sender: QsClientId::from(Uuid::from_u128(1)),
         };
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn qs_request_publish_key_packages_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = PublishKeyPackagesParamsOut {
             sender: QsClientId::from(Uuid::from_u128(1)),
             key_packages: vec![], // Note: No easy way to create a key package for testing.
@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn qs_request_client_key_package_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = ClientKeyPackageParams {
             sender: QsUserId::from(Uuid::from_u128(1)),
             client_id: QsClientId::from(Uuid::from_u128(2)),
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn qs_request_key_package_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = KeyPackageParams {
             sender: token.clone(),
             friendship_ear_key: KeyPackageEarKey::new_for_test(
@@ -486,7 +486,7 @@ mod tests {
 
     #[test]
     fn qs_request_dequeue_messages_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
+        let token = FriendshipToken::from_bytes(b"friendship_token".to_vec());
         let params = DequeueMessagesParams {
             sender: QsClientId::from(Uuid::from_u128(1)),
             sequence_number_start: 1,

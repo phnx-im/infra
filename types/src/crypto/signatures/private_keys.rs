@@ -29,6 +29,16 @@ use super::DEFAULT_SIGNATURE_SCHEME;
 #[sqlx(transparent)]
 pub struct VerifyingKey(Vec<u8>);
 
+impl VerifyingKey {
+    pub(crate) fn from_bytes(value: Vec<u8>) -> Self {
+        Self(value)
+    }
+
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+}
+
 // We need these traits to interop the MLS leaf keys.
 impl From<SignaturePublicKey> for VerifyingKey {
     fn from(pk: SignaturePublicKey) -> Self {
