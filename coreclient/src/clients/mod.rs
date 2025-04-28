@@ -23,7 +23,7 @@ use phnxtypes::{
         ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
         ear::{
             EarEncryptable, EarKey, GenericSerializable,
-            keys::{KeyPackageEarKey, PushTokenEarKey, WelcomeAttributionInfoEarKey},
+            keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,

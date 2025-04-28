@@ -8,7 +8,6 @@ use tls_codec::{Serialize, TlsSerialize, TlsSize};
 use crate::{
     crypto::{
         RatchetEncryptionKey,
-        ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientVerifyingKey, QsUserVerifyingKey},
@@ -22,9 +21,8 @@ use crate::{
 use super::{
     ApiVersion, FriendshipToken,
     client_qs::{
-        ClientKeyPackageParams, DeleteClientRecordParams, DeleteUserRecordParams,
-        DequeueMessagesParams, KeyPackageParams, SUPPORTED_QS_API_VERSIONS,
-        UpdateClientRecordParams, UpdateUserRecordParams,
+        DeleteClientRecordParams, DeleteUserRecordParams, DequeueMessagesParams, KeyPackageParams,
+        SUPPORTED_QS_API_VERSIONS, UpdateClientRecordParams, UpdateUserRecordParams,
     },
     push_token::EncryptedPushToken,
 };
@@ -165,7 +163,6 @@ pub struct CreateClientRecordParamsOut {
 pub struct PublishKeyPackagesParamsOut {
     pub sender: QsClientId,
     pub key_packages: Vec<KeyPackage>,
-    pub friendship_ear_key: KeyPackageEarKey,
 }
 
 /// This enum contains variants for each DS endpoint.
@@ -182,7 +179,6 @@ pub enum QsRequestParamsOut {
     DeleteClient(DeleteClientRecordParams),
     // Key packages
     PublishKeyPackages(PublishKeyPackagesParamsOut),
-    ClientKeyPackage(ClientKeyPackageParams),
     KeyPackage(KeyPackageParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
@@ -394,9 +390,6 @@ mod tests {
         let params = PublishKeyPackagesParamsOut {
             sender: QsClientId::from(Uuid::from_u128(1)),
             key_packages: vec![], // Note: No easy way to create a key package for testing.
-            friendship_ear_key: KeyPackageEarKey::from(Secret::from(
-                *b"friendship_ear_key_32_bytes__pad",
-            )),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
@@ -421,42 +414,10 @@ mod tests {
     }
 
     #[test]
-    fn qs_request_client_key_package_api_stability() {
-        let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
-        let params = ClientKeyPackageParams {
-            sender: QsUserId::from(Uuid::from_u128(1)),
-            client_id: QsClientId::from(Uuid::from_u128(2)),
-        };
-        let message_out = ClientToQsMessageOut {
-            payload: ClientToQsMessageTbsOut {
-                body: QsVersionedRequestParamsOut::Alpha(QsRequestParamsOut::ClientKeyPackage(
-                    params,
-                )),
-            },
-            signature: Signature::from_token(token.clone()),
-        };
-
-        let message_out_tls = message_out.tls_serialize_detached().unwrap();
-        match VerifiableClientToQsMessage::tls_deserialize_exact_bytes(&message_out_tls)
-            .unwrap()
-            .verify_with_token(token)
-            .unwrap()
-        {
-            QsVersionedRequestParams::Alpha(QsRequestParams::ClientKeyPackage(_)) => {}
-            _ => panic!("expected ClientKeyPackage variant"),
-        }
-
-        insta::assert_binary_snapshot!(".tls", message_out_tls);
-    }
-
-    #[test]
     fn qs_request_key_package_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
         let params = KeyPackageParams {
             sender: token.clone(),
-            friendship_ear_key: KeyPackageEarKey::from(Secret::from(
-                *b"friendship_ear_key_32_bytes__pad",
-            )),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {

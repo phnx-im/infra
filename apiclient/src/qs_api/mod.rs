@@ -8,7 +8,6 @@ use phnxtypes::{
     LibraryError,
     crypto::{
         RatchetEncryptionKey,
-        ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
         signatures::{
             keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
@@ -22,10 +21,9 @@ use phnxtypes::{
     messages::{
         FriendshipToken,
         client_qs::{
-            ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
-            CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
-            DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
-            KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
+            CreateClientRecordResponse, CreateUserRecordResponse, DeleteClientRecordParams,
+            DeleteUserRecordParams, DequeueMessagesParams, DequeueMessagesResponse,
+            EncryptionKeyResponse, KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
             QsVersionedProcessResponseIn, SUPPORTED_QS_API_VERSIONS, UpdateClientRecordParams,
             UpdateUserRecordParams,
         },
@@ -276,13 +274,11 @@ impl ApiClient {
         &self,
         sender: QsClientId,
         key_packages: Vec<KeyPackage>,
-        friendship_ear_key: KeyPackageEarKey,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
         let payload = PublishKeyPackagesParamsOut {
             sender,
             key_packages,
-            friendship_ear_key,
         };
         self.prepare_and_send_qs_message(
             QsRequestParamsOut::PublishKeyPackages(payload),
@@ -293,28 +289,6 @@ impl ApiClient {
         .and_then(|response| {
             if matches!(response, QsProcessResponseIn::Ok) {
                 Ok(())
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    pub async fn qs_client_key_package(
-        &self,
-        sender: QsUserId,
-        client_id: QsClientId,
-        signing_key: &QsUserSigningKey,
-    ) -> Result<ClientKeyPackageResponse, QsRequestError> {
-        let payload = ClientKeyPackageParams { sender, client_id };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::ClientKeyPackage(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::ClientKeyPackage(resp) = response {
-                Ok(resp)
             } else {
                 Err(QsRequestError::UnexpectedResponse)
             }
@@ -351,11 +325,9 @@ impl ApiClient {
     pub async fn qs_key_package(
         &self,
         sender: FriendshipToken,
-        friendship_ear_key: KeyPackageEarKey,
     ) -> Result<KeyPackageResponseIn, QsRequestError> {
         let payload = KeyPackageParams {
             sender: sender.clone(),
-            friendship_ear_key,
         };
         self.prepare_and_send_qs_message(
             QsRequestParamsOut::KeyPackage(payload),
