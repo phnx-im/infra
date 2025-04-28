@@ -133,7 +133,7 @@ impl Contact {
             "INSERT INTO contacts
                 (user_name, conversation_id, clients, wai_ear_key, friendship_token,
                 connection_key, user_profile_key_index)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                VALUES (?, ?, ?, ?, ?, ?, ?)",
             self.user_name,
             self.conversation_id,
             clients_str,
