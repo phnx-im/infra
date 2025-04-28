@@ -11,7 +11,7 @@ use anyhow::bail;
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     Asset, UserProfile,
-    clients::{ListenResponse, listen_response},
+    clients::{QueueEvent, queue_event},
 };
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use phnxtypes::identifiers::QualifiedUserName;
@@ -352,14 +352,11 @@ async fn run_listen(
         };
 
         match event {
-            Some(ListenResponse {
-                response: Some(response),
-            }) => {
-                handle_queue_event(response, core_user, navigation_state, notification_service)
-                    .await
+            Some(QueueEvent { event: Some(event) }) => {
+                handle_queue_event(event, core_user, navigation_state, notification_service).await
             }
-            Some(ListenResponse { response: None }) => {
-                error!("unexpected event from the queue without a response");
+            Some(QueueEvent { event: None }) => {
+                error!("missing `event` field in queue event");
             }
             None => bail!("disconnected from the queue"),
         }
@@ -411,18 +408,18 @@ fn spawn_polling(
 }
 
 async fn handle_queue_event(
-    event: listen_response::Response,
+    event: queue_event::Event,
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
     notification_service: &NotificationService,
 ) {
     debug!(?event, "handling listen event");
     match event {
-        listen_response::Response::Event(_) => {
-            // currently, we don't handle events
+        queue_event::Event::Payload(_) => {
+            // currently, we don't handle payload events
             warn!("ignoring listen event")
         }
-        listen_response::Response::Update(_) => {
+        queue_event::Event::Update(_) => {
             let core_user = core_user.clone();
             let user = User::from_core_user(core_user);
             match user.fetch_all_messages().await {

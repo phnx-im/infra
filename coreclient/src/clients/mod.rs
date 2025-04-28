@@ -14,7 +14,9 @@ use opaque_ke::{
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
-pub use phnxprotos::queue_service::v1::{ListenResponse, QueueEvent, QueueUpdate, listen_response};
+pub use phnxprotos::queue_service::v1::{
+    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
+};
 use phnxtypes::{
     DEFAULT_PORT_GRPC,
     credentials::{
@@ -483,7 +485,7 @@ impl CoreUser {
         Some(group.pending_removes(&mut connection).await)
     }
 
-    pub async fn listen_queue(&self) -> Result<impl Stream<Item = ListenResponse> + use<>> {
+    pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
         let api_client = self.inner.api_clients.default_client()?;
         Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
     }

@@ -5,7 +5,7 @@
 use futures_util::Stream;
 use http::StatusCode;
 use mls_assist::openmls::prelude::KeyPackage;
-use phnxprotos::queue_service::v1::ListenResponse;
+use phnxprotos::queue_service::v1::QueueEvent;
 use phnxtypes::{
     LibraryError,
     crypto::{
@@ -412,7 +412,7 @@ impl ApiClient {
     pub async fn listen_queue(
         &self,
         queue_id: QsClientId,
-    ) -> Result<impl Stream<Item = ListenResponse> + use<>, QsRequestError> {
+    ) -> Result<impl Stream<Item = QueueEvent> + use<>, QsRequestError> {
         self.qs_grpc_client.listen(queue_id).await
     }
 }

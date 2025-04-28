@@ -10,7 +10,7 @@ use actix::{
 };
 use phnxprotos::{
     convert::RefInto,
-    queue_service::v1::{ListenResponse, QueueEvent, QueueUpdate, listen_response},
+    queue_service::v1::{QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event},
 };
 use phnxtypes::{
     identifiers::QsClientId,
@@ -30,7 +30,7 @@ enum NotifyClientError {
 
 enum DispatchDestination {
     Actor(Recipient<InternalQsWsMessage>),
-    Channel(mpsc::UnboundedSender<ListenResponse>),
+    Channel(mpsc::UnboundedSender<QueueEvent>),
 }
 
 /// Dispatch for all websocket connections. It keeps a list of all connected
@@ -69,17 +69,17 @@ impl Dispatch {
     }
 }
 
-impl From<InternalQsWsMessage> for ListenResponse {
+impl From<InternalQsWsMessage> for QueueEvent {
     fn from(message: InternalQsWsMessage) -> Self {
-        let response = match message.inner {
-            QsWsMessage::QueueUpdate => listen_response::Response::Update(QueueUpdate {}),
+        let event = match message.inner {
+            QsWsMessage::QueueUpdate => queue_event::Event::Update(QueueEventUpdate {}),
             QsWsMessage::Event(DsEventMessage {
                 group_id,
                 sender_index,
                 epoch,
                 timestamp,
                 payload,
-            }) => listen_response::Response::Event(QueueEvent {
+            }) => queue_event::Event::Payload(QueueEventPayload {
                 group_id: Some(group_id.ref_into()),
                 sender: Some(sender_index.into()),
                 epoch: Some(epoch.into()),
@@ -87,9 +87,7 @@ impl From<InternalQsWsMessage> for ListenResponse {
                 payload,
             }),
         };
-        ListenResponse {
-            response: Some(response),
-        }
+        QueueEvent { event: Some(event) }
     }
 }
 

@@ -10,7 +10,7 @@ use phnxprotos::{
 };
 use phnxtypes::identifiers;
 use tokio::sync::mpsc::{self, unbounded_channel};
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::{Stream, StreamExt, wrappers::UnboundedReceiverStream};
 use tonic::{Request, Response, Status, async_trait};
 
 use super::Qs;
@@ -30,7 +30,7 @@ pub trait GrpcListen: Send + Sync + 'static {
     fn register_connection(
         &self,
         queue_id: identifiers::QsClientId,
-        tx: mpsc::UnboundedSender<ListenResponse>,
+        tx: mpsc::UnboundedSender<QueueEvent>,
     ) -> impl Future<Output = ()> + Send + Sync;
 }
 
@@ -113,8 +113,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         todo!()
     }
 
-    type ListenStream =
-        Pin<Box<dyn Stream<Item = Result<ListenResponse, Status>> + Send + 'static>>;
+    type ListenStream = Pin<Box<dyn Stream<Item = Result<QueueEvent, Status>> + Send + 'static>>;
 
     async fn listen(
         &self,
@@ -131,7 +130,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         self.listen.register_connection(client_id, tx).await;
 
         Ok(Response::new(Box::pin(
-            tokio_stream::wrappers::UnboundedReceiverStream::new(rx).map(Ok),
+            UnboundedReceiverStream::new(rx).map(Ok),
         )))
     }
 }

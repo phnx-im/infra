@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxprotos::queue_service::v1::{
-    ListenRequest, ListenResponse, queue_service_client::QueueServiceClient,
+    ListenRequest, QueueEvent, queue_service_client::QueueServiceClient,
 };
 use phnxtypes::identifiers::QsClientId;
 use tokio_stream::{Stream, StreamExt};
@@ -25,7 +25,7 @@ impl QsGrpcClient {
     pub(crate) async fn listen(
         &self,
         queue_id: QsClientId,
-    ) -> Result<impl Stream<Item = ListenResponse> + use<>, QsRequestError> {
+    ) -> Result<impl Stream<Item = QueueEvent> + use<>, QsRequestError> {
         let request = ListenRequest {
             client_id: Some(queue_id.into()),
         };

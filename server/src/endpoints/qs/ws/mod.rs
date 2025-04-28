@@ -20,7 +20,7 @@ use messages::*;
 use phnxbackend::qs::{
     WebsocketNotifier, WebsocketNotifierError, WsNotification, grpc::GrpcListen,
 };
-use phnxprotos::queue_service::v1::ListenResponse;
+use phnxprotos::queue_service::v1::QueueEvent;
 use phnxtypes::{
     codec::PhnxCodec,
     identifiers::QsClientId,
@@ -297,7 +297,7 @@ impl GrpcListen for DispatchWebsocketNotifier {
     async fn register_connection(
         &self,
         queue_id: QsClientId,
-        tx: mpsc::UnboundedSender<ListenResponse>,
+        tx: mpsc::UnboundedSender<QueueEvent>,
     ) {
         if let Err(error) = self
             .dispatch_addr

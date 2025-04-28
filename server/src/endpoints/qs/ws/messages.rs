@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use actix::prelude::{Message, Recipient};
-use phnxprotos::queue_service::v1::ListenResponse;
+use phnxprotos::queue_service::v1::QueueEvent;
 use phnxtypes::identifiers::QsClientId;
 use tokio::sync::mpsc;
 
@@ -21,7 +21,7 @@ pub struct Connect {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct GrpcConnect {
-    pub tx: mpsc::UnboundedSender<ListenResponse>,
+    pub tx: mpsc::UnboundedSender<QueueEvent>,
     pub own_queue_id: QsClientId,
 }
 
