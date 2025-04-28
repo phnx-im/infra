@@ -52,9 +52,12 @@ impl<KT> From<VerifyingKey<KT>> for SignaturePublicKey {
     }
 }
 
-pub trait VerifyingKeyBehaviour {
+trait AsSlice {
     fn as_slice(&self) -> &[u8];
+}
 
+#[allow(private_bounds)]
+pub trait VerifyingKeyBehaviour: AsSlice {
     /// Verify the given signature with the given payload. Returns an error if the
     /// verification fails or if the signature does not have the right length.
     fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), SignatureVerificationError> {
@@ -71,13 +74,16 @@ pub trait VerifyingKeyBehaviour {
     }
 }
 
-impl<KT> VerifyingKeyBehaviour for &VerifyingKey<KT> {
+impl<KT> VerifyingKeyBehaviour for &VerifyingKey<KT> {}
+impl<KT> VerifyingKeyBehaviour for VerifyingKeyRef<'_, KT> {}
+
+impl<KT> AsSlice for &VerifyingKey<KT> {
     fn as_slice(&self) -> &[u8] {
         &self.key
     }
 }
 
-impl<KT> VerifyingKeyBehaviour for VerifyingKeyRef<'_, KT> {
+impl<KT> AsSlice for VerifyingKeyRef<'_, KT> {
     fn as_slice(&self) -> &[u8] {
         self.key
     }
@@ -137,7 +143,7 @@ impl<KT> SigningKey<KT> {
     }
 
     /// Sign the given payload with this signing key.
-    pub fn sign(&self, payload: &[u8]) -> Result<Signature, LibraryError> {
+    pub(crate) fn sign(&self, payload: &[u8]) -> Result<Signature, LibraryError> {
         let rust_crypto = OpenMlsRustCrypto::default();
         rust_crypto
             .crypto()
