@@ -3,48 +3,36 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use futures_util::Stream;
-use http::StatusCode;
 use mls_assist::openmls::prelude::KeyPackage;
-use phnxprotos::queue_service::v1::QueueEvent;
+use phnxprotos::queue_service::v1::{
+    ClientKeyPackageRequest, CreateClientRequest, CreateUserRequest, DeleteClientRequest,
+    DeleteUserRequest, DequeueMessagesRequest, KeyPackageRequest, ListenRequest,
+    PublishKeyPackagesRequest, QsEncryptionKeyRequest, QueueEvent, UpdateClientRequest,
+    UpdateUserRequest,
+};
 use phnxtypes::{
     LibraryError,
     crypto::{
         RatchetEncryptionKey,
         ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
-        signatures::{
-            keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
-            signable::Signable,
-            traits::SigningKeyBehaviour,
-        },
+        signatures::keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
     },
-    endpoint_paths::ENDPOINT_QS,
-    errors::version::VersionError,
     identifiers::{QsClientId, QsUserId},
     messages::{
-        FriendshipToken,
+        FriendshipToken, QueueMessage,
         client_qs::{
-            ClientKeyPackageParams, ClientKeyPackageResponse, CreateClientRecordResponse,
-            CreateUserRecordResponse, DeleteClientRecordParams, DeleteUserRecordParams,
-            DequeueMessagesParams, DequeueMessagesResponse, EncryptionKeyResponse,
-            KeyPackageParams, KeyPackageResponseIn, QsProcessResponseIn,
-            QsVersionedProcessResponseIn, SUPPORTED_QS_API_VERSIONS, UpdateClientRecordParams,
-            UpdateUserRecordParams,
-        },
-        client_qs_out::{
-            ClientToQsMessageOut, ClientToQsMessageTbsOut, CreateClientRecordParamsOut,
-            PublishKeyPackagesParamsOut, QsRequestParamsOut, QsVersionedRequestParamsOut,
+            ClientKeyPackageResponse, CreateClientRecordResponse, CreateUserRecordResponse,
+            DequeueMessagesResponse, EncryptionKeyResponse, KeyPackageResponseIn,
         },
         push_token::EncryptedPushToken,
     },
 };
 use thiserror::Error;
-use tls_codec::{DeserializeBytes, Serialize};
+use tokio_stream::StreamExt;
+use tracing::error;
 
-use crate::{
-    ApiClient, Protocol,
-    version::{extract_api_version_negotiation, negotiate_api_version},
-};
+use crate::ApiClient;
 
 pub mod grpc;
 pub mod ws;
@@ -56,16 +44,10 @@ mod tests;
 pub enum QsRequestError {
     #[error("Library Error")]
     LibraryError,
-    #[error(transparent)]
-    Reqwest(#[from] reqwest::Error),
     #[error("Couldn't deserialize TLS response body: {0}")]
     Tls(#[from] tls_codec::Error),
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
-    #[error("Unsuccessful response: status = {status}, error = {error}")]
-    RequestFailed { status: StatusCode, error: String },
-    #[error(transparent)]
-    Version(#[from] VersionError),
     #[error(transparent)]
     Tonic(#[from] tonic::Status),
 }
@@ -76,48 +58,7 @@ impl From<LibraryError> for QsRequestError {
     }
 }
 
-// TODO: This is a workaround that allows us to use the Signable trait.
-enum AuthenticationMethod<'a, T: SigningKeyBehaviour> {
-    Token(FriendshipToken),
-    SigningKey(&'a T),
-    None,
-}
-
 impl ApiClient {
-    async fn prepare_and_send_qs_message<T: SigningKeyBehaviour>(
-        &self,
-        request_params: QsRequestParamsOut,
-        token_or_signing_key: AuthenticationMethod<'_, T>,
-    ) -> Result<QsProcessResponseIn, QsRequestError> {
-        let api_version = self.negotiated_versions().qs_api_version();
-
-        let request_params =
-            QsVersionedRequestParamsOut::with_version(request_params, api_version)?;
-        let message = sign_params(request_params, &token_or_signing_key)?;
-
-        let response = self.send_qs_http_request(&message).await?;
-
-        // check if we need to negotiate a new API version
-        let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
-            return handle_qs_response(response).await;
-        };
-
-        let supported_versions = SUPPORTED_QS_API_VERSIONS;
-        let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
-            .ok_or_else(|| VersionError::new(api_version, supported_versions))?;
-        self.negotiated_versions()
-            .set_qs_api_version(accepted_version);
-
-        let (request_params, _) = message
-            .into_payload()
-            .into_body()
-            .change_version(accepted_version)?;
-        let message = sign_params(request_params, &token_or_signing_key)?;
-
-        let response = self.send_qs_http_request(&message).await?;
-        handle_qs_response(response).await
-    }
-
     pub async fn qs_create_user(
         &self,
         friendship_token: FriendshipToken,
@@ -127,38 +68,44 @@ impl ApiClient {
         initial_ratchet_key: RatchetSecret,
         signing_key: &QsUserSigningKey,
     ) -> Result<CreateUserRecordResponse, QsRequestError> {
-        self.qs_grpc_client
-            .create_user(
-                friendship_token,
-                client_record_auth_key,
-                queue_encryption_key,
-                encrypted_push_token,
-                initial_ratchet_key,
-                signing_key,
-            )
-            .await
-
-        // let payload = CreateUserRecordParamsOut {
-        //     user_record_auth_key: signing_key.verifying_key().clone(),
-        //     friendship_token,
-        //     client_record_auth_key,
-        //     queue_encryption_key,
-        //     encrypted_push_token,
-        //     initial_ratchet_secret: initial_ratchet_key,
-        // };
-        // self.prepare_and_send_qs_message(
-        //     QsRequestParamsOut::CreateUser(payload),
-        //     AuthenticationMethod::SigningKey(signing_key),
-        // )
-        // .await
-        // // Check if the response is what we expected it to be.
-        // .and_then(|response| {
-        //     if let QsProcessResponseIn::CreateUser(resp) = response {
-        //         Ok(resp)
-        //     } else {
-        //         Err(QsRequestError::UnexpectedResponse)
-        //     }
-        // })
+        let request = CreateUserRequest {
+            user_record_auth_key: Some(signing_key.verifying_key().clone().into()),
+            friendship_token: Some(friendship_token.into()),
+            client_record_auth_key: Some(client_record_auth_key.into()),
+            queue_encryption_key: Some(queue_encryption_key.into()),
+            encrypted_push_token: encrypted_push_token.map(From::from),
+            initial_ratched_secret: Some(initial_ratchet_key.into()),
+        };
+        let response = self
+            .qs_grpc_client
+            .client()
+            .create_user(request)
+            .await?
+            .into_inner();
+        Ok(CreateUserRecordResponse {
+            user_id: response
+                .user_id
+                .ok_or_else(|| {
+                    error!("missing user_id in response");
+                    QsRequestError::UnexpectedResponse
+                })?
+                .try_into()
+                .map_err(|error| {
+                    error!(%error, "invalid user_id in response");
+                    QsRequestError::UnexpectedResponse
+                })?,
+            client_id: response
+                .client_id
+                .ok_or_else(|| {
+                    error!("missing client_id in response");
+                    QsRequestError::UnexpectedResponse
+                })?
+                .try_into()
+                .map_err(|error| {
+                    error!(%error, "invalid client_id in response");
+                    QsRequestError::UnexpectedResponse
+                })?,
+        })
     }
 
     pub async fn qs_update_user(
@@ -167,45 +114,25 @@ impl ApiClient {
         friendship_token: FriendshipToken,
         signing_key: &QsUserSigningKey,
     ) -> Result<(), QsRequestError> {
-        let payload = UpdateUserRecordParams {
-            user_record_auth_key: signing_key.verifying_key().clone(),
-            friendship_token,
-            sender,
+        let request = UpdateUserRequest {
+            sender: Some(sender.into()),
+            user_record_auth_key: Some(signing_key.verifying_key().clone().into()),
+            friendship_token: Some(friendship_token.into()),
         };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::UpdateUser(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if matches!(response, QsProcessResponseIn::Ok) {
-                Ok(())
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
+        self.qs_grpc_client.client().update_user(request).await?;
+        Ok(())
     }
 
     pub async fn qs_delete_user(
         &self,
         sender: QsUserId,
-        signing_key: &QsUserSigningKey,
+        _signing_key: &QsUserSigningKey,
     ) -> Result<(), QsRequestError> {
-        let payload = DeleteUserRecordParams { sender };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::DeleteUser(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if matches!(response, QsProcessResponseIn::Ok) {
-                Ok(())
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
+        let request = DeleteUserRequest {
+            sender: Some(sender.into()),
+        };
+        self.qs_grpc_client.client().delete_user(request).await?;
+        Ok(())
     }
 
     pub async fn qs_create_client(
@@ -215,27 +142,33 @@ impl ApiClient {
         queue_encryption_key: RatchetEncryptionKey,
         encrypted_push_token: Option<EncryptedPushToken>,
         initial_ratchet_key: RatchetSecret,
-        signing_key: &QsUserSigningKey,
+        _signing_key: &QsUserSigningKey,
     ) -> Result<CreateClientRecordResponse, QsRequestError> {
-        let payload = CreateClientRecordParamsOut {
-            sender,
-            client_record_auth_key,
-            queue_encryption_key,
-            encrypted_push_token,
-            initial_ratchet_secret: initial_ratchet_key,
+        let request = CreateClientRequest {
+            sender: Some(sender.into()),
+            client_record_auth_key: Some(client_record_auth_key.into()),
+            queue_encryption_key: Some(queue_encryption_key.into()),
+            encrypted_push_token: encrypted_push_token.map(|token| token.into()),
+            initial_ratched_secret: Some(initial_ratchet_key.into()),
         };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::CreateClient(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::CreateClient(resp) = response {
-                Ok(resp)
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
+        let response = self
+            .qs_grpc_client
+            .client()
+            .create_client(request)
+            .await?
+            .into_inner();
+        Ok(CreateClientRecordResponse {
+            client_id: response
+                .client_id
+                .ok_or_else(|| {
+                    error!("missing client_id in response");
+                    QsRequestError::UnexpectedResponse
+                })?
+                .try_into()
+                .map_err(|error| {
+                    error!(%error, "invalid client_id in response");
+                    QsRequestError::UnexpectedResponse
+                })?,
         })
     }
 
@@ -246,46 +179,26 @@ impl ApiClient {
         encrypted_push_token: Option<EncryptedPushToken>,
         signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
-        let payload = UpdateClientRecordParams {
-            sender,
-            client_record_auth_key: signing_key.verifying_key().clone(),
-            queue_encryption_key,
-            encrypted_push_token,
+        let request = UpdateClientRequest {
+            sender: Some(sender.into()),
+            client_record_auth_key: Some(signing_key.verifying_key().clone().into()),
+            queue_encryption_key: Some(queue_encryption_key.into()),
+            encrypted_push_token: encrypted_push_token.map(|token| token.into()),
         };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::UpdateClient(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if matches!(response, QsProcessResponseIn::Ok) {
-                Ok(())
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
+        self.qs_grpc_client.client().update_client(request).await?;
+        Ok(())
     }
 
     pub async fn qs_delete_client(
         &self,
         sender: QsClientId,
-        signing_key: &QsClientSigningKey,
+        _signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
-        let payload = DeleteClientRecordParams { sender };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::DeleteClient(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if matches!(response, QsProcessResponseIn::Ok) {
-                Ok(())
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
+        let request = DeleteClientRequest {
+            sender: Some(sender.into()),
+        };
+        self.qs_grpc_client.client().delete_client(request).await?;
+        Ok(())
     }
 
     pub async fn qs_publish_key_packages(
@@ -293,47 +206,51 @@ impl ApiClient {
         sender: QsClientId,
         key_packages: Vec<KeyPackage>,
         friendship_ear_key: KeyPackageEarKey,
-        signing_key: &QsClientSigningKey,
+        _signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
-        let payload = PublishKeyPackagesParamsOut {
-            sender,
-            key_packages,
-            friendship_ear_key,
+        let request = PublishKeyPackagesRequest {
+            client_id: Some(sender.into()),
+            key_packages: key_packages
+                .into_iter()
+                .map(|key_package| key_package.try_into())
+                .collect::<Result<Vec<_>, _>>()?,
+            key_package_ear_key: Some(friendship_ear_key.into()),
         };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::PublishKeyPackages(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if matches!(response, QsProcessResponseIn::Ok) {
-                Ok(())
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
+        self.qs_grpc_client
+            .client()
+            .publish_key_packages(request)
+            .await?;
+        Ok(())
     }
 
     pub async fn qs_client_key_package(
         &self,
         sender: QsUserId,
         client_id: QsClientId,
-        signing_key: &QsUserSigningKey,
+        _signing_key: &QsUserSigningKey,
     ) -> Result<ClientKeyPackageResponse, QsRequestError> {
-        let payload = ClientKeyPackageParams { sender, client_id };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::ClientKeyPackage(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::ClientKeyPackage(resp) = response {
-                Ok(resp)
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
+        let request = ClientKeyPackageRequest {
+            sender: Some(sender.into()),
+            client_id: Some(client_id.into()),
+        };
+        let response = self
+            .qs_grpc_client
+            .client()
+            .client_key_package(request)
+            .await?
+            .into_inner();
+        Ok(ClientKeyPackageResponse {
+            encrypted_key_package: response
+                .key_package
+                .ok_or_else(|| {
+                    error!("missing key_package in response");
+                    QsRequestError::UnexpectedResponse
+                })?
+                .try_into()
+                .map_err(|error| {
+                    error!(%error, "invalid key_package in response");
+                    QsRequestError::UnexpectedResponse
+                })?,
         })
     }
 
@@ -342,25 +259,31 @@ impl ApiClient {
         sender: &QsClientId,
         sequence_number_start: u64,
         max_message_number: u64,
-        signing_key: &QsClientSigningKey,
+        _signing_key: &QsClientSigningKey,
     ) -> Result<DequeueMessagesResponse, QsRequestError> {
-        let payload = DequeueMessagesParams {
-            sender: *sender,
+        let request = DequeueMessagesRequest {
+            sender: Some((*sender).into()),
             sequence_number_start,
             max_message_number,
         };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::DequeueMessages(payload),
-            AuthenticationMethod::SigningKey(signing_key),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::DequeueMessages(resp) = response {
-                Ok(resp)
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
+        let response = self
+            .qs_grpc_client
+            .client()
+            .dequeue_messages(request)
+            .await?
+            .into_inner();
+        let messages: Result<Vec<QueueMessage>, _> = response
+            .messages
+            .into_iter()
+            .map(|message| message.try_into())
+            .collect();
+        let messages = messages.map_err(|error| {
+            error!(%error, "failed to dequeue messages");
+            QsRequestError::UnexpectedResponse
+        })?;
+        Ok(DequeueMessagesResponse {
+            messages,
+            remaining_messages_number: response.remaining_messages_number,
         })
     }
 
@@ -369,91 +292,61 @@ impl ApiClient {
         sender: FriendshipToken,
         friendship_ear_key: KeyPackageEarKey,
     ) -> Result<KeyPackageResponseIn, QsRequestError> {
-        let payload = KeyPackageParams {
-            sender: sender.clone(),
-            friendship_ear_key,
+        let request = KeyPackageRequest {
+            sender: Some(sender.into()),
+            friendship_ear_key: Some(friendship_ear_key.into()),
         };
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::KeyPackage(payload),
-            AuthenticationMethod::<QsUserSigningKey>::Token(sender),
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::KeyPackage(resp) = response {
-                Ok(resp)
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
+        let response = self
+            .qs_grpc_client
+            .client()
+            .key_package(request)
+            .await?
+            .into_inner();
+        let key_package = response
+            .key_package
+            .ok_or_else(|| {
+                error!("missing key_package in response");
+                QsRequestError::UnexpectedResponse
+            })?
+            .try_into()
+            .map_err(|error| {
+                error!(%error, "invalid key_package in response");
+                QsRequestError::UnexpectedResponse
+            })?;
+        Ok(KeyPackageResponseIn { key_package })
     }
 
     pub async fn qs_encryption_key(&self) -> Result<EncryptionKeyResponse, QsRequestError> {
-        self.prepare_and_send_qs_message(
-            QsRequestParamsOut::QsEncryptionKey,
-            AuthenticationMethod::<QsUserSigningKey>::None,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let QsProcessResponseIn::EncryptionKey(resp) = response {
-                Ok(resp)
-            } else {
-                Err(QsRequestError::UnexpectedResponse)
-            }
-        })
-    }
-
-    async fn send_qs_http_request(
-        &self,
-        message: &ClientToQsMessageOut,
-    ) -> Result<reqwest::Response, QsRequestError> {
-        let message_bytes = message.tls_serialize_detached()?;
-        let endpoint = self.build_url(Protocol::Http, ENDPOINT_QS);
+        let request = QsEncryptionKeyRequest {};
         let response = self
-            .client
-            .post(&endpoint)
-            .body(message_bytes)
-            .send()
-            .await?;
-        Ok(response)
+            .qs_grpc_client
+            .client()
+            .qs_encryption_key(request)
+            .await?
+            .into_inner();
+        let encryption_key = response
+            .encryption_key
+            .ok_or_else(|| {
+                error!("missing encryption_key in response");
+                QsRequestError::UnexpectedResponse
+            })?
+            .into();
+        Ok(EncryptionKeyResponse { encryption_key })
     }
 
     pub async fn listen_queue(
         &self,
         queue_id: QsClientId,
     ) -> Result<impl Stream<Item = QueueEvent> + use<>, QsRequestError> {
-        self.qs_grpc_client.listen(queue_id).await
-    }
-}
-
-fn sign_params<T: SigningKeyBehaviour>(
-    request_params: QsVersionedRequestParamsOut,
-    token_or_signing_key: &AuthenticationMethod<'_, T>,
-) -> Result<ClientToQsMessageOut, QsRequestError> {
-    let tbs = ClientToQsMessageTbsOut::new(request_params);
-    let message = match token_or_signing_key {
-        AuthenticationMethod::Token(token) => ClientToQsMessageOut::from_token(tbs, token.clone()),
-        AuthenticationMethod::SigningKey(signing_key) => tbs.sign(*signing_key)?,
-        AuthenticationMethod::None => ClientToQsMessageOut::without_signature(tbs),
-    };
-    Ok(message)
-}
-
-async fn handle_qs_response(
-    response: reqwest::Response,
-) -> Result<QsProcessResponseIn, QsRequestError> {
-    let status = response.status();
-    if status.is_success() {
-        let bytes = response.bytes().await?;
-        let qs_response = QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)?
-            .into_unversioned()?;
-        Ok(qs_response)
-    } else {
-        let error = response
-            .text()
-            .await
-            .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
-        Err(QsRequestError::RequestFailed { status, error })
+        let request = ListenRequest {
+            client_id: Some(queue_id.into()),
+        };
+        let response = self.qs_grpc_client.client().listen(request).await?;
+        let stream = response.into_inner().map_while(|response| {
+            response
+                .inspect_err(|status| error!(?status, "terminating listen stream due to an error"))
+                .ok()
+        });
+        Ok(stream)
     }
 }

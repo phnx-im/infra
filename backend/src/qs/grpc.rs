@@ -243,10 +243,10 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         Ok(Response::new(PublishKeyPackagesResponse {}))
     }
 
-    async fn client_key_packages(
+    async fn client_key_package(
         &self,
-        request: Request<ClientKeyPackagesRequest>,
-    ) -> Result<Response<ClientKeyPackagesResponse>, Status> {
+        request: Request<ClientKeyPackageRequest>,
+    ) -> Result<Response<ClientKeyPackageResponse>, Status> {
         let request = request.into_inner();
         let params = ClientKeyPackageParams {
             sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
@@ -260,7 +260,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
             .qs_client_key_package(params)
             .await
             .map_err(ClientKeyPackageError)?;
-        Ok(Response::new(ClientKeyPackagesResponse {
+        Ok(Response::new(ClientKeyPackageResponse {
             key_package: Some(response.encrypted_key_package.into()),
         }))
     }
@@ -295,7 +295,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         let params = DequeueMessagesParams {
             sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
             sequence_number_start: request.sequence_number_start,
-            max_message_number: request.max_messages_number,
+            max_message_number: request.max_message_number,
         };
         let response = self
             .qs
@@ -314,9 +314,8 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
 
     async fn qs_encryption_key(
         &self,
-        request: Request<QsEncryptionKeyRequest>,
+        _request: Request<QsEncryptionKeyRequest>,
     ) -> Result<Response<QsEncryptionKeyResponse>, Status> {
-        let _request = request.into_inner();
         let response = self
             .qs
             .qs_encryption_key()

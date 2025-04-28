@@ -19,7 +19,7 @@ service QueueService {
   rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
 
   rpc PublishKeyPackages(PublishKeyPackagesRequest) returns (PublishKeyPackagesResponse);
-  rpc ClientKeyPackages(ClientKeyPackagesRequest) returns (ClientKeyPackagesResponse);
+  rpc ClientKeyPackage(ClientKeyPackageRequest) returns (ClientKeyPackageResponse);
   rpc KeyPackage(KeyPackageRequest) returns (KeyPackageResponse);
 
   rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
@@ -141,14 +141,14 @@ message KeyPackageEarKey {
 
 message PublishKeyPackagesResponse {}
 
-// client key packages
+// client key package
 
-message ClientKeyPackagesRequest {
+message ClientKeyPackageRequest {
   QsUserId sender = 1;
   QsClientId client_id = 2;
 }
 
-message ClientKeyPackagesResponse {
+message ClientKeyPackageResponse {
   QsEncryptedKeyPackage key_package = 1;
 }
 
@@ -172,7 +172,7 @@ message KeyPackageResponse {
 message DequeueMessagesRequest {
   QsClientId sender = 1;
   uint64 sequence_number_start = 2;
-  uint64 max_messages_number = 3;
+  uint64 max_message_number = 3;
 }
 
 message DequeueMessagesResponse {
@@ -187,9 +187,7 @@ message QueueMessage {
 
 // qs encryption key
 
-message QsEncryptionKeyRequest {
-  QsUserId user_id = 1;
-}
+message QsEncryptionKeyRequest {}
 
 message QsEncryptionKeyResponse {
   ClientIdEncryptionKey encryption_key = 1;
