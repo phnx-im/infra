@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::net::TcpListener;
+use std::{net::TcpListener, time::Duration};
 
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
+    RateLimitsConfig, ServerRunParams,
     configurations::*,
     endpoints::qs::{
         push_notification_provider::ProductionPushNotificationProvider,
@@ -100,8 +101,9 @@ async fn main() -> std::io::Result<()> {
         push_notification_provider,
         network: network_provider.clone(),
     };
+
     // Start the server
-    run(
+    run(ServerRunParams {
         listener,
         grpc_listener,
         ds,
@@ -110,6 +112,10 @@ async fn main() -> std::io::Result<()> {
         qs_connector,
         network_provider,
         ws_dispatch_notifier,
-    )?
+        rate_limits: RateLimitsConfig {
+            period: Duration::from_millis(500),
+            burst_size: 20,
+        },
+    })?
     .await
 }
