@@ -45,7 +45,7 @@ use crate::{
     messages::FriendshipToken,
 };
 
-use super::private_keys::{SignatureVerificationError, SigningKey, VerifyingKey};
+use super::private_keys::{SignatureVerificationError, SigningKey, VerifyingKeyBehaviour};
 
 #[derive(
     Debug,
@@ -216,9 +216,9 @@ pub trait Verifiable: Sized + std::fmt::Debug {
     ///
     /// Returns `Ok(Self::VerifiedOutput)` if the signature is valid and
     /// `CredentialError::InvalidSignature` otherwise.
-    fn verify<T, KT>(
+    fn verify<T>(
         self,
-        signature_public_key: &VerifyingKey<KT>,
+        signature_public_key: impl VerifyingKeyBehaviour,
     ) -> Result<T, SignatureVerificationError>
     where
         T: VerifiedStruct<Self>,

@@ -29,13 +29,9 @@ pub struct VerifyingKey<KT> {
     _type: PhantomData<KT>,
 }
 
-impl<KT> From<Vec<u8>> for VerifyingKey<KT> {
-    fn from(key: Vec<u8>) -> Self {
-        Self {
-            key,
-            _type: PhantomData,
-        }
-    }
+pub struct VerifyingKeyRef<'a, KT> {
+    key: &'a [u8],
+    _type: PhantomData<KT>,
 }
 
 impl<KT, DB: sqlx::Database> sqlx::Type<DB> for VerifyingKey<KT>
@@ -66,14 +62,14 @@ where
     fn decode(
         value: <DB as sqlx::Database>::ValueRef<'r>,
     ) -> Result<Self, sqlx::error::BoxDynError> {
-        <Vec<u8> as sqlx::Decode<DB>>::decode(value).map(From::from)
+        <Vec<u8> as sqlx::Decode<DB>>::decode(value).map(Self::from_bytes)
     }
 }
 
 // We need these traits to interop the MLS leaf keys.
-impl<KT> From<SignaturePublicKey> for VerifyingKey<KT> {
-    fn from(pk: SignaturePublicKey) -> Self {
-        pk.as_slice().to_vec().into()
+impl<'a, KT> From<&'a SignaturePublicKey> for VerifyingKeyRef<'a, KT> {
+    fn from(pk: &'a SignaturePublicKey) -> Self {
+        Self::from_slice(pk.as_slice())
     }
 }
 
@@ -83,32 +79,61 @@ impl<KT> From<VerifyingKey<KT>> for SignaturePublicKey {
     }
 }
 
-impl<KT> VerifyingKey<KT> {
+pub trait VerifyingKeyBehaviour {
+    fn as_slice(&self) -> &[u8];
+
     /// Verify the given signature with the given payload. Returns an error if the
     /// verification fails or if the signature does not have the right length.
-    pub fn verify(
-        &self,
-        payload: &[u8],
-        signature: &[u8],
-    ) -> Result<(), SignatureVerificationError> {
+    fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), SignatureVerificationError> {
         let rust_crypto = OpenMlsRustCrypto::default();
         rust_crypto
             .crypto()
             .verify_signature(
                 DEFAULT_SIGNATURE_SCHEME,
                 payload,
-                self.key.as_slice(),
+                self.as_slice(),
                 signature,
             )
             .map_err(|_| SignatureVerificationError::VerificationFailure)
     }
+}
+
+impl<KT> VerifyingKeyBehaviour for &VerifyingKey<KT> {
+    fn as_slice(&self) -> &[u8] {
+        &self.key
+    }
+}
+
+impl<KT> VerifyingKeyBehaviour for VerifyingKeyRef<'_, KT> {
+    fn as_slice(&self) -> &[u8] {
+        self.key
+    }
+}
+
+impl<'a, KT> VerifyingKeyRef<'a, KT> {
+    fn from_slice(key: &'a [u8]) -> Self {
+        Self {
+            key,
+            _type: PhantomData,
+        }
+    }
+}
+
+impl<KT> VerifyingKey<KT> {
     #[cfg(any(test, feature = "test_utils"))]
     pub fn new_for_test(value: Vec<u8>) -> Self {
-        value.into()
+        Self::from_bytes(value)
     }
 
     pub fn as_slice(&self) -> &[u8] {
         &self.key
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            key: bytes,
+            _type: PhantomData,
+        }
     }
 }
 
@@ -126,7 +151,7 @@ impl<KT> SigningKey<KT> {
             .map_err(|_| KeyGenerationError::KeypairGeneration)?;
         Ok(Self {
             signing_key: SecretBytes::from(private_key),
-            verifying_key: public_key.into(),
+            verifying_key: VerifyingKey::from_bytes(public_key),
         })
     }
 
@@ -152,7 +177,7 @@ impl<Source> VerifyingKey<Source> {
     where
         Source: Convertible<Target>,
     {
-        self.key.into()
+        VerifyingKey::from_bytes(self.key)
     }
 }
 
@@ -163,7 +188,7 @@ impl<Source> SigningKey<Source> {
     {
         SigningKey {
             signing_key: self.signing_key,
-            verifying_key: VerifyingKey::from(self.verifying_key.key),
+            verifying_key: VerifyingKey::from_bytes(self.verifying_key.key),
         }
     }
 }
