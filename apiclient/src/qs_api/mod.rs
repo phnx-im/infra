@@ -4,14 +4,16 @@
 
 use futures_util::Stream;
 use mls_assist::openmls::prelude::KeyPackage;
-use phnxprotos::queue_service::v1::{
-    ClientKeyPackageRequest, CreateClientRequest, CreateUserRequest, DeleteClientRequest,
-    DeleteUserRequest, DequeueMessagesRequest, KeyPackageRequest, ListenRequest,
-    PublishKeyPackagesRequest, QsEncryptionKeyRequest, QueueEvent, UpdateClientRequest,
-    UpdateUserRequest,
+use phnxprotos::{
+    queue_service::v1::{
+        ClientKeyPackageRequest, CreateClientRequest, CreateUserRequest, DeleteClientRequest,
+        DeleteUserRequest, DequeueMessagesRequest, KeyPackageRequest, ListenRequest,
+        PublishKeyPackagesRequest, QsEncryptionKeyRequest, QueueEvent, UpdateClientRequest,
+        UpdateUserRequest,
+    },
+    validation::{MissingFieldError, MissingFieldExt},
 };
 use phnxtypes::{
-    LibraryError,
     crypto::{
         RatchetEncryptionKey,
         ear::keys::KeyPackageEarKey,
@@ -42,20 +44,14 @@ mod tests;
 
 #[derive(Error, Debug)]
 pub enum QsRequestError {
-    #[error("Library Error")]
-    LibraryError,
-    #[error("Couldn't deserialize TLS response body: {0}")]
+    #[error(transparent)]
     Tls(#[from] tls_codec::Error),
-    #[error("We received an unexpected response type.")]
+    #[error("received an unexpected response")]
     UnexpectedResponse,
     #[error(transparent)]
     Tonic(#[from] tonic::Status),
-}
-
-impl From<LibraryError> for QsRequestError {
-    fn from(_: LibraryError) -> Self {
-        Self::LibraryError
-    }
+    #[error("missing field in response: {0}")]
+    MissingField(#[from] MissingFieldError<&'static str>),
 }
 
 impl ApiClient {
@@ -85,10 +81,7 @@ impl ApiClient {
         Ok(CreateUserRecordResponse {
             user_id: response
                 .user_id
-                .ok_or_else(|| {
-                    error!("missing user_id in response");
-                    QsRequestError::UnexpectedResponse
-                })?
+                .ok_or_missing_field("user_id")?
                 .try_into()
                 .map_err(|error| {
                     error!(%error, "invalid user_id in response");
@@ -96,10 +89,7 @@ impl ApiClient {
                 })?,
             client_id: response
                 .client_id
-                .ok_or_else(|| {
-                    error!("missing client_id in response");
-                    QsRequestError::UnexpectedResponse
-                })?
+                .ok_or_missing_field("client_id")?
                 .try_into()
                 .map_err(|error| {
                     error!(%error, "invalid client_id in response");
@@ -160,10 +150,7 @@ impl ApiClient {
         Ok(CreateClientRecordResponse {
             client_id: response
                 .client_id
-                .ok_or_else(|| {
-                    error!("missing client_id in response");
-                    QsRequestError::UnexpectedResponse
-                })?
+                .ok_or_missing_field("client_id")?
                 .try_into()
                 .map_err(|error| {
                     error!(%error, "invalid client_id in response");
@@ -242,10 +229,7 @@ impl ApiClient {
         Ok(ClientKeyPackageResponse {
             encrypted_key_package: response
                 .key_package
-                .ok_or_else(|| {
-                    error!("missing key_package in response");
-                    QsRequestError::UnexpectedResponse
-                })?
+                .ok_or_missing_field("key_package")?
                 .try_into()
                 .map_err(|error| {
                     error!(%error, "invalid key_package in response");
@@ -304,10 +288,7 @@ impl ApiClient {
             .into_inner();
         let key_package = response
             .key_package
-            .ok_or_else(|| {
-                error!("missing key_package in response");
-                QsRequestError::UnexpectedResponse
-            })?
+            .ok_or_missing_field("key_package")?
             .try_into()
             .map_err(|error| {
                 error!(%error, "invalid key_package in response");
@@ -326,10 +307,7 @@ impl ApiClient {
             .into_inner();
         let encryption_key = response
             .encryption_key
-            .ok_or_else(|| {
-                error!("missing encryption_key in response");
-                QsRequestError::UnexpectedResponse
-            })?
+            .ok_or_missing_field("encryption_key")?
             .into();
         Ok(EncryptionKeyResponse { encryption_key })
     }
