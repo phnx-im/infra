@@ -159,7 +159,7 @@ message QsEncryptedKeyPackage {
 // key package
 
 message KeyPackageRequest {
-  QsUserId sender = 1;
+  FriendshipToken sender = 1;
   KeyPackageEarKey friendship_ear_key = 2;
 }
 

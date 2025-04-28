@@ -6,9 +6,20 @@ use std::pin::Pin;
 
 use phnxprotos::{
     queue_service::v1::{queue_service_server::QueueService, *},
-    validation::MissingFieldExt,
+    validation::{InvalidTlsExt, MissingFieldExt},
 };
-use phnxtypes::{identifiers, messages::client_qs::CreateUserRecordParams};
+use phnxtypes::{
+    errors::qs::{
+        QsClientKeyPackageError, QsCreateClientRecordError, QsDequeueError, QsEncryptionKeyError,
+        QsKeyPackageError, QsPublishKeyPackagesError, QsUpdateClientRecordError,
+    },
+    identifiers,
+    messages::client_qs::{
+        ClientKeyPackageParams, CreateClientRecordParams, CreateUserRecordParams,
+        DeleteClientRecordParams, DeleteUserRecordParams, DequeueMessagesParams, KeyPackageParams,
+        PublishKeyPackagesParams, UpdateClientRecordParams, UpdateUserRecordParams,
+    },
+};
 use tokio::sync::mpsc::{self, unbounded_channel};
 use tokio_stream::{Stream, StreamExt, wrappers::UnboundedReceiverStream};
 use tonic::{Request, Response, Status, async_trait};
@@ -86,72 +97,234 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
 
     async fn update_user(
         &self,
-        _request: Request<UpdateUserRequest>,
+        request: Request<UpdateUserRequest>,
     ) -> Result<Response<UpdateUserResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = UpdateUserRecordParams {
+            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
+            user_record_auth_key: request
+                .user_record_auth_key
+                .ok_or_missing_field("user_record_auth_key")?
+                .into(),
+            friendship_token: request
+                .friendship_token
+                .ok_or_missing_field("friendship_token")?
+                .into(),
+        };
+        self.qs
+            .qs_update_user_record(params)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to update user record");
+                Status::internal("failed to update user record")
+            })?;
+        Ok(Response::new(UpdateUserResponse {}))
     }
 
     async fn delete_user(
         &self,
-        _request: Request<DeleteUserRequest>,
+        request: Request<DeleteUserRequest>,
     ) -> Result<Response<DeleteUserResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = DeleteUserRecordParams {
+            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
+        };
+        self.qs
+            .qs_delete_user_record(params)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to delete user record");
+                Status::internal("failed to delete user record")
+            })?;
+        Ok(Response::new(DeleteUserResponse {}))
     }
 
     async fn create_client(
         &self,
-        _request: Request<CreateClientRequest>,
+        request: Request<CreateClientRequest>,
     ) -> Result<Response<CreateClientResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = CreateClientRecordParams {
+            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
+            client_record_auth_key: request
+                .client_record_auth_key
+                .ok_or_missing_field("client_record_auth_key")?
+                .into(),
+            queue_encryption_key: request
+                .queue_encryption_key
+                .ok_or_missing_field("queue_encryption_key")?
+                .into(),
+            encrypted_push_token: request
+                .encrypted_push_token
+                .map(|token| token.try_into())
+                .transpose()?,
+            initial_ratchet_secret: request
+                .initial_ratched_secret
+                .ok_or_missing_field("initial_ratched_secret")?
+                .try_into()?,
+        };
+        let response = self
+            .qs
+            .qs_create_client_record(params)
+            .await
+            .map_err(CreateClientRecordError)?;
+        Ok(Response::new(CreateClientResponse {
+            client_id: Some(response.client_id.into()),
+        }))
     }
 
     async fn update_client(
         &self,
-        _request: Request<UpdateClientRequest>,
+        request: Request<UpdateClientRequest>,
     ) -> Result<Response<UpdateClientResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = UpdateClientRecordParams {
+            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
+            client_record_auth_key: request
+                .client_record_auth_key
+                .ok_or_missing_field("client_record_auth_key")?
+                .into(),
+            queue_encryption_key: request
+                .queue_encryption_key
+                .ok_or_missing_field("queue_encryption_key")?
+                .into(),
+            encrypted_push_token: request
+                .encrypted_push_token
+                .map(|token| token.try_into())
+                .transpose()?,
+        };
+        self.qs
+            .qs_update_client_record(params)
+            .await
+            .map_err(UpdateClientRecordError)?;
+        Ok(Response::new(UpdateClientResponse {}))
     }
 
     async fn delete_client(
         &self,
-        _request: Request<DeleteClientRequest>,
+        request: Request<DeleteClientRequest>,
     ) -> Result<Response<DeleteClientResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = DeleteClientRecordParams {
+            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
+        };
+        self.qs
+            .qs_delete_client_record(params)
+            .await
+            .map_err(UpdateClientRecordError)?;
+        Ok(Response::new(DeleteClientResponse {}))
     }
 
     async fn publish_key_packages(
         &self,
-        _request: Request<PublishKeyPackagesRequest>,
+        request: Request<PublishKeyPackagesRequest>,
     ) -> Result<Response<PublishKeyPackagesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = PublishKeyPackagesParams {
+            sender: request
+                .client_id
+                .ok_or_missing_field("client_id")?
+                .try_into()?,
+            key_packages: request
+                .key_packages
+                .into_iter()
+                .map(|key_package| key_package.try_into())
+                .collect::<Result<Vec<_>, _>>()
+                .invalid_tls("key_packages")?,
+            friendship_ear_key: request
+                .key_package_ear_key
+                .ok_or_missing_field("key_package_ear_key")?
+                .try_into()?,
+        };
+        self.qs
+            .qs_publish_key_packages(params)
+            .await
+            .map_err(PublishKeyPackagesError)?;
+        Ok(Response::new(PublishKeyPackagesResponse {}))
     }
 
     async fn client_key_packages(
         &self,
-        _request: Request<ClientKeyPackagesRequest>,
+        request: Request<ClientKeyPackagesRequest>,
     ) -> Result<Response<ClientKeyPackagesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = ClientKeyPackageParams {
+            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
+            client_id: request
+                .client_id
+                .ok_or_missing_field("client_id")?
+                .try_into()?,
+        };
+        let response = self
+            .qs
+            .qs_client_key_package(params)
+            .await
+            .map_err(ClientKeyPackageError)?;
+        Ok(Response::new(ClientKeyPackagesResponse {
+            key_package: Some(response.encrypted_key_package.into()),
+        }))
     }
 
     async fn key_package(
         &self,
-        _request: Request<KeyPackageRequest>,
+        request: Request<KeyPackageRequest>,
     ) -> Result<Response<KeyPackageResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = KeyPackageParams {
+            sender: request.sender.ok_or_missing_field("sender")?.into(),
+            friendship_ear_key: request
+                .friendship_ear_key
+                .ok_or_missing_field("friendship_ear_key")?
+                .try_into()?,
+        };
+        let response = self
+            .qs
+            .qs_key_package(params)
+            .await
+            .map_err(KeyPackageError)?;
+        Ok(Response::new(KeyPackageResponse {
+            key_package: Some(response.key_package.try_into().tls_failed("key_package")?),
+        }))
     }
 
     async fn dequeue_messages(
         &self,
-        _request: Request<DequeueMessagesRequest>,
+        request: Request<DequeueMessagesRequest>,
     ) -> Result<Response<DequeueMessagesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = DequeueMessagesParams {
+            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
+            sequence_number_start: request.sequence_number_start,
+            max_message_number: request.max_messages_number,
+        };
+        let response = self
+            .qs
+            .qs_dequeue_messages(params)
+            .await
+            .map_err(DequeueMessagesError)?;
+        Ok(Response::new(DequeueMessagesResponse {
+            messages: response
+                .messages
+                .into_iter()
+                .map(|message| message.into())
+                .collect(),
+            remaining_messages_number: response.remaining_messages_number,
+        }))
     }
 
     async fn qs_encryption_key(
         &self,
-        _request: Request<QsEncryptionKeyRequest>,
+        request: Request<QsEncryptionKeyRequest>,
     ) -> Result<Response<QsEncryptionKeyResponse>, Status> {
-        todo!()
+        let _request = request.into_inner();
+        let response = self
+            .qs
+            .qs_encryption_key()
+            .await
+            .map_err(EncryptionKeyError)?;
+        Ok(Response::new(QsEncryptionKeyResponse {
+            encryption_key: Some(response.encryption_key.into()),
+        }))
     }
 
     type ListenStream = Pin<Box<dyn Stream<Item = Result<QueueEvent, Status>> + Send + 'static>>;
@@ -173,5 +346,102 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         Ok(Response::new(Box::pin(
             UnboundedReceiverStream::new(rx).map(Ok),
         )))
+    }
+}
+
+struct CreateClientRecordError(QsCreateClientRecordError);
+
+impl From<CreateClientRecordError> for Status {
+    fn from(e: CreateClientRecordError) -> Self {
+        error!(error = %e.0, "failed to create client record");
+        match e.0 {
+            QsCreateClientRecordError::LibraryError | QsCreateClientRecordError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            QsCreateClientRecordError::InvalidKeyPackage => {
+                Status::invalid_argument(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct UpdateClientRecordError(QsUpdateClientRecordError);
+
+impl From<UpdateClientRecordError> for Status {
+    fn from(e: UpdateClientRecordError) -> Self {
+        error!(error = %e.0, "failed to update client record");
+        match e.0 {
+            QsUpdateClientRecordError::UnknownClient => Status::not_found(e.0.to_string()),
+            QsUpdateClientRecordError::StorageError => Status::internal(e.0.to_string()),
+        }
+    }
+}
+
+struct PublishKeyPackagesError(QsPublishKeyPackagesError);
+
+impl From<PublishKeyPackagesError> for Status {
+    fn from(e: PublishKeyPackagesError) -> Self {
+        error!(error = %e.0, "failed to publish key packages");
+        match e.0 {
+            QsPublishKeyPackagesError::StorageError | QsPublishKeyPackagesError::LibraryError => {
+                Status::internal(e.0.to_string())
+            }
+            QsPublishKeyPackagesError::InvalidKeyPackage => {
+                Status::invalid_argument(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct ClientKeyPackageError(QsClientKeyPackageError);
+
+impl From<ClientKeyPackageError> for Status {
+    fn from(e: ClientKeyPackageError) -> Self {
+        error!(error = %e.0, "failed to get client key package");
+        match e.0 {
+            QsClientKeyPackageError::StorageError => Status::internal(e.0.to_string()),
+            QsClientKeyPackageError::NoKeyPackages => Status::not_found(e.0.to_string()),
+        }
+    }
+}
+
+struct KeyPackageError(QsKeyPackageError);
+
+impl From<KeyPackageError> for Status {
+    fn from(e: KeyPackageError) -> Self {
+        error!(error = %e.0, "failed to get key package");
+        match e.0 {
+            QsKeyPackageError::LibraryError | QsKeyPackageError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            QsKeyPackageError::DecryptionError | QsKeyPackageError::InvalidKeyPackage => {
+                Status::invalid_argument(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct EncryptionKeyError(QsEncryptionKeyError);
+
+impl From<EncryptionKeyError> for Status {
+    fn from(e: EncryptionKeyError) -> Self {
+        error!(error = %e.0, "failed to get encryption key");
+        match e.0 {
+            QsEncryptionKeyError::LibraryError | QsEncryptionKeyError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct DequeueMessagesError(QsDequeueError);
+
+impl From<DequeueMessagesError> for Status {
+    fn from(e: DequeueMessagesError) -> Self {
+        error!(error = %e.0, "failed to dequeue messages");
+        match e.0 {
+            QsDequeueError::StorageError => Status::internal(e.0.to_string()),
+            QsDequeueError::QueueNotFound => Status::not_found(e.0.to_string()),
+        }
     }
 }

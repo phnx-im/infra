@@ -258,6 +258,16 @@ impl AsRef<EncryptionPublicKey> for ClientIdEncryptionKey {
 impl HpkeEncryptionKey for ClientIdEncryptionKey {}
 
 impl ClientIdEncryptionKey {
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            public_key: EncryptionPublicKey::from_bytes(bytes),
+        }
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.public_key.into_bytes()
+    }
+
     #[cfg(test)]
     pub fn new_for_test(public_key: EncryptionPublicKey) -> Self {
         Self { public_key }

@@ -157,6 +157,12 @@ impl AsRef<Ciphertext> for QsEncryptedKeyPackage {
     }
 }
 
+impl From<QsEncryptedKeyPackage> for Ciphertext {
+    fn from(value: QsEncryptedKeyPackage) -> Self {
+        value.0
+    }
+}
+
 impl From<Ciphertext> for QsEncryptedKeyPackage {
     fn from(ctxt: Ciphertext) -> Self {
         Self(ctxt)
