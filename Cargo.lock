@@ -3634,7 +3634,6 @@ dependencies = [
  "mimi_content",
  "notify-rust",
  "parking_lot",
- "phnxapiclient",
  "phnxcoreclient",
  "phnxtypes",
  "pulldown-cmark",

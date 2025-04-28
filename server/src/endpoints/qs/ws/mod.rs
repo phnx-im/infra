@@ -198,22 +198,20 @@ pub(crate) async fn upgrade_connection(
     // Decode the header value
     let decoded_header_value: Vec<u8> = match general_purpose::STANDARD.decode(header_value) {
         Ok(value) => value,
-        Err(e) => {
-            error!("Could not decode QsOpenWsParams header: {}", e);
+        Err(error) => {
+            error!(%error, "Could not decode QsOpenWsParams header");
             return HttpResponse::BadRequest().body(format!(
-                "Could not decode base64 QsOpenWsParams header: {}",
-                e
+                "Could not decode base64 QsOpenWsParams header: {error}"
             ));
         }
     };
 
     let qs_open_ws_params: QsOpenWsParams = match PhnxCodec::from_slice(&decoded_header_value) {
         Ok(value) => value,
-        Err(e) => {
-            error!("Could not deserialize QsOpenWsParams header: {}", e);
+        Err(error) => {
+            error!(%error, "Could not deserialize QsOpenWsParams header");
             return HttpResponse::BadRequest().body(format!(
-                "Could not deserialize QsOpenWsParams header: {}",
-                e
+                "Could not deserialize QsOpenWsParams header: {error}"
             ));
         }
     };
@@ -228,9 +226,9 @@ pub(crate) async fn upgrade_connection(
     tracing::trace!("Upgrading HTTP connection to websocket connection...");
     match ws::start(qs_ws_connection, &req, stream) {
         Ok(res) => res,
-        Err(e) => {
-            error!("Error upgrading connection: {}", e);
-            HttpResponse::InternalServerError().body(format!("{}", e))
+        Err(error) => {
+            error!(%error, "Error upgrading connection");
+            HttpResponse::InternalServerError().body(error.to_string())
         }
     }
 }
