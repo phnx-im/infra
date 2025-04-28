@@ -9,7 +9,7 @@ use openmls::{
 };
 use phnxtypes::{
     codec::PhnxCodec,
-    crypto::ear::EarDecryptable,
+    crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::AsClientId,
     messages::{
         QueueMessage,
@@ -22,10 +22,7 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{
-    ConversationMessage, PartialContact, conversations::ConversationType, groups::Group,
-    key_stores::indexed_keys::UserProfileKey,
-};
+use crate::{ConversationMessage, PartialContact, conversations::ConversationType, groups::Group};
 
 use super::{
     Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,

@@ -96,7 +96,7 @@ impl AuthService {
             .map_err(|_| EnqueueMessageError::LibraryError)?;
 
         let queue_message = client_record
-            .ratchet_key
+            .ratchet
             .encrypt(payload)
             .map_err(|_| EnqueueMessageError::LibraryError)?;
 

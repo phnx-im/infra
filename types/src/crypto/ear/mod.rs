@@ -7,7 +7,10 @@
 //! for details.
 
 pub mod keys;
+mod trait_impls;
 mod traits;
+
+use std::marker::PhantomData;
 
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 pub use traits::{
@@ -25,7 +28,6 @@ pub type Aead = Aes256Gcm;
 pub const AEAD_KEY_SIZE: usize = 32;
 const AEAD_NONCE_SIZE: usize = 12;
 
-// Convenience struct that allows us to keep ciphertext and nonce together.
 #[derive(
     Clone,
     Debug,
@@ -39,21 +41,34 @@ const AEAD_NONCE_SIZE: usize = 12;
     sqlx::Type,
 )]
 #[sqlx(type_name = "aead_ciphertext")]
-pub struct Ciphertext {
+pub struct AeadCiphertext {
     ciphertext: Vec<u8>,
     nonce: [u8; AEAD_NONCE_SIZE],
 }
 
-impl Default for Ciphertext {
-    fn default() -> Self {
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Ciphertext<CT> {
+    ct: AeadCiphertext,
+    pd: PhantomData<CT>,
+}
+
+impl<CT> From<AeadCiphertext> for Ciphertext<CT> {
+    fn from(aead_ciphertext: AeadCiphertext) -> Self {
         Self {
-            ciphertext: vec![],
-            nonce: [0u8; AEAD_NONCE_SIZE],
+            ct: aead_ciphertext,
+            pd: PhantomData,
         }
     }
 }
 
-impl Ciphertext {
+impl<CT> From<Ciphertext<CT>> for AeadCiphertext {
+    fn from(ciphertext: Ciphertext<CT>) -> Self {
+        ciphertext.ct
+    }
+}
+
+impl AeadCiphertext {
     pub fn new(ciphertext: Vec<u8>, nonce: [u8; AEAD_NONCE_SIZE]) -> Self {
         Self { ciphertext, nonce }
     }
@@ -65,7 +80,22 @@ impl Ciphertext {
 }
 
 #[cfg(any(feature = "test_utils", test))]
-impl Ciphertext {
+impl<CT> Ciphertext<CT> {
+    pub fn dummy() -> Self {
+        AeadCiphertext::dummy().into()
+    }
+
+    pub fn random() -> Self {
+        AeadCiphertext::random().into()
+    }
+
+    pub fn flip_bit(&mut self) {
+        self.ct.flip_bit();
+    }
+}
+
+#[cfg(any(feature = "test_utils", test))]
+impl AeadCiphertext {
     pub fn dummy() -> Self {
         Self {
             ciphertext: vec![1u8; 32],
@@ -83,7 +113,7 @@ impl Ciphertext {
         }
     }
 
-    pub fn flip_bit(&mut self) {
+    fn flip_bit(&mut self) {
         let byte = self.ciphertext.pop().unwrap();
         self.ciphertext.push(byte ^ 1);
     }

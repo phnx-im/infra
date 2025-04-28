@@ -4,7 +4,13 @@
 
 use std::fmt;
 
-use phnxtypes::{crypto::ear, identifiers};
+use phnxtypes::{
+    crypto::{
+        ear::{self, AeadCiphertext},
+        secrets,
+    },
+    identifiers,
+};
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
 
@@ -131,16 +137,15 @@ impl From<QsReferenceError> for Status {
 
 impl From<ear::keys::EncryptedIdentityLinkKey> for EncryptedIdentityLinkKey {
     fn from(value: ear::keys::EncryptedIdentityLinkKey) -> Self {
-        let ciphertext: ear::Ciphertext = value.into();
         Self {
-            ciphertext: Some(ciphertext.into()),
+            ciphertext: Some(value.into()),
         }
     }
 }
 
-impl From<ear::Ciphertext> for Ciphertext {
-    fn from(value: ear::Ciphertext) -> Self {
-        let (ciphertext, nonce) = value.into_parts();
+impl<CT> From<ear::Ciphertext<CT>> for Ciphertext {
+    fn from(value: ear::Ciphertext<CT>) -> Self {
+        let (ciphertext, nonce) = AeadCiphertext::from(value).into_parts();
         Self {
             ciphertext,
             nonce: nonce.to_vec(),
@@ -152,11 +157,8 @@ impl TryFrom<EncryptedIdentityLinkKey> for ear::keys::EncryptedIdentityLinkKey {
     type Error = EncryptedIdentityLinkKeyError<CiphertextField>;
 
     fn try_from(proto: EncryptedIdentityLinkKey) -> Result<Self, Self::Error> {
-        let ciphertext: ear::Ciphertext = proto
-            .ciphertext
-            .ok_or_missing_field(CiphertextField)?
-            .try_into()?;
-        Ok(ciphertext.into())
+        let ciphertext = proto.ciphertext.ok_or_missing_field(CiphertextField)?;
+        Ok(ciphertext.try_into()?)
     }
 }
 
@@ -231,8 +233,8 @@ impl TryFromRef<'_, GroupStateEarKey> for ear::keys::GroupStateEarKey {
             .as_slice()
             .try_into()
             .map_err(|_| InvalidGroupStateEarKeyLen(proto.key.len()))?;
-        let key = ear::keys::GroupStateEarKeySecret::from(bytes);
-        Ok(key.into())
+        let secret = secrets::Secret::from(bytes);
+        Ok(secret.into())
     }
 }
 

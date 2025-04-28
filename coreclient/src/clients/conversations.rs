@@ -187,7 +187,10 @@ mod create_conversation_flow {
     use phnxtypes::{
         codec::PhnxCodec,
         credentials::keys::ClientSigningKey,
-        crypto::{ear::keys::EncryptedUserProfileKey, kdf::keys::ConnectionKey},
+        crypto::{
+            ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey,
+            kdf::keys::ConnectionKey,
+        },
         identifiers::QsReference,
     };
 
@@ -195,7 +198,7 @@ mod create_conversation_flow {
         Conversation, ConversationAttributes, ConversationId,
         clients::api_clients::ApiClients,
         groups::{Group, GroupData, PartialCreateGroupParams, client_auth_info::GroupMembership},
-        key_stores::indexed_keys::UserProfileKey,
+        key_stores::indexed_keys::StorableIndexedKey,
         store::StoreNotifier,
     };
 

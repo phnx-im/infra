@@ -589,7 +589,7 @@ impl CoreUser {
             .default_client()?
             .qs_update_client(
                 client_id,
-                queue_encryption_key,
+                queue_encryption_key.clone(),
                 encrypted_push_token,
                 &signing_key,
             )

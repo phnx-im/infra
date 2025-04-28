@@ -123,7 +123,6 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use phnxtypes::crypto::signatures::private_keys::VerifyingKey;
         use sqlx::PgPool;
 
         use super::*;
@@ -131,9 +130,7 @@ pub(crate) mod persistence {
         pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
             let record = UserRecord {
                 user_id: QsUserId::random(),
-                verifying_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
-                    b"some_key".to_vec(),
-                )),
+                verifying_key: QsUserVerifyingKey::new_for_test(b"some_key".to_vec()),
                 friendship_token: FriendshipToken::random().unwrap(),
             };
             record.store(pool).await?;
@@ -163,9 +160,7 @@ pub(crate) mod persistence {
 
             let user_record = UserRecord {
                 user_id: user_record.user_id,
-                verifying_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
-                    b"some_other_key".to_vec(),
-                )),
+                verifying_key: QsUserVerifyingKey::new_for_test(b"some_other_key".to_vec()),
                 friendship_token: FriendshipToken::random().unwrap(),
             };
 
