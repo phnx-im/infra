@@ -89,6 +89,7 @@ impl<KT: IndexedKeyType> tls_codec::Serialize for KeyTypeInstance<KT> {
     }
 }
 
+/// A wrapper type for secrets that are associated with a specific key type.
 #[derive(
     Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
 )]
@@ -136,8 +137,13 @@ pub struct KeySecretType;
 )]
 pub struct IndexSecretType;
 
+/// A base secret is meant to derive a key and an index for the key type `KT`.
 pub type BaseSecret<KT> = TypedSecret<KT, BaseSecretType, KDF_KEY_SIZE>;
+/// A key is derived from the base secret. Other traits like the `EarKey` trait
+/// can be implemented to allow these keys to be used.
 pub type Key<KT> = TypedSecret<KT, KeySecretType, AEAD_KEY_SIZE>;
+/// An index is derived from the base secret. It is used to identify the key
+/// of the same key type `KT` derived from the same [`BaseSecret`].
 pub type Index<KT> = TypedSecret<KT, IndexSecretType, AEAD_KEY_SIZE>;
 
 impl<KT> BaseSecret<KT> {
@@ -203,6 +209,8 @@ impl<KT: IndexedKeyType> KdfDerivable<BaseSecret<KT>, DerivationContext<'_, KT>,
     const LABEL: &'static str = "index";
 }
 
+/// An [`IndexedAeadKey`] is an indexed key that can be derive from a base
+/// secret. It implements the `EarKey` trait.
 #[derive(
     Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize,
 )]

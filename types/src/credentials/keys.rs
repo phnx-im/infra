@@ -67,11 +67,12 @@ impl AsIntermediateSigningKey {
         prelim_key: PreliminaryAsIntermediateSigningKey,
         credential: AsIntermediateCredential,
     ) -> Result<Self, SigningKeyCreationError> {
-        if prelim_key.verifying_key().as_slice() != credential.verifying_key().as_slice() {
+        let prelim_key = prelim_key.convert();
+        if prelim_key.verifying_key() != credential.verifying_key() {
             return Err(SigningKeyCreationError::PublicKeyMismatch);
         }
         Ok(Self {
-            signing_key: prelim_key.convert(),
+            signing_key: prelim_key,
             credential,
         })
     }
@@ -158,11 +159,12 @@ impl ClientSigningKey {
         prelim_key: PreliminaryClientSigningKey,
         credential: ClientCredential,
     ) -> Result<Self, SigningKeyCreationError> {
-        if prelim_key.verifying_key().as_slice() != credential.verifying_key().as_slice() {
+        let prelim_key = prelim_key.convert();
+        if prelim_key.verifying_key() != credential.verifying_key() {
             return Err(SigningKeyCreationError::PublicKeyMismatch);
         }
         Ok(Self {
-            signing_key: prelim_key.convert(),
+            signing_key: prelim_key,
             credential,
         })
     }

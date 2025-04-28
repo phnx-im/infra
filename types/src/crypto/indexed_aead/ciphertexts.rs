@@ -11,11 +11,16 @@ use crate::crypto::{
 
 use super::keys::{Index, IndexedAeadKey, IndexedKeyType};
 
+/// A ciphertext that contains an index of the [`IndexedAeadKey`] used to
+/// encrypt it.
 pub struct IndexedCiphertext<KT, CT> {
     key_index: Index<KT>,
     ciphertext: Ciphertext<CT>,
 }
 
+/// This trait allows payloads to be encrypted with an indexed key. The
+/// resulting [`IndexedCiphertext`] contains the index of the key used to
+/// encrypt it.
 pub trait IndexEncryptable<KT: IndexedKeyType + Clone, CT>:
     EarEncryptable<IndexedAeadKey<KT>, CT>
 {
@@ -32,6 +37,9 @@ pub trait IndexEncryptable<KT: IndexedKeyType + Clone, CT>:
     }
 }
 
+/// This trait allows payloads to be decrypted with an indexed key. Decryption
+/// will fail if the key index in the ciphertext does not match the key index of
+/// the provided key.
 pub trait IndexDecryptable<KT: IndexedKeyType + Clone + PartialEq, CT>:
     EarDecryptable<IndexedAeadKey<KT>, CT>
 {

@@ -20,6 +20,8 @@ use crate::{
 
 use super::{DEFAULT_SIGNATURE_SCHEME, signable::Signature};
 
+/// A key that can be used to verify signatures. It should be parameterized by a
+/// unique key type to ensure type safety.
 #[derive(
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TlsSize, TlsSerialize, TlsDeserializeBytes,
 )]
@@ -29,6 +31,9 @@ pub struct VerifyingKey<KT> {
     _type: PhantomData<KT>,
 }
 
+/// A reference to a verifying key. This is used to avoid copying the key
+/// unnecessarily. It should be parameterized by a unique key type to ensure
+/// type safety.
 pub struct VerifyingKeyRef<'a, KT> {
     key: &'a [u8],
     _type: PhantomData<KT>,
@@ -105,6 +110,9 @@ impl<KT> VerifyingKey<KT> {
     }
 }
 
+/// This is the key that is used to sign messages. It also contains the public
+/// key of the same type. This struct should be parameterized by a unique key
+/// type to ensure type safety.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SigningKey<KT> {
     pub(super) signing_key: SecretBytes,
@@ -112,6 +120,7 @@ pub struct SigningKey<KT> {
 }
 
 impl<KT> SigningKey<KT> {
+    /// Generate a new signing key.
     pub fn generate() -> Result<SigningKey<KT>, KeyGenerationError> {
         let (private_key, public_key) = OpenMlsRustCrypto::default()
             .crypto()
@@ -138,6 +147,8 @@ impl<KT> SigningKey<KT> {
     }
 }
 
+/// Marker trait that allows the conversion between the implementer and the
+/// `Target` key type.
 pub trait Convertible<Target> {}
 
 impl<Source> VerifyingKey<Source> {
