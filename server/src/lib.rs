@@ -128,7 +128,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     // GRPC server
-    let grpc_ds = GrpcDs::new(ds, qs_connector.clone());
+    let grpc_ds = GrpcDs::new(ds, qs_connector);
     let grpc_qs = GrpcQs::new(qs, ws_dispatch_notifier);
 
     let RateLimitsConfig { period, burst_size } = rate_limits;
