@@ -28,6 +28,7 @@ tls_codec = { workspace = true }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
 tonic.workspace = true
+tokio-stream.workspace = true
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }

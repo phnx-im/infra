@@ -13,7 +13,7 @@ import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user.dart';
 
-// These functions are ignored because they are not marked as `pub`: `emit`, `handle_websocket_message`, `new`, `process_fetched_messages`, `run_websocket`, `spawn_load`, `spawn_polling`, `spawn_websocket`
+// These functions are ignored because they are not marked as `pub`: `emit`, `handle_queue_event`, `new`, `process_fetched_messages`, `run_listen`, `spawn_listen`, `spawn_load`, `spawn_polling`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NotificationContext`, `UiUserInner`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
 
