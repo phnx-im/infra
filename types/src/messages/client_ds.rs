@@ -136,10 +136,10 @@ impl TryFrom<WelcomeBundle> for QsQueueMessagePayload {
     }
 }
 
-impl TryFrom<UserProfileKeyUpdateParams> for QsQueueMessagePayload {
+impl TryFrom<&UserProfileKeyUpdateParams> for QsQueueMessagePayload {
     type Error = tls_codec::Error;
 
-    fn try_from(params: UserProfileKeyUpdateParams) -> Result<Self, Self::Error> {
+    fn try_from(params: &UserProfileKeyUpdateParams) -> Result<Self, Self::Error> {
         let payload = params.tls_serialize_detached()?;
         Ok(Self {
             timestamp: TimeStamp::now(),
