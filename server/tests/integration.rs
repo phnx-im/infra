@@ -46,7 +46,7 @@ static CHARLIE: LazyLock<QualifiedUserName> =
     LazyLock::new(|| "charlie@example.com".parse().unwrap());
 static DAVE: LazyLock<QualifiedUserName> = LazyLock::new(|| "dave@example.com".parse().unwrap());
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Connect users test", skip_all)]
 async fn connect_users() {
     let mut setup = TestBackend::single().await;
@@ -55,7 +55,7 @@ async fn connect_users() {
     setup.connect_users(&ALICE, &BOB).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Send message test", skip_all)]
 async fn send_message() {
     tracing::info!("Setting up setup");
@@ -73,7 +73,7 @@ async fn send_message() {
         .await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Rate limit test", skip_all)]
 async fn rate_limit() {
     init_test_tracing();
@@ -135,7 +135,7 @@ async fn rate_limit() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Create group test", skip_all)]
 async fn create_group() {
     let mut setup = TestBackend::single().await;
@@ -143,7 +143,7 @@ async fn create_group() {
     setup.create_group(&ALICE).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn invite_to_group() {
     let mut setup = TestBackend::single().await;
@@ -158,7 +158,7 @@ async fn invite_to_group() {
         .await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn update_group() {
     let mut setup = TestBackend::single().await;
@@ -178,7 +178,7 @@ async fn update_group() {
     setup.update_group(conversation_id, &BOB).await
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Remove from group test", skip_all)]
 async fn remove_from_group() {
     let mut setup = TestBackend::single().await;
@@ -237,7 +237,7 @@ async fn re_add_client() {
         .await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn leave_group() {
     let mut setup = TestBackend::single().await;
@@ -251,7 +251,7 @@ async fn leave_group() {
     setup.leave_group(conversation_id, &ALICE).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn delete_group() {
     init_test_tracing();
@@ -269,7 +269,7 @@ async fn delete_group() {
     delete_group.await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Create user", skip_all)]
 async fn create_user() {
     let mut setup = TestBackend::single().await;
@@ -292,7 +292,7 @@ async fn inexistant_endpoint() {
     assert!(client.inexistant_endpoint().await);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Full cycle", skip_all)]
 async fn full_cycle() {
     let mut setup = TestBackend::single().await;
@@ -347,7 +347,7 @@ async fn full_cycle() {
     setup.delete_group(conversation_id, &DAVE).await
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "User profile exchange test", skip_all)]
 async fn exchange_user_profiles() {
     let mut setup = TestBackend::single().await;
@@ -460,7 +460,7 @@ async fn exchange_user_profiles() {
     assert_eq!(alice_user_profile, new_user_profile);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Message retrieval test", skip_all)]
 async fn retrieve_conversation_messages() {
     let mut setup = TestBackend::single().await;
@@ -502,7 +502,7 @@ async fn retrieve_conversation_messages() {
     assert_eq!(messages_retrieved, messages_sent);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Marking messages as read test", skip_all)]
 async fn mark_as_read() {
     let mut setup = TestBackend::single().await;
@@ -595,7 +595,7 @@ async fn mark_as_read() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "User persistence test", skip_all)]
 async fn client_persistence() {
     // Create and persist the user.
@@ -611,7 +611,7 @@ async fn client_persistence() {
     fs::remove_file(client_db_path).unwrap();
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Test server error if unknown user", skip_all)]
 async fn error_if_user_doesnt_exist() {
     let mut setup = TestBackend::single().await;

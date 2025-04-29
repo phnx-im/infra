@@ -59,6 +59,7 @@ pub struct ServerRunParams<Qc, Np> {
     pub network_provider: Np,
     pub ws_dispatch_notifier: DispatchWebsocketNotifier,
     pub rate_limits: RateLimitsConfig,
+    pub num_actix_workers: Option<usize>,
 }
 
 /// Every `period`, allow bursts of up to `burst_size`-many requests, and replenish one element
@@ -80,6 +81,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
         network_provider,
         ws_dispatch_notifier,
         rate_limits,
+        num_actix_workers,
     }: ServerRunParams<Qc, Np>,
 ) -> Result<impl Future<Output = io::Result<()>>, io::Error> {
     // Wrap providers in a Data<T>
@@ -98,7 +100,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     info!(%http_addr, %grpc_addr, "Starting server");
 
     // Create & run the server
-    let server = HttpServer::new(move || {
+    let mut server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
@@ -121,9 +123,11 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
             .route(ENDPOINT_AS, web::post().to(as_process_message))
             // WS endpoint
             .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
-    })
-    .listen_auto_h2c(listener)?
-    .run();
+    });
+    if let Some(num_workers) = num_actix_workers {
+        server = server.workers(num_workers);
+    }
+    let server = server.listen_auto_h2c(listener)?.run();
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
