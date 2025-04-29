@@ -11,10 +11,7 @@ use http::{HeaderMap, StatusCode};
 use phnxtypes::{
     ACCEPTED_API_VERSIONS_HEADER,
     errors::version::VersionError,
-    messages::{
-        ApiVersion, client_as::CURRENT_AS_API_VERSION, client_ds::CURRENT_DS_API_VERSION,
-        client_qs::CURRENT_QS_API_VERSION,
-    },
+    messages::{ApiVersion, client_as::CURRENT_AS_API_VERSION, client_qs::CURRENT_QS_API_VERSION},
 };
 use tracing::error;
 
@@ -23,7 +20,6 @@ use tracing::error;
 /// The default values are the current API versions of the corresponding messages.
 pub(crate) struct NegotiatedApiVersions {
     qs_api_version: AtomicU64,
-    ds_api_version: AtomicU64,
     as_api_version: AtomicU64,
 }
 
@@ -31,7 +27,6 @@ impl NegotiatedApiVersions {
     pub(crate) fn new() -> Self {
         Self {
             qs_api_version: AtomicU64::new(CURRENT_QS_API_VERSION.value()),
-            ds_api_version: AtomicU64::new(CURRENT_DS_API_VERSION.value()),
             as_api_version: AtomicU64::new(CURRENT_AS_API_VERSION.value()),
         }
     }
@@ -43,16 +38,6 @@ impl NegotiatedApiVersions {
 
     pub(crate) fn qs_api_version(&self) -> ApiVersion {
         let version = self.qs_api_version.load(Ordering::Relaxed);
-        ApiVersion::new(version).expect("logic error")
-    }
-
-    pub(crate) fn set_ds_api_version(&self, version: ApiVersion) {
-        self.ds_api_version
-            .store(version.value(), Ordering::Relaxed);
-    }
-
-    pub(crate) fn ds_api_version(&self) -> ApiVersion {
-        let version = self.ds_api_version.load(Ordering::Relaxed);
         ApiVersion::new(version).expect("logic error")
     }
 

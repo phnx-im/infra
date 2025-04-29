@@ -77,10 +77,7 @@ tower-http = { version = "0.6.2", features = ["trace"] }
 # PR: <https://github.com/RustCrypto/formats/pull/1656/files>
 tls_codec = { git = "https://github.com/boxdot/formats", rev = "9846c69f91e732b493dcccf92f4c163bfc711b7d" }
 # PR: <https://github.com/benwis/tower-governor/pull/53>
-tower_governor = { git = "https://github.com/boxdot/tower-governor", rev = "556d9f8", default-features = false, features = [
-    "tonic",
-] }
-
+tower_governor = { git = "https://github.com/boxdot/tower-governor", rev = "556d9f8" }
 
 [profile.release]
 strip = true

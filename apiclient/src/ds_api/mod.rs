@@ -2,65 +2,42 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! API endpoints of the DS
+//! API client implementation for the DS
 
-use std::ops::Deref;
-
-use crate::version::{extract_api_version_negotiation, negotiate_api_version};
-
-use super::*;
 use mls_assist::{
     messages::AssistedMessageOut,
-    openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut, tls_codec::Serialize},
+    openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut},
 };
 use phnxtypes::{
     LibraryError,
-    credentials::keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
-    crypto::{
-        ear::keys::GroupStateEarKey,
-        signatures::{private_keys::SigningKey, signable::Signable},
-    },
-    endpoint_paths::ENDPOINT_DS_GROUPS,
-    errors::version::VersionError,
+    credentials::keys::PseudonymousCredentialSigningKey,
+    crypto::ear::keys::GroupStateEarKey,
     identifiers::QsReference,
     messages::{
-        client_ds::{
-            ConnectionGroupInfoParams, ExternalCommitInfoParams, SUPPORTED_DS_API_VERSIONS,
-            UserProfileKeyUpdateParams, WelcomeInfoParams,
-        },
+        client_ds::UserProfileKeyUpdateParams,
         client_ds_out::{
-            ClientToDsMessageOut, ClientToDsMessageTbsOut, CreateGroupParamsOut,
-            DeleteGroupParamsOut, DsGroupRequestParamsOut, DsNonGroupRequestParamsOut,
-            DsProcessResponseIn, DsRequestParamsOut, DsVersionedProcessResponseIn,
-            DsVersionedRequestParamsOut, ExternalCommitInfoIn, GroupOperationParamsOut,
-            JoinConnectionGroupParamsOut, ResyncParamsOut, SelfRemoveParamsOut,
-            SendMessageParamsOut, UpdateParamsOut, WelcomeInfoIn,
+            CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
+            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
+            WelcomeInfoIn,
         },
     },
     time::TimeStamp,
 };
-use tls_codec::DeserializeBytes;
+
+use crate::ApiClient;
 
 pub mod grpc;
 
-#[derive(Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DsRequestError {
     #[error("Library Error")]
     LibraryError,
-    #[error(transparent)]
-    Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
     Tonic(#[from] tonic::Status),
     #[error(transparent)]
     Tls(#[from] tls_codec::Error),
     #[error("We received an unexpected response type.")]
     UnexpectedResponse,
-    #[error("DS Error: {0}")]
-    DsError(String),
-    #[error("API Error: {0}")]
-    Api(#[from] VersionError),
-    #[error("Unsuccessful response: status = {status}, error = {error}")]
-    RequestFailed { status: StatusCode, error: String },
 }
 
 impl From<LibraryError> for DsRequestError {
@@ -69,69 +46,7 @@ impl From<LibraryError> for DsRequestError {
     }
 }
 
-pub enum AuthenticationMethod<'a, T> {
-    Signature(&'a SigningKey<T>),
-    None,
-}
-
-impl<'a, T, U: Deref<Target = SigningKey<T>>> From<&'a U> for AuthenticationMethod<'a, T> {
-    fn from(key: &'a U) -> Self {
-        AuthenticationMethod::Signature(key)
-    }
-}
-
 impl ApiClient {
-    async fn prepare_and_send_ds_message<'a, T: 'a>(
-        &self,
-        request_params: DsRequestParamsOut,
-        auth_method: impl Into<AuthenticationMethod<'a, T>>,
-    ) -> Result<DsProcessResponseIn, DsRequestError> {
-        let api_version = self.negotiated_versions().ds_api_version();
-
-        let auth_method = auth_method.into();
-        let request_params =
-            DsVersionedRequestParamsOut::with_version(request_params, api_version)?;
-        let message = sign_ds_params(request_params, &auth_method)?;
-
-        let response = self.send_ds_http_request(&message).await?;
-
-        // check if we need to negotiate a new API version
-        let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
-            return handle_ds_response(response).await;
-        };
-
-        let supported_versions = SUPPORTED_DS_API_VERSIONS;
-        let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
-            .ok_or_else(|| VersionError::new(api_version, supported_versions))?;
-        self.negotiated_versions()
-            .set_ds_api_version(accepted_version);
-
-        let (request_params, _) = message
-            .into_payload()
-            .into_body()
-            .change_version(accepted_version)?;
-        let message = sign_ds_params(request_params, &auth_method)?;
-
-        let response = self.send_ds_http_request(&message).await?;
-        handle_ds_response(response).await
-    }
-
-    async fn prepare_and_send_ds_group_message<'a, T: 'a>(
-        &self,
-        request_params: DsGroupRequestParamsOut,
-        auth_method: impl Into<AuthenticationMethod<'a, T>>,
-        group_state_ear_key: &GroupStateEarKey,
-    ) -> Result<DsProcessResponseIn, DsRequestError> {
-        self.prepare_and_send_ds_message(
-            DsRequestParamsOut::Group {
-                group_state_ear_key: group_state_ear_key.clone(),
-                request_params,
-            },
-            auth_method,
-        )
-        .await
-    }
-
     /// Creates a new group on the DS.
     pub async fn ds_create_group(
         &self,
@@ -139,20 +54,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::CreateGroupParams(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if matches!(response, DsProcessResponseIn::Ok) {
-                Ok(())
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .create_group(payload, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Performs a group operation.
@@ -162,20 +66,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::GroupOperation(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .group_operation(payload, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Get welcome information for a group.
@@ -186,25 +79,9 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         signing_key: &PseudonymousCredentialSigningKey,
     ) -> Result<WelcomeInfoIn, DsRequestError> {
-        let payload = WelcomeInfoParams {
-            sender: signing_key.credential().verifying_key().clone(),
-            group_id,
-            epoch,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::WelcomeInfo(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::WelcomeInfo(welcome_info) = response {
-                Ok(welcome_info)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .welcome_info(group_id, epoch, group_state_ear_key, signing_key)
+            .await
     }
 
     /// Get external commit information for a group.
@@ -213,21 +90,9 @@ impl ApiClient {
         group_id: GroupId,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<ExternalCommitInfoIn, DsRequestError> {
-        let payload = ExternalCommitInfoParams { group_id };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::ExternalCommitInfo(payload),
-            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
-                Ok(info)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .external_commit_info(group_id, group_state_ear_key)
+            .await
     }
 
     /// Get external commit information for a connection group.
@@ -236,21 +101,9 @@ impl ApiClient {
         group_id: GroupId,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<ExternalCommitInfoIn, DsRequestError> {
-        let payload = ConnectionGroupInfoParams { group_id };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::ConnectionGroupInfo(payload),
-            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::ExternalCommitInfo(info) = response {
-                Ok(info)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .connection_group_info(group_id, group_state_ear_key)
+            .await
     }
 
     /// Update your client in this group.
@@ -260,20 +113,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::Update(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .update(params.commit, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Join the connection group with a new client.
@@ -286,24 +128,9 @@ impl ApiClient {
     ) -> Result<TimeStamp, DsRequestError> {
         // We unwrap here, because we know that the group_info is present.
         let external_commit = AssistedMessageOut::new(commit, Some(group_info)).unwrap();
-        let payload = JoinConnectionGroupParamsOut {
-            external_commit,
-            qs_client_reference,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::JoinConnectionGroup(payload),
-            AuthenticationMethod::<PseudonymousCredentialSigningKey>::None,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .join_connection_group(external_commit, qs_client_reference, group_state_ear_key)
+            .await
     }
 
     /// Resync a client to rejoin a group.
@@ -314,24 +141,14 @@ impl ApiClient {
         group_state_ear_key: &GroupStateEarKey,
         own_leaf_index: LeafNodeIndex,
     ) -> Result<TimeStamp, DsRequestError> {
-        let payload = ResyncParamsOut {
-            external_commit,
-            sender: own_leaf_index,
-        };
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::Resync(payload),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .resync(
+                external_commit,
+                signing_key,
+                own_leaf_index,
+                group_state_ear_key,
+            )
+            .await
     }
 
     /// Leave the given group with this client.
@@ -341,20 +158,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::SelfRemove(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .self_remove(params.remove_proposal, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Send a message to the given group.
@@ -376,20 +182,9 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::DeleteGroup(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        // Check if the response is what we expected it to be.
-        .and_then(|response| {
-            if let DsProcessResponseIn::FanoutTimestamp(ts) = response {
-                Ok(ts)
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .delete_group(params, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Update the user's user profile key
@@ -399,88 +194,13 @@ impl ApiClient {
         signing_key: &PseudonymousCredentialSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
-        self.prepare_and_send_ds_group_message(
-            DsGroupRequestParamsOut::UserProfileKeyUpdate(params),
-            signing_key,
-            group_state_ear_key,
-        )
-        .await
-        .and_then(|response| {
-            if let DsProcessResponseIn::Ok = response {
-                Ok(())
-            } else {
-                Err(DsRequestError::UnexpectedResponse)
-            }
-        })
+        self.ds_grpc_client
+            .user_profile_key_update(params, signing_key, group_state_ear_key)
+            .await
     }
 
     /// Request a group ID.
     pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
-        let ds_response = self
-            .prepare_and_send_ds_message::<ClientSigningKey>(
-                DsRequestParamsOut::NonGroup(DsNonGroupRequestParamsOut::RequestGroupId),
-                AuthenticationMethod::None,
-            )
-            .await?;
-        if let DsProcessResponseIn::GroupId(group_id) = ds_response {
-            Ok(group_id)
-        } else {
-            Err(DsRequestError::UnexpectedResponse)
-        }
+        self.ds_grpc_client.request_group_id().await
     }
-
-    async fn send_ds_http_request(
-        &self,
-        message: &ClientToDsMessageOut,
-    ) -> Result<reqwest::Response, DsRequestError> {
-        let message_bytes = message.tls_serialize_detached()?;
-        let endpoint = self.build_url(Protocol::Http, ENDPOINT_DS_GROUPS);
-        let response = self
-            .client
-            .post(endpoint)
-            .body(message_bytes)
-            .send()
-            .await?;
-        Ok(response)
-    }
-}
-
-async fn handle_ds_response(res: reqwest::Response) -> Result<DsProcessResponseIn, DsRequestError> {
-    let status = res.status();
-    match status.as_u16() {
-        // Success!
-        _ if res.status().is_success() => {
-            let ds_proc_res_bytes = res.bytes().await?;
-            let ds_proc_res =
-                DsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&ds_proc_res_bytes)?
-                    .into_unversioned()?;
-            Ok(ds_proc_res)
-        }
-        // DS Specific Error
-        418 => {
-            let ds_proc_err_bytes = res.bytes().await?;
-            let ds_proc_err = String::from_utf8_lossy(&ds_proc_err_bytes);
-            Err(DsRequestError::DsError(ds_proc_err.into_owned()))
-        }
-        // All other errors
-        _ => {
-            let error = res
-                .text()
-                .await
-                .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
-            Err(DsRequestError::RequestFailed { status, error })
-        }
-    }
-}
-
-fn sign_ds_params<'a, T: 'a>(
-    request_params: DsVersionedRequestParamsOut,
-    auth_method: &AuthenticationMethod<'a, T>,
-) -> Result<ClientToDsMessageOut, DsRequestError> {
-    let tbs = ClientToDsMessageTbsOut::new(request_params);
-    let message = match auth_method {
-        AuthenticationMethod::Signature(signer) => tbs.sign(*signer)?,
-        AuthenticationMethod::None => ClientToDsMessageOut::without_signature(tbs),
-    };
-    Ok(message)
 }
