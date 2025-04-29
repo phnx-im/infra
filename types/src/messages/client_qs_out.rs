@@ -196,7 +196,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::{
-        crypto::{ear::Ciphertext, signatures::private_keys::VerifyingKey},
+        crypto::secrets::Secret,
         messages::client_qs::{
             QsRequestParams, QsVersionedRequestParams, VerifiableClientToQsMessage,
         },
@@ -208,20 +208,18 @@ mod tests {
     fn qs_request_create_user_api_stability() {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
         let params = CreateUserRecordParamsOut {
-            user_record_auth_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+            user_record_auth_key: QsUserVerifyingKey::new_for_test(
                 b"user_record_auth_key".to_vec(),
-            )),
+            ),
             friendship_token: token.clone(),
-            client_record_auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+            client_record_auth_key: QsClientVerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
+            ),
+            queue_encryption_key: RatchetEncryptionKey::new_for_test(b"encryption_key".to_vec()),
+            encrypted_push_token: Some(EncryptedPushToken::dummy()),
+            initial_ratchet_secret: RatchetSecret::from(Secret::from(
+                *b"_initial_ratchet_secret_32_bytes",
             )),
-            queue_encryption_key: RatchetEncryptionKey::new_for_test(
-                b"encryption_key".to_vec().into(),
-            ),
-            encrypted_push_token: Some(EncryptedPushToken::from(Ciphertext::dummy())),
-            initial_ratchet_secret: RatchetSecret::new_for_test(
-                (*b"_initial_ratchet_secret_32_bytes").into(),
-            ),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
@@ -248,9 +246,9 @@ mod tests {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
         let params = UpdateUserRecordParams {
             sender: QsUserId::from(Uuid::from_u128(1)),
-            user_record_auth_key: QsUserVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+            user_record_auth_key: QsUserVerifyingKey::new_for_test(
                 b"user_record_auth_key".to_vec(),
-            )),
+            ),
             friendship_token: token.clone(),
         };
         let message_out = ClientToQsMessageOut {
@@ -304,16 +302,14 @@ mod tests {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
         let params = CreateClientRecordParamsOut {
             sender: QsUserId::from(Uuid::from_u128(1)),
-            client_record_auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+            client_record_auth_key: QsClientVerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
+            ),
+            queue_encryption_key: RatchetEncryptionKey::new_for_test(b"encryption_key".to_vec()),
+            encrypted_push_token: Some(EncryptedPushToken::dummy()),
+            initial_ratchet_secret: RatchetSecret::from(Secret::from(
+                *b"_initial_ratchet_secret_32_bytes",
             )),
-            queue_encryption_key: RatchetEncryptionKey::new_for_test(
-                b"encryption_key".to_vec().into(),
-            ),
-            encrypted_push_token: Some(EncryptedPushToken::from(Ciphertext::dummy())),
-            initial_ratchet_secret: RatchetSecret::new_for_test(
-                (*b"_initial_ratchet_secret_32_bytes").into(),
-            ),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
@@ -340,13 +336,11 @@ mod tests {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
         let params = UpdateClientRecordParams {
             sender: QsClientId::from(Uuid::from_u128(1)),
-            client_record_auth_key: QsClientVerifyingKey::new_for_test(VerifyingKey::new_for_test(
+            client_record_auth_key: QsClientVerifyingKey::new_for_test(
                 b"client_record_auth_key".to_vec(),
-            )),
-            queue_encryption_key: RatchetEncryptionKey::new_for_test(
-                b"encryption_key".to_vec().into(),
             ),
-            encrypted_push_token: Some(EncryptedPushToken::from(Ciphertext::dummy())),
+            queue_encryption_key: RatchetEncryptionKey::new_for_test(b"encryption_key".to_vec()),
+            encrypted_push_token: Some(EncryptedPushToken::dummy()),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
@@ -400,9 +394,9 @@ mod tests {
         let params = PublishKeyPackagesParamsOut {
             sender: QsClientId::from(Uuid::from_u128(1)),
             key_packages: vec![], // Note: No easy way to create a key package for testing.
-            friendship_ear_key: KeyPackageEarKey::new_for_test(
-                (*b"friendship_ear_key_32_bytes__pad").into(),
-            ),
+            friendship_ear_key: KeyPackageEarKey::from(Secret::from(
+                *b"friendship_ear_key_32_bytes__pad",
+            )),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {
@@ -460,9 +454,9 @@ mod tests {
         let token = FriendshipToken::new_for_test(b"friendship_token".to_vec());
         let params = KeyPackageParams {
             sender: token.clone(),
-            friendship_ear_key: KeyPackageEarKey::new_for_test(
-                (*b"friendship_ear_key_32_bytes__pad").into(),
-            ),
+            friendship_ear_key: KeyPackageEarKey::from(Secret::from(
+                *b"friendship_ear_key_32_bytes__pad",
+            )),
         };
         let message_out = ClientToQsMessageOut {
             payload: ClientToQsMessageTbsOut {

@@ -4,13 +4,16 @@
 
 use anyhow::Context;
 use phnxtypes::{
-    crypto::ear::{EarDecryptable, EarEncryptable},
+    crypto::{
+        ear::{EarDecryptable, EarEncryptable},
+        indexed_aead::keys::UserProfileKey,
+    },
     messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
 
 use crate::{
     groups::{Group, ProfileInfo},
-    key_stores::indexed_keys::UserProfileKey,
+    key_stores::indexed_keys::StorableIndexedKey,
     user_profiles::{IndexedUserProfile, UserProfile},
 };
 

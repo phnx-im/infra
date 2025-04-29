@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::ops::Deref;
+
 use mls_assist::{
     openmls::prelude::{Lifetime, OpenMlsProvider, SignatureScheme},
     openmls_rust_crypto::OpenMlsRustCrypto,
@@ -15,7 +17,7 @@ use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDyn
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
-use crate::codec::PhnxCodec;
+use crate::{codec::PhnxCodec, crypto::signatures::private_keys::Convertible};
 
 use super::{
     AsCredential, AsIntermediateCredential,
@@ -32,7 +34,6 @@ use crate::crypto::{
         DEFAULT_SIGNATURE_SCHEME,
         private_keys::{SigningKey, VerifyingKey},
         signable::Signable,
-        traits::{SigningKeyBehaviour, VerifyingKeyBehaviour},
     },
 };
 
@@ -40,30 +41,36 @@ use thiserror::Error;
 
 use super::ClientCredential;
 
+#[derive(Debug)]
+pub struct AsIntermediateKeyType;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AsIntermediateSigningKey {
-    signing_key: SigningKey,
+    signing_key: SigningKey<AsIntermediateKeyType>,
     credential: AsIntermediateCredential,
 }
 
-impl AsRef<SigningKey> for AsIntermediateSigningKey {
-    fn as_ref(&self) -> &SigningKey {
+impl Deref for AsIntermediateSigningKey {
+    type Target = SigningKey<AsIntermediateKeyType>;
+
+    fn deref(&self) -> &Self::Target {
         &self.signing_key
     }
 }
 
-impl SigningKeyBehaviour for AsIntermediateSigningKey {}
+impl Convertible<AsIntermediateKeyType> for PreliminaryAsKeyType {}
 
 impl AsIntermediateSigningKey {
     pub fn from_prelim_key(
         prelim_key: PreliminaryAsIntermediateSigningKey,
         credential: AsIntermediateCredential,
     ) -> Result<Self, SigningKeyCreationError> {
-        if &prelim_key.verifying_key() != credential.verifying_key() {
+        let prelim_key = prelim_key.convert();
+        if prelim_key.verifying_key() != credential.verifying_key() {
             return Err(SigningKeyCreationError::PublicKeyMismatch);
         }
         Ok(Self {
-            signing_key: prelim_key.into_signing_key(),
+            signing_key: prelim_key,
             credential,
         })
     }
@@ -83,21 +90,26 @@ pub enum SigningKeyCreationError {
     PublicKeyMismatch,
 }
 
+#[derive(Debug)]
+pub struct AsKeyType;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AsSigningKey {
-    signing_key: SigningKey,
+    signing_key: SigningKey<AsKeyType>,
     credential: AsCredential,
 }
 
-impl AsRef<SigningKey> for AsSigningKey {
-    fn as_ref(&self) -> &SigningKey {
+impl Deref for AsSigningKey {
+    type Target = SigningKey<AsKeyType>;
+
+    fn deref(&self) -> &Self::Target {
         &self.signing_key
     }
 }
 
 impl AsSigningKey {
     pub fn from_private_key_and_credential(
-        private_key: SigningKey,
+        private_key: SigningKey<AsKeyType>,
         credential: AsCredential,
     ) -> Self {
         Self {
@@ -115,56 +127,40 @@ impl AsSigningKey {
     }
 }
 
-impl SigningKeyBehaviour for AsSigningKey {}
+pub type AsVerifyingKey = VerifyingKey<AsKeyType>;
 
-#[derive(Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
-pub struct AsVerifyingKey(pub(super) VerifyingKey);
+pub type AsIntermediateVerifyingKey = VerifyingKey<AsIntermediateKeyType>;
 
-impl VerifyingKeyBehaviour for AsVerifyingKey {}
-
-impl AsRef<VerifyingKey> for AsVerifyingKey {
-    fn as_ref(&self) -> &VerifyingKey {
-        &self.0
-    }
-}
-
-#[derive(
-    Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Eq, PartialEq, Serialize, Deserialize,
-)]
-pub struct AsIntermediateVerifyingKey(pub(super) VerifyingKey);
-
-impl VerifyingKeyBehaviour for AsIntermediateVerifyingKey {}
-
-impl AsRef<VerifyingKey> for AsIntermediateVerifyingKey {
-    fn as_ref(&self) -> &VerifyingKey {
-        &self.0
-    }
-}
+#[derive(Debug)]
+pub struct ClientKeyType;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientSigningKey {
-    signing_key: SigningKey,
+    signing_key: SigningKey<ClientKeyType>,
     credential: ClientCredential,
 }
 
-impl AsRef<SigningKey> for ClientSigningKey {
-    fn as_ref(&self) -> &SigningKey {
+impl Deref for ClientSigningKey {
+    type Target = SigningKey<ClientKeyType>;
+
+    fn deref(&self) -> &Self::Target {
         &self.signing_key
     }
 }
 
-impl SigningKeyBehaviour for ClientSigningKey {}
+impl Convertible<ClientKeyType> for PreliminaryClientKeyType {}
 
 impl ClientSigningKey {
     pub fn from_prelim_key(
         prelim_key: PreliminaryClientSigningKey,
         credential: ClientCredential,
     ) -> Result<Self, SigningKeyCreationError> {
-        if &prelim_key.verifying_key() != credential.verifying_key() {
+        let prelim_key = prelim_key.convert();
+        if prelim_key.verifying_key() != credential.verifying_key() {
             return Err(SigningKeyCreationError::PublicKeyMismatch);
         }
         Ok(Self {
-            signing_key: prelim_key.into_signing_key(),
+            signing_key: prelim_key,
             credential,
         })
     }
@@ -174,32 +170,14 @@ impl ClientSigningKey {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    TlsSize,
-    Eq,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    sqlx::Type,
-)]
-#[sqlx(transparent)]
-pub struct ClientVerifyingKey(pub(super) VerifyingKey);
+pub type ClientVerifyingKey = VerifyingKey<ClientKeyType>;
 
-impl VerifyingKeyBehaviour for ClientVerifyingKey {}
-
-impl AsRef<VerifyingKey> for ClientVerifyingKey {
-    fn as_ref(&self) -> &VerifyingKey {
-        &self.0
-    }
-}
+#[derive(Debug)]
+pub struct PseudonymousKeyType;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PseudonymousCredentialSigningKey {
-    signing_key: SigningKey,
+    signing_key: SigningKey<PseudonymousKeyType>,
     credential: PseudonymousCredential,
 }
 
@@ -295,18 +273,18 @@ impl PseudonymousCredentialSigningKey {
     }
 }
 
-impl SigningKeyBehaviour for PseudonymousCredentialSigningKey {}
-impl SigningKeyBehaviour for &PseudonymousCredentialSigningKey {}
+impl Deref for PseudonymousCredentialSigningKey {
+    type Target = SigningKey<PseudonymousKeyType>;
 
-impl AsRef<SigningKey> for PseudonymousCredentialSigningKey {
-    fn as_ref(&self) -> &SigningKey {
+    fn deref(&self) -> &Self::Target {
         &self.signing_key
     }
 }
 
 impl Signer for PseudonymousCredentialSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {
-        <Self as SigningKeyBehaviour>::sign(self, payload)
+        self.signing_key
+            .sign(payload)
             .map_err(|_| SignerError::SigningError)
             .map(|s| s.into_bytes())
     }
@@ -317,36 +295,11 @@ impl Signer for PseudonymousCredentialSigningKey {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct PreliminaryClientSigningKey(SigningKey);
+pub struct PreliminaryClientKeyType;
+pub type PreliminaryClientSigningKey = SigningKey<PreliminaryClientKeyType>;
 
-impl PreliminaryClientSigningKey {
-    pub(super) fn generate() -> Result<Self, KeyGenerationError> {
-        let signing_key = SigningKey::generate()?;
-        Ok(Self(signing_key))
-    }
+#[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
+pub struct PreliminaryAsKeyType;
+pub type PreliminaryAsIntermediateSigningKey = SigningKey<PreliminaryAsKeyType>;
 
-    pub(super) fn into_signing_key(self) -> SigningKey {
-        self.0
-    }
-
-    pub(super) fn verifying_key(&self) -> ClientVerifyingKey {
-        ClientVerifyingKey(self.0.verifying_key().clone())
-    }
-}
-
-pub struct PreliminaryAsIntermediateSigningKey(SigningKey);
-
-impl PreliminaryAsIntermediateSigningKey {
-    pub(super) fn generate() -> Result<Self, KeyGenerationError> {
-        let signing_key = SigningKey::generate()?;
-        Ok(Self(signing_key))
-    }
-
-    pub(super) fn into_signing_key(self) -> SigningKey {
-        self.0
-    }
-
-    pub(super) fn verifying_key(&self) -> AsIntermediateVerifyingKey {
-        AsIntermediateVerifyingKey(self.0.verifying_key().clone())
-    }
-}
+pub type PreliminaryAsIntermediateVerifyingKey = VerifyingKey<PreliminaryAsKeyType>;

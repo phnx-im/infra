@@ -4,6 +4,8 @@
 
 //! API endpoints of the DS
 
+use std::ops::Deref;
+
 use crate::version::{extract_api_version_negotiation, negotiate_api_version};
 
 use super::*;
@@ -16,7 +18,7 @@ use phnxtypes::{
     credentials::keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
     crypto::{
         ear::keys::GroupStateEarKey,
-        signatures::{signable::Signable, traits::SigningKeyBehaviour},
+        signatures::{private_keys::SigningKey, signable::Signable},
     },
     endpoint_paths::ENDPOINT_DS_GROUPS,
     errors::version::VersionError,
@@ -67,19 +69,19 @@ impl From<LibraryError> for DsRequestError {
     }
 }
 
-pub enum AuthenticationMethod<'a, T: SigningKeyBehaviour> {
-    Signature(&'a T),
+pub enum AuthenticationMethod<'a, T> {
+    Signature(&'a SigningKey<T>),
     None,
 }
 
-impl<'a, T: SigningKeyBehaviour + 'a> From<&'a T> for AuthenticationMethod<'a, T> {
-    fn from(key: &'a T) -> Self {
+impl<'a, T, U: Deref<Target = SigningKey<T>>> From<&'a U> for AuthenticationMethod<'a, T> {
+    fn from(key: &'a U) -> Self {
         AuthenticationMethod::Signature(key)
     }
 }
 
 impl ApiClient {
-    async fn prepare_and_send_ds_message<'a, T: SigningKeyBehaviour + 'a>(
+    async fn prepare_and_send_ds_message<'a, T: 'a>(
         &self,
         request_params: DsRequestParamsOut,
         auth_method: impl Into<AuthenticationMethod<'a, T>>,
@@ -114,7 +116,7 @@ impl ApiClient {
         handle_ds_response(response).await
     }
 
-    async fn prepare_and_send_ds_group_message<'a, T: SigningKeyBehaviour + 'a>(
+    async fn prepare_and_send_ds_group_message<'a, T: 'a>(
         &self,
         request_params: DsGroupRequestParamsOut,
         auth_method: impl Into<AuthenticationMethod<'a, T>>,
@@ -471,7 +473,7 @@ async fn handle_ds_response(res: reqwest::Response) -> Result<DsProcessResponseI
     }
 }
 
-fn sign_ds_params<'a, T: SigningKeyBehaviour + 'a>(
+fn sign_ds_params<'a, T: 'a>(
     request_params: DsVersionedRequestParamsOut,
     auth_method: &AuthenticationMethod<'a, T>,
 ) -> Result<ClientToDsMessageOut, DsRequestError> {

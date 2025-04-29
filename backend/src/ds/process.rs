@@ -164,7 +164,7 @@ use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
         ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
-        signatures::{keys::LeafVerifyingKey, signable::Verifiable},
+        signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     errors::{DsProcessingError, version::VersionError},
     identifiers::QualifiedGroupId,
@@ -309,13 +309,13 @@ impl Ds {
             .ok_or(DsProcessingError::InvalidSenderType)?
         {
             DsSender::ExternalSender(leaf_index) | DsSender::LeafIndex(leaf_index) => {
-                let verifying_key: LeafVerifyingKey = group_state
+                let verifying_key: LeafVerifyingKeyRef = group_state
                     .group()
                     .leaf(leaf_index)
                     .ok_or(DsProcessingError::UnknownSender)?
                     .signature_key()
                     .into();
-                let params = message.verify(&verifying_key).map_err(|_| {
+                let params = message.verify(verifying_key).map_err(|_| {
                     warn!("Could not verify message based on leaf index");
                     DsProcessingError::InvalidSignature
                 })?;
@@ -323,7 +323,7 @@ impl Ds {
             }
             DsSender::LeafSignatureKey(verifying_key) => {
                 let message = message
-                    .verify(&LeafVerifyingKey::from(&verifying_key))
+                    .verify(LeafVerifyingKeyRef::from(&verifying_key))
                     .map_err(|_| {
                         warn!("Could not verify message based on leaf signature key");
                         DsProcessingError::InvalidSignature

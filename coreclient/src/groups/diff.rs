@@ -73,29 +73,21 @@ mod test {
                     },
                     "identity_link_ctxt": {
                         "encrypted_signature": {
-                            "ciphertext": {
-                                "ciphertext": [13, 14, 15],
-                                "nonce": b"nonce_1_____",
-                            },
+                            "ciphertext": [13, 14, 15],
+                            "nonce": b"nonce_1_____",
                         },
                         "encrypted_client_credential": {
-                            "encrypted_client_credential": {
-                                "ciphertext": [16, 17, 18],
-                                "nonce": b"nonce_2_____",
-                            },
+                            "ciphertext": [16, 17, 18],
+                            "nonce": b"nonce_2_____",
                         }
                     },
                 },
             },
             "identity_link_key": {
-                "key": {
-                    "secret": b"identity_link_key_32_bytes______",
-                },
+                "secret": b"identity_link_key_32_bytes______",
             },
             "group_state_ear_key": {
-                "key": {
-                    "secret": b"group_state_ear_key_32_bytes____",
-                },
+                "secret": b"group_state_ear_key_32_bytes____",
             },
         });
         serde_json::from_value(value).unwrap()

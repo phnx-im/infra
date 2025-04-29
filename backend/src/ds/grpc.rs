@@ -17,12 +17,11 @@ use phnxprotos::{
     },
     validation::{InvalidTlsExt, MissingFieldExt},
 };
-use phnxtypes::crypto::signatures::signable::Verifiable;
+use phnxtypes::crypto::signatures::{
+    keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+};
 use phnxtypes::{
-    crypto::{
-        ear::keys::GroupStateEarKey,
-        signatures::{keys::LeafVerifyingKey, traits::SignatureVerificationError},
-    },
+    crypto::ear::keys::GroupStateEarKey,
     identifiers::{Fqdn, QualifiedGroupId},
     messages::client_ds::QsQueueMessagePayload,
 };
@@ -168,13 +167,13 @@ impl<Qep: QsConnector> phnxprotos::delivery_service::v1::delivery_service_server
 
         // verify
         let sender_index: LeafNodeIndex = payload.sender.ok_or_missing_field("sender")?.into();
-        let verifying_key: LeafVerifyingKey = group_state
+        let verifying_key: LeafVerifyingKeyRef = group_state
             .group()
             .leaf(sender_index)
             .ok_or(UnknownSenderError(sender_index))?
             .signature_key()
             .into();
-        let _: SendMessagePayload = request.verify(&verifying_key).map_err(InvalidSignature)?;
+        let _: SendMessagePayload = request.verify(verifying_key).map_err(InvalidSignature)?;
 
         let destination_clients: Vec<_> = group_state
             .member_profiles

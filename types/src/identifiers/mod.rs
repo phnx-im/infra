@@ -18,7 +18,7 @@ use uuid::Uuid;
 use crate::crypto::{
     ear::keys::PushTokenEarKey,
     errors::RandomnessError,
-    hpke::{ClientIdDecryptionKey, ClientIdEncryptionKey, HpkeDecryptable, HpkeEncryptable},
+    hpke::{ClientIdKeyType, HpkeDecryptable, HpkeEncryptable},
 };
 
 use super::*;
@@ -473,8 +473,8 @@ pub struct ClientConfig {
     pub push_token_ear_key: Option<PushTokenEarKey>,
 }
 
-impl HpkeEncryptable<ClientIdEncryptionKey, SealedClientReference> for ClientConfig {}
-impl HpkeDecryptable<ClientIdDecryptionKey, SealedClientReference> for ClientConfig {}
+impl HpkeEncryptable<ClientIdKeyType, SealedClientReference> for ClientConfig {}
+impl HpkeDecryptable<ClientIdKeyType, SealedClientReference> for ClientConfig {}
 
 /// This is the pseudonymous client id used on the QS.
 #[derive(

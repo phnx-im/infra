@@ -7,11 +7,11 @@ use std::{ops::DerefMut, str::FromStr};
 use phnxtypes::{
     crypto::{
         kdf::keys::RatchetSecret,
-        ratchet::{QueueRatchet, RatchetCiphertext, RatchetPayload},
+        ratchet::{QueueRatchet, RatchetPayload},
     },
     messages::{
-        EncryptedAsQueueMessage, EncryptedQsQueueMessage, client_as::AsQueueMessagePayload,
-        client_ds::QsQueueMessagePayload,
+        EncryptedAsQueueMessageCtype, EncryptedQsQueueMessageCtype,
+        client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload,
     },
 };
 use sqlx::{
@@ -109,15 +109,12 @@ impl QueueType {
     }
 }
 
-pub(crate) struct StorableQueueRatchet<
-    Ciphertext: RatchetCiphertext,
-    Payload: RatchetPayload<Ciphertext>,
-> {
+pub(crate) struct StorableQueueRatchet<Ciphertext, Payload: RatchetPayload<Ciphertext>> {
     queue_type: QueueType,
     queue_ratchet: QueueRatchet<Ciphertext, Payload>,
 }
 
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Deref
+impl<Ciphertext, Payload: RatchetPayload<Ciphertext>> Deref
     for StorableQueueRatchet<Ciphertext, Payload>
 {
     type Target = QueueRatchet<Ciphertext, Payload>;
@@ -127,7 +124,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Deref
     }
 }
 
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> DerefMut
+impl<Ciphertext, Payload: RatchetPayload<Ciphertext>> DerefMut
     for StorableQueueRatchet<Ciphertext, Payload>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -136,7 +133,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> DerefMu
 }
 
 pub(crate) type StorableQsQueueRatchet =
-    StorableQueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
+    StorableQueueRatchet<EncryptedQsQueueMessageCtype, QsQueueMessagePayload>;
 
 impl StorableQsQueueRatchet {
     pub(crate) async fn initialize(
@@ -170,7 +167,7 @@ impl StorableQsQueueRatchet {
 }
 
 pub(crate) type StorableAsQueueRatchet =
-    StorableQueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
+    StorableQueueRatchet<EncryptedAsQueueMessageCtype, AsQueueMessagePayload>;
 
 impl StorableAsQueueRatchet {
     pub(crate) async fn initialize(
@@ -205,7 +202,7 @@ impl StorableAsQueueRatchet {
 
 impl<Ciphertext, Payload> StorableQueueRatchet<Ciphertext, Payload>
 where
-    Ciphertext: RatchetCiphertext + Unpin + Send,
+    Ciphertext: Unpin + Send,
     Payload: RatchetPayload<Ciphertext> + Unpin + Send,
 {
     async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
