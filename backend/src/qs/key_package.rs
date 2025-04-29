@@ -48,7 +48,7 @@ pub(super) trait StorableKeyPackage:
             "INSERT INTO key_packages (client_id, key_package, is_last_resort) VALUES",
         );
 
-        for (i, key_package) in key_packages.into_iter().enumerate() {
+        for (i, key_package) in key_packages.iter().enumerate() {
             // Add values to the query arguments. None of these should throw an error.
             query_args.add(client_id)?;
             query_args.add(BlobEncoded(key_package))?;
