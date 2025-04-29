@@ -4,6 +4,8 @@
 
 use std::process::{Child, Command};
 
+use tracing::info;
+
 pub mod builder;
 
 pub(super) struct Container {
@@ -13,6 +15,7 @@ pub(super) struct Container {
     hostname: Option<String>,
     network: Option<String>,
     port: Option<String>,
+    userns: Option<String>,
     run_parameters: Vec<String>,
     detach: bool,
     volumes: Vec<String>,
@@ -46,8 +49,12 @@ impl Container {
         if self.detach {
             command.args(["-d"]);
         }
+        if let Some(mode) = &self.userns {
+            command.args(["--userns", mode]);
+        }
         command.args([&self.image]);
         command.args(&self.run_parameters);
+        info!(?command, "Run docker container");
         command.spawn().unwrap()
     }
 }

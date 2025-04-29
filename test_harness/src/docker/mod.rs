@@ -6,15 +6,16 @@ use core::panic;
 use std::{
     collections::{HashMap, HashSet},
     process::{Child, Command, Stdio},
+    sync::LazyLock,
     thread::sleep,
     time::Duration,
 };
 
-use once_cell::sync::Lazy;
 use phnxapiclient::ApiClient;
 use phnxtypes::{DEFAULT_PORT_GRPC, DEFAULT_PORT_HTTP, identifiers::Fqdn};
+use tracing::info;
 
-use crate::{TRACING, test_scenarios::FederationTestScenario};
+use crate::{init_test_tracing, test_scenarios::FederationTestScenario};
 
 use container::Container;
 
@@ -36,7 +37,7 @@ impl Drop for DockerTestBed {
 impl DockerTestBed {
     fn stop_all_servers(&mut self) {
         for (domain, _server) in self.servers.iter_mut() {
-            tracing::info!("Stopping docker container of server {domain}");
+            info!("Stopping docker container of server {domain}");
             let server_container_name = format!("{}_server_container", domain);
             stop_docker_container(&server_container_name);
             let database_container_name = format!("{}_db_container", domain);
@@ -53,10 +54,11 @@ impl DockerTestBed {
         create_network(&network_name);
         let servers: HashMap<_, _> = (0..scenario.number_of_servers())
             .map(|index| {
+                info!(index, "Starting server");
                 let domain = format!("{scenario}{index}.com")
                     .parse()
                     .expect("Invalid domain");
-                tracing::info!("Starting server {domain}");
+                info!("Starting server {domain}");
                 let server = create_and_start_server_container(&domain, Some(&network_name));
                 (domain.clone(), server)
             })
@@ -69,20 +71,24 @@ impl DockerTestBed {
     }
 
     pub fn start_test(&mut self, test_scenario_name: &str) {
-        // This function builds the test image and starts the container.
+        // build image only once for the whole test run
+        const TEST_HARNESS_IMAGE_NAME: &str = "test_harness_image";
+        static BUILD_IMAGE: LazyLock<()> = LazyLock::new(|| {
+            info!("Building test hardness image");
+            // First go into the workspace dir s.t. we can build the docker image.
+            let manifest_dir = env!("CARGO_MANIFEST_DIR");
+            std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
+            build_docker_image("test_harness/Dockerfile", TEST_HARNESS_IMAGE_NAME);
+        });
+        let _ = &*BUILD_IMAGE;
 
-        // First go into the workspace dir s.t. we can build the docker image.
+        let container_name = format!("{test_scenario_name}_container");
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         std::env::set_current_dir(manifest_dir.to_owned() + "/..").unwrap();
 
-        let image_name = format!("{}_image", test_scenario_name);
-        let container_name = format!("{}_container", test_scenario_name);
-
-        build_docker_image("test_harness/Dockerfile", &image_name);
-
         let test_scenario_env_variable = format!("PHNX_TEST_SCENARIO={}", test_scenario_name);
 
-        let mut test_runner_builder = Container::builder(&image_name, &container_name)
+        let mut test_runner_builder = Container::builder(TEST_HARNESS_IMAGE_NAME, &container_name)
             .with_env(&test_scenario_env_variable)
             .with_env("TEST_LOG=true")
             .with_network(&self.network_name)
@@ -106,17 +112,16 @@ impl DockerTestBed {
 }
 
 fn build_docker_image(path_to_docker_file: &str, image_name: &str) {
-    tracing::info!("Building docker image: {}", image_name);
-    let build_output = Command::new("docker")
+    let mut command = Command::new("docker");
+    command
         .arg("build")
         .arg("-t")
         .arg(image_name)
         .arg("-f")
         .arg(path_to_docker_file)
-        .arg(".")
-        .status()
-        .expect("failed to execute process");
-
+        .arg(".");
+    info!(?command, "Building docker image");
+    let build_output = command.status().expect("failed to execute process");
     debug_assert!(build_output.success());
 }
 
@@ -171,8 +176,8 @@ fn create_and_start_server_container(
         .with_env(&db_password_env_variable)
         .with_env(&db_name_env_variable)
         .with_volume(&format!(
-            "{}:/etc/postgres_certs:rw",
-            absolute_cert_dir.to_str().unwrap()
+            "{}:/etc/postgres_certs:ro,z",
+            absolute_cert_dir.display()
         ))
         .with_run_parameters(&["-N", "1000"])
         .with_run_parameters(&["-c", "ssl=on"])
@@ -180,18 +185,29 @@ fn create_and_start_server_container(
         .with_run_parameters(&["-c", "ssl_key_file=/etc/postgres_certs/server.key"])
         .with_detach(false);
 
+    if docker_is_podman() {
+        // Map current user to postgres user in podman.
+        // Otherwise, the database cannot read the certificates.
+        db_container = db_container.with_userns("keep-id:uid=999,gid=999");
+    }
+
     if let Some(network_name) = network_name_option {
         db_container = db_container.with_network(network_name);
     }
 
     let db = db_container.build().run();
 
-    let server_image_name = "phnxserver_image";
+    const SERVER_IMAGE_NAME: &str = "phnxserver_image";
 
-    build_docker_image("server/Dockerfile", server_image_name);
+    // build image only once for the whole test run
+    static BUILD_SERVER_IMAGE: LazyLock<()> = LazyLock::new(|| {
+        info!("Building server image");
+        build_docker_image("server/Dockerfile", SERVER_IMAGE_NAME);
+    });
+    let _ = &*BUILD_SERVER_IMAGE;
 
     let mut server_container = Container::builder(
-        server_image_name,
+        SERVER_IMAGE_NAME,
         &format!("{server_domain}_server_container"),
     )
     .with_env(&format!("PHNX_APPLICATION_DOMAIN={server_domain}"))
@@ -203,10 +219,7 @@ fn create_and_start_server_container(
     .with_env("PHNX_DATABASE_CACERTPATH=/test_certs/root.crt")
     .with_env("SQLX_OFFLINE=true")
     .with_hostname(&server_domain.to_string())
-    .with_volume(&format!(
-        "{}:/test_certs:ro",
-        absolute_cert_dir.to_str().unwrap()
-    ))
+    .with_volume(&format!("{}:/test_certs:ro,z", absolute_cert_dir.display()))
     .with_detach(false);
 
     if let Some(network_name) = network_name_option {
@@ -216,6 +229,16 @@ fn create_and_start_server_container(
     let server = server_container.build().run();
 
     (server, db)
+}
+
+/// Returns `true` if docker is actually podman, otherwise returns `false`.
+fn docker_is_podman() -> bool {
+    let stdout = Command::new("docker")
+        .arg("--version")
+        .output()
+        .unwrap()
+        .stdout;
+    String::from_utf8_lossy(&stdout).contains("podman")
 }
 
 /// This function has to be called from the container that runs the tests.
@@ -249,7 +272,12 @@ pub async fn wait_until_servers_are_up(domains: impl Into<HashSet<Fqdn>>) -> boo
 }
 
 fn create_network(network_name: &str) {
-    tracing::info!("Creating network: {}", network_name);
+    if network_exists(network_name) {
+        info!("Network {network_name} already exists");
+        remove_network(network_name);
+    }
+
+    info!("Creating network: {}", network_name);
     let command_output = Command::new("docker")
         .arg("network")
         .arg("create")
@@ -269,12 +297,23 @@ fn create_network(network_name: &str) {
     }
 }
 
+fn network_exists(network_name: &str) -> bool {
+    Command::new("docker")
+        .arg("network")
+        .arg("exists")
+        .arg(network_name)
+        .status()
+        .expect("failed to execute process")
+        .success()
+}
+
 fn remove_network(network_name: &str) {
-    tracing::info!("Remove network: {}", network_name);
+    info!("Remove network: {}", network_name);
     let command_output = Command::new("docker")
         .arg("network")
         .arg("rm")
         .arg(network_name)
+        .arg("-f")
         .status()
         .expect("failed to execute process");
 
@@ -296,7 +335,7 @@ fn assert_docker_is_running() {
 
 #[expect(clippy::zombie_processes, reason = "Allow zombie processes in tests")]
 pub async fn run_server_restart_test() {
-    Lazy::force(&TRACING);
+    init_test_tracing();
 
     // Make sure that Docker is actually running
     assert_docker_is_running();
@@ -333,12 +372,18 @@ pub async fn run_server_restart_test() {
         .with_run_parameters(&["-N", "1000"])
         .with_detach(false);
 
+    println!("1 ############");
+
     let _db = db_builder.build().run();
+
+    println!("2 ############");
 
     let server_image_name = "phnxserver_image";
     let server_container_name = format!("{server_domain}_server_container");
 
+    println!("3 ############");
     build_docker_image("server/Dockerfile", server_image_name);
+    println!("4 ############");
 
     let server_domain_env_variable = format!("PHNX_APPLICATION_DOMAIN={}", server_domain);
     let server_db_user_env_variable = format!("PHNX_DATABASE_USERNAME={}", db_user);
@@ -348,7 +393,7 @@ pub async fn run_server_restart_test() {
     let server_db_name_env_variable = format!("PHNX_DATABASE_NAME={}", db_name);
     let server_sqlx_offline_env_variable = "SQLX_OFFLINE=true".to_string();
 
-    tracing::info!("Starting phnx server");
+    info!("Starting phnx server");
     let server_builder = Container::builder(server_image_name, &server_container_name)
         .with_env(&server_domain_env_variable)
         .with_env(&server_host_env_variable)
@@ -366,14 +411,14 @@ pub async fn run_server_restart_test() {
 
     sleep(Duration::from_secs(3));
 
-    tracing::info!("All servers are up, stopping server.");
+    info!("All servers are up, stopping server.");
 
     // Stop server container
     stop_docker_container(&server_container_name);
 
     sleep(Duration::from_secs(3));
 
-    tracing::info!("Waited three seconds, starting server again.");
+    info!("Waited three seconds, starting server again.");
 
     // Start server container again
     let _server = server_container.run();
@@ -383,5 +428,5 @@ pub async fn run_server_restart_test() {
     stop_docker_container(&server_container_name);
     stop_docker_container(&db_container_name);
 
-    tracing::info!("Done running server restart test");
+    info!("Done running server restart test");
 }

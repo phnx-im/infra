@@ -9,3 +9,4 @@ tests/
 Dockerfile
 scripts/
 migrations/
+app/build/

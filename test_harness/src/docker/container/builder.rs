@@ -11,6 +11,7 @@ pub struct ContainerBuilder {
     hostname: Option<String>,
     network: Option<String>,
     port: Option<String>,
+    userns: Option<String>,
     run_parameters: Vec<String>,
     detach: bool,
     volumes: Vec<String>,
@@ -25,6 +26,7 @@ impl ContainerBuilder {
             hostname: None,
             network: None,
             port: None,
+            userns: None,
             run_parameters: Vec::new(),
             detach: false,
             volumes: Vec::new(),
@@ -67,6 +69,11 @@ impl ContainerBuilder {
         self
     }
 
+    pub fn with_userns(mut self, mode: &str) -> Self {
+        self.userns = Some(mode.to_string());
+        self
+    }
+
     pub fn build(self) -> Container {
         Container {
             image: self.image,
@@ -75,6 +82,7 @@ impl ContainerBuilder {
             hostname: self.hostname,
             network: self.network,
             port: self.port,
+            userns: self.userns,
             run_parameters: self.run_parameters,
             detach: self.detach,
             volumes: self.volumes,

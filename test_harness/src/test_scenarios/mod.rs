@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use once_cell::sync::Lazy;
-
-use crate::{TRACING, docker::DockerTestBed};
+use crate::{docker::DockerTestBed, init_test_tracing};
 
 pub mod basic_group_operations;
 pub mod federated_group_operations;
@@ -59,7 +57,7 @@ impl std::fmt::Display for FederationTestScenario {
 }
 
 pub async fn run_test_scenario(scenario: FederationTestScenario) {
-    Lazy::force(&TRACING);
+    init_test_tracing();
     tracing::info!("Running federation test scenario: {}", scenario);
 
     let mut docker = DockerTestBed::new(&scenario).await;
