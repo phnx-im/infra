@@ -12,6 +12,7 @@ use phnxtypes::{
 };
 
 use crate::{
+    Contact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
     user_profiles::{IndexedUserProfile, UserProfile},
@@ -98,20 +99,23 @@ impl CoreUser {
             user_profile_key,
             member_id,
         } = profile_info.into();
+        let user_name = member_id.user_name().clone();
 
         // Phase 1: Check if the profile in the DB is up to date.
         let mut connection = self.pool().acquire().await?;
+        let mut old_user_profile_key_index = None;
         if let Some(user_profile) =
-            IndexedUserProfile::load(connection.as_mut(), member_id.user_name()).await?
+            IndexedUserProfile::load(connection.as_mut(), &user_name).await?
         {
             if user_profile.decryption_key_index() == user_profile_key.index() {
                 return Ok(());
             }
-        }
+            old_user_profile_key_index = Some(user_profile.decryption_key_index().clone());
+        };
         drop(connection);
 
         // Phase 2: Fetch the user profile from the server
-        let api_client = self.inner.api_clients.get(member_id.user_name().domain())?;
+        let api_client = self.inner.api_clients.get(&user_name.domain())?;
 
         let GetUserProfileResponse {
             encrypted_user_profile,
@@ -125,7 +129,17 @@ impl CoreUser {
         // Phase 3: Store the user profile and key in the database
         self.with_transaction_and_notifier(async |connection, notifier| {
             user_profile_key.store(&mut *connection).await?;
-            user_profile.upsert(connection, notifier).await?;
+            user_profile.upsert(&mut *connection, notifier).await?;
+            Contact::update_user_profile_key_index(
+                &mut *connection,
+                &user_name,
+                user_profile_key.index(),
+            )
+            .await?;
+            if let Some(old_user_profile_key_index) = old_user_profile_key_index {
+                // Delete the old user profile key
+                UserProfileKey::delete(connection, &old_user_profile_key_index).await?;
+            }
             Ok(())
         })
         .await?;

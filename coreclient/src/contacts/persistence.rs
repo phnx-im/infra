@@ -156,6 +156,21 @@ impl Contact {
             .update(self.conversation_id);
         Ok(())
     }
+
+    pub(crate) async fn update_user_profile_key_index(
+        executor: impl SqliteExecutor<'_>,
+        user_name: &QualifiedUserName,
+        key_index: &UserProfileKeyIndex,
+    ) -> sqlx::Result<()> {
+        query!(
+            "UPDATE contacts SET user_profile_key_index = ? WHERE user_name = ?",
+            key_index,
+            user_name
+        )
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
 }
 
 impl PartialContact {

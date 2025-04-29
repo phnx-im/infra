@@ -64,8 +64,16 @@ pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin + Debug>:
         let index = self.index();
         let key_type = KeyTypeInstance::<KT>::new();
         let mut transaction = connection.begin().await?;
-        // Delete the old own key (it will cascade to delete the old key in the
-        // indexed_keys table)
+        // Delete the old own key
+        query!(
+            "DELETE FROM indexed_keys
+               WHERE key_index IN (
+                   SELECT key_index FROM own_key_indices WHERE key_type = ?
+               )",
+            key_type
+        )
+        .execute(&mut *transaction)
+        .await?;
         query!("DELETE FROM own_key_indices WHERE key_type = ?", key_type)
             .execute(&mut *transaction)
             .await?;
@@ -126,6 +134,16 @@ pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin + Debug>:
         .fetch_one(connection)
         .await
         .map(From::from)
+    }
+
+    async fn delete(
+        connection: impl SqliteExecutor<'_>,
+        index: &Index<KT>,
+    ) -> Result<(), sqlx::Error> {
+        query!("DELETE FROM indexed_keys WHERE key_index = ?", index)
+            .execute(connection)
+            .await?;
+        Ok(())
     }
 }
 
