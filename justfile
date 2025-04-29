@@ -8,8 +8,7 @@ set windows-shell := ["C:\\Program Files\\Git\\bin\\sh.exe","-c"]
 
 POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
-docker-version := `docker --version`
-docker-is-podman := if docker-version =~ "^podman.*" { "true" } else { "false" }
+docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } else { "false" }
 
 # run postgres via docker compose and apply migrations
 init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
