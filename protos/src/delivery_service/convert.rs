@@ -5,7 +5,7 @@
 use mls_assist::messages::AssistedWelcome;
 use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn, group_info};
 use phnxtypes::{
-    crypto::ear,
+    crypto::{ear, secrets},
     identifiers,
     messages::{client_ds, client_ds_out::AddUsersInfoOut, welcome_attribution_info},
 };
@@ -13,7 +13,7 @@ use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
 
 use crate::{
-    common::{convert::InvalidNonceLen, v1::Ciphertext},
+    common::convert::InvalidNonceLen,
     convert::{FromRef, RefInto, TryFromRef, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -134,21 +134,10 @@ impl From<QsReferenceError> for Status {
     }
 }
 
-impl From<ear::Ciphertext> for Ciphertext {
-    fn from(value: ear::Ciphertext) -> Self {
-        let (ciphertext, nonce) = value.into_parts();
-        Self {
-            ciphertext,
-            nonce: nonce.to_vec(),
-        }
-    }
-}
-
 impl From<ear::keys::EncryptedIdentityLinkKey> for EncryptedIdentityLinkKey {
     fn from(value: ear::keys::EncryptedIdentityLinkKey) -> Self {
-        let ciphertext: ear::Ciphertext = value.into();
         Self {
-            ciphertext: Some(ciphertext.into()),
+            ciphertext: Some(value.into()),
         }
     }
 }
@@ -157,11 +146,8 @@ impl TryFrom<EncryptedIdentityLinkKey> for ear::keys::EncryptedIdentityLinkKey {
     type Error = EncryptedIdentityLinkKeyError;
 
     fn try_from(proto: EncryptedIdentityLinkKey) -> Result<Self, Self::Error> {
-        let ciphertext: ear::Ciphertext = proto
-            .ciphertext
-            .ok_or_missing_field(CiphertextField)?
-            .try_into()?;
-        Ok(ciphertext.into())
+        let ciphertext = proto.ciphertext.ok_or_missing_field(CiphertextField)?;
+        Ok(ciphertext.try_into()?)
     }
 }
 
@@ -181,9 +167,8 @@ impl From<EncryptedIdentityLinkKeyError> for Status {
 
 impl From<ear::keys::EncryptedUserProfileKey> for EncryptedUserProfileKey {
     fn from(value: ear::keys::EncryptedUserProfileKey) -> Self {
-        let ciphertext: ear::Ciphertext = value.into();
         Self {
-            ciphertext: Some(ciphertext.into()),
+            ciphertext: Some(value.into()),
         }
     }
 }
@@ -192,11 +177,11 @@ impl TryFrom<EncryptedUserProfileKey> for ear::keys::EncryptedUserProfileKey {
     type Error = EncryptedUserProfileKeyError;
 
     fn try_from(proto: EncryptedUserProfileKey) -> Result<Self, Self::Error> {
-        let ciphertext: ear::Ciphertext = proto
+        let ciphertext = proto
             .ciphertext
             .ok_or_missing_field(CiphertextField)?
             .try_into()?;
-        Ok(ciphertext.into())
+        Ok(ciphertext)
     }
 }
 
@@ -271,8 +256,8 @@ impl TryFromRef<'_, GroupStateEarKey> for ear::keys::GroupStateEarKey {
             .as_slice()
             .try_into()
             .map_err(|_| InvalidGroupStateEarKeyLen(proto.key.len()))?;
-        let key = ear::keys::GroupStateEarKeySecret::from(bytes);
-        Ok(key.into())
+        let secret = secrets::Secret::from(bytes);
+        Ok(secret.into())
     }
 }
 
@@ -350,9 +335,8 @@ impl From<welcome_attribution_info::EncryptedWelcomeAttributionInfo>
     for EncryptedWelcomeAttributionInfo
 {
     fn from(value: welcome_attribution_info::EncryptedWelcomeAttributionInfo) -> Self {
-        let ciphertext: ear::Ciphertext = value.into();
         Self {
-            ciphertext: Some(ciphertext.into()),
+            ciphertext: Some(value.into()),
         }
     }
 }
@@ -363,11 +347,11 @@ impl TryFrom<EncryptedWelcomeAttributionInfo>
     type Error = EncryptedWelcomeAttributionInfoError;
 
     fn try_from(proto: EncryptedWelcomeAttributionInfo) -> Result<Self, Self::Error> {
-        let ciphertext: ear::Ciphertext = proto
+        let ciphertext: Self = proto
             .ciphertext
             .ok_or_missing_field(CiphertextField)?
             .try_into()?;
-        Ok(ciphertext.into())
+        Ok(ciphertext)
     }
 }
 

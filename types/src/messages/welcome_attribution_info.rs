@@ -138,35 +138,16 @@ impl VerifiedStruct<VerifiableWelcomeAttributionInfo> for WelcomeAttributionInfo
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
-pub struct EncryptedWelcomeAttributionInfo {
-    ciphertext: Ciphertext,
-}
+#[derive(Debug)]
+pub struct EncryptedWelcomeAttributionInfoCtype;
+pub type EncryptedWelcomeAttributionInfo = Ciphertext<EncryptedWelcomeAttributionInfoCtype>;
 
-impl AsRef<Ciphertext> for EncryptedWelcomeAttributionInfo {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.ciphertext
-    }
-}
-
-impl From<Ciphertext> for EncryptedWelcomeAttributionInfo {
-    fn from(ciphertext: Ciphertext) -> Self {
-        Self { ciphertext }
-    }
-}
-
-impl From<EncryptedWelcomeAttributionInfo> for Ciphertext {
-    fn from(value: EncryptedWelcomeAttributionInfo) -> Self {
-        value.ciphertext
-    }
-}
-
-impl EarEncryptable<WelcomeAttributionInfoEarKey, EncryptedWelcomeAttributionInfo>
+impl EarEncryptable<WelcomeAttributionInfoEarKey, EncryptedWelcomeAttributionInfoCtype>
     for WelcomeAttributionInfo
 {
 }
 
-impl EarDecryptable<WelcomeAttributionInfoEarKey, EncryptedWelcomeAttributionInfo>
+impl EarDecryptable<WelcomeAttributionInfoEarKey, EncryptedWelcomeAttributionInfoCtype>
     for WelcomeAttributionInfo
 {
 }

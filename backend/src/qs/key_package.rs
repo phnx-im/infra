@@ -169,7 +169,7 @@ mod persistence {
 
     #[cfg(test)]
     mod tests {
-        use phnxtypes::crypto::ear::Ciphertext;
+
         use sqlx::PgPool;
 
         use crate::qs::{
@@ -196,9 +196,9 @@ mod persistence {
                 .await?
                 .expect("missing key package");
 
-                if pkg.0.as_ref() == packages[0].as_ref() {
+                if pkg.0 == packages[0] {
                     loaded[0] = Some(pkg);
-                } else if pkg.0.as_ref() == packages[1].as_ref() {
+                } else if pkg.0 == packages[1] {
                     loaded[1] = Some(pkg);
                 }
             }
@@ -211,8 +211,8 @@ mod persistence {
             .await?;
             assert!(pkg.is_none());
 
-            assert_eq!(loaded[0].as_ref().unwrap().0.as_ref(), packages[0].as_ref());
-            assert_eq!(loaded[1].as_ref().unwrap().0.as_ref(), packages[1].as_ref());
+            assert_eq!(loaded[0].as_ref().unwrap().0, packages[0]);
+            assert_eq!(loaded[1].as_ref().unwrap().0, packages[1]);
 
             Ok(())
         }
@@ -231,15 +231,15 @@ mod persistence {
                     &user_record.friendship_token,
                 )
                 .await?;
-                if pkg.0.as_ref() == packages[0].as_ref() {
+                if pkg.0 == packages[0] {
                     loaded[0] = Some(pkg);
-                } else if pkg.0.as_ref() == packages[1].as_ref() {
+                } else if pkg.0 == packages[1] {
                     loaded[1] = Some(pkg);
                 }
             }
 
-            assert_eq!(loaded[0].as_ref().unwrap().0.as_ref(), packages[0].as_ref());
-            assert_eq!(loaded[1].as_ref().unwrap().0.as_ref(), packages[1].as_ref());
+            assert_eq!(loaded[0].as_ref().unwrap().0, packages[0]);
+            assert_eq!(loaded[1].as_ref().unwrap().0, packages[1]);
 
             Ok(())
         }
@@ -248,8 +248,8 @@ mod persistence {
             pool: &PgPool,
             client_id: &QsClientId,
         ) -> anyhow::Result<Vec<QsEncryptedKeyPackage>> {
-            let pkg_a = QsEncryptedKeyPackage::from(Ciphertext::random());
-            let pkg_b = QsEncryptedKeyPackage::from(Ciphertext::random());
+            let pkg_a = QsEncryptedKeyPackage::random();
+            let pkg_b = QsEncryptedKeyPackage::random();
             StorableEncryptedAddPackage::store_multiple(pool, client_id, [&pkg_a, &pkg_b]).await?;
             Ok(vec![pkg_a, pkg_b])
         }

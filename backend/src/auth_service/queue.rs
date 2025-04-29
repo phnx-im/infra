@@ -182,7 +182,7 @@ mod persistence {
 
     #[cfg(test)]
     mod tests {
-        use phnxtypes::crypto::ear::Ciphertext;
+        use phnxtypes::crypto::ear::AeadCiphertext;
         use sqlx::PgPool;
 
         use crate::auth_service::{
@@ -205,7 +205,7 @@ mod persistence {
             for sequence_number in n..n + 10 {
                 let message = QueueMessage {
                     sequence_number,
-                    ciphertext: Ciphertext::random(),
+                    ciphertext: AeadCiphertext::random(),
                 };
                 messages.push(message);
                 Queue::enqueue(

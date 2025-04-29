@@ -32,9 +32,7 @@ use crate::{
                 EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey, RatchetKey,
             },
         },
-        hpke::{
-            HpkeDecryptable, HpkeEncryptable, JoinerInfoDecryptionKey, JoinerInfoEncryptionKey,
-        },
+        hpke::{HpkeDecryptable, HpkeEncryptable, JoinerInfoKeyType},
         ratchet::QueueRatchet,
         signatures::signable::{Signature, Verifiable, VerifiedStruct},
     },
@@ -44,7 +42,8 @@ use crate::{
 };
 
 use super::{
-    ApiVersion, EncryptedQsQueueMessage, MlsInfraVersion, client_as::EncryptedFriendshipPackage,
+    ApiVersion, EncryptedQsQueueMessageCtype, MlsInfraVersion,
+    client_as::EncryptedFriendshipPackage,
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
 };
 
@@ -65,7 +64,7 @@ pub(crate) struct DsClientId {
 
 // === DS ===
 
-pub type QsQueueRatchet = QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload>;
+pub type QsQueueRatchet = QueueRatchet<EncryptedQsQueueMessageCtype, QsQueueMessagePayload>;
 
 #[derive(
     Debug, PartialEq, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize,
@@ -160,8 +159,8 @@ impl From<SerializedMlsMessage> for QsQueueMessagePayload {
     }
 }
 
-impl EarEncryptable<RatchetKey, EncryptedQsQueueMessage> for QsQueueMessagePayload {}
-impl EarDecryptable<RatchetKey, EncryptedQsQueueMessage> for QsQueueMessagePayload {}
+impl EarEncryptable<RatchetKey, EncryptedQsQueueMessageCtype> for QsQueueMessagePayload {}
+impl EarDecryptable<RatchetKey, EncryptedQsQueueMessageCtype> for QsQueueMessagePayload {}
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct InfraAadMessage {
@@ -723,10 +722,7 @@ impl From<HpkeCiphertext> for EncryptedDsJoinerInformation {
     }
 }
 
-impl HpkeEncryptable<JoinerInfoEncryptionKey, EncryptedDsJoinerInformation>
-    for DsJoinerInformation
-{
-}
+impl HpkeEncryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformation {}
 
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
@@ -736,10 +732,7 @@ pub struct DsJoinerInformationIn {
     pub ratchet_tree: RatchetTreeIn,
 }
 
-impl HpkeDecryptable<JoinerInfoDecryptionKey, EncryptedDsJoinerInformation>
-    for DsJoinerInformationIn
-{
-}
+impl HpkeDecryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformationIn {}
 
 impl GenericDeserializable for DsJoinerInformationIn {
     type Error = tls_codec::Error;

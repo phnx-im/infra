@@ -14,20 +14,20 @@ use phnxprotos::{
     delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
+use phnxtypes::crypto::signatures::{
+    keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+};
 use phnxtypes::{
-    crypto::{
-        ear::keys::GroupStateEarKey,
-        signatures::{
-            keys::LeafVerifyingKey,
-            signable::{Verifiable, VerifiedStruct},
-            traits::SignatureVerificationError,
-        },
-    },
-    errors,
-    identifiers::{self, Fqdn, QualifiedGroupId},
+    crypto::ear::keys::GroupStateEarKey,
+    identifiers::{Fqdn, QualifiedGroupId},
+    messages::client_ds::QsQueueMessagePayload,
+};
+use phnxtypes::{
+    crypto::signatures::signable::VerifiedStruct,
+    errors, identifiers,
     messages::client_ds::{
-        GroupOperationParams, JoinConnectionGroupParams, QsQueueMessagePayload,
-        UserProfileKeyUpdateParams, WelcomeInfoParams,
+        GroupOperationParams, JoinConnectionGroupParams, UserProfileKeyUpdateParams,
+        WelcomeInfoParams,
     },
     time::TimeStamp,
 };
@@ -94,13 +94,13 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
             }
         })?;
 
-        let verifying_key: LeafVerifyingKey = group_state
+        let verifying_key: LeafVerifyingKeyRef = group_state
             .group()
             .leaf(sender_index)
             .ok_or(Status::invalid_argument("unknown sender"))?
             .signature_key()
             .into();
-        let payload: P = request.verify(&verifying_key).map_err(InvalidSignature)?;
+        let payload: P = request.verify(verifying_key).map_err(InvalidSignature)?;
 
         Ok(LeafVerificationData {
             ear_key,
@@ -288,9 +288,9 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .clone()
             .ok_or_missing_field("sender")?
             .into();
-        let verifying_key = LeafVerifyingKey::from(&sender);
+        let verifying_key = LeafVerifyingKeyRef::from(&sender);
         let payload: WelcomeInfoPayload =
-            request.verify(&verifying_key).map_err(InvalidSignature)?;
+            request.verify(verifying_key).map_err(InvalidSignature)?;
 
         let qgid = payload.validated_qgid(&self.ds.own_domain)?;
         let ear_key = payload.ear_key()?;
@@ -718,14 +718,14 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         let (group_data, mut group_state) = self.load_group_state(&qgid, &ear_key).await?;
 
         // verify signature
-        let verifying_key: LeafVerifyingKey = group_state
+        let verifying_key: LeafVerifyingKeyRef = group_state
             .group()
             .leaf(sender_index)
             .ok_or(Status::invalid_argument("unknown sender"))?
             .signature_key()
             .into();
         let payload: UpdateProfileKeyPayload =
-            request.verify(&verifying_key).map_err(InvalidSignature)?;
+            request.verify(verifying_key).map_err(InvalidSignature)?;
 
         let user_profile_key = payload
             .encrypted_user_profile_key

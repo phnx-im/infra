@@ -5,6 +5,7 @@
 use phnxtypes::{
     crypto::{
         ear::keys::{KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+        indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::ConnectionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -18,7 +19,7 @@ use tokio_stream::StreamExt;
 
 use crate::{
     Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
-    key_stores::indexed_keys::UserProfileKeyIndex, store::StoreNotifier,
+    store::StoreNotifier,
 };
 
 /// Comma-separated list of [`AsClientId`]'s
@@ -263,6 +264,7 @@ mod tests {
     use phnxtypes::{
         crypto::{
             ear::keys::{FriendshipPackageEarKey, KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+            indexed_aead::keys::UserProfileKey,
             kdf::keys::ConnectionKey,
         },
         messages::FriendshipToken,
@@ -272,7 +274,7 @@ mod tests {
 
     use crate::{
         ConversationId, conversations::persistence::tests::test_conversation,
-        key_stores::indexed_keys::UserProfileKey,
+        key_stores::indexed_keys::StorableIndexedKey,
     };
 
     use super::*;

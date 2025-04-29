@@ -5,7 +5,7 @@
 use anyhow::{Context, Result};
 use openmls::prelude::MlsMessageOut;
 use phnxtypes::{
-    crypto::hpke::HpkeDecryptable,
+    crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::QualifiedGroupId,
     messages::{
         QueueMessage,
@@ -22,7 +22,7 @@ use crate::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
     groups::{Group, ProfileInfo},
-    key_stores::{indexed_keys::UserProfileKey, leaf_keys::LeafKeys},
+    key_stores::{indexed_keys::StorableIndexedKey, leaf_keys::LeafKeys},
     store::StoreNotifier,
 };
 

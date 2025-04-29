@@ -4,7 +4,10 @@
 
 use chrono::DateTime;
 use phnxtypes::{
-    crypto::{ear, signatures::signable},
+    crypto::{
+        ear::{self, AeadCiphertext},
+        signatures::signable,
+    },
     identifiers, time,
 };
 use tonic::Status;
@@ -110,7 +113,17 @@ impl FromRef<'_, openmls::group::GroupId> for GroupId {
     }
 }
 
-impl TryFrom<Ciphertext> for ear::Ciphertext {
+impl<CT> From<ear::Ciphertext<CT>> for Ciphertext {
+    fn from(value: ear::Ciphertext<CT>) -> Self {
+        let (ciphertext, nonce) = AeadCiphertext::from(value).into_parts();
+        Self {
+            ciphertext,
+            nonce: nonce.to_vec(),
+        }
+    }
+}
+
+impl<CT> TryFrom<Ciphertext> for ear::Ciphertext<CT> {
     type Error = InvalidNonceLen;
 
     fn try_from(proto: Ciphertext) -> Result<Self, Self::Error> {
@@ -119,7 +132,7 @@ impl TryFrom<Ciphertext> for ear::Ciphertext {
             .nonce
             .try_into()
             .map_err(|_| InvalidNonceLen(nonce_len))?;
-        Ok(ear::Ciphertext::new(proto.ciphertext, nonce))
+        Ok(ear::AeadCiphertext::new(proto.ciphertext, nonce).into())
     }
 }
 
