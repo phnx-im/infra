@@ -4,7 +4,10 @@
 
 use chrono::DateTime;
 use phnxtypes::{
-    crypto::{ear, signatures::signable},
+    crypto::{
+        ear::{self, AeadCiphertext},
+        signatures::signable,
+    },
     identifiers, time,
 };
 use tonic::Status;
@@ -96,10 +99,26 @@ impl FromRef<'_, identifiers::QualifiedGroupId> for QualifiedGroupId {
     }
 }
 
+impl FromRef<'_, GroupId> for openmls::group::GroupId {
+    fn from_ref(proto: &GroupId) -> Self {
+        Self::from_slice(&proto.value)
+    }
+}
+
 impl FromRef<'_, openmls::group::GroupId> for GroupId {
     fn from_ref(value: &openmls::group::GroupId) -> GroupId {
         GroupId {
             value: value.to_vec(),
+        }
+    }
+}
+
+impl<CT> From<ear::Ciphertext<CT>> for Ciphertext {
+    fn from(value: ear::Ciphertext<CT>) -> Self {
+        let (ciphertext, nonce) = AeadCiphertext::from(value).into_parts();
+        Self {
+            ciphertext,
+            nonce: nonce.to_vec(),
         }
     }
 }
