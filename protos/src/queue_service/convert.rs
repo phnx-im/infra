@@ -112,15 +112,14 @@ impl TryFrom<EncryptedPushToken> for push_token::EncryptedPushToken {
     type Error = InvalidNonceLen;
 
     fn try_from(proto: EncryptedPushToken) -> Result<Self, Self::Error> {
-        let ciphertext: ear::Ciphertext = proto.ciphertext.unwrap_or_default().try_into()?;
-        Ok(Self::from(ciphertext))
+        proto.ciphertext.unwrap_or_default().try_into()
     }
 }
 
 impl From<push_token::EncryptedPushToken> for EncryptedPushToken {
     fn from(value: push_token::EncryptedPushToken) -> Self {
         Self {
-            ciphertext: Some(value.into_ciphertext().into()),
+            ciphertext: Some(value.into()),
         }
     }
 }
@@ -177,9 +176,8 @@ impl From<KeyPackageEarKeyError> for Status {
 
 impl From<messages::QsEncryptedKeyPackage> for QsEncryptedKeyPackage {
     fn from(value: messages::QsEncryptedKeyPackage) -> Self {
-        let ciphertext: ear::Ciphertext = value.into();
         Self {
-            ciphertext: Some(ciphertext.into()),
+            ciphertext: Some(value.into()),
         }
     }
 }
@@ -188,8 +186,7 @@ impl TryFrom<QsEncryptedKeyPackage> for messages::QsEncryptedKeyPackage {
     type Error = InvalidNonceLen;
 
     fn try_from(value: QsEncryptedKeyPackage) -> Result<Self, Self::Error> {
-        let ciphertext: ear::Ciphertext = value.ciphertext.unwrap_or_default().try_into()?;
-        Ok(Self::from(ciphertext))
+        value.ciphertext.unwrap_or_default().try_into()
     }
 }
 

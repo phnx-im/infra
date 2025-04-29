@@ -10,7 +10,7 @@ use phnxtypes::{
         AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
         ClientCredential, CredentialFingerprint, VerifiableClientCredential,
     },
-    crypto::signatures::{signable::Verifiable, traits::SignatureVerificationError},
+    crypto::signatures::{private_keys::SignatureVerificationError, signable::Verifiable},
     identifiers::Fqdn,
 };
 use sqlx::{

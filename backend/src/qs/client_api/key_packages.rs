@@ -158,7 +158,7 @@ impl Qs {
                 QsEncryptionKeyError::StorageError
             })?
             .map(|decryption_key| {
-                let encryption_key = decryption_key.encryption_key();
+                let encryption_key = decryption_key.encryption_key().clone();
                 EncryptionKeyResponse { encryption_key }
             })
             .ok_or(QsEncryptionKeyError::LibraryError)

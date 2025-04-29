@@ -164,7 +164,7 @@ use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
         ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
-        signatures::{keys::LeafVerifyingKey, signable::Verifiable},
+        signatures::{keys::LeafVerifyingKeyRef, signable::Verifiable},
     },
     errors::{DsProcessingError, version::VersionError},
     identifiers::QualifiedGroupId,
@@ -181,7 +181,6 @@ use phnxtypes::{
 
 use crate::{
     ds::ReservedGroupId,
-    errors::StorageError,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
 };
@@ -309,13 +308,13 @@ impl Ds {
             .ok_or(DsProcessingError::InvalidSenderType)?
         {
             DsSender::ExternalSender(leaf_index) | DsSender::LeafIndex(leaf_index) => {
-                let verifying_key: LeafVerifyingKey = group_state
+                let verifying_key: LeafVerifyingKeyRef = group_state
                     .group()
                     .leaf(leaf_index)
                     .ok_or(DsProcessingError::UnknownSender)?
                     .signature_key()
                     .into();
-                let params = message.verify(&verifying_key).map_err(|_| {
+                let params = message.verify(verifying_key).map_err(|_| {
                     warn!("Could not verify message based on leaf index");
                     DsProcessingError::InvalidSignature
                 })?;
@@ -323,7 +322,7 @@ impl Ds {
             }
             DsSender::LeafSignatureKey(verifying_key) => {
                 let message = message
-                    .verify(&LeafVerifyingKey::from(&verifying_key))
+                    .verify(LeafVerifyingKeyRef::from(&verifying_key))
                     .map_err(|_| {
                         warn!("Could not verify message based on leaf signature key");
                         DsProcessingError::InvalidSignature
@@ -409,7 +408,7 @@ impl Ds {
             }
             // ======= Committing Endpoints =======
             DsGroupRequestParams::Update(update_client_params) => {
-                let group_message = group_state.update_client(update_client_params)?;
+                let group_message = group_state.update_client(update_client_params.commit)?;
                 prepare_result(group_message, vec![])
             }
             DsGroupRequestParams::GroupOperation(group_operation_params) => {
@@ -419,7 +418,7 @@ impl Ds {
                 prepare_result(group_message, welcome_bundles)
             }
             DsGroupRequestParams::DeleteGroup(delete_group) => {
-                let group_message = group_state.delete_group(delete_group)?;
+                let group_message = group_state.delete_group(delete_group.commit)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Externally Committing Endpoints =======
@@ -429,12 +428,16 @@ impl Ds {
                 prepare_result(group_message, vec![])
             }
             DsGroupRequestParams::Resync(resync_client_params) => {
-                let group_message = group_state.resync_client(resync_client_params)?;
+                let group_message = group_state.resync_client(
+                    resync_client_params.external_commit,
+                    resync_client_params.sender_index,
+                )?;
                 prepare_result(group_message, vec![])
             }
             // ======= Proposal Endpoints =======
             DsGroupRequestParams::SelfRemove(self_remove_client_params) => {
-                let group_message = group_state.self_remove_client(self_remove_client_params)?;
+                let group_message =
+                    group_state.self_remove_client(self_remove_client_params.remove_proposal)?;
                 prepare_result(group_message, vec![])
             }
             // ======= Sending messages =======
@@ -447,11 +450,14 @@ impl Ds {
             }
             // ======= Non-MLS group state updates =======
             DsGroupRequestParams::UserProfileKeyUpdate(user_profile_update_params) => {
-                group_state.update_user_profile_key(user_profile_update_params.clone())?;
                 let message = DsFanOutPayload::QueueMessage(
-                    QsQueueMessagePayload::try_from(user_profile_update_params)
+                    QsQueueMessagePayload::try_from(&user_profile_update_params)
                         .map_err(|_| DsProcessingError::ProcessingError)?,
                 );
+                group_state.update_user_profile_key(
+                    user_profile_update_params.sender_index,
+                    user_profile_update_params.user_profile_key,
+                )?;
                 (Some(message), DsProcessResponse::Ok, vec![])
             }
             // ======= Events =======
@@ -532,10 +538,8 @@ impl Ds {
         };
         let response = match request_params {
             DsNonGroupRequestParams::RequestGroupId => {
-                self.request_group_id().await.map_err(|e| {
-                    tracing::warn!("Could not generate group id: {:?}", e);
-                    DsProcessingError::StorageError
-                })?
+                let qgid = self.request_group_id().await;
+                DsProcessResponse::GroupId(qgid.into())
             }
         };
         Ok(DsVersionedProcessResponse::with_version(
@@ -544,17 +548,13 @@ impl Ds {
         )?)
     }
 
-    pub async fn request_group_id(&self) -> Result<DsProcessResponse, StorageError> {
+    pub(crate) async fn request_group_id(&self) -> QualifiedGroupId {
         // Generate UUIDs until we find one that is not yet reserved.
         let mut group_uuid = Uuid::new_v4();
         while !self.reserve_group_id(group_uuid).await {
             group_uuid = Uuid::new_v4();
         }
-
-        let owning_domain = self.own_domain();
-        let qgid = QualifiedGroupId::new(group_uuid, owning_domain.clone());
-        let group_id = GroupId::from(qgid);
-        Ok(DsProcessResponse::GroupId(group_id))
+        QualifiedGroupId::new(group_uuid, self.own_domain.clone())
     }
 }
 

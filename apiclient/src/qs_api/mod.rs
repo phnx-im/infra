@@ -4,12 +4,12 @@
 
 use futures_util::Stream;
 use mls_assist::openmls::prelude::KeyPackage;
+use phnxprotos::queue_service::v1::QueueEvent;
 use phnxprotos::{
     queue_service::v1::{
         ClientKeyPackageRequest, CreateClientRequest, CreateUserRequest, DeleteClientRequest,
         DeleteUserRequest, DequeueMessagesRequest, KeyPackageRequest, ListenRequest,
-        PublishKeyPackagesRequest, QsEncryptionKeyRequest, QueueEvent, UpdateClientRequest,
-        UpdateUserRequest,
+        PublishKeyPackagesRequest, QsEncryptionKeyRequest, UpdateClientRequest, UpdateUserRequest,
     },
     validation::{MissingFieldError, MissingFieldExt},
 };

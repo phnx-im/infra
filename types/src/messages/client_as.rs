@@ -37,7 +37,7 @@ use crate::{
 };
 
 use super::{
-    ApiVersion, AsTokenType, EncryptedAsQueueMessage, MlsInfraVersion,
+    ApiVersion, AsTokenType, EncryptedAsQueueMessageCtype, MlsInfraVersion,
     client_as_out::{
         ConnectionPackageIn, EncryptedUserProfile, FinishUserRegistrationParamsIn,
         FinishUserRegistrationParamsTbsIn, GetUserProfileParams, UpdateUserProfileParams,
@@ -490,22 +490,9 @@ impl ClientCredentialAuthenticator for AsDequeueMessagesParams {
     const LABEL: &'static str = "Dequeue Messages Parameters";
 }
 
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct EncryptedFriendshipPackage {
-    ciphertext: Ciphertext,
-}
-
-impl AsRef<Ciphertext> for EncryptedFriendshipPackage {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.ciphertext
-    }
-}
-
-impl From<Ciphertext> for EncryptedFriendshipPackage {
-    fn from(ciphertext: Ciphertext) -> Self {
-        Self { ciphertext }
-    }
-}
+#[derive(Debug)]
+pub struct EncryptedFriendshipPackageCtype;
+pub type EncryptedFriendshipPackage = Ciphertext<EncryptedFriendshipPackageCtype>;
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct EncryptedConnectionEstablishmentPackage {
@@ -524,7 +511,7 @@ impl From<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
     }
 }
 
-pub type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
+pub type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessageCtype, AsQueueMessagePayload>;
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 #[repr(u8)]
@@ -583,8 +570,8 @@ pub enum ExtractedAsQueueMessagePayload {
     EncryptedConnectionEstablishmentPackage(EncryptedConnectionEstablishmentPackage),
 }
 
-impl EarEncryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePayload {}
-impl EarDecryptable<RatchetKey, EncryptedAsQueueMessage> for AsQueueMessagePayload {}
+impl EarEncryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
+impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct AsPublishConnectionPackagesParamsTbs {

@@ -2,20 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt;
-
-use phnxtypes::{crypto::ear, identifiers};
+use mls_assist::messages::AssistedWelcome;
+use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn, group_info};
+use phnxtypes::{
+    crypto::{ear, secrets},
+    identifiers,
+    messages::{client_ds, client_ds_out::AddUsersInfoOut, welcome_attribution_info},
+};
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
 
 use crate::{
-    common::{convert::InvalidNonceLen, v1::Ciphertext},
+    common::convert::InvalidNonceLen,
     convert::{FromRef, RefInto, TryFromRef, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
 
 use super::v1::{
-    AssistedMessage, EncryptedIdentityLinkKey, GroupEpoch, GroupStateEarKey, HpkeCiphertext,
+    AddUsersInfo, AssistedMessage, EncryptedIdentityLinkKey, EncryptedUserProfileKey,
+    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupInfo, GroupStateEarKey, HpkeCiphertext,
     LeafNodeIndex, MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
 };
 
@@ -131,52 +136,72 @@ impl From<QsReferenceError> for Status {
 
 impl From<ear::keys::EncryptedIdentityLinkKey> for EncryptedIdentityLinkKey {
     fn from(value: ear::keys::EncryptedIdentityLinkKey) -> Self {
-        let ciphertext: ear::Ciphertext = value.into();
         Self {
-            ciphertext: Some(ciphertext.into()),
-        }
-    }
-}
-
-impl From<ear::Ciphertext> for Ciphertext {
-    fn from(value: ear::Ciphertext) -> Self {
-        let (ciphertext, nonce) = value.into_parts();
-        Self {
-            ciphertext,
-            nonce: nonce.to_vec(),
+            ciphertext: Some(value.into()),
         }
     }
 }
 
 impl TryFrom<EncryptedIdentityLinkKey> for ear::keys::EncryptedIdentityLinkKey {
-    type Error = EncryptedIdentityLinkKeyError<CiphertextField>;
+    type Error = EncryptedIdentityLinkKeyError;
 
     fn try_from(proto: EncryptedIdentityLinkKey) -> Result<Self, Self::Error> {
-        let ciphertext: ear::Ciphertext = proto
+        let ciphertext = proto.ciphertext.ok_or_missing_field(CiphertextField)?;
+        Ok(ciphertext.try_into()?)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptedIdentityLinkKeyError {
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<CiphertextField>),
+    #[error(transparent)]
+    Ciphertext(#[from] InvalidNonceLen),
+}
+
+impl From<EncryptedIdentityLinkKeyError> for Status {
+    fn from(e: EncryptedIdentityLinkKeyError) -> Self {
+        Status::invalid_argument(format!("invalid encrypted identity link key: {e}"))
+    }
+}
+
+impl From<ear::keys::EncryptedUserProfileKey> for EncryptedUserProfileKey {
+    fn from(value: ear::keys::EncryptedUserProfileKey) -> Self {
+        Self {
+            ciphertext: Some(value.into()),
+        }
+    }
+}
+
+impl TryFrom<EncryptedUserProfileKey> for ear::keys::EncryptedUserProfileKey {
+    type Error = EncryptedUserProfileKeyError;
+
+    fn try_from(proto: EncryptedUserProfileKey) -> Result<Self, Self::Error> {
+        let ciphertext = proto
             .ciphertext
             .ok_or_missing_field(CiphertextField)?
             .try_into()?;
-        Ok(ciphertext.into())
+        Ok(ciphertext)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptedUserProfileKeyError {
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<CiphertextField>),
+    #[error(transparent)]
+    Ciphertext(#[from] InvalidNonceLen),
+}
+
+impl From<EncryptedUserProfileKeyError> for Status {
+    fn from(e: EncryptedUserProfileKeyError) -> Self {
+        Status::invalid_argument(format!("invalid encrypted user profil key: {e}"))
     }
 }
 
 #[derive(Debug, derive_more::Display)]
 #[display(fmt = "ciphertext")]
 pub struct CiphertextField;
-
-#[derive(Debug, thiserror::Error)]
-pub enum EncryptedIdentityLinkKeyError<E: fmt::Display> {
-    #[error(transparent)]
-    Field(#[from] MissingFieldError<E>),
-    #[error(transparent)]
-    Ciphertext(#[from] InvalidNonceLen),
-}
-
-impl<E: fmt::Display> From<EncryptedIdentityLinkKeyError<E>> for Status {
-    fn from(e: EncryptedIdentityLinkKeyError<E>) -> Self {
-        Status::invalid_argument(format!("invalid encrypted identity link key: {e}"))
-    }
-}
 
 impl TryFromRef<'_, openmls::framing::MlsMessageOut> for MlsMessage {
     type Error = tls_codec::Error;
@@ -231,8 +256,8 @@ impl TryFromRef<'_, GroupStateEarKey> for ear::keys::GroupStateEarKey {
             .as_slice()
             .try_into()
             .map_err(|_| InvalidGroupStateEarKeyLen(proto.key.len()))?;
-        let key = ear::keys::GroupStateEarKeySecret::from(bytes);
-        Ok(key.into())
+        let secret = secrets::Secret::from(bytes);
+        Ok(secret.into())
     }
 }
 
@@ -303,5 +328,121 @@ impl FromRef<'_, openmls::prelude::SignaturePublicKey> for SignaturePublicKey {
 impl From<SignaturePublicKey> for openmls::prelude::SignaturePublicKey {
     fn from(proto: SignaturePublicKey) -> Self {
         proto.bytes.into()
+    }
+}
+
+impl From<welcome_attribution_info::EncryptedWelcomeAttributionInfo>
+    for EncryptedWelcomeAttributionInfo
+{
+    fn from(value: welcome_attribution_info::EncryptedWelcomeAttributionInfo) -> Self {
+        Self {
+            ciphertext: Some(value.into()),
+        }
+    }
+}
+
+impl TryFrom<EncryptedWelcomeAttributionInfo>
+    for welcome_attribution_info::EncryptedWelcomeAttributionInfo
+{
+    type Error = EncryptedWelcomeAttributionInfoError;
+
+    fn try_from(proto: EncryptedWelcomeAttributionInfo) -> Result<Self, Self::Error> {
+        let ciphertext: Self = proto
+            .ciphertext
+            .ok_or_missing_field(CiphertextField)?
+            .try_into()?;
+        Ok(ciphertext)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptedWelcomeAttributionInfoError {
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<CiphertextField>),
+    #[error(transparent)]
+    Ciphertext(#[from] InvalidNonceLen),
+}
+
+impl From<EncryptedWelcomeAttributionInfoError> for Status {
+    fn from(e: EncryptedWelcomeAttributionInfoError) -> Self {
+        Status::invalid_argument(format!("invalid encrypted welcome attribution info: {e}"))
+    }
+}
+
+impl TryFrom<AddUsersInfoOut> for AddUsersInfo {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: AddUsersInfoOut) -> Result<Self, Self::Error> {
+        Ok(Self {
+            welcome: Some(value.welcome.try_ref_into()?),
+            encrypted_welcome_attribution_info: value
+                .encrypted_welcome_attribution_infos
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        })
+    }
+}
+
+impl TryFrom<AddUsersInfo> for client_ds::AddUsersInfo {
+    type Error = AddUsersInfoError;
+
+    fn try_from(proto: AddUsersInfo) -> Result<Self, Self::Error> {
+        let message: MlsMessageIn = proto
+            .welcome
+            .ok_or_missing_field(WelcomeField)?
+            .try_ref_into()?;
+        let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
+            return Err(AddUsersInfoError::InvalidWelcome);
+        };
+        let welcome = AssistedWelcome { welcome };
+        Ok(Self {
+            welcome,
+            encrypted_welcome_attribution_infos: proto
+                .encrypted_welcome_attribution_info
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AddUsersInfoError {
+    #[error(transparent)]
+    Tls(#[from] tls_codec::Error),
+    #[error(transparent)]
+    Field(#[from] MissingFieldError<WelcomeField>),
+    #[error("invalid welcome message")]
+    InvalidWelcome,
+    #[error(transparent)]
+    Info(#[from] EncryptedWelcomeAttributionInfoError),
+}
+
+impl From<AddUsersInfoError> for Status {
+    fn from(e: AddUsersInfoError) -> Self {
+        Status::invalid_argument(format!("invalid add users info: {e}"))
+    }
+}
+
+#[derive(Debug, derive_more::Display)]
+#[display(fmt = "welcome")]
+pub struct WelcomeField;
+
+impl TryFrom<group_info::GroupInfo> for GroupInfo {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: group_info::GroupInfo) -> Result<Self, Self::Error> {
+        Ok(Self {
+            tls: value.tls_serialize_detached()?,
+        })
+    }
+}
+
+impl TryFromRef<'_, GroupInfo> for group_info::VerifiableGroupInfo {
+    type Error = tls_codec::Error;
+
+    fn try_from_ref(proto: &GroupInfo) -> Result<Self, Self::Error> {
+        DeserializeBytes::tls_deserialize_exact_bytes(&proto.tls)
     }
 }

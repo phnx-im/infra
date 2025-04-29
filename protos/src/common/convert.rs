@@ -4,6 +4,7 @@
 
 use chrono::DateTime;
 use phnxtypes::{
+    crypto::ear::AeadCiphertext,
     crypto::{self, ear, kdf::KDF_KEY_SIZE, secrets::Secret, signatures::signable},
     identifiers, time,
 };
@@ -99,6 +100,12 @@ impl FromRef<'_, identifiers::QualifiedGroupId> for QualifiedGroupId {
     }
 }
 
+impl FromRef<'_, GroupId> for openmls::group::GroupId {
+    fn from_ref(proto: &GroupId) -> Self {
+        Self::from_slice(&proto.value)
+    }
+}
+
 impl FromRef<'_, openmls::group::GroupId> for GroupId {
     fn from_ref(value: &openmls::group::GroupId) -> GroupId {
         GroupId {
@@ -107,7 +114,21 @@ impl FromRef<'_, openmls::group::GroupId> for GroupId {
     }
 }
 
-impl TryFrom<Ciphertext> for ear::Ciphertext {
+impl<CT> From<ear::Ciphertext<CT>> for Ciphertext {
+    fn from(value: ear::Ciphertext<CT>) -> Self {
+        AeadCiphertext::from(value).into()
+    }
+}
+
+impl<CT> TryFrom<Ciphertext> for ear::Ciphertext<CT> {
+    type Error = InvalidNonceLen;
+
+    fn try_from(proto: Ciphertext) -> Result<Self, Self::Error> {
+        Ok(ear::AeadCiphertext::try_from(proto)?.into())
+    }
+}
+
+impl TryFrom<Ciphertext> for ear::AeadCiphertext {
     type Error = InvalidNonceLen;
 
     fn try_from(proto: Ciphertext) -> Result<Self, Self::Error> {
@@ -116,7 +137,17 @@ impl TryFrom<Ciphertext> for ear::Ciphertext {
             .nonce
             .try_into()
             .map_err(|_| InvalidNonceLen(nonce_len))?;
-        Ok(ear::Ciphertext::new(proto.ciphertext, nonce))
+        Ok(ear::AeadCiphertext::new(proto.ciphertext, nonce))
+    }
+}
+
+impl From<ear::AeadCiphertext> for Ciphertext {
+    fn from(value: ear::AeadCiphertext) -> Self {
+        let (ciphertext, nonce) = value.into_parts();
+        Self {
+            ciphertext,
+            nonce: nonce.to_vec(),
+        }
     }
 }
 
