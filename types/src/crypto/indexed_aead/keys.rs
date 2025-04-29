@@ -97,6 +97,16 @@ impl<KT, ST, const LENGTH: usize> From<Secret<LENGTH>> for TypedSecret<KT, ST, L
     }
 }
 
+impl<KT> Index<KT> {
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn dummy() -> Self {
+        Self {
+            secret: Secret::random().unwrap(),
+            _type: PhantomData,
+        }
+    }
+}
+
 impl<KT: RandomlyGeneratable> Key<KT> {
     pub fn random() -> Result<Self, RandomnessError> {
         let value = Secret::<AEAD_KEY_SIZE>::random()?;

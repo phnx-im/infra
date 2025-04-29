@@ -4,11 +4,20 @@
 
 use opaque_ke::ServerRegistration;
 use phnxtypes::{
-    crypto::OpaqueCiphersuite, identifiers::QualifiedUserName,
+    crypto::{OpaqueCiphersuite, indexed_aead::keys::UserProfileKeyIndex},
+    identifiers::QualifiedUserName,
     messages::client_as_out::EncryptedUserProfile,
 };
+use thiserror::Error;
 
 use crate::errors::StorageError;
+
+#[derive(Debug, Error)]
+pub enum UserProfileMergingError {
+    /// The user profile is not staged.
+    #[error("No staged user profile")]
+    NoStagedUserProfile,
+}
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -16,6 +25,7 @@ pub(super) struct UserRecord {
     user_name: QualifiedUserName,
     password_file: ServerRegistration<OpaqueCiphersuite>,
     encrypted_user_profile: EncryptedUserProfile,
+    staged_user_profile: Option<EncryptedUserProfile>,
 }
 
 impl UserRecord {
@@ -23,11 +33,13 @@ impl UserRecord {
         user_name: QualifiedUserName,
         password_file: ServerRegistration<OpaqueCiphersuite>,
         encrypted_user_profile: EncryptedUserProfile,
+        staged_user_profile: Option<EncryptedUserProfile>,
     ) -> Self {
         Self {
             user_name,
             password_file,
             encrypted_user_profile,
+            staged_user_profile,
         }
     }
 
@@ -41,6 +53,7 @@ impl UserRecord {
             user_name.clone(),
             opaque_record.clone(),
             encrypted_user_profile.clone(),
+            None,
         );
         user_record.store(connection).await?;
         Ok(user_record)
@@ -55,12 +68,32 @@ impl UserRecord {
         self.password_file
     }
 
-    pub(super) fn into_encrypted_user_profile(self) -> EncryptedUserProfile {
-        self.encrypted_user_profile
+    pub(super) fn into_user_profile(
+        self,
+        key_index: &UserProfileKeyIndex,
+    ) -> Option<EncryptedUserProfile> {
+        if key_index == self.encrypted_user_profile.key_index() {
+            return Some(self.encrypted_user_profile);
+        } else if let Some(staged_user_profile) = self.staged_user_profile {
+            if key_index == staged_user_profile.key_index() {
+                return Some(staged_user_profile);
+            }
+        }
+        None
     }
 
-    pub(super) fn set_user_profile(&mut self, encrypted_user_profile: EncryptedUserProfile) {
-        self.encrypted_user_profile = encrypted_user_profile;
+    /// Stage a new user profile for the user. If a user profile is already
+    /// staged, it will be replaced.
+    pub(super) fn stage_user_profile(&mut self, encrypted_user_profile: EncryptedUserProfile) {
+        self.staged_user_profile = Some(encrypted_user_profile);
+    }
+
+    pub(super) fn merge_user_profile(&mut self) -> Result<(), UserProfileMergingError> {
+        let Some(staged_user_profile) = self.staged_user_profile.take() else {
+            return Err(UserProfileMergingError::NoStagedUserProfile);
+        };
+        self.encrypted_user_profile = staged_user_profile;
+        Ok(())
     }
 }
 
@@ -88,13 +121,15 @@ pub(crate) mod persistence {
             struct AsUserRecord {
                 password_file: BlobDecoded<ServerRegistration<OpaqueCiphersuite>>,
                 encrypted_user_profile: EncryptedUserProfile,
+                staged_user_profile: Option<EncryptedUserProfile>,
             }
 
             let record = query_as!(
                 AsUserRecord,
                 r#"SELECT
                     password_file AS "password_file: _",
-                    encrypted_user_profile AS "encrypted_user_profile: _"
+                    encrypted_user_profile AS "encrypted_user_profile: _",
+                    staged_user_profile AS "staged_user_profile: _"
                 FROM as_user_records
                 WHERE user_name = $1"#,
                 user_name.to_string(),
@@ -107,6 +142,7 @@ pub(crate) mod persistence {
                     user_name.clone(),
                     password_file,
                     record.encrypted_user_profile,
+                    record.staged_user_profile,
                 )
             }))
         }
@@ -119,10 +155,11 @@ pub(crate) mod persistence {
             let password_file = BlobEncoded(&self.password_file);
             query!(
                 "UPDATE as_user_records
-                SET password_file = $1, encrypted_user_profile = $2
-                WHERE user_name = $3",
+                SET password_file = $1, encrypted_user_profile = $2, staged_user_profile = $3
+                WHERE user_name = $4",
                 password_file as _,
                 self.encrypted_user_profile as _,
+                self.staged_user_profile as _,
                 self.user_name.to_string()
             )
             .execute(connection)
@@ -138,10 +175,11 @@ pub(crate) mod persistence {
         ) -> Result<(), StorageError> {
             let password_file = BlobEncoded(&self.password_file);
             query!(
-                "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile) VALUES ($1, $2, $3)",
+                "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile, staged_user_profile) VALUES ($1, $2, $3, $4)",
                 self.user_name.to_string(),
                 password_file as _,
-                self.encrypted_user_profile as _
+                self.encrypted_user_profile as _,
+                self.staged_user_profile as _,
             )
             .execute(connection)
             .await?;
@@ -225,6 +263,7 @@ pub(crate) mod persistence {
                 user_name,
                 password_file,
                 encrypted_user_profile,
+                staged_user_profile: None,
             };
             record.store(pool).await?;
             Ok(record)

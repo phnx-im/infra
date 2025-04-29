@@ -14,14 +14,14 @@ use secrecy::{
     zeroize::{Zeroize, ZeroizeOnDrop},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
+use sqlx::{Database, Decode, Encode, Type, encode::IsNull, error::BoxDynError};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use super::RandomnessError;
 
 /// Struct that contains a (symmetric) secret of fixed length LENGTH.
 #[derive(
-    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize,
+    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize, Debug,
 )]
 pub struct Secret<const LENGTH: usize> {
     #[serde(with = "super::serde_arrays")]
@@ -65,11 +65,11 @@ impl<const LENGTH: usize> Zeroize for Secret<LENGTH> {
 impl<const LENGTH: usize> ZeroizeOnDrop for Secret<LENGTH> {}
 
 // Ensures that secrets are not printed in debug outputs.
-impl<const LENGTH: usize> std::fmt::Debug for Secret<LENGTH> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Secret: [[REDACTED]]").finish()
-    }
-}
+//impl<const LENGTH: usize> std::fmt::Debug for Secret<LENGTH> {
+//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//        f.debug_struct("Secret: [[REDACTED]]").finish()
+//    }
+//}
 
 // Ensures that secrets are not printed in format strings.
 impl<const LENGTH: usize> Display for Secret<LENGTH> {
@@ -78,25 +78,34 @@ impl<const LENGTH: usize> Display for Secret<LENGTH> {
     }
 }
 
-impl<const LENGTH: usize> Type<Sqlite> for Secret<LENGTH> {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <&[u8] as Type<Sqlite>>::type_info()
+impl<const LENGTH: usize, DB: Database> Type<DB> for Secret<LENGTH>
+where
+    Vec<u8>: Type<DB>,
+{
+    fn type_info() -> <DB as Database>::TypeInfo {
+        <Vec<u8> as Type<DB>>::type_info()
     }
 }
 
-impl<'q, const LENGTH: usize> Encode<'q, Sqlite> for Secret<LENGTH> {
+impl<'q, const LENGTH: usize, DB: Database> Encode<'q, DB> for Secret<LENGTH>
+where
+    Box<[u8]>: Encode<'q, DB>,
+{
     fn encode_by_ref(
         &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+        buf: &mut <DB as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let bytes: Box<[u8]> = self.secret.into();
-        Encode::<Sqlite>::encode(bytes, buf)
+        Encode::<DB>::encode(bytes, buf)
     }
 }
 
-impl<'r, const LENGTH: usize> Decode<'r, Sqlite> for Secret<LENGTH> {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+impl<'r, const LENGTH: usize, DB: Database> Decode<'r, DB> for Secret<LENGTH>
+where
+    &'r [u8]: Decode<'r, DB>,
+{
+    fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<DB>::decode(value)?;
         Ok(Secret {
             secret: bytes.try_into()?,
         })

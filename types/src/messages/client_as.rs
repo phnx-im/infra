@@ -40,8 +40,9 @@ use super::{
     ApiVersion, AsTokenType, EncryptedAsQueueMessageCtype, MlsInfraVersion,
     client_as_out::{
         ConnectionPackageIn, EncryptedUserProfile, FinishUserRegistrationParamsIn,
-        FinishUserRegistrationParamsTbsIn, GetUserProfileParams, UpdateUserProfileParams,
-        UpdateUserProfileParamsTbs, VerifiableConnectionPackage,
+        FinishUserRegistrationParamsTbsIn, GetUserProfileParams, MergeUserProfileParams,
+        MergeUserProfileParamsTbs, StageUserProfileParams, StageUserProfileParamsTbs,
+        VerifiableConnectionPackage,
     },
 };
 
@@ -920,7 +921,8 @@ pub enum AsRequestParamsOut {
     AsCredentials(AsCredentialsParams),
     IssueTokens(IssueTokensParams),
     GetUserProfile(GetUserProfileParams),
-    UpdateUserProfile(UpdateUserProfileParams),
+    StageUserProfile(StageUserProfileParams),
+    MergeUserProfile(MergeUserProfileParams),
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -942,7 +944,8 @@ pub enum VerifiedAsRequestParams {
     EnqueueMessage(EnqueueMessageParams),
     InitUserRegistration(InitUserRegistrationParams),
     GetUserProfile(GetUserProfileParams),
-    UpdateUserProfile(UpdateUserProfileParamsTbs),
+    StageUserProfile(StageUserProfileParamsTbs),
+    MergeUserProfile(MergeUserProfileParamsTbs),
 }
 
 #[derive(Debug)]
@@ -984,7 +987,8 @@ impl Verifiable for ClientCredentialAuth {
             VerifiedAsRequestParams::FinishUserRegistration(params) => {
                 params.tls_serialize_detached()
             }
-            VerifiedAsRequestParams::UpdateUserProfile(params) => params.tls_serialize_detached(),
+            VerifiedAsRequestParams::StageUserProfile(params) => params.tls_serialize_detached(),
+            VerifiedAsRequestParams::MergeUserProfile(params) => params.tls_serialize_detached(),
             // All other endpoints aren't authenticated via client credential signatures.
             VerifiedAsRequestParams::DeleteUser(_)
             | VerifiedAsRequestParams::FinishClientAddition(_)

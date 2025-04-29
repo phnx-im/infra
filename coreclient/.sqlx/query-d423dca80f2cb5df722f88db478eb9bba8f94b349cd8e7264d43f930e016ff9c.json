@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM indexed_keys\n                WHERE key_index = (\n                    SELECT ik.key_index\n                    FROM own_key_indices oki\n                    JOIN indexed_keys ik ON oki.key_index = ik.key_index\n                    WHERE oki.key_type = ?\n                )",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "d423dca80f2cb5df722f88db478eb9bba8f94b349cd8e7264d43f930e016ff9c"
+}

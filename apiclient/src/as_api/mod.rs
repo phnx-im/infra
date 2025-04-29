@@ -8,6 +8,7 @@ use phnxtypes::{
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{
         RatchetEncryptionKey,
+        indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::RatchetSecret,
         opaque::{
             OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
@@ -35,8 +36,8 @@ use phnxtypes::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
             AsVersionedProcessResponseIn, ConnectionPackageIn, EncryptedUserProfile,
             GetUserProfileParams, GetUserProfileResponse, InitClientAdditionResponseIn,
-            InitUserRegistrationResponseIn, UpdateUserProfileParamsTbs, UserClientsResponseIn,
-            UserConnectionPackagesResponseIn,
+            InitUserRegistrationResponseIn, MergeUserProfileParamsTbs, StageUserProfileParamsTbs,
+            UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -188,8 +189,12 @@ impl ApiClient {
     pub async fn as_get_user_profile(
         &self,
         client_id: AsClientId,
+        key_index: UserProfileKeyIndex,
     ) -> Result<GetUserProfileResponse, AsRequestError> {
-        let payload = GetUserProfileParams { client_id };
+        let payload = GetUserProfileParams {
+            client_id,
+            key_index,
+        };
         let params = AsRequestParamsOut::GetUserProfile(payload);
         self.prepare_and_send_as_message(params)
             .await
@@ -203,18 +208,37 @@ impl ApiClient {
             })
     }
 
-    pub async fn as_update_user_profile(
+    pub async fn as_stage_user_profile(
         &self,
         client_id: AsClientId,
         signing_key: &ClientSigningKey,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
-        let payload = UpdateUserProfileParamsTbs {
+        let payload = StageUserProfileParamsTbs {
             client_id,
             user_profile: encrypted_user_profile,
         }
         .sign(signing_key)?;
-        let params = AsRequestParamsOut::UpdateUserProfile(payload);
+        let params = AsRequestParamsOut::StageUserProfile(payload);
+        self.prepare_and_send_as_message(params)
+            .await
+            // Check if the response is what we expected it to be.
+            .and_then(|response| {
+                if matches!(response, AsProcessResponseIn::Ok) {
+                    Ok(())
+                } else {
+                    Err(AsRequestError::UnexpectedResponse)
+                }
+            })
+    }
+
+    pub async fn as_merge_user_profile(
+        &self,
+        client_id: AsClientId,
+        signing_key: &ClientSigningKey,
+    ) -> Result<(), AsRequestError> {
+        let payload = MergeUserProfileParamsTbs { client_id }.sign(signing_key)?;
+        let params = AsRequestParamsOut::MergeUserProfile(payload);
         self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.

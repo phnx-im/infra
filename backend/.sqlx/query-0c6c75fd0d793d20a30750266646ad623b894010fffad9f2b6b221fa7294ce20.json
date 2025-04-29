@@ -1,0 +1,81 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile, staged_user_profile) VALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bytea",
+        {
+          "Custom": {
+            "name": "indexed_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  {
+                    "Custom": {
+                      "name": "aead_ciphertext",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "ciphertext",
+                            "Bytea"
+                          ],
+                          [
+                            "nonce",
+                            "Bytea"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "key_index",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "indexed_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  {
+                    "Custom": {
+                      "name": "aead_ciphertext",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "ciphertext",
+                            "Bytea"
+                          ],
+                          [
+                            "nonce",
+                            "Bytea"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "key_index",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0c6c75fd0d793d20a30750266646ad623b894010fffad9f2b6b221fa7294ce20"
+}

@@ -19,7 +19,7 @@ use phnxtypes::{
     crypto::{
         ear::{EarKey, GenericSerializable},
         hpke::ClientIdEncryptionKey,
-        indexed_aead::keys::UserProfileKey,
+        indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
         kdf::keys::ConnectionKey,
         opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
@@ -305,7 +305,7 @@ impl PostRegistrationInitState {
             .upsert(connection.as_mut(), &mut StoreNotifier::noop())
             .await?;
 
-        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
+        let encrypted_user_profile = user_profile.encrypt_with_index(&user_profile_key)?;
 
         // TODO: For now, we use the same ConnectionDecryptionKey for all
         // connection packages.

@@ -11,7 +11,10 @@ use crate::{
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
-        ear::Ciphertext,
+        indexed_aead::{
+            ciphertexts::IndexedCiphertext,
+            keys::{UserProfileKeyIndex, UserProfileKeyType},
+        },
         kdf::keys::RatchetSecret,
         opaque::{OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse},
         signatures::{
@@ -237,6 +240,7 @@ impl ClientCredentialAuthenticator for FinishUserRegistrationParamsIn {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GetUserProfileParams {
     pub client_id: AsClientId,
+    pub key_index: UserProfileKeyIndex,
 }
 
 impl NoAuth for GetUserProfileParams {
@@ -247,7 +251,7 @@ impl NoAuth for GetUserProfileParams {
 
 #[derive(Debug)]
 pub struct EncryptedUserProfileCtype;
-pub type EncryptedUserProfile = Ciphertext<EncryptedUserProfileCtype>;
+pub type EncryptedUserProfile = IndexedCiphertext<UserProfileKeyType, EncryptedUserProfileCtype>;
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GetUserProfileResponse {
@@ -255,49 +259,96 @@ pub struct GetUserProfileResponse {
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateUserProfileParamsTbs {
+pub struct StageUserProfileParamsTbs {
     pub client_id: AsClientId,
     pub user_profile: EncryptedUserProfile,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateUserProfileParams {
-    payload: UpdateUserProfileParamsTbs,
+pub struct StageUserProfileParams {
+    payload: StageUserProfileParamsTbs,
     signature: Signature,
 }
 
-impl ClientCredentialAuthenticator for UpdateUserProfileParams {
-    type Tbs = FinishUserRegistrationParamsTbsIn;
+impl ClientCredentialAuthenticator for StageUserProfileParams {
+    type Tbs = StageUserProfileParamsTbs;
 
     fn client_id(&self) -> AsClientId {
         self.payload.client_id.clone()
     }
 
     fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::UpdateUserProfile(self.payload)
+        VerifiedAsRequestParams::StageUserProfile(self.payload)
     }
 
     fn signature(&self) -> &Signature {
         &self.signature
     }
 
-    const LABEL: &'static str = "Finish User Registration Parameters";
+    const LABEL: &'static str = "Stage user profile parameters";
 }
 
-impl Signable for UpdateUserProfileParamsTbs {
-    type SignedOutput = UpdateUserProfileParams;
+impl Signable for StageUserProfileParamsTbs {
+    type SignedOutput = StageUserProfileParams;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
     }
 
     fn label(&self) -> &str {
-        UpdateUserProfileParams::LABEL
+        StageUserProfileParams::LABEL
     }
 }
 
-impl SignedStruct<UpdateUserProfileParamsTbs> for UpdateUserProfileParams {
-    fn from_payload(payload: UpdateUserProfileParamsTbs, signature: Signature) -> Self {
+impl SignedStruct<StageUserProfileParamsTbs> for StageUserProfileParams {
+    fn from_payload(payload: StageUserProfileParamsTbs, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct MergeUserProfileParamsTbs {
+    pub client_id: AsClientId,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct MergeUserProfileParams {
+    payload: MergeUserProfileParamsTbs,
+    signature: Signature,
+}
+
+impl ClientCredentialAuthenticator for MergeUserProfileParams {
+    type Tbs = MergeUserProfileParamsTbs;
+
+    fn client_id(&self) -> AsClientId {
+        self.payload.client_id.clone()
+    }
+
+    fn into_payload(self) -> VerifiedAsRequestParams {
+        VerifiedAsRequestParams::MergeUserProfile(self.payload)
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    const LABEL: &'static str = "Merge user profile parameters";
+}
+
+impl Signable for MergeUserProfileParamsTbs {
+    type SignedOutput = MergeUserProfileParams;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        MergeUserProfileParams::LABEL
+    }
+}
+
+impl SignedStruct<MergeUserProfileParamsTbs> for MergeUserProfileParams {
+    fn from_payload(payload: MergeUserProfileParamsTbs, signature: Signature) -> Self {
         Self { payload, signature }
     }
 }
@@ -389,7 +440,8 @@ pub enum AsRequestParamsIn {
     AsCredentials(AsCredentialsParams),
     IssueTokens(IssueTokensParams),
     GetUserProfile(GetUserProfileParams),
-    UpdateUserProfile(UpdateUserProfileParams),
+    StageUserProfile(StageUserProfileParams),
+    MergeUserProfile(MergeUserProfileParams),
 }
 
 impl AsRequestParamsIn {
@@ -422,7 +474,10 @@ impl AsRequestParamsIn {
             Self::IssueTokens(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
-            Self::UpdateUserProfile(params) => {
+            Self::StageUserProfile(params) => {
+                AsAuthMethod::ClientCredential(params.credential_auth_info())
+            }
+            Self::MergeUserProfile(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
             // We verify user registration finish requests like a
