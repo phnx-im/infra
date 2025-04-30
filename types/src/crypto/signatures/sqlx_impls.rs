@@ -47,7 +47,7 @@ where
     Vec<u8>: Decode<'r, DB>,
 {
     fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        <Vec<u8> as Decode<DB>>::decode(value).map(Self::from_bytes)
+        <Vec<u8> as Decode<DB>>::decode(value).map(Self::new)
     }
 }
 
@@ -100,13 +100,13 @@ impl<KT> tls_codec::Serialize for VerifyingKey<KT> {
 impl<KT> tls_codec::DeserializeBytes for VerifyingKey<KT> {
     fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
         let (key, remaining) = Vec::<u8>::tls_deserialize_bytes(bytes)?;
-        Ok((Self::from_bytes(key), remaining))
+        Ok((Self::new(key), remaining))
     }
 }
 
 impl<KT> Clone for VerifyingKey<KT> {
     fn clone(&self) -> Self {
-        Self::from_bytes(self.key.clone())
+        Self::new(self.key.clone())
     }
 }
 

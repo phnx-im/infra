@@ -7,6 +7,7 @@ syntax = "proto3";
 package queue_service.v1;
 
 import "common/v1/common.proto";
+import "delivery_service/v1/delivery_service.proto";
 
 service QueueService {
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
@@ -18,12 +19,13 @@ service QueueService {
   rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
 
   rpc PublishKeyPackages(PublishKeyPackagesRequest) returns (PublishKeyPackagesResponse);
-  rpc ClientKeyPackages(ClientKeyPackagesRequest) returns (ClientKeyPackagesResponse);
   rpc KeyPackage(KeyPackageRequest) returns (KeyPackageResponse);
 
   rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
 
   rpc QsEncryptionKey(QsEncryptionKeyRequest) returns (QsEncryptionKeyResponse);
+
+  rpc Listen(ListenRequest) returns (stream QueueEvent);
 }
 
 // common
@@ -60,7 +62,7 @@ message QsClientVerifyingKey {
 }
 
 message EncryptedPushToken {
-  bytes ciphertext = 1;
+  common.v1.Ciphertext ciphertext = 1;
 }
 
 message CreateUserResponse {
@@ -125,39 +127,18 @@ message DeleteClientResponse {}
 message PublishKeyPackagesRequest {
   QsClientId client_id = 1;
   repeated KeyPackage key_packages = 2;
-  KeyPackageEarKey key_package_ear_key = 3;
 }
 
 message KeyPackage {
   bytes tls = 1;
 }
 
-message KeyPackageEarKey {
-  bytes bytes = 1;
-}
-
 message PublishKeyPackagesResponse {}
-
-// client key packages
-
-message ClientKeyPackagesRequest {
-  QsUserId sender = 1;
-  QsClientId client_id = 2;
-}
-
-message ClientKeyPackagesResponse {
-  QsEncryptedKeyPackage key_package = 1;
-}
-
-message QsEncryptedKeyPackage {
-  bytes ciphertext = 1;
-}
 
 // key package
 
 message KeyPackageRequest {
-  QsUserId sender = 1;
-  KeyPackageEarKey friendship_ear_key = 2;
+  FriendshipToken sender = 1;
 }
 
 message KeyPackageResponse {
@@ -169,7 +150,7 @@ message KeyPackageResponse {
 message DequeueMessagesRequest {
   QsClientId sender = 1;
   uint64 sequence_number_start = 2;
-  uint64 max_messages_number = 3;
+  uint64 max_message_number = 3;
 }
 
 message DequeueMessagesResponse {
@@ -179,14 +160,12 @@ message DequeueMessagesResponse {
 
 message QueueMessage {
   uint64 sequence_number = 1;
-  bytes ciphertext = 2;
+  common.v1.Ciphertext ciphertext = 2;
 }
 
 // qs encryption key
 
-message QsEncryptionKeyRequest {
-  QsUserId user_id = 1;
-}
+message QsEncryptionKeyRequest {}
 
 message QsEncryptionKeyResponse {
   ClientIdEncryptionKey encryption_key = 1;
@@ -194,4 +173,33 @@ message QsEncryptionKeyResponse {
 
 message ClientIdEncryptionKey {
   bytes bytes = 1;
+}
+
+// listen
+
+message ListenRequest {
+  QsClientId client_id = 1;
+}
+
+message QueueEvent {
+  oneof event {
+    QueueEventUpdate update = 1;
+    QueueEventPayload payload = 2;
+  }
+}
+
+// Event notifying receipients that something was added to their queue
+//
+// Delivered either over an active listening stream, or if there is none, over
+// a push notification.
+message QueueEventUpdate {}
+
+// Payload sent over a listen stream from one client to other clients that are
+// *currently listening*
+message QueueEventPayload {
+  common.v1.GroupId group_id = 1;
+  delivery_service.v1.LeafNodeIndex sender = 2;
+  delivery_service.v1.GroupEpoch epoch = 3;
+  common.v1.Timestamp timestamp = 4;
+  bytes payload = 5;
 }

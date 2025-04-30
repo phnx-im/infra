@@ -4,13 +4,13 @@
 
 use mls_assist::{
     group::ProcessedAssistedMessage,
-    messages::SerializedMlsMessage,
+    messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{ProcessedMessageContent, Sender},
     provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
     errors::ClientUpdateError,
-    messages::client_ds::{InfraAadMessage, InfraAadPayload, UpdateParams},
+    messages::client_ds::{InfraAadMessage, InfraAadPayload},
     time::Duration,
 };
 use tls_codec::DeserializeBytes;
@@ -20,12 +20,12 @@ use super::{group_state::DsGroupState, process::USER_EXPIRATION_DAYS};
 impl DsGroupState {
     pub(super) fn update_client(
         &mut self,
-        params: UpdateParams,
+        commit: AssistedMessageIn,
     ) -> Result<SerializedMlsMessage, ClientUpdateError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(self.provider.crypto(), params.commit)
+            .process_assisted_message(self.provider.crypto(), commit)
             .map_err(|_| ClientUpdateError::ProcessingError)?;
 
         // Perform DS-level validation

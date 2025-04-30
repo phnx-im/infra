@@ -41,6 +41,14 @@ pub mod welcome_attribution_info;
 pub struct FriendshipToken(Vec<u8>);
 
 impl FriendshipToken {
+    pub fn from_bytes(token: Vec<u8>) -> Self {
+        Self(token)
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+
     pub fn random() -> Result<Self, RandomnessError> {
         let token = OpenMlsRustCrypto::default()
             .rand()
@@ -48,11 +56,6 @@ impl FriendshipToken {
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
 
         Ok(Self(token))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn new_for_test(token: Vec<u8>) -> Self {
-        Self(token)
     }
 
     pub fn token(&self) -> &[u8] {

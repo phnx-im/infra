@@ -3721,6 +3721,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tls_codec",
  "tokio",
+ "tokio-stream",
  "tokio-tungstenite",
  "tokio-util",
  "tonic",
@@ -3746,7 +3747,6 @@ dependencies = [
  "mimi_content",
  "notify-rust",
  "parking_lot",
- "phnxapiclient",
  "phnxcoreclient",
  "phnxtypes",
  "pulldown-cmark",
@@ -3810,6 +3810,7 @@ dependencies = [
  "openmls_rust_crypto",
  "openmls_traits",
  "phnxapiclient",
+ "phnxprotos",
  "phnxserver_test_harness",
  "phnxtypes",
  "rand 0.8.5",
@@ -3893,16 +3894,16 @@ name = "phnxserver_test_harness"
 version = "0.1.0"
 dependencies = [
  "mimi_content",
- "once_cell",
- "phnxapiclient",
  "phnxbackend",
  "phnxcoreclient",
  "phnxserver",
  "phnxtypes",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "tempfile",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 

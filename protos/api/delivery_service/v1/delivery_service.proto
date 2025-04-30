@@ -9,6 +9,7 @@ package delivery_service.v1;
 import "common/v1/common.proto";
 
 service DeliveryService {
+  // unauthenticated
   rpc RequestGroupId(RequestGroupIdRequest) returns (RequestGroupIdResponse);
 
   rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
@@ -18,8 +19,6 @@ service DeliveryService {
   rpc ExternalCommitInfo(ExternalCommitInfoRequest) returns (ExternalCommitInfoResponse);
 
   rpc ConnectionGroupInfo(ConnectionGroupInfoRequest) returns (ConnectionGroupInfoResponse);
-
-  rpc UpdateQsClientReference(UpdateQsClientReferenceRequest) returns (UpdateQsClientReferenceResponse);
 
   rpc Update(UpdateRequest) returns (UpdateResponse);
 
@@ -34,6 +33,30 @@ service DeliveryService {
   rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
 
   rpc GroupOperation(GroupOperationRequest) returns (GroupOperationResponse);
+
+  rpc UpdateProfileKey(UpdateProfileKeyRequest) returns (UpdateProfileKeyResponse);
+}
+
+// common messages
+
+message LeafNodeIndex {
+  uint32 index = 1;
+}
+
+message GroupStateEarKey {
+  bytes key = 1;
+}
+
+message RatchetTree {
+  bytes tls = 1;
+}
+
+message MlsMessage {
+  bytes tls = 1;
+}
+
+message AssistedMessage {
+  bytes tls = 1;
 }
 
 // request group id
@@ -41,29 +64,33 @@ service DeliveryService {
 message RequestGroupIdRequest {}
 
 message RequestGroupIdResponse {
-  common.v1.GroupId group_id = 1;
-}
-
-message GroupStateEarKey {
-  bytes key = 1;
+  common.v1.QualifiedGroupId group_id = 1;
 }
 
 // create group
 
 message CreateGroupRequest {
+  CreateGroupPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message CreateGroupResponse {}
+
+message CreateGroupPayload {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
   RatchetTree ratchet_tree = 3;
   EncryptedIdentityLinkKey encrypted_identity_link_key = 4;
-  QsReference creator_client_reference = 5;
-  MlsMessage group_info = 6;
-}
-
-message RatchetTree {
-  bytes tls = 1;
+  EncryptedUserProfileKey encrypted_user_profile_key = 5;
+  QsReference creator_client_reference = 6;
+  MlsMessage group_info = 7;
 }
 
 message EncryptedIdentityLinkKey {
+  common.v1.Ciphertext ciphertext = 1;
+}
+
+message EncryptedUserProfileKey {
   common.v1.Ciphertext ciphertext = 1;
 }
 
@@ -79,12 +106,6 @@ message SealedClientReference {
 message HpkeCiphertext {
   bytes tls = 1;
 }
-
-message MlsMessage {
-  bytes tls = 1;
-}
-
-message CreateGroupResponse {}
 
 // welcome info
 
@@ -110,58 +131,52 @@ message GroupEpoch {
 
 message WelcomeInfoResponse {
   RatchetTree ratchet_tree = 1;
+  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 2;
+  repeated EncryptedUserProfileKey encrypted_user_profile_keys = 3;
 }
 
 // external commit info
 
 message ExternalCommitInfoRequest {
-  common.v1.GroupId group_id = 1;
+  common.v1.QualifiedGroupId qgid = 1;
+  GroupStateEarKey group_state_ear_key = 2;
 }
 
 message ExternalCommitInfoResponse {
-  VerifiableGroupInfo verifiable_group_info = 1;
+  GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+  repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
 }
 
-message VerifiableGroupInfo {
+message GroupInfo {
   bytes tls = 1;
 }
 
 // connection group info
 
 message ConnectionGroupInfoRequest {
-  common.v1.GroupId group_id = 1;
+  common.v1.QualifiedGroupId group_id = 1;
+  GroupStateEarKey group_state_ear_key = 2;
 }
 
 message ConnectionGroupInfoResponse {
-  VerifiableGroupInfo verifiable_group_info = 1;
+  GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
+  repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
 }
-
-// update qs client reference
-
-message UpdateQsClientReferenceRequest {
-  common.v1.GroupId group_id = 1;
-  LeafNodeIndex sender = 2;
-  QsReference new_qs_reference = 3;
-}
-
-message LeafNodeIndex {
-  uint32 index = 1;
-}
-
-message UpdateQsClientReferenceResponse {}
 
 // update
 
 message UpdateRequest {
-  AssistedMessage commit = 1;
+  UpdatePayload payload = 1;
+  common.v1.Signature signature = 2;
 }
 
-message AssistedMessage {
-  bytes tls = 1;
+message UpdatePayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage commit = 2;
 }
 
 message UpdateResponse {
@@ -171,8 +186,9 @@ message UpdateResponse {
 // join connection group
 
 message JoinConnectionGroupRequest {
-  AssistedMessage extenal_commit = 1;
-  QsReference qs_client_reference = 2;
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage external_commit = 2;
+  QsReference qs_client_reference = 3;
 }
 
 message JoinConnectionGroupResponse {
@@ -182,8 +198,14 @@ message JoinConnectionGroupResponse {
 // resync
 
 message ResyncRequest {
-  AssistedMessage extenal_commit = 1;
-  LeafNodeIndex sender = 2;
+  ResyncPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message ResyncPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage external_commit = 2;
+  LeafNodeIndex sender = 3;
 }
 
 message ResyncResponse {
@@ -193,7 +215,13 @@ message ResyncResponse {
 // self remove
 
 message SelfRemoveRequest {
-  AssistedMessage remove_proposal = 1;
+  common.v1.Signature signature = 1;
+  SelfRemovePayload payload = 2;
+}
+
+message SelfRemovePayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage remove_proposal = 2;
 }
 
 message SelfRemoveResponse {
@@ -220,7 +248,13 @@ message SendMessageResponse {
 // delete group
 
 message DeleteGroupRequest {
-  AssistedMessage commit = 1;
+  DeleteGroupPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message DeleteGroupPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage commit = 2;
 }
 
 message DeleteGroupResponse {
@@ -230,8 +264,14 @@ message DeleteGroupResponse {
 // group operation
 
 message GroupOperationRequest {
-  AssistedMessage commit = 1;
-  optional AddUsersInfo add_users_info = 2;
+  GroupOperationPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message GroupOperationPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  AssistedMessage commit = 2;
+  optional AddUsersInfo add_users_info = 3;
 }
 
 message AddUsersInfo {
@@ -240,9 +280,25 @@ message AddUsersInfo {
 }
 
 message EncryptedWelcomeAttributionInfo {
-  bytes ciphertext = 1;
+  common.v1.Ciphertext ciphertext = 1;
 }
 
 message GroupOperationResponse {
   common.v1.Timestamp fanout_timestamp = 1;
 }
+
+// update profile key
+
+message UpdateProfileKeyRequest {
+  common.v1.Signature signature = 1;
+  UpdateProfileKeyPayload payload = 2;
+}
+
+message UpdateProfileKeyPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  common.v1.QualifiedGroupId group_id = 2;
+  LeafNodeIndex sender = 3;
+  EncryptedUserProfileKey encrypted_user_profile_key = 4;
+}
+
+message UpdateProfileKeyResponse {}

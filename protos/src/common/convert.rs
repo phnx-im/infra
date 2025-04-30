@@ -4,7 +4,8 @@
 
 use chrono::DateTime;
 use phnxtypes::{
-    crypto::{ear, signatures::signable},
+    crypto::ear::AeadCiphertext,
+    crypto::{self, ear, kdf::KDF_KEY_SIZE, secrets::Secret, signatures::signable},
     identifiers, time,
 };
 use tonic::Status;
@@ -14,7 +15,10 @@ use crate::{
     validation::{MissingFieldError, MissingFieldExt},
 };
 
-use super::v1::{Ciphertext, Fqdn, GroupId, QualifiedGroupId, Signature, Timestamp, Uuid};
+use super::v1::{
+    Ciphertext, Fqdn, GroupId, QualifiedGroupId, RatchetEncryptionKey, RatchetSecret, Signature,
+    Timestamp, Uuid,
+};
 
 impl From<uuid::Uuid> for Uuid {
     fn from(value: uuid::Uuid) -> Self {
@@ -96,6 +100,12 @@ impl FromRef<'_, identifiers::QualifiedGroupId> for QualifiedGroupId {
     }
 }
 
+impl FromRef<'_, GroupId> for openmls::group::GroupId {
+    fn from_ref(proto: &GroupId) -> Self {
+        Self::from_slice(&proto.value)
+    }
+}
+
 impl FromRef<'_, openmls::group::GroupId> for GroupId {
     fn from_ref(value: &openmls::group::GroupId) -> GroupId {
         GroupId {
@@ -104,7 +114,21 @@ impl FromRef<'_, openmls::group::GroupId> for GroupId {
     }
 }
 
+impl<CT> From<ear::Ciphertext<CT>> for Ciphertext {
+    fn from(value: ear::Ciphertext<CT>) -> Self {
+        AeadCiphertext::from(value).into()
+    }
+}
+
 impl<CT> TryFrom<Ciphertext> for ear::Ciphertext<CT> {
+    type Error = InvalidNonceLen;
+
+    fn try_from(proto: Ciphertext) -> Result<Self, Self::Error> {
+        Ok(ear::AeadCiphertext::try_from(proto)?.into())
+    }
+}
+
+impl TryFrom<Ciphertext> for ear::AeadCiphertext {
     type Error = InvalidNonceLen;
 
     fn try_from(proto: Ciphertext) -> Result<Self, Self::Error> {
@@ -113,7 +137,17 @@ impl<CT> TryFrom<Ciphertext> for ear::Ciphertext<CT> {
             .nonce
             .try_into()
             .map_err(|_| InvalidNonceLen(nonce_len))?;
-        Ok(ear::AeadCiphertext::new(proto.ciphertext, nonce).into())
+        Ok(ear::AeadCiphertext::new(proto.ciphertext, nonce))
+    }
+}
+
+impl From<ear::AeadCiphertext> for Ciphertext {
+    fn from(value: ear::AeadCiphertext) -> Self {
+        let (ciphertext, nonce) = value.into_parts();
+        Self {
+            ciphertext,
+            nonce: nonce.to_vec(),
+        }
     }
 }
 
@@ -158,6 +192,53 @@ impl From<signable::Signature> for Signature {
 impl From<Signature> for signable::Signature {
     fn from(value: Signature) -> Self {
         signable::Signature::from_bytes(value.value)
+    }
+}
+
+impl From<RatchetEncryptionKey> for crypto::RatchetEncryptionKey {
+    fn from(proto: RatchetEncryptionKey) -> Self {
+        Self::from_bytes(proto.bytes)
+    }
+}
+
+impl From<crypto::RatchetEncryptionKey> for RatchetEncryptionKey {
+    fn from(value: crypto::RatchetEncryptionKey) -> Self {
+        Self {
+            bytes: value.into_bytes(),
+        }
+    }
+}
+
+impl TryFrom<RatchetSecret> for crypto::kdf::keys::RatchetSecret {
+    type Error = RatchetSecretError;
+
+    fn try_from(proto: RatchetSecret) -> Result<Self, Self::Error> {
+        let len = proto.bytes.len();
+        let secret: [u8; KDF_KEY_SIZE] = proto
+            .bytes
+            .try_into()
+            .map_err(|_| RatchetSecretError::InvalidSecretLength(len))?;
+        Ok(Self::from(Secret::from(secret)))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RatchetSecretError {
+    #[error("invalid secret length: expected {KDF_KEY_SIZE}, got {0}")]
+    InvalidSecretLength(usize),
+}
+
+impl From<RatchetSecretError> for Status {
+    fn from(e: RatchetSecretError) -> Self {
+        Status::invalid_argument(format!("invalid ratchet secret: {e}"))
+    }
+}
+
+impl From<crypto::kdf::keys::RatchetSecret> for RatchetSecret {
+    fn from(value: crypto::kdf::keys::RatchetSecret) -> Self {
+        Self {
+            bytes: value.as_ref().secret().to_vec(),
+        }
     }
 }
 

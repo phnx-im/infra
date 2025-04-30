@@ -2,12 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::ProcessedMessageContent;
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::SerializedMlsMessage, openmls::prelude::Sender,
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{errors::ResyncClientError, messages::client_ds::ResyncParams, time::Duration};
+use mls_assist::{
+    messages::AssistedMessageIn,
+    openmls::prelude::{LeafNodeIndex, ProcessedMessageContent},
+};
+use phnxtypes::{errors::ResyncClientError, time::Duration};
 
 use super::process::USER_EXPIRATION_DAYS;
 
@@ -16,12 +19,13 @@ use super::group_state::DsGroupState;
 impl DsGroupState {
     pub(crate) fn resync_client(
         &mut self,
-        params: ResyncParams,
+        external_commit: AssistedMessageIn,
+        sender_index: LeafNodeIndex,
     ) -> Result<SerializedMlsMessage, ResyncClientError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
             .group()
-            .process_assisted_message(self.provider.crypto(), params.external_commit)
+            .process_assisted_message(self.provider.crypto(), external_commit)
             .map_err(|_| ResyncClientError::ProcessingError)?;
 
         // Perform DS-level validation
@@ -53,7 +57,7 @@ impl DsGroupState {
             return Err(ResyncClientError::InvalidMessage);
         };
 
-        if remove_proposal.remove_proposal().removed() != params.sender_index {
+        if remove_proposal.remove_proposal().removed() != sender_index {
             // The sender index in the remove proposal should match the sender
             // index in the params.
             return Err(ResyncClientError::InvalidMessage);
