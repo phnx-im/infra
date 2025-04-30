@@ -3894,8 +3894,6 @@ name = "phnxserver_test_harness"
 version = "0.1.0"
 dependencies = [
  "mimi_content",
- "once_cell",
- "phnxapiclient",
  "phnxbackend",
  "phnxcoreclient",
  "phnxserver",
