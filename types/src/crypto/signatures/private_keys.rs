@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{
     LibraryError,
-    crypto::{errors::KeyGenerationError, secrets::SecretBytes},
+    crypto::{RawKey, errors::KeyGenerationError, secrets::SecretBytes},
 };
 
 use super::{DEFAULT_SIGNATURE_SCHEME, signable::Signature};
@@ -51,6 +51,19 @@ impl<KT> From<VerifyingKey<KT>> for SignaturePublicKey {
 
 trait AsSlice {
     fn as_slice(&self) -> &[u8];
+}
+
+impl<KT: RawKey> VerifyingKey<KT> {
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.key
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            key: bytes,
+            _type: PhantomData,
+        }
+    }
 }
 
 #[allow(private_bounds)]
@@ -96,20 +109,20 @@ impl<'a, KT> VerifyingKeyRef<'a, KT> {
 }
 
 impl<KT> VerifyingKey<KT> {
-    #[cfg(any(test, feature = "test_utils"))]
-    pub fn new_for_test(value: Vec<u8>) -> Self {
-        Self::from_bytes(value)
-    }
-
-    pub fn as_slice(&self) -> &[u8] {
-        &self.key
-    }
-
-    pub(super) fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub(super) fn new(bytes: Vec<u8>) -> Self {
         Self {
             key: bytes,
             _type: PhantomData,
         }
+    }
+
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn new_for_test(value: Vec<u8>) -> Self {
+        Self::new(value)
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.key
     }
 }
 
@@ -141,7 +154,7 @@ impl<KT> SigningKey<KT> {
             .map_err(|_| KeyGenerationError::KeypairGeneration)?;
         Ok(Self {
             signing_key: SecretBytes::from(private_key),
-            verifying_key: VerifyingKey::from_bytes(public_key),
+            verifying_key: VerifyingKey::new(public_key),
         })
     }
 
@@ -169,7 +182,7 @@ impl<Source> VerifyingKey<Source> {
     where
         Source: Convertible<Target>,
     {
-        VerifyingKey::from_bytes(self.key)
+        VerifyingKey::new(self.key)
     }
 }
 
@@ -180,7 +193,7 @@ impl<Source> SigningKey<Source> {
     {
         SigningKey {
             signing_key: self.signing_key,
-            verifying_key: VerifyingKey::from_bytes(self.verifying_key.key),
+            verifying_key: VerifyingKey::new(self.verifying_key.key),
         }
     }
 }

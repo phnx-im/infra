@@ -22,6 +22,7 @@ use tracing::error;
 use crate::identifiers::{ClientConfig, SealedClientReference};
 
 use super::{
+    RawKey,
     ear::{GenericDeserializable, GenericSerializable},
     errors::{DecryptionError, EncryptionError, RandomnessError},
     secrets::SecretBytes,
@@ -43,6 +44,13 @@ pub const HPKE_CONFIG: HpkeConfig = HpkeConfig(
 );
 
 impl<KT> EncryptionKey<KT> {
+    fn new(bytes: Vec<u8>) -> Self {
+        Self {
+            key: bytes,
+            _type: std::marker::PhantomData,
+        }
+    }
+
     /// Encrypt the given plaintext using this key.
     pub(crate) fn encrypt(&self, info: &[u8], aad: &[u8], plain_txt: &[u8]) -> HpkeCiphertext {
         let rust_crypto = OpenMlsRustCrypto::default();
@@ -53,16 +61,22 @@ impl<KT> EncryptionKey<KT> {
             .unwrap()
     }
 
-    fn from_bytes(bytes: Vec<u8>) -> Self {
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn new_for_test(bytes: Vec<u8>) -> Self {
+        Self::new(bytes)
+    }
+}
+
+impl<KT: RawKey> EncryptionKey<KT> {
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.key
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
         Self {
             key: bytes,
             _type: std::marker::PhantomData,
         }
-    }
-
-    #[cfg(any(test, feature = "test_utils"))]
-    pub fn new_for_test(bytes: Vec<u8>) -> Self {
-        Self::from_bytes(bytes)
     }
 }
 
@@ -118,7 +132,7 @@ impl<KT> DecryptionKey<KT> {
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self::new(
             keypair.private,
-            EncryptionKey::from_bytes(keypair.public),
+            EncryptionKey::new(keypair.public),
         ))
     }
 
@@ -168,13 +182,13 @@ pub type JoinerInfoEncryptionKey = EncryptionKey<JoinerInfoKeyType>;
 // the KeyPackage, which we get as HpkePublicKey from OpenMLS.
 impl From<HpkePublicKey> for JoinerInfoEncryptionKey {
     fn from(value: HpkePublicKey) -> Self {
-        Self::from_bytes(value.as_slice().to_vec())
+        Self::new(value.as_slice().to_vec())
     }
 }
 
 impl From<InitKey> for JoinerInfoEncryptionKey {
     fn from(value: InitKey) -> Self {
-        Self::from_bytes(value.as_slice().to_vec())
+        Self::new(value.as_slice().to_vec())
     }
 }
 
@@ -186,13 +200,15 @@ pub type JoinerInfoDecryptionKey = DecryptionKey<JoinerInfoKeyType>;
 impl From<(HpkePrivateKey, InitKey)> for JoinerInfoDecryptionKey {
     fn from((sk, init_key): (HpkePrivateKey, InitKey)) -> Self {
         let vec: Vec<u8> = init_key.key().as_slice().to_vec();
-        DecryptionKey::new(sk, EncryptionKey::from_bytes(vec))
+        DecryptionKey::new(sk, EncryptionKey::new(vec))
     }
 }
 
 #[derive(Debug)]
 pub struct ClientIdKeyType;
 pub type ClientIdEncryptionKey = EncryptionKey<ClientIdKeyType>;
+
+impl RawKey for ClientIdKeyType {}
 
 impl ClientIdEncryptionKey {
     pub fn seal_client_config(

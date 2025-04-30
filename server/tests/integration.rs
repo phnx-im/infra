@@ -80,7 +80,7 @@ async fn rate_limit() {
 
     let mut setup = TestBackend::single_with_rate_limits(RateLimitsConfig {
         period: Duration::from_secs(1), // replenish one token every 500ms
-        burst_size: 10,                 // allow total 10 request
+        burst_size: 20,                 // allow total 20 request
     })
     .await;
     setup.add_user(&ALICE).await;
