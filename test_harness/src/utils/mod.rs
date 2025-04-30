@@ -11,7 +11,6 @@ use std::{
 
 pub mod setup;
 
-use once_cell::sync::Lazy;
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
     RateLimitsConfig, ServerRunParams,
@@ -23,25 +22,11 @@ use phnxserver::{
     enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
     run,
-    telemetry::{get_subscriber, init_subscriber},
 };
 use phnxtypes::identifiers::Fqdn;
 use uuid::Uuid;
 
-static TRACING: Lazy<()> = Lazy::new(|| {
-    let default_filter_level = "info".to_string();
-    let subscriber_name = "test".to_string();
-    // This allows us to choose not to capture traces for tests that pass.
-    // To get all logs just run `TEST_LOG=true cargo test health_check_works | bunyan`.
-    // bunyan can be installed via `cargo install bunyan`.
-    if std::env::var("TEST_LOG").is_ok() {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
-        init_subscriber(subscriber);
-    } else {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
-        init_subscriber(subscriber);
-    }
-});
+use crate::init_test_tracing;
 
 const BASE_CONFIG: &str = include_str!("../../../server/configuration/base.yaml");
 const LOCAL_CONFIG: &str = include_str!("../../../server/configuration/local.yaml");
@@ -51,9 +36,10 @@ const TEST_RATE_LIMITS: RateLimitsConfig = RateLimitsConfig {
     burst_size: 1000,
 };
 
-/// Start the server and initialize the database connection. Returns the
-/// address and a DispatchWebsocketNotifier to dispatch notofication over the
-/// websocket.
+/// Start the server and initialize the database connection.
+///
+/// Returns the HTTP and gRPC addresses, and a `DispatchWebsocketNotifier` to dispatch
+/// notifications.
 pub async fn spawn_app(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
@@ -61,16 +47,13 @@ pub async fn spawn_app(
     spawn_app_with_rate_limits(domain, network_provider, TEST_RATE_LIMITS).await
 }
 
-/// Start the server and initialize the database connection. Returns the
-/// address and a DispatchWebsocketNotifier to dispatch notofication over the
-/// websocket.
+/// Same as [`spawn_app`], but allows to configure rate limits.
 pub async fn spawn_app_with_rate_limits(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
     rate_limits: RateLimitsConfig,
 ) -> ((SocketAddr, SocketAddr), DispatchWebsocketNotifier) {
-    // Initialize tracing subscription only once.
-    Lazy::force(&TRACING);
+    init_test_tracing();
 
     // Load configuration
     let mut configuration = get_configuration_from_str(BASE_CONFIG, LOCAL_CONFIG)
@@ -131,6 +114,7 @@ pub async fn spawn_app_with_rate_limits(
         network_provider,
         ws_dispatch_notifier: ws_dispatch_notifier.clone(),
         rate_limits,
+        num_actix_workers: Some(1),
     })
     .expect("Failed to bind to address.");
 

@@ -32,6 +32,7 @@ impl PushToken {
         &self.token
     }
 }
+
 #[derive(Debug)]
 pub struct EncryptedPushTokenCtype;
 pub type EncryptedPushToken = Ciphertext<EncryptedPushTokenCtype>;

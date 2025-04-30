@@ -43,11 +43,16 @@ pub mod secrets;
 pub(super) mod serde_arrays;
 pub mod signatures;
 
+/// Marker trait for keys that can be converted to and from raw bytes
+pub trait RawKey {}
+
 pub type RatchetKeyUpdate = Vec<u8>;
 
 #[derive(Debug)]
 pub struct RatchetKeyType;
 pub type RatchetEncryptionKey = EncryptionKey<RatchetKeyType>;
+
+impl RawKey for RatchetKeyType {}
 
 pub type RatchetDecryptionKey = DecryptionKey<RatchetKeyType>;
 

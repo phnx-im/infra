@@ -3894,16 +3894,16 @@ name = "phnxserver_test_harness"
 version = "0.1.0"
 dependencies = [
  "mimi_content",
- "once_cell",
- "phnxapiclient",
  "phnxbackend",
  "phnxcoreclient",
  "phnxserver",
  "phnxtypes",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "tempfile",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
