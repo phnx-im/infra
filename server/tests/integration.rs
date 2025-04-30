@@ -603,11 +603,15 @@ async fn client_persistence() {
     setup.add_persisted_user(&ALICE).await;
     let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
 
-    // Try to load the user from the database.
-    CoreUser::load(client_id.clone(), "./").await.unwrap();
+    let client_db_path = setup.temp_dir();
 
-    fs::remove_file("./phnx.db").unwrap();
-    let client_db_path = format!("./{}.db", client_id);
+    // Try to load the user from the database.
+    CoreUser::load(client_id.clone(), client_db_path.to_str().unwrap())
+        .await
+        .unwrap();
+
+    fs::remove_file(client_db_path.join("phnx.db")).unwrap();
+    let client_db_path = client_db_path.join(format!("{}.db", client_id));
     fs::remove_file(client_db_path).unwrap();
 }
 
