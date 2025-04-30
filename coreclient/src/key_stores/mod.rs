@@ -63,26 +63,6 @@ pub(crate) struct MemoryUserKeyStoreBase<K> {
 
 pub(crate) type MemoryUserKeyStore = MemoryUserKeyStoreBase<ClientSigningKey>;
 
-// // For now we persist the key store along with the user. Any key material that gets rotated in the future needs to be persisted separately.
-// #[derive(Clone, Serialize, Deserialize)]
-// pub(crate) struct MemoryUserKeyStore {
-//     // Client credential secret key
-//     pub(super) signing_key: ClientSigningKey,
-//     // AS-specific key material
-//     pub(super) as_queue_decryption_key: RatchetDecryptionKey,
-//     pub(super) connection_decryption_key: ConnectionDecryptionKey,
-//     // QS-specific key material
-//     pub(super) qs_client_signing_key: QsClientSigningKey,
-//     pub(super) qs_user_signing_key: QsUserSigningKey,
-//     pub(super) qs_queue_decryption_key: RatchetDecryptionKey,
-//     pub(super) qs_client_id_encryption_key: ClientIdEncryptionKey,
-//     pub(super) push_token_ear_key: PushTokenEarKey,
-//     // These are keys that we send to our contacts
-//     pub(super) friendship_token: FriendshipToken,
-//     pub(super) connection_key: ConnectionKey,
-//     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
-// }
-
 impl MemoryUserKeyStore {
     pub(crate) fn create_own_client_reference(&self, qs_client_id: &QsClientId) -> QsReference {
         let sealed_reference = ClientConfig {

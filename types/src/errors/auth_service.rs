@@ -165,20 +165,6 @@ pub enum IssueTokensError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum Init2FactorAuthError {
-    /// Library error
-    #[error("Library error")]
-    LibraryError,
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-    /// Error during OPAQUE login handshake
-    #[error("Error during OPAQUE login handshake")]
-    OpaqueLoginFailed,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
 pub enum AsCredentialsError {
     /// Storage provider error
     #[error("Storage provider error")]
@@ -258,8 +244,6 @@ pub enum AsProcessingError {
     EnqueueMessageError(#[from] EnqueueMessageError),
     #[error(transparent)]
     IssueTokensError(#[from] IssueTokensError),
-    #[error(transparent)]
-    Init2FactorAuthError(#[from] Init2FactorAuthError),
     #[error(transparent)]
     AsCredentialsError(#[from] AsCredentialsError),
     #[error(transparent)]
