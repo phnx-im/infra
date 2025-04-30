@@ -38,7 +38,7 @@ impl CoreUser {
 
         // Phase 1: Store the user profile and the new key in the database
         user_profile.update(&mut *connection, &mut notifier).await?;
-        user_profile_key.store_own(&mut *connection).await?;
+        user_profile_key.store_own(&mut connection).await?;
 
         let own_key = UserProfileKey::load_own(connection.as_mut()).await?;
         assert_eq!(own_key.index(), user_profile_key.index());
@@ -115,7 +115,7 @@ impl CoreUser {
         drop(connection);
 
         // Phase 2: Fetch the user profile from the server
-        let api_client = self.inner.api_clients.get(&user_name.domain())?;
+        let api_client = self.inner.api_clients.get(user_name.domain())?;
 
         let GetUserProfileResponse {
             encrypted_user_profile,
