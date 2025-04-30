@@ -37,7 +37,7 @@ pub enum NavigationState {
 pub enum IntroScreenType {
     Intro,
     ServerChoice,
-    UsernamePassword,
+    Username,
     DisplayNamePicture,
     DeveloperSettings,
 }

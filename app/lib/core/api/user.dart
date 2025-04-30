@@ -57,7 +57,6 @@ abstract class User implements RustOpaqueInterface {
   /// If a user with this name already exists, this will overwrite that user.
   static Future<User> newInstance({
     required String userName,
-    required String password,
     required String address,
     required String path,
     PlatformPushToken? pushToken,
@@ -65,7 +64,6 @@ abstract class User implements RustOpaqueInterface {
     Uint8List? profilePicture,
   }) => RustLib.instance.api.crateApiUserUserNew(
     userName: userName,
-    password: password,
     address: address,
     path: path,
     pushToken: pushToken,

@@ -53,15 +53,9 @@ impl TestUser {
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = CoreUser::new_ephemeral(
-            user_name.clone(),
-            &user_name.to_string(),
-            server_url,
-            grpc_port,
-            None,
-        )
-        .await
-        .unwrap();
+        let user = CoreUser::new_ephemeral(user_name.clone(), server_url, grpc_port, None)
+            .await
+            .unwrap();
         Self { user }
     }
 
@@ -76,16 +70,9 @@ impl TestUser {
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = CoreUser::new(
-            user_name.clone(),
-            &user_name.to_string(),
-            server_url,
-            grpc_port,
-            db_dir,
-            None,
-        )
-        .await
-        .unwrap();
+        let user = CoreUser::new(user_name.clone(), server_url, grpc_port, db_dir, None)
+            .await
+            .unwrap();
         Self { user }
     }
 

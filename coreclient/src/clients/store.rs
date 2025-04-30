@@ -56,7 +56,6 @@ impl UserCreationState {
         phnx_db: &SqlitePool,
         as_client_id: AsClientId,
         server_url: impl ToString,
-        password: &str, // TODO: Remove this
         push_token: Option<PushToken>,
     ) -> Result<Self> {
         let client_record = ClientRecord::new(as_client_id.clone());
