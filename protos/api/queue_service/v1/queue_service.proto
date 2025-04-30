@@ -19,7 +19,6 @@ service QueueService {
   rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
 
   rpc PublishKeyPackages(PublishKeyPackagesRequest) returns (PublishKeyPackagesResponse);
-  rpc ClientKeyPackage(ClientKeyPackageRequest) returns (ClientKeyPackageResponse);
   rpc KeyPackage(KeyPackageRequest) returns (KeyPackageResponse);
 
   rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
@@ -128,39 +127,18 @@ message DeleteClientResponse {}
 message PublishKeyPackagesRequest {
   QsClientId client_id = 1;
   repeated KeyPackage key_packages = 2;
-  KeyPackageEarKey key_package_ear_key = 3;
 }
 
 message KeyPackage {
   bytes tls = 1;
 }
 
-message KeyPackageEarKey {
-  bytes bytes = 1;
-}
-
 message PublishKeyPackagesResponse {}
-
-// client key package
-
-message ClientKeyPackageRequest {
-  QsUserId sender = 1;
-  QsClientId client_id = 2;
-}
-
-message ClientKeyPackageResponse {
-  QsEncryptedKeyPackage key_package = 1;
-}
-
-message QsEncryptedKeyPackage {
-  common.v1.Ciphertext ciphertext = 1;
-}
 
 // key package
 
 message KeyPackageRequest {
   FriendshipToken sender = 1;
-  KeyPackageEarKey friendship_ear_key = 2;
 }
 
 message KeyPackageResponse {

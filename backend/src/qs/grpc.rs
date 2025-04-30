@@ -16,9 +16,9 @@ use phnxtypes::{
     },
     identifiers,
     messages::client_qs::{
-        ClientKeyPackageParams, CreateClientRecordParams, CreateUserRecordParams,
-        DeleteClientRecordParams, DeleteUserRecordParams, DequeueMessagesParams, KeyPackageParams,
-        PublishKeyPackagesParams, UpdateClientRecordParams, UpdateUserRecordParams,
+        CreateClientRecordParams, CreateUserRecordParams, DeleteClientRecordParams,
+        DeleteUserRecordParams, DequeueMessagesParams, KeyPackageParams, PublishKeyPackagesParams,
+        UpdateClientRecordParams, UpdateUserRecordParams,
     },
 };
 use tokio::sync::mpsc::{self, unbounded_channel};
@@ -232,38 +232,12 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
                 .map(|key_package| key_package.try_into())
                 .collect::<Result<Vec<_>, _>>()
                 .invalid_tls("key_packages")?,
-            friendship_ear_key: request
-                .key_package_ear_key
-                .ok_or_missing_field("key_package_ear_key")?
-                .try_into()?,
         };
         self.qs
             .qs_publish_key_packages(params)
             .await
             .map_err(PublishKeyPackagesError)?;
         Ok(Response::new(PublishKeyPackagesResponse {}))
-    }
-
-    async fn client_key_package(
-        &self,
-        request: Request<ClientKeyPackageRequest>,
-    ) -> Result<Response<ClientKeyPackageResponse>, Status> {
-        let request = request.into_inner();
-        let params = ClientKeyPackageParams {
-            sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
-            client_id: request
-                .client_id
-                .ok_or_missing_field("client_id")?
-                .try_into()?,
-        };
-        let response = self
-            .qs
-            .qs_client_key_package(params)
-            .await
-            .map_err(ClientKeyPackageError)?;
-        Ok(Response::new(ClientKeyPackageResponse {
-            key_package: Some(response.encrypted_key_package.into()),
-        }))
     }
 
     async fn key_package(
@@ -273,10 +247,6 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         let request = request.into_inner();
         let params = KeyPackageParams {
             sender: request.sender.ok_or_missing_field("sender")?.into(),
-            friendship_ear_key: request
-                .friendship_ear_key
-                .ok_or_missing_field("friendship_ear_key")?
-                .try_into()?,
         };
         let response = self
             .qs

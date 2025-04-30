@@ -7,16 +7,15 @@ use mls_assist::openmls::prelude::KeyPackage;
 use phnxprotos::queue_service::v1::QueueEvent;
 use phnxprotos::{
     queue_service::v1::{
-        ClientKeyPackageRequest, CreateClientRequest, CreateUserRequest, DeleteClientRequest,
-        DeleteUserRequest, DequeueMessagesRequest, KeyPackageRequest, ListenRequest,
-        PublishKeyPackagesRequest, QsEncryptionKeyRequest, UpdateClientRequest, UpdateUserRequest,
+        CreateClientRequest, CreateUserRequest, DeleteClientRequest, DeleteUserRequest,
+        DequeueMessagesRequest, KeyPackageRequest, ListenRequest, PublishKeyPackagesRequest,
+        QsEncryptionKeyRequest, UpdateClientRequest, UpdateUserRequest,
     },
     validation::{MissingFieldError, MissingFieldExt},
 };
 use phnxtypes::{
     crypto::{
         RatchetEncryptionKey,
-        ear::keys::KeyPackageEarKey,
         kdf::keys::RatchetSecret,
         signatures::keys::{QsClientSigningKey, QsClientVerifyingKey, QsUserSigningKey},
     },
@@ -24,8 +23,8 @@ use phnxtypes::{
     messages::{
         FriendshipToken, QueueMessage,
         client_qs::{
-            ClientKeyPackageResponse, CreateClientRecordResponse, CreateUserRecordResponse,
-            DequeueMessagesResponse, EncryptionKeyResponse, KeyPackageResponseIn,
+            CreateClientRecordResponse, CreateUserRecordResponse, DequeueMessagesResponse,
+            EncryptionKeyResponse, KeyPackageResponseIn,
         },
         push_token::EncryptedPushToken,
     },
@@ -192,7 +191,6 @@ impl ApiClient {
         &self,
         sender: QsClientId,
         key_packages: Vec<KeyPackage>,
-        friendship_ear_key: KeyPackageEarKey,
         _signing_key: &QsClientSigningKey,
     ) -> Result<(), QsRequestError> {
         let request = PublishKeyPackagesRequest {
@@ -201,41 +199,12 @@ impl ApiClient {
                 .into_iter()
                 .map(|key_package| key_package.try_into())
                 .collect::<Result<Vec<_>, _>>()?,
-            key_package_ear_key: Some(friendship_ear_key.into()),
         };
         self.qs_grpc_client
             .client()
             .publish_key_packages(request)
             .await?;
         Ok(())
-    }
-
-    pub async fn qs_client_key_package(
-        &self,
-        sender: QsUserId,
-        client_id: QsClientId,
-        _signing_key: &QsUserSigningKey,
-    ) -> Result<ClientKeyPackageResponse, QsRequestError> {
-        let request = ClientKeyPackageRequest {
-            sender: Some(sender.into()),
-            client_id: Some(client_id.into()),
-        };
-        let response = self
-            .qs_grpc_client
-            .client()
-            .client_key_package(request)
-            .await?
-            .into_inner();
-        Ok(ClientKeyPackageResponse {
-            encrypted_key_package: response
-                .key_package
-                .ok_or_missing_field("key_package")?
-                .try_into()
-                .map_err(|error| {
-                    error!(%error, "invalid key_package in response");
-                    QsRequestError::UnexpectedResponse
-                })?,
-        })
     }
 
     pub async fn qs_dequeue_messages(
@@ -274,11 +243,9 @@ impl ApiClient {
     pub async fn qs_key_package(
         &self,
         sender: FriendshipToken,
-        friendship_ear_key: KeyPackageEarKey,
     ) -> Result<KeyPackageResponseIn, QsRequestError> {
         let request = KeyPackageRequest {
             sender: Some(sender.into()),
-            friendship_ear_key: Some(friendship_ear_key.into()),
         };
         let response = self
             .qs_grpc_client

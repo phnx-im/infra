@@ -5,15 +5,14 @@
 use std::fmt;
 
 use mls_assist::{
-    openmls::prelude::{KeyPackage, KeyPackageIn, OpenMlsRand},
-    openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls::prelude::OpenMlsRand, openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::OpenMlsProvider,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
 
 use crate::crypto::{
-    ear::{AeadCiphertext, Ciphertext, EarDecryptable, EarEncryptable, keys::KeyPackageEarKey},
+    ear::{AeadCiphertext, Ciphertext},
     errors::RandomnessError,
 };
 
@@ -116,16 +115,6 @@ pub enum AsTokenType {
     DsGroupCreation,
     DsGroupOperation,
 }
-
-/// Ciphertext that contains a KeyPackage and an intermediary client certficate.
-/// TODO: do we want a key committing scheme here?
-#[derive(Debug)]
-#[cfg_attr(feature = "test_utils", derive(PartialEq, Eq))]
-pub struct QsEncryptedKeyPackageCtype;
-pub type QsEncryptedKeyPackage = Ciphertext<QsEncryptedKeyPackageCtype>;
-
-impl EarDecryptable<KeyPackageEarKey, QsEncryptedKeyPackageCtype> for KeyPackageIn {}
-impl EarEncryptable<KeyPackageEarKey, QsEncryptedKeyPackageCtype> for KeyPackage {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ApiVersion(TlsVarInt);

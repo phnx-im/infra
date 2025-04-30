@@ -22,7 +22,6 @@ pub const SUPPORTED_QS_API_VERSIONS: &[ApiVersion] = &[CURRENT_QS_API_VERSION];
 use crate::{
     crypto::{
         RatchetEncryptionKey,
-        ear::keys::KeyPackageEarKey,
         hpke::ClientIdEncryptionKey,
         kdf::keys::RatchetSecret,
         signatures::{
@@ -34,10 +33,7 @@ use crate::{
     identifiers::{QsClientId, QsUserId},
 };
 
-use super::{
-    ApiVersion, FriendshipToken, QsEncryptedKeyPackage, QueueMessage,
-    push_token::EncryptedPushToken,
-};
+use super::{ApiVersion, FriendshipToken, QueueMessage, push_token::EncryptedPushToken};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct QsOpenWsParams {
@@ -164,24 +160,11 @@ pub struct DeleteClientRecordParams {
 pub struct PublishKeyPackagesParams {
     pub sender: QsClientId,
     pub key_packages: Vec<KeyPackageIn>,
-    pub friendship_ear_key: KeyPackageEarKey,
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct ClientKeyPackageParams {
-    pub sender: QsUserId,
-    pub client_id: QsClientId,
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct ClientKeyPackageResponse {
-    pub encrypted_key_package: QsEncryptedKeyPackage,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct KeyPackageParams {
     pub sender: FriendshipToken,
-    pub friendship_ear_key: KeyPackageEarKey,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
@@ -404,7 +387,6 @@ pub enum QsRequestParams {
     DeleteClient(DeleteClientRecordParams),
     // Key packages
     PublishKeyPackages(PublishKeyPackagesParams),
-    ClientKeyPackage(ClientKeyPackageParams),
     KeyPackage(KeyPackageParams),
     // Messages
     DequeueMessages(DequeueMessagesParams),
@@ -424,7 +406,6 @@ impl QsRequestParams {
             QsRequestParams::UpdateClient(params) => QsSender::Client(params.sender),
             QsRequestParams::DeleteClient(params) => QsSender::Client(params.sender),
             QsRequestParams::PublishKeyPackages(params) => QsSender::Client(params.sender),
-            QsRequestParams::ClientKeyPackage(params) => QsSender::User(params.sender),
             QsRequestParams::KeyPackage(params) => QsSender::FriendshipToken(params.sender.clone()),
             QsRequestParams::DequeueMessages(params) => QsSender::Client(params.sender),
             QsRequestParams::EncryptionKey => QsSender::Anonymous,
@@ -483,7 +464,6 @@ pub enum QsProcessResponse {
     Ok,
     CreateUser(CreateUserRecordResponse),
     CreateClient(CreateClientRecordResponse),
-    ClientKeyPackage(ClientKeyPackageResponse),
     KeyPackage(KeyPackageResponse),
     DequeueMessages(DequeueMessagesResponse),
     EncryptionKey(EncryptionKeyResponse),
@@ -550,7 +530,6 @@ pub enum QsProcessResponseIn {
     Ok,
     CreateUser(CreateUserRecordResponse),
     CreateClient(CreateClientRecordResponse),
-    ClientKeyPackage(ClientKeyPackageResponse),
     KeyPackage(KeyPackageResponseIn),
     DequeueMessages(DequeueMessagesResponse),
     EncryptionKey(EncryptionKeyResponse),
@@ -611,25 +590,6 @@ mod tests {
                 assert_eq!(response, response);
             }
             _ => panic!("expected CreateClient variant"),
-        }
-
-        insta::assert_binary_snapshot!(".tls", response_tls);
-    }
-
-    #[test]
-    fn qs_response_client_key_package_api_stability() {
-        let response = ClientKeyPackageResponse {
-            encrypted_key_package: QsEncryptedKeyPackage::dummy(),
-        };
-        let response =
-            QsVersionedProcessResponse::Alpha(QsProcessResponse::ClientKeyPackage(response));
-        let response_tls = response.tls_serialize_detached().unwrap();
-
-        let response_in =
-            QsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&response_tls).unwrap();
-        match response_in {
-            QsVersionedProcessResponseIn::Alpha(QsProcessResponseIn::ClientKeyPackage(_)) => {}
-            _ => panic!("expected ClientKeyPackage variant"),
         }
 
         insta::assert_binary_snapshot!(".tls", response_tls);
