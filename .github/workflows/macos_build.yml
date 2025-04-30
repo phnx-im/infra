@@ -63,6 +63,11 @@ jobs:
             echo "is_fork=true" >> $GITHUB_OUTPUT
           fi
 
+      - uses: irgaly/xcode-cache@v1
+        with:
+          key: xcode-cache-deriveddata-${{ github.workflow }}-${{ github.sha }}
+          restore-keys: xcode-cache-deriveddata-${{ github.workflow }}-
+
       - name: Build macOS app
         if: ${{ steps.detect_fork.outputs.is_fork == 'true' }}
         run: |

@@ -45,6 +45,10 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - uses: Swatinem/rust-cache@v2
+        workspaces:
+          . -> app/build/linux/x64/release/plugins/phnxapplogic/cargokit_build/x86_64-unknown-linux-gnu
+
       - name: Set up Android CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
