@@ -44,7 +44,6 @@ tracing-subscriber = { workspace = true }
 tracing-bunyan-formatter = "0.3"
 tracing-actix-web = "0.7"
 jsonwebtoken = "9"
-opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 zeroize = "1.8.1"
 tls_codec = { workspace = true }
 reqwest = { workspace = true }
@@ -68,3 +67,4 @@ criterion = { version = "0.5.1", features = [
     "async",
     "async_tokio",
 ] }
+rand = "0.8.0"

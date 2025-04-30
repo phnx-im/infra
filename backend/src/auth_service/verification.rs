@@ -45,62 +45,6 @@ impl AuthService {
                 cca.verify(client_record.credential.verifying_key())
                     .map_err(|_| AsVerificationError::AuthenticationFailed)?
             }
-            // 2-Factor authentication using a signature by the client
-            // credential, as well as an OPAQUE login flow. This requires that
-            // the client has first called the endpoint to initiate the OPAQUE
-            // login flow.
-            // We load the pending OPAQUE login state from the ephemeral
-            // database and complete the OPAQUE flow. If that is successful, we
-            // verify the signature (which spans the OPAQUE data sent by the
-            // client).
-            // After successful verification, we delete the entry from the
-            // ephemeral DB.
-            // TODO: We currently store the credential of the client to be added
-            // along with the OPAQUE entry. This is not great, since we can't
-            // really return it from here. For now, we just load it again from
-            // the processing function.
-            AsAuthMethod::Client2Fa(auth_info) => {
-                // We authenticate opaque first.
-                let client_id = auth_info.client_credential_auth.client_id().clone();
-                let mut client_login_states = self.inner.ephemeral_client_logins.lock().await;
-                let opaque_state = client_login_states
-                    .remove(&client_id)
-                    .ok_or(AsVerificationError::UnknownClient)?;
-                // Finish the OPAQUE handshake
-                opaque_state
-                    .finish(auth_info.opaque_finish.client_message)
-                    .map_err(|e| {
-                        tracing::warn!("Error during OPAQUE login handshake: {e}");
-                        AsVerificationError::AuthenticationFailed
-                    })?;
-
-                let client_record = ClientRecord::load(&self.db_pool, &client_id)
-                    .await
-                    .map_err(|e| {
-                        tracing::error!("Error loading client record: {:?}", e);
-                        AsVerificationError::UnknownClient
-                    })?
-                    .ok_or(AsVerificationError::UnknownClient)?;
-                auth_info
-                    .client_credential_auth
-                    .verify(client_record.credential.verifying_key())
-                    .map_err(|_| AsVerificationError::AuthenticationFailed)?
-            }
-            // Authentication using only the user's password via an OPAQUE login flow.
-            AsAuthMethod::User(user_auth) => {
-                let mut user_login_states = self.inner.ephemeral_user_logins.lock().await;
-                let opaque_state = user_login_states
-                    .remove(&user_auth.user_name)
-                    .ok_or(AsVerificationError::UnknownUser)?;
-                // Finish the OPAQUE handshake
-                opaque_state
-                    .finish(user_auth.opaque_finish.client_message)
-                    .map_err(|e| {
-                        tracing::error!("Error during OPAQUE login handshake: {e}");
-                        AsVerificationError::AuthenticationFailed
-                    })?;
-                *user_auth.payload
-            }
         };
         Ok((params, version))
     }

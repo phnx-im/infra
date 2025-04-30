@@ -29,10 +29,9 @@ use super::{
     client_as::{
         AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
         AsDequeueMessagesParams, ClientCredentialAuthenticator, ConnectionPackage,
-        ConnectionPackageTbs, DeleteClientParams, DeleteUserParams, EnqueueMessageParams,
-        FinishClientAdditionParams, InitiateClientAdditionParams, IssueTokensParams,
-        IssueTokensResponse, NoAuth, SUPPORTED_AS_API_VERSIONS, TwoFactorAuthenticator,
-        UserClientsParams, UserConnectionPackagesParams, VerifiedAsRequestParams,
+        ConnectionPackageTbs, DeleteUserParams, EnqueueMessageParams, IssueTokensParams,
+        IssueTokensResponse, NoAuth, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
+        UserConnectionPackagesParams, VerifiedAsRequestParams,
     },
     client_qs::DequeueMessagesResponse,
 };
@@ -380,9 +379,6 @@ impl tls_codec::DeserializeBytes for AsVersionedRequestParamsIn {
 pub enum AsRequestParamsIn {
     InitUserRegistration(InitUserRegistrationParamsIn),
     DeleteUser(DeleteUserParams),
-    InitiateClientAddition(InitiateClientAdditionParams),
-    FinishClientAddition(FinishClientAdditionParams),
-    DeleteClient(DeleteClientParams),
     DequeueMessages(AsDequeueMessagesParams),
     PublishConnectionPackages(AsPublishConnectionPackagesParamsIn),
     ClientConnectionPackage(AsClientConnectionPackageParams),
@@ -398,18 +394,7 @@ pub enum AsRequestParamsIn {
 impl AsRequestParamsIn {
     pub fn into_auth_method(self) -> AsAuthMethod {
         match self {
-            // Requests authenticated only by the user's password.
-            // TODO: We should probably sign/verify the CSR with the verifying
-            // key inside to prove ownership of the key.
-            // TODO: For now, client addition is only verified by the user's
-            // password, not with an additional client credential.
-            Self::FinishClientAddition(params) => AsAuthMethod::User(params.user_auth()),
-            // Requests authenticated using two factors
-            Self::DeleteUser(params) => AsAuthMethod::Client2Fa(params.two_factor_auth_info()),
             // Requests signed by the client's client credential
-            Self::DeleteClient(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
             Self::DequeueMessages(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
@@ -425,12 +410,14 @@ impl AsRequestParamsIn {
             Self::UpdateUserProfile(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
+            Self::DeleteUser(params) => {
+                AsAuthMethod::ClientCredential(params.credential_auth_info())
+            }
             // Requests not requiring any authentication
             Self::UserClients(params) => AsAuthMethod::None(params.into_verified()),
             Self::UserConnectionPackages(params) => AsAuthMethod::None(params.into_verified()),
             Self::EnqueueMessage(params) => AsAuthMethod::None(params.into_verified()),
             Self::InitUserRegistration(params) => AsAuthMethod::None(params.into_verified()),
-            Self::InitiateClientAddition(params) => AsAuthMethod::None(params.into_verified()),
             Self::AsCredentials(params) => AsAuthMethod::None(params.into_verified()),
             Self::GetUserProfile(params) => AsAuthMethod::None(params.into_verified()),
         }

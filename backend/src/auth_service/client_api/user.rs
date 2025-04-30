@@ -117,7 +117,6 @@ impl AuthService {
         let DeleteUserParamsTbs {
             user_name,
             client_id: _,
-            opaque_finish: _,
         } = params;
 
         // Delete the user

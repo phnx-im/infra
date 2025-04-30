@@ -158,6 +158,7 @@ pub(crate) mod persistence {
             .transpose()
         }
 
+        #[allow(dead_code)]
         pub(in crate::auth_service) async fn delete(
             connection: impl PgExecutor<'_>,
             client_id: &AsClientId,

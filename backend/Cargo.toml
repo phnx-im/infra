@@ -21,7 +21,6 @@ async-trait = "0.1.53"
 uuid = { version = "1.0.0", features = ["v4", "serde"] }
 # Rust crypto dependencies
 tracing = { version = "0.1.35", features = ["log"] }
-opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 sqlx = { workspace = true, features = ["postgres", "tls-rustls"] }
 tokio = "1"
 mls-assist = { workspace = true }
@@ -29,11 +28,11 @@ tls_codec = { workspace = true }
 privacypass = { workspace = true }
 tokio-stream = "0.1.17"
 tonic = { workspace = true }
+rand = "0.8.0"
 
 [dev-dependencies]
 phnxtypes = { path = "../types", features = ["test_utils"] }
 anyhow = "1.0.97"
-rand = "0.8.0"
 serde_json = "1.0.140"
 insta = { workspace = true }
 

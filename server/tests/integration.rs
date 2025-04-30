@@ -8,8 +8,8 @@ use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
-use opaque_ke::rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 use phnxapiclient::{ApiClient, ds_api::DsRequestError};
+use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
