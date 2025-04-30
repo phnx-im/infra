@@ -10,7 +10,7 @@ use phnxtypes::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
             keys::{
                 FriendshipPackageEarKey, GroupStateEarKey, IdentityLinkWrapperKey,
-                KeyPackageEarKey, WelcomeAttributionInfoEarKey,
+                WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
@@ -167,7 +167,6 @@ impl Verifiable for ConnectionEstablishmentPackageIn {
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub(crate) struct FriendshipPackage {
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) key_package_ear_key: KeyPackageEarKey,
     pub(crate) connection_key: ConnectionKey,
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) user_profile_base_secret: UserProfileBaseSecret,

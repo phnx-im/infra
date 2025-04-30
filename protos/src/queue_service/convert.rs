@@ -4,12 +4,7 @@
 
 use openmls::key_packages;
 use phnxtypes::{
-    crypto::{
-        self,
-        ear::{self, AEAD_KEY_SIZE},
-        secrets::Secret,
-        signatures,
-    },
+    crypto::{self, ear::AEAD_KEY_SIZE, signatures},
     identifiers,
     messages::{self, push_token},
 };
@@ -23,9 +18,8 @@ use crate::{
 };
 
 use super::v1::{
-    ClientIdEncryptionKey, EncryptedPushToken, FriendshipToken, KeyPackage, KeyPackageEarKey,
-    QsClientId, QsClientVerifyingKey, QsEncryptedKeyPackage, QsUserId, QsUserVerifyingKey,
-    QueueMessage,
+    ClientIdEncryptionKey, EncryptedPushToken, FriendshipToken, KeyPackage, QsClientId,
+    QsClientVerifyingKey, QsUserId, QsUserVerifyingKey, QueueMessage,
 };
 
 impl From<identifiers::QsUserId> for QsUserId {
@@ -141,27 +135,6 @@ impl TryFrom<KeyPackage> for key_packages::KeyPackageIn {
     }
 }
 
-impl From<ear::keys::KeyPackageEarKey> for KeyPackageEarKey {
-    fn from(value: ear::keys::KeyPackageEarKey) -> Self {
-        Self {
-            bytes: value.as_ref().secret().to_vec(),
-        }
-    }
-}
-
-impl TryFrom<KeyPackageEarKey> for ear::keys::KeyPackageEarKey {
-    type Error = KeyPackageEarKeyError;
-
-    fn try_from(value: KeyPackageEarKey) -> Result<Self, Self::Error> {
-        let len = value.bytes.len();
-        let secret: [u8; AEAD_KEY_SIZE] = value
-            .bytes
-            .try_into()
-            .map_err(|_| KeyPackageEarKeyError::InvalidSecretLength(len))?;
-        Ok(Self::from(Secret::from(secret)))
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum KeyPackageEarKeyError {
     #[error("invalid secret length: expected {AEAD_KEY_SIZE}, got {0}")]
@@ -171,22 +144,6 @@ pub enum KeyPackageEarKeyError {
 impl From<KeyPackageEarKeyError> for Status {
     fn from(e: KeyPackageEarKeyError) -> Self {
         Status::invalid_argument(format!("invalid key package ear key: {e}"))
-    }
-}
-
-impl From<messages::QsEncryptedKeyPackage> for QsEncryptedKeyPackage {
-    fn from(value: messages::QsEncryptedKeyPackage) -> Self {
-        Self {
-            ciphertext: Some(value.into()),
-        }
-    }
-}
-
-impl TryFrom<QsEncryptedKeyPackage> for messages::QsEncryptedKeyPackage {
-    type Error = InvalidNonceLen;
-
-    fn try_from(value: QsEncryptedKeyPackage) -> Result<Self, Self::Error> {
-        value.ciphertext.unwrap_or_default().try_into()
     }
 }
 

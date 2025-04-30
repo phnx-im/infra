@@ -3,23 +3,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::{
-    openmls::prelude::{KeyPackage, KeyPackageIn, OpenMlsProvider, ProtocolVersion},
+    openmls::prelude::{KeyPackage, OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 use phnxtypes::{
-    crypto::ear::{EarDecryptable, EarEncryptable},
-    errors::qs::{
-        QsClientKeyPackageError, QsEncryptionKeyError, QsKeyPackageError, QsPublishKeyPackagesError,
-    },
+    errors::qs::{QsEncryptionKeyError, QsKeyPackageError, QsPublishKeyPackagesError},
     messages::client_qs::{
-        ClientKeyPackageParams, ClientKeyPackageResponse, EncryptionKeyResponse, KeyPackageParams,
-        KeyPackageResponse, PublishKeyPackagesParams,
+        EncryptionKeyResponse, KeyPackageParams, KeyPackageResponse, PublishKeyPackagesParams,
     },
 };
 
 use crate::qs::{
-    Qs, client_id_decryption_key::StorableClientIdDecryptionKey,
-    key_package::StorableEncryptedAddPackage,
+    Qs, client_id_decryption_key::StorableClientIdDecryptionKey, key_package::StorableKeyPackage,
 };
 
 impl Qs {
@@ -32,10 +27,9 @@ impl Qs {
         let PublishKeyPackagesParams {
             sender,
             key_packages,
-            friendship_ear_key,
         } = params;
 
-        let mut encrypted_key_packages = vec![];
+        let mut verified_key_packages = vec![];
         let mut last_resort_key_package = None;
         for key_package in key_packages {
             let verified_key_package: KeyPackage = key_package
@@ -47,65 +41,31 @@ impl Qs {
 
             let is_last_resort = verified_key_package.last_resort();
 
-            let eap = verified_key_package
-                .encrypt(&friendship_ear_key)
-                .map_err(|_| QsPublishKeyPackagesError::LibraryError)?;
-
             if is_last_resort {
-                last_resort_key_package = Some(eap);
+                last_resort_key_package = Some(verified_key_package);
             } else {
-                encrypted_key_packages.push(eap);
+                verified_key_packages.push(verified_key_package);
             }
         }
 
         if let Some(last_resort_key_package) = last_resort_key_package {
-            StorableEncryptedAddPackage::store_last_resort(
-                &self.db_pool,
-                &sender,
-                &last_resort_key_package,
-            )
+            last_resort_key_package
+                .store_last_resort(&self.db_pool, &sender)
+                .await
+                .map_err(|e| {
+                    tracing::warn!("Failed to store last resort key package: {:?}", e);
+                    QsPublishKeyPackagesError::StorageError
+                })?;
+        }
+
+        KeyPackage::store_multiple(&self.db_pool, &sender, &verified_key_packages)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to store last resort key package: {:?}", e);
                 QsPublishKeyPackagesError::StorageError
             })?;
-        }
-
-        StorableEncryptedAddPackage::store_multiple(
-            &self.db_pool,
-            &sender,
-            &encrypted_key_packages,
-        )
-        .await
-        .map_err(|e| {
-            tracing::warn!("Failed to store last resort key package: {:?}", e);
-            QsPublishKeyPackagesError::StorageError
-        })?;
 
         Ok(())
-    }
-
-    /// Retrieve a key package for the given client.
-    #[tracing::instrument(skip_all, err)]
-    pub(crate) async fn qs_client_key_package(
-        &self,
-        params: ClientKeyPackageParams,
-    ) -> Result<ClientKeyPackageResponse, QsClientKeyPackageError> {
-        let ClientKeyPackageParams { sender, client_id } = params;
-
-        let StorableEncryptedAddPackage(encrypted_key_package) =
-            StorableEncryptedAddPackage::load(&self.db_pool, &sender, &client_id)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("Failed to load key package: {:?}", e);
-                    QsClientKeyPackageError::StorageError
-                })?
-                .ok_or(QsClientKeyPackageError::NoKeyPackages)?;
-
-        let response = ClientKeyPackageResponse {
-            encrypted_key_package,
-        };
-        Ok(response)
     }
 
     /// Retrieve a key package for a given client.
@@ -114,32 +74,18 @@ impl Qs {
         &self,
         params: KeyPackageParams,
     ) -> Result<KeyPackageResponse, QsKeyPackageError> {
-        let KeyPackageParams {
-            sender,
-            friendship_ear_key,
-        } = params;
+        let KeyPackageParams { sender } = params;
 
         let mut connection = self.db_pool.acquire().await.map_err(|e| {
             tracing::warn!("Failed to acquire connection: {:?}", e);
             QsKeyPackageError::StorageError
         })?;
 
-        let encrypted_key_package =
-            StorableEncryptedAddPackage::load_user_key_package(&mut connection, &sender)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("Storage provider error: {:?}", e);
-                    QsKeyPackageError::StorageError
-                })?;
-
-        let key_package = KeyPackageIn::decrypt(&friendship_ear_key, &encrypted_key_package)
-            .map_err(|_| QsKeyPackageError::DecryptionError)
-            .and_then(|ap| {
-                ap.validate(
-                    OpenMlsRustCrypto::default().crypto(),
-                    ProtocolVersion::default(),
-                )
-                .map_err(|_| QsKeyPackageError::InvalidKeyPackage)
+        let key_package = KeyPackage::load_user_key_package(&mut connection, &sender)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Storage provider error: {:?}", e);
+                QsKeyPackageError::StorageError
             })?;
 
         let response = KeyPackageResponse { key_package };

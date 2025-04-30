@@ -260,7 +260,6 @@ impl PostRegistrationInitState {
         // TODO: The following keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random()?;
-        let key_package_ear_key = KeyPackageEarKey::random()?;
         let connection_key = ConnectionKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
@@ -283,7 +282,6 @@ impl PostRegistrationInitState {
             qs_queue_decryption_key,
             push_token_ear_key,
             friendship_token,
-            key_package_ear_key,
             connection_key,
             wai_ear_key,
             qs_client_id_encryption_key: qs_encryption_key,
@@ -515,7 +513,6 @@ impl QsRegisteredUserState {
             .qs_publish_key_packages(
                 *qs_client_id,
                 qs_key_packages,
-                key_store.key_package_ear_key.clone(),
                 &key_store.qs_client_signing_key,
             )
             .await?;
