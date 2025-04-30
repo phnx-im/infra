@@ -10,7 +10,7 @@ POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
 # run postgres via docker compose and apply migrations
 init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
-    docker compose up --wait
+    # docker compose up --wait
     cd backend && sqlx database create
     cd backend && sqlx database setup
 

@@ -6,14 +6,14 @@ use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize, TlsV
 
 use crate::{
     credentials::{
-        AsCredential, ClientCredential, CredentialFingerprint, VerifiableAsIntermediateCredential,
-        VerifiableClientCredential, keys::AsIntermediateVerifyingKey,
+        AsCredential, ClientCredential, ClientCredentialPayload, CredentialFingerprint,
+        VerifiableAsIntermediateCredential, VerifiableClientCredential,
+        keys::AsIntermediateVerifyingKey,
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
         ear::Ciphertext,
         kdf::keys::RatchetSecret,
-        opaque::{OpaqueLoginResponse, OpaqueRegistrationRecord, OpaqueRegistrationResponse},
         signatures::{
             private_keys::SignatureVerificationError,
             signable::{Signable, Signature, SignedStruct, Verifiable},
@@ -28,13 +28,11 @@ use super::{
     ApiVersion, MlsInfraVersion,
     client_as::{
         AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
-        AsDequeueMessagesParams, AsPublishConnectionPackagesParams, ClientCredentialAuthenticator,
-        ConnectionPackage, ConnectionPackageTbs, DeleteClientParams, DeleteUserParams,
-        EnqueueMessageParams, FinishClientAdditionParams, Init2FactorAuthResponse,
-        InitUserRegistrationParams, Initiate2FaAuthenticationParams, InitiateClientAdditionParams,
-        IssueTokensParams, IssueTokensResponse, NoAuth, SUPPORTED_AS_API_VERSIONS,
-        TwoFactorAuthenticator, UserClientsParams, UserConnectionPackagesParams,
-        VerifiedAsRequestParams,
+        AsDequeueMessagesParams, ClientCredentialAuthenticator, ConnectionPackage,
+        ConnectionPackageTbs, DeleteClientParams, DeleteUserParams, EnqueueMessageParams,
+        FinishClientAdditionParams, InitiateClientAdditionParams, IssueTokensParams,
+        IssueTokensResponse, NoAuth, SUPPORTED_AS_API_VERSIONS, TwoFactorAuthenticator,
+        UserClientsParams, UserConnectionPackagesParams, VerifiedAsRequestParams,
     },
     client_qs::DequeueMessagesResponse,
 };
@@ -52,7 +50,6 @@ pub struct UserConnectionPackagesResponseIn {
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct InitClientAdditionResponseIn {
     pub client_credential: VerifiableClientCredential,
-    pub opaque_login_response: OpaqueLoginResponse,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
@@ -72,7 +69,6 @@ pub struct AsCredentialsResponseIn {
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct InitUserRegistrationResponseIn {
     pub client_credential: VerifiableClientCredential,
-    pub opaque_registration_response: OpaqueRegistrationResponse,
 }
 
 #[expect(clippy::large_enum_variant)]
@@ -127,7 +123,6 @@ impl tls_codec::DeserializeBytes for AsVersionedProcessResponseIn {
 #[repr(u8)]
 pub enum AsProcessResponseIn {
     Ok,
-    Init2FactorAuth(Init2FactorAuthResponse),
     DequeueMessages(DequeueMessagesResponse),
     ClientConnectionPackage(AsClientConnectionPackageResponseIn),
     IssueTokens(IssueTokensResponse),
@@ -201,37 +196,47 @@ impl Verifiable for VerifiableConnectionPackage {
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct FinishUserRegistrationParamsTbsIn {
-    pub client_id: AsClientId,
+pub struct InitUserRegistrationParamsIn {
+    pub client_payload: ClientCredentialPayload,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_secret: RatchetSecret,
-    pub connection_packages: Vec<ConnectionPackageIn>,
-    pub opaque_registration_record: OpaqueRegistrationRecord,
     pub encrypted_user_profile: EncryptedUserProfile,
 }
 
+impl NoAuth for InitUserRegistrationParamsIn {
+    fn into_verified(self) -> VerifiedAsRequestParams {
+        VerifiedAsRequestParams::InitUserRegistration(self)
+    }
+}
+
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct FinishUserRegistrationParamsIn {
-    payload: FinishUserRegistrationParamsTbsIn,
+pub struct AsPublishConnectionPackagesParamsIn {
+    payload: AsPublishConnectionPackagesParamsTbsIn,
     signature: Signature,
 }
 
-impl ClientCredentialAuthenticator for FinishUserRegistrationParamsIn {
-    type Tbs = FinishUserRegistrationParamsTbsIn;
+impl ClientCredentialAuthenticator for AsPublishConnectionPackagesParamsIn {
+    type Tbs = AsClientId;
 
     fn client_id(&self) -> AsClientId {
         self.payload.client_id.clone()
     }
 
     fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::FinishUserRegistration(self.payload)
+        VerifiedAsRequestParams::PublishConnectionPackages(self.payload)
     }
 
     fn signature(&self) -> &Signature {
         &self.signature
     }
 
-    const LABEL: &'static str = "Finish User Registration Parameters";
+    const LABEL: &'static str = "Publish ConnectionPackages Parameters";
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct AsPublishConnectionPackagesParamsTbsIn {
+    pub client_id: AsClientId,
+    pub connection_packages: Vec<ConnectionPackageIn>,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -267,7 +272,7 @@ pub struct UpdateUserProfileParams {
 }
 
 impl ClientCredentialAuthenticator for UpdateUserProfileParams {
-    type Tbs = FinishUserRegistrationParamsTbsIn;
+    type Tbs = UpdateUserProfileParamsTbs;
 
     fn client_id(&self) -> AsClientId {
         self.payload.client_id.clone()
@@ -373,15 +378,13 @@ impl tls_codec::DeserializeBytes for AsVersionedRequestParamsIn {
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum AsRequestParamsIn {
-    Initiate2FaAuthentication(Initiate2FaAuthenticationParams),
-    InitUserRegistration(InitUserRegistrationParams),
-    FinishUserRegistration(FinishUserRegistrationParamsIn),
+    InitUserRegistration(InitUserRegistrationParamsIn),
     DeleteUser(DeleteUserParams),
     InitiateClientAddition(InitiateClientAdditionParams),
     FinishClientAddition(FinishClientAdditionParams),
     DeleteClient(DeleteClientParams),
     DequeueMessages(AsDequeueMessagesParams),
-    PublishConnectionPackages(AsPublishConnectionPackagesParams),
+    PublishConnectionPackages(AsPublishConnectionPackagesParamsIn),
     ClientConnectionPackage(AsClientConnectionPackageParams),
     UserClients(UserClientsParams),
     UserConnectionPackages(UserConnectionPackagesParams),
@@ -404,9 +407,6 @@ impl AsRequestParamsIn {
             // Requests authenticated using two factors
             Self::DeleteUser(params) => AsAuthMethod::Client2Fa(params.two_factor_auth_info()),
             // Requests signed by the client's client credential
-            Self::Initiate2FaAuthentication(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
             Self::DeleteClient(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
@@ -423,12 +423,6 @@ impl AsRequestParamsIn {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
             Self::UpdateUserProfile(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            // We verify user registration finish requests like a
-            // ClientCredentialAuth request and then additionally complete the
-            // OPAQUE registration afterwards.
-            Self::FinishUserRegistration(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
             // Requests not requiring any authentication

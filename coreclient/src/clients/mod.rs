@@ -7,10 +7,6 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
-use opaque_ke::{
-    ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
-    ClientRegistrationStartResult, Identifiers, RegistrationUpload,
-};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
@@ -23,7 +19,7 @@ use phnxtypes::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
-        ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
+        ConnectionDecryptionKey, RatchetDecryptionKey,
         ear::{
             EarEncryptable, EarKey, GenericSerializable,
             keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},

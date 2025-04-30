@@ -1,12 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile) VALUES ($1, $2, $3)",
+  "query": "INSERT INTO as_user_records (user_name, encrypted_user_profile) VALUES ($1, $2)",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Text",
-        "Bytea",
         {
           "Custom": {
             "name": "aead_ciphertext",
@@ -28,5 +27,5 @@
     },
     "nullable": []
   },
-  "hash": "fb077ef59b81b3659e0bc280679606b0b6d620387abd433d96c7acec525f8bd6"
+  "hash": "9dd83b136bfba083a1ead412345b3433dc85deaf90abae184e32371ad62be1e2"
 }

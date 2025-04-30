@@ -18,10 +18,9 @@ use phnxtypes::{
     messages::{
         ApiVersion,
         client_as::{
-            AsClientConnectionPackageResponse, AsCredentialsResponse, Init2FactorAuthResponse,
-            InitClientAdditionResponse, InitUserRegistrationResponse, IssueTokensResponse,
-            SUPPORTED_AS_API_VERSIONS, UserClientsResponse, UserConnectionPackagesResponse,
-            VerifiedAsRequestParams,
+            AsClientConnectionPackageResponse, AsCredentialsResponse, InitClientAdditionResponse,
+            InitUserRegistrationResponse, IssueTokensResponse, SUPPORTED_AS_API_VERSIONS,
+            UserClientsResponse, UserConnectionPackagesResponse, VerifiedAsRequestParams,
         },
         client_as_out::GetUserProfileResponse,
         client_qs::DequeueMessagesResponse,
@@ -55,7 +54,6 @@ ACTION_AS_INITIATE_2FA_AUTHENTICATION
 
 User:
 ACTION_AS_INIT_USER_REGISTRATION
-ACTION_AS_FINISH_USER_REGISTRATION
 ACTION_AS_DELETE_USER
 
 Client:
@@ -156,14 +154,6 @@ impl AuthService {
         let (verified_params, from_version) = self.verify(message).await?;
 
         let response: AsProcessResponse = match verified_params {
-            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self
-                .as_init_two_factor_auth(params)
-                .await
-                .map(AsProcessResponse::Init2FactorAuth)?,
-            VerifiedAsRequestParams::FinishUserRegistration(params) => {
-                self.as_finish_user_registration(params).await?;
-                AsProcessResponse::Ok
-            }
             VerifiedAsRequestParams::DeleteUser(params) => {
                 self.as_delete_user(params).await?;
                 AsProcessResponse::Ok
@@ -280,7 +270,6 @@ impl tls_codec::Serialize for AsVersionedProcessResponse {
 #[repr(u8)]
 pub enum AsProcessResponse {
     Ok,
-    Init2FactorAuth(Init2FactorAuthResponse),
     DequeueMessages(DequeueMessagesResponse),
     ClientKeyPackage(AsClientConnectionPackageResponse),
     IssueTokens(IssueTokensResponse),

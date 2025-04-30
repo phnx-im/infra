@@ -1,11 +1,10 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE as_user_records\n                SET password_file = $1, encrypted_user_profile = $2\n                WHERE user_name = $3",
+  "query": "UPDATE as_user_records\n                SET encrypted_user_profile = $1\n                WHERE user_name = $2",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
-        "Bytea",
         {
           "Custom": {
             "name": "aead_ciphertext",
@@ -28,5 +27,5 @@
     },
     "nullable": []
   },
-  "hash": "5c918b741638016d4dd8cc9940581d7eae69d7719543fe95279d3fe13825f5b5"
+  "hash": "f1b68b9f675a7a793170bbe20694741230b9f0467722aaa4b6e6e665ace796ed"
 }
