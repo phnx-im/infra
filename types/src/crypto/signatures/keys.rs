@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::crypto::RawKey;
+
 use super::private_keys::{SigningKey, VerifyingKey, VerifyingKeyRef};
 
 #[derive(Debug)]
@@ -12,11 +14,15 @@ pub type LeafVerifyingKeyRef<'a> = VerifyingKeyRef<'a, LeafVerifyingKeyType>;
 pub struct QsClientVerifyingKeyType;
 pub type QsClientVerifyingKey = VerifyingKey<QsClientVerifyingKeyType>;
 
+impl RawKey for QsClientVerifyingKeyType {}
+
 pub type QsClientSigningKey = SigningKey<QsClientVerifyingKeyType>;
 
 #[derive(Debug)]
 pub struct QsUserVerifyingKeyType;
 pub type QsUserVerifyingKey = VerifyingKey<QsUserVerifyingKeyType>;
+
+impl RawKey for QsUserVerifyingKeyType {}
 
 pub type QsUserSigningKey = SigningKey<QsUserVerifyingKeyType>;
 
