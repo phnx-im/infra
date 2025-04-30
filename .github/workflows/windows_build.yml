@@ -38,7 +38,7 @@ jobs:
         run: just build-windows
 
       - name: Find the cache directory
-        run: find app/build | grep CACHEDIR
+        run: find CACHEDIR app/build
 
       - name: Upload Windows app
         uses: actions/upload-artifact@v4
