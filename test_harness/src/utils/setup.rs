@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use mimi_content::MimiContent;
 use phnxcoreclient::{
@@ -10,11 +13,12 @@ use phnxcoreclient::{
 };
 use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use phnxtypes::{
-    DEFAULT_PORT_GRPC, DEFAULT_PORT_HTTP,
+    DEFAULT_PORT_HTTP,
     identifiers::{Fqdn, QualifiedUserName},
 };
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
+use tempfile::TempDir;
 use tokio::task::{LocalEnterGuard, LocalSet};
 use tracing::info;
 
@@ -101,20 +105,11 @@ pub struct TestBackend {
     // This is what we feed to the test clients.
     kind: TestKind,
     grpc_port: u16,
+    temp_dir: TempDir,
     _guard: Option<LocalEnterGuard>,
 }
 
 impl TestBackend {
-    pub fn federated() -> Self {
-        Self {
-            users: HashMap::new(),
-            groups: HashMap::new(),
-            kind: TestKind::Federated,
-            grpc_port: DEFAULT_PORT_GRPC,
-            _guard: None,
-        }
-    }
-
     pub async fn single() -> Self {
         Self::single_with_rate_limits(TEST_RATE_LIMITS).await
     }
@@ -132,6 +127,7 @@ impl TestBackend {
             groups: HashMap::new(),
             kind: TestKind::SingleBackend(http_addr.to_string()),
             grpc_port: grpc_addr.port(),
+            temp_dir: tempfile::tempdir().unwrap(),
             _guard: Some(_guard),
         }
     }
@@ -148,9 +144,14 @@ impl TestBackend {
         self.grpc_port
     }
 
+    pub fn temp_dir(&self) -> &Path {
+        self.temp_dir.path()
+    }
+
     pub async fn add_persisted_user(&mut self, user_name: &QualifiedUserName) {
-        info!("Creating {user_name}");
-        let user = TestUser::new_persisted(user_name, self.url(), self.grpc_port, "./").await;
+        let path = self.temp_dir.path().to_str().unwrap();
+        info!(%path, "Creating persisted {user_name}");
+        let user = TestUser::new_persisted(user_name, self.url(), self.grpc_port, path).await;
         self.users.insert(user_name.clone(), user);
     }
 

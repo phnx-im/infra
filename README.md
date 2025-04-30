@@ -149,22 +149,6 @@ When prompted, use the domain name `localhost`.
 
 </details>
 
-## Docker-based federation testing
-
-The Phoenix Protocol allows for communication between users across different
-servers. To properly test federation-related functionalities, the `test_harness`
-provides utilities to spin up multiple servers using Docker. Docker allows us to
-approximate a real-world networking environments, where servers can discover
-one-another using DNS and facilitate communication between their respective
-clients across a network. The `server` crate contains several federated test
-scenarios that are run in this way.
-
-Since the tests build fresh Docker images from the code and spin up multiple
-containers, running them is somewhat slow. To make regular testing more
-ergonomic, the `--include-ignored` flag has to be used when running `cargo test`
-on the `server` crate. Note that Docker-based tests are run as part of the CI
-whenever a pull request is made.
-
 ## Licensing
 
 All crates in this repository are licensed under the [AGPL

@@ -7,25 +7,17 @@ name = "phnxserver_test_harness"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-path = "src/lib.rs"
-
-[[bin]]
-path = "src/main.rs"
-name = "test_runner"
-
 [dependencies]
+phnxtypes = { workspace = true }
 phnxserver = { path = "../server" }
-phnxapiclient = { path = "../apiclient" }
 phnxcoreclient = { path = "../coreclient" }
 phnxbackend = { path = "../backend", features = ["test_utils"] }
+
 tokio = { version = "1", features = ["process"] }
-once_cell = "1"
 rand = "0.8"
 rand_chacha = { version = "0.3" }
 uuid = { version = "1.0.0", features = ["v4"] }
 tracing = { version = "0.1", features = ["log"] }
 mimi_content = { workspace = true }
-
-# Workspace dependencies
-phnxtypes = { workspace = true }
+tracing-subscriber.workspace = true
+tempfile = "3.19.1"
