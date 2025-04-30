@@ -110,7 +110,7 @@ build-ios:
 # Build Linux app
 [working-directory: 'app']
 build-linux:
-     flutter build linux
+     flutter build linux -v
 
 # analyze Dart code
 [working-directory: 'app']
