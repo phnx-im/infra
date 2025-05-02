@@ -64,7 +64,6 @@ impl User {
     /// If a user with this name already exists, this will overwrite that user.
     pub async fn new(
         user_name: String,
-        password: String,
         address: String,
         path: String,
         push_token: Option<PlatformPushToken>,
@@ -75,7 +74,6 @@ impl User {
 
         let user = CoreUser::new(
             user_name.clone(),
-            &password,
             address,
             DEFAULT_PORT_GRPC,
             &path,

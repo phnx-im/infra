@@ -3805,7 +3805,6 @@ dependencies = [
  "kamadak-exif",
  "mimi_content",
  "mls-assist",
- "opaque-ke",
  "openmls",
  "openmls_rust_crypto",
  "openmls_traits",

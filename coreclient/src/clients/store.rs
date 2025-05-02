@@ -7,7 +7,7 @@ use phnxtypes::messages::push_token::PushToken;
 
 use super::{
     create_user::{
-        AsRegisteredUserState, BasicUserData, PersistedUserState, PostRegistrationInitState,
+        AsRegisteredUserState, BasicUserData, PersistedUserState, PostAsRegistrationState,
         QsRegisteredUserState, UnfinalizedRegistrationState,
     },
     *,
@@ -19,7 +19,7 @@ use super::{
 pub(crate) enum UserCreationState {
     BasicUserData(BasicUserData),
     InitialUserState(InitialUserState),
-    PostRegistrationInitState(PostRegistrationInitState),
+    PostRegistrationInitState(PostAsRegistrationState),
     UnfinalizedRegistrationState(UnfinalizedRegistrationState),
     AsRegisteredUserState(AsRegisteredUserState),
     QsRegisteredUserState(QsRegisteredUserState),
@@ -56,7 +56,6 @@ impl UserCreationState {
         phnx_db: &SqlitePool,
         as_client_id: AsClientId,
         server_url: impl ToString,
-        password: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
         let client_record = ClientRecord::new(as_client_id.clone());
@@ -65,7 +64,6 @@ impl UserCreationState {
         let basic_user_data = BasicUserData {
             as_client_id: as_client_id.clone(),
             server_url: server_url.to_string(),
-            password: password.to_string(),
             push_token,
         };
 
@@ -95,14 +93,14 @@ impl UserCreationState {
                 Self::InitialUserState(state)
             }
             UserCreationState::InitialUserState(state) => {
-                Self::PostRegistrationInitState(state.initiate_as_registration(api_clients).await?)
+                Self::PostRegistrationInitState(state.as_registration(api_clients).await?)
             }
             UserCreationState::PostRegistrationInitState(state) => {
                 let state = state.process_server_response(client_db).await?;
                 Self::UnfinalizedRegistrationState(state)
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
-                Self::AsRegisteredUserState(state.finalize_as_registration(api_clients).await?)
+                Self::AsRegisteredUserState(state.publish_connection_packages(api_clients).await?)
             }
             UserCreationState::AsRegisteredUserState(state) => {
                 Self::QsRegisteredUserState(state.register_with_qs(api_clients).await?)

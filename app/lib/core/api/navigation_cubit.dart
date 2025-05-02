@@ -86,7 +86,7 @@ class HomeNavigationState with _$HomeNavigationState {
 enum IntroScreenType {
   intro,
   serverChoice,
-  usernamePassword,
+  username,
   displayNamePicture,
   developerSettings,
 }

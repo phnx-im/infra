@@ -502,6 +502,10 @@ impl ClientCredential {
         CredentialFingerprint::with_label(self, CLIENT_CREDENTIAL_LABEL)
     }
 
+    pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
+        &self.payload.signer_fingerprint
+    }
+
     #[cfg(feature = "test_utils")]
     pub fn new_for_test(payload: ClientCredentialPayload, signature: Signature) -> Self {
         Self { payload, signature }

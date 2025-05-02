@@ -263,7 +263,6 @@ mod tests {
         UserCreationState::BasicUserData(BasicUserData {
             as_client_id: AsClientId::new(user_name, user_id),
             server_url: "localhost".to_owned(),
-            password: "swordfish".to_owned(),
             push_token: Some(PushToken::new(
                 PushTokenOperator::Google,
                 "token".to_owned(),

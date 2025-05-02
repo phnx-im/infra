@@ -28,11 +28,9 @@ sealed class RegistrationState with _$RegistrationState {
     // Domain choice screen data
     @Default('') String domain,
 
-    // Username/password screen data
+    // Username screen data
     @Default('') String username,
-    @Default('') String password,
     @Default(false) bool isUsernameValid,
-    @Default(false) bool isPasswordValid,
 
     // Display name/avatar screen data
     ImageData? avatar,
@@ -67,10 +65,6 @@ class RegistrationCubit extends Cubit<RegistrationState> {
     );
   }
 
-  void setPassword(String value) {
-    emit(state.copyWith(password: value, isPasswordValid: value.isNotEmpty));
-  }
-
   void setAvatar(ImageData? bytes) {
     emit(state.copyWith(avatar: bytes));
   }
@@ -92,7 +86,6 @@ class RegistrationCubit extends Cubit<RegistrationState> {
       _log.info("Registering user ${state.username} ...");
       await _coreClient.createUser(
         fqun,
-        state.password,
         url,
         state.displayName,
         state.avatar?.data,

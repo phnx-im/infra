@@ -35,24 +35,15 @@ impl AuthService {
                 // Depending on the request type, we either load the client
                 // credential from the persistend storage, or the ephemeral
                 // storage.
-                if cca.is_finish_user_registration_request() {
-                    let client_credentials = self.inner.ephemeral_client_credentials.lock().await;
-                    let client_credential = client_credentials
-                        .get(cca.client_id())
-                        .ok_or(AsVerificationError::UnknownClient)?;
-                    cca.verify(client_credential.verifying_key())
-                        .map_err(|_| AsVerificationError::AuthenticationFailed)?
-                } else {
-                    let client_record = ClientRecord::load(&self.db_pool, cca.client_id())
-                        .await
-                        .map_err(|e| {
-                            tracing::error!("Error loading client record: {:?}", e);
-                            AsVerificationError::UnknownClient
-                        })?
-                        .ok_or(AsVerificationError::UnknownClient)?;
-                    cca.verify(client_record.credential.verifying_key())
-                        .map_err(|_| AsVerificationError::AuthenticationFailed)?
-                }
+                let client_record = ClientRecord::load(&self.db_pool, cca.client_id())
+                    .await
+                    .map_err(|e| {
+                        tracing::error!("Error loading client record: {:?}", e);
+                        AsVerificationError::UnknownClient
+                    })?
+                    .ok_or(AsVerificationError::UnknownClient)?;
+                cca.verify(client_record.credential.verifying_key())
+                    .map_err(|_| AsVerificationError::AuthenticationFailed)?
             }
             // 2-Factor authentication using a signature by the client
             // credential, as well as an OPAQUE login flow. This requires that

@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::{ServerLogin, ServerLoginStartParameters, rand::rngs::OsRng};
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{OpaqueCiphersuite, opaque::OpaqueLoginResponse, signatures::signable::Signable},
+    crypto::signatures::signable::Signable,
     errors::auth_service::{
         AsDequeueError, DeleteClientError, FinishClientAdditionError, InitClientAdditionError,
     },
@@ -19,16 +18,13 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
-use tls_codec::Serialize;
 
 use crate::auth_service::{
     AuthService,
     client_record::ClientRecord,
     connection_package::StorableConnectionPackage,
     credentials::intermediate_signing_key::{IntermediateCredential, IntermediateSigningKey},
-    opaque::OpaqueSetup,
     queue::Queue,
-    user_record::UserRecord,
 };
 
 impl AuthService {
@@ -38,45 +34,7 @@ impl AuthService {
     ) -> Result<InitClientAdditionResponse, InitClientAdditionError> {
         let InitiateClientAdditionParams {
             client_credential_payload,
-            opaque_login_request,
         } = params;
-
-        // Load the server setup from storage
-        let server_setup = OpaqueSetup::load(&self.db_pool).await.map_err(|e| {
-            tracing::error!("Storage provider error: {:?}", e);
-            InitClientAdditionError::StorageError
-        })?;
-
-        // Load the user record from storage
-        let user_name = client_credential_payload.identity().user_name();
-        let password_file_option = UserRecord::load(&self.db_pool, user_name)
-            .await
-            .map_err(|e| {
-                tracing::error!("Error loading user record: {:?}", e);
-                InitClientAdditionError::StorageError
-            })?
-            .map(|record| record.into_password_file());
-
-        let server_login_result = ServerLogin::<OpaqueCiphersuite>::start(
-            &mut OsRng,
-            &server_setup,
-            password_file_option,
-            opaque_login_request.client_message,
-            &user_name
-                .tls_serialize_detached()
-                .map_err(|_| InitClientAdditionError::LibraryError)?,
-            // TODO: We probably want to specify a context, as well as a server
-            // and client name here. For now, the default should be okay.
-            ServerLoginStartParameters::default(),
-        )
-        .map_err(|e| {
-            tracing::error!("Opaque startup failed with error {e:?}");
-            InitClientAdditionError::OpaqueLoginFailed
-        })?;
-
-        let opaque_login_response = OpaqueLoginResponse {
-            server_message: server_login_result.message,
-        };
 
         // Check if a client entry with the name given in the client_csr already exists for the user
         let client_id_exists =
@@ -123,10 +81,7 @@ impl AuthService {
             client_credential.clone(),
         );
 
-        let response = InitClientAdditionResponse {
-            client_credential,
-            opaque_login_response,
-        };
+        let response = InitClientAdditionResponse { client_credential };
 
         Ok(response)
     }

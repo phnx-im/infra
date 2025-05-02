@@ -7,12 +7,7 @@ use phnxtypes::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{
-        RatchetEncryptionKey,
-        kdf::keys::RatchetSecret,
-        opaque::{
-            OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
-            OpaqueRegistrationRequest,
-        },
+        RatchetEncryptionKey, kdf::keys::RatchetSecret, opaque::OpaqueLoginFinish,
         signatures::signable::Signable,
     },
     endpoint_paths::ENDPOINT_AS,
@@ -26,7 +21,6 @@ use phnxtypes::{
             ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
             DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
             EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
-            FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
             InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
             IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
             UserConnectionPackagesParams,
@@ -109,11 +103,15 @@ impl ApiClient {
     pub async fn as_initiate_create_user(
         &self,
         client_payload: ClientCredentialPayload,
-        opaque_registration_request: OpaqueRegistrationRequest,
+        queue_encryption_key: RatchetEncryptionKey,
+        initial_ratchet_secret: RatchetSecret,
+        encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<InitUserRegistrationResponseIn, AsRequestError> {
         let payload = InitUserRegistrationParams {
             client_payload,
-            opaque_registration_request,
+            queue_encryption_key,
+            initial_ratchet_secret,
+            encrypted_user_profile,
         };
         let params = AsRequestParamsOut::InitUserRegistration(payload);
         self.prepare_and_send_as_message(params)
@@ -122,63 +120,6 @@ impl ApiClient {
             .and_then(|response| {
                 if let AsProcessResponseIn::InitUserRegistration(response) = response {
                     Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_initiate_2fa_auth(
-        &self,
-        client_id: AsClientId,
-        opaque_ke1: OpaqueLoginRequest,
-        signing_key: &ClientSigningKey,
-    ) -> Result<Init2FactorAuthResponse, AsRequestError> {
-        let tbs = Init2FactorAuthParamsTbs {
-            client_id,
-            opaque_ke1,
-        };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParamsOut::Initiate2FaAuthentication(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::Init2FactorAuth(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_finish_user_registration(
-        &self,
-        queue_encryption_key: RatchetEncryptionKey,
-        initial_ratchet_secret: RatchetSecret,
-        connection_packages: Vec<ConnectionPackage>,
-        opaque_registration_record: OpaqueRegistrationRecord,
-        signing_key: &ClientSigningKey,
-        encrypted_user_profile: EncryptedUserProfile,
-    ) -> Result<(), AsRequestError> {
-        let tbs = FinishUserRegistrationParamsTbs {
-            client_id: signing_key.credential().identity().clone(),
-            queue_encryption_key,
-            initial_ratchet_secret,
-            connection_packages,
-            opaque_registration_record,
-            encrypted_user_profile,
-        };
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::FinishUserRegistration(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
                 } else {
                     Err(AsRequestError::UnexpectedResponse)
                 }
@@ -256,11 +197,9 @@ impl ApiClient {
     pub async fn as_initiate_client_addition(
         &self,
         client_credential_payload: ClientCredentialPayload,
-        opaque_login_request: OpaqueLoginRequest,
     ) -> Result<InitClientAdditionResponseIn, AsRequestError> {
         let payload = InitiateClientAdditionParams {
             client_credential_payload,
-            opaque_login_request,
         };
         let params = AsRequestParamsOut::InitiateClientAddition(payload);
         self.prepare_and_send_as_message(params)
@@ -358,7 +297,7 @@ impl ApiClient {
     pub async fn as_publish_connection_packages(
         &self,
         client_id: AsClientId,
-        connection_packages: Vec<ConnectionPackageIn>,
+        connection_packages: Vec<ConnectionPackage>,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let tbs = AsPublishConnectionPackagesParamsTbs {
