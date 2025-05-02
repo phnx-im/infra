@@ -47,11 +47,6 @@ pub struct UserConnectionPackagesResponseIn {
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct InitClientAdditionResponseIn {
-    pub client_credential: VerifiableClientCredential,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct UserClientsResponseIn {
     pub client_credentials: Vec<VerifiableClientCredential>,
 }
@@ -126,7 +121,6 @@ pub enum AsProcessResponseIn {
     ClientConnectionPackage(AsClientConnectionPackageResponseIn),
     IssueTokens(IssueTokensResponse),
     UserConnectionPackages(UserConnectionPackagesResponseIn),
-    InitiateClientAddition(InitClientAdditionResponseIn),
     UserClients(UserClientsResponseIn),
     AsCredentials(AsCredentialsResponseIn),
     InitUserRegistration(InitUserRegistrationResponseIn),
