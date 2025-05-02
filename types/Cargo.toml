@@ -17,7 +17,6 @@ hkdf = { version = "0.12" }
 aes-gcm = { version = "0.10" }
 ed25519 = { version = "2.2", features = ["serde"] }
 secrecy = { version = "0.10", features = ["serde"] }
-argon2 = { version = "0.5.0" }
 uuid = { version = "1", features = ["v4", "serde"] }
 url = { version = "2", features = ["serde"] }
 
