@@ -152,6 +152,27 @@ impl DsGroupState {
         let group_state = SerializableDsGroupState::into_group_state(encryptable.into())?;
         Ok(group_state)
     }
+
+    pub(crate) fn destination_clients(&self) -> impl Iterator<Item = QsReference> {
+        self.member_profiles
+            .values()
+            .map(|client_profile| client_profile.client_queue_config.clone())
+    }
+
+    pub(crate) fn other_destination_clients(
+        &self,
+        sender_index: LeafNodeIndex,
+    ) -> impl Iterator<Item = QsReference> {
+        self.member_profiles
+            .iter()
+            .filter_map(move |(client_index, client_profile)| {
+                if client_index == &sender_index {
+                    None
+                } else {
+                    Some(client_profile.client_queue_config.clone())
+                }
+            })
+    }
 }
 
 #[derive(Debug, Error)]
@@ -160,6 +181,13 @@ pub(super) enum DsGroupStateEncryptionError {
     EncryptionError(#[from] EncryptionError),
     #[error("Error deserializing group state: {0}")]
     DeserializationError(#[from] phnxtypes::codec::Error),
+}
+
+impl From<DsGroupStateEncryptionError> for tonic::Status {
+    fn from(error: DsGroupStateEncryptionError) -> Self {
+        error!(%error, "failed to encrypt group state");
+        Self::internal("failed to encrypt group state")
+    }
 }
 
 #[derive(Debug, Error)]
@@ -172,21 +200,14 @@ pub(super) enum DsGroupStateDecryptionError {
 
 impl From<DsGroupStateDecryptionError> for tonic::Status {
     fn from(error: DsGroupStateDecryptionError) -> Self {
-        error!(%error, "group state decryption failed");
-        match error {
-            DsGroupStateDecryptionError::DecryptionError(_) => {
-                Self::internal("Failed to decrypt group state")
-            }
-            DsGroupStateDecryptionError::DeserializationError(_) => {
-                Self::internal("Failed to deserialize group state")
-            }
-        }
+        error!(%error, "failed to decrypt group state");
+        Self::internal("failed to decrypt group state")
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-#[serde(transparent)]
-pub struct EncryptedDsGroupState(Ciphertext);
+#[derive(Debug)]
+pub struct EncryptedDsGroupStateCtype;
+pub type EncryptedDsGroupState = Ciphertext<EncryptedDsGroupStateCtype>;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -215,18 +236,6 @@ impl StorableDsGroupData {
 
     pub(super) fn has_expired(&self) -> bool {
         self.last_used.has_expired(GROUP_STATE_EXPIRATION)
-    }
-}
-
-impl From<Ciphertext> for EncryptedDsGroupState {
-    fn from(ciphertext: Ciphertext) -> Self {
-        Self(ciphertext)
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedDsGroupState {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.0
     }
 }
 
@@ -289,8 +298,8 @@ impl From<SerializableDsGroupState> for EncryptableDsGroupState {
     }
 }
 
-impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
-impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupState> for EncryptableDsGroupState {}
+impl EarEncryptable<GroupStateEarKey, EncryptedDsGroupStateCtype> for EncryptableDsGroupState {}
+impl EarDecryptable<GroupStateEarKey, EncryptedDsGroupStateCtype> for EncryptableDsGroupState {}
 
 #[cfg(test)]
 mod test {
@@ -302,13 +311,13 @@ mod test {
 
     #[test]
     fn test_encrypted_ds_group_state_serde_codec() {
-        let state = EncryptedDsGroupState(Ciphertext::dummy());
+        let state = EncryptedDsGroupState::dummy();
         insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&state).unwrap());
     }
 
     #[test]
     fn test_encrypted_ds_group_state_serde_json() {
-        let state = EncryptedDsGroupState(Ciphertext::dummy());
+        let state = EncryptedDsGroupState::dummy();
         insta::assert_json_snapshot!(state);
     }
 

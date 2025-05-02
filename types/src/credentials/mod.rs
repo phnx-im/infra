@@ -151,7 +151,7 @@ impl AsCredential {
         let expiration_data = expiration_data_option
             .unwrap_or_else(|| ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
         let signing_key = SigningKey::generate()?;
-        let verifying_key = AsVerifyingKey(signing_key.verifying_key().clone());
+        let verifying_key = signing_key.verifying_key().clone();
         let body = AsCredentialBody {
             version,
             as_domain,
@@ -209,7 +209,7 @@ impl AsIntermediateCredentialCsr {
         let credential = Self {
             version,
             signature_scheme,
-            verifying_key: prelim_signing_key.verifying_key(),
+            verifying_key: prelim_signing_key.verifying_key().clone().convert(),
             as_domain,
         };
         Ok((credential, prelim_signing_key))
@@ -418,7 +418,7 @@ impl ClientCredentialCsr {
         let credential = Self {
             version,
             signature_scheme,
-            verifying_key: prelim_signing_key.verifying_key(),
+            verifying_key: prelim_signing_key.verifying_key().clone().convert(),
             client_id,
         };
         Ok((credential, prelim_signing_key))
@@ -502,6 +502,10 @@ impl ClientCredential {
         CredentialFingerprint::with_label(self, CLIENT_CREDENTIAL_LABEL)
     }
 
+    pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
+        &self.payload.signer_fingerprint
+    }
+
     #[cfg(feature = "test_utils")]
     pub fn new_for_test(payload: ClientCredentialPayload, signature: Signature) -> Self {
         Self { payload, signature }
@@ -566,9 +570,12 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
     }
 }
 
-impl EarEncryptable<IdentityLinkKey, EncryptedClientCredential> for ClientCredential {}
+impl EarEncryptable<IdentityLinkKey, EncryptedClientCredentialCtype> for ClientCredential {}
 
-impl EarDecryptable<IdentityLinkKey, EncryptedClientCredential> for VerifiableClientCredential {}
+impl EarDecryptable<IdentityLinkKey, EncryptedClientCredentialCtype>
+    for VerifiableClientCredential
+{
+}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct VerifiableClientCredential {
@@ -604,26 +611,9 @@ impl Verifiable for VerifiableClientCredential {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq,
-)]
-pub struct EncryptedClientCredential {
-    pub(super) encrypted_client_credential: Ciphertext,
-}
-
-impl From<Ciphertext> for EncryptedClientCredential {
-    fn from(value: Ciphertext) -> Self {
-        Self {
-            encrypted_client_credential: value,
-        }
-    }
-}
-
-impl AsRef<Ciphertext> for EncryptedClientCredential {
-    fn as_ref(&self) -> &Ciphertext {
-        &self.encrypted_client_credential
-    }
-}
+#[derive(Debug)]
+pub struct EncryptedClientCredentialCtype;
+pub type EncryptedClientCredential = Ciphertext<EncryptedClientCredentialCtype>;
 
 pub mod persistence {
     use crate::{

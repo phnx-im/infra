@@ -6,31 +6,29 @@ use openmls::group::GroupId;
 use phnxtypes::{
     credentials::{ClientCredential, VerifiableClientCredential, keys::AsIntermediateVerifyingKey},
     crypto::{
-        ConnectionDecryptionKey, ConnectionEncryptionKey,
         ear::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
             keys::{
                 FriendshipPackageEarKey, GroupStateEarKey, IdentityLinkWrapperKey,
-                KeyPackageEarKey, WelcomeAttributionInfoEarKey,
+                WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, HpkeEncryptable},
-        kdf::keys::ConnectionKey,
+        indexed_aead::keys::UserProfileBaseSecret,
+        kdf::keys::{ConnectionKey, ConnectionKeyType},
         signatures::{
+            private_keys::SignatureVerificationError,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
-            traits::SignatureVerificationError,
         },
     },
     messages::{
         FriendshipToken,
-        client_as::{EncryptedConnectionEstablishmentPackage, EncryptedFriendshipPackage},
+        client_as::{EncryptedConnectionEstablishmentPackage, EncryptedFriendshipPackageCtype},
     },
 };
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
-
-use crate::key_stores::indexed_keys::UserProfileBaseSecret;
 
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub struct ConnectionEstablishmentPackageTbs {
@@ -69,7 +67,7 @@ impl GenericSerializable for ConnectionEstablishmentPackage {
     }
 }
 
-impl HpkeEncryptable<ConnectionEncryptionKey, EncryptedConnectionEstablishmentPackage>
+impl HpkeEncryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
     for ConnectionEstablishmentPackage
 {
 }
@@ -147,7 +145,7 @@ impl ConnectionEstablishmentPackageIn {
     }
 }
 
-impl HpkeDecryptable<ConnectionDecryptionKey, EncryptedConnectionEstablishmentPackage>
+impl HpkeDecryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
     for ConnectionEstablishmentPackageIn
 {
 }
@@ -169,7 +167,6 @@ impl Verifiable for ConnectionEstablishmentPackageIn {
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub(crate) struct FriendshipPackage {
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) key_package_ear_key: KeyPackageEarKey,
     pub(crate) connection_key: ConnectionKey,
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) user_profile_base_secret: UserProfileBaseSecret,
@@ -191,5 +188,11 @@ impl GenericDeserializable for FriendshipPackage {
     }
 }
 
-impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
-impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackage> for FriendshipPackage {}
+impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
+    for FriendshipPackage
+{
+}
+impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
+    for FriendshipPackage
+{
+}

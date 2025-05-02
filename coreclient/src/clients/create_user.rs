@@ -5,22 +5,20 @@
 use crate::{
     groups::client_auth_info::StorableClientCredential,
     key_stores::{
+        MemoryUserKeyStoreBase,
         as_credentials::AsCredentials,
-        indexed_keys::UserProfileKey,
+        indexed_keys::StorableIndexedKey,
         queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
     },
 };
-use mls_assist::openmls::prelude::tls_codec::*;
-use opaque_ke::{RegistrationRequest, RegistrationResponse};
 use phnxtypes::{
     credentials::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },
     crypto::{
         ear::{EarKey, GenericSerializable},
-        hpke::ClientIdEncryptionKey,
+        indexed_aead::keys::UserProfileKey,
         kdf::keys::ConnectionKey,
-        opaque::{OpaqueRegistrationRecord, OpaqueRegistrationRequest},
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
     messages::{
@@ -31,7 +29,6 @@ use phnxtypes::{
     },
     time::ExpirationData,
 };
-use rand_chacha::rand_core::OsRng;
 use tracing::debug;
 
 use super::*;
@@ -44,7 +41,6 @@ use super::*;
 pub(crate) struct BasicUserData {
     pub(super) as_client_id: AsClientId,
     pub(super) server_url: String,
-    pub(super) password: String,
     pub(super) push_token: Option<PushToken>,
 }
 
@@ -90,29 +86,75 @@ impl BasicUserData {
             as_intermediate_credential.fingerprint().clone(),
         );
 
-        // Let's do OPAQUE registration.
-        // First get the server setup information.
-        let mut client_rng = OsRng;
-        let client_registration_start_result: ClientRegistrationStartResult<OpaqueCiphersuite> =
-            ClientRegistration::<OpaqueCiphersuite>::start(
-                &mut client_rng,
-                self.password.as_bytes(),
-            )
-            .map_err(|e| anyhow!("Error starting OPAQUE handshake: {:?}", e))?;
+        let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
+        let as_initial_ratchet_secret = RatchetSecret::random()?;
+        StorableAsQueueRatchet::initialize(pool, as_initial_ratchet_secret.clone()).await?;
+        let qs_initial_ratchet_secret = RatchetSecret::random()?;
+        StorableQsQueueRatchet::initialize(pool, qs_initial_ratchet_secret.clone()).await?;
+        let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
+        let qs_client_signing_key = QsClientSigningKey::generate()?;
+        let qs_user_signing_key = QsUserSigningKey::generate()?;
+
+        // TODO: The following keys should be derived from a single
+        // friendship key. Once that's done, remove the random constructors.
+        let friendship_token = FriendshipToken::random()?;
+        let connection_key = ConnectionKey::random()?;
+        let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
+        let push_token_ear_key = PushTokenEarKey::random()?;
+
+        let connection_decryption_key = ConnectionDecryptionKey::generate()?;
+
+        let key_store = MemoryUserKeyStoreBase {
+            signing_key: prelim_signing_key,
+            as_queue_decryption_key,
+            connection_decryption_key,
+            qs_client_signing_key,
+            qs_user_signing_key,
+            qs_queue_decryption_key,
+            push_token_ear_key,
+            friendship_token,
+            connection_key,
+            wai_ear_key,
+            qs_client_id_encryption_key: qs_encryption_key,
+        };
+
+        let encrypted_push_token = match self.push_token {
+            Some(push_token) => Some(EncryptedPushToken::from(
+                key_store
+                    .push_token_ear_key
+                    .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
+            )),
+            None => None,
+        };
+
+        let user_name = self.as_client_id.user_name();
+        let user_profile_key = UserProfileKey::random(user_name)?;
+
+        let mut connection = pool.acquire().await?;
+        user_profile_key.store_own(connection.as_mut()).await?;
+
+        let user_profile = IndexedUserProfile::new(
+            user_name.clone(),
+            user_profile_key.index().clone(),
+            None,
+            None,
+        );
+
+        user_profile
+            .upsert(connection.as_mut(), &mut StoreNotifier::noop())
+            .await?;
+
+        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
 
         let initial_user_state = InitialUserState {
             client_credential_payload: client_credential_payload.clone(),
-            prelim_signing_key: prelim_signing_key.clone(),
-            opaque_message: client_registration_start_result
-                .message
-                .serialize()
-                .to_vec(),
-            opaque_state: client_registration_start_result.state.serialize().to_vec(),
             server_url: self.server_url,
-            password: self.password,
-            qs_encryption_key,
             as_intermediate_credential,
-            push_token: self.push_token,
+            encrypted_push_token,
+            encrypted_user_profile,
+            key_store,
+            as_initial_ratchet_secret,
+            qs_initial_ratchet_secret,
         };
 
         Ok(initial_user_state)
@@ -125,43 +167,37 @@ impl BasicUserData {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct InitialUserState {
     client_credential_payload: ClientCredentialPayload,
-    prelim_signing_key: PreliminaryClientSigningKey,
-    opaque_message: Vec<u8>,
-    opaque_state: Vec<u8>,
     server_url: String,
-    password: String,
-    qs_encryption_key: ClientIdEncryptionKey,
     as_intermediate_credential: AsIntermediateCredential,
-    push_token: Option<PushToken>,
+    encrypted_push_token: Option<EncryptedPushToken>,
+    encrypted_user_profile: EncryptedUserProfile,
+    key_store: MemoryUserKeyStoreBase<PreliminaryClientSigningKey>,
+    as_initial_ratchet_secret: RatchetSecret,
+    qs_initial_ratchet_secret: RatchetSecret,
 }
 
 impl InitialUserState {
-    pub(super) async fn initiate_as_registration(
+    #[expect(clippy::wrong_self_convention)]
+    pub(super) async fn as_registration(
         self,
         api_clients: &ApiClients,
-    ) -> Result<PostRegistrationInitState> {
-        let client_message =
-            RegistrationRequest::<OpaqueCiphersuite>::deserialize(&self.opaque_message)
-                .map_err(|e| anyhow!("Error deserializing OPAQUE message: {:?}", e))?;
-
-        let opaque_registration_request = OpaqueRegistrationRequest { client_message };
-
+    ) -> Result<PostAsRegistrationState> {
         // Register the user with the backend.
         let response = api_clients
             .default_client()?
             .as_initiate_create_user(
                 self.client_credential_payload.clone(),
-                opaque_registration_request,
+                self.key_store
+                    .as_queue_decryption_key
+                    .encryption_key()
+                    .clone(),
+                self.as_initial_ratchet_secret.clone(),
+                self.encrypted_user_profile.clone(),
             )
             .await?;
 
-        let post_registration_init_state = PostRegistrationInitState {
+        let post_registration_init_state = PostAsRegistrationState {
             initial_user_state: self,
-            opaque_server_response: response
-                .opaque_registration_response
-                .server_message
-                .serialize()
-                .to_vec(),
             client_credential: response.client_credential,
         };
 
@@ -182,55 +218,26 @@ impl InitialUserState {
 // WARNING: This type is stored in sqlite as a blob. If any changes are made
 // a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
-pub(crate) struct PostRegistrationInitState {
+pub(crate) struct PostAsRegistrationState {
     initial_user_state: InitialUserState,
     client_credential: VerifiableClientCredential,
-    opaque_server_response: Vec<u8>,
 }
 
-impl PostRegistrationInitState {
+impl PostAsRegistrationState {
     pub(super) async fn process_server_response(
         self,
         pool: &SqlitePool,
     ) -> Result<UnfinalizedRegistrationState> {
         let InitialUserState {
-            client_credential_payload,
-            prelim_signing_key,
-            opaque_message: _,
-            opaque_state,
+            client_credential_payload: _,
             server_url,
-            password,
-            qs_encryption_key,
             as_intermediate_credential,
-            push_token,
+            encrypted_push_token,
+            encrypted_user_profile: _,
+            key_store,
+            as_initial_ratchet_secret: _,
+            qs_initial_ratchet_secret,
         } = self.initial_user_state;
-
-        let user_name = client_credential_payload.identity().user_name();
-        let domain = user_name.domain();
-
-        // Complete the OPAQUE registration.
-        let user_name_bytes = user_name.tls_serialize_detached()?;
-        let domain_bytes = domain.tls_serialize_detached()?;
-        let identifiers = Identifiers {
-            client: Some(&user_name_bytes),
-            server: Some(&domain_bytes),
-        };
-        let opaque_server_response =
-            RegistrationResponse::<OpaqueCiphersuite>::deserialize(&self.opaque_server_response)
-                .map_err(|e| anyhow!("Error deserializing OPAQUE response: {:?}", e))?;
-        let response_parameters = ClientRegistrationFinishParameters::new(identifiers, None);
-        let opaque_state = ClientRegistration::<OpaqueCiphersuite>::deserialize(&opaque_state)
-            .map_err(|e| anyhow!("Error deserializing OPAQUE state: {:?}", e))?;
-        let mut client_rng = OsRng;
-        let client_registration_finish_result: ClientRegistrationFinishResult<OpaqueCiphersuite> =
-            opaque_state
-                .finish(
-                    &mut client_rng,
-                    password.as_bytes(),
-                    opaque_server_response,
-                    response_parameters,
-                )
-                .map_err(|e| anyhow!("Error finishing OPAQUE handshake: {:?}", e))?;
 
         let client_credential: ClientCredential = self
             .client_credential
@@ -240,71 +247,27 @@ impl PostRegistrationInitState {
             .await?;
 
         let signing_key =
-            ClientSigningKey::from_prelim_key(prelim_signing_key, client_credential.clone())?;
+            ClientSigningKey::from_prelim_key(key_store.signing_key, client_credential.clone())?;
 
         // Store the own client credential in the DB
         StorableClientCredential::new(client_credential.clone())
             .store(pool)
             .await?;
 
-        let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
-        let as_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableAsQueueRatchet::initialize(pool, as_initial_ratchet_secret.clone()).await?;
-        let qs_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableQsQueueRatchet::initialize(pool, qs_initial_ratchet_secret.clone()).await?;
-        let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
-        let qs_client_signing_key = QsClientSigningKey::random()?;
-        let qs_user_signing_key = QsUserSigningKey::generate()?;
-
-        // TODO: The following keys should be derived from a single
-        // friendship key. Once that's done, remove the random constructors.
-        let friendship_token = FriendshipToken::random()?;
-        let key_package_ear_key = KeyPackageEarKey::random()?;
-        let connection_key = ConnectionKey::random()?;
-        let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
-        let push_token_ear_key = PushTokenEarKey::random()?;
-
-        let connection_decryption_key = ConnectionDecryptionKey::generate()?;
-
-        let encrypted_push_token = match push_token {
-            Some(push_token) => Some(EncryptedPushToken::from(
-                push_token_ear_key.encrypt(push_token.serialize()?.as_slice())?,
-            )),
-            None => None,
-        };
-
+        // Replace preliminary signing key in the key store
         let key_store = MemoryUserKeyStore {
             signing_key,
-            as_queue_decryption_key,
-            connection_decryption_key,
-            qs_client_signing_key,
-            qs_user_signing_key,
-            qs_queue_decryption_key,
-            push_token_ear_key,
-            friendship_token,
-            key_package_ear_key,
-            connection_key,
-            wai_ear_key,
-            qs_client_id_encryption_key: qs_encryption_key,
+            as_queue_decryption_key: key_store.as_queue_decryption_key,
+            connection_decryption_key: key_store.connection_decryption_key,
+            qs_client_signing_key: key_store.qs_client_signing_key,
+            qs_user_signing_key: key_store.qs_user_signing_key,
+            qs_queue_decryption_key: key_store.qs_queue_decryption_key,
+            push_token_ear_key: key_store.push_token_ear_key,
+            friendship_token: key_store.friendship_token,
+            connection_key: key_store.connection_key,
+            wai_ear_key: key_store.wai_ear_key,
+            qs_client_id_encryption_key: key_store.qs_client_id_encryption_key,
         };
-
-        let mut connection = pool.acquire().await?;
-
-        let user_profile_key = UserProfileKey::random(user_name)?;
-        user_profile_key.store_own(connection.as_mut()).await?;
-
-        let user_profile = IndexedUserProfile::new(
-            user_name.clone(),
-            user_profile_key.index().clone(),
-            None,
-            None,
-        );
-
-        user_profile
-            .upsert(connection.as_mut(), &mut StoreNotifier::noop())
-            .await?;
-
-        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
 
         // TODO: For now, we use the same ConnectionDecryptionKey for all
         // connection packages.
@@ -314,7 +277,7 @@ impl PostRegistrationInitState {
             let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
             let connection_package_tbs = ConnectionPackageTbs::new(
                 MlsInfraVersion::default(),
-                key_store.connection_decryption_key.encryption_key(),
+                key_store.connection_decryption_key.encryption_key().clone(),
                 lifetime,
                 key_store.signing_key.credential().clone(),
             );
@@ -324,13 +287,7 @@ impl PostRegistrationInitState {
 
         let unfinalized_registration_state = UnfinalizedRegistrationState {
             key_store,
-            encrypted_user_profile,
-            opaque_client_message: client_registration_finish_result
-                .message
-                .serialize()
-                .to_vec(),
             server_url,
-            as_initial_ratchet_secret,
             qs_initial_ratchet_secret,
             connection_packages,
             encrypted_push_token,
@@ -355,47 +312,31 @@ impl PostRegistrationInitState {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct UnfinalizedRegistrationState {
     key_store: MemoryUserKeyStore,
-    encrypted_user_profile: EncryptedUserProfile,
-    opaque_client_message: Vec<u8>,
     server_url: String,
-    as_initial_ratchet_secret: RatchetSecret,
     qs_initial_ratchet_secret: RatchetSecret,
     connection_packages: Vec<ConnectionPackage>,
     encrypted_push_token: Option<EncryptedPushToken>,
 }
 
 impl UnfinalizedRegistrationState {
-    pub(super) async fn finalize_as_registration(
+    pub(super) async fn publish_connection_packages(
         self,
         api_clients: &ApiClients,
     ) -> Result<AsRegisteredUserState> {
         let UnfinalizedRegistrationState {
             key_store,
-            encrypted_user_profile,
-            opaque_client_message,
             server_url,
-            as_initial_ratchet_secret,
             qs_initial_ratchet_secret,
             connection_packages,
             encrypted_push_token,
         } = self;
 
-        let opaque_registration_record = OpaqueRegistrationRecord {
-            client_message: RegistrationUpload::<OpaqueCiphersuite>::deserialize(
-                &opaque_client_message,
-            )
-            .map_err(|e| anyhow!("Error deserializing opaque client message: {:?}", e))?,
-        };
-
         api_clients
             .default_client()?
-            .as_finish_user_registration(
-                key_store.as_queue_decryption_key.encryption_key(),
-                as_initial_ratchet_secret,
+            .as_publish_connection_packages(
+                key_store.signing_key.credential().identity().clone(),
                 connection_packages,
-                opaque_registration_record,
                 &key_store.signing_key,
-                encrypted_user_profile,
             )
             .await?;
         let as_registered_user_state = AsRegisteredUserState {
@@ -445,7 +386,7 @@ impl AsRegisteredUserState {
             .qs_create_user(
                 key_store.friendship_token.clone(),
                 key_store.qs_client_signing_key.verifying_key().clone(),
-                key_store.qs_queue_decryption_key.encryption_key(),
+                key_store.qs_queue_decryption_key.encryption_key().clone(),
                 encrypted_push_token,
                 qs_initial_ratchet_secret,
                 &key_store.qs_user_signing_key,
@@ -514,7 +455,6 @@ impl QsRegisteredUserState {
             .qs_publish_key_packages(
                 *qs_client_id,
                 qs_key_packages,
-                key_store.key_package_ear_key.clone(),
                 &key_store.qs_client_signing_key,
             )
             .await?;

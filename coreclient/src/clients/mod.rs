@@ -7,23 +7,22 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
-use opaque_ke::{
-    ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
-    ClientRegistrationStartResult, Identifiers, RegistrationUpload,
-};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
+pub use phnxprotos::queue_service::v1::{
+    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
+};
 use phnxtypes::{
     DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
-        ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
+        ConnectionDecryptionKey, RatchetDecryptionKey,
         ear::{
             EarEncryptable, EarKey, GenericSerializable,
-            keys::{KeyPackageEarKey, PushTokenEarKey, WelcomeAttributionInfoEarKey},
+            keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -110,7 +109,6 @@ impl CoreUser {
     /// already exists, this will overwrite that user.
     pub async fn new(
         user_name: QualifiedUserName,
-        password: &str,
         server_url: impl ToString,
         grpc_port: u16,
         db_path: &str,
@@ -125,7 +123,6 @@ impl CoreUser {
 
         Self::new_with_connections(
             as_client_id,
-            password,
             server_url,
             grpc_port,
             push_token,
@@ -137,7 +134,6 @@ impl CoreUser {
 
     async fn new_with_connections(
         as_client_id: AsClientId,
-        password: &str,
         server_url: impl ToString,
         grpc_port: u16,
         push_token: Option<PushToken>,
@@ -156,7 +152,6 @@ impl CoreUser {
             &phnx_db,
             as_client_id,
             server_url.clone(),
-            password,
             push_token,
         )
         .await?;
@@ -183,7 +178,6 @@ impl CoreUser {
     /// dropped together with this instance of CoreUser.
     pub async fn new_ephemeral(
         user_name: impl Into<QualifiedUserName>,
-        password: &str,
         server_url: impl ToString,
         grpc_port: u16,
         push_token: Option<PushToken>,
@@ -199,7 +193,6 @@ impl CoreUser {
 
         Self::new_with_connections(
             as_client_id,
-            password,
             server_url,
             grpc_port,
             push_token,
@@ -482,6 +475,11 @@ impl CoreUser {
         Some(group.pending_removes(&mut connection).await)
     }
 
+    pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
+        let api_client = self.inner.api_clients.default_client()?;
+        Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
+    }
+
     pub async fn websocket(
         &self,
         timeout: u64,
@@ -589,7 +587,7 @@ impl CoreUser {
             .default_client()?
             .qs_update_client(
                 client_id,
-                queue_encryption_key,
+                queue_encryption_key.clone(),
                 encrypted_push_token,
                 &signing_key,
             )

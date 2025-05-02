@@ -31,15 +31,9 @@ async fn user_stages() -> anyhow::Result<()> {
         setup.grpc_port(),
     );
 
-    let computed_state = UserCreationState::new(
-        &client_db,
-        &phnx_db,
-        as_client_id.clone(),
-        server_url,
-        user_name,
-        None,
-    )
-    .await?;
+    let computed_state =
+        UserCreationState::new(&client_db, &phnx_db, as_client_id.clone(), server_url, None)
+            .await?;
 
     // There should now be a client record state in the phnx db.
     let client_records = ClientRecord::load_all(&phnx_db).await?;

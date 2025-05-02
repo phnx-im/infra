@@ -89,7 +89,7 @@ class _NextButton extends StatelessWidget {
       onPressed:
           isDomainValid
               ? () => context.read<NavigationCubit>().openIntroScreen(
-                IntroScreenType.usernamePassword,
+                IntroScreenType.username,
               )
               : null,
       style: buttonStyle(context, isDomainValid),

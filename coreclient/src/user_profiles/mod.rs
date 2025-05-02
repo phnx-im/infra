@@ -8,16 +8,17 @@
 use std::fmt::Display;
 
 use phnxtypes::{
-    crypto::ear::{EarDecryptable, EarEncryptable},
+    crypto::{
+        ear::{EarDecryptable, EarEncryptable},
+        indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
+    },
     identifiers::QualifiedUserName,
-    messages::client_as_out::EncryptedUserProfile,
+    messages::client_as_out::EncryptedUserProfileCtype,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
-
-use crate::key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex};
 
 pub(crate) mod persistence;
 
@@ -187,5 +188,5 @@ impl Asset {
     }
 }
 
-impl EarEncryptable<UserProfileKey, EncryptedUserProfile> for IndexedUserProfile {}
-impl EarDecryptable<UserProfileKey, EncryptedUserProfile> for IndexedUserProfile {}
+impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
+impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}

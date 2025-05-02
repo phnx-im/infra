@@ -100,9 +100,6 @@ impl Qs {
                 self.qs_publish_key_packages(params).await?;
                 QsProcessResponse::Ok
             }
-            QsRequestParams::ClientKeyPackage(params) => {
-                QsProcessResponse::ClientKeyPackage(self.qs_client_key_package(params).await?)
-            }
             QsRequestParams::KeyPackage(params) => {
                 QsProcessResponse::KeyPackage(self.qs_key_package(params).await?)
             }

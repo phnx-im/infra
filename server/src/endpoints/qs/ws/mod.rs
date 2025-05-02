@@ -17,14 +17,18 @@ use actix_web_actors::ws::{self};
 use base64::{Engine as _, engine::general_purpose};
 use dispatch::*;
 use messages::*;
-use phnxbackend::qs::{WebsocketNotifier, WebsocketNotifierError, WsNotification};
+use phnxbackend::qs::{
+    WebsocketNotifier, WebsocketNotifierError, WsNotification, grpc::GrpcListen,
+};
+use phnxprotos::queue_service::v1::QueueEvent;
 use phnxtypes::{
     codec::PhnxCodec,
     identifiers::QsClientId,
     messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
 };
 use tls_codec::Serialize;
-use tokio::{self, time::Duration};
+use tokio::{self, sync::mpsc, time::Duration};
+use tracing::error;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -111,7 +115,7 @@ impl Actor for QsWsConnection {
                     Ok(_res) => (),
                     // If we can't register the client, stop the actor
                     _ => {
-                        tracing::error!("Error registering client with dispatch");
+                        error!("Error registering client with dispatch");
                         ctx.stop()
                     }
                 }
@@ -186,7 +190,7 @@ pub(crate) async fn upgrade_connection(
     let header_value = match req.headers().get("QsOpenWsParams") {
         Some(value) => value,
         None => {
-            tracing::error!("No QsOpenWsParams header found");
+            error!("No QsOpenWsParams header found");
             return HttpResponse::BadRequest().body("No QsOpenWsParams header");
         }
     };
@@ -194,22 +198,20 @@ pub(crate) async fn upgrade_connection(
     // Decode the header value
     let decoded_header_value: Vec<u8> = match general_purpose::STANDARD.decode(header_value) {
         Ok(value) => value,
-        Err(e) => {
-            tracing::error!("Could not decode QsOpenWsParams header: {}", e);
+        Err(error) => {
+            error!(%error, "Could not decode QsOpenWsParams header");
             return HttpResponse::BadRequest().body(format!(
-                "Could not decode base64 QsOpenWsParams header: {}",
-                e
+                "Could not decode base64 QsOpenWsParams header: {error}"
             ));
         }
     };
 
     let qs_open_ws_params: QsOpenWsParams = match PhnxCodec::from_slice(&decoded_header_value) {
         Ok(value) => value,
-        Err(e) => {
-            tracing::error!("Could not deserialize QsOpenWsParams header: {}", e);
+        Err(error) => {
+            error!(%error, "Could not deserialize QsOpenWsParams header");
             return HttpResponse::BadRequest().body(format!(
-                "Could not deserialize QsOpenWsParams header: {}",
-                e
+                "Could not deserialize QsOpenWsParams header: {error}"
             ));
         }
     };
@@ -224,9 +226,9 @@ pub(crate) async fn upgrade_connection(
     tracing::trace!("Upgrading HTTP connection to websocket connection...");
     match ws::start(qs_ws_connection, &req, stream) {
         Ok(res) => res,
-        Err(e) => {
-            tracing::error!("Error upgrading connection: {}", e);
-            HttpResponse::InternalServerError().body(format!("{}", e))
+        Err(error) => {
+            error!(%error, "Error upgrading connection");
+            HttpResponse::InternalServerError().body(error.to_string())
         }
     }
 }
@@ -288,5 +290,24 @@ impl WebsocketNotifier for DispatchWebsocketNotifier {
             .and_then(|res| res.map_err(|e| {
                 tracing::warn!("The WS actor returned the following error while trying to send a message via WS: {:?}", e);
                 WebsocketNotifierError::WebsocketNotFound}))
+    }
+}
+
+impl GrpcListen for DispatchWebsocketNotifier {
+    async fn register_connection(
+        &self,
+        queue_id: QsClientId,
+        tx: mpsc::UnboundedSender<QueueEvent>,
+    ) {
+        if let Err(error) = self
+            .dispatch_addr
+            .send(GrpcConnect {
+                own_queue_id: queue_id,
+                tx,
+            })
+            .await
+        {
+            error!(%error, "failed to register grpc connection");
+        }
     }
 }

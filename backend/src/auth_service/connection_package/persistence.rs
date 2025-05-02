@@ -169,7 +169,8 @@ mod tests {
                 MlsInfraVersion::default(),
                 ConnectionDecryptionKey::generate()
                     .unwrap()
-                    .encryption_key(),
+                    .encryption_key()
+                    .clone(),
                 ExpirationData::new(Duration::days(90)),
                 client_credential,
             ),

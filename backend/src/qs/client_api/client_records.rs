@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::rand::rngs::OsRng;
 use phnxtypes::{
     errors::qs::{QsCreateClientRecordError, QsUpdateClientRecordError},
     messages::client_qs::{
@@ -11,6 +10,7 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
+use rand::rngs::OsRng;
 
 use crate::qs::{Qs, client_record::QsClientRecord};
 

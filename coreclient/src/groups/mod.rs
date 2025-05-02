@@ -33,6 +33,7 @@ use phnxtypes::{
             },
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
+        indexed_aead::keys::UserProfileKey,
         kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
@@ -57,11 +58,8 @@ use sqlx::{SqliteExecutor, SqlitePool};
 use tracing::{debug, error};
 
 use crate::{
-    SystemMessage,
-    clients::api_clients::ApiClients,
-    contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage,
-    key_stores::{indexed_keys::UserProfileKey, leaf_keys::LeafKeys},
+    SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
+    conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
 };
 use std::collections::HashSet;
 

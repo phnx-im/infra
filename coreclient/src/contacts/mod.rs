@@ -8,10 +8,8 @@ use phnxtypes::{
     LibraryError,
     credentials::pseudonymous_credentials::PseudonymousCredential,
     crypto::{
-        ear::keys::{
-            FriendshipPackageEarKey, IdentityLinkKey, KeyPackageEarKey,
-            WelcomeAttributionInfoEarKey,
-        },
+        ear::keys::{FriendshipPackageEarKey, IdentityLinkKey, WelcomeAttributionInfoEarKey},
+        indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -23,7 +21,7 @@ use crate::{
     ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
-    key_stores::indexed_keys::{UserProfileKey, UserProfileKeyIndex},
+    key_stores::indexed_keys::StorableIndexedKey,
 };
 use anyhow::Result;
 
@@ -36,7 +34,6 @@ pub struct Contact {
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) key_package_ear_key: KeyPackageEarKey,
     pub(crate) connection_key: ConnectionKey,
     pub(crate) user_profile_key_index: UserProfileKeyIndex,
     // ID of the connection conversation with this contact.
@@ -65,7 +62,6 @@ impl Contact {
             clients: vec![client_id],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
             conversation_id,
             user_profile_key_index: user_profile_key.index().clone(),
@@ -88,10 +84,7 @@ impl Contact {
 
         let key_package_response = api_clients
             .get(invited_user_domain)?
-            .qs_key_package(
-                self.friendship_token.clone(),
-                self.key_package_ear_key.clone(),
-            )
+            .qs_key_package(self.friendship_token.clone())
             .await?;
         let key_package_in = key_package_response.key_package;
         // Verify the KeyPackage

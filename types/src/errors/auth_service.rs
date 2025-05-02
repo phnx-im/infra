@@ -39,26 +39,6 @@ pub enum InitUserRegistrationError {
     /// Invalid CSR
     #[error("Invalid CSR: Time now: {0:?}, not valid before: {1:?}, not valid after: {2:?}")]
     InvalidCsr(TimeStamp, TimeStamp, TimeStamp),
-    /// Error during OPAQUE registration
-    #[error("Error during OPAQUE registration")]
-    OpaqueRegistrationFailed,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
-pub enum FinishUserRegistrationError {
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-    /// Client credential not found
-    #[error("Client credential not found")]
-    ClientCredentialNotFound,
-    /// Invalid connection package
-    #[error("Invalid connection package")]
-    InvalidConnectionPackage,
-    /// Error finishing OPAQUE login handshake
-    #[error("Error finishing OPAQUE login handshake")]
-    OpaqueLoginFinishFailed,
 }
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
@@ -185,20 +165,6 @@ pub enum IssueTokensError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum Init2FactorAuthError {
-    /// Library error
-    #[error("Library error")]
-    LibraryError,
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-    /// Error during OPAQUE login handshake
-    #[error("Error during OPAQUE login handshake")]
-    OpaqueLoginFailed,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
 pub enum AsCredentialsError {
     /// Storage provider error
     #[error("Storage provider error")]
@@ -259,8 +225,6 @@ pub enum AsProcessingError {
     #[error(transparent)]
     InitUserRegistrationError(#[from] InitUserRegistrationError),
     #[error(transparent)]
-    FinishUserRegistrationError(#[from] FinishUserRegistrationError),
-    #[error(transparent)]
     DeleteUserError(#[from] DeleteUserError),
     #[error(transparent)]
     UserClientsError(#[from] UserClientsError),
@@ -280,8 +244,6 @@ pub enum AsProcessingError {
     EnqueueMessageError(#[from] EnqueueMessageError),
     #[error(transparent)]
     IssueTokensError(#[from] IssueTokensError),
-    #[error(transparent)]
-    Init2FactorAuthError(#[from] Init2FactorAuthError),
     #[error(transparent)]
     AsCredentialsError(#[from] AsCredentialsError),
     #[error(transparent)]

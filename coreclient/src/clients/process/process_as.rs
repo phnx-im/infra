@@ -5,7 +5,7 @@
 use anyhow::{Context, Result};
 use openmls::prelude::MlsMessageOut;
 use phnxtypes::{
-    crypto::hpke::HpkeDecryptable,
+    crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::QualifiedGroupId,
     messages::{
         QueueMessage,
@@ -22,7 +22,7 @@ use crate::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
     groups::{Group, ProfileInfo},
-    key_stores::{indexed_keys::UserProfileKey, leaf_keys::LeafKeys},
+    key_stores::{indexed_keys::StorableIndexedKey, leaf_keys::LeafKeys},
     store::StoreNotifier,
 };
 
@@ -171,7 +171,6 @@ impl CoreUser {
 
         let encrypted_friendship_package = FriendshipPackage {
             friendship_token: self.inner.key_store.friendship_token.clone(),
-            key_package_ear_key: self.inner.key_store.key_package_ear_key.clone(),
             connection_key: self.inner.key_store.connection_key.clone(),
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile_base_secret: own_user_profile_key.base_secret().clone(),

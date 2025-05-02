@@ -4,7 +4,7 @@
 
 use phnxtypes::{
     crypto::{
-        ear::keys::{KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+        ear::keys::WelcomeAttributionInfoEarKey, indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::ConnectionKey,
     },
     identifiers::{AsClientId, QualifiedUserName},
@@ -18,7 +18,7 @@ use tokio_stream::StreamExt;
 
 use crate::{
     Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
-    key_stores::indexed_keys::UserProfileKeyIndex, store::StoreNotifier,
+    store::StoreNotifier,
 };
 
 /// Comma-separated list of [`AsClientId`]'s
@@ -47,7 +47,6 @@ struct SqlContact {
     clients: SqlAsClientIds,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     friendship_token: FriendshipToken,
-    key_package_ear_key: KeyPackageEarKey,
     connection_key: ConnectionKey,
     user_profile_key_index: UserProfileKeyIndex,
 }
@@ -60,7 +59,6 @@ impl From<SqlContact> for Contact {
             wai_ear_key,
             friendship_token,
             conversation_id,
-            key_package_ear_key,
             connection_key,
             user_profile_key_index,
         }: SqlContact,
@@ -70,7 +68,6 @@ impl From<SqlContact> for Contact {
             clients,
             wai_ear_key,
             friendship_token,
-            key_package_ear_key,
             connection_key,
             conversation_id,
             user_profile_key_index,
@@ -91,7 +88,6 @@ impl Contact {
                 clients AS "clients: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
-                key_package_ear_key AS "key_package_ear_key: _",
                 connection_key AS "connection_key: _",
                 user_profile_key_index AS "user_profile_key_index: _"
             FROM contacts WHERE user_name = ?"#,
@@ -111,7 +107,6 @@ impl Contact {
                 clients AS "clients: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
-                key_package_ear_key AS "key_package_ear_key: _",
                 connection_key AS "connection_key: _",
                 user_profile_key_index AS "user_profile_key_index: _"
             FROM contacts"#
@@ -137,14 +132,13 @@ impl Contact {
         query!(
             "INSERT INTO contacts
                 (user_name, conversation_id, clients, wai_ear_key, friendship_token,
-                key_package_ear_key, connection_key, user_profile_key_index)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                connection_key, user_profile_key_index)
+                VALUES (?, ?, ?, ?, ?, ?, ?)",
             self.user_name,
             self.conversation_id,
             clients_str,
             self.wai_ear_key,
             self.friendship_token,
-            self.key_package_ear_key,
             self.connection_key,
             self.user_profile_key_index,
         )
@@ -243,7 +237,6 @@ impl PartialContact {
             clients: vec![client],
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            key_package_ear_key: friendship_package.key_package_ear_key,
             connection_key: friendship_package.connection_key,
             user_profile_key_index,
         };
@@ -262,7 +255,8 @@ impl PartialContact {
 mod tests {
     use phnxtypes::{
         crypto::{
-            ear::keys::{FriendshipPackageEarKey, KeyPackageEarKey, WelcomeAttributionInfoEarKey},
+            ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
+            indexed_aead::keys::UserProfileKey,
             kdf::keys::ConnectionKey,
         },
         messages::FriendshipToken,
@@ -272,7 +266,7 @@ mod tests {
 
     use crate::{
         ConversationId, conversations::persistence::tests::test_conversation,
-        key_stores::indexed_keys::UserProfileKey,
+        key_stores::indexed_keys::StorableIndexedKey,
     };
 
     use super::*;
@@ -286,7 +280,6 @@ mod tests {
             clients: vec![AsClientId::new(user_name, user_id)],
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             friendship_token: FriendshipToken::random().unwrap(),
-            key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             conversation_id,
             user_profile_key_index: user_profile_key.index().clone(),
@@ -375,7 +368,6 @@ mod tests {
 
         let friendship_package = FriendshipPackage {
             friendship_token: FriendshipToken::random().unwrap(),
-            key_package_ear_key: KeyPackageEarKey::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             user_profile_base_secret: user_profile_key.base_secret().clone(),

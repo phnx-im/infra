@@ -25,10 +25,10 @@ use crate::{
         errors::DecryptionError,
         kdf::{KdfDerivable, keys::ConnectionKey},
         signatures::{
+            private_keys::SignatureVerificationError,
             signable::{
                 EncryptedSignature, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
             },
-            traits::SignatureVerificationError,
         },
     },
 };

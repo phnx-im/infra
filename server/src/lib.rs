@@ -21,9 +21,14 @@ use actix_web::{
 use phnxbackend::{
     auth_service::AuthService,
     ds::{Ds, GrpcDs},
-    qs::{Qs, QsConnector, errors::QsEnqueueError, network_provider::NetworkProvider},
+    qs::{
+        Qs, QsConnector, errors::QsEnqueueError, grpc::GrpcQs, network_provider::NetworkProvider,
+    },
 };
-use phnxprotos::delivery_service::v1::delivery_service_server::DeliveryServiceServer;
+use phnxprotos::{
+    delivery_service::v1::delivery_service_server::DeliveryServiceServer,
+    queue_service::v1::queue_service_server::QueueServiceServer,
+};
 use phnxtypes::endpoint_paths::{
     ENDPOINT_AS, ENDPOINT_DS_GROUPS, ENDPOINT_HEALTH_CHECK, ENDPOINT_QS, ENDPOINT_QS_FEDERATION,
     ENDPOINT_QS_WS,
@@ -54,6 +59,7 @@ pub struct ServerRunParams<Qc, Np> {
     pub network_provider: Np,
     pub ws_dispatch_notifier: DispatchWebsocketNotifier,
     pub rate_limits: RateLimitsConfig,
+    pub num_actix_workers: Option<usize>,
 }
 
 /// Every `period`, allow bursts of up to `burst_size`-many requests, and replenish one element
@@ -75,15 +81,16 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
         network_provider,
         ws_dispatch_notifier,
         rate_limits,
+        num_actix_workers,
     }: ServerRunParams<Qc, Np>,
 ) -> Result<impl Future<Output = io::Result<()>>, io::Error> {
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds.clone());
     let auth_service_data = Data::new(auth_service);
-    let qs_data = Data::new(qs);
+    let qs_data = Data::new(qs.clone());
     let qs_connector_data = Data::new(qs_connector.clone());
     let network_provider_data = Data::new(network_provider);
-    let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier);
+    let ws_dispatch_notifier_data = Data::new(ws_dispatch_notifier.clone());
 
     let http_addr = listener.local_addr().expect("Could not get local address");
     let grpc_addr = grpc_listener
@@ -93,7 +100,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     info!(%http_addr, %grpc_addr, "Starting server");
 
     // Create & run the server
-    let server = HttpServer::new(move || {
+    let mut server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
             .route(ENDPOINT_HEALTH_CHECK, web::get().to(health_check))
@@ -116,14 +123,17 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
             .route(ENDPOINT_AS, web::post().to(as_process_message))
             // WS endpoint
             .route(ENDPOINT_QS_WS, web::get().to(upgrade_connection))
-    })
-    .listen_auto_h2c(listener)?
-    .run();
+    });
+    if let Some(num_workers) = num_actix_workers {
+        server = server.workers(num_workers);
+    }
+    let server = server.listen_auto_h2c(listener)?.run();
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     // GRPC server
     let grpc_ds = GrpcDs::new(ds, qs_connector);
+    let grpc_qs = GrpcQs::new(qs, ws_dispatch_notifier);
 
     let RateLimitsConfig { period, burst_size } = rate_limits;
     let governor_config = GovernorConfigBuilder::default()
@@ -161,6 +171,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
             )
             .layer(GovernorLayer::new(governor_config))
             .add_service(DeliveryServiceServer::new(grpc_ds))
+            .add_service(QueueServiceServer::new(grpc_qs))
             .serve_with_incoming_shutdown(TcpListenerStream::new(grpc_listener), async move {
                 shutdown_rx.await.ok();
             })

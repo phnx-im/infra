@@ -6,15 +6,7 @@ use http::StatusCode;
 use phnxtypes::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
-    crypto::{
-        RatchetEncryptionKey,
-        kdf::keys::RatchetSecret,
-        opaque::{
-            OpaqueLoginFinish, OpaqueLoginRequest, OpaqueRegistrationRecord,
-            OpaqueRegistrationRequest,
-        },
-        signatures::signable::Signable,
-    },
+    crypto::{RatchetEncryptionKey, kdf::keys::RatchetSecret, signatures::signable::Signable},
     endpoint_paths::ENDPOINT_AS,
     errors::version::VersionError,
     identifiers::{AsClientId, QualifiedUserName},
@@ -23,20 +15,16 @@ use phnxtypes::{
         client_as::{
             AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParamsOut,
             AsVersionedRequestParamsOut, ClientConnectionPackageParamsTbs, ClientToAsMessageOut,
-            ConnectionPackage, DeleteClientParamsTbs, DeleteUserParamsTbs,
-            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
-            EnqueueMessageParams, FinishClientAdditionParams, FinishClientAdditionParamsTbs,
-            FinishUserRegistrationParamsTbs, Init2FactorAuthParamsTbs, Init2FactorAuthResponse,
-            InitUserRegistrationParams, InitiateClientAdditionParams, IssueTokensParamsTbs,
-            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
-            UserConnectionPackagesParams,
+            ConnectionPackage, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams,
+            InitUserRegistrationParams, IssueTokensParamsTbs, IssueTokensResponse,
+            SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            AsVersionedProcessResponseIn, ConnectionPackageIn, EncryptedUserProfile,
-            GetUserProfileParams, GetUserProfileResponse, InitClientAdditionResponseIn,
-            InitUserRegistrationResponseIn, UpdateUserProfileParamsTbs, UserClientsResponseIn,
-            UserConnectionPackagesResponseIn,
+            AsVersionedProcessResponseIn, EncryptedUserProfile, GetUserProfileParams,
+            GetUserProfileResponse, InitUserRegistrationResponseIn, UpdateUserProfileParamsTbs,
+            UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -109,11 +97,15 @@ impl ApiClient {
     pub async fn as_initiate_create_user(
         &self,
         client_payload: ClientCredentialPayload,
-        opaque_registration_request: OpaqueRegistrationRequest,
+        queue_encryption_key: RatchetEncryptionKey,
+        initial_ratchet_secret: RatchetSecret,
+        encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<InitUserRegistrationResponseIn, AsRequestError> {
         let payload = InitUserRegistrationParams {
             client_payload,
-            opaque_registration_request,
+            queue_encryption_key,
+            initial_ratchet_secret,
+            encrypted_user_profile,
         };
         let params = AsRequestParamsOut::InitUserRegistration(payload);
         self.prepare_and_send_as_message(params)
@@ -122,63 +114,6 @@ impl ApiClient {
             .and_then(|response| {
                 if let AsProcessResponseIn::InitUserRegistration(response) = response {
                     Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_initiate_2fa_auth(
-        &self,
-        client_id: AsClientId,
-        opaque_ke1: OpaqueLoginRequest,
-        signing_key: &ClientSigningKey,
-    ) -> Result<Init2FactorAuthResponse, AsRequestError> {
-        let tbs = Init2FactorAuthParamsTbs {
-            client_id,
-            opaque_ke1,
-        };
-        let payload = tbs
-            .sign(signing_key)
-            .map_err(|_| AsRequestError::LibraryError)?;
-        let params = AsRequestParamsOut::Initiate2FaAuthentication(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::Init2FactorAuth(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_finish_user_registration(
-        &self,
-        queue_encryption_key: RatchetEncryptionKey,
-        initial_ratchet_secret: RatchetSecret,
-        connection_packages: Vec<ConnectionPackage>,
-        opaque_registration_record: OpaqueRegistrationRecord,
-        signing_key: &ClientSigningKey,
-        encrypted_user_profile: EncryptedUserProfile,
-    ) -> Result<(), AsRequestError> {
-        let tbs = FinishUserRegistrationParamsTbs {
-            client_id: signing_key.credential().identity().clone(),
-            queue_encryption_key,
-            initial_ratchet_secret,
-            connection_packages,
-            opaque_registration_record,
-            encrypted_user_profile,
-        };
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::FinishUserRegistration(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
                 } else {
                     Err(AsRequestError::UnexpectedResponse)
                 }
@@ -231,93 +166,14 @@ impl ApiClient {
         &self,
         user_name: QualifiedUserName,
         client_id: AsClientId,
-        opaque_finish: OpaqueLoginFinish,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let tbs = DeleteUserParamsTbs {
             client_id,
             user_name,
-            opaque_finish,
         };
         let payload = tbs.sign(signing_key)?;
         let params = AsRequestParamsOut::DeleteUser(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_initiate_client_addition(
-        &self,
-        client_credential_payload: ClientCredentialPayload,
-        opaque_login_request: OpaqueLoginRequest,
-    ) -> Result<InitClientAdditionResponseIn, AsRequestError> {
-        let payload = InitiateClientAdditionParams {
-            client_credential_payload,
-            opaque_login_request,
-        };
-        let params = AsRequestParamsOut::InitiateClientAddition(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::InitiateClientAddition(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_finish_client_addition(
-        &self,
-        client_id: AsClientId,
-        queue_encryption_key: RatchetEncryptionKey,
-        initial_ratchet_key: RatchetSecret,
-        connection_package: ConnectionPackageIn,
-        opaque_login_finish: OpaqueLoginFinish,
-    ) -> Result<(), AsRequestError> {
-        // This is called TBS, but isn't signed yet. It will be signed by the
-        // client as soon as we support client cross-signing.
-        let tbs = FinishClientAdditionParamsTbs {
-            client_id,
-            queue_encryption_key,
-            initial_ratchet_secret: initial_ratchet_key,
-            connection_package,
-        };
-        let payload = FinishClientAdditionParams {
-            opaque_login_finish,
-            payload: tbs,
-        };
-        let params = AsRequestParamsOut::FinishClientAddition(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_delete_client(
-        &self,
-        client_id: AsClientId,
-        signing_key: &ClientSigningKey,
-    ) -> Result<(), AsRequestError> {
-        // TODO: This means that clients can only ever delete themselves. Is
-        // that what we want here?
-        let tbs = DeleteClientParamsTbs(client_id);
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::DeleteClient(payload);
         self.prepare_and_send_as_message(params)
             .await
             // Check if the response is what we expected it to be.
@@ -358,7 +214,7 @@ impl ApiClient {
     pub async fn as_publish_connection_packages(
         &self,
         client_id: AsClientId,
-        connection_packages: Vec<ConnectionPackageIn>,
+        connection_packages: Vec<ConnectionPackage>,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let tbs = AsPublishConnectionPackagesParamsTbs {

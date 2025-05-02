@@ -4,9 +4,11 @@
 
 use phnxtypes::{
     errors::auth_service::{ClientKeyPackageError, PublishConnectionPackageError},
-    messages::client_as::{
-        AsClientConnectionPackageResponse, AsPublishConnectionPackagesParamsTbs,
-        ClientConnectionPackageParamsTbs, ConnectionPackage,
+    messages::{
+        client_as::{
+            AsClientConnectionPackageResponse, ClientConnectionPackageParamsTbs, ConnectionPackage,
+        },
+        client_as_out::AsPublishConnectionPackagesParamsTbsIn,
     },
 };
 
@@ -18,9 +20,9 @@ use crate::auth_service::{
 impl AuthService {
     pub(crate) async fn as_publish_connection_packages(
         &self,
-        params: AsPublishConnectionPackagesParamsTbs,
+        params: AsPublishConnectionPackagesParamsTbsIn,
     ) -> Result<(), PublishConnectionPackageError> {
-        let AsPublishConnectionPackagesParamsTbs {
+        let AsPublishConnectionPackagesParamsTbsIn {
             client_id,
             connection_packages,
         } = params;

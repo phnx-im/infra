@@ -3,42 +3,34 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use errors::{DecryptionError, EncryptionError};
-use serde::de::DeserializeOwned;
 
 use super::{errors::RandomnessError, *};
 
 #[cfg(test)]
 mod tests;
 
-pub trait RatchetPayload<Ciphertext: RatchetCiphertext>:
-    EarEncryptable<RatchetKey, Ciphertext> + EarDecryptable<RatchetKey, Ciphertext>
+pub trait RatchetPayload<CT>:
+    EarEncryptable<RatchetKey, CT> + EarDecryptable<RatchetKey, CT>
 {
 }
-pub trait RatchetCiphertext: AsRef<Ciphertext> + From<Ciphertext> {}
 
-impl<Ciphertext: RatchetCiphertext, T> RatchetPayload<Ciphertext> for T where
-    T: EarEncryptable<RatchetKey, Ciphertext> + EarDecryptable<RatchetKey, Ciphertext>
-{
-}
-impl<T> RatchetCiphertext for T where
-    T: AsRef<Ciphertext> + From<Ciphertext> + Serialize + DeserializeOwned
+impl<CT, T> RatchetPayload<CT> for T where
+    T: EarEncryptable<RatchetKey, CT> + EarDecryptable<RatchetKey, CT>
 {
 }
 
 // WARNING: If this struct is changed its implementation of ToSql and FromSql in the sqlite module
 // must be updated and a new `QueueRatchetVersion` introduced.
 #[derive(Serialize, Deserialize, Clone, Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct QueueRatchet<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> {
+pub struct QueueRatchet<CT, Payload: RatchetPayload<CT>> {
     sequence_number: u64,
     secret: RatchetSecret,
     key: RatchetKey,
-    _phantom: PhantomData<(Ciphertext, Payload)>,
+    _phantom: PhantomData<(CT, Payload)>,
 }
 
 #[cfg(feature = "test_utils")]
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> PartialEq
-    for QueueRatchet<Ciphertext, Payload>
-{
+impl<CT, Payload: RatchetPayload<CT>> PartialEq for QueueRatchet<CT, Payload> {
     fn eq(&self, other: &Self) -> bool {
         self.sequence_number == other.sequence_number
             && self.secret == other.secret
@@ -48,14 +40,9 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Partial
 }
 
 #[cfg(feature = "test_utils")]
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Eq
-    for QueueRatchet<Ciphertext, Payload>
-{
-}
+impl<CT, Payload: RatchetPayload<CT>> Eq for QueueRatchet<CT, Payload> {}
 
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> TryFrom<RatchetSecret>
-    for QueueRatchet<Ciphertext, Payload>
-{
+impl<CT, Payload: RatchetPayload<CT>> TryFrom<RatchetSecret> for QueueRatchet<CT, Payload> {
     type Error = LibraryError;
 
     fn try_from(secret: RatchetSecret) -> Result<Self, Self::Error> {
@@ -70,9 +57,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> TryFrom
 }
 
 // TODO: Implement the ratchet key.
-impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
-    QueueRatchet<Ciphertext, Payload>
-{
+impl<CT, Payload: RatchetPayload<CT>> QueueRatchet<CT, Payload> {
     /// Initialize a new ratchet key.
     pub fn random() -> Result<Self, RandomnessError> {
         let secret = RatchetSecret::random()?;
@@ -97,11 +82,11 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
     /// Encrypt the given payload.
     pub fn encrypt(&mut self, payload: Payload) -> Result<QueueMessage, EncryptionError> {
         // TODO: We want domain separation: FQDN, UserID & ClientID.
-        let ciphertext = payload.encrypt(&self.key)?;
+        let ciphertext = payload.encrypt(&self.key)?.into();
 
         let queue_message = QueueMessage {
             sequence_number: self.sequence_number,
-            ciphertext: ciphertext.as_ref().clone(),
+            ciphertext,
         };
 
         self.ratchet_forward()?;
@@ -111,8 +96,7 @@ impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>>
 
     /// Decrypt the given payload.
     pub fn decrypt(&mut self, queue_message: QueueMessage) -> Result<Payload, DecryptionError> {
-        let ciphertext = queue_message.ciphertext.into();
-        let plaintext = Payload::decrypt(&self.key, &ciphertext)?;
+        let plaintext = Payload::decrypt(&self.key, &queue_message.ciphertext.into())?;
         self.ratchet_forward()
             .map_err(|_| DecryptionError::DecryptionError)?;
         Ok(plaintext)
@@ -153,17 +137,13 @@ mod sqlite {
         CurrentVersion(Vec<u8>),
     }
 
-    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Type<Sqlite>
-        for QueueRatchet<Ciphertext, Payload>
-    {
+    impl<CT, Payload: RatchetPayload<CT>> Type<Sqlite> for QueueRatchet<CT, Payload> {
         fn type_info() -> <Sqlite as Database>::TypeInfo {
             <Vec<u8> as Type<Sqlite>>::type_info()
         }
     }
 
-    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Encode<'_, Sqlite>
-        for QueueRatchet<Ciphertext, Payload>
-    {
+    impl<CT, Payload: RatchetPayload<CT>> Encode<'_, Sqlite> for QueueRatchet<CT, Payload> {
         fn encode_by_ref(
             &self,
             buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
@@ -175,9 +155,7 @@ mod sqlite {
         }
     }
 
-    impl<Ciphertext: RatchetCiphertext, Payload: RatchetPayload<Ciphertext>> Decode<'_, Sqlite>
-        for QueueRatchet<Ciphertext, Payload>
-    {
+    impl<CT, Payload: RatchetPayload<CT>> Decode<'_, Sqlite> for QueueRatchet<CT, Payload> {
         fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
             let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
             let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) =
@@ -192,15 +170,16 @@ mod sqlite {
 mod test {
     use crate::{
         codec::PhnxCodec,
-        messages::{EncryptedQsQueueMessage, client_ds::QsQueueMessagePayload},
+        crypto::secrets::Secret,
+        messages::{EncryptedQsQueueMessageCtype, client_ds::QsQueueMessagePayload},
     };
 
     use super::*;
 
     // Note: the type parameters are not important
-    fn queue_ratchet() -> QueueRatchet<EncryptedQsQueueMessage, QsQueueMessagePayload> {
+    fn queue_ratchet() -> QueueRatchet<EncryptedQsQueueMessageCtype, QsQueueMessagePayload> {
         let secret: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz012345";
-        let ratchet_secret = RatchetSecret::new_for_test((*secret).into());
+        let ratchet_secret = RatchetSecret::from(Secret::from(*secret));
         QueueRatchet::try_from(ratchet_secret).unwrap()
     }
 

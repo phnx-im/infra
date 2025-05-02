@@ -2,11 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::ServerRegistration;
-use phnxtypes::{
-    crypto::OpaqueCiphersuite, identifiers::QualifiedUserName,
-    messages::client_as_out::EncryptedUserProfile,
-};
+use phnxtypes::{identifiers::QualifiedUserName, messages::client_as_out::EncryptedUserProfile};
 
 use crate::errors::StorageError;
 
@@ -14,19 +10,13 @@ use crate::errors::StorageError;
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct UserRecord {
     user_name: QualifiedUserName,
-    password_file: ServerRegistration<OpaqueCiphersuite>,
     encrypted_user_profile: EncryptedUserProfile,
 }
 
 impl UserRecord {
-    fn new(
-        user_name: QualifiedUserName,
-        password_file: ServerRegistration<OpaqueCiphersuite>,
-        encrypted_user_profile: EncryptedUserProfile,
-    ) -> Self {
+    fn new(user_name: QualifiedUserName, encrypted_user_profile: EncryptedUserProfile) -> Self {
         Self {
             user_name,
-            password_file,
             encrypted_user_profile,
         }
     }
@@ -34,14 +24,9 @@ impl UserRecord {
     pub(super) async fn new_and_store(
         connection: impl sqlx::PgExecutor<'_>,
         user_name: &QualifiedUserName,
-        opaque_record: &ServerRegistration<OpaqueCiphersuite>,
         encrypted_user_profile: &EncryptedUserProfile,
     ) -> Result<Self, StorageError> {
-        let user_record = Self::new(
-            user_name.clone(),
-            opaque_record.clone(),
-            encrypted_user_profile.clone(),
-        );
+        let user_record = Self::new(user_name.clone(), encrypted_user_profile.clone());
         user_record.store(connection).await?;
         Ok(user_record)
     }
@@ -49,10 +34,6 @@ impl UserRecord {
     #[cfg(test)]
     pub(super) fn user_name(&self) -> &QualifiedUserName {
         &self.user_name
-    }
-
-    pub(super) fn into_password_file(self) -> ServerRegistration<OpaqueCiphersuite> {
-        self.password_file
     }
 
     pub(super) fn into_encrypted_user_profile(self) -> EncryptedUserProfile {
@@ -65,14 +46,8 @@ impl UserRecord {
 }
 
 pub(crate) mod persistence {
-    use opaque_ke::ServerRegistration;
-    use phnxtypes::{
-        codec::{BlobDecoded, BlobEncoded},
-        crypto::OpaqueCiphersuite,
-        identifiers::QualifiedUserName,
-        messages::client_as_out::EncryptedUserProfile,
-    };
-    use sqlx::{PgExecutor, query, query_as};
+    use phnxtypes::identifiers::QualifiedUserName;
+    use sqlx::{PgExecutor, query, query_scalar};
 
     use crate::errors::StorageError;
 
@@ -85,15 +60,8 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             user_name: &QualifiedUserName,
         ) -> Result<Option<UserRecord>, StorageError> {
-            struct AsUserRecord {
-                password_file: BlobDecoded<ServerRegistration<OpaqueCiphersuite>>,
-                encrypted_user_profile: EncryptedUserProfile,
-            }
-
-            let record = query_as!(
-                AsUserRecord,
+            let encrypted_user_profile = query_scalar!(
                 r#"SELECT
-                    password_file AS "password_file: _",
                     encrypted_user_profile AS "encrypted_user_profile: _"
                 FROM as_user_records
                 WHERE user_name = $1"#,
@@ -101,14 +69,7 @@ pub(crate) mod persistence {
             )
             .fetch_optional(connection)
             .await?;
-            Ok(record.map(|record| {
-                let BlobDecoded(password_file) = record.password_file;
-                UserRecord::new(
-                    user_name.clone(),
-                    password_file,
-                    record.encrypted_user_profile,
-                )
-            }))
+            Ok(encrypted_user_profile.map(|profile| UserRecord::new(user_name.clone(), profile)))
         }
 
         /// Update the AsUserRecord for a given UserId.
@@ -116,12 +77,10 @@ pub(crate) mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let password_file = BlobEncoded(&self.password_file);
             query!(
                 "UPDATE as_user_records
-                SET password_file = $1, encrypted_user_profile = $2
-                WHERE user_name = $3",
-                password_file as _,
+                SET encrypted_user_profile = $1
+                WHERE user_name = $2",
                 self.encrypted_user_profile as _,
                 self.user_name.to_string()
             )
@@ -136,11 +95,9 @@ pub(crate) mod persistence {
             &self,
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
-            let password_file = BlobEncoded(&self.password_file);
             query!(
-                "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile) VALUES ($1, $2, $3)",
+                "INSERT INTO as_user_records (user_name, encrypted_user_profile) VALUES ($1, $2)",
                 self.user_name.to_string(),
-                password_file as _,
                 self.encrypted_user_profile as _
             )
             .execute(connection)
@@ -172,58 +129,17 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use std::sync::LazyLock;
-
-        use opaque_ke::{
-            ClientRegistration, ClientRegistrationFinishParameters, ServerRegistration, ServerSetup,
-        };
-        use phnxtypes::{
-            codec::PhnxCodec, crypto::OpaqueCiphersuite,
-            messages::client_as_out::EncryptedUserProfile,
-        };
-        use rand::{CryptoRng, RngCore, SeedableRng, rngs::StdRng};
+        use phnxtypes::messages::client_as_out::EncryptedUserProfile;
         use sqlx::PgPool;
         use uuid::Uuid;
 
         use super::*;
 
-        pub(crate) fn generate_password_file(
-            user_name: &QualifiedUserName,
-            rng: &mut (impl CryptoRng + RngCore),
-        ) -> anyhow::Result<ServerRegistration<OpaqueCiphersuite>> {
-            let password = b"password";
-
-            let server_setup = ServerSetup::new(rng);
-            let client_registration_start_result =
-                ClientRegistration::start(rng, password).unwrap();
-            let server_registration_start_result = ServerRegistration::start(
-                &server_setup,
-                client_registration_start_result.message,
-                user_name.to_string().as_bytes(),
-            )
-            .unwrap();
-            let client_registration_finish_result = client_registration_start_result
-                .state
-                .finish(
-                    rng,
-                    password,
-                    server_registration_start_result.message,
-                    ClientRegistrationFinishParameters::default(),
-                )
-                .unwrap();
-
-            Ok(ServerRegistration::finish(
-                client_registration_finish_result.message,
-            ))
-        }
-
         pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
             let user_name: QualifiedUserName = format!("{}@example.com", Uuid::new_v4()).parse()?;
-            let password_file = generate_password_file(&user_name, &mut rand::thread_rng())?;
             let encrypted_user_profile = EncryptedUserProfile::dummy();
             let record = UserRecord {
                 user_name,
-                password_file,
                 encrypted_user_profile,
             };
             record.store(pool).await?;
@@ -257,26 +173,6 @@ pub(crate) mod persistence {
             assert!(loaded.is_none());
 
             Ok(())
-        }
-
-        static PASSWORD_FILE: LazyLock<ServerRegistration<OpaqueCiphersuite>> =
-            LazyLock::new(|| {
-                let user_name: QualifiedUserName = "alice@example.com".parse().unwrap();
-                generate_password_file(
-                    &user_name,
-                    &mut StdRng::seed_from_u64(0x0DDB1A5E5BAD5EEDu64),
-                )
-                .unwrap()
-            });
-
-        #[test]
-        fn test_password_file_serde_codec() {
-            insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*PASSWORD_FILE).unwrap());
-        }
-
-        #[test]
-        fn test_password_file_serde_json() {
-            insta::assert_json_snapshot!(&*PASSWORD_FILE);
         }
     }
 }

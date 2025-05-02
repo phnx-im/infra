@@ -16,7 +16,6 @@ expression: "&*USER_CREATION_STATE_BASIC"
       "client_id": "00000000-0000-0000-0000-000000000001"
     },
     "server_url": "localhost",
-    "password": "swordfish",
     "push_token": {
       "operator": "Google",
       "token": "token"

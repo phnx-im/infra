@@ -29,7 +29,7 @@ use phnxtypes::{
     credentials::keys::ClientSigningKey,
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
-        ear::keys::{KeyPackageEarKey, PushTokenEarKey, WelcomeAttributionInfoEarKey},
+        ear::keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
     messages::FriendshipToken,
@@ -43,9 +43,9 @@ pub(crate) mod queue_ratchets;
 
 // For now we persist the key store along with the user. Any key material that gets rotated in the future needs to be persisted separately.
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct MemoryUserKeyStore {
+pub(crate) struct MemoryUserKeyStoreBase<K> {
     // Client credential secret key
-    pub(super) signing_key: ClientSigningKey,
+    pub(super) signing_key: K,
     // AS-specific key material
     pub(super) as_queue_decryption_key: RatchetDecryptionKey,
     pub(super) connection_decryption_key: ConnectionDecryptionKey,
@@ -57,10 +57,11 @@ pub(crate) struct MemoryUserKeyStore {
     pub(super) push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
     pub(super) friendship_token: FriendshipToken,
-    pub(super) key_package_ear_key: KeyPackageEarKey,
     pub(super) connection_key: ConnectionKey,
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
 }
+
+pub(crate) type MemoryUserKeyStore = MemoryUserKeyStoreBase<ClientSigningKey>;
 
 impl MemoryUserKeyStore {
     pub(crate) fn create_own_client_reference(&self, qs_client_id: &QsClientId) -> QsReference {

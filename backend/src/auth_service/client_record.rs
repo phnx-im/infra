@@ -3,11 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    credentials::ClientCredential,
-    crypto::{RatchetEncryptionKey, ratchet::QueueRatchet},
-    identifiers::AsClientId,
-    messages::{EncryptedAsQueueMessage, client_as::AsQueueMessagePayload},
-    time::TimeStamp,
+    credentials::ClientCredential, crypto::RatchetEncryptionKey, identifiers::AsClientId,
+    messages::client_as::AsQueueRatchet, time::TimeStamp,
 };
 use sqlx::{Connection, PgConnection};
 
@@ -19,7 +16,7 @@ use super::queue::Queue;
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct ClientRecord {
     pub(super) queue_encryption_key: RatchetEncryptionKey,
-    pub(super) ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
+    pub(super) ratchet: AsQueueRatchet,
     pub(super) activity_time: TimeStamp,
     pub(super) credential: ClientCredential,
     pub(super) token_allowance: i32,
@@ -31,12 +28,12 @@ impl ClientRecord {
     pub(super) async fn new_and_store(
         connection: &mut PgConnection,
         queue_encryption_key: RatchetEncryptionKey,
-        ratchet_key: QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>,
+        ratchet: AsQueueRatchet,
         credential: ClientCredential,
     ) -> Result<Self, StorageError> {
         let record = Self {
             queue_encryption_key,
-            ratchet_key,
+            ratchet,
             activity_time: TimeStamp::now(),
             credential,
             token_allowance: DEFAULT_TOKEN_ALLOWANCE,
@@ -74,8 +71,6 @@ pub(crate) mod persistence {
 
     use super::*;
 
-    type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessage, AsQueueMessagePayload>;
-
     impl ClientRecord {
         pub(super) async fn store(
             &self,
@@ -97,7 +92,7 @@ pub(crate) mod persistence {
                 client_id.client_id(),
                 client_id.user_name().to_string(),
                 BlobEncoded(&self.queue_encryption_key) as _,
-                BlobEncoded(&self.ratchet_key) as _,
+                BlobEncoded(&self.ratchet) as _,
                 activity_time,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
@@ -123,7 +118,7 @@ pub(crate) mod persistence {
                     remaining_tokens = $5
                 WHERE client_id = $6",
                 BlobEncoded(&self.queue_encryption_key) as _,
-                BlobEncoded(&self.ratchet_key) as _,
+                BlobEncoded(&self.ratchet) as _,
                 activity_time,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
@@ -154,7 +149,7 @@ pub(crate) mod persistence {
             .map(|record| {
                 Ok(ClientRecord {
                     queue_encryption_key: record.queue_encryption_key.into_inner(),
-                    ratchet_key: record.ratchet.into_inner(),
+                    ratchet: record.ratchet.into_inner(),
                     activity_time: record.activity_time.into(),
                     credential: record.credential.into(),
                     token_allowance: record.remaining_tokens,
@@ -163,6 +158,7 @@ pub(crate) mod persistence {
             .transpose()
         }
 
+        #[allow(dead_code)]
         pub(in crate::auth_service) async fn delete(
             connection: impl PgExecutor<'_>,
             client_id: &AsClientId,
@@ -202,7 +198,7 @@ pub(crate) mod persistence {
         use mls_assist::openmls::prelude::SignatureScheme;
         use phnxtypes::{
             credentials::{ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint},
-            crypto::signatures::signable::Signature,
+            crypto::{ratchet::QueueRatchet, signatures::signable::Signature},
             time::{Duration, ExpirationData},
         };
         use sqlx::PgPool;
@@ -226,9 +222,9 @@ pub(crate) mod persistence {
             let expiration_data = ExpirationData::new(Duration::days(90));
             let record = ClientRecord {
                 queue_encryption_key: RatchetEncryptionKey::new_for_test(
-                    b"encryption_key".to_vec().into(),
+                    b"encryption_key".to_vec(),
                 ),
-                ratchet_key: QueueRatchet::random()?,
+                ratchet: QueueRatchet::random()?,
                 activity_time: TimeStamp::now(),
                 credential: ClientCredential::new_for_test(
                     ClientCredentialPayload::new(

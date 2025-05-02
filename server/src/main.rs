@@ -116,6 +116,7 @@ async fn main() -> std::io::Result<()> {
             period: Duration::from_millis(500),
             burst_size: 20,
         },
+        num_actix_workers: None,
     })?
     .await
 }

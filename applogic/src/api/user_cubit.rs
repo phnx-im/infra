@@ -9,12 +9,14 @@ use std::time::Duration;
 
 use anyhow::bail;
 use flutter_rust_bridge::frb;
-use phnxapiclient::qs_api::ws::WsEvent;
-use phnxcoreclient::{Asset, UserProfile};
+use phnxcoreclient::{
+    Asset, UserProfile,
+    clients::{QueueEvent, queue_event},
+};
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use phnxtypes::identifiers::QualifiedUserName;
-use phnxtypes::messages::client_ds::QsWsMessage;
 use tokio::sync::{RwLock, watch};
+use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, info, warn};
 
@@ -106,8 +108,8 @@ pub enum AppState {
 
 /// Provides access to the logged in user and their profile.
 ///
-/// Also connects to the server websocket and listens to messages. Fetches updates from the server.
-/// The lifetime of the websocket is tied to the lifetime of the cubit.
+/// Also listens to queue service messages and fetches updates from the server. The lifetime of the
+/// listening stream is tied to the lifetime of the cubit.
 ///
 /// This cubit should not be created more than once, because the logged in user exists in the
 /// system only once.
@@ -127,8 +129,6 @@ pub struct UserCubitBase {
     _background_tasks_cancel: DropGuard,
 }
 
-const WEBSOCKET_TIMEOUT: Duration = Duration::from_secs(30);
-const WEBSCOKET_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 const POLLING_INTERVAL: Duration = Duration::from_secs(10);
 
 impl UserCubitBase {
@@ -148,7 +148,7 @@ impl UserCubitBase {
         let (app_state_tx, app_state) = watch::channel(AppState::Foreground);
 
         let cancel = CancellationToken::new();
-        spawn_websocket(
+        spawn_listen(
             core_user.clone(),
             navigation_state.clone(),
             app_state.clone(),
@@ -286,7 +286,7 @@ impl UserCubitBase {
     }
 }
 
-fn spawn_websocket(
+fn spawn_listen(
     core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
     mut app_state: watch::Receiver<AppState>,
@@ -295,36 +295,31 @@ fn spawn_websocket(
 ) {
     spawn_from_sync(async move {
         let mut backoff = FibonacciBackoff::new();
-        let mut websocket_cancel = cancel.child_token();
         loop {
-            let res = run_websocket(
+            let res = run_listen(
                 &core_user,
                 &navigation_state,
                 &mut app_state,
                 &notification_service,
-                &websocket_cancel,
+                &cancel,
                 &mut backoff,
             )
             .await;
 
-            // stop handler on websocket cancellation
+            // stop handler on cancellation
             if let Ok(true) = res {
-                break;
+                return;
             }
-
-            // stop internal websocket loop and issue a new token
-            websocket_cancel.cancel();
-            websocket_cancel = cancel.child_token();
 
             // wait for app to be foreground
             let _ = app_state
                 .wait_for(|app_state| matches!(app_state, AppState::Foreground))
                 .await;
 
-            // if websocket failed, retry with backoff
+            // if listen failed, retry with backoff
             if let Err(error) = res {
                 let timeout = backoff.next_backoff();
-                info!(%error, retry_in =? timeout, "Websocket failed");
+                info!(%error, retry_in =? timeout, "listen failed");
 
                 tokio::time::sleep(timeout).await;
             }
@@ -332,10 +327,10 @@ fn spawn_websocket(
     });
 }
 
-/// Returns `true` if the websocket was cancelled.
+/// Returns `true` if `cancel` was cancelled.
 ///
 /// Otherwise, returns `false` or an error.
-async fn run_websocket(
+async fn run_listen(
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
     app_state: &mut watch::Receiver<AppState>,
@@ -343,30 +338,27 @@ async fn run_websocket(
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
 ) -> anyhow::Result<bool> {
-    let mut websocket = core_user
-        .websocket(
-            WEBSOCKET_TIMEOUT.as_secs(),
-            WEBSCOKET_RETRY_INTERVAL.as_secs(),
-            cancel.clone(),
-        )
-        .await?;
+    let mut queue_stream = core_user.listen_queue().await?;
+    info!("listening to the queue");
 
     loop {
         let in_background =
             app_state.wait_for(|app_state| matches!(app_state, AppState::Background));
 
         let event = tokio::select! {
-            event = websocket.next() => event,
+            event = queue_stream.next() => event,
             _ = in_background => return Ok(false),
             _ = cancel.cancelled() => return Ok(true),
         };
 
         match event {
-            Some(event) => {
-                handle_websocket_message(event, core_user, navigation_state, notification_service)
-                    .await
+            Some(QueueEvent { event: Some(event) }) => {
+                handle_queue_event(event, core_user, navigation_state, notification_service).await
             }
-            None => bail!("unexpected disconnect"),
+            Some(QueueEvent { event: None }) => {
+                error!("missing `event` field in queue event");
+            }
+            None => bail!("disconnected from the queue"),
         }
         backoff.reset(); // reset backoff after a successful message
     }
@@ -415,27 +407,19 @@ fn spawn_polling(
     });
 }
 
-async fn handle_websocket_message(
-    event: WsEvent,
+async fn handle_queue_event(
+    event: queue_event::Event,
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
     notification_service: &NotificationService,
 ) {
+    debug!(?event, "handling listen event");
     match event {
-        WsEvent::ConnectedEvent => {
-            info!("connected to websocket");
-            // After (re)connecting, dequeue any pending store notifications that might have been
-            // enqueued by the push notifications background processing task.
-            match core_user.dequeue_notification().await {
-                Ok(notification) => core_user.notify(notification),
-                Err(error) => error!(%error, "Failed to dequeue store notification"),
-            }
+        queue_event::Event::Payload(_) => {
+            // currently, we don't handle payload events
+            warn!("ignoring listen event")
         }
-        WsEvent::DisconnectedEvent => info!("disconnected from websocket"),
-        WsEvent::MessageEvent(QsWsMessage::Event(event)) => {
-            warn!("ignoring websocket event: {event:?}")
-        }
-        WsEvent::MessageEvent(QsWsMessage::QueueUpdate) => {
+        queue_event::Event::Update(_) => {
             let core_user = core_user.clone();
             let user = User::from_core_user(core_user);
             match user.fetch_all_messages().await {
@@ -448,7 +432,7 @@ async fn handle_websocket_message(
                     .await;
                 }
                 Err(error) => {
-                    error!(%error, "Failed to fetch messages on queue update");
+                    error!(%error, "failed to fetch messages on queue update");
                 }
             }
         }

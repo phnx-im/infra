@@ -20,7 +20,6 @@ tracing = "0.1.41"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
 phnxtypes = { path = "../types" }
-opaque-ke = { version = "3.0.0-pre.5", features = ["argon2"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 # TODO: Replace this with a CSPRNG
 rand = "0.8.4"
@@ -44,6 +43,7 @@ openmls = { workspace = true }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 trait-variant = "0.1.2"
 enumset = "1.1.5"
+phnxprotos.workspace = true
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }
