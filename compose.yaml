@@ -9,6 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: phnx_db
+    userns_mode: "keep-id:uid=999,gid=999"
     command: >
       postgres
       -c max_connections=1000
@@ -18,7 +19,7 @@ services:
       -c ssl_key_file=/etc/postgresql/certs/server.key
       -c ssl_ca_file=/etc/postgresql/certs/root.crt
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres", "-h", "127.0.0.1"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
       start_period: 1s
       interval: 1s
       timeout: 5s
@@ -27,7 +28,12 @@ services:
       - ${COMPOSE_BIND_HOST:-127.0.0.1}:5432:5432
     volumes:
       - postgres_data:/var/lib/postgresql/data:z
-      - ./backend/test_certs:/etc/postgresql/certs:ro,z
+      - ./backend/test_certs/server.crt:/etc/postgresql/certs/server.crt:ro,z
+      - ./backend/test_certs/server.key:/etc/postgresql/certs/server.key:ro,z
+      - ./backend/test_certs/root.crt:/etc/postgresql/certs/root.crt:ro,z
+
+x-podman:
+  in_pod: false
 
 volumes:
   postgres_data:
