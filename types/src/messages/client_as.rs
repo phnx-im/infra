@@ -36,9 +36,10 @@ use crate::{
 use super::{
     ApiVersion, AsTokenType, EncryptedAsQueueMessageCtype, MlsInfraVersion,
     client_as_out::{
-        AsPublishConnectionPackagesParamsTbsIn, ConnectionPackageIn, EncryptedUserProfile,
-        GetUserProfileParams, InitUserRegistrationParamsIn, UpdateUserProfileParams,
-        UpdateUserProfileParamsTbs, VerifiableConnectionPackage,
+        AsPublishConnectionPackagesParamsIn, AsPublishConnectionPackagesParamsTbsIn,
+        ConnectionPackageIn, EncryptedUserProfile, GetUserProfileParams,
+        InitUserRegistrationParamsIn, UpdateUserProfileParams, UpdateUserProfileParamsTbs,
+        VerifiableConnectionPackage,
     },
 };
 
@@ -494,7 +495,7 @@ impl Signable for AsPublishConnectionPackagesParamsTbs {
     }
 
     fn label(&self) -> &str {
-        "Publish ConnectionPackages Parameters"
+        AsPublishConnectionPackagesParamsIn::LABEL
     }
 }
 
