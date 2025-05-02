@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::rand::rngs::OsRng;
 use phnxapiclient::{ApiClient, qs_api::ws::WsEvent};
 use phnxbackend::qs::{WebsocketNotifier, WsNotification};
 use phnxserver::network_provider::MockNetworkProvider;
 use phnxserver_test_harness::utils::spawn_app;
 use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
+use rand::rngs::OsRng;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 

@@ -27,8 +27,6 @@ use self::{
     kdf::{KdfDerivable, keys::RatchetSecret},
 };
 
-pub use opaque::OpaqueCiphersuite;
-
 /// This type determines the hash function used by the backend.
 pub type Hash = Sha256;
 
@@ -37,7 +35,6 @@ pub mod errors;
 pub mod hpke;
 pub mod indexed_aead;
 pub mod kdf;
-pub mod opaque;
 pub mod ratchet;
 pub mod secrets;
 pub(super) mod serde_arrays;

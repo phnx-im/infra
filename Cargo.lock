@@ -424,18 +424,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argon2"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c3610892ee6e0cbce8ae2700349fcf8f98adb0dbfbee85aec3c9179d29cc072"
-dependencies = [
- "base64ct",
- "blake2",
- "cpufeatures",
- "password-hash",
-]
-
-[[package]]
 name = "arraydeque"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -791,15 +779,6 @@ name = "bitstream-io"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6099cdc01846bc367c4e7dd630dc5966dccf36b652fae7a74e17b640411a91b2"
-
-[[package]]
-name = "blake2"
-version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
-dependencies = [
- "digest",
-]
 
 [[package]]
 name = "blake3"
@@ -3423,28 +3402,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
-name = "opaque-ke"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb31f7b2c5760d8ffbc39652043f5cff14029b6249a2280b28ae6f0cd61f5098"
-dependencies = [
- "argon2",
- "curve25519-dalek",
- "derive-where",
- "digest",
- "displaydoc",
- "elliptic-curve",
- "generic-array",
- "hkdf",
- "hmac",
- "rand 0.8.5",
- "serde",
- "subtle",
- "voprf",
- "zeroize",
-]
-
-[[package]]
 name = "openmls"
 version = "0.6.1"
 source = "git+https://github.com/openmls/openmls#de3099124572a49b80ac257b2be85de6f7b5ddd4"
@@ -3589,17 +3546,6 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "password-hash"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
-dependencies = [
- "base64ct",
- "rand_core 0.6.4",
- "subtle",
 ]
 
 [[package]]
@@ -3774,7 +3720,6 @@ dependencies = [
  "async-trait",
  "insta",
  "mls-assist",
- "opaque-ke",
  "phnxprotos",
  "phnxtypes",
  "privacypass",
@@ -3860,7 +3805,6 @@ dependencies = [
  "jsonwebtoken",
  "mimi_content",
  "once_cell",
- "opaque-ke",
  "phnxapiclient",
  "phnxbackend",
  "phnxcoreclient",
@@ -3868,6 +3812,7 @@ dependencies = [
  "phnxserver_test_harness",
  "phnxtypes",
  "png",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",
@@ -3911,7 +3856,6 @@ name = "phnxtypes"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
- "argon2",
  "chrono",
  "ciborium",
  "ed25519",
@@ -3919,7 +3863,6 @@ dependencies = [
  "hkdf",
  "insta",
  "mls-assist",
- "opaque-ke",
  "privacypass",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
