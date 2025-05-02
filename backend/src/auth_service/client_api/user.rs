@@ -5,10 +5,10 @@
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::signatures::signable::Signable,
-    errors::auth_service::{DeleteUserError, InitUserRegistrationError},
+    errors::auth_service::{DeleteUserError, RegisterUserError},
     messages::{
-        client_as::{DeleteUserParamsTbs, InitUserRegistrationResponse},
-        client_as_out::InitUserRegistrationParamsIn,
+        client_as::{DeleteUserParamsTbs, RegisterUserResponse},
+        client_as_out::RegisterUserParamsIn,
     },
     time::TimeStamp,
 };
@@ -22,9 +22,9 @@ use crate::auth_service::{
 impl AuthService {
     pub(crate) async fn as_init_user_registration(
         &self,
-        params: InitUserRegistrationParamsIn,
-    ) -> Result<InitUserRegistrationResponse, InitUserRegistrationError> {
-        let InitUserRegistrationParamsIn {
+        params: RegisterUserParamsIn,
+    ) -> Result<RegisterUserResponse, RegisterUserError> {
+        let RegisterUserParamsIn {
             client_payload,
             queue_encryption_key,
             initial_ratchet_secret,
@@ -38,12 +38,12 @@ impl AuthService {
                 .await
                 .map_err(|error| {
                     error!(%error, "Error loading user record");
-                    InitUserRegistrationError::StorageError
+                    RegisterUserError::StorageError
                 })?
                 .is_some();
 
         if user_name_exists {
-            return Err(InitUserRegistrationError::UserAlreadyExists);
+            return Err(RegisterUserError::UserAlreadyExists);
         }
 
         // Validate the client_csr
@@ -51,9 +51,7 @@ impl AuthService {
             let now = TimeStamp::now();
             let not_before = client_payload.expiration_data().not_before();
             let not_after = client_payload.expiration_data().not_after();
-            return Err(InitUserRegistrationError::InvalidCsr(
-                now, not_before, not_after,
-            ));
+            return Err(RegisterUserError::InvalidCsr(now, not_before, not_after));
         }
 
         // Load the signature key from storage.
@@ -61,14 +59,14 @@ impl AuthService {
             .await
             .map_err(|error| {
                 error!(%error, "Error loading signing key");
-                InitUserRegistrationError::StorageError
+                RegisterUserError::StorageError
             })?
-            .ok_or(InitUserRegistrationError::SigningKeyNotFound)?;
+            .ok_or(RegisterUserError::SigningKeyNotFound)?;
 
         // Sign the credential
         let client_credential: ClientCredential = client_payload
             .sign(&signing_key)
-            .map_err(|_| InitUserRegistrationError::LibraryError)?;
+            .map_err(|_| RegisterUserError::LibraryError)?;
 
         let client_id = client_credential.identity();
 
@@ -81,17 +79,17 @@ impl AuthService {
         .await
         .map_err(|error| {
             error!(%error, "Storage provider error");
-            InitUserRegistrationError::StorageError
+            RegisterUserError::StorageError
         })?;
 
         // Create the initial client entry
         let ratchet_key = initial_ratchet_secret
             .try_into()
             // Hiding the LibraryError here behind a StorageError
-            .map_err(|_| InitUserRegistrationError::StorageError)?;
+            .map_err(|_| RegisterUserError::StorageError)?;
         let mut connection = self.db_pool.acquire().await.map_err(|error| {
             error!(%error, "Error acquiring connection");
-            InitUserRegistrationError::StorageError
+            RegisterUserError::StorageError
         })?;
         ClientRecord::new_and_store(
             &mut connection,
@@ -102,10 +100,10 @@ impl AuthService {
         .await
         .map_err(|error| {
             error!(%error, "Storage provider error");
-            InitUserRegistrationError::StorageError
+            RegisterUserError::StorageError
         })?;
 
-        let response = InitUserRegistrationResponse { client_credential };
+        let response = RegisterUserResponse { client_credential };
 
         Ok(response)
     }

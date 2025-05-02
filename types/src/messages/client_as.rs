@@ -36,8 +36,8 @@ use super::{
     ApiVersion, AsTokenType, EncryptedAsQueueMessageCtype, MlsInfraVersion,
     client_as_out::{
         AsPublishConnectionPackagesParamsIn, AsPublishConnectionPackagesParamsTbsIn,
-        EncryptedUserProfile, GetUserProfileParams, InitUserRegistrationParamsIn,
-        UpdateUserProfileParams, UpdateUserProfileParamsTbs, VerifiableConnectionPackage,
+        EncryptedUserProfile, GetUserProfileParams, RegisterUserParamsIn, UpdateUserProfileParams,
+        UpdateUserProfileParamsTbs, VerifiableConnectionPackage,
     },
 };
 
@@ -84,10 +84,10 @@ where
 
 #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackageTbs {
-    pub(super) protocol_version: MlsInfraVersion,
-    pub(super) encryption_key: ConnectionEncryptionKey,
-    pub(super) lifetime: ExpirationData,
-    pub(super) client_credential: ClientCredential,
+    pub protocol_version: MlsInfraVersion,
+    pub encryption_key: ConnectionEncryptionKey,
+    pub lifetime: ExpirationData,
+    pub client_credential: ClientCredential,
 }
 
 impl ConnectionPackageTbs {
@@ -113,6 +113,14 @@ pub struct ConnectionPackage {
 }
 
 impl ConnectionPackage {
+    pub fn new(payload: ConnectionPackageTbs, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+
+    pub fn into_parts(self) -> (ConnectionPackageTbs, Signature) {
+        (self.payload, self.signature)
+    }
+
     pub fn client_credential(&self) -> &ClientCredential {
         &self.payload.client_credential
     }
@@ -163,7 +171,7 @@ impl SignedStruct<ConnectionPackageTbs> for ConnectionPackage {
 // === User ===
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct InitUserRegistrationParams {
+pub struct RegisterUserParams {
     pub client_payload: ClientCredentialPayload,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_secret: RatchetSecret,
@@ -171,7 +179,7 @@ pub struct InitUserRegistrationParams {
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
-pub struct InitUserRegistrationResponse {
+pub struct RegisterUserResponse {
     pub client_credential: ClientCredential,
 }
 
@@ -670,7 +678,7 @@ impl tls_codec::Serialize for AsVersionedRequestParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum AsRequestParamsOut {
-    InitUserRegistration(InitUserRegistrationParams),
+    RegisterUser(RegisterUserParams),
     DeleteUser(DeleteUserParams),
     DequeueMessages(AsDequeueMessagesParams),
     PublishConnectionPackages(AsPublishConnectionPackagesParams),
@@ -696,7 +704,7 @@ pub enum VerifiedAsRequestParams {
     UserClients(UserClientsParams),
     AsCredentials(AsCredentialsParams),
     EnqueueMessage(EnqueueMessageParams),
-    InitUserRegistration(InitUserRegistrationParamsIn),
+    RegisterUser(RegisterUserParamsIn),
     GetUserProfile(GetUserProfileParams),
     UpdateUserProfile(UpdateUserProfileParamsTbs),
 }
@@ -733,7 +741,7 @@ impl Verifiable for ClientCredentialAuth {
             | VerifiedAsRequestParams::UserClients(_)
             | VerifiedAsRequestParams::AsCredentials(_)
             | VerifiedAsRequestParams::EnqueueMessage(_)
-            | VerifiedAsRequestParams::InitUserRegistration(_)
+            | VerifiedAsRequestParams::RegisterUser(_)
             | VerifiedAsRequestParams::GetUserProfile(_) => Ok(vec![]),
         }
     }

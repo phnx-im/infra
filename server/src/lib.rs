@@ -19,13 +19,14 @@ use actix_web::{
     web::{self, Data},
 };
 use phnxbackend::{
-    auth_service::AuthService,
+    auth_service::{AuthService, grpc::GrpcAs},
     ds::{Ds, GrpcDs},
     qs::{
         Qs, QsConnector, errors::QsEnqueueError, grpc::GrpcQs, network_provider::NetworkProvider,
     },
 };
 use phnxprotos::{
+    auth_service::v1::auth_service_server::AuthServiceServer,
     delivery_service::v1::delivery_service_server::DeliveryServiceServer,
     queue_service::v1::queue_service_server::QueueServiceServer,
 };
@@ -86,7 +87,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
 ) -> Result<impl Future<Output = io::Result<()>>, io::Error> {
     // Wrap providers in a Data<T>
     let ds_data = Data::new(ds.clone());
-    let auth_service_data = Data::new(auth_service);
+    let auth_service_data = Data::new(auth_service.clone());
     let qs_data = Data::new(qs.clone());
     let qs_connector_data = Data::new(qs_connector.clone());
     let network_provider_data = Data::new(network_provider);
@@ -132,6 +133,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     // GRPC server
+    let grpc_as = GrpcAs::new(auth_service);
     let grpc_ds = GrpcDs::new(ds, qs_connector);
     let grpc_qs = GrpcQs::new(qs, ws_dispatch_notifier);
 
@@ -170,6 +172,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
                     ),
             )
             .layer(GovernorLayer::new(governor_config))
+            .add_service(AuthServiceServer::new(grpc_as))
             .add_service(DeliveryServiceServer::new(grpc_ds))
             .add_service(QueueServiceServer::new(grpc_qs))
             .serve_with_incoming_shutdown(TcpListenerStream::new(grpc_listener), async move {

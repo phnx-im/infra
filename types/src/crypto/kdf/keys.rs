@@ -7,7 +7,10 @@
 //! keys, the target key (or value) needs to implement the [`KdfDerivable`]
 //! trait.
 
-use crate::crypto::indexed_aead::keys::{Key, RandomlyGeneratable};
+use crate::crypto::{
+    RawKey,
+    indexed_aead::keys::{Key, RandomlyGeneratable},
+};
 
 use super::{KDF_KEY_SIZE, KdfDerivable, traits::KdfKey};
 
@@ -29,6 +32,7 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, KDF_KEY_SIZE> for RatchetSecret {
 pub struct ConnectionKeyType;
 pub type ConnectionKey = Key<ConnectionKeyType>;
 impl RandomlyGeneratable for ConnectionKeyType {}
+impl RawKey for ConnectionKeyType {}
 
 impl KdfKey for ConnectionKey {
     const ADDITIONAL_LABEL: &'static str = "FriendshipSecret";

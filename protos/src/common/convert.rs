@@ -4,8 +4,13 @@
 
 use chrono::DateTime;
 use phnxtypes::{
-    crypto::ear::AeadCiphertext,
-    crypto::{self, ear, kdf::KDF_KEY_SIZE, secrets::Secret, signatures::signable},
+    crypto::{
+        self,
+        ear::{self, AeadCiphertext},
+        kdf::KDF_KEY_SIZE,
+        secrets::Secret,
+        signatures::signable,
+    },
     identifiers, time,
 };
 use tonic::Status;
@@ -16,8 +21,8 @@ use crate::{
 };
 
 use super::v1::{
-    Ciphertext, Fqdn, GroupId, QualifiedGroupId, RatchetEncryptionKey, RatchetSecret, Signature,
-    Timestamp, Uuid,
+    Ciphertext, Fqdn, GroupId, QualifiedGroupId, QualifiedUserName, RatchetEncryptionKey,
+    RatchetSecret, Signature, Timestamp, UserName, Uuid,
 };
 
 impl From<uuid::Uuid> for Uuid {
@@ -239,6 +244,58 @@ impl From<crypto::kdf::keys::RatchetSecret> for RatchetSecret {
         Self {
             bytes: value.as_ref().secret().to_vec(),
         }
+    }
+}
+
+impl From<identifiers::UserName> for UserName {
+    fn from(value: identifiers::UserName) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+}
+
+impl TryFrom<UserName> for identifiers::UserName {
+    type Error = identifiers::UserNameError;
+
+    fn try_from(proto: UserName) -> Result<Self, Self::Error> {
+        proto.value.try_into()
+    }
+}
+
+impl From<identifiers::QualifiedUserName> for QualifiedUserName {
+    fn from(value: identifiers::QualifiedUserName) -> Self {
+        let (user_name, domain) = value.into_parts();
+        Self {
+            name: Some(user_name.into()),
+            domain: Some(domain.ref_into()),
+        }
+    }
+}
+
+impl TryFrom<QualifiedUserName> for identifiers::QualifiedUserName {
+    type Error = QualifiedUserNameError;
+
+    fn try_from(proto: QualifiedUserName) -> Result<Self, Self::Error> {
+        let name = proto.name.ok_or_missing_field("name")?.try_into()?;
+        let domain = proto.domain.ok_or_missing_field("domain")?.try_ref_into()?;
+        Ok(Self::new(name, domain))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum QualifiedUserNameError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    UserName(#[from] identifiers::UserNameError),
+    #[error(transparent)]
+    Fqdn(#[from] identifiers::FqdnError),
+}
+
+impl From<QualifiedUserNameError> for Status {
+    fn from(e: QualifiedUserNameError) -> Self {
+        Status::invalid_argument(format!("invalid qualified user name: {e}"))
     }
 }
 

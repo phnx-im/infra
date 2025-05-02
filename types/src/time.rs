@@ -152,6 +152,13 @@ pub struct ExpirationData {
 }
 
 impl ExpirationData {
+    pub fn from_parts(not_before: TimeStamp, not_after: TimeStamp) -> Self {
+        Self {
+            not_before,
+            not_after,
+        }
+    }
+
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
     pub fn new(lifetime: Duration) -> Self {
