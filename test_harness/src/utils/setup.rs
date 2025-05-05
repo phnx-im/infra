@@ -28,6 +28,8 @@ use super::TEST_RATE_LIMITS;
 
 pub struct TestUser {
     pub user: CoreUser,
+    // If this is an ephemeral user, this is None.
+    pub db_dir: Option<String>,
 }
 
 impl AsRef<CoreUser> for TestUser {
@@ -56,7 +58,7 @@ impl TestUser {
         let user = CoreUser::new_ephemeral(user_name.clone(), server_url, grpc_port, None)
             .await
             .unwrap();
-        Self { user }
+        Self { user, db_dir: None }
     }
 
     pub async fn new_persisted(
@@ -73,7 +75,10 @@ impl TestUser {
         let user = CoreUser::new(user_name.clone(), server_url, grpc_port, db_dir, None)
             .await
             .unwrap();
-        Self { user }
+        Self {
+            user,
+            db_dir: Some(db_dir.to_owned()),
+        }
     }
 
     pub fn user(&self) -> &CoreUser {
@@ -150,6 +155,18 @@ impl TestBackend {
 
     pub fn get_user(&self, user_name: &QualifiedUserName) -> &TestUser {
         self.users.get(user_name).unwrap()
+    }
+
+    pub fn take_user(&mut self, user_name: &QualifiedUserName) -> TestUser {
+        self.users.remove(user_name).unwrap()
+    }
+
+    pub async fn delete_user(&mut self, user_name: &QualifiedUserName) {
+        let test_user = self.take_user(user_name);
+        match test_user.db_dir {
+            Some(db_dir) => test_user.user.delete(db_dir.as_str()).await.unwrap(),
+            None => test_user.user.delete_ephemeral().await.unwrap(),
+        }
     }
 
     /// This has the updater commit an update, but without the checks ensuring

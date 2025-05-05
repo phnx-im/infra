@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use http::StatusCode;
-use phnxprotos::auth_service::v1::RegisterUserRequest;
+use phnxprotos::auth_service::v1::{DeleteUserPayload, RegisterUserRequest};
 use phnxtypes::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
@@ -16,10 +16,9 @@ use phnxtypes::{
         client_as::{
             AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParamsOut,
             AsVersionedRequestParamsOut, ClientConnectionPackageParamsTbs, ClientToAsMessageOut,
-            ConnectionPackage, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
-            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams, IssueTokensParamsTbs,
-            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
-            UserConnectionPackagesParams,
+            ConnectionPackage, DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
+            EnqueueMessageParams, IssueTokensParamsTbs, IssueTokensResponse,
+            SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
@@ -33,6 +32,7 @@ use phnxtypes::{
 use privacypass::batched_tokens_ristretto255::TokenRequest;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
+use tonic::Request;
 use tracing::error;
 
 pub mod grpc;
@@ -115,7 +115,7 @@ impl ApiClient {
         let response = self
             .as_grpc_client
             .client()
-            .register_user(tonic::Request::new(request))
+            .register_user(Request::new(request))
             .await?
             .into_inner();
         Ok(RegisterUserResponseIn {
@@ -181,22 +181,13 @@ impl ApiClient {
         client_id: AsClientId,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
-        let tbs = DeleteUserParamsTbs {
-            client_id,
-            user_name,
+        let payload = DeleteUserPayload {
+            user_name: Some(user_name.into()),
+            client_id: Some(client_id.into()),
         };
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::DeleteUser(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client.client().delete_user(request).await?;
+        Ok(())
     }
 
     pub async fn as_dequeue_messages(

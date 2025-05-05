@@ -7,10 +7,18 @@ use phnxprotos::{
     validation::MissingFieldExt,
 };
 
-use phnxtypes::{errors, messages::client_as_out::RegisterUserParamsIn};
+use phnxtypes::{
+    crypto::signatures::{
+        private_keys::SignatureVerificationError,
+        signable::{Verifiable, VerifiedStruct},
+    },
+    errors, identifiers,
+    messages::{client_as::DeleteUserParamsTbs, client_as_out::RegisterUserParamsIn},
+};
 use tonic::{Request, Response, Status, async_trait};
+use tracing::error;
 
-use super::AuthService;
+use super::{AuthService, client_record::ClientRecord};
 
 pub struct GrpcAs {
     inner: AuthService,
@@ -19,6 +27,32 @@ pub struct GrpcAs {
 impl GrpcAs {
     pub fn new(inner: AuthService) -> Self {
         Self { inner }
+    }
+
+    async fn verify<R, P>(&self, request: R) -> Result<(identifiers::AsClientId, P), Status>
+    where
+        R: WithAsClientId + Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        let client_id = request.client_id()?;
+        let client_record = ClientRecord::load(&self.inner.db_pool, &client_id)
+            .await
+            .map_err(|error| {
+                error!(%error, %client_id, "failed to load client");
+                Status::internal("database error")
+            })?
+            .ok_or_else(|| Status::not_found("unknown client"))?;
+        let payload = request
+            .verify(client_record.credential.verifying_key())
+            .map_err(|error| match error {
+                SignatureVerificationError::VerificationFailure => {
+                    Status::unauthenticated("invalid signature")
+                }
+                SignatureVerificationError::LibraryError(_) => {
+                    Status::internal("unrecoverable error")
+                }
+            })?;
+        Ok((client_id, payload))
     }
 }
 
@@ -59,9 +93,22 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn delete_user(
         &self,
-        _request: Request<DeleteUserRequest>,
+        request: Request<DeleteUserRequest>,
     ) -> Result<Response<DeleteUserResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let (client_id, payload) = self.verify::<_, DeleteUserPayload>(request).await?;
+        let params = DeleteUserParamsTbs {
+            user_name: payload
+                .user_name
+                .ok_or_missing_field("user_name")?
+                .try_into()?,
+            client_id,
+        };
+        self.inner
+            .as_delete_user(params)
+            .await
+            .map_err(DeleteUserError)?;
+        Ok(Response::new(DeleteUserResponse {}))
     }
 
     async fn publish_connection_package(
@@ -126,5 +173,34 @@ impl From<RegisterUserError> for Status {
                 Status::invalid_argument(e.0.to_string())
             }
         }
+    }
+}
+
+struct DeleteUserError(errors::auth_service::DeleteUserError);
+
+impl From<DeleteUserError> for Status {
+    fn from(e: DeleteUserError) -> Self {
+        match e.0 {
+            errors::auth_service::DeleteUserError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+        }
+    }
+}
+
+trait WithAsClientId {
+    fn client_id(&self) -> Result<identifiers::AsClientId, Status>;
+}
+
+impl WithAsClientId for DeleteUserRequest {
+    fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or_missing_field("payload")?
+            .client_id
+            .clone()
+            .ok_or_missing_field("client_id")?
+            .try_into()?)
     }
 }

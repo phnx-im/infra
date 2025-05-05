@@ -110,6 +110,11 @@ message RegisterUserResponse {
 // delete user
 
 message DeleteUserRequest {
+  DeleteUserPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message DeleteUserPayload {
   common.v1.QualifiedUserName user_name = 1;
   AsClientId client_id = 2;
 }

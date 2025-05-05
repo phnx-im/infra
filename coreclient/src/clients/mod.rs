@@ -46,7 +46,7 @@ use tokio_stream::Stream;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::{Asset, groups::Group};
+use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
@@ -224,6 +224,32 @@ impl CoreUser {
         ClientRecord::set_default(&phnx_db, &as_client_id).await?;
 
         Ok(final_state.into_self_user(client_db, api_clients))
+    }
+
+    /// Delete this user on the server and locally.
+    ///
+    /// The user database is also deleted. The client record is removed from the phnx database.
+    pub async fn delete(self, db_path: &str) -> anyhow::Result<()> {
+        let as_client_id = self.as_client_id();
+        self.delete_ephemeral().await?;
+        delete_client_database(db_path, &as_client_id).await?;
+        Ok(())
+    }
+
+    /// Delete this user on the server.
+    ///
+    /// The local database and client record are not touched.
+    pub async fn delete_ephemeral(self) -> anyhow::Result<()> {
+        self.inner
+            .api_clients
+            .default_client()?
+            .as_delete_user(
+                self.user_name().clone(),
+                self.as_client_id().clone(),
+                &self.inner.key_store.signing_key,
+            )
+            .await?;
+        Ok(())
     }
 
     pub(crate) fn pool(&self) -> &SqlitePool {

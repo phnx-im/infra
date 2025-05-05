@@ -1,0 +1,71 @@
+use phnxtypes::crypto::signatures::signable::{
+    self, Signable, SignedStruct, Verifiable, VerifiedStruct,
+};
+use prost::Message;
+
+use super::v1::{DeleteUserPayload, DeleteUserRequest};
+
+const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
+
+impl SignedStruct<DeleteUserPayload> for DeleteUserRequest {
+    fn from_payload(payload: DeleteUserPayload, signature: signable::Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for DeleteUserPayload {
+    type SignedOutput = DeleteUserRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        DELETE_USER_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<DeleteUserRequest> for DeleteUserPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: DeleteUserRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for DeleteUserRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        DELETE_USER_PAYLOAD_LABEL
+    }
+}
+
+struct MissingPayloadError;
+
+impl From<MissingPayloadError> for tls_codec::Error {
+    fn from(_: MissingPayloadError) -> Self {
+        tls_codec::Error::EncodingError("missing payload".to_owned())
+    }
+}
+
+mod private_mod {
+    #[derive(Default)]
+    pub struct Seal;
+}
