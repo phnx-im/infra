@@ -40,9 +40,6 @@ impl CoreUser {
         user_profile.update(&mut *connection, &mut notifier).await?;
         user_profile_key.store_own(&mut connection).await?;
 
-        let own_key = UserProfileKey::load_own(connection.as_mut()).await?;
-        assert_eq!(own_key.index(), user_profile_key.index());
-
         notifier.notify();
 
         // Phase 2: Encrypt the user profile
@@ -102,17 +99,13 @@ impl CoreUser {
         let user_name = member_id.user_name().clone();
 
         // Phase 1: Check if the profile in the DB is up to date.
-        let mut connection = self.pool().acquire().await?;
         let mut old_user_profile_key_index = None;
-        if let Some(user_profile) =
-            IndexedUserProfile::load(connection.as_mut(), &user_name).await?
-        {
+        if let Some(user_profile) = IndexedUserProfile::load(self.pool(), &user_name).await? {
             if user_profile.decryption_key_index() == user_profile_key.index() {
                 return Ok(());
             }
             old_user_profile_key_index = Some(user_profile.decryption_key_index().clone());
         };
-        drop(connection);
 
         // Phase 2: Fetch the user profile from the server
         let api_client = self.inner.api_clients.get(user_name.domain())?;

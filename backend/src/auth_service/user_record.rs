@@ -175,7 +175,9 @@ pub(crate) mod persistence {
         ) -> Result<(), StorageError> {
             let password_file = BlobEncoded(&self.password_file);
             query!(
-                "INSERT INTO as_user_records (user_name, password_file, encrypted_user_profile, staged_user_profile) VALUES ($1, $2, $3, $4)",
+                "INSERT INTO as_user_records 
+                    (user_name, password_file, encrypted_user_profile, staged_user_profile) 
+                    VALUES ($1, $2, $3, $4)",
                 self.user_name.to_string(),
                 password_file as _,
                 self.encrypted_user_profile as _,

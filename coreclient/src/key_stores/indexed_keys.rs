@@ -179,5 +179,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(new_key, loaded_key);
+
+        // Delete key
+        UserProfileKey::delete(connection.as_mut(), new_key.index())
+            .await
+            .unwrap();
+        let loaded_key = UserProfileKey::load(connection.as_mut(), new_key.index())
+            .await
+            .unwrap_err();
+        assert!(matches!(loaded_key, sqlx::Error::RowNotFound));
     }
 }

@@ -21,7 +21,7 @@ use super::RandomnessError;
 
 /// Struct that contains a (symmetric) secret of fixed length LENGTH.
 #[derive(
-    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize, Debug,
+    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize,
 )]
 pub struct Secret<const LENGTH: usize> {
     #[serde(with = "super::serde_arrays")]
@@ -65,11 +65,11 @@ impl<const LENGTH: usize> Zeroize for Secret<LENGTH> {
 impl<const LENGTH: usize> ZeroizeOnDrop for Secret<LENGTH> {}
 
 // Ensures that secrets are not printed in debug outputs.
-//impl<const LENGTH: usize> std::fmt::Debug for Secret<LENGTH> {
-//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//        f.debug_struct("Secret: [[REDACTED]]").finish()
-//    }
-//}
+impl<const LENGTH: usize> std::fmt::Debug for Secret<LENGTH> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Secret: [[REDACTED]]").finish()
+    }
+}
 
 // Ensures that secrets are not printed in format strings.
 impl<const LENGTH: usize> Display for Secret<LENGTH> {
