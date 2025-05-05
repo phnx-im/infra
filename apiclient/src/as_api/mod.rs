@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use http::StatusCode;
 use phnxprotos::auth_service::v1::{
     AsCredentialsRequest, DeleteUserPayload, DequeueMessagesPayload, EnqueueMessagesRequest,
     GetUserConnectionPackagesRequest, GetUserProfileRequest, PublishConnectionPackagesPayload,
@@ -12,51 +11,33 @@ use phnxtypes::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{RatchetEncryptionKey, kdf::keys::RatchetSecret, signatures::signable::Signable},
-    endpoint_paths::ENDPOINT_AS,
-    errors::version::VersionError,
     identifiers::{AsClientId, QualifiedUserName},
     messages::{
         client_as::{
-            AsRequestParamsOut, AsVersionedRequestParamsOut, ClientToAsMessageOut,
-            ConnectionPackage, EncryptedConnectionEstablishmentPackage, SUPPORTED_AS_API_VERSIONS,
+            ConnectionPackage, EncryptedConnectionEstablishmentPackage,
             UserConnectionPackagesParams,
         },
         client_as_out::{
-            AsCredentialsResponseIn, AsProcessResponseIn, AsVersionedProcessResponseIn,
-            EncryptedUserProfile, GetUserProfileResponse, RegisterUserResponseIn,
-            UserConnectionPackagesResponseIn,
+            AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
+            RegisterUserResponseIn, UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
 };
 use thiserror::Error;
-use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Request;
 use tracing::error;
 
 pub mod grpc;
 
-use crate::{
-    ApiClient, Protocol,
-    version::{extract_api_version_negotiation, negotiate_api_version},
-};
+use crate::ApiClient;
 
 #[derive(Error, Debug)]
 pub enum AsRequestError {
     #[error("Library Error")]
     LibraryError,
-    #[error(transparent)]
-    Reqwest(#[from] reqwest::Error),
-    #[error(transparent)]
-    Tls(#[from] tls_codec::Error),
     #[error("Received an unexpected response type")]
     UnexpectedResponse,
-    #[error("API Error: {0}")]
-    Api(#[from] VersionError),
-    #[error("AS Error: {0}")]
-    AsError(String),
-    #[error("Unsuccessful response: status = {status}, error = {error}")]
-    RequestFailed { status: StatusCode, error: String },
     #[error(transparent)]
     Tonic(#[from] tonic::Status),
 }
@@ -68,37 +49,6 @@ impl From<LibraryError> for AsRequestError {
 }
 
 impl ApiClient {
-    async fn prepare_and_send_as_message(
-        &self,
-        request_params: AsRequestParamsOut,
-    ) -> Result<AsProcessResponseIn, AsRequestError> {
-        let api_version = self.negotiated_versions().as_api_version();
-        let api_version = api_version;
-
-        let request_params =
-            AsVersionedRequestParamsOut::with_version(request_params, api_version)?;
-        let message = ClientToAsMessageOut::new(request_params);
-
-        let response = self.send_as_http_request(&message).await?;
-
-        // check if we need to negotiate a new API version
-        let Some(accepted_versions) = extract_api_version_negotiation(&response) else {
-            return handle_as_response(response).await;
-        };
-
-        let supported_versions = SUPPORTED_AS_API_VERSIONS;
-        let accepted_version = negotiate_api_version(accepted_versions, supported_versions)
-            .ok_or_else(|| VersionError::new(api_version, supported_versions))?;
-        self.negotiated_versions()
-            .set_as_api_version(accepted_version);
-
-        let (request_params, _) = message.into_body().change_version(accepted_version)?;
-        let message = ClientToAsMessageOut::new(request_params);
-
-        let response = self.send_as_http_request(&message).await?;
-        handle_as_response(response).await
-    }
-
     pub async fn as_register_user(
         &self,
         client_payload: ClientCredentialPayload,
@@ -320,49 +270,5 @@ impl ApiClient {
                 .map(From::from)
                 .collect(),
         })
-    }
-
-    async fn send_as_http_request(
-        &self,
-        message: &ClientToAsMessageOut,
-    ) -> Result<reqwest::Response, AsRequestError> {
-        let message_bytes = message.tls_serialize_detached()?;
-        let endpoint = self.build_url(Protocol::Http, ENDPOINT_AS);
-        let response = self
-            .client
-            .post(endpoint)
-            .body(message_bytes)
-            .send()
-            .await?;
-        Ok(response)
-    }
-}
-
-async fn handle_as_response(res: reqwest::Response) -> Result<AsProcessResponseIn, AsRequestError> {
-    let status = res.status();
-    match status.as_u16() {
-        // Success!
-        _ if res.status().is_success() => {
-            let bytes = res.bytes().await?;
-            let response = AsVersionedProcessResponseIn::tls_deserialize_exact_bytes(&bytes)?
-                .into_unversioned()?;
-            Ok(response)
-        }
-        // AS Specific Error
-        418 => {
-            let error = res
-                .text()
-                .await
-                .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
-            Err(AsRequestError::AsError(error))
-        }
-        // All other errors
-        _ => {
-            let error = res
-                .text()
-                .await
-                .unwrap_or_else(|error| format!("unprocessable response body due to: {error}"));
-            Err(AsRequestError::RequestFailed { status, error })
-        }
     }
 }

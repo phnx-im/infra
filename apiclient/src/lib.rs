@@ -4,7 +4,7 @@
 
 //! HTTP client for the server REST API
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use as_api::grpc::AsGrpcClient;
 use ds_api::grpc::DsGrpcClient;
@@ -20,12 +20,10 @@ use thiserror::Error;
 use tonic::transport::ClientTlsConfig;
 use tracing::info;
 use url::ParseError;
-use version::NegotiatedApiVersions;
 
 pub mod as_api;
 pub mod ds_api;
 pub mod qs_api;
-pub(crate) mod version;
 
 /// Defines the type of protocol used for a specific endpoint.
 pub enum Protocol {
@@ -64,7 +62,6 @@ pub struct ApiClient {
     qs_grpc_client: QsGrpcClient,
     ds_grpc_client: DsGrpcClient,
     url: Url,
-    api_versions: Arc<NegotiatedApiVersions>,
 }
 
 impl ApiClient {
@@ -133,7 +130,6 @@ impl ApiClient {
             qs_grpc_client,
             ds_grpc_client,
             url,
-            api_versions: Arc::new(NegotiatedApiVersions::new()),
         })
     }
 
@@ -188,9 +184,5 @@ impl ApiClient {
         } else {
             false
         }
-    }
-
-    pub(crate) fn negotiated_versions(&self) -> &NegotiatedApiVersions {
-        &self.api_versions
     }
 }
