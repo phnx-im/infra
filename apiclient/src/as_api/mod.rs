@@ -6,6 +6,7 @@ use http::StatusCode;
 use phnxprotos::auth_service::v1::{
     AsCredentialsRequest, DeleteUserPayload, DequeueMessagesPayload, EnqueueMessagesRequest,
     GetUserConnectionPackagesRequest, PublishConnectionPackagesPayload, RegisterUserRequest,
+    UpdateUserProfilePayload,
 };
 use phnxtypes::{
     LibraryError,
@@ -25,8 +26,7 @@ use phnxtypes::{
         client_as_out::{
             AsCredentialsResponseIn, AsProcessResponseIn, AsVersionedProcessResponseIn,
             EncryptedUserProfile, GetUserProfileParams, GetUserProfileResponse,
-            RegisterUserResponseIn, UpdateUserProfileParamsTbs, UserClientsResponseIn,
-            UserConnectionPackagesResponseIn,
+            RegisterUserResponseIn, UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -159,22 +159,16 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
-        let payload = UpdateUserProfileParamsTbs {
-            client_id,
-            user_profile: encrypted_user_profile,
-        }
-        .sign(signing_key)?;
-        let params = AsRequestParamsOut::UpdateUserProfile(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let payload = UpdateUserProfilePayload {
+            client_id: Some(client_id.into()),
+            encrypted_user_profile: Some(encrypted_user_profile.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client
+            .client()
+            .update_user_profile(request)
+            .await?;
+        Ok(())
     }
 
     pub async fn as_delete_user(

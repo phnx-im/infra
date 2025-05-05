@@ -18,7 +18,10 @@ use phnxtypes::{
             AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
             EnqueueMessageParams, UserConnectionPackagesParams,
         },
-        client_as_out::{AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn},
+        client_as_out::{
+            AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn,
+            UpdateUserProfileParamsTbs,
+        },
     },
 };
 use tonic::{Request, Response, Status, async_trait};
@@ -194,6 +197,28 @@ impl auth_service_server::AuthService for GrpcAs {
         }))
     }
 
+    async fn update_user_profile(
+        &self,
+        request: Request<UpdateUserProfileRequest>,
+    ) -> Result<Response<UpdateUserProfileResponse>, Status> {
+        let request = request.into_inner();
+        let (client_id, payload) = self
+            .verify_client_auth::<_, UpdateUserProfilePayload>(request)
+            .await?;
+        let params = UpdateUserProfileParamsTbs {
+            client_id,
+            user_profile: payload
+                .encrypted_user_profile
+                .ok_or_missing_field("encrypted_user_profile")?
+                .try_into()?,
+        };
+        self.inner
+            .as_update_user_profile(params)
+            .await
+            .map_err(UpdateUserProfileError)?;
+        Ok(Response::new(UpdateUserProfileResponse {}))
+    }
+
     async fn issue_tokens(
         &self,
         _request: Request<IssueTokensRequest>,
@@ -353,6 +378,21 @@ impl From<DequeueMessagesError> for Status {
     }
 }
 
+struct UpdateUserProfileError(errors::auth_service::UpdateUserProfileError);
+
+impl From<UpdateUserProfileError> for Status {
+    fn from(e: UpdateUserProfileError) -> Self {
+        match e.0 {
+            errors::auth_service::UpdateUserProfileError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::UpdateUserProfileError::UserNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+        }
+    }
+}
+
 trait WithAsClientId {
     fn client_id_proto(&self) -> Option<AsClientId>;
     fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
@@ -378,5 +418,11 @@ impl WithAsClientId for PublishConnectionPackagesRequest {
 impl WithAsClientId for DequeueMessagesRequest {
     fn client_id_proto(&self) -> Option<AsClientId> {
         self.payload.as_ref()?.sender.clone()
+    }
+}
+
+impl WithAsClientId for UpdateUserProfileRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
     }
 }

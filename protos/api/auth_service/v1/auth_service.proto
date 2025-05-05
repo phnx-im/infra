@@ -14,6 +14,7 @@ service AuthService {
 
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
   rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
+  rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
 
   rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
 
@@ -144,6 +145,20 @@ message GetUserConnectionPackagesRequest {
 message GetUserConnectionPackagesResponse {
   repeated ConnectionPackage connection_packages = 1;
 }
+
+// update user profile
+
+message UpdateUserProfileRequest {
+  UpdateUserProfilePayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message UpdateUserProfilePayload {
+  AsClientId client_id = 1;
+  EncryptedUserProfile encrypted_user_profile = 2;
+}
+
+message UpdateUserProfileResponse {}
 
 // as credentials
 
