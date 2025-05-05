@@ -12,8 +12,7 @@ use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService
 use phnxserver::{
     RateLimitsConfig, ServerRunParams, configurations::get_configuration_from_str,
     enqueue_provider::SimpleEnqueueProvider, network_provider::MockNetworkProvider,
-    push_notification_provider::ProductionPushNotificationProvider, run,
-    ws::DispatchWebsocketNotifier,
+    push_notification_provider::ProductionPushNotificationProvider, run, ws::DispatchNotifier,
 };
 use phnxtypes::identifiers::Fqdn;
 use tokio::net::TcpListener;
@@ -36,7 +35,7 @@ const TEST_RATE_LIMITS: RateLimitsConfig = RateLimitsConfig {
 pub async fn spawn_app(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
-) -> (SocketAddr, DispatchWebsocketNotifier) {
+) -> (SocketAddr, DispatchNotifier) {
     spawn_app_with_rate_limits(domain, network_provider, TEST_RATE_LIMITS).await
 }
 
@@ -45,7 +44,7 @@ pub async fn spawn_app_with_rate_limits(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
     rate_limits: RateLimitsConfig,
-) -> (SocketAddr, DispatchWebsocketNotifier) {
+) -> (SocketAddr, DispatchNotifier) {
     init_test_tracing();
 
     // Load configuration
@@ -62,7 +61,7 @@ pub async fn spawn_app_with_rate_limits(
         .expect("Failed to bind to random port.");
     let grpc_address = grpc_listener.local_addr().unwrap();
 
-    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
+    let ws_dispatch_notifier = DispatchNotifier::new();
 
     // DS storage provider
     let ds = Ds::new(&configuration.database, domain.clone())

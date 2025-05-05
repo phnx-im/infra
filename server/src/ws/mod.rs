@@ -5,16 +5,17 @@
 pub(crate) mod dispatch;
 pub(crate) mod messages;
 
-use actix::{Actor, Addr, Message};
+use std::sync::Arc;
+
+use actix::Message;
 use dispatch::*;
-use messages::*;
-use phnxbackend::qs::{
-    WebsocketNotifier, WebsocketNotifierError, WsNotification, grpc::GrpcListen,
-};
+use phnxbackend::qs::{Notifier, WebsocketNotifierError, WsNotification, grpc::GrpcListen};
 use phnxprotos::queue_service::v1::QueueEvent;
 use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
-use tokio::{self, sync::mpsc};
-use tracing::error;
+use tokio::{
+    self,
+    sync::{Mutex, mpsc},
+};
 
 // Type for internal use so we can derive `Message` and use the rtype attribute.
 #[derive(PartialEq, Eq, Debug, Clone, Message)]
@@ -39,33 +40,20 @@ impl From<WsNotification> for InternalQsWsMessage {
     }
 }
 
-pub struct Client {
-    pub queue_id: QsClientId,
-}
-
 /// This is a wrapper for dispatch actor that can be used to send out a
 /// notification over the dispatch.
-#[derive(Clone, Debug)]
-pub struct DispatchWebsocketNotifier {
-    pub dispatch_addr: Addr<Dispatch>,
+#[derive(Clone, Debug, Default)]
+pub struct DispatchNotifier {
+    pub dispatch: Arc<Mutex<Dispatch>>,
 }
 
-impl DispatchWebsocketNotifier {
-    /// Create a new instance
-    pub fn new(dispatch_addr: Addr<Dispatch>) -> Self {
-        DispatchWebsocketNotifier { dispatch_addr }
-    }
-
-    /// Create a new instance
-    pub fn default_addr() -> Self {
-        let dispatch: Addr<Dispatch> = Dispatch::default().start();
-        DispatchWebsocketNotifier {
-            dispatch_addr: dispatch,
-        }
+impl DispatchNotifier {
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
-impl WebsocketNotifier for DispatchWebsocketNotifier {
+impl Notifier for DispatchNotifier {
     /// Notify a client that opened a websocket connection to the QS.
     ///
     /// # Arguments
@@ -81,43 +69,23 @@ impl WebsocketNotifier for DispatchWebsocketNotifier {
         queue_id: &QsClientId,
         ws_notification: WsNotification,
     ) -> Result<(), WebsocketNotifierError> {
-        // Send the notification message to the dispatch actor
-        self.dispatch_addr
-            .send(NotifyMessage {
-                queue_id: *queue_id,
-                payload: ws_notification.into(),
-            })
-            .await
-            // If the actor doesn't reply, we get a MailboxError
-            .map_err(|e| {
-                tracing::warn!(
-                    "Got a MailboxError while trying to send a message to the WS actor: {}",
-                    e
-                );
-                WebsocketNotifierError::WebsocketNotFound
-            })
-            // Return value of the actor
-            .and_then(|res| res.map_err(|e| {
-                tracing::warn!("The WS actor returned the following error while trying to send a message via WS: {:?}", e);
-                WebsocketNotifierError::WebsocketNotFound}))
+        let mut dispatch = self.dispatch.lock().await;
+        match dispatch.notify_client(queue_id, ws_notification.into()) {
+            Ok(_) => Ok(()),
+            Err(NotifyClientError::ClientNotFound) => {
+                Err(WebsocketNotifierError::WebsocketNotFound)
+            }
+        }
     }
 }
 
-impl GrpcListen for DispatchWebsocketNotifier {
+impl GrpcListen for DispatchNotifier {
     async fn register_connection(
         &self,
         queue_id: QsClientId,
         tx: mpsc::UnboundedSender<QueueEvent>,
     ) {
-        if let Err(error) = self
-            .dispatch_addr
-            .send(GrpcConnect {
-                own_queue_id: queue_id,
-                tx,
-            })
-            .await
-        {
-            error!(%error, "failed to register grpc connection");
-        }
+        let mut dispatch = self.dispatch.lock().await;
+        dispatch.connect(queue_id, tx);
     }
 }

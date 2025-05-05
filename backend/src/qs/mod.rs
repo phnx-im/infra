@@ -135,7 +135,7 @@ pub enum WebsocketNotifierError {
 
 /// TODO: This should be unified with push notifications later
 #[expect(async_fn_in_trait)]
-pub trait WebsocketNotifier {
+pub trait Notifier {
     async fn notify(
         &self,
         client_id: &QsClientId,

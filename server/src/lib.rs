@@ -26,7 +26,7 @@ use tower_governor::{
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{Level, enabled, info};
-use ws::DispatchWebsocketNotifier;
+use ws::DispatchNotifier;
 
 pub mod configurations;
 mod connect_info;
@@ -42,7 +42,7 @@ pub struct ServerRunParams<Qc> {
     pub auth_service: AuthService,
     pub qs: Qs,
     pub qs_connector: Qc,
-    pub ws_dispatch_notifier: DispatchWebsocketNotifier,
+    pub ws_dispatch_notifier: DispatchNotifier,
     pub rate_limits: RateLimitsConfig,
 }
 

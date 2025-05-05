@@ -10,12 +10,12 @@ use phnxbackend::{
     },
 };
 
-use crate::ws::DispatchWebsocketNotifier;
+use crate::ws::DispatchNotifier;
 
 #[derive(Debug, Clone)]
 pub struct SimpleEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider> {
     pub qs: Qs,
-    pub notifier: DispatchWebsocketNotifier,
+    pub notifier: DispatchNotifier,
     pub push_notification_provider: P,
     pub network: N,
 }

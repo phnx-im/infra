@@ -28,7 +28,7 @@ use crate::{
     qs::{PushNotificationError, WsNotification},
 };
 
-use super::{PushNotificationProvider, WebsocketNotifier, errors::EnqueueError, queue::Queue};
+use super::{Notifier, PushNotificationProvider, errors::EnqueueError, queue::Queue};
 
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
@@ -296,7 +296,7 @@ pub(crate) mod persistence {
 
 impl QsClientRecord {
     /// Put a message into the queue.
-    pub(crate) async fn enqueue<W: WebsocketNotifier, P: PushNotificationProvider>(
+    pub(crate) async fn enqueue<W: Notifier, P: PushNotificationProvider>(
         &mut self,
         connection: &mut PgConnection,
         client_id: &QsClientId,

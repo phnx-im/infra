@@ -13,7 +13,7 @@ use phnxserver::{
     push_notification_provider::ProductionPushNotificationProvider,
     run,
     telemetry::{get_subscriber, init_subscriber},
-    ws::DispatchWebsocketNotifier,
+    ws::DispatchNotifier,
 };
 use phnxtypes::identifiers::Fqdn;
 use tracing::info;
@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to connect to database.");
 
-    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
+    let ws_dispatch_notifier = DispatchNotifier::new();
     let push_notification_provider =
         ProductionPushNotificationProvider::new(configuration.fcm, configuration.apns)?;
     let qs_connector = SimpleEnqueueProvider {

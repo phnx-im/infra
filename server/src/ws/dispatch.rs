@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use actix::{
     ResponseFuture,
-    prelude::{Actor, Context, Handler, Recipient},
+    prelude::{Actor, Context, Handler},
 };
 use phnxprotos::{
     convert::RefInto,
@@ -21,37 +21,33 @@ use tracing::info;
 
 use super::{
     InternalQsWsMessage,
-    messages::{Connect, Disconnect, GrpcConnect, NotifyMessage, NotifyMessageError},
+    messages::{Disconnect, GrpcConnect, NotifyMessage, NotifyMessageError},
 };
 
-enum NotifyClientError {
+pub(crate) enum NotifyClientError {
     ClientNotFound,
 }
 
+#[derive(Debug)]
 enum DispatchDestination {
-    Actor(Recipient<InternalQsWsMessage>),
     Channel(mpsc::UnboundedSender<QueueEvent>),
 }
 
 /// Dispatch for all websocket connections. It keeps a list of all connected
 /// clients and can send messages to them.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Dispatch {
     sessions: HashMap<QsClientId, DispatchDestination>,
 }
 
 impl Dispatch {
     /// Notifies a connected client by sending a [`QsWsMessage::NewMessage`] to it.
-    fn notify_client(
+    pub(crate) fn notify_client(
         &mut self,
         queue_id: &QsClientId,
         message: InternalQsWsMessage,
     ) -> Result<(), NotifyClientError> {
         match self.sessions.get(queue_id) {
-            Some(DispatchDestination::Actor(recipient)) => {
-                recipient.do_send(message);
-                Ok(())
-            }
             Some(DispatchDestination::Channel(tx)) => {
                 if tx.send(message.into()).is_ok() {
                     Ok(())
@@ -66,6 +62,11 @@ impl Dispatch {
                 Err(NotifyClientError::ClientNotFound)
             }
         }
+    }
+
+    pub(crate) fn connect(&mut self, queue_id: QsClientId, tx: mpsc::UnboundedSender<QueueEvent>) {
+        self.sessions
+            .insert(queue_id, DispatchDestination::Channel(tx));
     }
 }
 
@@ -94,16 +95,6 @@ impl From<InternalQsWsMessage> for QueueEvent {
 // Makes Dispatch an Actor
 impl Actor for Dispatch {
     type Context = Context<Self>;
-}
-
-// Handle Connect messages
-impl Handler<Connect> for Dispatch {
-    type Result = ();
-
-    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
-        self.sessions
-            .insert(msg.own_queue_id, DispatchDestination::Actor(msg.addr));
-    }
 }
 
 impl Handler<GrpcConnect> for Dispatch {
