@@ -14,7 +14,9 @@ service AuthService {
 
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
   rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
+
   rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
 
   rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
 
@@ -159,6 +161,16 @@ message UpdateUserProfilePayload {
 }
 
 message UpdateUserProfileResponse {}
+
+// get user profile
+
+message GetUserProfileRequest {
+  AsClientId client_id = 1;
+}
+
+message GetUserProfileResponse {
+  EncryptedUserProfile encrypted_user_profile = 1;
+}
 
 // as credentials
 

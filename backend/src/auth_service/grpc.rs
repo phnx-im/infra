@@ -19,7 +19,7 @@ use phnxtypes::{
             EnqueueMessageParams, UserConnectionPackagesParams,
         },
         client_as_out::{
-            AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn,
+            AsPublishConnectionPackagesParamsTbsIn, GetUserProfileParams, RegisterUserParamsIn,
             UpdateUserProfileParamsTbs,
         },
     },
@@ -219,6 +219,26 @@ impl auth_service_server::AuthService for GrpcAs {
         Ok(Response::new(UpdateUserProfileResponse {}))
     }
 
+    async fn get_user_profile(
+        &self,
+        request: Request<GetUserProfileRequest>,
+    ) -> Result<Response<GetUserProfileResponse>, Status> {
+        let request = request.into_inner();
+        let client_id = request
+            .client_id
+            .ok_or_missing_field("client_id")?
+            .try_into()?;
+        let params = GetUserProfileParams { client_id };
+        let response = self
+            .inner
+            .as_get_user_profile(params)
+            .await
+            .map_err(GetUserProfileError)?;
+        Ok(Response::new(GetUserProfileResponse {
+            encrypted_user_profile: Some(response.encrypted_user_profile.into()),
+        }))
+    }
+
     async fn issue_tokens(
         &self,
         _request: Request<IssueTokensRequest>,
@@ -387,6 +407,21 @@ impl From<UpdateUserProfileError> for Status {
                 Status::internal(e.0.to_string())
             }
             errors::auth_service::UpdateUserProfileError::UserNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct GetUserProfileError(errors::auth_service::GetUserProfileError);
+
+impl From<GetUserProfileError> for Status {
+    fn from(e: GetUserProfileError) -> Self {
+        match e.0 {
+            errors::auth_service::GetUserProfileError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::GetUserProfileError::UserNotFound => {
                 Status::not_found(e.0.to_string())
             }
         }

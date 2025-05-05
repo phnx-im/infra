@@ -5,8 +5,8 @@
 use http::StatusCode;
 use phnxprotos::auth_service::v1::{
     AsCredentialsRequest, DeleteUserPayload, DequeueMessagesPayload, EnqueueMessagesRequest,
-    GetUserConnectionPackagesRequest, PublishConnectionPackagesPayload, RegisterUserRequest,
-    UpdateUserProfilePayload,
+    GetUserConnectionPackagesRequest, GetUserProfileRequest, PublishConnectionPackagesPayload,
+    RegisterUserRequest, UpdateUserProfilePayload,
 };
 use phnxtypes::{
     LibraryError,
@@ -16,22 +16,19 @@ use phnxtypes::{
     errors::version::VersionError,
     identifiers::{AsClientId, QualifiedUserName},
     messages::{
-        AsTokenType,
         client_as::{
             AsRequestParamsOut, AsVersionedRequestParamsOut, ClientToAsMessageOut,
-            ConnectionPackage, EncryptedConnectionEstablishmentPackage, IssueTokensParamsTbs,
-            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
+            ConnectionPackage, EncryptedConnectionEstablishmentPackage, SUPPORTED_AS_API_VERSIONS,
             UserConnectionPackagesParams,
         },
         client_as_out::{
             AsCredentialsResponseIn, AsProcessResponseIn, AsVersionedProcessResponseIn,
-            EncryptedUserProfile, GetUserProfileParams, GetUserProfileResponse,
-            RegisterUserResponseIn, UserClientsResponseIn, UserConnectionPackagesResponseIn,
+            EncryptedUserProfile, GetUserProfileResponse, RegisterUserResponseIn,
+            UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
 };
-use privacypass::batched_tokens_ristretto255::TokenRequest;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Request;
@@ -76,6 +73,7 @@ impl ApiClient {
         request_params: AsRequestParamsOut,
     ) -> Result<AsProcessResponseIn, AsRequestError> {
         let api_version = self.negotiated_versions().as_api_version();
+        let api_version = api_version;
 
         let request_params =
             AsVersionedRequestParamsOut::with_version(request_params, api_version)?;
@@ -139,18 +137,28 @@ impl ApiClient {
         &self,
         client_id: AsClientId,
     ) -> Result<GetUserProfileResponse, AsRequestError> {
-        let payload = GetUserProfileParams { client_id };
-        let params = AsRequestParamsOut::GetUserProfile(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::GetUserProfile(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let request = GetUserProfileRequest {
+            client_id: Some(client_id.into()),
+        };
+        let response = self
+            .as_grpc_client
+            .client()
+            .get_user_profile(request)
+            .await?
+            .into_inner();
+        Ok(GetUserProfileResponse {
+            encrypted_user_profile: response
+                .encrypted_user_profile
+                .ok_or_else(|| {
+                    error!("missing `encrypted_user_profile` in response");
+                    AsRequestError::UnexpectedResponse
+                })?
+                .try_into()
+                .map_err(|error| {
+                    error!(%error, "invalid encrypted_user_profile in response");
+                    AsRequestError::UnexpectedResponse
+                })?,
+        })
     }
 
     pub async fn as_update_user_profile(
@@ -234,49 +242,6 @@ impl ApiClient {
             .publish_connection_packages(request)
             .await?;
         Ok(())
-    }
-
-    pub async fn as_issue_tokens(
-        &self,
-        token_type: AsTokenType,
-        token_request: TokenRequest,
-        signing_key: &ClientSigningKey,
-    ) -> Result<IssueTokensResponse, AsRequestError> {
-        let tbs = IssueTokensParamsTbs {
-            client_id: signing_key.credential().identity().clone(),
-            token_type,
-            token_request,
-        };
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::IssueTokens(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::IssueTokens(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
-    }
-
-    pub async fn as_user_clients(
-        &self,
-        user_name: QualifiedUserName,
-    ) -> Result<UserClientsResponseIn, AsRequestError> {
-        let payload = UserClientsParams { user_name };
-        let params = AsRequestParamsOut::UserClients(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::UserClients(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
     }
 
     pub async fn as_user_connection_packages(
