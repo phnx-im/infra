@@ -9,7 +9,7 @@ use phnxtypes::{
             ciphertexts::{IndexDecryptable, IndexEncryptable},
             keys::UserProfileKey,
         },
-        signatures::signable::{Signable, Verifiable},
+        signatures::signable::Signable,
     },
     messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
@@ -18,7 +18,7 @@ use crate::{
     Contact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
-    user_profiles::{IndexedUserProfile, UserProfile, VerifiableUserProfile},
+    user_profiles::{IndexedUserProfile, UnvalidatedUserProfile, UserProfile},
 };
 
 use super::CoreUser;
@@ -28,22 +28,31 @@ impl CoreUser {
         &self,
         user_profile_content: UserProfile,
     ) -> anyhow::Result<()> {
-        let mut notifier = self.store_notifier();
-        let mut connection = self.pool().acquire().await?;
-
         let user_profile_key = UserProfileKey::random(self.user_name())?;
-        let user_profile = IndexedUserProfile::new(
-            user_profile_content.user_name,
-            user_profile_key.index().clone(),
-            user_profile_content.display_name,
-            user_profile_content.profile_picture,
-        );
 
-        // Phase 1: Store the user profile and the new key in the database
-        user_profile.update(&mut *connection, &mut notifier).await?;
-        user_profile_key.store_own(&mut connection).await?;
+        // Phase 1: Store the new user profile key in the database
+        let user_profile = self
+            .with_transaction_and_notifier(async |transaction, notifier| {
+                let current_user_profile_epoch =
+                    IndexedUserProfile::load(&mut *transaction, self.user_name())
+                        .await?
+                        .context("Failed to load own user profile")?
+                        .epoch();
 
-        notifier.notify();
+                let user_profile = IndexedUserProfile::new(
+                    user_profile_content.user_name,
+                    current_user_profile_epoch + 1,
+                    user_profile_key.index().clone(),
+                    user_profile_content.display_name,
+                    user_profile_content.profile_picture,
+                );
+
+                // Phase 1: Store the user profile and the new key in the database
+                user_profile.update(&mut *transaction, notifier).await?;
+                user_profile_key.store_own(&mut *transaction).await?;
+                Ok(user_profile)
+            })
+            .await?;
 
         // Phase 2: Encrypt the user profile
         let signed_user_profile = user_profile.sign(&self.inner.key_store.signing_key)?;
@@ -62,6 +71,7 @@ impl CoreUser {
 
         // Phase 4: Send a notification to all groups
         let own_user_name = self.user_name();
+        let mut connection = self.pool().acquire().await?;
         let groups_ids = Group::load_all_group_ids(&mut connection).await?;
         for group_id in groups_ids {
             let group = Group::load(&mut connection, &group_id)
@@ -103,12 +113,12 @@ impl CoreUser {
         let user_name = client_credential.identity().user_name().clone();
 
         // Phase 1: Check if the profile in the DB is up to date.
-        let mut old_user_profile_key_index = None;
+        let mut old_user_profile = None;
         if let Some(user_profile) = IndexedUserProfile::load(self.pool(), &user_name).await? {
             if user_profile.decryption_key_index() == user_profile_key.index() {
                 return Ok(());
             }
-            old_user_profile_key_index = Some(user_profile.decryption_key_index().clone());
+            old_user_profile = Some(user_profile);
         };
 
         // Phase 2: Fetch the user profile from the server
@@ -124,9 +134,11 @@ impl CoreUser {
             .await?;
 
         let verifiable_user_profile =
-            VerifiableUserProfile::decrypt_with_index(&user_profile_key, &encrypted_user_profile)?;
-        let user_profile: IndexedUserProfile =
-            verifiable_user_profile.verify(client_credential.verifying_key())?;
+            UnvalidatedUserProfile::decrypt_with_index(&user_profile_key, &encrypted_user_profile)?;
+        let user_profile: IndexedUserProfile = verifiable_user_profile.validate(
+            old_user_profile.as_ref().map(|up| up.epoch()),
+            &client_credential,
+        )?;
 
         // Phase 3: Store the user profile and key in the database
         self.with_transaction_and_notifier(async |connection, notifier| {
@@ -138,9 +150,10 @@ impl CoreUser {
                 user_profile_key.index(),
             )
             .await?;
-            if let Some(old_user_profile_key_index) = old_user_profile_key_index {
+            if let Some(old_user_profile) = old_user_profile {
                 // Delete the old user profile key
-                UserProfileKey::delete(connection, &old_user_profile_key_index).await?;
+                UserProfileKey::delete(connection, &old_user_profile.decryption_key_index())
+                    .await?;
             }
             Ok(())
         })

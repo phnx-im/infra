@@ -135,6 +135,7 @@ impl BasicUserData {
 
         let user_profile = IndexedUserProfile::new(
             user_name.clone(),
+            0,
             user_profile_key.index().clone(),
             None,
             None,

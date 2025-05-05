@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR REPLACE INTO users (user_name, epoch, decryption_key_index, display_name, profile_picture)\n            VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "bb6c251caf609189b793c966b8ed9e73837b9b46c0d97bc6055ec62491805193"
+}

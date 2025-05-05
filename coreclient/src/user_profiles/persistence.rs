@@ -2,37 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::QualifiedUserName};
+use phnxtypes::identifiers::QualifiedUserName;
 use sqlx::{SqliteExecutor, query, query_as};
 
 use crate::store::StoreNotifier;
 
-use super::{Asset, DisplayName, IndexedUserProfile, UserProfile};
-
-struct SqlUserProfile {
-    user_name: QualifiedUserName,
-    decryption_key_index: UserProfileKeyIndex,
-    display_name: Option<DisplayName>,
-    profile_picture: Option<Asset>,
-}
-
-impl From<SqlUserProfile> for IndexedUserProfile {
-    fn from(
-        SqlUserProfile {
-            user_name,
-            decryption_key_index,
-            display_name,
-            profile_picture,
-        }: SqlUserProfile,
-    ) -> Self {
-        Self {
-            user_name,
-            decryption_key_index,
-            display_name,
-            profile_picture,
-        }
-    }
-}
+use super::{IndexedUserProfile, UserProfile};
 
 impl IndexedUserProfile {
     pub async fn load(
@@ -40,9 +15,10 @@ impl IndexedUserProfile {
         user_name: &QualifiedUserName,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
-            SqlUserProfile,
+            IndexedUserProfile,
             r#"SELECT
                 user_name AS "user_name: _",
+                epoch AS "epoch: _",
                 decryption_key_index AS "decryption_key_index: _",
                 display_name AS "display_name: _",
                 profile_picture AS "profile_picture: _"
@@ -62,10 +38,12 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
+        let epoch = self.epoch as i64;
         query!(
-            "INSERT OR REPLACE INTO users (user_name, decryption_key_index, display_name, profile_picture)
-            VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO users (user_name, epoch, decryption_key_index, display_name, profile_picture)
+            VALUES (?, ?, ?, ?, ?)",
             self.user_name,
+            epoch,
             self.decryption_key_index,
             self.display_name,
             self.profile_picture,
@@ -83,9 +61,11 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
+        let epoch = self.epoch as i64;
         query!(
-            "UPDATE users SET decryption_key_index = ?2, display_name = ?3, profile_picture = ?4 WHERE user_name = ?1",
+            "UPDATE users SET epoch = ?2, decryption_key_index = ?3, display_name = ?4, profile_picture = ?5 WHERE user_name = ?1",
             self.user_name,
+            epoch,
             self.decryption_key_index,
             self.display_name,
             self.profile_picture
@@ -122,6 +102,7 @@ mod tests {
         let user_profile_key = UserProfileKey::random(&user_name).unwrap();
         let user_profile = IndexedUserProfile::new(
             user_name,
+            0,
             user_profile_key.index().clone(),
             Some("Alice".to_string().try_into().unwrap()),
             Some(Asset::Value(vec![1, 2, 3])),
