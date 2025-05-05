@@ -21,8 +21,8 @@ use crate::{
 };
 
 use super::v1::{
-    Ciphertext, Fqdn, GroupId, QualifiedGroupId, QualifiedUserName, RatchetEncryptionKey,
-    RatchetSecret, Signature, Timestamp, UserName, Uuid,
+    Ciphertext, Fqdn, GroupId, HpkeCiphertext, QualifiedGroupId, QualifiedUserName,
+    RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, UserName, Uuid,
 };
 
 impl From<uuid::Uuid> for Uuid {
@@ -296,6 +296,24 @@ pub enum QualifiedUserNameError {
 impl From<QualifiedUserNameError> for Status {
     fn from(e: QualifiedUserNameError) -> Self {
         Status::invalid_argument(format!("invalid qualified user name: {e}"))
+    }
+}
+
+impl From<openmls::prelude::HpkeCiphertext> for HpkeCiphertext {
+    fn from(value: openmls::prelude::HpkeCiphertext) -> Self {
+        Self {
+            kem_output: value.kem_output.into(),
+            ciphertext: value.ciphertext.into(),
+        }
+    }
+}
+
+impl From<HpkeCiphertext> for openmls::prelude::HpkeCiphertext {
+    fn from(proto: HpkeCiphertext) -> Self {
+        Self {
+            kem_output: proto.kem_output.into(),
+            ciphertext: proto.ciphertext.into(),
+        }
     }
 }
 

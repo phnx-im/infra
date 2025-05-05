@@ -20,112 +20,61 @@ use crate::{
 
 use super::v1::{
     AddUsersInfo, AssistedMessage, EncryptedIdentityLinkKey, EncryptedUserProfileKey,
-    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupInfo, GroupStateEarKey, HpkeCiphertext,
-    LeafNodeIndex, MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
+    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupInfo, GroupStateEarKey, LeafNodeIndex,
+    MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
 };
 
-impl TryFromRef<'_, openmls::prelude::HpkeCiphertext> for HpkeCiphertext {
-    type Error = tls_codec::Error;
-
-    fn try_from_ref(value: &openmls::prelude::HpkeCiphertext) -> Result<Self, Self::Error> {
-        Ok(Self {
-            tls: value.tls_serialize_detached()?,
-        })
+impl From<identifiers::SealedClientReference> for SealedClientReference {
+    fn from(value: identifiers::SealedClientReference) -> Self {
+        Self {
+            ciphertext: Some(value.into_ciphertext().into()),
+        }
     }
 }
 
-impl TryFromRef<'_, HpkeCiphertext> for openmls::prelude::HpkeCiphertext {
-    type Error = tls_codec::Error;
+impl TryFrom<SealedClientReference> for identifiers::SealedClientReference {
+    type Error = MissingFieldError<&'static str>;
 
-    fn try_from_ref(proto: &HpkeCiphertext) -> Result<Self, Self::Error> {
-        DeserializeBytes::tls_deserialize_exact_bytes(&proto.tls)
-    }
-}
-
-impl TryFromRef<'_, identifiers::SealedClientReference> for SealedClientReference {
-    type Error = tls_codec::Error;
-
-    fn try_from_ref(value: &identifiers::SealedClientReference) -> Result<Self, Self::Error> {
-        Ok(Self {
-            ciphertext: Some(value.as_ref().try_ref_into()?),
-        })
-    }
-}
-
-impl TryFromRef<'_, SealedClientReference> for identifiers::SealedClientReference {
-    type Error = SealedClientReferenceError;
-
-    fn try_from_ref(proto: &SealedClientReference) -> Result<Self, Self::Error> {
-        let ciphertext = proto
-            .ciphertext
-            .as_ref()
-            .ok_or_missing_field(CiphertextField)?;
-        let ciphertext = openmls::prelude::HpkeCiphertext::try_from_ref(ciphertext)?;
+    fn try_from(proto: SealedClientReference) -> Result<Self, Self::Error> {
+        let ciphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?;
+        let ciphertext = openmls::prelude::HpkeCiphertext::from(ciphertext);
         Ok(ciphertext.into())
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum SealedClientReferenceError {
-    #[error(transparent)]
-    Field(#[from] MissingFieldError<CiphertextField>),
-    #[error(transparent)]
-    InvalidCiphertext(#[from] tls_codec::Error),
-}
-
-impl From<SealedClientReferenceError> for Status {
-    fn from(e: SealedClientReferenceError) -> Self {
-        Status::invalid_argument(format!("invalid sealed client reference: {e}"))
-    }
-}
-
-impl TryFromRef<'_, identifiers::QsReference> for QsReference {
-    type Error = tls_codec::Error;
-
-    fn try_from_ref(value: &identifiers::QsReference) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<identifiers::QsReference> for QsReference {
+    fn from(value: identifiers::QsReference) -> Self {
+        Self {
             client_homeserver_domain: Some(value.client_homeserver_domain.ref_into()),
-            sealed_reference: Some(value.sealed_reference.try_ref_into()?),
-        })
+            sealed_reference: Some(value.sealed_reference.into()),
+        }
     }
 }
 
-impl TryFromRef<'_, QsReference> for identifiers::QsReference {
+impl TryFrom<QsReference> for identifiers::QsReference {
     type Error = QsReferenceError;
 
-    fn try_from_ref(proto: &QsReference) -> Result<Self, Self::Error> {
-        use QsReferenceField::*;
+    fn try_from(proto: QsReference) -> Result<Self, Self::Error> {
         Ok(Self {
             client_homeserver_domain: proto
                 .client_homeserver_domain
                 .as_ref()
-                .ok_or_missing_field(ClientHomeserverDomain)?
+                .ok_or_missing_field("client_homeserver_domain")?
                 .try_ref_into()?,
             sealed_reference: proto
                 .sealed_reference
-                .as_ref()
-                .ok_or_missing_field(SealedReference)?
-                .try_ref_into()?,
+                .ok_or_missing_field("sealed_reference")?
+                .try_into()?,
         })
     }
-}
-
-#[derive(Debug, derive_more::Display)]
-pub enum QsReferenceField {
-    #[display(fmt = "client_homeserver_domain")]
-    ClientHomeserverDomain,
-    #[display(fmt = "sealed_reference")]
-    SealedReference,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum QsReferenceError {
     #[error(transparent)]
-    Field(#[from] MissingFieldError<QsReferenceField>),
+    Field(#[from] MissingFieldError<&'static str>),
     #[error(transparent)]
     Fqdn(#[from] identifiers::FqdnError),
-    #[error(transparent)]
-    SealedClientReference(#[from] SealedClientReferenceError),
 }
 
 impl From<QsReferenceError> for Status {

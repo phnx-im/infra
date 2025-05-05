@@ -14,7 +14,10 @@ use phnxtypes::{
     },
     errors, identifiers,
     messages::{
-        client_as::{AsCredentialsParams, ClientConnectionPackageParamsTbs, DeleteUserParamsTbs},
+        client_as::{
+            AsCredentialsParams, ClientConnectionPackageParamsTbs, DeleteUserParamsTbs,
+            EnqueueMessageParams,
+        },
         client_as_out::{AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn},
     },
 };
@@ -199,9 +202,24 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn enqueue_messages(
         &self,
-        _request: Request<EnqueueMessagesRequest>,
+        request: Request<EnqueueMessagesRequest>,
     ) -> Result<Response<EnqueueMessagesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = EnqueueMessageParams {
+            client_id: request
+                .client_id
+                .ok_or_missing_field("client_id")?
+                .try_into()?,
+            connection_establishment_ctxt: request
+                .connection_establishment_package
+                .ok_or_missing_field("connection_establishment_package")?
+                .try_into()?,
+        };
+        self.inner
+            .as_enqueue_message(params)
+            .await
+            .map_err(EnqueueMessageError)?;
+        Ok(Response::new(EnqueueMessagesResponse {}))
     }
 
     async fn dequeue_messages(
@@ -280,6 +298,22 @@ impl From<AsCredentialsError> for Status {
         match e.0 {
             errors::auth_service::AsCredentialsError::StorageError => {
                 Status::internal(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct EnqueueMessageError(errors::auth_service::EnqueueMessageError);
+
+impl From<EnqueueMessageError> for Status {
+    fn from(e: EnqueueMessageError) -> Self {
+        match e.0 {
+            errors::auth_service::EnqueueMessageError::LibraryError
+            | errors::auth_service::EnqueueMessageError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::EnqueueMessageError::ClientNotFound => {
+                Status::not_found(e.0.to_string())
             }
         }
     }

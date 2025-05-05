@@ -109,7 +109,7 @@ impl DsGrpcClient {
             ratchet_tree: Some(payload.ratchet_tree.try_ref_into()?),
             encrypted_identity_link_key: Some(payload.encrypted_identity_link_key.into()),
             encrypted_user_profile_key: Some(payload.encrypted_user_profile_key.into()),
-            creator_client_reference: Some(payload.creator_client_reference.try_ref_into()?),
+            creator_client_reference: Some(payload.creator_client_reference.into()),
             group_info: Some(payload.group_info.try_ref_into()?),
         };
         let request = payload.sign(signing_key)?;
@@ -244,7 +244,7 @@ impl DsGrpcClient {
         let request = JoinConnectionGroupRequest {
             group_state_ear_key: Some(group_state_ear_key.ref_into()),
             external_commit: Some(external_commit.try_ref_into()?),
-            qs_client_reference: Some(qs_client_reference.try_ref_into()?),
+            qs_client_reference: Some(qs_client_reference.into()),
         };
         let response = self
             .client

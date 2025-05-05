@@ -4,7 +4,7 @@
 
 use http::StatusCode;
 use phnxprotos::auth_service::v1::{
-    AsCredentialsRequest, DeleteUserPayload, GetConnectionPackagePayload,
+    AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest, GetConnectionPackagePayload,
     PublishConnectionPackagesPayload, RegisterUserRequest,
 };
 use phnxtypes::{
@@ -19,8 +19,8 @@ use phnxtypes::{
         client_as::{
             AsRequestParamsOut, AsVersionedRequestParamsOut, ClientToAsMessageOut,
             ConnectionPackage, DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
-            EnqueueMessageParams, IssueTokensParamsTbs, IssueTokensResponse,
-            SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
+            IssueTokensParamsTbs, IssueTokensResponse, SUPPORTED_AS_API_VERSIONS,
+            UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
@@ -329,21 +329,15 @@ impl ApiClient {
         client_id: AsClientId,
         connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
     ) -> Result<(), AsRequestError> {
-        let payload = EnqueueMessageParams {
-            client_id,
-            connection_establishment_ctxt,
+        let request = EnqueueMessagesRequest {
+            client_id: Some(client_id.into()),
+            connection_establishment_package: Some(connection_establishment_ctxt.into()),
         };
-        let params = AsRequestParamsOut::EnqueueMessage(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        self.as_grpc_client
+            .client()
+            .enqueue_messages(request)
+            .await?;
+        Ok(())
     }
 
     pub async fn as_as_credentials(&self) -> Result<AsCredentialsResponseIn, AsRequestError> {

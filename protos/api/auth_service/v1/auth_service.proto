@@ -265,7 +265,7 @@ message EnqueueMessagesRequest {
 }
 
 message EncryptedConnectionEstablishmentPackage {
-  bytes tls = 1;
+  common.v1.HpkeCiphertext ciphertext = 1;
 }
 
 message EnqueueMessagesResponse {}

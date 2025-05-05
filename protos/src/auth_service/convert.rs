@@ -2,7 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{credentials, crypto, identifiers, messages, time};
+use openmls::prelude::HpkeCiphertext;
+use phnxtypes::{
+    credentials, crypto, identifiers,
+    messages::{self, client_as},
+    time,
+};
 use tonic::Status;
 
 use crate::{
@@ -16,8 +21,8 @@ use super::v1::{
     AsIntermediateCredentialBody, AsIntermediateCredentialCsr, AsIntermediateCredentialPayload,
     AsIntermediateVerifyingKey, AsVerifyingKey, ClientCredential, ClientCredentialCsr,
     ClientCredentialPayload, ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage,
-    ConnectionPackagePayload, CredentialFingerprint, EncryptedUserProfile, ExpirationData,
-    MlsInfraVersion, SignatureScheme,
+    ConnectionPackagePayload, CredentialFingerprint, EncryptedConnectionEstablishmentPackage,
+    EncryptedUserProfile, ExpirationData, MlsInfraVersion, SignatureScheme,
 };
 
 impl From<identifiers::AsClientId> for AsClientId {
@@ -644,5 +649,26 @@ impl From<credentials::keys::AsIntermediateVerifyingKey> for AsIntermediateVerif
 impl From<AsIntermediateVerifyingKey> for credentials::keys::AsIntermediateVerifyingKey {
     fn from(proto: AsIntermediateVerifyingKey) -> Self {
         Self::from_bytes(proto.bytes)
+    }
+}
+
+impl From<client_as::EncryptedConnectionEstablishmentPackage>
+    for EncryptedConnectionEstablishmentPackage
+{
+    fn from(value: client_as::EncryptedConnectionEstablishmentPackage) -> Self {
+        Self {
+            ciphertext: Some(value.into_ciphertext().into()),
+        }
+    }
+}
+
+impl TryFrom<EncryptedConnectionEstablishmentPackage>
+    for client_as::EncryptedConnectionEstablishmentPackage
+{
+    type Error = MissingFieldError<&'static str>;
+
+    fn try_from(proto: EncryptedConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
+        let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
+        Ok(ciphertext.into())
     }
 }

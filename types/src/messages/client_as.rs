@@ -291,6 +291,12 @@ pub struct EncryptedConnectionEstablishmentPackage {
     ciphertext: HpkeCiphertext,
 }
 
+impl EncryptedConnectionEstablishmentPackage {
+    pub fn into_ciphertext(self) -> HpkeCiphertext {
+        self.ciphertext
+    }
+}
+
 impl AsRef<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
     fn as_ref(&self) -> &HpkeCiphertext {
         &self.ciphertext

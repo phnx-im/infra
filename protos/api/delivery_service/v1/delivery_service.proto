@@ -100,11 +100,7 @@ message QsReference {
 }
 
 message SealedClientReference {
-  HpkeCiphertext ciphertext = 1;
-}
-
-message HpkeCiphertext {
-  bytes tls = 1;
+  common.v1.HpkeCiphertext ciphertext = 1;
 }
 
 // welcome info
