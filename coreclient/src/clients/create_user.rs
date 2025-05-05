@@ -185,7 +185,7 @@ impl InitialUserState {
         // Register the user with the backend.
         let response = api_clients
             .default_client()?
-            .as_initiate_create_user(
+            .as_register_user(
                 self.client_credential_payload.clone(),
                 self.key_store
                     .as_queue_decryption_key

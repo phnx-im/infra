@@ -13,8 +13,8 @@ use phnxtypes::{
     messages::{
         ApiVersion,
         client_as::{
-            AsClientConnectionPackageResponse, AsCredentialsResponse, InitUserRegistrationResponse,
-            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsResponse,
+            AsClientConnectionPackageResponse, AsCredentialsResponse, IssueTokensResponse,
+            RegisterUserResponse, SUPPORTED_AS_API_VERSIONS, UserClientsResponse,
             UserConnectionPackagesResponse, VerifiedAsRequestParams,
         },
         client_as_out::GetUserProfileResponse,
@@ -34,6 +34,7 @@ pub mod client_api;
 mod client_record;
 mod connection_package;
 mod credentials;
+pub mod grpc;
 mod privacy_pass;
 mod queue;
 mod user_record;
@@ -158,10 +159,10 @@ impl AuthService {
                 self.as_enqueue_message(params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::InitUserRegistration(params) => self
+            VerifiedAsRequestParams::RegisterUser(params) => self
                 .as_init_user_registration(params)
                 .await
-                .map(AsProcessResponse::InitUserRegistration)?,
+                .map(AsProcessResponse::UserRegistration)?,
             VerifiedAsRequestParams::GetUserProfile(params) => self
                 .as_get_user_profile(params)
                 .await
@@ -236,6 +237,6 @@ pub enum AsProcessResponse {
     UserKeyPackages(UserConnectionPackagesResponse),
     UserClients(UserClientsResponse),
     AsCredentials(AsCredentialsResponse),
-    InitUserRegistration(InitUserRegistrationResponse),
+    UserRegistration(RegisterUserResponse),
     GetUserProfile(GetUserProfileResponse),
 }

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use http::StatusCode;
+use phnxprotos::auth_service::v1::RegisterUserRequest;
 use phnxtypes::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
@@ -19,14 +20,14 @@ use phnxtypes::{
             AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParamsOut,
             AsVersionedRequestParamsOut, ClientConnectionPackageParamsTbs, ClientToAsMessageOut,
             ConnectionPackage, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
-            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams,
-            InitUserRegistrationParams, IssueTokensParamsTbs, IssueTokensResponse,
-            SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
+            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams, IssueTokensParamsTbs,
+            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
+            UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
             AsVersionedProcessResponseIn, EncryptedUserProfile, GetUserProfileParams,
-            GetUserProfileResponse, InitUserRegistrationResponseIn, MergeUserProfileParamsTbs,
+            GetUserProfileResponse, MergeUserProfileParamsTbs, RegisterUserResponseIn,
             StageUserProfileParamsTbs, UserClientsResponseIn, UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
@@ -36,6 +37,8 @@ use privacypass::batched_tokens_ristretto255::TokenRequest;
 use thiserror::Error;
 use tls_codec::{DeserializeBytes, Serialize};
 use tracing::error;
+
+pub mod grpc;
 
 use crate::{
     ApiClient, Protocol,
@@ -58,6 +61,8 @@ pub enum AsRequestError {
     AsError(String),
     #[error("Unsuccessful response: status = {status}, error = {error}")]
     RequestFailed { status: StatusCode, error: String },
+    #[error(transparent)]
+    Tonic(#[from] tonic::Status),
 }
 
 impl From<LibraryError> for AsRequestError {
@@ -97,30 +102,38 @@ impl ApiClient {
         handle_as_response(response).await
     }
 
-    pub async fn as_initiate_create_user(
+    pub async fn as_register_user(
         &self,
         client_payload: ClientCredentialPayload,
         queue_encryption_key: RatchetEncryptionKey,
         initial_ratchet_secret: RatchetSecret,
         encrypted_user_profile: EncryptedUserProfile,
-    ) -> Result<InitUserRegistrationResponseIn, AsRequestError> {
-        let payload = InitUserRegistrationParams {
-            client_payload,
-            queue_encryption_key,
-            initial_ratchet_secret,
-            encrypted_user_profile,
+    ) -> Result<RegisterUserResponseIn, AsRequestError> {
+        let request = RegisterUserRequest {
+            client_credential_payload: Some(client_payload.into()),
+            queue_encryption_key: Some(queue_encryption_key.into()),
+            initial_ratchet_secret: Some(initial_ratchet_secret.into()),
+            encrypted_user_profile: Some(encrypted_user_profile.into()),
         };
-        let params = AsRequestParamsOut::InitUserRegistration(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::InitUserRegistration(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let response = self
+            .as_grpc_client
+            .client()
+            .register_user(tonic::Request::new(request))
+            .await?
+            .into_inner();
+        Ok(RegisterUserResponseIn {
+            client_credential: response
+                .client_credential
+                .ok_or_else(|| {
+                    error!("missing `client_credential` in response");
+                    AsRequestError::UnexpectedResponse
+                })?
+                .try_into()
+                .map_err(|error| {
+                    error!(%error, "invalid client_credential in response");
+                    AsRequestError::UnexpectedResponse
+                })?,
+        })
     }
 
     pub async fn as_get_user_profile(

@@ -4,8 +4,14 @@
 
 use chrono::DateTime;
 use phnxtypes::{
-    crypto::ear::AeadCiphertext,
-    crypto::{self, ear, kdf::KDF_KEY_SIZE, secrets::Secret, signatures::signable},
+    crypto::{
+        self,
+        ear::{self, AeadCiphertext},
+        indexed_aead,
+        kdf::KDF_KEY_SIZE,
+        secrets::Secret,
+        signatures::signable,
+    },
     identifiers, time,
 };
 use tonic::Status;
@@ -16,8 +22,8 @@ use crate::{
 };
 
 use super::v1::{
-    Ciphertext, Fqdn, GroupId, QualifiedGroupId, RatchetEncryptionKey, RatchetSecret, Signature,
-    Timestamp, Uuid,
+    Ciphertext, Fqdn, GroupId, IndexedCiphertext, QualifiedGroupId, QualifiedUserName,
+    RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, UserName, Uuid,
 };
 
 impl From<uuid::Uuid> for Uuid {
@@ -152,6 +158,64 @@ impl From<ear::AeadCiphertext> for Ciphertext {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[error("invalid key index length {0}")]
+pub struct InvalidKeyIndexLen(usize);
+
+impl From<InvalidKeyIndexLen> for Status {
+    fn from(e: InvalidKeyIndexLen) -> Self {
+        Status::invalid_argument(format!("invalid key index length: {}", e.0))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvalidIndexedCiphertext {
+    #[error(transparent)]
+    InvalidKeyIndexLen(#[from] InvalidKeyIndexLen),
+    #[error(transparent)]
+    InvalidNonceLen(#[from] InvalidNonceLen),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+}
+
+impl From<InvalidIndexedCiphertext> for Status {
+    fn from(e: InvalidIndexedCiphertext) -> Self {
+        Status::invalid_argument(format!("invalid indexed ciphertext: {}", e))
+    }
+}
+
+impl<KT: crypto::indexed_aead::keys::RawIndex, CT> TryFrom<IndexedCiphertext>
+    for indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>
+{
+    type Error = InvalidIndexedCiphertext;
+
+    fn try_from(proto: IndexedCiphertext) -> Result<Self, Self::Error> {
+        let len = proto.key_index.len();
+        let ciphertext = proto
+            .ciphertext
+            .ok_or_missing_field("ciphertext")?
+            .try_into()?;
+        let secret = proto
+            .key_index
+            .try_into()
+            .map_err(|_| InvalidKeyIndexLen(len))?;
+        let key_index = indexed_aead::keys::Index::<KT>::from_bytes(secret);
+        Ok(Self::from_parts(key_index, ciphertext))
+    }
+}
+
+impl<KT: crypto::indexed_aead::keys::RawIndex, CT>
+    From<indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>> for IndexedCiphertext
+{
+    fn from(value: indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>) -> Self {
+        let (key_index, ciphertext) = value.into_parts();
+        Self {
+            key_index: key_index.into_bytes().to_vec(),
+            ciphertext: Some(ciphertext.into()),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
 #[error("invalid ciphertext nonce length {0}")]
 pub struct InvalidNonceLen(usize);
 
@@ -239,6 +303,58 @@ impl From<crypto::kdf::keys::RatchetSecret> for RatchetSecret {
         Self {
             bytes: value.as_ref().secret().to_vec(),
         }
+    }
+}
+
+impl From<identifiers::UserName> for UserName {
+    fn from(value: identifiers::UserName) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+}
+
+impl TryFrom<UserName> for identifiers::UserName {
+    type Error = identifiers::UserNameError;
+
+    fn try_from(proto: UserName) -> Result<Self, Self::Error> {
+        proto.value.try_into()
+    }
+}
+
+impl From<identifiers::QualifiedUserName> for QualifiedUserName {
+    fn from(value: identifiers::QualifiedUserName) -> Self {
+        let (user_name, domain) = value.into_parts();
+        Self {
+            name: Some(user_name.into()),
+            domain: Some(domain.ref_into()),
+        }
+    }
+}
+
+impl TryFrom<QualifiedUserName> for identifiers::QualifiedUserName {
+    type Error = QualifiedUserNameError;
+
+    fn try_from(proto: QualifiedUserName) -> Result<Self, Self::Error> {
+        let name = proto.name.ok_or_missing_field("name")?.try_into()?;
+        let domain = proto.domain.ok_or_missing_field("domain")?.try_ref_into()?;
+        Ok(Self::new(name, domain))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum QualifiedUserNameError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    UserName(#[from] identifiers::UserNameError),
+    #[error(transparent)]
+    Fqdn(#[from] identifiers::FqdnError),
+}
+
+impl From<QualifiedUserNameError> for Status {
+    fn from(e: QualifiedUserNameError) -> Self {
+        Status::invalid_argument(format!("invalid qualified user name: {e}"))
     }
 }
 

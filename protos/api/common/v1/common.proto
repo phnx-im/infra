@@ -51,6 +51,11 @@ message Ciphertext {
   bytes nonce = 2;
 }
 
+message IndexedCiphertext {
+  bytes key_index = 1;
+  Ciphertext ciphertext = 2;
+}
+
 message Signature {
   bytes value = 1;
 }

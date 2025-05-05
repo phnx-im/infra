@@ -236,6 +236,12 @@ impl TryFrom<String> for UserName {
     }
 }
 
+impl From<UserName> for String {
+    fn from(value: UserName) -> Self {
+        value.0.0
+    }
+}
+
 #[derive(
     Clone,
     Debug,
@@ -255,6 +261,16 @@ impl TryFrom<String> for UserName {
 pub struct QualifiedUserName {
     user_name: UserName,
     domain: Fqdn,
+}
+
+impl QualifiedUserName {
+    pub fn new(user_name: UserName, domain: Fqdn) -> Self {
+        Self { user_name, domain }
+    }
+
+    pub fn into_parts(self) -> (UserName, Fqdn) {
+        (self.user_name, self.domain)
+    }
 }
 
 impl Type<Sqlite> for QualifiedUserName {
@@ -371,6 +387,10 @@ impl AsClientId {
 
     pub fn client_id(&self) -> Uuid {
         *self.client_id
+    }
+
+    pub fn into_parts(self) -> (QualifiedUserName, Uuid) {
+        (self.user_name, *self.client_id)
     }
 }
 

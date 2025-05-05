@@ -23,6 +23,17 @@ pub struct IndexedCiphertext<KT, CT> {
 }
 
 impl<KT, CT> IndexedCiphertext<KT, CT> {
+    pub fn from_parts(key_index: Index<KT>, ciphertext: Ciphertext<CT>) -> Self {
+        Self {
+            key_index,
+            ciphertext,
+        }
+    }
+
+    pub fn into_parts(self) -> (Index<KT>, Ciphertext<CT>) {
+        (self.key_index, self.ciphertext)
+    }
+
     /// Returns the index of the key used to encrypt this ciphertext.
     pub fn key_index(&self) -> &Index<KT> {
         &self.key_index

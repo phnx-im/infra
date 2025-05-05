@@ -23,7 +23,7 @@ pub enum AsDequeueError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum InitUserRegistrationError {
+pub enum RegisterUserError {
     /// Could not find signing key
     #[error("Could not find signing key")]
     SigningKeyNotFound,
@@ -238,7 +238,7 @@ pub enum AsProcessingError {
     #[error(transparent)]
     AsDequeueError(#[from] AsDequeueError),
     #[error(transparent)]
-    InitUserRegistrationError(#[from] InitUserRegistrationError),
+    RegisterUserError(#[from] RegisterUserError),
     #[error(transparent)]
     DeleteUserError(#[from] DeleteUserError),
     #[error(transparent)]
