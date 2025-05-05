@@ -71,7 +71,7 @@ impl TryFrom<ClientCredentialCsr> for credentials::ClientCredentialCsr {
     fn try_from(proto: ClientCredentialCsr) -> Result<Self, Self::Error> {
         let version = match proto.msl_version {
             0 => messages::MlsInfraVersion::Alpha,
-            version => return Err(ClientCredentialCsrError::InvalidMlsVersion(version)),
+            version => return Err(ClientCredentialCsrError::UnexpectedMlsVersion(version)),
         };
         let signature_scheme = SignatureScheme::try_from(proto.signature_scheme)
             .map_err(|_| UnsupportedSignatureScheme)?
@@ -94,8 +94,8 @@ impl TryFrom<ClientCredentialCsr> for credentials::ClientCredentialCsr {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientCredentialCsrError {
-    #[error("invalid MLS version: {0}")]
-    InvalidMlsVersion(u32),
+    #[error("unexpected MLS version: {0}")]
+    UnexpectedMlsVersion(u32),
     #[error(transparent)]
     Field(#[from] MissingFieldError<&'static str>),
     #[error(transparent)]
