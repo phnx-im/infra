@@ -17,7 +17,10 @@ use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDyn
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
-use crate::{codec::PhnxCodec, crypto::signatures::private_keys::Convertible};
+use crate::{
+    codec::PhnxCodec,
+    crypto::{RawKey, signatures::private_keys::Convertible},
+};
 
 use super::{
     AsCredential, AsIntermediateCredential,
@@ -133,6 +136,8 @@ pub type AsIntermediateVerifyingKey = VerifyingKey<AsIntermediateKeyType>;
 
 #[derive(Debug)]
 pub struct ClientKeyType;
+
+impl RawKey for ClientKeyType {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientSigningKey {

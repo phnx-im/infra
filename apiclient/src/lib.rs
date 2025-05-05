@@ -6,8 +6,10 @@
 
 use std::{sync::Arc, time::Duration};
 
+use as_api::grpc::AsGrpcClient;
 use ds_api::grpc::DsGrpcClient;
 use phnxprotos::{
+    auth_service::v1::auth_service_client::AuthServiceClient,
     delivery_service::v1::delivery_service_client::DeliveryServiceClient,
     queue_service::v1::queue_service_client::QueueServiceClient,
 };
@@ -58,8 +60,9 @@ pub type HttpClient = reqwest::Client;
 #[derive(Clone)]
 pub struct ApiClient {
     client: HttpClient,
-    ds_grpc_client: DsGrpcClient,
+    as_grpc_client: AsGrpcClient,
     qs_grpc_client: QsGrpcClient,
+    ds_grpc_client: DsGrpcClient,
     url: Url,
     api_versions: Arc<NegotiatedApiVersions>,
 }
@@ -120,13 +123,15 @@ impl ApiClient {
             .tls_config(ClientTlsConfig::new().with_webpki_roots())?
             .http2_keep_alive_interval(Duration::from_secs(30))
             .connect_lazy();
+        let as_grpc_client = AsGrpcClient::new(AuthServiceClient::new(channel.clone()));
         let ds_grpc_client = DsGrpcClient::new(DeliveryServiceClient::new(channel.clone()));
         let qs_grpc_client = QsGrpcClient::new(QueueServiceClient::new(channel));
 
         Ok(Self {
             client,
-            ds_grpc_client,
+            as_grpc_client,
             qs_grpc_client,
+            ds_grpc_client,
             url,
             api_versions: Arc::new(NegotiatedApiVersions::new()),
         })

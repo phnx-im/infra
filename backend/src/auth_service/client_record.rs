@@ -226,7 +226,7 @@ pub(crate) mod persistence {
                 ),
                 ratchet: QueueRatchet::random()?,
                 activity_time: TimeStamp::now(),
-                credential: ClientCredential::new_for_test(
+                credential: ClientCredential::new(
                     ClientCredentialPayload::new(
                         csr,
                         Some(expiration_data),

@@ -61,7 +61,7 @@ pub struct AsCredentialsResponseIn {
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct InitUserRegistrationResponseIn {
+pub struct RegisterUserResponseIn {
     pub client_credential: VerifiableClientCredential,
 }
 
@@ -123,7 +123,7 @@ pub enum AsProcessResponseIn {
     UserConnectionPackages(UserConnectionPackagesResponseIn),
     UserClients(UserClientsResponseIn),
     AsCredentials(AsCredentialsResponseIn),
-    InitUserRegistration(InitUserRegistrationResponseIn),
+    UserRegistration(RegisterUserResponseIn),
     GetUserProfile(GetUserProfileResponse),
 }
 
@@ -142,6 +142,10 @@ pub struct ConnectionPackageIn {
 }
 
 impl ConnectionPackageIn {
+    pub fn new(payload: ConnectionPackageTbsIn, signature: Signature) -> Self {
+        Self { payload, signature }
+    }
+
     pub fn client_credential_signer_fingerprint(&self) -> &CredentialFingerprint {
         self.payload.client_credential.signer_fingerprint()
     }
@@ -189,16 +193,16 @@ impl Verifiable for VerifiableConnectionPackage {
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct InitUserRegistrationParamsIn {
+pub struct RegisterUserParamsIn {
     pub client_payload: ClientCredentialPayload,
     pub queue_encryption_key: RatchetEncryptionKey,
     pub initial_ratchet_secret: RatchetSecret,
     pub encrypted_user_profile: EncryptedUserProfile,
 }
 
-impl NoAuth for InitUserRegistrationParamsIn {
+impl NoAuth for RegisterUserParamsIn {
     fn into_verified(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::InitUserRegistration(self)
+        VerifiedAsRequestParams::RegisterUser(self)
     }
 }
 
@@ -371,7 +375,7 @@ impl tls_codec::DeserializeBytes for AsVersionedRequestParamsIn {
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
 pub enum AsRequestParamsIn {
-    InitUserRegistration(InitUserRegistrationParamsIn),
+    RegisterUser(RegisterUserParamsIn),
     DeleteUser(DeleteUserParams),
     DequeueMessages(AsDequeueMessagesParams),
     PublishConnectionPackages(AsPublishConnectionPackagesParamsIn),
@@ -411,7 +415,7 @@ impl AsRequestParamsIn {
             Self::UserClients(params) => AsAuthMethod::None(params.into_verified()),
             Self::UserConnectionPackages(params) => AsAuthMethod::None(params.into_verified()),
             Self::EnqueueMessage(params) => AsAuthMethod::None(params.into_verified()),
-            Self::InitUserRegistration(params) => AsAuthMethod::None(params.into_verified()),
+            Self::RegisterUser(params) => AsAuthMethod::None(params.into_verified()),
             Self::AsCredentials(params) => AsAuthMethod::None(params.into_verified()),
             Self::GetUserProfile(params) => AsAuthMethod::None(params.into_verified()),
         }
