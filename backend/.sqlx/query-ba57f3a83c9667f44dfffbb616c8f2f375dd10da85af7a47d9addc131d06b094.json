@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE as_user_records\n                SET password_file = $1, encrypted_user_profile = $2, staged_user_profile = $3\n                WHERE user_name = $4",
+  "query": "INSERT INTO as_user_records \n                    (user_name, encrypted_user_profile, staged_user_profile) \n                    VALUES ($1, $2, $3)",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
-        "Bytea",
+        "Text",
         {
           "Custom": {
             "name": "indexed_ciphertext",
@@ -71,11 +71,10 @@
               ]
             }
           }
-        },
-        "Text"
+        }
       ]
     },
     "nullable": []
   },
-  "hash": "d5bf0bdd0d74afc7d6f12b50d4b19ad49e9e2439a1642922c0ccddf5aaf05d76"
+  "hash": "ba57f3a83c9667f44dfffbb616c8f2f375dd10da85af7a47d9addc131d06b094"
 }
