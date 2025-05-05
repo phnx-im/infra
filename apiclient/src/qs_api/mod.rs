@@ -36,10 +36,6 @@ use tracing::error;
 use crate::ApiClient;
 
 pub mod grpc;
-pub mod ws;
-
-#[cfg(test)]
-mod tests;
 
 #[derive(Error, Debug)]
 pub enum QsRequestError {
