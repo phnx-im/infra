@@ -14,7 +14,7 @@ use phnxtypes::{
     },
     errors, identifiers,
     messages::{
-        client_as::DeleteUserParamsTbs,
+        client_as::{ClientConnectionPackageParamsTbs, DeleteUserParamsTbs},
         client_as_out::{AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn},
     },
 };
@@ -144,9 +144,22 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn get_connection_package(
         &self,
-        _request: Request<GetConnectionPackageRequest>,
+        request: Request<GetConnectionPackageRequest>,
     ) -> Result<Response<GetConnectionPackageResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let (client_id, _payload) = self
+            .verify_client_auth::<_, GetConnectionPackagePayload>(request)
+            .await?;
+        let params = ClientConnectionPackageParamsTbs(client_id);
+        let connection_package = self
+            .inner
+            .as_client_key_package(params)
+            .await
+            .map_err(GetConnectionPackageError)?
+            .connection_package;
+        Ok(Response::new(GetConnectionPackageResponse {
+            connection_package: connection_package.map(Into::into),
+        }))
     }
 
     async fn as_credentials(
@@ -227,32 +240,42 @@ impl From<PublishConnectionPackagesError> for Status {
     }
 }
 
-trait WithAsClientId {
-    fn client_id(&self) -> Result<identifiers::AsClientId, Status>;
+struct GetConnectionPackageError(errors::auth_service::ClientKeyPackageError);
+
+impl From<GetConnectionPackageError> for Status {
+    fn from(e: GetConnectionPackageError) -> Self {
+        match e.0 {
+            errors::auth_service::ClientKeyPackageError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+        }
+    }
 }
 
-impl WithAsClientId for DeleteUserRequest {
+trait WithAsClientId {
+    fn client_id_proto(&self) -> Option<AsClientId>;
     fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
         Ok(self
-            .payload
-            .as_ref()
-            .ok_or_missing_field("payload")?
-            .client_id
-            .clone()
+            .client_id_proto()
             .ok_or_missing_field("client_id")?
             .try_into()?)
     }
 }
 
+impl WithAsClientId for DeleteUserRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
+    }
+}
+
 impl WithAsClientId for PublishConnectionPackagesRequest {
-    fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
-        Ok(self
-            .payload
-            .as_ref()
-            .ok_or_missing_field("payload")?
-            .client_id
-            .clone()
-            .ok_or_missing_field("client_id")?
-            .try_into()?)
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
+    }
+}
+
+impl WithAsClientId for GetConnectionPackageRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
     }
 }
