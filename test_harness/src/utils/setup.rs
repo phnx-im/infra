@@ -111,14 +111,14 @@ impl TestBackend {
         let domain: Fqdn = "example.com".parse().unwrap();
         let local = LocalSet::new();
         let _guard = local.enter();
-        let ((http_addr, grpc_addr), _ws_dispatch) =
+        let (addr, _ws_dispatch) =
             spawn_app_with_rate_limits(domain.clone(), network_provider, rate_limits).await;
-        info!(%http_addr, %grpc_addr, "spawned server");
+        info!(%addr, "spawned server");
         Self {
             users: HashMap::new(),
             groups: HashMap::new(),
-            kind: TestKind::SingleBackend(http_addr.to_string()),
-            grpc_port: grpc_addr.port(),
+            kind: TestKind::SingleBackend(addr.to_string()),
+            grpc_port: addr.port(),
             temp_dir: tempfile::tempdir().unwrap(),
             _guard: Some(_guard),
         }

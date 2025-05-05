@@ -2,26 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{net::TcpListener, time::Duration};
+use std::time::Duration;
 
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
     RateLimitsConfig, ServerRunParams,
     configurations::*,
-    endpoints::qs::{
-        push_notification_provider::ProductionPushNotificationProvider,
-        ws::DispatchWebsocketNotifier,
-    },
     enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
+    push_notification_provider::ProductionPushNotificationProvider,
     run,
     telemetry::{get_subscriber, init_subscriber},
+    ws::DispatchWebsocketNotifier,
 };
 use phnxtypes::identifiers::Fqdn;
 use tracing::info;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+// TODO: start actix rt?
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     // Configure logging/trace subscription
     let subscriber = get_subscriber("phnxserver".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
@@ -34,17 +33,11 @@ async fn main() -> std::io::Result<()> {
     }
 
     // Port binding
-    let address = format!(
-        "{}:{}",
-        configuration.application.host, configuration.application.port
-    );
-    let listener = TcpListener::bind(address).expect("Failed to bind");
-
-    let grpc_address = format!(
+    let addr = format!(
         "{}:{}",
         configuration.application.host, configuration.application.grpc_port
     );
-    let grpc_listener = tokio::net::TcpListener::bind(grpc_address)
+    let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("Failed to bind");
 
@@ -93,8 +86,7 @@ async fn main() -> std::io::Result<()> {
 
     let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
     let push_notification_provider =
-        ProductionPushNotificationProvider::new(configuration.fcm, configuration.apns)
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        ProductionPushNotificationProvider::new(configuration.fcm, configuration.apns)?;
     let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),
         notifier: ws_dispatch_notifier.clone(),
@@ -105,18 +97,16 @@ async fn main() -> std::io::Result<()> {
     // Start the server
     run(ServerRunParams {
         listener,
-        grpc_listener,
         ds,
         auth_service,
         qs,
         qs_connector,
-        network_provider,
         ws_dispatch_notifier,
         rate_limits: RateLimitsConfig {
             period: Duration::from_millis(500),
             burst_size: 20,
         },
-        num_actix_workers: None,
-    })?
-    .await
+    })
+    .await?;
+    Ok(())
 }
