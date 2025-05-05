@@ -56,9 +56,7 @@ impl Group {
                         ClientAuthInfo::load(pool.acquire().await?.as_mut(), group_id, *index)
                             .await?
                             .map(|info| info.into_client_credential())
-                            .ok_or_else(|| {
-                                anyhow!("Could not find client credential of message sender")
-                            })?
+                            .context("Could not find client credential of message sender")?
                     } else {
                         bail!("Invalid sender type.")
                     };
@@ -295,7 +293,7 @@ impl Group {
             } else {
                 ClientAuthInfo::load(&mut connection, group_id, sender_index).await?
             }
-            .ok_or_else(|| anyhow!("Could not find client credential of message sender"))?
+            .context("Could not find client credential of message sender")?
             .client_credential()
             .clone()
             .into();
