@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use http::StatusCode;
-use phnxprotos::auth_service::v1::{DeleteUserPayload, RegisterUserRequest};
+use phnxprotos::auth_service::v1::{
+    DeleteUserPayload, PublishConnectionPackagesPayload, RegisterUserRequest,
+};
 use phnxtypes::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
@@ -14,9 +16,9 @@ use phnxtypes::{
     messages::{
         AsTokenType,
         client_as::{
-            AsCredentialsParams, AsPublishConnectionPackagesParamsTbs, AsRequestParamsOut,
-            AsVersionedRequestParamsOut, ClientConnectionPackageParamsTbs, ClientToAsMessageOut,
-            ConnectionPackage, DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
+            AsCredentialsParams, AsRequestParamsOut, AsVersionedRequestParamsOut,
+            ClientConnectionPackageParamsTbs, ClientToAsMessageOut, ConnectionPackage,
+            DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
             EnqueueMessageParams, IssueTokensParamsTbs, IssueTokensResponse,
             SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
         },
@@ -221,22 +223,16 @@ impl ApiClient {
         connection_packages: Vec<ConnectionPackage>,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
-        let tbs = AsPublishConnectionPackagesParamsTbs {
-            client_id,
-            connection_packages,
+        let payload = PublishConnectionPackagesPayload {
+            client_id: Some(client_id.into()),
+            connection_packages: connection_packages.into_iter().map(From::from).collect(),
         };
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::PublishConnectionPackages(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if matches!(response, AsProcessResponseIn::Ok) {
-                    Ok(())
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client
+            .client()
+            .publish_connection_packages(request)
+            .await?;
+        Ok(())
     }
 
     // TODO: Verify that this fetches the correct key packages. I believe right

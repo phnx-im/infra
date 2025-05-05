@@ -13,7 +13,10 @@ use phnxtypes::{
         signable::{Verifiable, VerifiedStruct},
     },
     errors, identifiers,
-    messages::{client_as::DeleteUserParamsTbs, client_as_out::RegisterUserParamsIn},
+    messages::{
+        client_as::DeleteUserParamsTbs,
+        client_as_out::{AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn},
+    },
 };
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
@@ -29,7 +32,10 @@ impl GrpcAs {
         Self { inner }
     }
 
-    async fn verify<R, P>(&self, request: R) -> Result<(identifiers::AsClientId, P), Status>
+    async fn verify_client_auth<R, P>(
+        &self,
+        request: R,
+    ) -> Result<(identifiers::AsClientId, P), Status>
     where
         R: WithAsClientId + Verifiable,
         P: VerifiedStruct<R>,
@@ -96,7 +102,9 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<DeleteUserRequest>,
     ) -> Result<Response<DeleteUserResponse>, Status> {
         let request = request.into_inner();
-        let (client_id, payload) = self.verify::<_, DeleteUserPayload>(request).await?;
+        let (client_id, payload) = self
+            .verify_client_auth::<_, DeleteUserPayload>(request)
+            .await?;
         let params = DeleteUserParamsTbs {
             user_name: payload
                 .user_name
@@ -111,11 +119,27 @@ impl auth_service_server::AuthService for GrpcAs {
         Ok(Response::new(DeleteUserResponse {}))
     }
 
-    async fn publish_connection_package(
+    async fn publish_connection_packages(
         &self,
-        _request: Request<PublishConnectionPackageRequest>,
-    ) -> Result<Response<PublishConnectionPackageResponse>, Status> {
-        todo!()
+        request: Request<PublishConnectionPackagesRequest>,
+    ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
+        let request = request.into_inner();
+        let (client_id, payload) = self
+            .verify_client_auth::<_, PublishConnectionPackagesPayload>(request)
+            .await?;
+        let params = AsPublishConnectionPackagesParamsTbsIn {
+            client_id,
+            connection_packages: payload
+                .connection_packages
+                .into_iter()
+                .map(|package| package.try_into())
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+        self.inner
+            .as_publish_connection_packages(params)
+            .await
+            .map_err(PublishConnectionPackagesError)?;
+        Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
 
     async fn get_connection_package(
@@ -188,11 +212,39 @@ impl From<DeleteUserError> for Status {
     }
 }
 
+struct PublishConnectionPackagesError(errors::auth_service::PublishConnectionPackageError);
+
+impl From<PublishConnectionPackagesError> for Status {
+    fn from(e: PublishConnectionPackagesError) -> Self {
+        match e.0 {
+            errors::auth_service::PublishConnectionPackageError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::PublishConnectionPackageError::InvalidKeyPackage => {
+                Status::invalid_argument(e.0.to_string())
+            }
+        }
+    }
+}
+
 trait WithAsClientId {
     fn client_id(&self) -> Result<identifiers::AsClientId, Status>;
 }
 
 impl WithAsClientId for DeleteUserRequest {
+    fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or_missing_field("payload")?
+            .client_id
+            .clone()
+            .ok_or_missing_field("client_id")?
+            .try_into()?)
+    }
+}
+
+impl WithAsClientId for PublishConnectionPackagesRequest {
     fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
         Ok(self
             .payload
