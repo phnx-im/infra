@@ -12,10 +12,16 @@ CREATE TYPE aead_ciphertext AS (
     nonce BYTEA
 );
 
+CREATE TYPE indexed_ciphertext AS (
+    ciphertext aead_ciphertext,
+    key_index BYTEA
+);
+
 CREATE TABLE as_user_records(
     user_name TEXT PRIMARY KEY,
     password_file BYTEA NOT NULL,
-    encrypted_user_profile aead_ciphertext NOT NULL
+    encrypted_user_profile indexed_ciphertext NOT NULL,
+    staged_user_profile indexed_ciphertext
 );
 
 CREATE TYPE qualified_user_name AS (

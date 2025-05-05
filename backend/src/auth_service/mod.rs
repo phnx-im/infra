@@ -167,8 +167,12 @@ impl AuthService {
                 .as_get_user_profile(params)
                 .await
                 .map(AsProcessResponse::GetUserProfile)?,
-            VerifiedAsRequestParams::UpdateUserProfile(params) => {
-                self.as_update_user_profile(params).await?;
+            VerifiedAsRequestParams::StageUserProfile(params) => {
+                self.as_stage_user_profile(params).await?;
+                AsProcessResponse::Ok
+            }
+            VerifiedAsRequestParams::MergeUserProfile(params) => {
+                self.as_merge_user_profile(params).await?;
                 AsProcessResponse::Ok
             }
         };

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::fmt::Debug;
+
 use phnxtypes::crypto::indexed_aead::keys::{
     BaseSecret, Index, IndexedAeadKey, IndexedKeyType, Key, KeyTypeInstance,
 };
@@ -19,7 +21,7 @@ impl<KT: IndexedKeyType> From<SqlIndexedAeadKey<KT>> for IndexedAeadKey<KT> {
     }
 }
 
-impl<KT: IndexedKeyType + Send + Unpin> StorableIndexedKey<KT> for IndexedAeadKey<KT> {
+impl<KT: IndexedKeyType + Send + Unpin + Debug> StorableIndexedKey<KT> for IndexedAeadKey<KT> {
     fn base_secret(&self) -> &BaseSecret<KT> {
         self.base_secret()
     }
@@ -33,7 +35,7 @@ impl<KT: IndexedKeyType + Send + Unpin> StorableIndexedKey<KT> for IndexedAeadKe
     }
 }
 
-pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin>:
+pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin + Debug>:
     From<SqlIndexedAeadKey<KT>>
 {
     fn base_secret(&self) -> &BaseSecret<KT>;
@@ -62,8 +64,21 @@ pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin>:
         let index = self.index();
         let key_type = KeyTypeInstance::<KT>::new();
         let mut transaction = connection.begin().await?;
+        // Delete the old own key
         query!(
-            "INSERT OR IGNORE INTO indexed_keys (base_secret, key_value, key_index)
+            "DELETE FROM indexed_keys
+               WHERE key_index IN (
+                   SELECT key_index FROM own_key_indices WHERE key_type = ?
+               )",
+            key_type
+        )
+        .execute(&mut *transaction)
+        .await?;
+        query!("DELETE FROM own_key_indices WHERE key_type = ?", key_type)
+            .execute(&mut *transaction)
+            .await?;
+        query!(
+            "INSERT OR REPLACE INTO indexed_keys (base_secret, key_value, key_index)
                 VALUES ($1, $2, $3)",
             base_secret,
             key,
@@ -72,7 +87,7 @@ pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin>:
         .execute(&mut *transaction)
         .await?;
         query!(
-            "INSERT OR IGNORE INTO own_key_indices (key_index, key_type) VALUES ($1, $2)",
+            "INSERT OR REPLACE INTO own_key_indices (key_index, key_type) VALUES ($1, $2)",
             index,
             key_type
         )
@@ -119,5 +134,59 @@ pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin>:
         .fetch_one(connection)
         .await
         .map(From::from)
+    }
+
+    async fn delete(
+        connection: impl SqliteExecutor<'_>,
+        index: &Index<KT>,
+    ) -> Result<(), sqlx::Error> {
+        query!("DELETE FROM indexed_keys WHERE key_index = ?", index)
+            .execute(connection)
+            .await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use phnxtypes::crypto::indexed_aead::keys::UserProfileKey;
+    use sqlx::SqlitePool;
+
+    use crate::key_stores::indexed_keys::StorableIndexedKey;
+
+    #[sqlx::test]
+    fn user_profile_key_storage(pool: SqlitePool) {
+        let mut connection = pool.acquire().await.unwrap();
+        let user_name = "test_user@example.com".parse().unwrap();
+        let key = UserProfileKey::random(&user_name).unwrap();
+        let index = key.index().clone();
+        key.store_own(&mut connection).await.unwrap();
+
+        let loaded_key = UserProfileKey::load_own(connection.as_mut()).await.unwrap();
+        assert_eq!(key, loaded_key);
+
+        let loaded_key = UserProfileKey::load(connection.as_mut(), &index)
+            .await
+            .unwrap();
+        assert_eq!(key, loaded_key);
+
+        // Update key
+        let new_key = UserProfileKey::random(&user_name).unwrap();
+        new_key.store_own(&mut connection).await.unwrap();
+        let loaded_key = UserProfileKey::load_own(connection.as_mut()).await.unwrap();
+        assert_eq!(new_key, loaded_key);
+        let loaded_key = UserProfileKey::load(connection.as_mut(), new_key.index())
+            .await
+            .unwrap();
+        assert_eq!(new_key, loaded_key);
+
+        // Delete key
+        UserProfileKey::delete(connection.as_mut(), new_key.index())
+            .await
+            .unwrap();
+        let loaded_key = UserProfileKey::load(connection.as_mut(), new_key.index())
+            .await
+            .unwrap_err();
+        assert!(matches!(loaded_key, sqlx::Error::RowNotFound));
     }
 }

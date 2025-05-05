@@ -40,7 +40,7 @@ message ExpirationData {
 }
 
 message EncryptedUserProfile {
-  common.v1.Ciphertext ciphertext = 1;
+  common.v1.IndexedCiphertext ciphertext = 1;
 }
 
 message ConnectionPackage {

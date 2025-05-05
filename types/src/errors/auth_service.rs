@@ -194,6 +194,8 @@ pub enum AsVerificationError {
 #[derive(Debug, Error)]
 #[repr(u8)]
 pub enum GetUserProfileError {
+    #[error("No ciphertext matching index")]
+    NoCiphertextFound,
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error
@@ -203,12 +205,25 @@ pub enum GetUserProfileError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum UpdateUserProfileError {
+pub enum StageUserProfileError {
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
+}
+
+#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[repr(u8)]
+pub enum MergeUserProfileError {
+    #[error("User not found")]
+    UserNotFound,
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
+    /// No staged user profile
+    #[error("No staged user profile")]
+    NoStagedUserProfile,
 }
 
 #[derive(Debug, Error)]
@@ -249,5 +264,7 @@ pub enum AsProcessingError {
     #[error(transparent)]
     GetUserProfileError(#[from] GetUserProfileError),
     #[error(transparent)]
-    UpdateUserProfileError(#[from] UpdateUserProfileError),
+    StageUserProfileError(#[from] StageUserProfileError),
+    #[error(transparent)]
+    MergeUserProfileError(#[from] MergeUserProfileError),
 }
