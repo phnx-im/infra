@@ -258,14 +258,14 @@ message EnqueueMessagesResponse {}
 // dequeue messages
 
 message DequeueMessagesRequest {
-  DequeueMessagesRequestTbs payload = 1;
+  DequeueMessagesPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message DequeueMessagesRequestTbs {
+message DequeueMessagesPayload {
   AsClientId sender = 1;
   uint64 sequence_number_start = 2;
-  uint64 max_messages_number = 3;
+  uint64 max_message_number = 3;
 }
 
 message DequeueMessagesResponse {
@@ -275,5 +275,5 @@ message DequeueMessagesResponse {
 
 message QueueMessage {
   uint64 sequence_number = 1;
-  bytes ciphertext = 2;
+  common.v1.Ciphertext ciphertext = 2;
 }

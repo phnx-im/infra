@@ -15,8 +15,8 @@ use phnxtypes::{
     errors, identifiers,
     messages::{
         client_as::{
-            AsCredentialsParams, DeleteUserParamsTbs, EnqueueMessageParams,
-            UserConnectionPackagesParams,
+            AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            EnqueueMessageParams, UserConnectionPackagesParams,
         },
         client_as_out::{AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn},
     },
@@ -225,9 +225,26 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn dequeue_messages(
         &self,
-        _request: Request<DequeueMessagesRequest>,
+        request: Request<DequeueMessagesRequest>,
     ) -> Result<Response<DequeueMessagesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let (sender, payload) = self
+            .verify_client_auth::<_, DequeueMessagesPayload>(request)
+            .await?;
+        let params = DequeueMessagesParamsTbs {
+            sender,
+            sequence_number_start: payload.sequence_number_start,
+            max_message_number: payload.max_message_number,
+        };
+        let response = self
+            .inner
+            .as_dequeue_messages(params)
+            .await
+            .map_err(DequeueMessagesError)?;
+        Ok(Response::new(DequeueMessagesResponse {
+            messages: response.messages.into_iter().map(Into::into).collect(),
+            remaining_messages_number: response.remaining_messages_number,
+        }))
     }
 }
 
@@ -323,6 +340,19 @@ impl From<EnqueueMessageError> for Status {
     }
 }
 
+struct DequeueMessagesError(errors::auth_service::AsDequeueError);
+
+impl From<DequeueMessagesError> for Status {
+    fn from(e: DequeueMessagesError) -> Self {
+        match e.0 {
+            errors::auth_service::AsDequeueError::StorageError => Status::internal(e.0.to_string()),
+            errors::auth_service::AsDequeueError::QueueNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+        }
+    }
+}
+
 trait WithAsClientId {
     fn client_id_proto(&self) -> Option<AsClientId>;
     fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
@@ -342,5 +372,11 @@ impl WithAsClientId for DeleteUserRequest {
 impl WithAsClientId for PublishConnectionPackagesRequest {
     fn client_id_proto(&self) -> Option<AsClientId> {
         self.payload.as_ref()?.client_id.clone()
+    }
+}
+
+impl WithAsClientId for DequeueMessagesRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.sender.clone()
     }
 }

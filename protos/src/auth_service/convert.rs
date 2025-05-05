@@ -22,7 +22,7 @@ use super::v1::{
     AsIntermediateVerifyingKey, AsVerifyingKey, ClientCredential, ClientCredentialCsr,
     ClientCredentialPayload, ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage,
     ConnectionPackagePayload, CredentialFingerprint, EncryptedConnectionEstablishmentPackage,
-    EncryptedUserProfile, ExpirationData, MlsInfraVersion, SignatureScheme,
+    EncryptedUserProfile, ExpirationData, MlsInfraVersion, QueueMessage, SignatureScheme,
 };
 
 impl From<identifiers::AsClientId> for AsClientId {
@@ -670,5 +670,25 @@ impl TryFrom<EncryptedConnectionEstablishmentPackage>
     fn try_from(proto: EncryptedConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
         Ok(ciphertext.into())
+    }
+}
+
+impl From<messages::QueueMessage> for QueueMessage {
+    fn from(value: messages::QueueMessage) -> Self {
+        Self {
+            sequence_number: value.sequence_number,
+            ciphertext: Some(value.ciphertext.into()),
+        }
+    }
+}
+
+impl TryFrom<QueueMessage> for messages::QueueMessage {
+    type Error = InvalidNonceLen;
+
+    fn try_from(proto: QueueMessage) -> Result<Self, Self::Error> {
+        Ok(Self {
+            sequence_number: proto.sequence_number,
+            ciphertext: proto.ciphertext.unwrap_or_default().try_into()?,
+        })
     }
 }

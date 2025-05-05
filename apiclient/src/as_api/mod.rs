@@ -4,7 +4,7 @@
 
 use http::StatusCode;
 use phnxprotos::auth_service::v1::{
-    AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
+    AsCredentialsRequest, DeleteUserPayload, DequeueMessagesPayload, EnqueueMessagesRequest,
     GetUserConnectionPackagesRequest, PublishConnectionPackagesPayload, RegisterUserRequest,
 };
 use phnxtypes::{
@@ -18,9 +18,9 @@ use phnxtypes::{
         AsTokenType,
         client_as::{
             AsRequestParamsOut, AsVersionedRequestParamsOut, ClientToAsMessageOut,
-            ConnectionPackage, DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
-            IssueTokensParamsTbs, IssueTokensResponse, SUPPORTED_AS_API_VERSIONS,
-            UserClientsParams, UserConnectionPackagesParams,
+            ConnectionPackage, EncryptedConnectionEstablishmentPackage, IssueTokensParamsTbs,
+            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
+            UserConnectionPackagesParams,
         },
         client_as_out::{
             AsCredentialsResponseIn, AsProcessResponseIn, AsVersionedProcessResponseIn,
@@ -198,23 +198,30 @@ impl ApiClient {
         max_message_number: u64,
         signing_key: &ClientSigningKey,
     ) -> Result<DequeueMessagesResponse, AsRequestError> {
-        let tbs = DequeueMessagesParamsTbs {
-            sender: signing_key.credential().identity().clone(),
+        let payload = DequeueMessagesPayload {
+            sender: Some(signing_key.credential().identity().clone().into()),
             sequence_number_start,
             max_message_number,
         };
-        let payload = tbs.sign(signing_key)?;
-        let params = AsRequestParamsOut::DequeueMessages(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::DequeueMessages(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .as_grpc_client
+            .client()
+            .dequeue_messages(request)
+            .await?
+            .into_inner();
+        Ok(DequeueMessagesResponse {
+            messages: response
+                .messages
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<_, _>>()
+                .map_err(|error| {
+                    error!(%error, "failed to convert dequeue message");
+                    AsRequestError::UnexpectedResponse
+                })?,
+            remaining_messages_number: response.remaining_messages_number,
+        })
     }
 
     pub async fn as_publish_connection_packages(
