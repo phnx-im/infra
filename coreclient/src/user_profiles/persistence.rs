@@ -27,7 +27,6 @@ impl IndexedUserProfile {
         )
         .fetch_optional(executor)
         .await
-        .map(|record| record.map(From::from))
     }
 
     /// Stores this new [`UserProfile`].

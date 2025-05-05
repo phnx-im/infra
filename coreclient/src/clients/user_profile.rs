@@ -152,8 +152,7 @@ impl CoreUser {
             .await?;
             if let Some(old_user_profile) = old_user_profile {
                 // Delete the old user profile key
-                UserProfileKey::delete(connection, &old_user_profile.decryption_key_index())
-                    .await?;
+                UserProfileKey::delete(connection, old_user_profile.decryption_key_index()).await?;
             }
             Ok(())
         })
