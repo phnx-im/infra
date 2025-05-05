@@ -14,7 +14,7 @@ use phnxtypes::{
     },
     errors, identifiers,
     messages::{
-        client_as::{ClientConnectionPackageParamsTbs, DeleteUserParamsTbs},
+        client_as::{AsCredentialsParams, ClientConnectionPackageParamsTbs, DeleteUserParamsTbs},
         client_as_out::{AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn},
     },
 };
@@ -166,7 +166,28 @@ impl auth_service_server::AuthService for GrpcAs {
         &self,
         _request: Request<AsCredentialsRequest>,
     ) -> Result<Response<AsCredentialsResponse>, Status> {
-        todo!()
+        let response = self
+            .inner
+            .as_credentials(AsCredentialsParams {})
+            .await
+            .map_err(AsCredentialsError)?;
+        Ok(Response::new(AsCredentialsResponse {
+            as_credentials: response
+                .as_credentials
+                .into_iter()
+                .map(From::from)
+                .collect(),
+            as_intermediate_credentials: response
+                .as_intermediate_credentials
+                .into_iter()
+                .map(From::from)
+                .collect(),
+            revoked_credentials: response
+                .revoked_credentials
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        }))
     }
 
     async fn issue_tokens(
@@ -246,6 +267,18 @@ impl From<GetConnectionPackageError> for Status {
     fn from(e: GetConnectionPackageError) -> Self {
         match e.0 {
             errors::auth_service::ClientKeyPackageError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct AsCredentialsError(errors::auth_service::AsCredentialsError);
+
+impl From<AsCredentialsError> for Status {
+    fn from(e: AsCredentialsError) -> Self {
+        match e.0 {
+            errors::auth_service::AsCredentialsError::StorageError => {
                 Status::internal(e.0.to_string())
             }
         }

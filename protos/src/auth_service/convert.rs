@@ -7,13 +7,17 @@ use tonic::Status;
 
 use crate::{
     common::convert::{InvalidNonceLen, QualifiedUserNameError},
+    convert::{RefInto, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
 
 use super::v1::{
-    AsClientId, ClientCredential, ClientCredentialCsr, ClientCredentialPayload, ClientVerifyingKey,
-    ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload, CredentialFingerprint,
-    EncryptedUserProfile, ExpirationData, MlsInfraVersion, SignatureScheme,
+    AsClientId, AsCredential, AsCredentialBody, AsIntermediateCredential,
+    AsIntermediateCredentialBody, AsIntermediateCredentialCsr, AsIntermediateCredentialPayload,
+    AsIntermediateVerifyingKey, AsVerifyingKey, ClientCredential, ClientCredentialCsr,
+    ClientCredentialPayload, ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage,
+    ConnectionPackagePayload, CredentialFingerprint, EncryptedUserProfile, ExpirationData,
+    MlsInfraVersion, SignatureScheme,
 };
 
 impl From<identifiers::AsClientId> for AsClientId {
@@ -393,5 +397,252 @@ impl TryFrom<EncryptedUserProfile> for messages::client_as_out::EncryptedUserPro
 
     fn try_from(proto: EncryptedUserProfile) -> Result<Self, Self::Error> {
         proto.ciphertext.unwrap_or_default().try_into()
+    }
+}
+
+impl From<credentials::AsCredential> for AsCredential {
+    fn from(value: credentials::AsCredential) -> Self {
+        let (body, fingerprint) = value.into_parts();
+        Self {
+            body: Some(body.into()),
+            fingerprint: Some(fingerprint.into()),
+        }
+    }
+}
+
+impl TryFrom<AsCredential> for credentials::AsCredential {
+    type Error = AsCredentialError;
+
+    fn try_from(proto: AsCredential) -> Result<Self, Self::Error> {
+        Ok(Self::from_parts(
+            proto.body.ok_or_missing_field("body")?.try_into()?,
+            proto.fingerprint.ok_or_missing_field("fingerprint")?.into(),
+        ))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AsCredentialError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Body(#[from] AsCredentialBodyError),
+}
+
+impl From<credentials::AsCredentialBody> for AsCredentialBody {
+    fn from(value: credentials::AsCredentialBody) -> Self {
+        let signature_scheme: SignatureScheme = value.signature_scheme.into();
+        Self {
+            version: Some(value.version.into()),
+            as_domain: Some(value.as_domain.ref_into()),
+            expiration_data: Some(value.expiration_data.into()),
+            signature_scheme: signature_scheme.into(),
+            verifying_key: Some(value.verifying_key.into()),
+        }
+    }
+}
+
+impl TryFrom<AsCredentialBody> for credentials::AsCredentialBody {
+    type Error = AsCredentialBodyError;
+
+    fn try_from(proto: AsCredentialBody) -> Result<Self, Self::Error> {
+        let signature_scheme = SignatureScheme::try_from(proto.signature_scheme)
+            .map_err(|_| UnsupportedSignatureScheme)?
+            .try_into()?;
+        Ok(Self {
+            version: proto.version.ok_or_missing_field("version")?.try_into()?,
+            as_domain: proto
+                .as_domain
+                .ok_or_missing_field("as_domain")?
+                .try_ref_into()?,
+            expiration_data: proto
+                .expiration_data
+                .ok_or_missing_field("expiration_data")?
+                .try_into()?,
+            signature_scheme,
+            verifying_key: proto
+                .verifying_key
+                .ok_or_missing_field("verifying_key")?
+                .into(),
+        })
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AsCredentialBodyError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Version(#[from] UnsupportedMlsVersion),
+    #[error(transparent)]
+    ExpirationData(#[from] ExpirationDataError),
+    #[error(transparent)]
+    SignatureScheme(#[from] UnsupportedSignatureScheme),
+    #[error(transparent)]
+    Fqdn(#[from] identifiers::FqdnError),
+}
+
+impl From<credentials::keys::AsVerifyingKey> for AsVerifyingKey {
+    fn from(value: credentials::keys::AsVerifyingKey) -> Self {
+        Self {
+            bytes: value.into_bytes(),
+        }
+    }
+}
+
+impl From<AsVerifyingKey> for credentials::keys::AsVerifyingKey {
+    fn from(proto: AsVerifyingKey) -> Self {
+        Self::from_bytes(proto.bytes)
+    }
+}
+
+impl From<credentials::AsIntermediateCredential> for AsIntermediateCredential {
+    fn from(value: credentials::AsIntermediateCredential) -> Self {
+        let (body, fingerpint) = value.into_parts();
+        Self {
+            body: Some(body.into()),
+            fingerprint: Some(fingerpint.into()),
+        }
+    }
+}
+
+impl TryFrom<AsIntermediateCredential> for credentials::VerifiableAsIntermediateCredential {
+    type Error = AsIntermediateCredentialError;
+
+    fn try_from(proto: AsIntermediateCredential) -> Result<Self, Self::Error> {
+        let body = proto.body.ok_or_missing_field("body")?;
+        Ok(Self::from_parts(
+            body.credential
+                .ok_or_missing_field("credential")?
+                .try_into()?,
+            body.signature.ok_or_missing_field("signature")?.into(),
+        ))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AsIntermediateCredentialError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Payload(#[from] AsIntermediateCredentialPayloadError),
+}
+
+impl From<credentials::AsIntermediateCredentialBody> for AsIntermediateCredentialBody {
+    fn from(value: credentials::AsIntermediateCredentialBody) -> Self {
+        let (credential, signature) = value.into_parts();
+        Self {
+            credential: Some(credential.into()),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AsIntermediateCredentialBodyError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Credential(#[from] AsIntermediateCredentialPayloadError),
+}
+
+impl From<credentials::AsIntermediateCredentialPayload> for AsIntermediateCredentialPayload {
+    fn from(value: credentials::AsIntermediateCredentialPayload) -> Self {
+        Self {
+            csr: Some(value.csr.into()),
+            expiration_data: Some(value.expiration_data.into()),
+            signer_fingerprint: Some(value.signer_fingerprint.into()),
+        }
+    }
+}
+
+impl TryFrom<AsIntermediateCredentialPayload> for credentials::AsIntermediateCredentialPayload {
+    type Error = AsIntermediateCredentialPayloadError;
+
+    fn try_from(proto: AsIntermediateCredentialPayload) -> Result<Self, Self::Error> {
+        let csr = proto.csr.ok_or_missing_field("csr")?.try_into()?;
+        let expiration_data = proto
+            .expiration_data
+            .ok_or_missing_field("expiration_data")?
+            .try_into()?;
+        let signer_fingerprint = proto
+            .signer_fingerprint
+            .ok_or_missing_field("signer_fingerprint")?
+            .into();
+        Ok(Self {
+            csr,
+            expiration_data,
+            signer_fingerprint,
+        })
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AsIntermediateCredentialPayloadError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Csr(#[from] AsIntermediateCredentialCsrError),
+    #[error(transparent)]
+    ExpirationData(#[from] ExpirationDataError),
+}
+
+impl From<credentials::AsIntermediateCredentialCsr> for AsIntermediateCredentialCsr {
+    fn from(value: credentials::AsIntermediateCredentialCsr) -> Self {
+        Self {
+            version: Some(value.version.into()),
+            as_domain: Some(value.as_domain.ref_into()),
+            signature_scheme: SignatureScheme::from(value.signature_scheme).into(),
+            verifying_key: Some(value.verifying_key.into()),
+        }
+    }
+}
+
+impl TryFrom<AsIntermediateCredentialCsr> for credentials::AsIntermediateCredentialCsr {
+    type Error = AsIntermediateCredentialCsrError;
+
+    fn try_from(proto: AsIntermediateCredentialCsr) -> Result<Self, Self::Error> {
+        let version = proto.version.ok_or_missing_field("version")?.try_into()?;
+        let signature_scheme = SignatureScheme::try_from(proto.signature_scheme)
+            .map_err(|_| UnsupportedSignatureScheme)?
+            .try_into()?;
+        Ok(Self {
+            version,
+            as_domain: proto
+                .as_domain
+                .ok_or_missing_field("as_domain")?
+                .try_ref_into()?,
+            signature_scheme,
+            verifying_key: proto
+                .verifying_key
+                .ok_or_missing_field("verifying_key")?
+                .into(),
+        })
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AsIntermediateCredentialCsrError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+    #[error(transparent)]
+    Version(#[from] UnsupportedMlsVersion),
+    #[error(transparent)]
+    Fqdn(#[from] identifiers::FqdnError),
+    #[error(transparent)]
+    SignatureScheme(#[from] UnsupportedSignatureScheme),
+}
+
+impl From<credentials::keys::AsIntermediateVerifyingKey> for AsIntermediateVerifyingKey {
+    fn from(value: credentials::keys::AsIntermediateVerifyingKey) -> Self {
+        Self {
+            bytes: value.into_bytes(),
+        }
+    }
+}
+
+impl From<AsIntermediateVerifyingKey> for credentials::keys::AsIntermediateVerifyingKey {
+    fn from(proto: AsIntermediateVerifyingKey) -> Self {
+        Self::from_bytes(proto.bytes)
     }
 }

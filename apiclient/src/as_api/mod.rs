@@ -4,8 +4,8 @@
 
 use http::StatusCode;
 use phnxprotos::auth_service::v1::{
-    DeleteUserPayload, GetConnectionPackagePayload, PublishConnectionPackagesPayload,
-    RegisterUserRequest,
+    AsCredentialsRequest, DeleteUserPayload, GetConnectionPackagePayload,
+    PublishConnectionPackagesPayload, RegisterUserRequest,
 };
 use phnxtypes::{
     LibraryError,
@@ -17,11 +17,10 @@ use phnxtypes::{
     messages::{
         AsTokenType,
         client_as::{
-            AsCredentialsParams, AsRequestParamsOut, AsVersionedRequestParamsOut,
-            ClientToAsMessageOut, ConnectionPackage, DequeueMessagesParamsTbs,
-            EncryptedConnectionEstablishmentPackage, EnqueueMessageParams, IssueTokensParamsTbs,
-            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
-            UserConnectionPackagesParams,
+            AsRequestParamsOut, AsVersionedRequestParamsOut, ClientToAsMessageOut,
+            ConnectionPackage, DequeueMessagesParamsTbs, EncryptedConnectionEstablishmentPackage,
+            EnqueueMessageParams, IssueTokensParamsTbs, IssueTokensResponse,
+            SUPPORTED_AS_API_VERSIONS, UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
             AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
@@ -348,18 +347,38 @@ impl ApiClient {
     }
 
     pub async fn as_as_credentials(&self) -> Result<AsCredentialsResponseIn, AsRequestError> {
-        let payload = AsCredentialsParams {};
-        let params = AsRequestParamsOut::AsCredentials(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::AsCredentials(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let request = AsCredentialsRequest {};
+        let response = self
+            .as_grpc_client
+            .client()
+            .as_credentials(request)
+            .await?
+            .into_inner();
+        Ok(AsCredentialsResponseIn {
+            as_credentials: response
+                .as_credentials
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| {
+                    error!(%error, "invalid AS credential");
+                    AsRequestError::UnexpectedResponse
+                })?,
+            as_intermediate_credentials: response
+                .as_intermediate_credentials
+                .into_iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| {
+                    error!(%error, "invalid AS intermediate credential");
+                    AsRequestError::UnexpectedResponse
+                })?,
+            revoked_credentials: response
+                .revoked_credentials
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        })
     }
 
     async fn send_as_http_request(

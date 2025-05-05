@@ -166,7 +166,7 @@ message AsCredentialsRequest {}
 
 message AsCredentialsResponse {
   repeated AsCredential as_credentials = 1;
-  repeated VerifiableAsIntermediateCredential as_intermediate_credentials = 2;
+  repeated AsIntermediateCredential as_intermediate_credentials = 2;
   repeated CredentialFingerprint revoked_credentials = 3;
 }
 
@@ -187,7 +187,12 @@ message AsVerifyingKey {
   bytes bytes = 1;
 }
 
-message VerifiableAsIntermediateCredential {
+message AsIntermediateCredential {
+  AsIntermediateCredentialBody body = 1;
+  CredentialFingerprint fingerprint = 2;
+}
+
+message AsIntermediateCredentialBody {
   AsIntermediateCredentialPayload credential = 1;
   common.v1.Signature signature = 2;
 }
