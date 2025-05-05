@@ -3387,7 +3387,6 @@ fn wire__crate__api__user__User_new_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_user_name = <String>::sse_decode(&mut deserializer);
-            let api_password = <String>::sse_decode(&mut deserializer);
             let api_address = <String>::sse_decode(&mut deserializer);
             let api_path = <String>::sse_decode(&mut deserializer);
             let api_push_token =
@@ -3400,7 +3399,6 @@ fn wire__crate__api__user__User_new_impl(
                     (move || async move {
                         let output_ok = crate::api::user::User::new(
                             api_user_name,
-                            api_password,
                             api_address,
                             api_path,
                             api_push_token,
@@ -4840,7 +4838,7 @@ impl SseDecode for crate::api::navigation_cubit::IntroScreenType {
         return match inner {
             0 => crate::api::navigation_cubit::IntroScreenType::Intro,
             1 => crate::api::navigation_cubit::IntroScreenType::ServerChoice,
-            2 => crate::api::navigation_cubit::IntroScreenType::UsernamePassword,
+            2 => crate::api::navigation_cubit::IntroScreenType::Username,
             3 => crate::api::navigation_cubit::IntroScreenType::DisplayNamePicture,
             4 => crate::api::navigation_cubit::IntroScreenType::DeveloperSettings,
             _ => unreachable!("Invalid variant for IntroScreenType: {}", inner),
@@ -6217,7 +6215,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::navigation_cubit::IntroScreen
         match self {
             Self::Intro => 0.into_dart(),
             Self::ServerChoice => 1.into_dart(),
-            Self::UsernamePassword => 2.into_dart(),
+            Self::Username => 2.into_dart(),
             Self::DisplayNamePicture => 3.into_dart(),
             Self::DeveloperSettings => 4.into_dart(),
             _ => unreachable!(),
@@ -7424,7 +7422,7 @@ impl SseEncode for crate::api::navigation_cubit::IntroScreenType {
             match self {
                 crate::api::navigation_cubit::IntroScreenType::Intro => 0,
                 crate::api::navigation_cubit::IntroScreenType::ServerChoice => 1,
-                crate::api::navigation_cubit::IntroScreenType::UsernamePassword => 2,
+                crate::api::navigation_cubit::IntroScreenType::Username => 2,
                 crate::api::navigation_cubit::IntroScreenType::DisplayNamePicture => 3,
                 crate::api::navigation_cubit::IntroScreenType::DeveloperSettings => 4,
                 _ => {

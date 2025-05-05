@@ -2,26 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashMap, sync::Arc};
-
 use credentials::{
     CredentialGenerationError, intermediate_signing_key::IntermediateSigningKey,
     signing_key::StorableSigningKey,
 };
-use opaque::OpaqueSetup;
-use opaque_ke::{ServerLogin, rand::rngs::OsRng};
 use phnxtypes::{
-    credentials::ClientCredential,
-    crypto::{OpaqueCiphersuite, signatures::DEFAULT_SIGNATURE_SCHEME},
+    crypto::signatures::DEFAULT_SIGNATURE_SCHEME,
     errors::{auth_service::AsProcessingError, version::VersionError},
-    identifiers::{AsClientId, Fqdn, QualifiedUserName},
+    identifiers::Fqdn,
     messages::{
         ApiVersion,
         client_as::{
-            AsClientConnectionPackageResponse, AsCredentialsResponse, Init2FactorAuthResponse,
-            InitClientAdditionResponse, InitUserRegistrationResponse, IssueTokensResponse,
-            SUPPORTED_AS_API_VERSIONS, UserClientsResponse, UserConnectionPackagesResponse,
-            VerifiedAsRequestParams,
+            AsClientConnectionPackageResponse, AsCredentialsResponse, InitUserRegistrationResponse,
+            IssueTokensResponse, SUPPORTED_AS_API_VERSIONS, UserClientsResponse,
+            UserConnectionPackagesResponse, VerifiedAsRequestParams,
         },
         client_as_out::GetUserProfileResponse,
         client_qs::DequeueMessagesResponse,
@@ -30,10 +24,9 @@ use phnxtypes::{
 use sqlx::PgPool;
 use thiserror::Error;
 use tls_codec::{TlsSerialize, TlsSize};
-use tokio::sync::Mutex;
 
 use crate::{
-    errors::{DatabaseError, StorageError},
+    errors::StorageError,
     infra_service::{InfraService, ServiceCreationError},
 };
 
@@ -41,7 +34,6 @@ pub mod client_api;
 mod client_record;
 mod connection_package;
 mod credentials;
-mod opaque;
 mod privacy_pass;
 mod queue;
 mod user_record;
@@ -55,13 +47,9 @@ ACTION_AS_INITIATE_2FA_AUTHENTICATION
 
 User:
 ACTION_AS_INIT_USER_REGISTRATION
-ACTION_AS_FINISH_USER_REGISTRATION
 ACTION_AS_DELETE_USER
 
 Client:
-ACTION_AS_INITIATE_CLIENT_ADDITION
-ACTION_AS_FINISH_CLIENT_ADDITION
-ACTION_AS_DELETE_CLIENT
 ACTION_AS_DEQUEUE_MESSAGES
 ACTION_AS_PUBLISH_KEY_PACKAGES
 ACTION_AS_CLIENT_KEY_PACKAGE
@@ -75,15 +63,7 @@ ACTION_AS_CREDENTIALS
 
 #[derive(Clone)]
 pub struct AuthService {
-    inner: Arc<AuthServiceInner>,
     db_pool: PgPool,
-}
-
-#[derive(Default)]
-struct AuthServiceInner {
-    ephemeral_client_credentials: Mutex<HashMap<AsClientId, ClientCredential>>,
-    ephemeral_user_logins: Mutex<HashMap<QualifiedUserName, ServerLogin<OpaqueCiphersuite>>>,
-    ephemeral_client_logins: Mutex<HashMap<AsClientId, ServerLogin<OpaqueCiphersuite>>>,
 }
 
 #[derive(Debug, Error)]
@@ -102,10 +82,7 @@ impl<T: Into<sqlx::Error>> From<T> for AuthServiceCreationError {
 
 impl InfraService for AuthService {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
-        let auth_service = Self {
-            inner: Default::default(),
-            db_pool,
-        };
+        let auth_service = Self { db_pool };
 
         // Check if there is an active AS signing key
         let mut transaction = auth_service.db_pool.begin().await?;
@@ -131,17 +108,6 @@ impl InfraService for AuthService {
             .await
             .map_err(ServiceCreationError::init_error)?;
         }
-
-        let opaque_setup_exists = match OpaqueSetup::load(&mut *transaction).await {
-            Ok(_) => true,
-            Err(StorageError::Database(DatabaseError::Sqlx(sqlx::Error::RowNotFound))) => false,
-            Err(e) => return Err(e.into()),
-        };
-        let rng = &mut OsRng;
-        if !opaque_setup_exists {
-            OpaqueSetup::new_and_store(&mut *transaction, rng).await?;
-        }
-
         transaction.commit().await?;
 
         Ok(auth_service)
@@ -156,24 +122,8 @@ impl AuthService {
         let (verified_params, from_version) = self.verify(message).await?;
 
         let response: AsProcessResponse = match verified_params {
-            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => self
-                .as_init_two_factor_auth(params)
-                .await
-                .map(AsProcessResponse::Init2FactorAuth)?,
-            VerifiedAsRequestParams::FinishUserRegistration(params) => {
-                self.as_finish_user_registration(params).await?;
-                AsProcessResponse::Ok
-            }
             VerifiedAsRequestParams::DeleteUser(params) => {
                 self.as_delete_user(params).await?;
-                AsProcessResponse::Ok
-            }
-            VerifiedAsRequestParams::FinishClientAddition(params) => {
-                self.as_finish_client_addition(params).await?;
-                AsProcessResponse::Ok
-            }
-            VerifiedAsRequestParams::DeleteClient(params) => {
-                self.as_delete_client(params).await?;
                 AsProcessResponse::Ok
             }
             VerifiedAsRequestParams::DequeueMessages(params) => self
@@ -196,10 +146,6 @@ impl AuthService {
                 .as_user_connection_packages(params)
                 .await
                 .map(AsProcessResponse::UserKeyPackages)?,
-            VerifiedAsRequestParams::InitiateClientAddition(params) => self
-                .as_init_client_addition(params)
-                .await
-                .map(AsProcessResponse::InitiateClientAddition)?,
             VerifiedAsRequestParams::UserClients(params) => self
                 .as_user_clients(params)
                 .await
@@ -284,12 +230,10 @@ impl tls_codec::Serialize for AsVersionedProcessResponse {
 #[repr(u8)]
 pub enum AsProcessResponse {
     Ok,
-    Init2FactorAuth(Init2FactorAuthResponse),
     DequeueMessages(DequeueMessagesResponse),
     ClientKeyPackage(AsClientConnectionPackageResponse),
     IssueTokens(IssueTokensResponse),
     UserKeyPackages(UserConnectionPackagesResponse),
-    InitiateClientAddition(InitClientAdditionResponse),
     UserClients(UserClientsResponse),
     AsCredentials(AsCredentialsResponse),
     InitUserRegistration(InitUserRegistrationResponse),

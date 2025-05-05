@@ -384,7 +384,6 @@ abstract class RustLibApi extends BaseApi {
 
   Future<User> crateApiUserUserNew({
     required String userName,
-    required String password,
     required String address,
     required String path,
     PlatformPushToken? pushToken,
@@ -2975,7 +2974,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<User> crateApiUserUserNew({
     required String userName,
-    required String password,
     required String address,
     required String path,
     PlatformPushToken? pushToken,
@@ -2987,7 +2985,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(userName, serializer);
-          sse_encode_String(password, serializer);
           sse_encode_String(address, serializer);
           sse_encode_String(path, serializer);
           sse_encode_opt_box_autoadd_platform_push_token(pushToken, serializer);
@@ -3008,7 +3005,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         constMeta: kCrateApiUserUserNewConstMeta,
         argValues: [
           userName,
-          password,
           address,
           path,
           pushToken,
@@ -3024,7 +3020,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     debugName: "User_new",
     argNames: [
       "userName",
-      "password",
       "address",
       "path",
       "pushToken",

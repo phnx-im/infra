@@ -24,10 +24,6 @@ use crate::{
             keys::RatchetKey,
         },
         kdf::keys::RatchetSecret,
-        opaque::{
-            OpaqueLoginFinish, OpaqueLoginRequest, OpaqueLoginResponse, OpaqueRegistrationRecord,
-            OpaqueRegistrationRequest, OpaqueRegistrationResponse,
-        },
         ratchet::QueueRatchet,
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },
@@ -39,10 +35,10 @@ use crate::{
 use super::{
     ApiVersion, AsTokenType, EncryptedAsQueueMessageCtype, MlsInfraVersion,
     client_as_out::{
-        ConnectionPackageIn, EncryptedUserProfile, FinishUserRegistrationParamsIn,
-        FinishUserRegistrationParamsTbsIn, GetUserProfileParams, MergeUserProfileParams,
-        MergeUserProfileParamsTbs, StageUserProfileParams, StageUserProfileParamsTbs,
-        VerifiableConnectionPackage,
+        AsPublishConnectionPackagesParamsIn, AsPublishConnectionPackagesParamsTbsIn,
+        EncryptedUserProfile, GetUserProfileParams, InitUserRegistrationParamsIn,
+        MergeUserProfileParams, MergeUserProfileParamsTbs, StageUserProfileParams,
+        StageUserProfileParamsTbs, VerifiableConnectionPackage,
     },
 };
 
@@ -80,93 +76,11 @@ where
     }
 }
 
-pub(super) trait TwoFactorAuthenticator
-where
-    Self: Sized,
-{
-    type Tbs: TlsSerializeTrait;
-
-    fn client_id(&self) -> AsClientId;
-    fn into_payload(self) -> VerifiedAsRequestParams;
-    fn signature(&self) -> &Signature;
-    fn opaque_finish(&self) -> &OpaqueLoginFinish;
-
-    const LABEL: &'static str;
-
-    fn two_factor_auth_info(self) -> Client2FaAuth {
-        let signature = self.signature().clone();
-        let opaque_finish = self.opaque_finish().clone();
-        let client_credential_auth = ClientCredentialAuth {
-            client_id: self.client_id(),
-            payload: Box::new(self.into_payload()),
-            label: Self::LABEL,
-            signature,
-        };
-        Client2FaAuth {
-            client_credential_auth,
-            opaque_finish,
-        }
-    }
-}
-
 pub(super) trait NoAuth
 where
     Self: Sized,
 {
     fn into_verified(self) -> VerifiedAsRequestParams;
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
-pub struct Init2FactorAuthParamsTbs {
-    pub client_id: AsClientId,
-    pub opaque_ke1: OpaqueLoginRequest,
-}
-
-impl Signable for Init2FactorAuthParamsTbs {
-    type SignedOutput = Initiate2FaAuthenticationParams;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        Initiate2FaAuthenticationParams::LABEL
-    }
-}
-
-impl SignedStruct<Init2FactorAuthParamsTbs> for Initiate2FaAuthenticationParams {
-    fn from_payload(payload: Init2FactorAuthParamsTbs, signature: Signature) -> Self {
-        Self { payload, signature }
-    }
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct Initiate2FaAuthenticationParams {
-    payload: Init2FactorAuthParamsTbs,
-    signature: Signature,
-}
-
-impl ClientCredentialAuthenticator for Initiate2FaAuthenticationParams {
-    type Tbs = Init2FactorAuthParamsTbs;
-
-    fn client_id(&self) -> AsClientId {
-        self.payload.client_id.clone()
-    }
-
-    fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::Initiate2FaAuthentication(self.payload)
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    const LABEL: &'static str = "Initiate 2FA Authentication Parameters";
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct Init2FactorAuthResponse {
-    pub opaque_ke2: OpaqueLoginResponse,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
@@ -208,6 +122,10 @@ impl ConnectionPackage {
         &self.payload.encryption_key
     }
 
+    pub fn client_credential_signer_fingerprint(&self) -> &CredentialFingerprint {
+        self.payload.client_credential.signer_fingerprint()
+    }
+
     #[cfg(feature = "test_utils")]
     pub fn new_for_test(payload: ConnectionPackageTbs, signature: Signature) -> Self {
         Self { payload, signature }
@@ -245,63 +163,23 @@ impl SignedStruct<ConnectionPackageTbs> for ConnectionPackage {
 
 // === User ===
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct InitUserRegistrationParams {
     pub client_payload: ClientCredentialPayload,
-    pub opaque_registration_request: OpaqueRegistrationRequest,
-}
-
-impl NoAuth for InitUserRegistrationParams {
-    fn into_verified(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::InitUserRegistration(self)
-    }
+    pub queue_encryption_key: RatchetEncryptionKey,
+    pub initial_ratchet_secret: RatchetSecret,
+    pub encrypted_user_profile: EncryptedUserProfile,
 }
 
 #[derive(Debug, TlsSerialize, TlsSize)]
 pub struct InitUserRegistrationResponse {
     pub client_credential: ClientCredential,
-    pub opaque_registration_response: OpaqueRegistrationResponse,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct FinishUserRegistrationParamsTbs {
-    pub client_id: AsClientId,
-    pub queue_encryption_key: RatchetEncryptionKey,
-    pub initial_ratchet_secret: RatchetSecret,
-    pub connection_packages: Vec<ConnectionPackage>,
-    pub opaque_registration_record: OpaqueRegistrationRecord,
-    pub encrypted_user_profile: EncryptedUserProfile,
-}
-
-impl Signable for FinishUserRegistrationParamsTbs {
-    type SignedOutput = FinishUserRegistrationParams;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        FinishUserRegistrationParamsIn::LABEL
-    }
-}
-
-impl SignedStruct<FinishUserRegistrationParamsTbs> for FinishUserRegistrationParams {
-    fn from_payload(payload: FinishUserRegistrationParamsTbs, signature: Signature) -> Self {
-        Self { payload, signature }
-    }
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct FinishUserRegistrationParams {
-    payload: FinishUserRegistrationParamsTbs,
-    signature: Signature,
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DeleteUserParamsTbs {
     pub user_name: QualifiedUserName,
     pub client_id: AsClientId,
-    pub opaque_finish: OpaqueLoginFinish,
 }
 
 impl Signable for DeleteUserParamsTbs {
@@ -328,7 +206,7 @@ pub struct DeleteUserParams {
     signature: Signature,
 }
 
-impl TwoFactorAuthenticator for DeleteUserParams {
+impl ClientCredentialAuthenticator for DeleteUserParams {
     type Tbs = DeleteUserParamsTbs;
 
     fn client_id(&self) -> AsClientId {
@@ -343,104 +221,10 @@ impl TwoFactorAuthenticator for DeleteUserParams {
         &self.signature
     }
 
-    fn opaque_finish(&self) -> &OpaqueLoginFinish {
-        &self.payload.opaque_finish
-    }
-
     const LABEL: &'static str = "Delete User Parameters";
 }
 
 // === Client ===
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct InitiateClientAdditionParams {
-    pub client_credential_payload: ClientCredentialPayload,
-    pub opaque_login_request: OpaqueLoginRequest,
-}
-
-impl NoAuth for InitiateClientAdditionParams {
-    fn into_verified(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::InitiateClientAddition(self)
-    }
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct InitClientAdditionResponse {
-    pub client_credential: ClientCredential,
-    pub opaque_login_response: OpaqueLoginResponse,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct FinishClientAdditionParamsTbs {
-    pub client_id: AsClientId,
-    pub queue_encryption_key: RatchetEncryptionKey,
-    pub initial_ratchet_secret: RatchetSecret,
-    pub connection_package: ConnectionPackageIn,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct FinishClientAdditionParams {
-    pub payload: FinishClientAdditionParamsTbs,
-    pub opaque_login_finish: OpaqueLoginFinish,
-}
-
-impl FinishClientAdditionParams {
-    // TODO: This is currently implemented manually since this is the only
-    // request that needs user auth. We might want to generalize this into a
-    // trait later on.
-    pub(super) fn user_auth(self) -> UserAuth {
-        UserAuth {
-            user_name: self.payload.client_id.user_name().clone(),
-            opaque_finish: self.opaque_login_finish.clone(),
-            payload: Box::new(VerifiedAsRequestParams::FinishClientAddition(self.payload)),
-        }
-    }
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct DeleteClientParamsTbs(pub AsClientId);
-
-impl Signable for DeleteClientParamsTbs {
-    type SignedOutput = DeleteClientParams;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        DeleteClientParams::LABEL
-    }
-}
-
-impl SignedStruct<DeleteClientParamsTbs> for DeleteClientParams {
-    fn from_payload(payload: DeleteClientParamsTbs, signature: Signature) -> Self {
-        Self { payload, signature }
-    }
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct DeleteClientParams {
-    payload: DeleteClientParamsTbs,
-    signature: Signature,
-}
-
-impl ClientCredentialAuthenticator for DeleteClientParams {
-    type Tbs = DeleteClientParamsTbs;
-
-    fn client_id(&self) -> AsClientId {
-        self.payload.0.clone()
-    }
-
-    fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::DeleteClient(self.payload)
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    const LABEL: &'static str = "Delete Client Parameters";
-}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct DequeueMessagesParamsTbs {
@@ -574,10 +358,10 @@ pub enum ExtractedAsQueueMessagePayload {
 impl EarEncryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
 impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct AsPublishConnectionPackagesParamsTbs {
     pub client_id: AsClientId,
-    pub connection_packages: Vec<ConnectionPackageIn>,
+    pub connection_packages: Vec<ConnectionPackage>,
 }
 
 impl Signable for AsPublishConnectionPackagesParamsTbs {
@@ -588,7 +372,7 @@ impl Signable for AsPublishConnectionPackagesParamsTbs {
     }
 
     fn label(&self) -> &str {
-        AsPublishConnectionPackagesParams::LABEL
+        AsPublishConnectionPackagesParamsIn::LABEL
     }
 }
 
@@ -598,28 +382,10 @@ impl SignedStruct<AsPublishConnectionPackagesParamsTbs> for AsPublishConnectionP
     }
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug, TlsSerialize, TlsSize)]
 pub struct AsPublishConnectionPackagesParams {
     payload: AsPublishConnectionPackagesParamsTbs,
     signature: Signature,
-}
-
-impl ClientCredentialAuthenticator for AsPublishConnectionPackagesParams {
-    type Tbs = AsPublishConnectionPackagesParamsTbs;
-
-    fn client_id(&self) -> AsClientId {
-        self.payload.client_id.clone()
-    }
-
-    fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::PublishConnectionPackages(self.payload)
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    const LABEL: &'static str = "Publish ConnectionPackages Parameters";
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
@@ -905,13 +671,8 @@ impl tls_codec::Serialize for AsVersionedRequestParamsOut {
 #[derive(Debug, TlsSerialize, TlsSize)]
 #[repr(u8)]
 pub enum AsRequestParamsOut {
-    Initiate2FaAuthentication(Initiate2FaAuthenticationParams),
     InitUserRegistration(InitUserRegistrationParams),
-    FinishUserRegistration(FinishUserRegistrationParams),
     DeleteUser(DeleteUserParams),
-    InitiateClientAddition(InitiateClientAdditionParams),
-    FinishClientAddition(FinishClientAdditionParams),
-    DeleteClient(DeleteClientParams),
     DequeueMessages(AsDequeueMessagesParams),
     PublishConnectionPackages(AsPublishConnectionPackagesParams),
     ClientConnectionPackage(AsClientConnectionPackageParams),
@@ -925,24 +686,19 @@ pub enum AsRequestParamsOut {
     MergeUserProfile(MergeUserProfileParams),
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 #[repr(u8)]
 pub enum VerifiedAsRequestParams {
-    Initiate2FaAuthentication(Init2FactorAuthParamsTbs),
-    FinishUserRegistration(FinishUserRegistrationParamsTbsIn),
     DeleteUser(DeleteUserParamsTbs),
-    FinishClientAddition(FinishClientAdditionParamsTbs),
-    DeleteClient(DeleteClientParamsTbs),
     DequeueMessages(DequeueMessagesParamsTbs),
-    PublishConnectionPackages(AsPublishConnectionPackagesParamsTbs),
+    PublishConnectionPackages(AsPublishConnectionPackagesParamsTbsIn),
     ClientConnectionPackage(ClientConnectionPackageParamsTbs),
     IssueTokens(IssueTokensParamsTbs),
     UserConnectionPackages(UserConnectionPackagesParams),
-    InitiateClientAddition(InitiateClientAdditionParams),
     UserClients(UserClientsParams),
     AsCredentials(AsCredentialsParams),
     EnqueueMessage(EnqueueMessageParams),
-    InitUserRegistration(InitUserRegistrationParams),
+    InitUserRegistration(InitUserRegistrationParamsIn),
     GetUserProfile(GetUserProfileParams),
     StageUserProfile(StageUserProfileParamsTbs),
     MergeUserProfile(MergeUserProfileParamsTbs),
@@ -960,22 +716,11 @@ impl ClientCredentialAuth {
     pub fn client_id(&self) -> &AsClientId {
         &self.client_id
     }
-
-    pub fn is_finish_user_registration_request(&self) -> bool {
-        matches!(
-            self.payload.as_ref(),
-            VerifiedAsRequestParams::FinishUserRegistration(_)
-        )
-    }
 }
 
 impl Verifiable for ClientCredentialAuth {
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         match self.payload.as_ref() {
-            VerifiedAsRequestParams::Initiate2FaAuthentication(params) => {
-                params.tls_serialize_detached()
-            }
-            VerifiedAsRequestParams::DeleteClient(params) => params.tls_serialize_detached(),
             VerifiedAsRequestParams::DequeueMessages(params) => params.tls_serialize_detached(),
             VerifiedAsRequestParams::PublishConnectionPackages(params) => {
                 params.tls_serialize_detached()
@@ -984,16 +729,11 @@ impl Verifiable for ClientCredentialAuth {
                 params.tls_serialize_detached()
             }
             VerifiedAsRequestParams::IssueTokens(params) => params.tls_serialize_detached(),
-            VerifiedAsRequestParams::FinishUserRegistration(params) => {
-                params.tls_serialize_detached()
-            }
             VerifiedAsRequestParams::StageUserProfile(params) => params.tls_serialize_detached(),
             VerifiedAsRequestParams::MergeUserProfile(params) => params.tls_serialize_detached(),
             // All other endpoints aren't authenticated via client credential signatures.
             VerifiedAsRequestParams::DeleteUser(_)
-            | VerifiedAsRequestParams::FinishClientAddition(_)
             | VerifiedAsRequestParams::UserConnectionPackages(_)
-            | VerifiedAsRequestParams::InitiateClientAddition(_)
             | VerifiedAsRequestParams::UserClients(_)
             | VerifiedAsRequestParams::AsCredentials(_)
             | VerifiedAsRequestParams::EnqueueMessage(_)
@@ -1020,24 +760,8 @@ impl VerifiedStruct<ClientCredentialAuth> for VerifiedAsRequestParams {
 }
 
 #[derive(Debug)]
-pub struct Client2FaAuth {
-    pub client_credential_auth: ClientCredentialAuth,
-    pub opaque_finish: OpaqueLoginFinish,
-}
-
-#[derive(Debug)]
-pub struct UserAuth {
-    pub user_name: QualifiedUserName,
-    pub opaque_finish: OpaqueLoginFinish,
-    pub payload: Box<VerifiedAsRequestParams>,
-}
-
-#[derive(Debug)]
 #[repr(u8)]
-#[allow(clippy::large_enum_variant)]
 pub enum AsAuthMethod {
     None(VerifiedAsRequestParams),
     ClientCredential(ClientCredentialAuth),
-    Client2Fa(Client2FaAuth),
-    User(UserAuth),
 }

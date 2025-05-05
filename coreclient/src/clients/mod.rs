@@ -7,10 +7,6 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
-use opaque_ke::{
-    ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
-    ClientRegistrationStartResult, Identifiers, RegistrationUpload,
-};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
@@ -23,7 +19,7 @@ use phnxtypes::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
-        ConnectionDecryptionKey, OpaqueCiphersuite, RatchetDecryptionKey,
+        ConnectionDecryptionKey, RatchetDecryptionKey,
         ear::{
             EarEncryptable, EarKey, GenericSerializable,
             keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
@@ -113,7 +109,6 @@ impl CoreUser {
     /// already exists, this will overwrite that user.
     pub async fn new(
         user_name: QualifiedUserName,
-        password: &str,
         server_url: impl ToString,
         grpc_port: u16,
         db_path: &str,
@@ -128,7 +123,6 @@ impl CoreUser {
 
         Self::new_with_connections(
             as_client_id,
-            password,
             server_url,
             grpc_port,
             push_token,
@@ -140,7 +134,6 @@ impl CoreUser {
 
     async fn new_with_connections(
         as_client_id: AsClientId,
-        password: &str,
         server_url: impl ToString,
         grpc_port: u16,
         push_token: Option<PushToken>,
@@ -159,7 +152,6 @@ impl CoreUser {
             &phnx_db,
             as_client_id,
             server_url.clone(),
-            password,
             push_token,
         )
         .await?;
@@ -186,7 +178,6 @@ impl CoreUser {
     /// dropped together with this instance of CoreUser.
     pub async fn new_ephemeral(
         user_name: impl Into<QualifiedUserName>,
-        password: &str,
         server_url: impl ToString,
         grpc_port: u16,
         push_token: Option<PushToken>,
@@ -202,7 +193,6 @@ impl CoreUser {
 
         Self::new_with_connections(
             as_client_id,
-            password,
             server_url,
             grpc_port,
             push_token,

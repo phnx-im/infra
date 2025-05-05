@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use opaque_ke::rand::{CryptoRng, RngCore};
+use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};

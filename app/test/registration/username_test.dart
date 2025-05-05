@@ -12,7 +12,7 @@ import 'package:prototype/theme/theme.dart';
 import '../mocks.dart';
 
 void main() {
-  group('UsernamePasswordChoice', () {
+  group('UsernameChoice', () {
     late MockRegistrationCubit registrationCubit;
 
     setUp(() async {
@@ -28,7 +28,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
-            home: const Scaffold(body: UsernamePasswordChoice()),
+            home: const Scaffold(body: UsernameChoice()),
           );
         },
       ),
@@ -41,25 +41,20 @@ void main() {
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('goldens/username_password_choice_empty.png'),
+        matchesGoldenFile('goldens/username_choice_empty.png'),
       );
     });
 
     testWidgets('renders correctly', (tester) async {
       when(() => registrationCubit.state).thenReturn(
-        const RegistrationState(
-          username: "alice",
-          password: "test",
-          isUsernameValid: true,
-          isPasswordValid: true,
-        ),
+        const RegistrationState(username: "alice", isUsernameValid: true),
       );
 
       await tester.pumpWidget(buildSubject());
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('goldens/username_password_choice.png'),
+        matchesGoldenFile('goldens/username_choice.png'),
       );
     });
   });

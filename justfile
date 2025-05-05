@@ -8,9 +8,15 @@ set windows-shell := ["C:\\Program Files\\Git\\bin\\sh.exe","-c"]
 
 POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
+docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } else { "false" }
+
 # run postgres via docker compose and apply migrations
 init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
-    docker compose up --wait
+    if {{docker-is-podman}} == "true"; then \
+        podman-compose --podman-run-args=--replace up -d; \
+    else \
+        docker compose up --wait; \
+    fi
     cd backend && sqlx database create
     cd backend && sqlx database setup
 

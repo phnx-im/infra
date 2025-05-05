@@ -12,8 +12,8 @@ import 'package:prototype/widgets/widgets.dart';
 
 import 'registration_cubit.dart';
 
-class UsernamePasswordChoice extends StatelessWidget {
-  const UsernamePasswordChoice({super.key});
+class UsernameChoice extends StatelessWidget {
+  const UsernameChoice({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class UsernamePasswordChoice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                const Text('Choose a username and password'),
+                const Text('Choose a username'),
                 Form(
                   autovalidateMode: AutovalidateMode.always,
                   child: Column(
@@ -41,24 +41,6 @@ class UsernamePasswordChoice extends StatelessWidget {
                       ConstrainedBox(
                         constraints: BoxConstraints.tight(const Size(300, 80)),
                         child: const _UsernameTextField(),
-                      ),
-                      const SizedBox(height: 5),
-                      ConstrainedBox(
-                        constraints: BoxConstraints.tight(const Size(300, 80)),
-                        child: TextFormField(
-                          initialValue:
-                              context.read<RegistrationCubit>().state.password,
-                          decoration: const InputDecoration(
-                            hintText: 'PASSWORD',
-                          ),
-                          style: inputTextStyle,
-                          obscureText: true,
-                          onChanged: (String value) {
-                            context.read<RegistrationCubit>().setPassword(
-                              value,
-                            );
-                          },
-                        ),
                       ),
                     ],
                   ),
@@ -121,8 +103,7 @@ class _NextButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = context.select(
-      (RegistrationCubit cubit) =>
-          cubit.state.isUsernameValid && cubit.state.isPasswordValid,
+      (RegistrationCubit cubit) => cubit.state.isUsernameValid,
     );
     return OutlinedButton(
       style: buttonStyle(context, isActive),

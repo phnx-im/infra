@@ -19,11 +19,9 @@ final _privateConstructorUsedError = UnsupportedError(
 mixin _$RegistrationState {
   // Domain choice screen data
   String get domain =>
-      throw _privateConstructorUsedError; // Username/password screen data
+      throw _privateConstructorUsedError; // Username screen data
   String get username => throw _privateConstructorUsedError;
-  String get password => throw _privateConstructorUsedError;
-  bool get isUsernameValid => throw _privateConstructorUsedError;
-  bool get isPasswordValid =>
+  bool get isUsernameValid =>
       throw _privateConstructorUsedError; // Display name/avatar screen data
   ImageData? get avatar => throw _privateConstructorUsedError;
   String? get displayName => throw _privateConstructorUsedError;
@@ -46,9 +44,7 @@ abstract class $RegistrationStateCopyWith<$Res> {
   $Res call({
     String domain,
     String username,
-    String password,
     bool isUsernameValid,
-    bool isPasswordValid,
     ImageData? avatar,
     String? displayName,
     bool isSigningUp,
@@ -72,9 +68,7 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
   $Res call({
     Object? domain = null,
     Object? username = null,
-    Object? password = null,
     Object? isUsernameValid = null,
-    Object? isPasswordValid = null,
     Object? avatar = freezed,
     Object? displayName = freezed,
     Object? isSigningUp = null,
@@ -91,20 +85,10 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
                     ? _value.username
                     : username // ignore: cast_nullable_to_non_nullable
                         as String,
-            password:
-                null == password
-                    ? _value.password
-                    : password // ignore: cast_nullable_to_non_nullable
-                        as String,
             isUsernameValid:
                 null == isUsernameValid
                     ? _value.isUsernameValid
                     : isUsernameValid // ignore: cast_nullable_to_non_nullable
-                        as bool,
-            isPasswordValid:
-                null == isPasswordValid
-                    ? _value.isPasswordValid
-                    : isPasswordValid // ignore: cast_nullable_to_non_nullable
                         as bool,
             avatar:
                 freezed == avatar
@@ -139,9 +123,7 @@ abstract class _$$RegistrationStateImplCopyWith<$Res>
   $Res call({
     String domain,
     String username,
-    String password,
     bool isUsernameValid,
-    bool isPasswordValid,
     ImageData? avatar,
     String? displayName,
     bool isSigningUp,
@@ -164,9 +146,7 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
   $Res call({
     Object? domain = null,
     Object? username = null,
-    Object? password = null,
     Object? isUsernameValid = null,
-    Object? isPasswordValid = null,
     Object? avatar = freezed,
     Object? displayName = freezed,
     Object? isSigningUp = null,
@@ -183,20 +163,10 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
                 ? _value.username
                 : username // ignore: cast_nullable_to_non_nullable
                     as String,
-        password:
-            null == password
-                ? _value.password
-                : password // ignore: cast_nullable_to_non_nullable
-                    as String,
         isUsernameValid:
             null == isUsernameValid
                 ? _value.isUsernameValid
                 : isUsernameValid // ignore: cast_nullable_to_non_nullable
-                    as bool,
-        isPasswordValid:
-            null == isPasswordValid
-                ? _value.isPasswordValid
-                : isPasswordValid // ignore: cast_nullable_to_non_nullable
                     as bool,
         avatar:
             freezed == avatar
@@ -224,9 +194,7 @@ class _$RegistrationStateImpl extends _RegistrationState {
   const _$RegistrationStateImpl({
     this.domain = '',
     this.username = '',
-    this.password = '',
     this.isUsernameValid = false,
-    this.isPasswordValid = false,
     this.avatar,
     this.displayName,
     this.isSigningUp = false,
@@ -236,19 +204,13 @@ class _$RegistrationStateImpl extends _RegistrationState {
   @override
   @JsonKey()
   final String domain;
-  // Username/password screen data
+  // Username screen data
   @override
   @JsonKey()
   final String username;
   @override
   @JsonKey()
-  final String password;
-  @override
-  @JsonKey()
   final bool isUsernameValid;
-  @override
-  @JsonKey()
-  final bool isPasswordValid;
   // Display name/avatar screen data
   @override
   final ImageData? avatar;
@@ -260,7 +222,7 @@ class _$RegistrationStateImpl extends _RegistrationState {
 
   @override
   String toString() {
-    return 'RegistrationState(domain: $domain, username: $username, password: $password, isUsernameValid: $isUsernameValid, isPasswordValid: $isPasswordValid, avatar: $avatar, displayName: $displayName, isSigningUp: $isSigningUp)';
+    return 'RegistrationState(domain: $domain, username: $username, isUsernameValid: $isUsernameValid, avatar: $avatar, displayName: $displayName, isSigningUp: $isSigningUp)';
   }
 
   @override
@@ -271,12 +233,8 @@ class _$RegistrationStateImpl extends _RegistrationState {
             (identical(other.domain, domain) || other.domain == domain) &&
             (identical(other.username, username) ||
                 other.username == username) &&
-            (identical(other.password, password) ||
-                other.password == password) &&
             (identical(other.isUsernameValid, isUsernameValid) ||
                 other.isUsernameValid == isUsernameValid) &&
-            (identical(other.isPasswordValid, isPasswordValid) ||
-                other.isPasswordValid == isPasswordValid) &&
             (identical(other.avatar, avatar) || other.avatar == avatar) &&
             (identical(other.displayName, displayName) ||
                 other.displayName == displayName) &&
@@ -289,9 +247,7 @@ class _$RegistrationStateImpl extends _RegistrationState {
     runtimeType,
     domain,
     username,
-    password,
     isUsernameValid,
-    isPasswordValid,
     avatar,
     displayName,
     isSigningUp,
@@ -313,9 +269,7 @@ abstract class _RegistrationState extends RegistrationState {
   const factory _RegistrationState({
     final String domain,
     final String username,
-    final String password,
     final bool isUsernameValid,
-    final bool isPasswordValid,
     final ImageData? avatar,
     final String? displayName,
     final bool isSigningUp,
@@ -324,15 +278,11 @@ abstract class _RegistrationState extends RegistrationState {
 
   // Domain choice screen data
   @override
-  String get domain; // Username/password screen data
+  String get domain; // Username screen data
   @override
   String get username;
   @override
-  String get password;
-  @override
-  bool get isUsernameValid;
-  @override
-  bool get isPasswordValid; // Display name/avatar screen data
+  bool get isUsernameValid; // Display name/avatar screen data
   @override
   ImageData? get avatar;
   @override
