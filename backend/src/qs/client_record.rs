@@ -25,7 +25,7 @@ use phnxtypes::{
 use crate::{
     errors::StorageError,
     messages::intra_backend::DsFanOutPayload,
-    qs::{PushNotificationError, WsNotification},
+    qs::{Notification, PushNotificationError},
 };
 
 use super::{Notifier, PushNotificationProvider, errors::EnqueueError, queue::Queue};
@@ -327,7 +327,7 @@ impl QsClientRecord {
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if websocket_notifier
-                    .notify(client_id, WsNotification::QueueUpdate)
+                    .notify(client_id, Notification::QueueUpdate)
                     .await
                     .is_err()
                 {
@@ -415,7 +415,7 @@ impl QsClientRecord {
             DsFanOutPayload::EventMessage(event_message) => {
                 // We ignore the result, because dispatching events is best effort.œ
                 let _ = websocket_notifier
-                    .notify(client_id, WsNotification::Event(event_message))
+                    .notify(client_id, Notification::Event(event_message))
                     .await;
             }
         }

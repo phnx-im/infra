@@ -12,7 +12,7 @@ use phnxtypes::{
     codec::PhnxCodec,
     endpoint_paths::ENDPOINT_QS_WS,
     identifiers::QsClientId,
-    messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
+    messages::{client_ds::QsMessage, client_qs::QsOpenWsParams},
 };
 use thiserror::*;
 use tls_codec::DeserializeBytes;
@@ -35,7 +35,7 @@ use crate::{ApiClient, Protocol};
 pub enum WsEvent {
     ConnectedEvent,
     DisconnectedEvent,
-    MessageEvent(QsWsMessage),
+    MessageEvent(QsMessage),
 }
 
 enum ConnectionStatusError {
@@ -163,12 +163,12 @@ impl QsWebSocket {
                                     return false;
                                 }
                                 // Try to deserialize the message
-                                if let Ok(QsWsMessage::QueueUpdate) =
-                                    QsWsMessage::tls_deserialize_exact_bytes(data.as_slice())
+                                if let Ok(QsMessage::QueueUpdate) =
+                                    QsMessage::tls_deserialize_exact_bytes(data.as_slice())
                                 {
                                     // We received a new message notification from the QS
                                     // Send the event to the channel
-                                    if tx.send(WsEvent::MessageEvent(QsWsMessage::QueueUpdate)).await.is_err() {
+                                    if tx.send(WsEvent::MessageEvent(QsMessage::QueueUpdate)).await.is_err() {
                                         info!("Closing the connection because all subscribers are dropped");
                                         // Close the stream if all subscribers of the watch have been dropped
                                         let _ = ws_stream.close().await;

@@ -3,42 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 pub(crate) mod dispatch;
-pub(crate) mod messages;
 
 use std::sync::Arc;
 
-use actix::Message;
 use dispatch::*;
-use phnxbackend::qs::{Notifier, WebsocketNotifierError, WsNotification, grpc::GrpcListen};
+use phnxbackend::qs::{Notification, Notifier, NotifierError, grpc::GrpcListen};
 use phnxprotos::queue_service::v1::QueueEvent;
-use phnxtypes::{identifiers::QsClientId, messages::client_ds::QsWsMessage};
+use phnxtypes::identifiers::QsClientId;
 use tokio::{
     self,
     sync::{Mutex, mpsc},
 };
-
-// Type for internal use so we can derive `Message` and use the rtype attribute.
-#[derive(PartialEq, Eq, Debug, Clone, Message)]
-#[rtype(result = "()")]
-pub struct InternalQsWsMessage {
-    inner: QsWsMessage,
-}
-
-impl From<QsWsMessage> for InternalQsWsMessage {
-    fn from(message: QsWsMessage) -> Self {
-        InternalQsWsMessage { inner: message }
-    }
-}
-
-impl From<WsNotification> for InternalQsWsMessage {
-    fn from(notification: WsNotification) -> Self {
-        match notification {
-            WsNotification::QueueUpdate => QsWsMessage::QueueUpdate,
-            WsNotification::Event(event) => QsWsMessage::Event(event),
-        }
-        .into()
-    }
-}
 
 /// This is a wrapper for dispatch actor that can be used to send out a
 /// notification over the dispatch.
@@ -67,15 +42,10 @@ impl Notifier for DispatchNotifier {
     async fn notify(
         &self,
         queue_id: &QsClientId,
-        ws_notification: WsNotification,
-    ) -> Result<(), WebsocketNotifierError> {
+        notification: Notification,
+    ) -> Result<(), NotifierError> {
         let mut dispatch = self.dispatch.lock().await;
-        match dispatch.notify_client(queue_id, ws_notification.into()) {
-            Ok(_) => Ok(()),
-            Err(NotifyClientError::ClientNotFound) => {
-                Err(WebsocketNotifierError::WebsocketNotFound)
-            }
-        }
+        dispatch.notify_client(queue_id, notification)
     }
 }
 

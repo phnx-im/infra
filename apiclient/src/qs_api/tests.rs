@@ -18,7 +18,7 @@ use phnxtypes::{
     codec::PhnxCodec,
     endpoint_paths::ENDPOINT_QS_WS,
     identifiers::QsClientId,
-    messages::{client_ds::QsWsMessage, client_qs::QsOpenWsParams},
+    messages::{client_ds::QsMessage, client_qs::QsOpenWsParams},
 };
 use tls_codec::Serialize;
 use tokio_util::sync::CancellationToken;
@@ -71,7 +71,7 @@ async fn ws_lifecycle() {
     // Actual NewMessage event
     assert_eq!(
         ws.next().await,
-        Some(WsEvent::MessageEvent(QsWsMessage::QueueUpdate))
+        Some(WsEvent::MessageEvent(QsMessage::QueueUpdate))
     );
     // Disconnected event because the websocket was close from the server side
     assert_eq!(ws.next().await, Some(WsEvent::DisconnectedEvent));
@@ -174,7 +174,7 @@ impl Actor for QsWsConnection {
                 ctx.run_later(Duration::from_secs(2), |_act, ctx| {
                     // Now we send an actual message
                     // Serialize the message
-                    let serialized = QsWsMessage::QueueUpdate
+                    let serialized = QsMessage::QueueUpdate
                         .tls_serialize_detached()
                         .expect("Failed to serialize message");
                     // Send the message to the client
