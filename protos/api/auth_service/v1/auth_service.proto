@@ -13,7 +13,7 @@ service AuthService {
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
-  rpc GetConnectionPackage(GetConnectionPackageRequest) returns (GetConnectionPackageResponse);
+  rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
 
   rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
 
@@ -135,28 +135,13 @@ message PublishConnectionPackagesPayload {
 
 message PublishConnectionPackagesResponse {}
 
-// get connection package
+// get user connection packages
 
-message GetConnectionPackageRequest {
-  GetConnectionPackagePayload payload = 1;
-  common.v1.Signature signature = 2;
-}
-
-message GetConnectionPackagePayload {
-  AsClientId client_id = 1;
-}
-
-message GetConnectionPackageResponse {
-  ConnectionPackage connection_package = 1;
-}
-
-// user connection package
-
-message GetConnectionPackagesRequest {
+message GetUserConnectionPackagesRequest {
   common.v1.QualifiedUserName user_name = 1;
 }
 
-message GetConnectionPackagesResponse {
+message GetUserConnectionPackagesResponse {
   repeated ConnectionPackage connection_packages = 1;
 }
 

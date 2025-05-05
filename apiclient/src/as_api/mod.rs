@@ -4,8 +4,8 @@
 
 use http::StatusCode;
 use phnxprotos::auth_service::v1::{
-    AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest, GetConnectionPackagePayload,
-    PublishConnectionPackagesPayload, RegisterUserRequest,
+    AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
+    GetUserConnectionPackagesRequest, PublishConnectionPackagesPayload, RegisterUserRequest,
 };
 use phnxtypes::{
     LibraryError,
@@ -23,10 +23,10 @@ use phnxtypes::{
             UserClientsParams, UserConnectionPackagesParams,
         },
         client_as_out::{
-            AsClientConnectionPackageResponseIn, AsCredentialsResponseIn, AsProcessResponseIn,
-            AsVersionedProcessResponseIn, EncryptedUserProfile, GetUserProfileParams,
-            GetUserProfileResponse, RegisterUserResponseIn, UpdateUserProfileParamsTbs,
-            UserClientsResponseIn, UserConnectionPackagesResponseIn,
+            AsCredentialsResponseIn, AsProcessResponseIn, AsVersionedProcessResponseIn,
+            EncryptedUserProfile, GetUserProfileParams, GetUserProfileResponse,
+            RegisterUserResponseIn, UpdateUserProfileParamsTbs, UserClientsResponseIn,
+            UserConnectionPackagesResponseIn,
         },
         client_qs::DequeueMessagesResponse,
     },
@@ -235,35 +235,6 @@ impl ApiClient {
         Ok(())
     }
 
-    // TODO: Verify that this fetches the correct key packages. I believe right
-    // now it expects the signature to be from the client with the given client
-    // id, which doesn't make a lot of sense.
-    pub async fn as_client_connection_package(
-        &self,
-        client_id: AsClientId,
-        signing_key: &ClientSigningKey,
-    ) -> Result<AsClientConnectionPackageResponseIn, AsRequestError> {
-        let payload = GetConnectionPackagePayload {
-            client_id: Some(client_id.into()),
-        };
-        let request = payload.sign(signing_key)?;
-        let response = self
-            .as_grpc_client
-            .client()
-            .get_connection_package(request)
-            .await?
-            .into_inner();
-        let connection_package = response
-            .connection_package
-            .map(TryFrom::try_from)
-            .transpose()
-            .map_err(|error| {
-                error!(%error, "invalid connection_package in response");
-                AsRequestError::UnexpectedResponse
-            })?;
-        Ok(AsClientConnectionPackageResponseIn { connection_package })
-    }
-
     pub async fn as_issue_tokens(
         &self,
         token_type: AsTokenType,
@@ -311,17 +282,27 @@ impl ApiClient {
         &self,
         payload: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {
-        let params = AsRequestParamsOut::UserConnectionPackages(payload);
-        self.prepare_and_send_as_message(params)
-            .await
-            // Check if the response is what we expected it to be.
-            .and_then(|response| {
-                if let AsProcessResponseIn::UserConnectionPackages(response) = response {
-                    Ok(response)
-                } else {
-                    Err(AsRequestError::UnexpectedResponse)
-                }
-            })
+        let request = GetUserConnectionPackagesRequest {
+            user_name: Some(payload.user_name.into()),
+        };
+        let response = self
+            .as_grpc_client
+            .client()
+            .get_user_connection_packages(request)
+            .await?
+            .into_inner();
+        let connection_packages = response
+            .connection_packages
+            .into_iter()
+            .map(TryFrom::try_from)
+            .collect::<Result<_, _>>()
+            .map_err(|error| {
+                error!(%error, "failed to convert connection package");
+                AsRequestError::UnexpectedResponse
+            })?;
+        Ok(UserConnectionPackagesResponseIn {
+            connection_packages,
+        })
     }
 
     pub async fn as_enqueue_message(

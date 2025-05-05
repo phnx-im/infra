@@ -15,8 +15,8 @@ use phnxtypes::{
     errors, identifiers,
     messages::{
         client_as::{
-            AsCredentialsParams, ClientConnectionPackageParamsTbs, DeleteUserParamsTbs,
-            EnqueueMessageParams,
+            AsCredentialsParams, DeleteUserParamsTbs, EnqueueMessageParams,
+            UserConnectionPackagesParams,
         },
         client_as_out::{AsPublishConnectionPackagesParamsTbsIn, RegisterUserParamsIn},
     },
@@ -145,23 +145,24 @@ impl auth_service_server::AuthService for GrpcAs {
         Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
 
-    async fn get_connection_package(
+    async fn get_user_connection_packages(
         &self,
-        request: Request<GetConnectionPackageRequest>,
-    ) -> Result<Response<GetConnectionPackageResponse>, Status> {
+        request: Request<GetUserConnectionPackagesRequest>,
+    ) -> Result<Response<GetUserConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
-        let (client_id, _payload) = self
-            .verify_client_auth::<_, GetConnectionPackagePayload>(request)
-            .await?;
-        let params = ClientConnectionPackageParamsTbs(client_id);
-        let connection_package = self
+        let user_name = request
+            .user_name
+            .ok_or_missing_field("user_name")?
+            .try_into()?;
+        let params = UserConnectionPackagesParams { user_name };
+        let connection_packages = self
             .inner
-            .as_client_key_package(params)
+            .as_user_connection_packages(params)
             .await
             .map_err(GetConnectionPackageError)?
-            .connection_package;
-        Ok(Response::new(GetConnectionPackageResponse {
-            connection_package: connection_package.map(Into::into),
+            .key_packages;
+        Ok(Response::new(GetUserConnectionPackagesResponse {
+            connection_packages: connection_packages.into_iter().map(Into::into).collect(),
         }))
     }
 
@@ -279,13 +280,16 @@ impl From<PublishConnectionPackagesError> for Status {
     }
 }
 
-struct GetConnectionPackageError(errors::auth_service::ClientKeyPackageError);
+struct GetConnectionPackageError(errors::auth_service::UserConnectionPackagesError);
 
 impl From<GetConnectionPackageError> for Status {
     fn from(e: GetConnectionPackageError) -> Self {
         match e.0 {
-            errors::auth_service::ClientKeyPackageError::StorageError => {
+            errors::auth_service::UserConnectionPackagesError::StorageError => {
                 Status::internal(e.0.to_string())
+            }
+            errors::auth_service::UserConnectionPackagesError::UnknownUser => {
+                Status::not_found(e.0.to_string())
             }
         }
     }
@@ -336,12 +340,6 @@ impl WithAsClientId for DeleteUserRequest {
 }
 
 impl WithAsClientId for PublishConnectionPackagesRequest {
-    fn client_id_proto(&self) -> Option<AsClientId> {
-        self.payload.as_ref()?.client_id.clone()
-    }
-}
-
-impl WithAsClientId for GetConnectionPackageRequest {
     fn client_id_proto(&self) -> Option<AsClientId> {
         self.payload.as_ref()?.client_id.clone()
     }

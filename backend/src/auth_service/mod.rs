@@ -13,9 +13,9 @@ use phnxtypes::{
     messages::{
         ApiVersion,
         client_as::{
-            AsClientConnectionPackageResponse, AsCredentialsResponse, IssueTokensResponse,
-            RegisterUserResponse, SUPPORTED_AS_API_VERSIONS, UserClientsResponse,
-            UserConnectionPackagesResponse, VerifiedAsRequestParams,
+            AsCredentialsResponse, IssueTokensResponse, RegisterUserResponse,
+            SUPPORTED_AS_API_VERSIONS, UserClientsResponse, UserConnectionPackagesResponse,
+            VerifiedAsRequestParams,
         },
         client_as_out::GetUserProfileResponse,
         client_qs::DequeueMessagesResponse,
@@ -135,10 +135,6 @@ impl AuthService {
                 self.as_publish_connection_packages(params).await?;
                 AsProcessResponse::Ok
             }
-            VerifiedAsRequestParams::ClientConnectionPackage(params) => self
-                .as_client_key_package(params)
-                .await
-                .map(AsProcessResponse::ClientKeyPackage)?,
             VerifiedAsRequestParams::IssueTokens(params) => self
                 .as_issue_tokens(params)
                 .await
@@ -228,7 +224,6 @@ impl tls_codec::Serialize for AsVersionedProcessResponse {
 pub enum AsProcessResponse {
     Ok,
     DequeueMessages(DequeueMessagesResponse),
-    ClientKeyPackage(AsClientConnectionPackageResponse),
     IssueTokens(IssueTokensResponse),
     UserKeyPackages(UserConnectionPackagesResponse),
     UserClients(UserClientsResponse),

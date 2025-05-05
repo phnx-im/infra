@@ -401,56 +401,6 @@ pub struct AsPublishConnectionPackagesParams {
     signature: Signature,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct ClientConnectionPackageParamsTbs(pub AsClientId);
-
-impl Signable for ClientConnectionPackageParamsTbs {
-    type SignedOutput = AsClientConnectionPackageParams;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        self.tls_serialize_detached()
-    }
-
-    fn label(&self) -> &str {
-        AsClientConnectionPackageParams::LABEL
-    }
-}
-
-impl SignedStruct<ClientConnectionPackageParamsTbs> for AsClientConnectionPackageParams {
-    fn from_payload(payload: ClientConnectionPackageParamsTbs, signature: Signature) -> Self {
-        Self { payload, signature }
-    }
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct AsClientConnectionPackageParams {
-    payload: ClientConnectionPackageParamsTbs,
-    signature: Signature,
-}
-
-impl ClientCredentialAuthenticator for AsClientConnectionPackageParams {
-    type Tbs = AsClientId;
-
-    fn client_id(&self) -> AsClientId {
-        self.payload.0.clone()
-    }
-
-    fn into_payload(self) -> VerifiedAsRequestParams {
-        VerifiedAsRequestParams::ClientConnectionPackage(self.payload)
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
-    const LABEL: &'static str = "Client ConnectionPackage Parameters";
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AsClientConnectionPackageResponse {
-    pub connection_package: Option<ConnectionPackage>,
-}
-
 // === Anonymous requests ===
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
@@ -688,7 +638,6 @@ pub enum AsRequestParamsOut {
     DeleteUser(DeleteUserParams),
     DequeueMessages(AsDequeueMessagesParams),
     PublishConnectionPackages(AsPublishConnectionPackagesParams),
-    ClientConnectionPackage(AsClientConnectionPackageParams),
     UserClients(UserClientsParams),
     UserConnectionPackages(UserConnectionPackagesParams),
     EnqueueMessage(EnqueueMessageParams),
@@ -704,7 +653,6 @@ pub enum VerifiedAsRequestParams {
     DeleteUser(DeleteUserParamsTbs),
     DequeueMessages(DequeueMessagesParamsTbs),
     PublishConnectionPackages(AsPublishConnectionPackagesParamsTbsIn),
-    ClientConnectionPackage(ClientConnectionPackageParamsTbs),
     IssueTokens(IssueTokensParamsTbs),
     UserConnectionPackages(UserConnectionPackagesParams),
     UserClients(UserClientsParams),
@@ -734,9 +682,6 @@ impl Verifiable for ClientCredentialAuth {
         match self.payload.as_ref() {
             VerifiedAsRequestParams::DequeueMessages(params) => params.tls_serialize_detached(),
             VerifiedAsRequestParams::PublishConnectionPackages(params) => {
-                params.tls_serialize_detached()
-            }
-            VerifiedAsRequestParams::ClientConnectionPackage(params) => {
                 params.tls_serialize_detached()
             }
             VerifiedAsRequestParams::IssueTokens(params) => params.tls_serialize_detached(),

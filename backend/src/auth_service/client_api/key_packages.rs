@@ -3,12 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    errors::auth_service::{ClientKeyPackageError, PublishConnectionPackageError},
+    errors::auth_service::PublishConnectionPackageError,
     messages::{
-        client_as::{
-            AsClientConnectionPackageResponse, ClientConnectionPackageParamsTbs, ConnectionPackage,
-        },
-        client_as_out::AsPublishConnectionPackagesParamsTbsIn,
+        client_as::ConnectionPackage, client_as_out::AsPublishConnectionPackagesParamsTbsIn,
     },
 };
 
@@ -51,29 +48,5 @@ impl AuthService {
             .await
             .map_err(|_| PublishConnectionPackageError::StorageError)?;
         Ok(())
-    }
-
-    pub(crate) async fn as_client_key_package(
-        &self,
-        params: ClientConnectionPackageParamsTbs,
-    ) -> Result<AsClientConnectionPackageResponse, ClientKeyPackageError> {
-        let client_id = params.0;
-
-        let mut connection = self.db_pool.acquire().await.map_err(|e| {
-            tracing::error!("Can't acquire a connection: {:?}", e);
-            ClientKeyPackageError::StorageError
-        })?;
-        let connection_package =
-            StorableConnectionPackage::client_connection_package(&mut connection, &client_id)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Storage provider error: {:?}", e);
-                    ClientKeyPackageError::StorageError
-                })?;
-
-        let response = AsClientConnectionPackageResponse {
-            connection_package: Some(connection_package),
-        };
-        Ok(response)
     }
 }

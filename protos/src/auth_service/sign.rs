@@ -4,8 +4,8 @@ use phnxtypes::crypto::signatures::signable::{
 use prost::Message;
 
 use super::v1::{
-    DeleteUserPayload, DeleteUserRequest, GetConnectionPackagePayload, GetConnectionPackageRequest,
-    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest,
+    DeleteUserPayload, DeleteUserRequest, PublishConnectionPackagesPayload,
+    PublishConnectionPackagesRequest,
 };
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
@@ -115,58 +115,6 @@ impl Verifiable for PublishConnectionPackagesRequest {
 
     fn label(&self) -> &str {
         PUBLISH_CONNECTION_PACKAGES_PAYLOAD_LABEL
-    }
-}
-
-const GET_CONNECTION_PACKAGE_PAYLOAD_LABEL: &str = "GetConnectionPackagePayload";
-
-impl SignedStruct<GetConnectionPackagePayload> for GetConnectionPackageRequest {
-    fn from_payload(payload: GetConnectionPackagePayload, signature: signable::Signature) -> Self {
-        Self {
-            payload: Some(payload),
-            signature: Some(signature.into()),
-        }
-    }
-}
-
-impl Signable for GetConnectionPackagePayload {
-    type SignedOutput = GetConnectionPackageRequest;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        Ok(self.encode_to_vec())
-    }
-
-    fn label(&self) -> &str {
-        GET_CONNECTION_PACKAGE_PAYLOAD_LABEL
-    }
-}
-
-impl VerifiedStruct<GetConnectionPackageRequest> for GetConnectionPackagePayload {
-    type SealingType = private_mod::Seal;
-
-    fn from_verifiable(verifiable: GetConnectionPackageRequest, _seal: Self::SealingType) -> Self {
-        verifiable.payload.unwrap()
-    }
-}
-
-impl Verifiable for GetConnectionPackageRequest {
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        Ok(self
-            .payload
-            .as_ref()
-            .ok_or(MissingPayloadError)?
-            .encode_to_vec())
-    }
-
-    fn signature(&self) -> impl AsRef<[u8]> {
-        self.signature
-            .as_ref()
-            .map(|s| s.value.as_slice())
-            .unwrap_or_default()
-    }
-
-    fn label(&self) -> &str {
-        GET_CONNECTION_PACKAGE_PAYLOAD_LABEL
     }
 }
 

@@ -27,19 +27,13 @@ use crate::{
 use super::{
     ApiVersion, MlsInfraVersion,
     client_as::{
-        AsAuthMethod, AsClientConnectionPackageParams, AsCredentialsParams,
-        AsDequeueMessagesParams, ClientCredentialAuthenticator, ConnectionPackage,
-        ConnectionPackageTbs, DeleteUserParams, EnqueueMessageParams, IssueTokensParams,
-        IssueTokensResponse, NoAuth, SUPPORTED_AS_API_VERSIONS, UserClientsParams,
-        UserConnectionPackagesParams, VerifiedAsRequestParams,
+        AsAuthMethod, AsCredentialsParams, AsDequeueMessagesParams, ClientCredentialAuthenticator,
+        ConnectionPackage, ConnectionPackageTbs, DeleteUserParams, EnqueueMessageParams,
+        IssueTokensParams, IssueTokensResponse, NoAuth, SUPPORTED_AS_API_VERSIONS,
+        UserClientsParams, UserConnectionPackagesParams, VerifiedAsRequestParams,
     },
     client_qs::DequeueMessagesResponse,
 };
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct AsClientConnectionPackageResponseIn {
-    pub connection_package: Option<ConnectionPackageIn>,
-}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct UserConnectionPackagesResponseIn {
@@ -65,7 +59,6 @@ pub struct RegisterUserResponseIn {
     pub client_credential: VerifiableClientCredential,
 }
 
-#[expect(clippy::large_enum_variant)]
 pub enum AsVersionedProcessResponseIn {
     Other(ApiVersion),
     Alpha(AsProcessResponseIn),
@@ -118,7 +111,6 @@ impl tls_codec::DeserializeBytes for AsVersionedProcessResponseIn {
 pub enum AsProcessResponseIn {
     Ok,
     DequeueMessages(DequeueMessagesResponse),
-    ClientConnectionPackage(AsClientConnectionPackageResponseIn),
     IssueTokens(IssueTokensResponse),
     UserConnectionPackages(UserConnectionPackagesResponseIn),
     UserClients(UserClientsResponseIn),
@@ -379,7 +371,6 @@ pub enum AsRequestParamsIn {
     DeleteUser(DeleteUserParams),
     DequeueMessages(AsDequeueMessagesParams),
     PublishConnectionPackages(AsPublishConnectionPackagesParamsIn),
-    ClientConnectionPackage(AsClientConnectionPackageParams),
     UserClients(UserClientsParams),
     UserConnectionPackages(UserConnectionPackagesParams),
     EnqueueMessage(EnqueueMessageParams),
@@ -397,9 +388,6 @@ impl AsRequestParamsIn {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
             Self::PublishConnectionPackages(params) => {
-                AsAuthMethod::ClientCredential(params.credential_auth_info())
-            }
-            Self::ClientConnectionPackage(params) => {
                 AsAuthMethod::ClientCredential(params.credential_auth_info())
             }
             Self::IssueTokens(params) => {
