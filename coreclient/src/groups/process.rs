@@ -5,8 +5,8 @@
 use super::{Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail};
 use phnxtypes::{
+    credentials::ClientCredential,
     crypto::ear::keys::EncryptedIdentityLinkKey,
-    identifiers::AsClientId,
     messages::client_ds::{CredentialUpdate, InfraAadMessage, InfraAadPayload},
 };
 use sqlx::SqlitePool;
@@ -32,7 +32,7 @@ impl Group {
         pool: &SqlitePool,
         api_clients: &ApiClients,
         message: impl Into<ProtocolMessage>,
-    ) -> Result<(ProcessedMessage, bool, AsClientId)> {
+    ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
         // Phase 1: Process the message.
         let processed_message = {
             let mut connection = pool.acquire().await?;
@@ -51,17 +51,18 @@ impl Group {
             }
             ProcessedMessageContent::ApplicationMessage(_) => {
                 info!("Message type: application");
-                let sender_client_id = if let Sender::Member(index) = processed_message.sender() {
-                    ClientAuthInfo::load(pool.acquire().await?.as_mut(), group_id, *index)
-                        .await?
-                        .map(|info| info.client_credential().identity().clone())
-                        .ok_or_else(|| {
-                            anyhow!("Could not find client credential of message sender")
-                        })?
-                } else {
-                    bail!("Invalid sender type.")
-                };
-                return Ok((processed_message, false, sender_client_id));
+                let sender_client_credential =
+                    if let Sender::Member(index) = processed_message.sender() {
+                        ClientAuthInfo::load(pool.acquire().await?.as_mut(), group_id, *index)
+                            .await?
+                            .map(|info| info.into_client_credential())
+                            .ok_or_else(|| {
+                                anyhow!("Could not find client credential of message sender")
+                            })?
+                    } else {
+                        bail!("Invalid sender type.")
+                    };
+                return Ok((processed_message, false, sender_client_credential));
             }
             ProcessedMessageContent::ProposalMessage(_proposal) => {
                 // Proposals are just returned and can then be added to the
@@ -288,17 +289,18 @@ impl Group {
 
         // Phase 2: Load the sender's client credential.
         let mut connection = pool.acquire().await?;
-        let sender_client_id = if matches!(processed_message.sender(), Sender::NewMemberCommit) {
-            ClientAuthInfo::load_staged(&mut connection, group_id, sender_index).await?
-        } else {
-            ClientAuthInfo::load(&mut connection, group_id, sender_index).await?
-        }
-        .ok_or_else(|| anyhow!("Could not find client credential of message sender"))?
-        .client_credential()
-        .identity()
-        .clone();
+        let sender_client_credential =
+            if matches!(processed_message.sender(), Sender::NewMemberCommit) {
+                ClientAuthInfo::load_staged(&mut connection, group_id, sender_index).await?
+            } else {
+                ClientAuthInfo::load(&mut connection, group_id, sender_index).await?
+            }
+            .ok_or_else(|| anyhow!("Could not find client credential of message sender"))?
+            .client_credential()
+            .clone()
+            .into();
 
-        Ok((processed_message, we_were_removed, sender_client_id))
+        Ok((processed_message, we_were_removed, sender_client_credential))
     }
 
     async fn process_adds(

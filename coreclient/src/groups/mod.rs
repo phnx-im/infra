@@ -147,14 +147,14 @@ impl PartialCreateGroupParams {
 }
 
 pub(super) struct ProfileInfo {
+    pub(super) client_credential: ClientCredential,
     pub(super) user_profile_key: UserProfileKey,
-    pub(super) member_id: AsClientId,
 }
 
-impl From<(AsClientId, UserProfileKey)> for ProfileInfo {
-    fn from((member_id, user_profile_key): (AsClientId, UserProfileKey)) -> Self {
+impl From<(ClientCredential, UserProfileKey)> for ProfileInfo {
+    fn from((client_credential, user_profile_key): (ClientCredential, UserProfileKey)) -> Self {
         Self {
-            member_id,
+            client_credential,
             user_profile_key,
         }
     }
@@ -403,18 +403,18 @@ impl Group {
             .into_iter()
             .zip(
                 client_information
-                    .iter()
-                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
+                    .into_iter()
+                    .map(|client_auth_info| client_auth_info.into_client_credential()),
             )
             .map(|(eupk, ci)| {
                 UserProfileKey::decrypt(
                     welcome_attribution_info.identity_link_wrapper_key(),
                     &eupk,
-                    ci.user_name(),
+                    ci.identity().user_name(),
                 )
                 .map(|user_profile_key| ProfileInfo {
                     user_profile_key,
-                    member_id: ci.clone(),
+                    client_credential: ci,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -503,15 +503,18 @@ impl Group {
             .zip(
                 client_information
                     .iter()
-                    .map(|client_auth_info| client_auth_info.client_credential().identity()),
+                    .map(|client_auth_info| client_auth_info.client_credential()),
             )
             .map(|(eupk, ci)| {
-                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.user_name()).map(
-                    |user_profile_key| ProfileInfo {
-                        user_profile_key,
-                        member_id: ci.clone(),
-                    },
+                UserProfileKey::decrypt(
+                    &identity_link_wrapper_key,
+                    &eupk,
+                    ci.identity().user_name(),
                 )
+                .map(|user_profile_key| ProfileInfo {
+                    user_profile_key,
+                    client_credential: ci.clone().into(),
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
 

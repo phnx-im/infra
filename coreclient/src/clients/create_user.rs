@@ -144,7 +144,8 @@ impl BasicUserData {
             .upsert(connection.as_mut(), &mut StoreNotifier::noop())
             .await?;
 
-        let encrypted_user_profile = user_profile.encrypt_with_index(&user_profile_key)?;
+        let signed_user_profile = user_profile.sign(&key_store.signing_key)?;
+        let encrypted_user_profile = signed_user_profile.encrypt_with_index(&user_profile_key)?;
 
         let initial_user_state = InitialUserState {
             client_credential_payload: client_credential_payload.clone(),

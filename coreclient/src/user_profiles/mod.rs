@@ -14,16 +14,72 @@ use phnxtypes::{
             ciphertexts::{IndexDecryptable, IndexEncryptable},
             keys::{UserProfileKey, UserProfileKeyIndex, UserProfileKeyType},
         },
+        signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },
     identifiers::QualifiedUserName,
     messages::client_as_out::EncryptedUserProfileCtype,
 };
+use sealed::Seal;
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 pub(crate) mod persistence;
+
+impl Signable for IndexedUserProfile {
+    type SignedOutput = VerifiableUserProfile;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        "UserProfile"
+    }
+}
+
+impl SignedStruct<IndexedUserProfile> for VerifiableUserProfile {
+    fn from_payload(payload: IndexedUserProfile, signature: Signature) -> Self {
+        Self {
+            tbs: payload,
+            signature,
+        }
+    }
+}
+
+impl Verifiable for VerifiableUserProfile {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tbs.tls_serialize_detached()
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        &self.signature
+    }
+
+    fn label(&self) -> &str {
+        IndexedUserProfile::label(&self.tbs)
+    }
+}
+
+mod sealed {
+    #[derive(Default)]
+    pub struct Seal;
+}
+
+impl VerifiedStruct<VerifiableUserProfile> for IndexedUserProfile {
+    type SealingType = Seal;
+
+    fn from_verifiable(verifiable: VerifiableUserProfile, _seal: Self::SealingType) -> Self {
+        verifiable.tbs
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiableUserProfile {
+    tbs: IndexedUserProfile,
+    signature: Signature,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserProfile {
@@ -195,8 +251,8 @@ impl Asset {
     }
 }
 
-impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
-impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
+impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for VerifiableUserProfile {}
+impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for VerifiableUserProfile {}
 
-impl IndexDecryptable<UserProfileKeyType, EncryptedUserProfileCtype> for IndexedUserProfile {}
-impl IndexEncryptable<UserProfileKeyType, EncryptedUserProfileCtype> for IndexedUserProfile {}
+impl IndexDecryptable<UserProfileKeyType, EncryptedUserProfileCtype> for VerifiableUserProfile {}
+impl IndexEncryptable<UserProfileKeyType, EncryptedUserProfileCtype> for VerifiableUserProfile {}

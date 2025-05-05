@@ -4,9 +4,12 @@
 
 use anyhow::Context;
 use phnxtypes::{
-    crypto::indexed_aead::{
-        ciphertexts::{IndexDecryptable, IndexEncryptable},
-        keys::UserProfileKey,
+    crypto::{
+        indexed_aead::{
+            ciphertexts::{IndexDecryptable, IndexEncryptable},
+            keys::UserProfileKey,
+        },
+        signatures::signable::{Signable, Verifiable},
     },
     messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
@@ -15,7 +18,7 @@ use crate::{
     Contact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
-    user_profiles::{IndexedUserProfile, UserProfile},
+    user_profiles::{IndexedUserProfile, UserProfile, VerifiableUserProfile},
 };
 
 use super::CoreUser;
@@ -43,7 +46,8 @@ impl CoreUser {
         notifier.notify();
 
         // Phase 2: Encrypt the user profile
-        let encrypted_user_profile = user_profile.encrypt_with_index(&user_profile_key)?;
+        let signed_user_profile = user_profile.sign(&self.inner.key_store.signing_key)?;
+        let encrypted_user_profile = signed_user_profile.encrypt_with_index(&user_profile_key)?;
 
         // Phase 3: Stage the updated profile on the server
         let api_client = self.inner.api_clients.default_client()?;
@@ -94,9 +98,9 @@ impl CoreUser {
     ) -> anyhow::Result<()> {
         let ProfileInfo {
             user_profile_key,
-            member_id,
+            client_credential,
         } = profile_info.into();
-        let user_name = member_id.user_name().clone();
+        let user_name = client_credential.identity().user_name().clone();
 
         // Phase 1: Check if the profile in the DB is up to date.
         let mut old_user_profile_key_index = None;
@@ -113,11 +117,16 @@ impl CoreUser {
         let GetUserProfileResponse {
             encrypted_user_profile,
         } = api_client
-            .as_get_user_profile(member_id, user_profile_key.index().clone())
+            .as_get_user_profile(
+                client_credential.identity().clone(),
+                user_profile_key.index().clone(),
+            )
             .await?;
 
-        let user_profile =
-            IndexedUserProfile::decrypt_with_index(&user_profile_key, &encrypted_user_profile)?;
+        let verifiable_user_profile =
+            VerifiableUserProfile::decrypt_with_index(&user_profile_key, &encrypted_user_profile)?;
+        let user_profile: IndexedUserProfile =
+            verifiable_user_profile.verify(client_credential.verifying_key())?;
 
         // Phase 3: Store the user profile and key in the database
         self.with_transaction_and_notifier(async |connection, notifier| {
