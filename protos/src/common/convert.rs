@@ -7,6 +7,7 @@ use phnxtypes::{
     crypto::{
         self,
         ear::{self, AeadCiphertext},
+        indexed_aead,
         kdf::KDF_KEY_SIZE,
         secrets::Secret,
         signatures::signable,
@@ -21,8 +22,8 @@ use crate::{
 };
 
 use super::v1::{
-    Ciphertext, Fqdn, GroupId, HpkeCiphertext, QualifiedGroupId, QualifiedUserName,
-    RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, UserName, Uuid,
+    Ciphertext, Fqdn, GroupId, HpkeCiphertext, IndexedCiphertext, QualifiedGroupId,
+    QualifiedUserName, RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, UserName, Uuid,
 };
 
 impl From<uuid::Uuid> for Uuid {
@@ -152,6 +153,64 @@ impl From<ear::AeadCiphertext> for Ciphertext {
         Self {
             ciphertext,
             nonce: nonce.to_vec(),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("invalid key index length {0}")]
+pub struct InvalidKeyIndexLen(usize);
+
+impl From<InvalidKeyIndexLen> for Status {
+    fn from(e: InvalidKeyIndexLen) -> Self {
+        Status::invalid_argument(format!("invalid key index length: {}", e.0))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvalidIndexedCiphertext {
+    #[error(transparent)]
+    InvalidKeyIndexLen(#[from] InvalidKeyIndexLen),
+    #[error(transparent)]
+    InvalidNonceLen(#[from] InvalidNonceLen),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+}
+
+impl From<InvalidIndexedCiphertext> for Status {
+    fn from(e: InvalidIndexedCiphertext) -> Self {
+        Status::invalid_argument(format!("invalid indexed ciphertext: {}", e))
+    }
+}
+
+impl<KT: indexed_aead::keys::RawIndex, CT> TryFrom<IndexedCiphertext>
+    for indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>
+{
+    type Error = InvalidIndexedCiphertext;
+
+    fn try_from(proto: IndexedCiphertext) -> Result<Self, Self::Error> {
+        let len = proto.key_index.len();
+        let ciphertext = proto
+            .ciphertext
+            .ok_or_missing_field("ciphertext")?
+            .try_into()?;
+        let secret = proto
+            .key_index
+            .try_into()
+            .map_err(|_| InvalidKeyIndexLen(len))?;
+        let key_index = indexed_aead::keys::Index::<KT>::from_bytes(secret);
+        Ok(Self::from_parts(key_index, ciphertext))
+    }
+}
+
+impl<KT: indexed_aead::keys::RawIndex, CT>
+    From<indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>> for IndexedCiphertext
+{
+    fn from(value: indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>) -> Self {
+        let (key_index, ciphertext) = value.into_parts();
+        Self {
+            key_index: key_index.into_bytes().to_vec(),
+            ciphertext: Some(ciphertext.into()),
         }
     }
 }

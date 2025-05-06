@@ -9,8 +9,8 @@ use prost::Message;
 
 use super::v1::{
     DeleteUserPayload, DeleteUserRequest, DequeueMessagesPayload, DequeueMessagesRequest,
-    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest, UpdateUserProfilePayload,
-    UpdateUserProfileRequest,
+    MergeUserProfilePayload, MergeUserProfileRequest, PublishConnectionPackagesPayload,
+    PublishConnectionPackagesRequest, StageUserProfilePayload, StageUserProfileRequest,
 };
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
@@ -183,10 +183,10 @@ impl Verifiable for DequeueMessagesRequest {
     }
 }
 
-const UPDATE_USER_PROFILE_PAYLOAD_LABEL: &str = "UpdateUserProfilePayload";
+const STAGE_USER_PROFILE_PAYLOAD_LABEL: &str = "StageUserProfilePayload";
 
-impl SignedStruct<UpdateUserProfilePayload> for UpdateUserProfileRequest {
-    fn from_payload(payload: UpdateUserProfilePayload, signature: signable::Signature) -> Self {
+impl SignedStruct<StageUserProfilePayload> for StageUserProfileRequest {
+    fn from_payload(payload: StageUserProfilePayload, signature: signable::Signature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -194,27 +194,27 @@ impl SignedStruct<UpdateUserProfilePayload> for UpdateUserProfileRequest {
     }
 }
 
-impl Signable for UpdateUserProfilePayload {
-    type SignedOutput = UpdateUserProfileRequest;
+impl Signable for StageUserProfilePayload {
+    type SignedOutput = StageUserProfileRequest;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         Ok(self.encode_to_vec())
     }
 
     fn label(&self) -> &str {
-        UPDATE_USER_PROFILE_PAYLOAD_LABEL
+        STAGE_USER_PROFILE_PAYLOAD_LABEL
     }
 }
 
-impl VerifiedStruct<UpdateUserProfileRequest> for UpdateUserProfilePayload {
+impl VerifiedStruct<StageUserProfileRequest> for StageUserProfilePayload {
     type SealingType = private_mod::Seal;
 
-    fn from_verifiable(verifiable: UpdateUserProfileRequest, _seal: Self::SealingType) -> Self {
+    fn from_verifiable(verifiable: StageUserProfileRequest, _seal: Self::SealingType) -> Self {
         verifiable.payload.unwrap()
     }
 }
 
-impl Verifiable for UpdateUserProfileRequest {
+impl Verifiable for StageUserProfileRequest {
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         Ok(self
             .payload
@@ -231,7 +231,59 @@ impl Verifiable for UpdateUserProfileRequest {
     }
 
     fn label(&self) -> &str {
-        UPDATE_USER_PROFILE_PAYLOAD_LABEL
+        STAGE_USER_PROFILE_PAYLOAD_LABEL
+    }
+}
+
+const MERGE_USER_PROFILE_PAYLOAD_LABEL: &str = "MergeUserProfilePayload";
+
+impl SignedStruct<MergeUserProfilePayload> for MergeUserProfileRequest {
+    fn from_payload(payload: MergeUserProfilePayload, signature: signable::Signature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for MergeUserProfilePayload {
+    type SignedOutput = MergeUserProfileRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        MERGE_USER_PROFILE_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<MergeUserProfileRequest> for MergeUserProfilePayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: MergeUserProfileRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for MergeUserProfileRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        MERGE_USER_PROFILE_PAYLOAD_LABEL
     }
 }
 

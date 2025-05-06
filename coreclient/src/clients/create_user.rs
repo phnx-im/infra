@@ -17,7 +17,7 @@ use phnxtypes::{
     },
     crypto::{
         ear::{EarKey, GenericSerializable},
-        indexed_aead::keys::UserProfileKey,
+        indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
         kdf::keys::ConnectionKey,
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
@@ -144,7 +144,7 @@ impl BasicUserData {
             .upsert(connection.as_mut(), &mut StoreNotifier::noop())
             .await?;
 
-        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
+        let encrypted_user_profile = user_profile.encrypt_with_index(&user_profile_key)?;
 
         let initial_user_state = InitialUserState {
             client_credential_payload: client_credential_payload.clone(),

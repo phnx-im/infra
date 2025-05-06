@@ -15,7 +15,8 @@ service AuthService {
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
   rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
 
-  rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
+  rpc StageUserProfile(StageUserProfileRequest) returns (StageUserProfileResponse);
+  rpc MergeUserProfile(MergeUserProfileRequest) returns (MergeUserProfileResponse);
   rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
 
   rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
@@ -43,7 +44,7 @@ message ExpirationData {
 }
 
 message EncryptedUserProfile {
-  common.v1.Ciphertext ciphertext = 1;
+  common.v1.IndexedCiphertext ciphertext = 1;
 }
 
 message ConnectionPackage {
@@ -148,28 +149,65 @@ message GetUserConnectionPackagesResponse {
   repeated ConnectionPackage connection_packages = 1;
 }
 
-// update user profile
+// stage user profile
 
-message UpdateUserProfileRequest {
-  UpdateUserProfilePayload payload = 1;
+message StageUserProfileRequest {
+  StageUserProfilePayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message UpdateUserProfilePayload {
+message StageUserProfilePayload {
   AsClientId client_id = 1;
   EncryptedUserProfile encrypted_user_profile = 2;
 }
 
-message UpdateUserProfileResponse {}
+message StageUserProfileResponse {}
+
+// merge user profile
+
+message MergeUserProfileRequest {
+  MergeUserProfilePayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message MergeUserProfilePayload {
+  AsClientId client_id = 1;
+}
+
+message MergeUserProfileResponse {}
 
 // get user profile
 
 message GetUserProfileRequest {
   AsClientId client_id = 1;
+  bytes key_index = 2;
 }
 
 message GetUserProfileResponse {
   EncryptedUserProfile encrypted_user_profile = 1;
+}
+
+message GetConnectionPackageRequest {
+  GetConnectionPackagePayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message GetConnectionPackagePayload {
+  AsClientId as_client_id = 1;
+}
+
+message GetConnectionPackageResponse {
+  ConnectionPackage connection_package = 1;
+}
+
+// user connection package
+
+message GetConnectionPackagesRequest {
+  common.v1.QualifiedUserName user_name = 1;
+}
+
+message GetConnectionPackagesResponse {
+  repeated ConnectionPackage connection_packages = 1;
 }
 
 // as credentials

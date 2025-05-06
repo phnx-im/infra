@@ -4,13 +4,16 @@
 
 use phnxprotos::auth_service::v1::{
     AsCredentialsRequest, DeleteUserPayload, DequeueMessagesPayload, EnqueueMessagesRequest,
-    GetUserConnectionPackagesRequest, GetUserProfileRequest, PublishConnectionPackagesPayload,
-    RegisterUserRequest, UpdateUserProfilePayload,
+    GetUserConnectionPackagesRequest, GetUserProfileRequest, MergeUserProfilePayload,
+    PublishConnectionPackagesPayload, RegisterUserRequest, StageUserProfilePayload,
 };
 use phnxtypes::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
-    crypto::{RatchetEncryptionKey, kdf::keys::RatchetSecret, signatures::signable::Signable},
+    crypto::{
+        RatchetEncryptionKey, indexed_aead::keys::UserProfileKeyIndex, kdf::keys::RatchetSecret,
+        signatures::signable::Signable,
+    },
     identifiers::{AsClientId, QualifiedUserName},
     messages::{
         client_as::{
@@ -86,9 +89,11 @@ impl ApiClient {
     pub async fn as_get_user_profile(
         &self,
         client_id: AsClientId,
+        key_index: UserProfileKeyIndex,
     ) -> Result<GetUserProfileResponse, AsRequestError> {
         let request = GetUserProfileRequest {
             client_id: Some(client_id.into()),
+            key_index: key_index.into_bytes().to_vec(),
         };
         let response = self
             .as_grpc_client
@@ -111,20 +116,36 @@ impl ApiClient {
         })
     }
 
-    pub async fn as_update_user_profile(
+    pub async fn as_stage_user_profile(
         &self,
         client_id: AsClientId,
         signing_key: &ClientSigningKey,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
-        let payload = UpdateUserProfilePayload {
+        let payload = StageUserProfilePayload {
             client_id: Some(client_id.into()),
             encrypted_user_profile: Some(encrypted_user_profile.into()),
         };
         let request = payload.sign(signing_key)?;
         self.as_grpc_client
             .client()
-            .update_user_profile(request)
+            .stage_user_profile(request)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn as_merge_user_profile(
+        &self,
+        client_id: AsClientId,
+        signing_key: &ClientSigningKey,
+    ) -> Result<(), AsRequestError> {
+        let payload = MergeUserProfilePayload {
+            client_id: Some(client_id.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client
+            .client()
+            .merge_user_profile(request)
             .await?;
         Ok(())
     }
