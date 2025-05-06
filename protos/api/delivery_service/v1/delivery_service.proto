@@ -9,31 +9,45 @@ package delivery_service.v1;
 import "common/v1/common.proto";
 
 service DeliveryService {
-  // unauthenticated
+  // auth: none
   rpc RequestGroupId(RequestGroupIdRequest) returns (RequestGroupIdResponse);
 
+  // auth: leaf sender
   rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
 
+  // auth: leaf sender
   rpc WelcomeInfo(WelcomeInfoRequest) returns (WelcomeInfoResponse);
 
+  // auth: none (implicit via group state ear key)
   rpc ExternalCommitInfo(ExternalCommitInfoRequest) returns (ExternalCommitInfoResponse);
 
+  // check diff
+  // auth: none
   rpc ConnectionGroupInfo(ConnectionGroupInfoRequest) returns (ConnectionGroupInfoResponse);
 
+  // TODO: Replace by GroupOperation
+  // auth: leaf sender
   rpc Update(UpdateRequest) returns (UpdateResponse);
 
+  // auth: none
   rpc JoinConnectionGroup(JoinConnectionGroupRequest) returns (JoinConnectionGroupResponse);
 
+  // auth: leaf sender
   rpc Resync(ResyncRequest) returns (ResyncResponse);
 
+  // auth: leaf sender
   rpc SelfRemove(SelfRemoveRequest) returns (SelfRemoveResponse);
 
+  // auth: leaf sender*
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
 
+  // auth: leaf sender
   rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
 
+  // auth: leaf sender
   rpc GroupOperation(GroupOperationRequest) returns (GroupOperationResponse);
 
+  // auth: leaf sender*
   rpc UpdateProfileKey(UpdateProfileKeyRequest) returns (UpdateProfileKeyResponse);
 }
 
@@ -74,8 +88,6 @@ message CreateGroupRequest {
   common.v1.Signature signature = 2;
 }
 
-message CreateGroupResponse {}
-
 message CreateGroupPayload {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
@@ -85,6 +97,8 @@ message CreateGroupPayload {
   QsReference creator_client_reference = 6;
   MlsMessage group_info = 7;
 }
+
+message CreateGroupResponse {}
 
 message EncryptedIdentityLinkKey {
   common.v1.Ciphertext ciphertext = 1;
@@ -184,7 +198,7 @@ message UpdateResponse {
 message JoinConnectionGroupRequest {
   GroupStateEarKey group_state_ear_key = 1;
   AssistedMessage external_commit = 2;
-  QsReference qs_client_reference = 3;
+  QsReference qs_client_reference = 3; // TODO: Most likely can be removed
 }
 
 message JoinConnectionGroupResponse {

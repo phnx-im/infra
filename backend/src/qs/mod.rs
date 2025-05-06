@@ -177,3 +177,18 @@ pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
         message: DsFanOutMessage,
     ) -> impl Future<Output = Result<(), Self::EnqueueError>> + Send;
 }
+
+pub trait UserDirectory {
+    fn add_user(params: CreateUserParams) -> Result<QsClientId, UserDirectoryError>;
+    fn delete_user(params: DeleteUserParams);
+}
+
+// struct CreateUserParams {
+//   QsUserId sender = 1;
+//   QsClientVerifyingKey client_record_auth_key = 3;
+//   common.v1.RatchetEncryptionKey queue_encryption_key = 4;
+//   optional EncryptedPushToken encrypted_push_token = 5;
+//   common.v1.RatchetSecret initial_ratched_secret = 6;
+// }
+
+struct DeleteUserParams {}

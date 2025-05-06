@@ -15,6 +15,9 @@ service AuthService {
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
   rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
 
+  rpc PublishKeyPackages(PublishKeyPackagesRequest) returns (PublishKeyPackagesResponse);
+  rpc KeyPackage(KeyPackageRequest) returns (KeyPackageResponse);
+
   rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
   rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
 

@@ -10,22 +10,24 @@ import "common/v1/common.proto";
 import "delivery_service/v1/delivery_service.proto";
 
 service QueueService {
-  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
-  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
-  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
-
-  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse);
-  rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse);
-  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
-
-  rpc PublishKeyPackages(PublishKeyPackagesRequest) returns (PublishKeyPackagesResponse);
-  rpc KeyPackage(KeyPackageRequest) returns (KeyPackageResponse);
-
-  rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
-
+  // auth: none
   rpc QsEncryptionKey(QsEncryptionKeyRequest) returns (QsEncryptionKeyResponse);
 
+  // rpc CreateUser(CreateUserRequest) returns (CreateUserResponse); -- called by AS
+  // rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse); -- called by AS
+  // rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse); -- called by AS/DS
+
+  // rpc CreateClient(CreateClientRequest) returns (CreateClientResponse); -- called by AS
+
+  // auth: QS client signature
+  rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse);
+  // auth: QS client signature
+  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
+
+  // auth: QS client signature
   rpc Listen(ListenRequest) returns (stream QueueEvent);
+  // auth: QS client signature
+  rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
 }
 
 // common
@@ -106,6 +108,11 @@ message CreateClientResponse {
 // update client
 
 message UpdateClientRequest {
+  UpdateClientPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message UpdateClientPayload {
   QsClientId sender = 1;
   QsClientVerifyingKey client_record_auth_key = 2;
   common.v1.RatchetEncryptionKey queue_encryption_key = 3;
