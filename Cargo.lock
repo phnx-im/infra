@@ -3694,7 +3694,6 @@ dependencies = [
  "mls-assist",
  "phnxprotos",
  "phnxtypes",
- "privacypass",
  "reqwest",
  "thiserror 2.0.12",
  "tls_codec",

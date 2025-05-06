@@ -23,7 +23,6 @@ http = "1"
 tracing = "0.1.41"
 base64 = "0.22"
 mls-assist = { workspace = true }
-privacypass = { workspace = true }
 tls_codec = { workspace = true }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
