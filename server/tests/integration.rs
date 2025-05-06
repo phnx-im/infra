@@ -7,6 +7,10 @@ use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
 use phnxapiclient::ds_api::DsRequestError;
+use phnxprotos::{
+    auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
+    queue_service::v1::queue_service_server,
+};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
@@ -17,6 +21,9 @@ use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
+use tonic_health::pb::{
+    HealthCheckRequest, health_check_response::ServingStatus, health_client::HealthClient,
+};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -611,6 +618,39 @@ async fn delete_user() {
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
     setup.delete_user(&ALICE).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Health check test", skip_all)]
+async fn health_check() {
+    let setup = TestBackend::single().await;
+    let endpoint = format!("http://localhost:{}", setup.grpc_port());
+    let channel = tonic::transport::Channel::from_shared(endpoint)
+        .unwrap()
+        .connect()
+        .await
+        .unwrap();
+    let mut client = HealthClient::new(channel);
+
+    let names = [
+        auth_service_server::SERVICE_NAME,
+        delivery_service_server::SERVICE_NAME,
+        queue_service_server::SERVICE_NAME,
+    ];
+
+    for name in names {
+        let response = client
+            .check(HealthCheckRequest {
+                service: name.to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(
+            ServingStatus::try_from(response.status).unwrap(),
+            ServingStatus::Serving
+        );
+    }
 }
 
 fn init_test_tracing() {

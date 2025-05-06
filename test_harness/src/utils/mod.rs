@@ -100,7 +100,8 @@ pub async fn spawn_app_with_rate_limits(
         qs_connector,
         ws_dispatch_notifier: ws_dispatch_notifier.clone(),
         rate_limits,
-    });
+    })
+    .await;
 
     // Execute the server in the background
     tokio::spawn(server);

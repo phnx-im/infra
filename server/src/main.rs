@@ -95,7 +95,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // Start the server
-    run(ServerRunParams {
+    let server = run(ServerRunParams {
         listener,
         ds,
         auth_service,
@@ -107,6 +107,9 @@ async fn main() -> anyhow::Result<()> {
             burst_size: 20,
         },
     })
-    .await?;
+    .await;
+
+    server.await?;
+
     Ok(())
 }

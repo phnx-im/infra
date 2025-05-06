@@ -54,7 +54,10 @@ pub struct RateLimitsConfig {
 }
 
 /// Configure and run the server application.
-pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: NetworkProvider>(
+pub async fn run<
+    Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone,
+    Np: NetworkProvider,
+>(
     ServerRunParams {
         listener: grpc_listener,
         ds,
@@ -93,6 +96,17 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
         }
     });
 
+    let (health_reporter, health) = tonic_health::server::health_reporter();
+    health_reporter
+        .set_serving::<AuthServiceServer<GrpcAs>>()
+        .await;
+    health_reporter
+        .set_serving::<DeliveryServiceServer<GrpcDs<Qc>>>()
+        .await;
+    health_reporter
+        .set_serving::<QueueServiceServer<GrpcQs<DispatchNotifier>>>()
+        .await;
+
     tonic::transport::Server::builder()
         .layer(InterceptorLayer::new(ConnectInfoInterceptor))
         .layer(
@@ -110,6 +124,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
                 ),
         )
         .layer(GovernorLayer::new(governor_config))
+        .add_service(health)
         .add_service(AuthServiceServer::new(grpc_as))
         .add_service(DeliveryServiceServer::new(grpc_ds))
         .add_service(QueueServiceServer::new(grpc_qs))
