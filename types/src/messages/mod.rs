@@ -19,7 +19,6 @@ pub mod client_as_out;
 pub mod client_ds;
 pub mod client_ds_out;
 pub mod client_qs;
-pub mod client_qs_out;
 pub mod push_token;
 pub mod welcome_attribution_info;
 
