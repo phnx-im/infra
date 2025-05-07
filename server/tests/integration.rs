@@ -354,7 +354,7 @@ async fn exchange_user_profiles() {
     setup.add_user(&ALICE).await;
 
     // Set a user profile for alice
-    let alice_display_name = DisplayName::try_from("4l1c3".to_string()).unwrap();
+    let alice_display_name: DisplayName = "4l1c3".parse().unwrap();
 
     // Create a new ImgBuf with width: 1px and height: 1px
     let mut img = ImageBuffer::new(200, 200);
@@ -398,7 +398,7 @@ async fn exchange_user_profiles() {
     setup.add_user(&BOB).await;
 
     // Set a user profile for
-    let bob_display_name = DisplayName::try_from("B0b".to_string()).unwrap();
+    let bob_display_name: DisplayName = "B0b".parse().unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile {
         user_name: (*BOB).clone(),
@@ -443,7 +443,7 @@ async fn exchange_user_profiles() {
 
     let new_user_profile = UserProfile {
         user_name: (*ALICE).clone(),
-        display_name: Some(DisplayName::try_from("New Alice".to_string()).unwrap()),
+        display_name: Some("New Alice".parse().unwrap()),
         profile_picture: None,
     };
 

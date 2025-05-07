@@ -123,7 +123,7 @@ mod tests {
         let user_profile = IndexedUserProfile::new(
             user_name,
             user_profile_key.index().clone(),
-            Some("Alice".to_string().try_into().unwrap()),
+            Some("Alice".parse().unwrap()),
             Some(Asset::Value(vec![1, 2, 3])),
         );
         (user_profile, user_profile_key)
@@ -144,7 +144,7 @@ mod tests {
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
-        new_profile.display_name = Some("Alice In Wonderland".to_string().try_into()?);
+        new_profile.display_name = Some("Alice In Wonderland".parse()?);
         new_profile.profile_picture = None;
 
         // upsert/load works
@@ -172,7 +172,7 @@ mod tests {
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
-        new_profile.display_name = Some("Alice In Wonderland".to_string().try_into()?);
+        new_profile.display_name = Some("Alice In Wonderland".parse()?);
         new_profile.profile_picture = None;
 
         new_profile.upsert(&pool, &mut notifier).await?;
@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
-        new_profile.display_name = Some("Alice In Wonderland".to_string().try_into()?);
+        new_profile.display_name = Some("Alice In Wonderland".parse()?);
         new_profile.profile_picture = None;
 
         new_profile.update(&pool, &mut notifier).await?;

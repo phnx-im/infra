@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use phnxtypes::identifiers::{TlsStr, TlsString};
 use thiserror::Error;
@@ -15,25 +15,30 @@ pub struct DisplayName {
     display_name: String,
 }
 
-const MAX_DISPLAY_NAME_LENGTH: usize = 50;
+// Note that this counds chars, not graphemes. While chars are at most 4 bytes,
+// graphemes can be longer, so we need to adjust the logic if we ever want to
+// count graphemes instead of chars.
+const MAX_DISPLAY_NAME_CHARS: usize = 50;
+const MAX_DISPLAY_NAME_BYTES: usize = MAX_DISPLAY_NAME_CHARS * 4;
 
-impl TryFrom<String> for DisplayName {
-    type Error = DisplayNameError;
+impl FromStr for DisplayName {
+    type Err = DisplayNameError;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Trim whitespace at beginning and end.
+        let value = s.trim();
         // Check if the display name is empty.
         if value.is_empty() {
             return Err(DisplayNameError::DisplayNameEmpty);
         }
-        if value.len() > MAX_DISPLAY_NAME_LENGTH {
+        // If there are fewer than 50 chars, it also has fewer than 200 bytes.
+        if value.chars().count() > MAX_DISPLAY_NAME_CHARS {
             return Err(DisplayNameError::DisplayNameTooLong);
         }
-        // Trim whitespace at beginning and end.
-        let value = value.trim();
         // Pad with spaces to the maximum length.
-        let mut padded_display_name = String::new();
+        let mut padded_display_name = String::with_capacity(MAX_DISPLAY_NAME_BYTES);
         padded_display_name.push_str(value);
-        padded_display_name.push_str(&" ".repeat(MAX_DISPLAY_NAME_LENGTH - value.len()));
+        padded_display_name.push_str(&" ".repeat(MAX_DISPLAY_NAME_BYTES - value.len()));
         Ok(Self {
             display_name: padded_display_name,
         })
@@ -107,5 +112,103 @@ impl tls_codec::DeserializeBytes for DisplayName {
         let (TlsString(display_name), bytes) = TlsString::tls_deserialize_bytes(bytes)?;
         let display_name = DisplayName { display_name };
         Ok((display_name, bytes))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_ascii_under_limit() {
+        let name = "Alice";
+        let dn = DisplayName::from_str(name).unwrap();
+        assert_eq!(&dn.display_name[..5], name);
+        assert_eq!(dn.display_name.len(), 200);
+    }
+
+    #[test]
+    fn rejects_empty_input() {
+        let result = DisplayName::from_str("   ");
+        assert!(matches!(result, Err(DisplayNameError::DisplayNameEmpty)));
+        assert_eq!(result.unwrap_err().to_string(), "Display name is empty");
+    }
+
+    #[test]
+    fn accepts_exactly_50_ascii_chars() {
+        let name = "a".repeat(50);
+        let dn = DisplayName::from_str(&name).unwrap();
+        assert_eq!(&dn.display_name[..50], name);
+        assert_eq!(dn.display_name.len(), 200);
+    }
+
+    #[test]
+    fn rejects_more_than_50_chars() {
+        let name = "a".repeat(51);
+        let result = DisplayName::from_str(&name);
+        assert!(matches!(result, Err(DisplayNameError::DisplayNameTooLong)));
+        assert_eq!(result.unwrap_err().to_string(), "Display name is too long");
+    }
+
+    #[test]
+    fn accepts_emoji_upto_200_bytes() {
+        let name = "🦀".repeat(50); // 4 bytes per char
+        let dn = DisplayName::from_str(&name).unwrap();
+        assert_eq!(dn.display_name.chars().count(), 50);
+        assert_eq!(dn.display_name.len(), 200);
+    }
+
+    #[test]
+    fn rejects_emoji_over_200_bytes() {
+        let name = "🦀".repeat(51); // 204 bytes
+        let result = DisplayName::from_str(&name);
+        assert!(matches!(result, Err(DisplayNameError::DisplayNameTooLong)));
+        assert_eq!(result.unwrap_err().to_string(), "Display name is too long");
+    }
+
+    #[test]
+    fn trims_whitespace_correctly() {
+        let name = "  hello  ";
+        let dn = DisplayName::from_str(name).unwrap();
+        assert!(dn.display_name.starts_with("hello"));
+        assert_eq!(dn.display_name.len(), 200);
+    }
+
+    #[test]
+    fn padded_with_spaces_to_200_bytes() {
+        let name = "Hi 🌍"; // 5 chars, 7 bytes
+        let dn = DisplayName::from_str(name).unwrap();
+        assert_eq!(dn.display_name.len(), 200);
+        assert!(dn.display_name.starts_with("Hi 🌍"));
+        assert!(dn.display_name.ends_with(" ".repeat(193).as_str()));
+    }
+
+    #[test]
+    fn accepts_right_to_left_script() {
+        // Arabic: "سلام" (salaam = peace)
+        let name = "سلام"; // 4 Arabic characters
+        let dn = DisplayName::from_str(name).unwrap();
+
+        // Check that the characters are preserved correctly
+        assert!(dn.display_name.starts_with(name));
+        assert_eq!(dn.display_name.chars().count(), 200); // padded with spaces
+        assert_eq!(dn.display_name.len(), 200);
+    }
+
+    #[test]
+    fn accepts_grapheme_clusters_over_4_bytes() {
+        // A single emoji flag grapheme cluster: 2 code points, 8 bytes
+        let name = "🇺🇳"; // UN flag
+        assert_eq!(name.chars().count(), 2);
+        assert_eq!(name.len(), 8);
+
+        // Repeat 25 times = 50 scalar values, 200 bytes
+        let full = name.repeat(25);
+        assert_eq!(full.chars().count(), 50);
+        assert_eq!(full.len(), 200);
+
+        let dn = DisplayName::from_str(&full).unwrap();
+        assert_eq!(dn.display_name.len(), 200);
+        assert!(dn.display_name.starts_with(&full));
     }
 }
