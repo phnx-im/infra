@@ -10,36 +10,18 @@ use crate::store::StoreNotifier;
 use super::{IndexedUserProfile, UserProfile};
 
 impl IndexedUserProfile {
-    pub async fn load(
-        executor: impl SqliteExecutor<'_>,
-        user_name: &QualifiedUserName,
-    ) -> sqlx::Result<Option<Self>> {
-        query_as!(
-            IndexedUserProfile,
-            r#"SELECT
-                user_name AS "user_name: _",
-                epoch AS "epoch: _",
-                decryption_key_index AS "decryption_key_index: _",
-                display_name AS "display_name: _",
-                profile_picture AS "profile_picture: _"
-            FROM users WHERE user_name = ?"#,
-            user_name,
-        )
-        .fetch_optional(executor)
-        .await
-    }
-
-    /// Stores this new [`UserProfile`].
+    /// Stores this [`NewUserProfile`].
     ///
-    /// Replaces the existing user profile if one exists.
-    pub(crate) async fn upsert(
+    /// Will throw an error if there already exists a user profile with the same
+    /// user name.
+    pub(super) async fn store(
         &self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         let epoch = self.epoch as i64;
         query!(
-            "INSERT OR REPLACE INTO users (user_name, epoch, decryption_key_index, display_name, profile_picture)
+            "INSERT INTO users (user_name, epoch, decryption_key_index, display_name, profile_picture)
             VALUES (?, ?, ?, ?, ?)",
             self.user_name,
             epoch,
@@ -53,8 +35,7 @@ impl IndexedUserProfile {
         Ok(())
     }
 
-    /// Update the user's display name and profile picture in the database. To store a new profile,
-    /// use [`register_as_conversation_participant`] instead.
+    /// Update the user's display name and profile picture in the database.
     pub(crate) async fn update(
         &self,
         executor: impl SqliteExecutor<'_>,
@@ -73,6 +54,27 @@ impl IndexedUserProfile {
         .await?;
         notifier.update(self.user_name.clone());
         Ok(())
+    }
+}
+
+impl IndexedUserProfile {
+    pub(crate) async fn load(
+        executor: impl SqliteExecutor<'_>,
+        user_name: &QualifiedUserName,
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            IndexedUserProfile,
+            r#"SELECT
+                user_name AS "user_name: _",
+                epoch AS "epoch: _",
+                decryption_key_index AS "decryption_key_index: _",
+                display_name AS "display_name: _",
+                profile_picture AS "profile_picture: _"
+            FROM users WHERE user_name = ?"#,
+            user_name,
+        )
+        .fetch_optional(executor)
+        .await
     }
 }
 
@@ -99,13 +101,13 @@ mod tests {
     fn test_profile() -> (IndexedUserProfile, UserProfileKey) {
         let user_name = "alice@localhost".parse().unwrap();
         let user_profile_key = UserProfileKey::random(&user_name).unwrap();
-        let user_profile = IndexedUserProfile::new(
-            user_name,
-            0,
-            user_profile_key.index().clone(),
-            Some("Alice".to_string().try_into().unwrap()),
-            Some(Asset::Value(vec![1, 2, 3])),
-        );
+        let user_profile = IndexedUserProfile {
+            user_name: user_name.clone(),
+            epoch: 0,
+            decryption_key_index: user_profile_key.index().clone(),
+            display_name: Some("Alice".to_string().try_into().unwrap()),
+            profile_picture: Some(Asset::Value(vec![1, 2, 3])),
+        };
         (user_profile, user_profile_key)
     }
 
@@ -117,7 +119,7 @@ mod tests {
 
         key.store(&pool).await?;
 
-        profile.upsert(&pool, &mut notifier).await?;
+        profile.store(&pool, &mut notifier).await?;
         let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
             .await?
             .expect("profile exists");
@@ -127,40 +129,12 @@ mod tests {
         new_profile.display_name = Some("Alice In Wonderland".to_string().try_into()?);
         new_profile.profile_picture = None;
 
-        // upsert/load works
-        new_profile.upsert(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
-            .await?
-            .expect("profile exists");
-        assert_ne!(loaded, profile);
-        assert_eq!(loaded, new_profile);
-
-        Ok(())
-    }
-
-    #[sqlx::test]
-    async fn upsert_load(pool: SqlitePool) -> anyhow::Result<()> {
-        let mut notifier = StoreNotifier::noop();
-
-        let (profile, key) = test_profile();
-        key.store(&pool).await?;
-
-        profile.upsert(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
-            .await?
-            .expect("profile exists");
-        assert_eq!(loaded, profile);
-
-        let mut new_profile = profile.clone();
-        new_profile.display_name = Some("Alice In Wonderland".to_string().try_into()?);
-        new_profile.profile_picture = None;
-
-        new_profile.upsert(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
-            .await?
-            .expect("profile exists");
-        assert_ne!(loaded, profile);
-        assert_eq!(loaded, new_profile);
+        // store again doesn't work
+        let store_err = new_profile
+            .store(&pool, &mut notifier)
+            .await
+            .expect_err("profile does not exist");
+        assert!(matches!(store_err, sqlx::Error::Database(_)));
 
         Ok(())
     }
@@ -172,7 +146,7 @@ mod tests {
         let (profile, key) = test_profile();
         key.store(&pool).await?;
 
-        profile.upsert(&pool, &mut notifier).await?;
+        profile.store(&pool, &mut notifier).await?;
         let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
             .await?
             .expect("profile exists");

@@ -10,6 +10,7 @@ use crate::{
         indexed_keys::StorableIndexedKey,
         queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
     },
+    user_profiles::generate::NewUserProfile,
 };
 use phnxtypes::{
     credentials::{
@@ -133,20 +134,16 @@ impl BasicUserData {
         let mut connection = pool.acquire().await?;
         user_profile_key.store_own(connection.as_mut()).await?;
 
-        let user_profile = IndexedUserProfile::new(
+        let encrypted_user_profile = NewUserProfile::new(
+            &key_store.signing_key,
             user_name.clone(),
-            0,
             user_profile_key.index().clone(),
             None,
             None,
-        );
-
-        user_profile
-            .upsert(connection.as_mut(), &mut StoreNotifier::noop())
-            .await?;
-
-        let signed_user_profile = user_profile.sign(&key_store.signing_key)?;
-        let encrypted_user_profile = signed_user_profile.encrypt_with_index(&user_profile_key)?;
+        )?
+        .store(connection.as_mut(), &mut StoreNotifier::noop())
+        .await?
+        .encrypt_with_index(&user_profile_key)?;
 
         let initial_user_state = InitialUserState {
             client_credential_payload: client_credential_payload.clone(),

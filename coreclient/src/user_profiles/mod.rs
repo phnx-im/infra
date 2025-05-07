@@ -8,7 +8,7 @@
 use std::fmt::Display;
 
 use phnxtypes::{
-    credentials::ClientCredential,
+    LibraryError,
     crypto::{
         ear::{EarDecryptable, EarEncryptable},
         indexed_aead::{
@@ -29,7 +29,10 @@ use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError}
 use thiserror::Error;
 use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
+pub(crate) mod generate;
 pub(crate) mod persistence;
+pub(crate) mod process;
+pub(crate) mod update;
 
 impl Signable for IndexedUserProfile {
     type SignedOutput = VerifiableUserProfile;
@@ -71,11 +74,11 @@ mod sealed {
     pub struct Seal;
 }
 
-impl VerifiedStruct<VerifiableUserProfile> for IndexedUserProfile {
+impl VerifiedStruct<VerifiableUserProfile> for VerifiedUserProfile {
     type SealingType = Seal;
 
     fn from_verifiable(verifiable: VerifiableUserProfile, _seal: Self::SealingType) -> Self {
-        verifiable.tbs
+        VerifiedUserProfile(verifiable.tbs)
     }
 }
 
@@ -87,9 +90,7 @@ pub(crate) struct VerifiableUserProfile {
 
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
-pub(crate) struct UnvalidatedUserProfile {
-    user_profile: VerifiableUserProfile,
-}
+pub(crate) struct VerifiedUserProfile(IndexedUserProfile);
 
 #[derive(Debug, Error)]
 pub enum UserProfileValidationError {
@@ -98,31 +99,15 @@ pub enum UserProfileValidationError {
         user_name: QualifiedUserName,
         epoch: u64,
     },
+    #[error("Mismatching user name")]
+    MismatchingUserName {
+        expected: QualifiedUserName,
+        actual: QualifiedUserName,
+    },
     #[error(transparent)]
     InvalidSignature(#[from] SignatureVerificationError),
-}
-
-impl UnvalidatedUserProfile {
-    /// Validates the user profile by verifying the signature against the
-    /// `owner_credential` and by checking that the new profile isn't older than
-    /// the current one.
-    /// `None` should only be provided if there is no previous profile.
-    pub(crate) fn validate(
-        self,
-        previous_profile_epoch: Option<u64>,
-        owner_credential: &ClientCredential,
-    ) -> Result<IndexedUserProfile, UserProfileValidationError> {
-        if let Some(previous_profile_epoch) = previous_profile_epoch {
-            if self.user_profile.tbs.epoch() <= previous_profile_epoch {
-                return Err(UserProfileValidationError::OutdatedUserProfile {
-                    user_name: self.user_profile.tbs.user_name.clone(),
-                    epoch: self.user_profile.tbs.epoch(),
-                });
-            }
-        }
-        let user_profile = self.user_profile.verify(owner_credential.verifying_key())?;
-        Ok(user_profile)
-    }
+    #[error(transparent)]
+    LibraryError(#[from] LibraryError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -153,32 +138,6 @@ pub(crate) struct IndexedUserProfile {
     decryption_key_index: UserProfileKeyIndex,
     display_name: Option<DisplayName>,
     profile_picture: Option<Asset>,
-}
-
-impl IndexedUserProfile {
-    pub(crate) fn new(
-        user_name: QualifiedUserName,
-        epoch: u64,
-        decryption_key_index: UserProfileKeyIndex,
-        display_name: Option<DisplayName>,
-        profile_picture: Option<Asset>,
-    ) -> Self {
-        Self {
-            user_name,
-            epoch,
-            decryption_key_index,
-            display_name,
-            profile_picture,
-        }
-    }
-
-    pub(crate) fn decryption_key_index(&self) -> &UserProfileKeyIndex {
-        &self.decryption_key_index
-    }
-
-    pub(crate) fn epoch(&self) -> u64 {
-        self.epoch
-    }
 }
 
 /// A display name is a human-readable name that can be used to identify a user.
@@ -302,8 +261,12 @@ impl Asset {
     }
 }
 
-impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for VerifiableUserProfile {}
-impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for UnvalidatedUserProfile {}
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
+pub(crate) struct EncryptableUserProfile(VerifiableUserProfile);
 
-impl IndexDecryptable<UserProfileKeyType, EncryptedUserProfileCtype> for UnvalidatedUserProfile {}
-impl IndexEncryptable<UserProfileKeyType, EncryptedUserProfileCtype> for VerifiableUserProfile {}
+impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for EncryptableUserProfile {}
+impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for VerifiableUserProfile {}
+
+impl IndexEncryptable<UserProfileKeyType, EncryptedUserProfileCtype> for EncryptableUserProfile {}
+impl IndexDecryptable<UserProfileKeyType, EncryptedUserProfileCtype> for VerifiableUserProfile {}
