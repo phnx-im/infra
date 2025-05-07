@@ -28,17 +28,12 @@ use super::{
     client_as::{ConnectionPackage, ConnectionPackageTbs},
 };
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct UserConnectionPackagesResponseIn {
     pub connection_packages: Vec<ConnectionPackageIn>,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct UserClientsResponseIn {
-    pub client_credentials: Vec<VerifiableClientCredential>,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct AsCredentialsResponseIn {
     // TODO: We might want a Verifiable... type variant here that ensures that
     // this is matched against the local trust store or something.
@@ -47,7 +42,7 @@ pub struct AsCredentialsResponseIn {
     pub revoked_credentials: Vec<CredentialFingerprint>,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct RegisterUserResponseIn {
     pub client_credential: VerifiableClientCredential,
 }
@@ -117,7 +112,7 @@ impl Verifiable for VerifiableConnectionPackage {
     }
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct RegisterUserParamsIn {
     pub client_payload: ClientCredentialPayload,
     pub queue_encryption_key: RatchetEncryptionKey,
@@ -125,19 +120,7 @@ pub struct RegisterUserParamsIn {
     pub encrypted_user_profile: EncryptedUserProfile,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct AsPublishConnectionPackagesParamsIn {
-    payload: AsPublishConnectionPackagesParamsTbsIn,
-    signature: Signature,
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct AsPublishConnectionPackagesParamsTbsIn {
-    pub client_id: AsClientId,
-    pub connection_packages: Vec<ConnectionPackageIn>,
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct GetUserProfileParams {
     pub client_id: AsClientId,
 }
@@ -151,14 +134,8 @@ pub struct GetUserProfileResponse {
     pub encrypted_user_profile: EncryptedUserProfile,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct UpdateUserProfileParamsTbs {
     pub client_id: AsClientId,
     pub user_profile: EncryptedUserProfile,
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateUserProfileParams {
-    payload: UpdateUserProfileParamsTbs,
-    signature: Signature,
 }

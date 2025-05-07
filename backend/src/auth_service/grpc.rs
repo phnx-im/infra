@@ -18,10 +18,7 @@ use phnxtypes::{
             AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
             EnqueueMessageParams, UserConnectionPackagesParams,
         },
-        client_as_out::{
-            AsPublishConnectionPackagesParamsTbsIn, GetUserProfileParams, RegisterUserParamsIn,
-            UpdateUserProfileParamsTbs,
-        },
+        client_as_out::{GetUserProfileParams, RegisterUserParamsIn, UpdateUserProfileParamsTbs},
     },
 };
 use tonic::{Request, Response, Status, async_trait};
@@ -126,15 +123,14 @@ impl auth_service_server::AuthService for GrpcAs {
         let (client_id, payload) = self
             .verify_client_auth::<_, PublishConnectionPackagesPayload>(request)
             .await?;
-        let params = AsPublishConnectionPackagesParamsTbsIn {
-            client_id,
-            connection_packages: payload
-                .connection_packages
-                .into_iter()
-                .map(|package| package.try_into())
-                .collect::<Result<Vec<_>, _>>()?,
-        };
-        self.inner.as_publish_connection_packages(params).await?;
+        let connection_packages = payload
+            .connection_packages
+            .into_iter()
+            .map(|package| package.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
+        self.inner
+            .as_publish_connection_packages(client_id, connection_packages)
+            .await?;
         Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
 

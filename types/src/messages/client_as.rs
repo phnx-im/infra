@@ -128,7 +128,7 @@ impl SignedStruct<ConnectionPackageTbs> for ConnectionPackage {
 
 // === User ===
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct RegisterUserParams {
     pub client_payload: ClientCredentialPayload,
     pub queue_encryption_key: RatchetEncryptionKey,
@@ -136,21 +136,15 @@ pub struct RegisterUserParams {
     pub encrypted_user_profile: EncryptedUserProfile,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct RegisterUserResponse {
     pub client_credential: ClientCredential,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct DeleteUserParamsTbs {
     pub user_name: QualifiedUserName,
     pub client_id: AsClientId,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct DeleteUserParams {
-    payload: DeleteUserParamsTbs,
-    signature: Signature,
 }
 
 // === Client ===
@@ -160,12 +154,6 @@ pub struct DequeueMessagesParamsTbs {
     pub sender: AsClientId,
     pub sequence_number_start: u64,
     pub max_message_number: u64,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct AsDequeueMessagesParams {
-    payload: DequeueMessagesParamsTbs,
-    signature: Signature,
 }
 
 #[derive(Debug)]
@@ -257,40 +245,28 @@ pub enum ExtractedAsQueueMessagePayload {
 impl EarEncryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
 impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
 
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AsPublishConnectionPackagesParamsTbs {
-    pub client_id: AsClientId,
-    pub connection_packages: Vec<ConnectionPackage>,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct AsPublishConnectionPackagesParams {
-    payload: AsPublishConnectionPackagesParamsTbs,
-    signature: Signature,
-}
-
 // === Anonymous requests ===
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct UserConnectionPackagesParams {
     pub user_name: QualifiedUserName,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct UserConnectionPackagesResponse {
     pub key_packages: Vec<ConnectionPackage>,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct EnqueueMessageParams {
     pub client_id: AsClientId,
     pub connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct AsCredentialsParams {}
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct AsCredentialsResponse {
     pub as_credentials: Vec<AsCredential>,
     pub as_intermediate_credentials: Vec<AsIntermediateCredential>,
