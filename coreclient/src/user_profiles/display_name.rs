@@ -38,6 +38,8 @@ impl FromStr for DisplayName {
         // Pad with spaces to the maximum length.
         let mut padded_display_name = String::with_capacity(MAX_DISPLAY_NAME_BYTES);
         padded_display_name.push_str(value);
+        // Use value.len() to calculate the byte count for padding, as MAX_DISPLAY_NAME_BYTES
+        // is defined in terms of bytes, not characters or graphemes.
         padded_display_name.push_str(&" ".repeat(MAX_DISPLAY_NAME_BYTES - value.len()));
         Ok(Self {
             display_name: padded_display_name,
