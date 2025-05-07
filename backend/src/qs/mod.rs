@@ -68,10 +68,8 @@ use phnxtypes::{
 };
 
 use sqlx::PgPool;
-use thiserror::Error;
 
 use crate::{
-    errors::StorageError,
     infra_service::{InfraService, ServiceCreationError},
     messages::intra_backend::DsFanOutMessage,
 };
@@ -92,18 +90,6 @@ mod user_record;
 pub struct Qs {
     domain: Fqdn,
     db_pool: PgPool,
-}
-
-#[derive(Debug, Error)]
-pub enum QsCreationError {
-    #[error(transparent)]
-    Storage(#[from] StorageError),
-}
-
-impl<T: Into<sqlx::Error>> From<T> for QsCreationError {
-    fn from(e: T) -> Self {
-        Self::Storage(StorageError::from(e.into()))
-    }
 }
 
 impl InfraService for Qs {

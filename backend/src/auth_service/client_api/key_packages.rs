@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::auth_service::PublishConnectionPackageError,
-    messages::{
-        client_as::ConnectionPackage, client_as_out::AsPublishConnectionPackagesParamsTbsIn,
-    },
+use phnxtypes::messages::{
+    client_as::ConnectionPackage, client_as_out::AsPublishConnectionPackagesParamsTbsIn,
 };
 
-use crate::auth_service::{
-    AuthService, connection_package::StorableConnectionPackage,
-    credentials::intermediate_signing_key::IntermediateCredential,
+use crate::{
+    auth_service::{
+        AuthService, connection_package::StorableConnectionPackage,
+        credentials::intermediate_signing_key::IntermediateCredential,
+    },
+    errors::auth_service::PublishConnectionPackageError,
 };
 
 impl AuthService {

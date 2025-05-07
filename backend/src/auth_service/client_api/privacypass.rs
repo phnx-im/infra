@@ -2,20 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::auth_service::IssueTokensError,
-    messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse},
-};
+use phnxtypes::messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse};
 use privacypass::batched_tokens_ristretto255::server::Server;
 
-use crate::auth_service::{
-    AuthService, client_record::ClientRecord, privacy_pass::AuthServiceBatchedKeyStoreProvider,
+use crate::{
+    auth_service::{
+        AuthService, client_record::ClientRecord, privacy_pass::AuthServiceBatchedKeyStoreProvider,
+    },
+    errors::auth_service::IssueTokensError,
 };
 
 const MAX_TOKENS_PER_REQUEST: i32 = 100;
 
 impl AuthService {
-    pub async fn as_issue_tokens(
+    #[allow(dead_code)]
+    pub(crate) async fn as_issue_tokens(
         &self,
         params: IssueTokensParamsTbs,
     ) -> Result<IssueTokensResponse, IssueTokensError> {

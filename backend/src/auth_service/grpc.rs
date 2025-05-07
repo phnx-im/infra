@@ -12,7 +12,7 @@ use phnxtypes::{
         private_keys::SignatureVerificationError,
         signable::{Verifiable, VerifiedStruct},
     },
-    errors, identifiers,
+    identifiers,
     messages::{
         client_as::{
             AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
@@ -93,11 +93,7 @@ impl auth_service_server::AuthService for GrpcAs {
                 .ok_or_missing_field("encrypted_user_profile")?
                 .try_into()?,
         };
-        let response = self
-            .inner
-            .as_init_user_registration(params)
-            .await
-            .map_err(RegisterUserError)?;
+        let response = self.inner.as_init_user_registration(params).await?;
         Ok(Response::new(RegisterUserResponse {
             client_credential: Some(response.client_credential.into()),
         }))
@@ -118,10 +114,7 @@ impl auth_service_server::AuthService for GrpcAs {
                 .try_into()?,
             client_id,
         };
-        self.inner
-            .as_delete_user(params)
-            .await
-            .map_err(DeleteUserError)?;
+        self.inner.as_delete_user(params).await?;
         Ok(Response::new(DeleteUserResponse {}))
     }
 
@@ -141,10 +134,7 @@ impl auth_service_server::AuthService for GrpcAs {
                 .map(|package| package.try_into())
                 .collect::<Result<Vec<_>, _>>()?,
         };
-        self.inner
-            .as_publish_connection_packages(params)
-            .await
-            .map_err(PublishConnectionPackagesError)?;
+        self.inner.as_publish_connection_packages(params).await?;
         Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
 
@@ -161,8 +151,7 @@ impl auth_service_server::AuthService for GrpcAs {
         let connection_packages = self
             .inner
             .as_user_connection_packages(params)
-            .await
-            .map_err(GetConnectionPackageError)?
+            .await?
             .key_packages;
         Ok(Response::new(GetUserConnectionPackagesResponse {
             connection_packages: connection_packages.into_iter().map(Into::into).collect(),
@@ -173,11 +162,7 @@ impl auth_service_server::AuthService for GrpcAs {
         &self,
         _request: Request<AsCredentialsRequest>,
     ) -> Result<Response<AsCredentialsResponse>, Status> {
-        let response = self
-            .inner
-            .as_credentials(AsCredentialsParams {})
-            .await
-            .map_err(AsCredentialsError)?;
+        let response = self.inner.as_credentials(AsCredentialsParams {}).await?;
         Ok(Response::new(AsCredentialsResponse {
             as_credentials: response
                 .as_credentials
@@ -212,10 +197,7 @@ impl auth_service_server::AuthService for GrpcAs {
                 .ok_or_missing_field("encrypted_user_profile")?
                 .try_into()?,
         };
-        self.inner
-            .as_update_user_profile(params)
-            .await
-            .map_err(UpdateUserProfileError)?;
+        self.inner.as_update_user_profile(params).await?;
         Ok(Response::new(UpdateUserProfileResponse {}))
     }
 
@@ -229,11 +211,7 @@ impl auth_service_server::AuthService for GrpcAs {
             .ok_or_missing_field("client_id")?
             .try_into()?;
         let params = GetUserProfileParams { client_id };
-        let response = self
-            .inner
-            .as_get_user_profile(params)
-            .await
-            .map_err(GetUserProfileError)?;
+        let response = self.inner.as_get_user_profile(params).await?;
         Ok(Response::new(GetUserProfileResponse {
             encrypted_user_profile: Some(response.encrypted_user_profile.into()),
         }))
@@ -261,10 +239,7 @@ impl auth_service_server::AuthService for GrpcAs {
                 .ok_or_missing_field("connection_establishment_package")?
                 .try_into()?,
         };
-        self.inner
-            .as_enqueue_message(params)
-            .await
-            .map_err(EnqueueMessageError)?;
+        self.inner.as_enqueue_message(params).await?;
         Ok(Response::new(EnqueueMessagesResponse {}))
     }
 
@@ -281,150 +256,11 @@ impl auth_service_server::AuthService for GrpcAs {
             sequence_number_start: payload.sequence_number_start,
             max_message_number: payload.max_message_number,
         };
-        let response = self
-            .inner
-            .as_dequeue_messages(params)
-            .await
-            .map_err(DequeueMessagesError)?;
+        let response = self.inner.as_dequeue_messages(params).await?;
         Ok(Response::new(DequeueMessagesResponse {
             messages: response.messages.into_iter().map(Into::into).collect(),
             remaining_messages_number: response.remaining_messages_number,
         }))
-    }
-}
-
-struct RegisterUserError(errors::auth_service::RegisterUserError);
-
-impl From<RegisterUserError> for Status {
-    fn from(e: RegisterUserError) -> Self {
-        match e.0 {
-            errors::auth_service::RegisterUserError::LibraryError
-            | errors::auth_service::RegisterUserError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            errors::auth_service::RegisterUserError::SigningKeyNotFound => {
-                Status::not_found(e.0.to_string())
-            }
-            errors::auth_service::RegisterUserError::UserAlreadyExists => {
-                Status::already_exists(e.0.to_string())
-            }
-            errors::auth_service::RegisterUserError::InvalidCsr(..) => {
-                Status::invalid_argument(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct DeleteUserError(errors::auth_service::DeleteUserError);
-
-impl From<DeleteUserError> for Status {
-    fn from(e: DeleteUserError) -> Self {
-        match e.0 {
-            errors::auth_service::DeleteUserError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct PublishConnectionPackagesError(errors::auth_service::PublishConnectionPackageError);
-
-impl From<PublishConnectionPackagesError> for Status {
-    fn from(e: PublishConnectionPackagesError) -> Self {
-        match e.0 {
-            errors::auth_service::PublishConnectionPackageError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            errors::auth_service::PublishConnectionPackageError::InvalidKeyPackage => {
-                Status::invalid_argument(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct GetConnectionPackageError(errors::auth_service::UserConnectionPackagesError);
-
-impl From<GetConnectionPackageError> for Status {
-    fn from(e: GetConnectionPackageError) -> Self {
-        match e.0 {
-            errors::auth_service::UserConnectionPackagesError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            errors::auth_service::UserConnectionPackagesError::UnknownUser => {
-                Status::not_found(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct AsCredentialsError(errors::auth_service::AsCredentialsError);
-
-impl From<AsCredentialsError> for Status {
-    fn from(e: AsCredentialsError) -> Self {
-        match e.0 {
-            errors::auth_service::AsCredentialsError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct EnqueueMessageError(errors::auth_service::EnqueueMessageError);
-
-impl From<EnqueueMessageError> for Status {
-    fn from(e: EnqueueMessageError) -> Self {
-        match e.0 {
-            errors::auth_service::EnqueueMessageError::LibraryError
-            | errors::auth_service::EnqueueMessageError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            errors::auth_service::EnqueueMessageError::ClientNotFound => {
-                Status::not_found(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct DequeueMessagesError(errors::auth_service::AsDequeueError);
-
-impl From<DequeueMessagesError> for Status {
-    fn from(e: DequeueMessagesError) -> Self {
-        match e.0 {
-            errors::auth_service::AsDequeueError::StorageError => Status::internal(e.0.to_string()),
-            errors::auth_service::AsDequeueError::QueueNotFound => {
-                Status::not_found(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct UpdateUserProfileError(errors::auth_service::UpdateUserProfileError);
-
-impl From<UpdateUserProfileError> for Status {
-    fn from(e: UpdateUserProfileError) -> Self {
-        match e.0 {
-            errors::auth_service::UpdateUserProfileError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            errors::auth_service::UpdateUserProfileError::UserNotFound => {
-                Status::not_found(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct GetUserProfileError(errors::auth_service::GetUserProfileError);
-
-impl From<GetUserProfileError> for Status {
-    fn from(e: GetUserProfileError) -> Self {
-        match e.0 {
-            errors::auth_service::GetUserProfileError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            errors::auth_service::GetUserProfileError::UserNotFound => {
-                Status::not_found(e.0.to_string())
-            }
-        }
     }
 }
 

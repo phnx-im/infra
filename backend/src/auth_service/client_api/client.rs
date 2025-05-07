@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::auth_service::AsDequeueError,
-    messages::{client_as::DequeueMessagesParamsTbs, client_qs::DequeueMessagesResponse},
+use phnxtypes::messages::{
+    client_as::DequeueMessagesParamsTbs, client_qs::DequeueMessagesResponse,
 };
 
-use crate::auth_service::{AuthService, queue::Queue};
+use crate::{
+    auth_service::{AuthService, queue::Queue},
+    errors::auth_service::AsDequeueError,
+};
 
 impl AuthService {
     pub(crate) async fn as_dequeue_messages(

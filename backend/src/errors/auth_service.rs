@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use phnxtypes::time::TimeStamp;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
-
-use crate::time::TimeStamp;
+use tonic::Status;
 
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum AsDequeueError {
+pub(crate) enum AsDequeueError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -19,9 +19,15 @@ pub enum AsDequeueError {
     QueueNotFound,
 }
 
+impl From<AsDequeueError> for Status {
+    fn from(_e: AsDequeueError) -> Self {
+        todo!()
+    }
+}
+
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum RegisterUserError {
+pub(crate) enum RegisterUserError {
     /// Could not find signing key
     #[error("Could not find signing key")]
     SigningKeyNotFound,
@@ -39,17 +45,29 @@ pub enum RegisterUserError {
     InvalidCsr(TimeStamp, TimeStamp, TimeStamp),
 }
 
+impl From<RegisterUserError> for Status {
+    fn from(_e: RegisterUserError) -> Self {
+        todo!()
+    }
+}
+
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum DeleteUserError {
+pub(crate) enum DeleteUserError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
 }
 
+impl From<DeleteUserError> for Status {
+    fn from(_e: DeleteUserError) -> Self {
+        todo!()
+    }
+}
+
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum InitClientAdditionError {
+pub(crate) enum InitClientAdditionError {
     /// Library error
     #[error("Library error")]
     LibraryError,
@@ -72,7 +90,7 @@ pub enum InitClientAdditionError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum FinishClientAdditionError {
+pub(crate) enum FinishClientAdditionError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -86,7 +104,7 @@ pub enum FinishClientAdditionError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum DeleteClientError {
+pub(crate) enum DeleteClientError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -94,7 +112,7 @@ pub enum DeleteClientError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum PublishConnectionPackageError {
+pub(crate) enum PublishConnectionPackageError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -103,9 +121,15 @@ pub enum PublishConnectionPackageError {
     InvalidKeyPackage,
 }
 
+impl From<PublishConnectionPackageError> for Status {
+    fn from(_e: PublishConnectionPackageError) -> Self {
+        todo!()
+    }
+}
+
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum UserConnectionPackagesError {
+pub(crate) enum UserConnectionPackagesError {
     /// User could not be found
     #[error("User could not be found")]
     UnknownUser,
@@ -114,9 +138,15 @@ pub enum UserConnectionPackagesError {
     StorageError,
 }
 
+impl From<UserConnectionPackagesError> for Status {
+    fn from(_e: UserConnectionPackagesError) -> Self {
+        todo!()
+    }
+}
+
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum EnqueueMessageError {
+pub(crate) enum EnqueueMessageError {
     /// Library error
     #[error("Library error")]
     LibraryError,
@@ -128,9 +158,15 @@ pub enum EnqueueMessageError {
     ClientNotFound,
 }
 
+impl From<EnqueueMessageError> for Status {
+    fn from(_e: EnqueueMessageError) -> Self {
+        todo!()
+    }
+}
+
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum IssueTokensError {
+pub(crate) enum IssueTokensError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
@@ -147,32 +183,21 @@ pub enum IssueTokensError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum AsCredentialsError {
+pub(crate) enum AsCredentialsError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
 }
 
-#[derive(Error, Debug)]
-#[repr(u8)]
-pub enum AsVerificationError {
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-    /// Could not find client
-    #[error("Could not find client")]
-    UnknownClient,
-    /// Could not find user
-    #[error("Could not find user")]
-    UnknownUser,
-    /// Could not authenticate message
-    #[error("Could not authenticate message")]
-    AuthenticationFailed,
+impl From<AsCredentialsError> for Status {
+    fn from(_e: AsCredentialsError) -> Self {
+        todo!()
+    }
 }
 
 #[derive(Debug, Error)]
 #[repr(u8)]
-pub enum GetUserProfileError {
+pub(crate) enum GetUserProfileError {
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error
@@ -180,12 +205,24 @@ pub enum GetUserProfileError {
     StorageError,
 }
 
+impl From<GetUserProfileError> for Status {
+    fn from(_e: GetUserProfileError) -> Self {
+        todo!()
+    }
+}
+
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum UpdateUserProfileError {
+pub(crate) enum UpdateUserProfileError {
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
+}
+
+impl From<UpdateUserProfileError> for Status {
+    fn from(_e: UpdateUserProfileError) -> Self {
+        todo!()
+    }
 }

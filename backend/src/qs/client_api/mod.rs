@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::qs::QsDequeueError,
-    messages::client_qs::{DequeueMessagesParams, DequeueMessagesResponse},
-};
+use phnxtypes::messages::client_qs::{DequeueMessagesParams, DequeueMessagesResponse};
+
+use crate::errors::qs::QsDequeueError;
 
 use super::{Qs, queue::Queue};
 

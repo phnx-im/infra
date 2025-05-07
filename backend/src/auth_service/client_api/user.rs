@@ -5,7 +5,6 @@
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::signatures::signable::Signable,
-    errors::auth_service::{DeleteUserError, RegisterUserError},
     messages::{
         client_as::{DeleteUserParamsTbs, RegisterUserResponse},
         client_as_out::RegisterUserParamsIn,
@@ -14,9 +13,12 @@ use phnxtypes::{
 };
 use tracing::error;
 
-use crate::auth_service::{
-    AuthService, client_record::ClientRecord,
-    credentials::intermediate_signing_key::IntermediateSigningKey, user_record::UserRecord,
+use crate::{
+    auth_service::{
+        AuthService, client_record::ClientRecord,
+        credentials::intermediate_signing_key::IntermediateSigningKey, user_record::UserRecord,
+    },
+    errors::auth_service::{DeleteUserError, RegisterUserError},
 };
 
 impl AuthService {
