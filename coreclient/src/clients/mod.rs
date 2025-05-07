@@ -9,7 +9,7 @@ use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
-use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
+use phnxapiclient::{ApiClient, ApiClientInitError};
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
@@ -43,7 +43,6 @@ use sqlx::SqlitePool;
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
-use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
@@ -504,18 +503,6 @@ impl CoreUser {
     pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
         let api_client = self.inner.api_clients.default_client()?;
         Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
-    }
-
-    pub async fn websocket(
-        &self,
-        timeout: u64,
-        retry_interval: u64,
-        cancel: CancellationToken,
-    ) -> Result<QsWebSocket> {
-        let api_client = self.inner.api_clients.default_client();
-        Ok(api_client?
-            .spawn_websocket(self.inner.qs_client_id, timeout, retry_interval, cancel)
-            .await?)
     }
 
     /// Mark all messages in the conversation with the given conversation id and

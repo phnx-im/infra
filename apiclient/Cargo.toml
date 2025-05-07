@@ -15,24 +15,14 @@ phnxtypes.workspace = true
 
 reqwest = { workspace = true }
 thiserror = { workspace = true }
-tokio = { version = "1.18.2", features = ["macros"] }
-tokio-util = { workspace = true }
-tokio-tungstenite = { version = "0.25", features = ["rustls-tls-webpki-roots"] }
-futures-util = "0.3.21"
-http = "1"
 tracing = "0.1.41"
-base64 = "0.22"
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 url = "2"
-uuid = { version = "1", features = ["v4"] }
 tonic.workspace = true
 tokio-stream.workspace = true
 
 [dev-dependencies]
 tokio = { version = "1.18.2", features = ["macros"] }
 uuid = "1.0.0"
-actix = "0.13.0"
-actix-web = "^4.0"
-actix-web-actors = "4.1.0"
 tracing-subscriber = { workspace = true }
