@@ -49,14 +49,6 @@ pub enum DeleteUserError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum UserClientsError {
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
 pub enum InitClientAdditionError {
     /// Library error
     #[error("Library error")]
@@ -196,40 +188,4 @@ pub enum UpdateUserProfileError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
-}
-
-#[derive(Debug, Error)]
-#[repr(u8)]
-pub enum AsProcessingError {
-    /// Authentication error
-    #[error(transparent)]
-    AuthenticationError(#[from] AsVerificationError),
-    #[error(transparent)]
-    AsDequeueError(#[from] AsDequeueError),
-    #[error(transparent)]
-    RegisterUserError(#[from] RegisterUserError),
-    #[error(transparent)]
-    DeleteUserError(#[from] DeleteUserError),
-    #[error(transparent)]
-    UserClientsError(#[from] UserClientsError),
-    #[error(transparent)]
-    InitClientAdditionError(#[from] InitClientAdditionError),
-    #[error(transparent)]
-    FinishClientAdditionError(#[from] FinishClientAdditionError),
-    #[error(transparent)]
-    DeleteClientError(#[from] DeleteClientError),
-    #[error(transparent)]
-    PublishKeyPackageError(#[from] PublishConnectionPackageError),
-    #[error(transparent)]
-    UserKeyPackagesError(#[from] UserConnectionPackagesError),
-    #[error(transparent)]
-    EnqueueMessageError(#[from] EnqueueMessageError),
-    #[error(transparent)]
-    IssueTokensError(#[from] IssueTokensError),
-    #[error(transparent)]
-    AsCredentialsError(#[from] AsCredentialsError),
-    #[error(transparent)]
-    GetUserProfileError(#[from] GetUserProfileError),
-    #[error(transparent)]
-    UpdateUserProfileError(#[from] UpdateUserProfileError),
 }

@@ -272,16 +272,6 @@ pub struct AsPublishConnectionPackagesParams {
 // === Anonymous requests ===
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct UserClientsParams {
-    pub user_name: QualifiedUserName,
-}
-
-#[derive(Debug, TlsSerialize, TlsSize)]
-pub struct UserClientsResponse {
-    pub client_credentials: Vec<ClientCredential>,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct UserConnectionPackagesParams {
     pub user_name: QualifiedUserName,
 }

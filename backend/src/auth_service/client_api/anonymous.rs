@@ -3,12 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    errors::auth_service::{
-        AsCredentialsError, EnqueueMessageError, UserClientsError, UserConnectionPackagesError,
-    },
+    errors::auth_service::{AsCredentialsError, EnqueueMessageError, UserConnectionPackagesError},
     messages::client_as::{
-        AsCredentialsParams, AsCredentialsResponse, EnqueueMessageParams, UserClientsParams,
-        UserClientsResponse, UserConnectionPackagesParams, UserConnectionPackagesResponse,
+        AsCredentialsParams, AsCredentialsResponse, EnqueueMessageParams,
+        UserConnectionPackagesParams, UserConnectionPackagesResponse,
     },
 };
 
@@ -21,25 +19,6 @@ use crate::auth_service::{
 };
 
 impl AuthService {
-    pub(crate) async fn as_user_clients(
-        &self,
-        params: UserClientsParams,
-    ) -> Result<UserClientsResponse, UserClientsError> {
-        let UserClientsParams { user_name } = params;
-
-        // Look up the user entry in the DB
-        let client_credentials = ClientRecord::load_user_credentials(&self.db_pool, &user_name)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Failed to load client credentials: {:?}", e);
-                UserClientsError::StorageError
-            })?;
-
-        let response = UserClientsResponse { client_credentials };
-
-        Ok(response)
-    }
-
     pub async fn as_user_connection_packages(
         &self,
         params: UserConnectionPackagesParams,

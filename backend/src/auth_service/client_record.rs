@@ -173,6 +173,7 @@ pub(crate) mod persistence {
         }
 
         /// Return the client credentials of a user for a given username.
+        #[allow(dead_code)]
         pub(in crate::auth_service) async fn load_user_credentials(
             connection: impl PgExecutor<'_>,
             user_name: &QualifiedUserName,

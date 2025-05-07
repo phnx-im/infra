@@ -743,9 +743,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .other_destination_clients(sender_index)
             .collect();
 
-        group_state
-            .update_user_profile_key(sender_index, params.user_profile_key)
-            .map_err(|_| UnknownSenderError(sender_index))?;
+        group_state.update_user_profile_key(sender_index, params.user_profile_key)?;
 
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
@@ -778,15 +776,6 @@ struct GroupNotFoundError;
 impl From<GroupNotFoundError> for Status {
     fn from(_: GroupNotFoundError) -> Self {
         Status::not_found("group not found")
-    }
-}
-
-struct UnknownSenderError(LeafNodeIndex);
-
-impl From<UnknownSenderError> for Status {
-    fn from(e: UnknownSenderError) -> Self {
-        error!(index =% e.0, "could not find leaf");
-        Status::invalid_argument("unknown sender")
     }
 }
 
