@@ -15,11 +15,10 @@ pub struct DisplayName {
     display_name: String,
 }
 
-// Note that this counds chars, not graphemes. While chars are at most 4 bytes,
+// Note that this counts chars, not graphemes. While chars are at most 4 bytes,
 // graphemes can be longer, so we need to adjust the logic if we ever want to
 // count graphemes instead of chars.
 const MAX_DISPLAY_NAME_CHARS: usize = 50;
-const MAX_DISPLAY_NAME_BYTES: usize = MAX_DISPLAY_NAME_CHARS * 4;
 
 impl FromStr for DisplayName {
     type Err = DisplayNameError;
@@ -35,14 +34,8 @@ impl FromStr for DisplayName {
         if value.chars().count() > MAX_DISPLAY_NAME_CHARS {
             return Err(DisplayNameError::DisplayNameTooLong);
         }
-        // Pad with spaces to the maximum length.
-        let mut padded_display_name = String::with_capacity(MAX_DISPLAY_NAME_BYTES);
-        padded_display_name.push_str(value);
-        // Use value.len() to calculate the byte count for padding, as MAX_DISPLAY_NAME_BYTES
-        // is defined in terms of bytes, not characters or graphemes.
-        padded_display_name.push_str(&" ".repeat(MAX_DISPLAY_NAME_BYTES - value.len()));
         Ok(Self {
-            display_name: padded_display_name,
+            display_name: value.to_string(),
         })
     }
 }
@@ -126,7 +119,6 @@ mod tests {
         let name = "Alice";
         let dn = DisplayName::from_str(name).unwrap();
         assert_eq!(&dn.display_name[..5], name);
-        assert_eq!(dn.display_name.len(), 200);
     }
 
     #[test]
@@ -141,7 +133,6 @@ mod tests {
         let name = "a".repeat(MAX_DISPLAY_NAME_CHARS);
         let dn = DisplayName::from_str(&name).unwrap();
         assert_eq!(&dn.display_name[..MAX_DISPLAY_NAME_CHARS], name);
-        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
     }
 
     #[test]
@@ -157,7 +148,6 @@ mod tests {
         let name = "🦀".repeat(MAX_DISPLAY_NAME_CHARS); // 4 bytes per char
         let dn = DisplayName::from_str(&name).unwrap();
         assert_eq!(dn.display_name.chars().count(), MAX_DISPLAY_NAME_CHARS);
-        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
     }
 
     #[test]
@@ -173,16 +163,6 @@ mod tests {
         let name = "  hello  ";
         let dn = DisplayName::from_str(name).unwrap();
         assert!(dn.display_name.starts_with("hello"));
-        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
-    }
-
-    #[test]
-    fn padded_with_spaces_to_200_bytes() {
-        let name = "Hi 🌍"; // 5 chars, 7 bytes
-        let dn = DisplayName::from_str(name).unwrap();
-        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
-        assert!(dn.display_name.starts_with("Hi 🌍"));
-        assert!(dn.display_name.ends_with(" ".repeat(193).as_str()));
     }
 
     #[test]
@@ -193,8 +173,6 @@ mod tests {
 
         // Check that the characters are preserved correctly
         assert!(dn.display_name.starts_with(name));
-        assert_eq!(dn.display_name.chars().count(), 196); // padded with spaces
-        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
     }
 
     #[test]
@@ -209,19 +187,6 @@ mod tests {
 
         // Check: trimmed correctly
         assert!(dn.display_name.starts_with(expected_trimmed));
-
-        // Check: padded to exactly MAX_DISPLAY_NAME_BYTES bytes
-        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
-
-        // Check: the number of added spaces is correct
-        let expected_spaces = MAX_DISPLAY_NAME_BYTES - expected_trimmed.len(); // 200 - 10 = 190
-        assert!(
-            dn.display_name
-                .ends_with(" ".repeat(expected_spaces).as_str())
-        );
-
-        // Optional: display byte and char lengths for debugging
-        assert_eq!(dn.display_name.chars().count(), 4 + expected_spaces);
     }
 
     #[test]
@@ -234,10 +199,8 @@ mod tests {
         // Repeat 25 times = 50 scalar values, 200 bytes
         let full = name.repeat(25);
         assert_eq!(full.chars().count(), MAX_DISPLAY_NAME_CHARS);
-        assert_eq!(full.len(), MAX_DISPLAY_NAME_BYTES);
 
         let dn = DisplayName::from_str(&full).unwrap();
-        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
         assert!(dn.display_name.starts_with(&full));
     }
 }
