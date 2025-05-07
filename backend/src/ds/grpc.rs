@@ -908,42 +908,6 @@ impl WithGroupStateEarKey for UpdateProfileKeyRequest {
     }
 }
 
-// #[derive(Debug, thiserror::Error)]
-// #[error("group operation failed: {0}")]
-// struct GroupOperationError(#[from] errors::GroupOperationError);
-//
-// impl From<GroupOperationError> for Status {
-//     fn from(error: GroupOperationError) -> Self {
-//         match error.0 {
-//             errors::GroupOperationError::InvalidMessage
-//             | errors::GroupOperationError::MissingQueueConfig
-//             | errors::GroupOperationError::DuplicatedUserAddition => {
-//                 Status::invalid_argument(error.to_string())
-//             }
-//             errors::GroupOperationError::LibraryError
-//             | errors::GroupOperationError::ProcessingError
-//             | errors::GroupOperationError::FailedToObtainVerifyingKey
-//             | errors::GroupOperationError::IncompleteWelcome => {
-//                 error!(error = %error.0, "group operation failed");
-//                 Status::internal(error.to_string())
-//             }
-//             errors::GroupOperationError::MergeCommitError(merge_commit_error) => {
-//                 error!(error = %merge_commit_error, "group operation failed");
-//                 Status::internal("group operation failed due to merge commit")
-//             }
-//         }
-//     }
-// }
-
-// struct DeleteGroupError(errors::GroupDeletionError);
-//
-// impl From<DeleteGroupError> for Status {
-//     fn from(error: DeleteGroupError) -> Self {
-//         error!(error = %error.0, "failed to delete group");
-//         Status::internal("failed to delete group")
-//     }
-// }
-
 /// Request containing an MLS message
 trait WithMessage {
     fn message(&self) -> Result<AssistedMessageIn, Status>;
