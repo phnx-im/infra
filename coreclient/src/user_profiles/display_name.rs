@@ -191,8 +191,35 @@ mod tests {
 
         // Check that the characters are preserved correctly
         assert!(dn.display_name.starts_with(name));
-        assert_eq!(dn.display_name.chars().count(), 200); // padded with spaces
+        assert_eq!(dn.display_name.chars().count(), 196); // padded with spaces
         assert_eq!(dn.display_name.len(), 200);
+    }
+
+    #[test]
+    fn trims_whitespace_in_rtl_string() {
+        // Arabic: "سلام" (salaam = peace)
+        let input = "  سلام  "; // 4 Arabic characters
+
+        // "مرحبا" = 5 Arabic characters = 10 bytes in UTF-8
+        let expected_trimmed = "سلام";
+
+        let dn = DisplayName::from_str(input).unwrap();
+
+        // Check: trimmed correctly
+        assert!(dn.display_name.starts_with(expected_trimmed));
+
+        // Check: padded to exactly 200 bytes
+        assert_eq!(dn.display_name.len(), 200);
+
+        // Check: the number of added spaces is correct
+        let expected_spaces = 200 - expected_trimmed.len(); // 200 - 10 = 190
+        assert!(
+            dn.display_name
+                .ends_with(" ".repeat(expected_spaces).as_str())
+        );
+
+        // Optional: display byte and char lengths for debugging
+        assert_eq!(dn.display_name.chars().count(), 4 + expected_spaces);
     }
 
     #[test]
