@@ -66,18 +66,6 @@ pub struct UpdateParamsOut {
 }
 
 #[derive(Debug)]
-pub struct JoinConnectionGroupParamsOut {
-    pub external_commit: AssistedMessageOut,
-    pub qs_client_reference: QsReference,
-}
-
-#[derive(Debug)]
-pub struct ResyncParamsOut {
-    pub external_commit: AssistedMessageOut,
-    pub sender: LeafNodeIndex,
-}
-
-#[derive(Debug)]
 pub struct SelfRemoveParamsOut {
     pub remove_proposal: AssistedMessageOut,
 }
