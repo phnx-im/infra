@@ -136,15 +136,15 @@ mod tests {
 
     #[test]
     fn accepts_exactly_50_ascii_chars() {
-        let name = "a".repeat(50);
+        let name = "a".repeat(MAX_DISPLAY_NAME_CHARS);
         let dn = DisplayName::from_str(&name).unwrap();
-        assert_eq!(&dn.display_name[..50], name);
-        assert_eq!(dn.display_name.len(), 200);
+        assert_eq!(&dn.display_name[..MAX_DISPLAY_NAME_CHARS], name);
+        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
     }
 
     #[test]
     fn rejects_more_than_50_chars() {
-        let name = "a".repeat(51);
+        let name = "a".repeat(MAX_DISPLAY_NAME_CHARS + 1);
         let result = DisplayName::from_str(&name);
         assert!(matches!(result, Err(DisplayNameError::DisplayNameTooLong)));
         assert_eq!(result.unwrap_err().to_string(), "Display name is too long");
@@ -152,15 +152,15 @@ mod tests {
 
     #[test]
     fn accepts_emoji_upto_200_bytes() {
-        let name = "🦀".repeat(50); // 4 bytes per char
+        let name = "🦀".repeat(MAX_DISPLAY_NAME_CHARS); // 4 bytes per char
         let dn = DisplayName::from_str(&name).unwrap();
-        assert_eq!(dn.display_name.chars().count(), 50);
-        assert_eq!(dn.display_name.len(), 200);
+        assert_eq!(dn.display_name.chars().count(), MAX_DISPLAY_NAME_CHARS);
+        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
     }
 
     #[test]
     fn rejects_emoji_over_200_bytes() {
-        let name = "🦀".repeat(51); // 204 bytes
+        let name = "🦀".repeat(MAX_DISPLAY_NAME_CHARS + 1); // 204 bytes
         let result = DisplayName::from_str(&name);
         assert!(matches!(result, Err(DisplayNameError::DisplayNameTooLong)));
         assert_eq!(result.unwrap_err().to_string(), "Display name is too long");
@@ -171,14 +171,14 @@ mod tests {
         let name = "  hello  ";
         let dn = DisplayName::from_str(name).unwrap();
         assert!(dn.display_name.starts_with("hello"));
-        assert_eq!(dn.display_name.len(), 200);
+        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
     }
 
     #[test]
     fn padded_with_spaces_to_200_bytes() {
         let name = "Hi 🌍"; // 5 chars, 7 bytes
         let dn = DisplayName::from_str(name).unwrap();
-        assert_eq!(dn.display_name.len(), 200);
+        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
         assert!(dn.display_name.starts_with("Hi 🌍"));
         assert!(dn.display_name.ends_with(" ".repeat(193).as_str()));
     }
@@ -192,7 +192,7 @@ mod tests {
         // Check that the characters are preserved correctly
         assert!(dn.display_name.starts_with(name));
         assert_eq!(dn.display_name.chars().count(), 196); // padded with spaces
-        assert_eq!(dn.display_name.len(), 200);
+        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
     }
 
     #[test]
@@ -208,11 +208,11 @@ mod tests {
         // Check: trimmed correctly
         assert!(dn.display_name.starts_with(expected_trimmed));
 
-        // Check: padded to exactly 200 bytes
-        assert_eq!(dn.display_name.len(), 200);
+        // Check: padded to exactly MAX_DISPLAY_NAME_BYTES bytes
+        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
 
         // Check: the number of added spaces is correct
-        let expected_spaces = 200 - expected_trimmed.len(); // 200 - 10 = 190
+        let expected_spaces = MAX_DISPLAY_NAME_BYTES - expected_trimmed.len(); // 200 - 10 = 190
         assert!(
             dn.display_name
                 .ends_with(" ".repeat(expected_spaces).as_str())
@@ -231,11 +231,11 @@ mod tests {
 
         // Repeat 25 times = 50 scalar values, 200 bytes
         let full = name.repeat(25);
-        assert_eq!(full.chars().count(), 50);
-        assert_eq!(full.len(), 200);
+        assert_eq!(full.chars().count(), MAX_DISPLAY_NAME_CHARS);
+        assert_eq!(full.len(), MAX_DISPLAY_NAME_BYTES);
 
         let dn = DisplayName::from_str(&full).unwrap();
-        assert_eq!(dn.display_name.len(), 200);
+        assert_eq!(dn.display_name.len(), MAX_DISPLAY_NAME_BYTES);
         assert!(dn.display_name.starts_with(&full));
     }
 }
