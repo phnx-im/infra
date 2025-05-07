@@ -90,7 +90,7 @@ impl StoreNotifier {
 
 impl Drop for StoreNotifier {
     fn drop(&mut self) {
-        if !self.notification.ops.is_empty() {
+        if !self.notification.ops.is_empty() && self.tx.tx.receiver_count() > 0 {
             // Note: This might be ok. E.g. an error might happen after some notifications were
             // added to the notifier.
             warn!(
