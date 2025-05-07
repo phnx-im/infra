@@ -111,7 +111,7 @@ impl CoreUser {
 
         // Phase 1: Check if the profile in the DB is up to date.
         let existing_user_profile = ExistingUserProfile::load(self.pool(), &user_name).await?;
-        if existing_user_profile.matches_index(&user_profile_key.index()) {
+        if existing_user_profile.matches_index(user_profile_key.index()) {
             return Ok(());
         }
 
@@ -146,7 +146,7 @@ impl CoreUser {
             .await?;
             if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
                 // Delete the old user profile key
-                UserProfileKey::delete(connection, &old_user_profile_index).await?;
+                UserProfileKey::delete(connection, old_user_profile_index).await?;
             }
             Ok(())
         })
