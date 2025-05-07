@@ -10,7 +10,7 @@ use openmls::{
 use phnxtypes::{
     codec::PhnxCodec,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
-    identifiers::AsClientId,
+    identifiers::{AsClientId, QualifiedGroupId},
     messages::{
         QueueMessage,
         client_ds::{
@@ -22,7 +22,10 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{ConversationMessage, PartialContact, conversations::ConversationType, groups::Group};
+use crate::{
+    ConversationMessage, PartialContact, conversations::ConversationType, groups::Group,
+    key_stores::indexed_keys::StorableIndexedKey,
+};
 
 use super::{
     Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
@@ -121,14 +124,24 @@ impl CoreUser {
 
         // TODO: This can fail in some cases. If it does, we should fetch and
         // process messages and then try again.
+        let mut own_profile_key_in_group = None;
         for profile_info in member_profile_info {
+            if profile_info.member_id == self.as_client_id() {
+                // We already have our own profile info.
+                own_profile_key_in_group = Some(profile_info.user_profile_key);
+                continue;
+            }
             self.fetch_and_store_user_profile(profile_info).await?;
         }
+
+        let Some(own_profile_key_in_group) = own_profile_key_in_group else {
+            bail!("No profile info for our user found");
+        };
 
         // WelcomeBundle Phase 3: Store the user profiles of the group
         // members if they don't exist yet and store the group and the
         // new conversation.
-        let conversation_id = self
+        let (conversation_id, own_profile_key) = self
             .with_transaction_and_notifier(async |connection, notifier| {
                 // Set the conversation attributes according to the group's
                 // group data.
@@ -137,6 +150,7 @@ impl CoreUser {
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);
+                let own_profile_key = UserProfileKey::load_own(&mut *connection).await?;
                 // If we've been in that conversation before, we delete the old
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
@@ -145,9 +159,33 @@ impl CoreUser {
                 group.store(&mut *connection).await?;
                 conversation.store(&mut *connection, notifier).await?;
 
-                Ok(conversation.id())
+                Ok((conversation.id(), own_profile_key))
             })
             .await?;
+
+        // WelcomeBundle Phase 4: Check whether our user profile key is up to
+        // date and if not, update it.
+        if own_profile_key_in_group != own_profile_key {
+            let qualified_group_id = QualifiedGroupId::try_from(group_id.clone())?;
+            let api_client = self
+                .inner
+                .api_clients
+                .get(qualified_group_id.owning_domain())?;
+            let encrypted_profile_key =
+                own_profile_key.encrypt(group.identity_link_wrapper_key(), self.user_name())?;
+            let params = UserProfileKeyUpdateParams {
+                group_id,
+                sender_index: group.own_index(),
+                user_profile_key: encrypted_profile_key,
+            };
+            api_client
+                .ds_user_profile_key_update(
+                    params,
+                    group.leaf_signer(),
+                    group.group_state_ear_key(),
+                )
+                .await?;
+        }
 
         Ok(ProcessQsMessageResult::NewConversation(conversation_id))
     }
