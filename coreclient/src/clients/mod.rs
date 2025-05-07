@@ -90,11 +90,12 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const KEY_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CoreUser {
     inner: Arc<CoreUserInner>,
 }
 
+#[derive(Debug)]
 struct CoreUserInner {
     pool: SqlitePool,
     api_clients: ApiClients,

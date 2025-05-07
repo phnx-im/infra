@@ -3868,6 +3868,7 @@ dependencies = [
 name = "phnxserver_test_harness"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "mimi_content",
  "phnxbackend",
  "phnxcoreclient",

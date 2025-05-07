@@ -26,6 +26,7 @@ use crate::utils::spawn_app_with_rate_limits;
 
 use super::TEST_RATE_LIMITS;
 
+#[derive(Debug)]
 pub struct TestUser {
     pub user: CoreUser,
     // If this is an ephemeral user, this is None.
@@ -50,15 +51,23 @@ impl TestUser {
         address_option: Option<String>,
         grpc_port: u16,
     ) -> Self {
+        Self::try_new(user_name, address_option, grpc_port)
+            .await
+            .unwrap()
+    }
+
+    pub async fn try_new(
+        user_name: &QualifiedUserName,
+        address_option: Option<String>,
+        grpc_port: u16,
+    ) -> anyhow::Result<Self> {
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = CoreUser::new_ephemeral(user_name.clone(), server_url, grpc_port, None)
-            .await
-            .unwrap();
-        Self { user, db_dir: None }
+        let user = CoreUser::new_ephemeral(user_name.clone(), server_url, grpc_port, None).await?;
+        Ok(Self { user, db_dir: None })
     }
 
     pub async fn new_persisted(

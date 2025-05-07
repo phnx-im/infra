@@ -55,7 +55,7 @@ pub type HttpClient = reqwest::Client;
 
 // ApiClient is a wrapper around a reqwest client.
 // It exposes a single function for each API endpoint.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ApiClient {
     client: HttpClient,
     as_grpc_client: AsGrpcClient,
