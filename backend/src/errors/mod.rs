@@ -86,24 +86,36 @@ pub(crate) enum GroupOperationError {
     #[error("Library Error")]
     LibraryError,
     /// Invalid assisted message.
-    #[error("Invalid assisted message.")]
+    #[error("Invalid assisted message")]
     InvalidMessage,
     /// Error processing message.
-    #[error("Error processing message.")]
+    #[error("Error processing message")]
     ProcessingError,
     /// Missing queue config in client key package.
-    #[error("Missing queue config in client key package.")]
+    #[error("Missing queue config in client key package")]
     MissingQueueConfig,
     /// Incomplete Welcome message.
     #[error("Incomplete Welcome message.")]
     IncompleteWelcome,
-    #[error("Error merging commit: {0}")]
+    #[error("Error merging commit")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
 }
 
 impl From<GroupOperationError> for Status {
-    fn from(_e: GroupOperationError) -> Self {
-        todo!()
+    fn from(e: GroupOperationError) -> Self {
+        let msg = e.to_string();
+        match e {
+            GroupOperationError::LibraryError
+            | GroupOperationError::ProcessingError
+            | GroupOperationError::InvalidMessage => Status::internal(msg),
+            GroupOperationError::MissingQueueConfig | GroupOperationError::IncompleteWelcome => {
+                Status::invalid_argument(msg)
+            }
+            GroupOperationError::MergeCommitError(merge_commit_error) => {
+                error!(%merge_commit_error, "failed merging commit");
+                Status::internal(msg)
+            }
+        }
     }
 }
 
@@ -125,17 +137,19 @@ pub(crate) enum ClientUpdateError {
 }
 
 impl From<ClientUpdateError> for Status {
-    fn from(_e: ClientUpdateError) -> Self {
-        todo!()
+    fn from(e: ClientUpdateError) -> Self {
+        let msg = e.to_string();
+        match e {
+            ClientUpdateError::InvalidMessage | ClientUpdateError::UnknownSender => {
+                Status::invalid_argument(msg)
+            }
+            ClientUpdateError::ProcessingError => Status::internal(msg),
+            ClientUpdateError::MergeCommitError(merge_commit_error) => {
+                error!(%merge_commit_error, "failed merging commit");
+                Status::internal(msg)
+            }
+        }
     }
-}
-
-/// Potential errors when joining a group.
-#[derive(Debug, Error)]
-#[repr(u8)]
-pub(crate) enum JoinGroupError {
-    #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
 }
 
 /// Potential errors when joining a connection group.
@@ -143,21 +157,30 @@ pub(crate) enum JoinGroupError {
 #[repr(u8)]
 pub(crate) enum JoinConnectionGroupError {
     /// Invalid assisted message.
-    #[error("Invalid assisted message.")]
+    #[error("Invalid assisted message")]
     InvalidMessage,
     /// Error processing message.
-    #[error("Error processing message.")]
+    #[error("Error processing message")]
     ProcessingError,
     /// Not a connection group.
-    #[error("Not a connection group.")]
+    #[error("Not a connection group")]
     NotAConnectionGroup,
-    #[error("Error merging commit: {0}")]
+    #[error("Error merging commit")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
 }
 
 impl From<JoinConnectionGroupError> for Status {
-    fn from(_e: JoinConnectionGroupError) -> Self {
-        todo!()
+    fn from(e: JoinConnectionGroupError) -> Self {
+        let msg = e.to_string();
+        match e {
+            JoinConnectionGroupError::InvalidMessage
+            | JoinConnectionGroupError::NotAConnectionGroup => Status::invalid_argument(msg),
+            JoinConnectionGroupError::ProcessingError => Status::internal(msg),
+            JoinConnectionGroupError::MergeCommitError(merge_commit_error) => {
+                error!(%merge_commit_error, "failed merging commit");
+                Status::internal(msg)
+            }
+        }
     }
 }
 
@@ -182,18 +205,26 @@ pub(crate) enum ClientRemovalError {
 #[repr(u8)]
 pub(crate) enum GroupDeletionError {
     /// Invalid assisted message.
-    #[error("Invalid assisted message.")]
+    #[error("Invalid assisted message")]
     InvalidMessage,
     /// Error processing message.
-    #[error("Error processing message.")]
+    #[error("Error processing message")]
     ProcessingError,
-    #[error("Error merging commit: {0}")]
+    #[error("Error merging commit")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
 }
 
 impl From<GroupDeletionError> for Status {
-    fn from(_e: GroupDeletionError) -> Self {
-        todo!()
+    fn from(e: GroupDeletionError) -> Self {
+        let msg = e.to_string();
+        match e {
+            GroupDeletionError::InvalidMessage => Status::invalid_argument(msg),
+            GroupDeletionError::ProcessingError => Status::internal(msg),
+            GroupDeletionError::MergeCommitError(merge_commit_error) => {
+                error!(%merge_commit_error, "failed merging commit");
+                Status::internal(msg)
+            }
+        }
     }
 }
 
@@ -202,18 +233,26 @@ impl From<GroupDeletionError> for Status {
 #[repr(u8)]
 pub(crate) enum ClientSelfRemovalError {
     /// Invalid assisted message.
-    #[error("Invalid assisted message.")]
+    #[error("Invalid assisted message")]
     InvalidMessage,
     /// Error processing message.
-    #[error("Error processing message.")]
+    #[error("Error processing message")]
     ProcessingError,
-    #[error("Error merging commit: {0}")]
+    #[error("Error merging commit")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
 }
 
 impl From<ClientSelfRemovalError> for Status {
-    fn from(_e: ClientSelfRemovalError) -> Self {
-        todo!()
+    fn from(e: ClientSelfRemovalError) -> Self {
+        let msg = e.to_string();
+        match e {
+            ClientSelfRemovalError::InvalidMessage => Status::invalid_argument(msg),
+            ClientSelfRemovalError::ProcessingError => Status::internal(msg),
+            ClientSelfRemovalError::MergeCommitError(merge_commit_error) => {
+                error!(%merge_commit_error, "failed merging commit");
+                Status::internal(msg)
+            }
+        }
     }
 }
 
@@ -222,17 +261,25 @@ impl From<ClientSelfRemovalError> for Status {
 #[repr(u8)]
 pub(crate) enum ResyncClientError {
     /// Invalid assisted message.
-    #[error("Invalid assisted message.")]
+    #[error("Invalid assisted message")]
     InvalidMessage,
     /// Error processing message.
-    #[error("Error processing message.")]
+    #[error("Error processing message")]
     ProcessingError,
-    #[error("Error merging commit: {0}")]
+    #[error("Error merging commit")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
 }
 
 impl From<ResyncClientError> for Status {
-    fn from(_e: ResyncClientError) -> Self {
-        todo!()
+    fn from(e: ResyncClientError) -> Self {
+        let msg = e.to_string();
+        match e {
+            ResyncClientError::InvalidMessage => Status::invalid_argument(msg),
+            ResyncClientError::ProcessingError => Status::internal(msg),
+            ResyncClientError::MergeCommitError(merge_commit_error) => {
+                error!(%merge_commit_error, "failed merging commit");
+                Status::internal(msg)
+            }
+        }
     }
 }

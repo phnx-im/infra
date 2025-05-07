@@ -4,28 +4,27 @@
 
 use phnxtypes::time::TimeStamp;
 use thiserror::Error;
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tonic::Status;
 
 /// Error fetching a message from the QS.
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum AsDequeueError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
-    /// Couldn't find the requested queue.
-    #[error("Couldn't find the requested queue")]
-    QueueNotFound,
 }
 
 impl From<AsDequeueError> for Status {
-    fn from(_e: AsDequeueError) -> Self {
-        todo!()
+    fn from(e: AsDequeueError) -> Self {
+        let msg = e.to_string();
+        match e {
+            AsDequeueError::StorageError => Status::internal(msg),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum RegisterUserError {
     /// Could not find signing key
@@ -46,12 +45,20 @@ pub(crate) enum RegisterUserError {
 }
 
 impl From<RegisterUserError> for Status {
-    fn from(_e: RegisterUserError) -> Self {
-        todo!()
+    fn from(e: RegisterUserError) -> Self {
+        let msg = e.to_string();
+        match e {
+            RegisterUserError::SigningKeyNotFound => Status::not_found(msg),
+            RegisterUserError::LibraryError | RegisterUserError::StorageError => {
+                Status::internal(msg)
+            }
+            RegisterUserError::UserAlreadyExists => Status::already_exists(msg),
+            RegisterUserError::InvalidCsr(..) => Status::invalid_argument(msg),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum DeleteUserError {
     /// Storage provider error
@@ -60,57 +67,15 @@ pub(crate) enum DeleteUserError {
 }
 
 impl From<DeleteUserError> for Status {
-    fn from(_e: DeleteUserError) -> Self {
-        todo!()
+    fn from(e: DeleteUserError) -> Self {
+        let msg = e.to_string();
+        match e {
+            DeleteUserError::StorageError => Status::internal(msg),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
-pub(crate) enum InitClientAdditionError {
-    /// Library error
-    #[error("Library error")]
-    LibraryError,
-    /// Could not find signing key
-    #[error("Could not find signing key")]
-    SigningKeyNotFound,
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-    /// Client already exists
-    #[error("Client already exists")]
-    ClientAlreadyExists,
-    /// Invalid CSR
-    #[error("Invalid CSR: Time now: {0:?}, not valid before: {1:?}, not valid after: {2:?}")]
-    InvalidCsr(TimeStamp, TimeStamp, TimeStamp),
-    /// Error during OPAQUE login handshake
-    #[error("Error during OPAQUE login handshake")]
-    OpaqueLoginFailed,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
-pub(crate) enum FinishClientAdditionError {
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-    /// Client credential not found
-    #[error("Client credential not found")]
-    ClientCredentialNotFound,
-    /// Invalid connection package
-    #[error("Invalid connection package")]
-    InvalidConnectionPackage,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
-pub(crate) enum DeleteClientError {
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum PublishConnectionPackageError {
     /// Storage provider error
@@ -122,12 +87,16 @@ pub(crate) enum PublishConnectionPackageError {
 }
 
 impl From<PublishConnectionPackageError> for Status {
-    fn from(_e: PublishConnectionPackageError) -> Self {
-        todo!()
+    fn from(e: PublishConnectionPackageError) -> Self {
+        let msg = e.to_string();
+        match e {
+            PublishConnectionPackageError::StorageError => Status::internal(msg),
+            PublishConnectionPackageError::InvalidKeyPackage => Status::invalid_argument(msg),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum UserConnectionPackagesError {
     /// User could not be found
@@ -139,12 +108,16 @@ pub(crate) enum UserConnectionPackagesError {
 }
 
 impl From<UserConnectionPackagesError> for Status {
-    fn from(_e: UserConnectionPackagesError) -> Self {
-        todo!()
+    fn from(e: UserConnectionPackagesError) -> Self {
+        let msg = e.to_string();
+        match e {
+            UserConnectionPackagesError::UnknownUser => Status::not_found(msg),
+            UserConnectionPackagesError::StorageError => Status::internal(msg),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum EnqueueMessageError {
     /// Library error
@@ -159,12 +132,18 @@ pub(crate) enum EnqueueMessageError {
 }
 
 impl From<EnqueueMessageError> for Status {
-    fn from(_e: EnqueueMessageError) -> Self {
-        todo!()
+    fn from(e: EnqueueMessageError) -> Self {
+        let msg = e.to_string();
+        match e {
+            EnqueueMessageError::StorageError | EnqueueMessageError::LibraryError => {
+                Status::internal(msg)
+            }
+            EnqueueMessageError::ClientNotFound => Status::not_found(msg),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum IssueTokensError {
     /// Storage provider error
@@ -181,7 +160,7 @@ pub(crate) enum IssueTokensError {
     PrivacyPassError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum AsCredentialsError {
     /// Storage provider error
@@ -190,8 +169,11 @@ pub(crate) enum AsCredentialsError {
 }
 
 impl From<AsCredentialsError> for Status {
-    fn from(_e: AsCredentialsError) -> Self {
-        todo!()
+    fn from(e: AsCredentialsError) -> Self {
+        let msg = e.to_string();
+        match e {
+            AsCredentialsError::StorageError => Status::internal(msg),
+        }
     }
 }
 
@@ -206,12 +188,16 @@ pub(crate) enum GetUserProfileError {
 }
 
 impl From<GetUserProfileError> for Status {
-    fn from(_e: GetUserProfileError) -> Self {
-        todo!()
+    fn from(e: GetUserProfileError) -> Self {
+        let msg = e.to_string();
+        match e {
+            GetUserProfileError::UserNotFound => Status::not_found(msg),
+            GetUserProfileError::StorageError => Status::internal(msg),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
+#[derive(Error, Debug)]
 #[repr(u8)]
 pub(crate) enum UpdateUserProfileError {
     #[error("User not found")]
@@ -222,7 +208,11 @@ pub(crate) enum UpdateUserProfileError {
 }
 
 impl From<UpdateUserProfileError> for Status {
-    fn from(_e: UpdateUserProfileError) -> Self {
-        todo!()
+    fn from(e: UpdateUserProfileError) -> Self {
+        let msg = e.to_string();
+        match e {
+            UpdateUserProfileError::UserNotFound => Status::not_found(msg),
+            UpdateUserProfileError::StorageError => Status::internal(msg),
+        }
     }
 }
