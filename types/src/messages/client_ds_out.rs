@@ -16,7 +16,6 @@ use mls_assist::{
         treesync::RatchetTree,
     },
 };
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     crypto::ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey},
@@ -25,7 +24,6 @@ use crate::{
 
 use super::welcome_attribution_info::EncryptedWelcomeAttributionInfo;
 
-#[derive(TlsSize, TlsDeserializeBytes)]
 pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
@@ -33,14 +31,14 @@ pub struct ExternalCommitInfoIn {
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct WelcomeInfoIn {
     pub ratchet_tree: RatchetTreeIn,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
@@ -50,47 +48,47 @@ pub struct CreateGroupParamsOut {
     pub group_info: MlsMessageOut,
 }
 
-#[derive(Debug, TlsSize, TlsSerialize)]
+#[derive(Debug)]
 pub struct AddUsersInfoOut {
     pub welcome: MlsMessageOut,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
 }
 
-#[derive(Debug, TlsSize, TlsSerialize)]
+#[derive(Debug)]
 pub struct GroupOperationParamsOut {
     pub commit: AssistedMessageOut,
     pub add_users_info_option: Option<AddUsersInfoOut>,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct UpdateParamsOut {
     pub commit: AssistedMessageOut,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct JoinConnectionGroupParamsOut {
     pub external_commit: AssistedMessageOut,
     pub qs_client_reference: QsReference,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct ResyncParamsOut {
     pub external_commit: AssistedMessageOut,
     pub sender: LeafNodeIndex,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct SelfRemoveParamsOut {
     pub remove_proposal: AssistedMessageOut,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct SendMessageParamsOut {
     pub message: AssistedMessageOut,
     pub sender: LeafNodeIndex,
 }
 
-#[derive(Debug, TlsSerialize, TlsSize)]
+#[derive(Debug)]
 pub struct DeleteGroupParamsOut {
     pub commit: AssistedMessageOut,
 }

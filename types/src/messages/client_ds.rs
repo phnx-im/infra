@@ -42,11 +42,6 @@ use super::{
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
 };
 
-mod private_mod {
-    #[derive(Default)]
-    pub struct Seal;
-}
-
 /// This is the pseudonymous client id used on the DS.
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub(crate) struct DsClientId {
@@ -228,7 +223,7 @@ impl DsEventMessage {
     }
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
@@ -238,7 +233,7 @@ pub struct CreateGroupParams {
     pub group_info: MlsMessageIn,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
     // The Public key from the sender's PseudonymousCredential
@@ -246,29 +241,23 @@ pub struct WelcomeInfoParams {
     pub epoch: GroupEpoch,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct GetWelcomeInfoResponse {
-    public_tree: Option<RatchetTreeIn>,
-    credential_chains: Vec<u8>,
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct ExternalCommitInfoParams {
     pub group_id: GroupId,
 }
 
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct ConnectionGroupInfoParams {
     pub group_id: GroupId,
 }
 
-#[derive(Debug, TlsSize, TlsDeserializeBytes)]
+#[derive(Debug)]
 pub struct AddUsersInfo {
     pub welcome: AssistedWelcome,
     pub encrypted_welcome_attribution_infos: Vec<EncryptedWelcomeAttributionInfo>,
 }
 
-#[derive(Debug, TlsSize, TlsDeserializeBytes)]
+#[derive(Debug)]
 pub struct GroupOperationParams {
     pub commit: AssistedMessageIn,
     pub add_users_info_option: Option<AddUsersInfo>,
@@ -286,7 +275,7 @@ pub struct GroupOperationParamsAad {
     pub credential_update_option: Option<CredentialUpdate>,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct UpdateParams {
     pub commit: AssistedMessageIn,
 }
@@ -296,7 +285,7 @@ pub struct UpdateParamsAad {
     pub option_encrypted_identity_link_key: Option<EncryptedIdentityLinkKey>,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct JoinConnectionGroupParams {
     pub external_commit: AssistedMessageIn,
     pub qs_client_reference: QsReference,
@@ -309,30 +298,24 @@ pub struct JoinConnectionGroupParamsAad {
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct ResyncParams {
     pub external_commit: AssistedMessageIn,
     pub sender_index: LeafNodeIndex,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct SelfRemoveParams {
     pub remove_proposal: AssistedMessageIn,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct SendMessageParams {
     pub message: AssistedMessageIn,
     pub sender: LeafNodeIndex,
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
-pub struct DispatchEventParams {
-    pub event: DsEventMessage,
-    pub sender: LeafNodeIndex,
-}
-
-#[derive(Debug, TlsDeserializeBytes, TlsSize)]
+#[derive(Debug)]
 pub struct DeleteGroupParams {
     pub commit: AssistedMessageIn,
 }
