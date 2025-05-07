@@ -47,7 +47,7 @@ impl DeserializeBytes for TlsUuid {
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(transparent)]
-pub(super) struct TlsStr<'a>(pub &'a str);
+pub struct TlsStr<'a>(pub &'a str);
 
 impl Size for TlsStr<'_> {
     fn tls_serialized_len(&self) -> usize {

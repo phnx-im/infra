@@ -25,7 +25,7 @@ use super::*;
 
 mod tls_codec_impls;
 
-pub use tls_codec_impls::TlsString;
+pub use tls_codec_impls::{TlsStr, TlsString};
 
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 
