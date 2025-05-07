@@ -17,7 +17,7 @@ impl DsGroupState {
         let client_profile = self
             .member_profiles
             .get_mut(&sender_index)
-            .ok_or(UpdateUserProfileKeyError::UknownSender)?;
+            .ok_or(UpdateUserProfileKeyError::UnknownSender)?;
         client_profile.encrypted_user_profile_key = user_profile_key;
         client_profile.activity_time = TimeStamp::now();
         Ok(())
@@ -27,13 +27,14 @@ impl DsGroupState {
 #[derive(Debug, thiserror::Error)]
 pub(super) enum UpdateUserProfileKeyError {
     #[error("Unknown sender")]
-    UknownSender,
+    UnknownSender,
 }
 
 impl From<UpdateUserProfileKeyError> for Status {
     fn from(e: UpdateUserProfileKeyError) -> Self {
+        let msg = e.to_string();
         match e {
-            UpdateUserProfileKeyError::UknownSender => Status::invalid_argument("unknown sender"),
+            UpdateUserProfileKeyError::UnknownSender => Status::invalid_argument(msg),
         }
     }
 }
