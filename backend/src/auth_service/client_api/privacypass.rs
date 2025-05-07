@@ -15,7 +15,7 @@ use crate::auth_service::{
 const MAX_TOKENS_PER_REQUEST: i32 = 100;
 
 impl AuthService {
-    pub(crate) async fn as_issue_tokens(
+    pub async fn as_issue_tokens(
         &self,
         params: IssueTokensParamsTbs,
     ) -> Result<IssueTokensResponse, IssueTokensError> {

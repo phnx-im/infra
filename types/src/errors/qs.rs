@@ -5,8 +5,6 @@
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use super::version::VersionError;
-
 /// Error fetching a message from the QS.
 #[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
@@ -158,9 +156,6 @@ pub enum QsProcessError {
     /// Codec error
     #[error("Codec error")]
     CodecError,
-    /// API Version error
-    #[error(transparent)]
-    Api(#[from] VersionError),
 
     /// Create user error
     #[error("Create user error")]
