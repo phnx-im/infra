@@ -37,7 +37,7 @@ mod credentials;
 pub mod grpc;
 mod privacy_pass;
 mod queue;
-mod user_record;
+pub mod user_record;
 mod verification;
 
 pub use verification::VerifiableClientToAsMessage;

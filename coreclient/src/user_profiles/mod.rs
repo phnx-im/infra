@@ -32,6 +32,8 @@ use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
 pub(crate) mod generate;
 pub(crate) mod persistence;
 pub(crate) mod process;
+#[cfg(test)]
+mod tests;
 pub(crate) mod update;
 
 impl Signable for IndexedUserProfile {

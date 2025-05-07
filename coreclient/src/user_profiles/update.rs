@@ -46,4 +46,9 @@ impl UserProfileUpdate {
         self.0.tbs.update(executor, notifier).await?;
         Ok(EncryptableUserProfile(self.0))
     }
+
+    #[cfg(test)]
+    pub(crate) fn skip_storage(self) -> EncryptableUserProfile {
+        EncryptableUserProfile(self.0)
+    }
 }
