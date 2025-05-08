@@ -149,13 +149,6 @@ pub struct DeleteUserParamsTbs {
 
 // === Client ===
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct DequeueMessagesParamsTbs {
-    pub sender: AsClientId,
-    pub sequence_number_start: u64,
-    pub max_message_number: u64,
-}
-
 #[derive(Debug)]
 pub struct EncryptedFriendshipPackageCtype;
 pub type EncryptedFriendshipPackage = Ciphertext<EncryptedFriendshipPackageCtype>;

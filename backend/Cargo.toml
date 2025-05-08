@@ -29,6 +29,7 @@ privacypass = { workspace = true }
 tokio-stream = "0.1.17"
 tonic = { workspace = true }
 rand = "0.8.0"
+tokio-util.workspace = true
 
 [dev-dependencies]
 phnxtypes = { path = "../types", features = ["test_utils"] }

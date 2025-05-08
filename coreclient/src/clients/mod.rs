@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, convert::identity, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use store::ClientRecord;
 use thiserror::Error;
-use tokio_stream::Stream;
+use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info};
 
 use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
@@ -376,13 +376,7 @@ impl CoreUser {
             let api_client = self.inner.api_clients.default_client()?;
             let mut response = match &queue_type {
                 QueueType::As => {
-                    api_client
-                        .as_dequeue_messages(
-                            sequence_number,
-                            1_000_000,
-                            &self.inner.key_store.signing_key,
-                        )
-                        .await?
+                    unimplemented!()
                 }
                 QueueType::Qs => {
                     api_client
@@ -410,7 +404,22 @@ impl CoreUser {
     }
 
     pub async fn as_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue(QueueType::As).await
+        let sequence_number = QueueType::As.load_sequence_number(self.pool()).await?;
+        let api_client = self.inner.api_clients.default_client()?;
+        self.inner
+            .key_store
+            .signing_key
+            .credential()
+            .identity()
+            .client_id();
+        let (stream, ack) = api_client
+            .as_listen(sequence_number, &self.inner.key_store.signing_key)
+            .await?;
+        let messages: Vec<QueueMessage> = dbg!(stream.map_while(identity).collect().await);
+        if let Some(message) = messages.last() {
+            ack.ack(message.sequence_number).await;
+        }
+        Ok(messages)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {

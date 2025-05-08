@@ -3399,6 +3399,7 @@ dependencies = [
  "tls_codec",
  "tokio",
  "tokio-stream",
+ "tokio-util",
  "tonic",
  "tracing",
  "uuid",

@@ -56,14 +56,16 @@ pub enum DatabaseError {
 /// General error while accessing the requested queue.
 #[derive(Error, Debug)]
 pub(super) enum QueueError {
-    #[error(transparent)]
+    #[error("Database error")]
     Storage(#[from] StorageError),
     /// Mismatching sequence numbers.
-    #[error("Mismatching sequence numbers.")]
+    #[error("Mismatching sequence numbers")]
     SequenceNumberMismatch,
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,
+    #[error("Queue not found")]
+    QueueNotFound,
 }
 
 impl From<sqlx::Error> for QueueError {
@@ -75,6 +77,20 @@ impl From<sqlx::Error> for QueueError {
 impl From<phnxtypes::codec::Error> for QueueError {
     fn from(e: phnxtypes::codec::Error) -> Self {
         Self::Storage(e.into())
+    }
+}
+
+impl From<QueueError> for Status {
+    fn from(error: QueueError) -> Self {
+        let msg = error.to_string();
+        match error {
+            QueueError::Storage(error) => {
+                error!(%error, "storage error");
+                Self::internal(msg)
+            }
+            QueueError::SequenceNumberMismatch | QueueError::LibraryError => Self::internal(msg),
+            QueueError::QueueNotFound => Self::not_found(msg),
+        }
     }
 }
 
