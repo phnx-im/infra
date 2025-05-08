@@ -8,7 +8,7 @@ use phnxtypes::{identifiers::AsClientId, messages::QueueMessage};
 use sqlx::{PgConnection, PgExecutor, PgPool, postgres::PgListener};
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::errors::{QueueError, StorageError};
 
@@ -37,8 +37,6 @@ impl Queues {
         sequence_number_start: u64,
         tx: mpsc::Sender<Option<QueueMessage>>,
     ) -> Result<CancellationToken, QueueError> {
-        info!(?self.workers, "listening to queue");
-
         // check if the queue exists
         Queue::sequence_number(&self.pool, queue_id)
             .await?
@@ -191,11 +189,9 @@ impl QueueWorker {
             if self.cancel.is_cancelled() {
                 return Ok(false);
             }
-            info!("fetching remain messages");
             let Some(message) = Queue::fetch(&self.pool, &self.queue_id).await? else {
                 break;
             };
-            info!(%message.sequence_number, "got message");
             if self.tx.send(Some(message.message.0)).await.is_err() {
                 return Ok(false);
             }
