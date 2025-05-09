@@ -2,11 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    pin::Pin,
-    task::{Context, Poll, ready},
-};
-
+use futures_util::stream::BoxStream;
 use phnxprotos::{
     auth_service::v1::{auth_service_server, *},
     validation::MissingFieldExt,
@@ -22,7 +18,6 @@ use phnxtypes::{
     },
     identifiers,
     messages::{
-        self,
         client_as::{
             AsCredentialsParams, DeleteUserParamsTbs, EnqueueMessageParams,
             UserConnectionPackagesParams,
@@ -33,15 +28,11 @@ use phnxtypes::{
         },
     },
 };
-use tokio::sync::mpsc;
-use tokio_stream::{Stream, StreamExt};
-use tokio_util::sync::DropGuard;
+use tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming, async_trait};
 use tracing::error;
 
 use super::{AuthService, client_record::ClientRecord, queue::Queues};
-
-const LISTEN_CHANNEL_BUFFER_SIZE: usize = 16; // not too big for applying backpressure
 
 pub struct GrpcAs {
     inner: AuthService,
@@ -287,7 +278,7 @@ impl auth_service_server::AuthService for GrpcAs {
         todo!()
     }
 
-    type ListenStream = ListenStream;
+    type ListenStream = BoxStream<'static, Result<ListenResponse, Status>>;
 
     async fn listen(
         &self,
@@ -307,12 +298,10 @@ impl auth_service_server::AuthService for GrpcAs {
             .verify_client_auth::<_, InitListenPayload>(init_request)
             .await?;
 
-        let (tx, rx) = mpsc::channel(LISTEN_CHANNEL_BUFFER_SIZE);
-
-        let stop = self
+        let messages = self
             .inner
             .queues
-            .listen(&client_id, payload.sequence_number_start, tx)
+            .listen(&client_id, payload.sequence_number_start)
             .await?;
 
         tokio::spawn(Self::process_listen_requests_task(
@@ -321,7 +310,12 @@ impl auth_service_server::AuthService for GrpcAs {
             requests,
         ));
 
-        let responses = ListenStream::new(rx, stop.drop_guard());
+        let responses = Box::pin(messages.map(|message| {
+            Ok(ListenResponse {
+                message: message.map(From::from),
+            })
+        }));
+
         Ok(Response::new(responses))
     }
 
@@ -396,35 +390,5 @@ impl WithAsClientId for MergeUserProfileRequest {
 impl WithAsClientId for InitListenRequest {
     fn client_id_proto(&self) -> Option<AsClientId> {
         self.payload.as_ref()?.client_id.clone()
-    }
-}
-
-/// A stream which converts [`messages::QueueMessage`] into `Result<ListenResponse, Status>`.
-///
-/// On drop, it also additionally cancels the listening task.
-pub struct ListenStream {
-    rx: mpsc::Receiver<Option<messages::QueueMessage>>,
-    _cancel: DropGuard,
-}
-
-impl ListenStream {
-    fn new(rx: mpsc::Receiver<Option<messages::QueueMessage>>, cancel: DropGuard) -> Self {
-        Self {
-            rx,
-            _cancel: cancel,
-        }
-    }
-}
-
-impl Stream for ListenStream {
-    type Item = Result<ListenResponse, Status>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let Some(message) = ready!(self.rx.poll_recv(cx)) else {
-            return Poll::Ready(None);
-        };
-        let message = message.map(From::from);
-        let response = ListenResponse { message };
-        Poll::Ready(Some(Ok(response)))
     }
 }

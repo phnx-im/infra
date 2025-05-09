@@ -4,9 +4,11 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use futures_util::stream;
 use phnxtypes::{identifiers::AsClientId, messages::QueueMessage};
 use sqlx::{PgConnection, PgExecutor, PgPool, postgres::PgListener};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::Mutex;
+use tokio_stream::Stream;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
@@ -19,15 +21,15 @@ use crate::errors::{QueueError, StorageError};
 #[derive(Debug, Clone)]
 pub(crate) struct Queues {
     pool: PgPool,
-    // Ensures that we have only a single worker per queue.
-    workers: Arc<Mutex<HashMap<AsClientId, ExtendedDropGuard>>>,
+    // Ensures that we have only a stream per queue.
+    listeners: Arc<Mutex<HashMap<AsClientId, ExtendedDropGuard>>>,
 }
 
 impl Queues {
     pub(crate) fn new(pool: PgPool) -> Self {
         Self {
             pool,
-            workers: Default::default(),
+            listeners: Default::default(),
         }
     }
 
@@ -35,8 +37,7 @@ impl Queues {
         &self,
         queue_id: &AsClientId,
         sequence_number_start: u64,
-        tx: mpsc::Sender<Option<QueueMessage>>,
-    ) -> Result<CancellationToken, QueueError> {
+    ) -> Result<impl Stream<Item = Option<QueueMessage>> + Send + use<>, QueueError> {
         // check if the queue exists
         Queue::sequence_number(&self.pool, queue_id)
             .await?
@@ -50,27 +51,26 @@ impl Queues {
             .listen(&format!("as_queue_{}", queue_id.client_id()))
             .await?;
 
-        let cancel_worker = CancellationToken::new();
-        self.track_worker(queue_id.clone(), cancel_worker.clone())
-            .await;
+        let cancel = self.track_listener(queue_id.clone()).await;
+        Queue::requeue_processing_jobs(&self.pool, &queue_id).await?;
 
-        let worker = QueueWorker {
+        let context = QueueStreamContext {
             pool: self.pool.clone(),
             pg_listener,
             queue_id: queue_id.clone(),
-            tx,
-            cancel: cancel_worker.clone(),
+            cancel: cancel.clone(),
+            state: FetchState::Fetching,
         };
 
-        tokio::spawn(worker.run());
-
-        Ok(cancel_worker)
+        Ok(context.unfold())
     }
 
-    async fn track_worker(&self, queue_id: AsClientId, cancel_worker: CancellationToken) {
-        let mut workers = self.workers.lock().await;
+    async fn track_listener(&self, queue_id: AsClientId) -> CancellationToken {
+        let mut workers = self.listeners.lock().await;
         workers.retain(|_, cancel| !cancel.is_cancelled());
-        workers.insert(queue_id, ExtendedDropGuard::new(cancel_worker));
+        let cancel = CancellationToken::new();
+        workers.insert(queue_id, ExtendedDropGuard::new(cancel.clone()));
+        cancel
     }
 
     pub(crate) async fn enqueue(
@@ -145,58 +145,62 @@ impl<'a> Queue<'a> {
     }
 }
 
-struct QueueWorker {
+struct QueueStreamContext {
     pool: PgPool,
     pg_listener: PgListener,
     queue_id: AsClientId,
-    tx: mpsc::Sender<Option<QueueMessage>>,
     cancel: CancellationToken,
+    state: FetchState,
 }
 
-impl QueueWorker {
-    async fn run(mut self) {
-        if let Err(error) = self.try_run().await {
-            error!(%error, "worker task failed");
-        }
+enum FetchState {
+    Fetching,
+    Waiting,
+}
+
+impl QueueStreamContext {
+    fn unfold(self) -> impl Stream<Item = Option<QueueMessage>> + Send {
+        stream::unfold(self, async |mut state| {
+            loop {
+                match state.state {
+                    FetchState::Fetching => {
+                        let message = match state.fetch_next_message().await {
+                            Ok(message) => message,
+                            Err(error) => {
+                                error!(%error, "failed to fetch next message");
+                                return None;
+                            }
+                        };
+                        if message.is_none() {
+                            state.state = FetchState::Waiting;
+                        }
+                        return Some((message, state));
+                    }
+                    FetchState::Waiting => {
+                        if !state.wait().await {
+                            return None;
+                        }
+                        state.state = FetchState::Fetching;
+                    }
+                }
+            }
+        })
     }
 
-    async fn try_run(&mut self) -> Result<(), QueueError> {
-        // Requeue all messages with status `processing` that might habe been left behind by the
-        // previous worker.
-        Queue::requeue_processing_jobs(&self.pool, &self.queue_id).await?;
-        loop {
-            if !self.fetch_remaining_messages().await? {
-                return Ok(()); // worker should stop
-            }
-            // Notify about the queue being empty.
-            if self.tx.send(None).await.is_err() {
-                return Ok(());
-            }
-            // wait either for a new message or for the working to be stopped
-            tokio::select! {
-                _ = self.pg_listener.recv() => {}
-                _ = self.cancel.cancelled() => return Ok(()),
-            }
-        }
+    async fn fetch_next_message(&self) -> Result<Option<QueueMessage>, QueueError> {
+        let sql_message = Queue::fetch(&self.pool, &self.queue_id).await?;
+        Ok(sql_message.map(|message| message.message.0))
     }
 
-    /// Returns `true` if the worker should continue listening for new messages.
+    /// Waits for either a new message or for the worker to be cancelled.
     ///
-    /// Returns `false` if the worker should stop listening for new messages. This happens if the
-    /// channel is closed or if the worker is cancelled.
-    async fn fetch_remaining_messages(&self) -> Result<bool, QueueError> {
-        loop {
-            if self.cancel.is_cancelled() {
-                return Ok(false);
-            }
-            let Some(message) = Queue::fetch(&self.pool, &self.queue_id).await? else {
-                break;
-            };
-            if self.tx.send(Some(message.message.0)).await.is_err() {
-                return Ok(false);
-            }
+    /// Returns `true` if the worker should continue listening for new messages.
+    async fn wait(&mut self) -> bool {
+        // wait either for a new message or for the working to be stopped
+        tokio::select! {
+            _ = self.pg_listener.recv() => true,
+            _ = self.cancel.cancelled() => false,
         }
-        Ok(true)
     }
 }
 
