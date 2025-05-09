@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use core::error;
 use std::{fmt::Display, str::FromStr};
 
 use phnxtypes::identifiers::{TlsStr, TlsString};
@@ -19,6 +20,7 @@ pub struct DisplayName {
 // graphemes can be longer, so we need to adjust the logic if we ever want to
 // count graphemes instead of chars.
 const MAX_DISPLAY_NAME_CHARS: usize = 50;
+const DISALLOWED_CHARACTERS: [char; 2] = ['\r', '\n', '\t'];
 
 impl FromStr for DisplayName {
     type Err = DisplayNameError;
@@ -34,6 +36,9 @@ impl FromStr for DisplayName {
         if value.chars().count() > MAX_DISPLAY_NAME_CHARS {
             return Err(DisplayNameError::DisplayNameTooLong);
         }
+        if value.chars().any(|c| DISALLOWED_CHARACTERS.contains(&c)) {
+            return Err(DisplayNameError::InvalidCharacters);
+        }
         Ok(Self {
             display_name: value.to_string(),
         })
@@ -46,6 +51,8 @@ pub enum DisplayNameError {
     DisplayNameTooLong,
     #[error("Display name is empty")]
     DisplayNameEmpty,
+    #[error("Display name contains invalid characters")]
+    InvalidCharacters,
 }
 
 impl DisplayName {
@@ -202,5 +209,38 @@ mod tests {
 
         let dn = DisplayName::from_str(&full).unwrap();
         assert!(dn.display_name.starts_with(&full));
+    }
+
+    #[test]
+    fn rejects_display_name_with_disallowed_characters() {
+        for disallowed_char in DISALLOWED_CHARACTERS {
+            let test_cases = [
+                format!("{}hello", disallowed_char),                    // Leading
+                format!("hello{}", disallowed_char),                    // Trailing
+                format!("{}hello{}", disallowed_char, disallowed_char), // Both
+                format!("hello{}world", disallowed_char),               // Middle
+            ];
+            for name in test_cases {
+                let result = DisplayName::from_str(&name);
+                assert!(
+                    matches!(result, Err(DisplayNameError::InvalidCharacters)),
+                    "Expected error for input: {:?}, got: {:?}",
+                    name,
+                    result
+                );
+            }
+        }
+        // Test case with more than one and different disallowed characters
+        let name = format!(
+            "hello{}world{}",
+            DISALLOWED_CHARACTERS[0], DISALLOWED_CHARACTERS[1]
+        );
+        let result = DisplayName::from_str(&name);
+        assert!(
+            matches!(result, Err(DisplayNameError::InvalidCharacters)),
+            "Expected error for input: {:?}, got: {:?}",
+            name,
+            result
+        );
     }
 }
