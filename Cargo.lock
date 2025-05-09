@@ -3694,7 +3694,6 @@ dependencies = [
  "mls-assist",
  "phnxprotos",
  "phnxtypes",
- "privacypass",
  "reqwest",
  "thiserror 2.0.12",
  "tls_codec",
@@ -3869,6 +3868,7 @@ dependencies = [
 name = "phnxserver_test_harness"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "mimi_content",
  "phnxbackend",
  "phnxcoreclient",

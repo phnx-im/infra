@@ -243,9 +243,8 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .try_into()?;
         let creator_client_reference = payload
             .creator_client_reference
-            .as_ref()
             .ok_or_missing_field("creator_client_reference")?
-            .try_ref_into()?;
+            .try_into()?;
         let group_state = DsGroupState::new(
             provider,
             group,
@@ -464,7 +463,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             qs_client_reference: request
                 .qs_client_reference
                 .ok_or_missing_field("qs_client_reference")?
-                .try_ref_into()?,
+                .try_into()?,
         };
 
         let destination_clients: Vec<_> = group_state.destination_clients().collect();

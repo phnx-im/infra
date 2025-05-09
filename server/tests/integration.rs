@@ -8,7 +8,7 @@ use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
-use phnxapiclient::{ApiClient, ds_api::DsRequestError};
+use phnxapiclient::{ApiClient, as_api::AsRequestError, ds_api::DsRequestError};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
@@ -16,7 +16,10 @@ use phnxcoreclient::{
     store::Store,
 };
 use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
-use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
+use phnxserver_test_harness::utils::{
+    setup::{TestBackend, TestUser},
+    spawn_app,
+};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
 use tracing::info;
@@ -80,7 +83,7 @@ async fn rate_limit() {
 
     let mut setup = TestBackend::single_with_rate_limits(RateLimitsConfig {
         period: Duration::from_secs(1), // replenish one token every 500ms
-        burst_size: 20,                 // allow total 20 request
+        burst_size: 30,                 // allow total 30 request
     })
     .await;
     setup.add_user(&ALICE).await;
@@ -603,16 +606,28 @@ async fn client_persistence() {
     setup.add_persisted_user(&ALICE).await;
     let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
 
-    let client_db_path = setup.temp_dir();
+    let db_path = setup.temp_dir().to_owned();
 
     // Try to load the user from the database.
-    CoreUser::load(client_id.clone(), client_db_path.to_str().unwrap())
+    CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
         .await
         .unwrap();
 
-    fs::remove_file(client_db_path.join("phnx.db")).unwrap();
-    let client_db_path = client_db_path.join(format!("{}.db", client_id));
+    let client_db_path = db_path.join(format!("{}.db", client_id));
+    assert!(client_db_path.exists());
+
+    setup.delete_user(&ALICE).await;
+
+    assert!(!client_db_path.exists());
+    assert!(
+        CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
+            .await
+            .is_err()
+    );
+
+    // `CoreUser::load` opened the client DB, and so it was re-created.
     fs::remove_file(client_db_path).unwrap();
+    fs::remove_file(db_path.join("phnx.db")).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -627,6 +642,31 @@ async fn error_if_user_doesnt_exist() {
     let res = alice.add_contact(BOB.clone()).await;
 
     assert!(res.is_err());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Delete user test", skip_all)]
+async fn delete_user() {
+    let mut setup = TestBackend::single().await;
+
+    setup.add_user(&ALICE).await;
+    // Adding another user with the same name should fail.
+    match TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port()).await {
+        Ok(_) => panic!("Should not be able to create a user with the same name"),
+        Err(e) => match e.downcast_ref::<AsRequestError>().unwrap() {
+            AsRequestError::Tonic(status) => {
+                assert_eq!(status.code(), tonic::Code::AlreadyExists);
+            }
+            _ => panic!("Unexpected error type: {e}"),
+        },
+    }
+
+    setup.delete_user(&ALICE).await;
+    // After deletion, adding the user again should work.
+    // Note: Since the user is ephemeral, there is nothing to test on the client side.
+    TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port())
+        .await
+        .unwrap();
 }
 
 fn init_test_tracing() {

@@ -26,8 +26,11 @@ use crate::utils::spawn_app_with_rate_limits;
 
 use super::TEST_RATE_LIMITS;
 
+#[derive(Debug)]
 pub struct TestUser {
     pub user: CoreUser,
+    // If this is an ephemeral user, this is None.
+    pub db_dir: Option<String>,
 }
 
 impl AsRef<CoreUser> for TestUser {
@@ -48,15 +51,23 @@ impl TestUser {
         address_option: Option<String>,
         grpc_port: u16,
     ) -> Self {
+        Self::try_new(user_name, address_option, grpc_port)
+            .await
+            .unwrap()
+    }
+
+    pub async fn try_new(
+        user_name: &QualifiedUserName,
+        address_option: Option<String>,
+        grpc_port: u16,
+    ) -> anyhow::Result<Self> {
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{}", hostname_str);
 
-        let user = CoreUser::new_ephemeral(user_name.clone(), server_url, grpc_port, None)
-            .await
-            .unwrap();
-        Self { user }
+        let user = CoreUser::new_ephemeral(user_name.clone(), server_url, grpc_port, None).await?;
+        Ok(Self { user, db_dir: None })
     }
 
     pub async fn new_persisted(
@@ -73,7 +84,10 @@ impl TestUser {
         let user = CoreUser::new(user_name.clone(), server_url, grpc_port, db_dir, None)
             .await
             .unwrap();
-        Self { user }
+        Self {
+            user,
+            db_dir: Some(db_dir.to_owned()),
+        }
     }
 
     pub fn user(&self) -> &CoreUser {
@@ -150,6 +164,18 @@ impl TestBackend {
 
     pub fn get_user(&self, user_name: &QualifiedUserName) -> &TestUser {
         self.users.get(user_name).unwrap()
+    }
+
+    pub fn take_user(&mut self, user_name: &QualifiedUserName) -> TestUser {
+        self.users.remove(user_name).unwrap()
+    }
+
+    pub async fn delete_user(&mut self, user_name: &QualifiedUserName) {
+        let test_user = self.take_user(user_name);
+        match test_user.db_dir {
+            Some(db_dir) => test_user.user.delete(db_dir.as_str()).await.unwrap(),
+            None => test_user.user.delete_ephemeral().await.unwrap(),
+        }
     }
 
     /// This has the updater commit an update, but without the checks ensuring

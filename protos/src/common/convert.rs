@@ -22,8 +22,8 @@ use crate::{
 };
 
 use super::v1::{
-    Ciphertext, Fqdn, GroupId, IndexedCiphertext, QualifiedGroupId, QualifiedUserName,
-    RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, UserName, Uuid,
+    Ciphertext, Fqdn, GroupId, HpkeCiphertext, IndexedCiphertext, QualifiedGroupId,
+    QualifiedUserName, RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, UserName, Uuid,
 };
 
 impl From<uuid::Uuid> for Uuid {
@@ -183,7 +183,7 @@ impl From<InvalidIndexedCiphertext> for Status {
     }
 }
 
-impl<KT: crypto::indexed_aead::keys::RawIndex, CT> TryFrom<IndexedCiphertext>
+impl<KT: indexed_aead::keys::RawIndex, CT> TryFrom<IndexedCiphertext>
     for indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>
 {
     type Error = InvalidIndexedCiphertext;
@@ -203,7 +203,7 @@ impl<KT: crypto::indexed_aead::keys::RawIndex, CT> TryFrom<IndexedCiphertext>
     }
 }
 
-impl<KT: crypto::indexed_aead::keys::RawIndex, CT>
+impl<KT: indexed_aead::keys::RawIndex, CT>
     From<indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>> for IndexedCiphertext
 {
     fn from(value: indexed_aead::ciphertexts::IndexedCiphertext<KT, CT>) -> Self {
@@ -355,6 +355,24 @@ pub enum QualifiedUserNameError {
 impl From<QualifiedUserNameError> for Status {
     fn from(e: QualifiedUserNameError) -> Self {
         Status::invalid_argument(format!("invalid qualified user name: {e}"))
+    }
+}
+
+impl From<openmls::prelude::HpkeCiphertext> for HpkeCiphertext {
+    fn from(value: openmls::prelude::HpkeCiphertext) -> Self {
+        Self {
+            kem_output: value.kem_output.into(),
+            ciphertext: value.ciphertext.into(),
+        }
+    }
+}
+
+impl From<HpkeCiphertext> for openmls::prelude::HpkeCiphertext {
+    fn from(proto: HpkeCiphertext) -> Self {
+        Self {
+            kem_output: proto.kem_output.into(),
+            ciphertext: proto.ciphertext.into(),
+        }
     }
 }
 

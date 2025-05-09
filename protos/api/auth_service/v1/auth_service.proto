@@ -12,8 +12,12 @@ service AuthService {
   rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 
-  rpc PublishConnectionPackage(PublishConnectionPackageRequest) returns (PublishConnectionPackageResponse);
-  rpc GetConnectionPackage(GetConnectionPackageRequest) returns (GetConnectionPackageResponse);
+  rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
+  rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
+
+  rpc StageUserProfile(StageUserProfileRequest) returns (StageUserProfileResponse);
+  rpc MergeUserProfile(MergeUserProfileRequest) returns (MergeUserProfileResponse);
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
 
   rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
 
@@ -110,6 +114,11 @@ message RegisterUserResponse {
 // delete user
 
 message DeleteUserRequest {
+  DeleteUserPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message DeleteUserPayload {
   common.v1.QualifiedUserName user_name = 1;
   AsClientId client_id = 2;
 }
@@ -118,19 +127,65 @@ message DeleteUserResponse {}
 
 // publish connection package
 
-message PublishConnectionPackageRequest {
-  PublishConnectionPackageRequestTbs payload = 1;
+message PublishConnectionPackagesRequest {
+  PublishConnectionPackagesPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message PublishConnectionPackageRequestTbs {
-  AsClientId as_client_id = 1;
+message PublishConnectionPackagesPayload {
+  AsClientId client_id = 1;
   repeated ConnectionPackage connection_packages = 2;
 }
 
-message PublishConnectionPackageResponse {}
+message PublishConnectionPackagesResponse {}
 
-// get connection package
+// get user connection packages
+
+message GetUserConnectionPackagesRequest {
+  common.v1.QualifiedUserName user_name = 1;
+}
+
+message GetUserConnectionPackagesResponse {
+  repeated ConnectionPackage connection_packages = 1;
+}
+
+// stage user profile
+
+message StageUserProfileRequest {
+  StageUserProfilePayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message StageUserProfilePayload {
+  AsClientId client_id = 1;
+  EncryptedUserProfile encrypted_user_profile = 2;
+}
+
+message StageUserProfileResponse {}
+
+// merge user profile
+
+message MergeUserProfileRequest {
+  MergeUserProfilePayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message MergeUserProfilePayload {
+  AsClientId client_id = 1;
+}
+
+message MergeUserProfileResponse {}
+
+// get user profile
+
+message GetUserProfileRequest {
+  AsClientId client_id = 1;
+  bytes key_index = 2;
+}
+
+message GetUserProfileResponse {
+  EncryptedUserProfile encrypted_user_profile = 1;
+}
 
 message GetConnectionPackageRequest {
   GetConnectionPackagePayload payload = 1;
@@ -161,7 +216,7 @@ message AsCredentialsRequest {}
 
 message AsCredentialsResponse {
   repeated AsCredential as_credentials = 1;
-  repeated VerifiableAsIntermediateCredential as_intermediate_credentials = 2;
+  repeated AsIntermediateCredential as_intermediate_credentials = 2;
   repeated CredentialFingerprint revoked_credentials = 3;
 }
 
@@ -182,7 +237,12 @@ message AsVerifyingKey {
   bytes bytes = 1;
 }
 
-message VerifiableAsIntermediateCredential {
+message AsIntermediateCredential {
+  AsIntermediateCredentialBody body = 1;
+  CredentialFingerprint fingerprint = 2;
+}
+
+message AsIntermediateCredentialBody {
   AsIntermediateCredentialPayload credential = 1;
   common.v1.Signature signature = 2;
 }
@@ -255,7 +315,7 @@ message EnqueueMessagesRequest {
 }
 
 message EncryptedConnectionEstablishmentPackage {
-  bytes tls = 1;
+  common.v1.HpkeCiphertext ciphertext = 1;
 }
 
 message EnqueueMessagesResponse {}
@@ -263,14 +323,14 @@ message EnqueueMessagesResponse {}
 // dequeue messages
 
 message DequeueMessagesRequest {
-  DequeueMessagesRequestTbs payload = 1;
+  DequeueMessagesPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message DequeueMessagesRequestTbs {
+message DequeueMessagesPayload {
   AsClientId sender = 1;
   uint64 sequence_number_start = 2;
-  uint64 max_messages_number = 3;
+  uint64 max_message_number = 3;
 }
 
 message DequeueMessagesResponse {
@@ -280,5 +340,5 @@ message DequeueMessagesResponse {
 
 message QueueMessage {
   uint64 sequence_number = 1;
-  bytes ciphertext = 2;
+  common.v1.Ciphertext ciphertext = 2;
 }

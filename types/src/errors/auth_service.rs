@@ -115,14 +115,6 @@ pub enum PublishConnectionPackageError {
 
 #[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum ClientKeyPackageError {
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsSize, TlsDeserializeBytes)]
-#[repr(u8)]
 pub enum UserConnectionPackagesError {
     /// User could not be found
     #[error("User could not be found")]
@@ -251,8 +243,6 @@ pub enum AsProcessingError {
     DeleteClientError(#[from] DeleteClientError),
     #[error(transparent)]
     PublishKeyPackageError(#[from] PublishConnectionPackageError),
-    #[error(transparent)]
-    ClientKeyPackageError(#[from] ClientKeyPackageError),
     #[error(transparent)]
     UserKeyPackagesError(#[from] UserConnectionPackagesError),
     #[error(transparent)]
