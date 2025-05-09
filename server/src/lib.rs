@@ -7,6 +7,7 @@
 use std::time::Duration;
 
 use connect_info::ConnectInfoInterceptor;
+use dispatch::DispatchNotifier;
 use phnxbackend::{
     auth_service::{AuthService, grpc::GrpcAs},
     ds::{Ds, GrpcDs},
@@ -26,15 +27,14 @@ use tower_governor::{
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{Level, enabled, info};
-use ws::DispatchNotifier;
 
 pub mod configurations;
 mod connect_info;
+pub mod dispatch;
 pub mod enqueue_provider;
 pub mod network_provider;
 pub mod push_notification_provider;
 pub mod telemetry;
-pub mod ws;
 
 pub struct ServerRunParams<Qc> {
     pub listener: tokio::net::TcpListener,
@@ -96,17 +96,6 @@ pub async fn run<
         }
     });
 
-    let (health_reporter, health) = tonic_health::server::health_reporter();
-    health_reporter
-        .set_serving::<AuthServiceServer<GrpcAs>>()
-        .await;
-    health_reporter
-        .set_serving::<DeliveryServiceServer<GrpcDs<Qc>>>()
-        .await;
-    health_reporter
-        .set_serving::<QueueServiceServer<GrpcQs<DispatchNotifier>>>()
-        .await;
-
     tonic::transport::Server::builder()
         .layer(InterceptorLayer::new(ConnectInfoInterceptor))
         .layer(
@@ -124,7 +113,6 @@ pub async fn run<
                 ),
         )
         .layer(GovernorLayer::new(governor_config))
-        .add_service(health)
         .add_service(AuthServiceServer::new(grpc_as))
         .add_service(DeliveryServiceServer::new(grpc_ds))
         .add_service(QueueServiceServer::new(grpc_qs))

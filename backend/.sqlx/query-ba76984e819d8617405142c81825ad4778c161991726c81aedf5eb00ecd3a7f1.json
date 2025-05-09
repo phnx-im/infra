@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    encrypted_user_profile AS \"encrypted_user_profile: _\",\n                    staged_user_profile AS \"staged_user_profile: _\"\n                FROM as_user_records\n                WHERE user_name = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encrypted_user_profile: _",
+        "type_info": {
+          "Custom": {
+            "name": "indexed_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  {
+                    "Custom": {
+                      "name": "aead_ciphertext",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "ciphertext",
+                            "Bytea"
+                          ],
+                          [
+                            "nonce",
+                            "Bytea"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "key_index",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "staged_user_profile: _",
+        "type_info": {
+          "Custom": {
+            "name": "indexed_ciphertext",
+            "kind": {
+              "Composite": [
+                [
+                  "ciphertext",
+                  {
+                    "Custom": {
+                      "name": "aead_ciphertext",
+                      "kind": {
+                        "Composite": [
+                          [
+                            "ciphertext",
+                            "Bytea"
+                          ],
+                          [
+                            "nonce",
+                            "Bytea"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ],
+                [
+                  "key_index",
+                  "Bytea"
+                ]
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "ba76984e819d8617405142c81825ad4778c161991726c81aedf5eb00ecd3a7f1"
+}

@@ -6,11 +6,7 @@ use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
-use phnxapiclient::ds_api::DsRequestError;
-use phnxprotos::{
-    auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
-    queue_service::v1::queue_service_server,
-};
+use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
@@ -18,7 +14,7 @@ use phnxcoreclient::{
     store::Store,
 };
 use phnxserver::RateLimitsConfig;
-use phnxserver_test_harness::utils::setup::TestBackend;
+use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
 use tonic_health::pb::{
@@ -616,41 +612,25 @@ async fn error_if_user_doesnt_exist() {
 #[tracing::instrument(name = "Delete user test", skip_all)]
 async fn delete_user() {
     let mut setup = TestBackend::single().await;
-    setup.add_user(&ALICE).await;
-    setup.delete_user(&ALICE).await;
-}
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[tracing::instrument(name = "Health check test", skip_all)]
-async fn health_check() {
-    let setup = TestBackend::single().await;
-    let endpoint = format!("http://localhost:{}", setup.grpc_port());
-    let channel = tonic::transport::Channel::from_shared(endpoint)
-        .unwrap()
-        .connect()
+    setup.add_user(&ALICE).await;
+    // Adding another user with the same name should fail.
+    match TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port()).await {
+        Ok(_) => panic!("Should not be able to create a user with the same name"),
+        Err(e) => match e.downcast_ref::<AsRequestError>().unwrap() {
+            AsRequestError::Tonic(status) => {
+                assert_eq!(status.code(), tonic::Code::AlreadyExists);
+            }
+            _ => panic!("Unexpected error type: {e}"),
+        },
+    }
+
+    setup.delete_user(&ALICE).await;
+    // After deletion, adding the user again should work.
+    // Note: Since the user is ephemeral, there is nothing to test on the client side.
+    TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port())
         .await
         .unwrap();
-    let mut client = HealthClient::new(channel);
-
-    let names = [
-        auth_service_server::SERVICE_NAME,
-        delivery_service_server::SERVICE_NAME,
-        queue_service_server::SERVICE_NAME,
-    ];
-
-    for name in names {
-        let response = client
-            .check(HealthCheckRequest {
-                service: name.to_string(),
-            })
-            .await
-            .unwrap()
-            .into_inner();
-        assert_eq!(
-            ServingStatus::try_from(response.status).unwrap(),
-            ServingStatus::Serving
-        );
-    }
 }
 
 fn init_test_tracing() {

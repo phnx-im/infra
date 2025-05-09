@@ -8,6 +8,7 @@ use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService
 use phnxserver::{
     RateLimitsConfig, ServerRunParams,
     configurations::*,
+    dispatch::DispatchNotifier,
     enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
     push_notification_provider::ProductionPushNotificationProvider,
@@ -107,9 +108,6 @@ async fn main() -> anyhow::Result<()> {
             burst_size: 20,
         },
     })
-    .await;
-
-    server.await?;
-
+    .await?;
     Ok(())
 }

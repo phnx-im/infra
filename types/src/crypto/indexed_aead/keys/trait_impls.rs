@@ -55,24 +55,33 @@ impl<KT: IndexedKeyType> Type<Sqlite> for KeyTypeInstance<KT> {
     }
 }
 
-impl<'q, KT, ST, const SIZE: usize> Encode<'q, Sqlite> for TypedSecret<KT, ST, SIZE> {
+impl<'q, KT, ST, const SIZE: usize, DB: Database> Encode<'q, DB> for TypedSecret<KT, ST, SIZE>
+where
+    Box<[u8]>: Encode<'q, DB>,
+{
     fn encode_by_ref(
         &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+        buf: &mut <DB as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         self.secret.encode_by_ref(buf)
     }
 }
 
-impl<KT, ST, const SIZE: usize> Type<Sqlite> for TypedSecret<KT, ST, SIZE> {
-    fn type_info() -> SqliteTypeInfo {
-        Secret::<SIZE>::type_info()
+impl<KT, ST, const SIZE: usize, DB: Database> Type<DB> for TypedSecret<KT, ST, SIZE>
+where
+    Secret<SIZE>: Type<DB>,
+{
+    fn type_info() -> <DB as Database>::TypeInfo {
+        <Secret<SIZE> as Type<DB>>::type_info()
     }
 }
 
-impl<'r, KT, ST, const SIZE: usize> Decode<'r, Sqlite> for TypedSecret<KT, ST, SIZE> {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let secret: Secret<SIZE> = Decode::<Sqlite>::decode(value)?;
+impl<'r, KT, ST, const SIZE: usize, DB: Database> Decode<'r, DB> for TypedSecret<KT, ST, SIZE>
+where
+    &'r [u8]: Decode<'r, DB>,
+{
+    fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let secret: Secret<SIZE> = Decode::<DB>::decode(value)?;
         Ok(Self {
             secret,
             _type: PhantomData,

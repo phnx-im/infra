@@ -11,8 +11,9 @@ pub mod setup;
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
     RateLimitsConfig, ServerRunParams, configurations::get_configuration_from_str,
-    enqueue_provider::SimpleEnqueueProvider, network_provider::MockNetworkProvider,
-    push_notification_provider::ProductionPushNotificationProvider, run, ws::DispatchNotifier,
+    dispatch::DispatchNotifier, enqueue_provider::SimpleEnqueueProvider,
+    network_provider::MockNetworkProvider,
+    push_notification_provider::ProductionPushNotificationProvider, run,
 };
 use phnxtypes::identifiers::Fqdn;
 use tokio::net::TcpListener;
@@ -100,8 +101,7 @@ pub async fn spawn_app_with_rate_limits(
         qs_connector,
         ws_dispatch_notifier: ws_dispatch_notifier.clone(),
         rate_limits,
-    })
-    .await;
+    });
 
     // Execute the server in the background
     tokio::spawn(server);

@@ -46,7 +46,6 @@ tower-http = { workspace = true }
 tokio-stream = { workspace = true, features = ["net"] }
 tower_governor = "0.7.0"
 anyhow = "1.0.98"
-tonic-health = "0.13.1"
 
 [dev-dependencies]
 tracing-futures = "^0.2.5"
