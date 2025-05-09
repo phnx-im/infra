@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Phoenix R&D GmbH <hello@phnx.im>
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -167,8 +167,8 @@ mod tests {
 
     #[test]
     fn trims_whitespace_correctly() {
-        let name = "  hello  ";
-        let dn = DisplayName::from_str(name).unwrap();
+        let name = format!("  hello\t  ");
+        let dn = DisplayName::from_str(&name).unwrap();
         assert!(dn.display_name.starts_with("hello"));
     }
 
