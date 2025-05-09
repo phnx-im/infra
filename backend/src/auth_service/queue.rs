@@ -14,10 +14,10 @@ use tracing::error;
 
 use crate::errors::{QueueError, StorageError};
 
-/// Reliable persisted queues with pub/sub interface
+/// Reliable, persistent message queue.
 ///
-/// Only a single listener is allowed per queue. Listening for new messages cancels the previous
-/// listener.
+/// Ensures messages are processed in order, supports message acknowledgment to handle failures,
+/// and allows for continuous listening for new messages.
 #[derive(Debug, Clone)]
 pub(crate) struct Queues {
     pool: PgPool,
@@ -33,6 +33,18 @@ impl Queues {
         }
     }
 
+    /// Returns a stream of messages from the specified queue.
+    ///
+    /// This function continuously fetches messages from the queue. If the queue becomes empty,
+    /// the stream will emit `None` and wait until a new message is added.
+    ///
+    /// Messages are identified by contigious increasing sequence numbers. This stream will only
+    /// fetch messages with a sequence number greater than or equal to `sequence_number_start`.
+    /// Messages with sequence numbers less than `sequence_number_start` are implicitly
+    /// acknowledged (i.e., considered processed and removed).
+    ///
+    /// If another listener is already active for the same `queue_id`, that existing listener
+    /// is cancelled before this new stream is returned.
     pub(crate) async fn listen(
         &self,
         queue_id: &AsClientId,
@@ -65,14 +77,13 @@ impl Queues {
         Ok(context.into_stream())
     }
 
-    async fn track_listener(&self, queue_id: AsClientId) -> CancellationToken {
-        let mut workers = self.listeners.lock().await;
-        workers.retain(|_, cancel| !cancel.is_cancelled());
-        let cancel = CancellationToken::new();
-        workers.insert(queue_id, ExtendedDropGuard::new(cancel.clone()));
-        cancel
-    }
-
+    /// Adds a message to the specified queue.
+    ///
+    /// If a listener is active for this `queue_id`, it will be notified that a new message is
+    /// available to be fetched.
+    ///
+    /// If the sequence number of the message is less than the sequence number of the last message
+    /// in the queue, an error is returned.
     pub(crate) async fn enqueue(
         &self,
         queue_id: &AsClientId,
@@ -89,7 +100,10 @@ impl Queues {
         Ok(())
     }
 
-    /// Mark a message as acknowledged up to the given sequence number (inclusive).
+    /// Marks messages in the specified queue as acknowledged up to and including the given
+    /// `up_to_sequence_number`.
+    ///
+    /// Acknowledged messages are effectively removed from the queue.
     pub(crate) async fn ack(
         &self,
         queue_id: &AsClientId,
@@ -103,6 +117,14 @@ impl Queues {
         Queue::delete(&self.pool, queue_id, up_to_sequence_number).await?;
         transaction.commit().await?;
         Ok(())
+    }
+
+    async fn track_listener(&self, queue_id: AsClientId) -> CancellationToken {
+        let mut workers = self.listeners.lock().await;
+        workers.retain(|_, cancel| !cancel.is_cancelled());
+        let cancel = CancellationToken::new();
+        workers.insert(queue_id, ExtendedDropGuard::new(cancel.clone()));
+        cancel
     }
 }
 
