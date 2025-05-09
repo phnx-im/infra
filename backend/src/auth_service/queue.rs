@@ -22,7 +22,7 @@ use crate::errors::{QueueError, StorageError};
 pub(crate) struct Queues {
     pool: PgPool,
     // Ensures that we have only a stream per queue.
-    listeners: Arc<Mutex<HashMap<AsClientId, ExtendedDropGuard>>>,
+    listeners: Arc<Mutex<HashMap<AsClientId, CancellationToken>>>,
 }
 
 impl Queues {
@@ -123,35 +123,10 @@ impl Queues {
         let mut workers = self.listeners.lock().await;
         workers.retain(|_, cancel| !cancel.is_cancelled());
         let cancel = CancellationToken::new();
-        workers.insert(queue_id, ExtendedDropGuard::new(cancel.clone()));
-        cancel
-    }
-}
-
-/// Like [`tokio_util::sync::DropGuard`] but allows to check if the token is cancelled.
-#[derive(Debug)]
-pub struct ExtendedDropGuard {
-    pub(super) inner: Option<CancellationToken>,
-}
-
-impl ExtendedDropGuard {
-    pub fn new(inner: CancellationToken) -> Self {
-        Self { inner: Some(inner) }
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.inner
-            .as_ref()
-            .map(|inner| inner.is_cancelled())
-            .unwrap_or(true)
-    }
-}
-
-impl Drop for ExtendedDropGuard {
-    fn drop(&mut self) {
-        if let Some(inner) = &self.inner {
-            inner.cancel();
+        if let Some(prev_cancel) = workers.insert(queue_id, cancel.clone()) {
+            prev_cancel.cancel();
         }
+        cancel
     }
 }
 
