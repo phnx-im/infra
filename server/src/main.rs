@@ -14,7 +14,6 @@ use phnxserver::{
     push_notification_provider::ProductionPushNotificationProvider,
     run,
     telemetry::{get_subscriber, init_subscriber},
-    ws::DispatchNotifier,
 };
 use phnxtypes::identifiers::Fqdn;
 use tracing::info;
@@ -85,12 +84,12 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to connect to database.");
 
-    let ws_dispatch_notifier = DispatchNotifier::new();
+    let dispatch_notifier = DispatchNotifier::new();
     let push_notification_provider =
         ProductionPushNotificationProvider::new(configuration.fcm, configuration.apns)?;
     let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),
-        notifier: ws_dispatch_notifier.clone(),
+        notifier: dispatch_notifier.clone(),
         push_notification_provider,
         network: network_provider.clone(),
     };
@@ -102,12 +101,14 @@ async fn main() -> anyhow::Result<()> {
         auth_service,
         qs,
         qs_connector,
-        ws_dispatch_notifier,
+        dispatch_notifier,
         rate_limits: RateLimitsConfig {
             period: Duration::from_millis(500),
             burst_size: 20,
         },
     })
-    .await?;
+    .await;
+
+    server.await?;
     Ok(())
 }

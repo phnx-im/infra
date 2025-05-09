@@ -62,7 +62,7 @@ pub async fn spawn_app_with_rate_limits(
         .expect("Failed to bind to random port.");
     let grpc_address = grpc_listener.local_addr().unwrap();
 
-    let ws_dispatch_notifier = DispatchNotifier::new();
+    let dispatch_notifier = DispatchNotifier::new();
 
     // DS storage provider
     let ds = Ds::new(&configuration.database, domain.clone())
@@ -87,7 +87,7 @@ pub async fn spawn_app_with_rate_limits(
 
     let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),
-        notifier: ws_dispatch_notifier.clone(),
+        notifier: dispatch_notifier.clone(),
         push_notification_provider,
         network: network_provider.clone(),
     };
@@ -99,7 +99,7 @@ pub async fn spawn_app_with_rate_limits(
         auth_service,
         qs,
         qs_connector,
-        ws_dispatch_notifier: ws_dispatch_notifier.clone(),
+        dispatch_notifier: dispatch_notifier.clone(),
         rate_limits,
     });
 
@@ -107,5 +107,5 @@ pub async fn spawn_app_with_rate_limits(
     tokio::spawn(server);
 
     // Return the address
-    (grpc_address, ws_dispatch_notifier)
+    (grpc_address, dispatch_notifier)
 }

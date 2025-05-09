@@ -42,7 +42,7 @@ pub struct ServerRunParams<Qc> {
     pub auth_service: AuthService,
     pub qs: Qs,
     pub qs_connector: Qc,
-    pub ws_dispatch_notifier: DispatchNotifier,
+    pub dispatch_notifier: DispatchNotifier,
     pub rate_limits: RateLimitsConfig,
 }
 
@@ -64,7 +64,7 @@ pub async fn run<
         auth_service,
         qs,
         qs_connector,
-        ws_dispatch_notifier,
+        dispatch_notifier,
         rate_limits,
     }: ServerRunParams<Qc>,
 ) -> impl Future<Output = Result<(), tonic::transport::Error>> {
@@ -77,7 +77,7 @@ pub async fn run<
     // GRPC server
     let grpc_as = GrpcAs::new(auth_service);
     let grpc_ds = GrpcDs::new(ds, qs_connector);
-    let grpc_qs = GrpcQs::new(qs, ws_dispatch_notifier);
+    let grpc_qs = GrpcQs::new(qs, dispatch_notifier);
 
     let RateLimitsConfig { period, burst_size } = rate_limits;
     let governor_config = GovernorConfigBuilder::default()
