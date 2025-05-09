@@ -10,7 +10,10 @@ use std::fmt::Display;
 use phnxtypes::{
     crypto::{
         ear::{EarDecryptable, EarEncryptable},
-        indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
+        indexed_aead::{
+            ciphertexts::{IndexDecryptable, IndexEncryptable},
+            keys::{UserProfileKey, UserProfileKeyIndex, UserProfileKeyType},
+        },
     },
     identifiers::QualifiedUserName,
     messages::client_as_out::EncryptedUserProfileCtype,
@@ -64,6 +67,10 @@ impl IndexedUserProfile {
             display_name,
             profile_picture,
         }
+    }
+
+    pub(crate) fn decryption_key_index(&self) -> &UserProfileKeyIndex {
+        &self.decryption_key_index
     }
 }
 
@@ -190,3 +197,6 @@ impl Asset {
 
 impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
 impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
+
+impl IndexDecryptable<UserProfileKeyType, EncryptedUserProfileCtype> for IndexedUserProfile {}
+impl IndexEncryptable<UserProfileKeyType, EncryptedUserProfileCtype> for IndexedUserProfile {}

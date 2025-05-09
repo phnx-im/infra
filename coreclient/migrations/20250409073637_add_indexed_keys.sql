@@ -11,10 +11,9 @@ CREATE TABLE IF NOT EXISTS indexed_keys (
 
 -- Create table to store indices of own keys
 CREATE TABLE IF NOT EXISTS own_key_indices (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key_type TEXT CHECK(key_type IN ('user_profile_key')) PRIMARY KEY,
     key_index BLOB NOT NULL,
-    key_type TEXT CHECK(key_type IN ('user_profile_key')) NOT NULL,
-    FOREIGN KEY (key_index) REFERENCES indexed_keys(key_index)
+    FOREIGN KEY (key_index) REFERENCES indexed_keys(key_index) ON DELETE CASCADE
 );
 
 -- Recreate contacts table to add foreign key constraint

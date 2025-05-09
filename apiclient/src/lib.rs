@@ -54,11 +54,13 @@ pub type HttpClient = reqwest::Client;
 
 // ApiClient is a wrapper around a reqwest client.
 // It exposes a single function for each API endpoint.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ApiClient {
+    client: HttpClient,
     as_grpc_client: AsGrpcClient,
     qs_grpc_client: QsGrpcClient,
     ds_grpc_client: DsGrpcClient,
+    url: Url,
 }
 
 impl ApiClient {
@@ -101,9 +103,64 @@ impl ApiClient {
         let qs_grpc_client = QsGrpcClient::new(QueueServiceClient::new(channel));
 
         Ok(Self {
+            client,
             as_grpc_client,
             qs_grpc_client,
             ds_grpc_client,
+            url,
         })
+    }
+
+    /// Builds a URL for a given endpoint.
+    fn build_url(&self, protocol: Protocol, endpoint: &str) -> String {
+        let mut protocol_str = match protocol {
+            Protocol::Http => "http",
+            Protocol::Ws => "ws",
+        }
+        .to_string();
+        let tls_enabled = self.url.scheme() == "https";
+        if tls_enabled {
+            protocol_str.push('s')
+        };
+        let url = format!(
+            "{}://{}:{}{}",
+            protocol_str,
+            self.url.host_str().unwrap_or_default(),
+            self.url.port().unwrap_or(if tls_enabled {
+                DEFAULT_PORT_HTTPS
+            } else {
+                DEFAULT_PORT_HTTP
+            }),
+            endpoint
+        );
+        url
+    }
+
+    /// Call the health check endpoint
+    pub async fn health_check(&self) -> bool {
+        self.client
+            .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
+            .send()
+            .await
+            .is_ok()
+    }
+
+    /// Call an inexistant endpoint
+    pub async fn inexistant_endpoint(&self) -> bool {
+        let res = self
+            .client
+            .post(self.build_url(Protocol::Http, "/null"))
+            .body("test")
+            .send()
+            .await;
+        let status = match res {
+            Ok(r) => Some(r.status()),
+            Err(e) => e.status(),
+        };
+        if let Some(status) = status {
+            status == StatusCode::NOT_FOUND
+        } else {
+            false
+        }
     }
 }

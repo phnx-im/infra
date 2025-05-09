@@ -8,6 +8,7 @@ use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService
 use phnxserver::{
     RateLimitsConfig, ServerRunParams,
     configurations::*,
+    dispatch::DispatchNotifier,
     enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
     push_notification_provider::ProductionPushNotificationProvider,

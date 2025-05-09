@@ -38,7 +38,7 @@ use tracing::error;
 
 use super::DsRequestError;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct DsGrpcClient {
     client: DeliveryServiceClient<Channel>,
 }

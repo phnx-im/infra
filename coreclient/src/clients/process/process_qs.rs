@@ -377,7 +377,7 @@ impl CoreUser {
             sender.user_name(),
         )?;
 
-        // Phase 3: Fetch and store the (new) user profile
+        // Phase 3: Fetch and store the (new) user profile and key
         self.fetch_and_store_user_profile((sender, new_user_profile_key))
             .await?;
 

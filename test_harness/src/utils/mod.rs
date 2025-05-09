@@ -11,8 +11,9 @@ pub mod setup;
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
     RateLimitsConfig, ServerRunParams, configurations::get_configuration_from_str,
-    enqueue_provider::SimpleEnqueueProvider, network_provider::MockNetworkProvider,
-    push_notification_provider::ProductionPushNotificationProvider, run, ws::DispatchNotifier,
+    dispatch::DispatchNotifier, enqueue_provider::SimpleEnqueueProvider,
+    network_provider::MockNetworkProvider,
+    push_notification_provider::ProductionPushNotificationProvider, run,
 };
 use phnxtypes::identifiers::Fqdn;
 use tokio::net::TcpListener;

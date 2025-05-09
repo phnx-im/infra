@@ -7,6 +7,7 @@
 use std::time::Duration;
 
 use connect_info::ConnectInfoInterceptor;
+use dispatch::DispatchNotifier;
 use phnxbackend::{
     auth_service::{AuthService, grpc::GrpcAs},
     ds::{Ds, GrpcDs},
@@ -26,15 +27,14 @@ use tower_governor::{
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{Level, enabled, info};
-use ws::DispatchNotifier;
 
 pub mod configurations;
 mod connect_info;
+pub mod dispatch;
 pub mod enqueue_provider;
 pub mod network_provider;
 pub mod push_notification_provider;
 pub mod telemetry;
-pub mod ws;
 
 pub struct ServerRunParams<Qc> {
     pub listener: tokio::net::TcpListener,
