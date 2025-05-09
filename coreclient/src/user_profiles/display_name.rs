@@ -166,8 +166,8 @@ mod tests {
 
     #[test]
     fn trims_whitespace_correctly() {
-        let name = format!("  hello\t  ");
-        let dn = DisplayName::from_str(&name).unwrap();
+        let name = "  hello\t  ";
+        let dn = DisplayName::from_str(name).unwrap();
         assert!(dn.display_name.starts_with("hello"));
     }
 
