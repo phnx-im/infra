@@ -7,7 +7,6 @@ use std::{
     sync::Mutex,
 };
 
-use phnxapiclient::HttpClient;
 use phnxtypes::identifiers::Fqdn;
 
 use super::*;
@@ -20,7 +19,6 @@ pub(crate) struct ApiClients {
     // thought-out mechanism.
     own_domain: Fqdn,
     own_domain_or_address: String,
-    http_client: HttpClient,
     clients: Arc<Mutex<HashMap<String, ApiClient>>>,
     grpc_port: u16,
 }
@@ -35,7 +33,6 @@ impl ApiClients {
         Self {
             own_domain,
             own_domain_or_address,
-            http_client: ApiClient::new_http_client().expect("failed to initialize HTTP client"),
             clients: Default::default(),
             grpc_port,
         }
@@ -51,8 +48,7 @@ impl ApiClients {
         let client = match clients.entry(domain) {
             Entry::Occupied(entry) => entry.get().clone(),
             Entry::Vacant(entry) => {
-                let client =
-                    ApiClient::initialize(self.http_client.clone(), entry.key(), self.grpc_port)?;
+                let client = ApiClient::new(entry.key(), self.grpc_port)?;
                 entry.insert(client).clone()
             }
         };
