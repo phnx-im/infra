@@ -6,7 +6,7 @@ use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
-use phnxapiclient::ds_api::DsRequestError;
+use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
@@ -14,7 +14,7 @@ use phnxcoreclient::{
     store::Store,
 };
 use phnxserver::RateLimitsConfig;
-use phnxserver_test_harness::utils::setup::TestBackend;
+use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
 use tracing::info;
@@ -609,8 +609,25 @@ async fn error_if_user_doesnt_exist() {
 #[tracing::instrument(name = "Delete user test", skip_all)]
 async fn delete_user() {
     let mut setup = TestBackend::single().await;
+
     setup.add_user(&ALICE).await;
+    // Adding another user with the same name should fail.
+    match TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port()).await {
+        Ok(_) => panic!("Should not be able to create a user with the same name"),
+        Err(e) => match e.downcast_ref::<AsRequestError>().unwrap() {
+            AsRequestError::Tonic(status) => {
+                assert_eq!(status.code(), tonic::Code::AlreadyExists);
+            }
+            _ => panic!("Unexpected error type: {e}"),
+        },
+    }
+
     setup.delete_user(&ALICE).await;
+    // After deletion, adding the user again should work.
+    // Note: Since the user is ephemeral, there is nothing to test on the client side.
+    TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port())
+        .await
+        .unwrap();
 }
 
 fn init_test_tracing() {
