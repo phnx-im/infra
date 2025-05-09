@@ -202,7 +202,7 @@ pub enum InfraAadPayload {
 
 #[derive(PartialEq, Eq, Debug, Clone, TlsSize, TlsSerialize, TlsDeserializeBytes)]
 #[repr(u8)]
-pub enum QsWsMessage {
+pub enum QsMessage {
     QueueUpdate,
     Event(DsEventMessage),
 }

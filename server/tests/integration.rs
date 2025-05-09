@@ -2,46 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-mod qs;
-
 use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
-use phnxapiclient::{ApiClient, as_api::AsRequestError, ds_api::DsRequestError};
+use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
     store::Store,
 };
-use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
-use phnxserver_test_harness::utils::{
-    setup::{TestBackend, TestUser},
-    spawn_app,
-};
+use phnxserver::RateLimitsConfig;
+use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
-
-#[actix_rt::test]
-#[tracing::instrument(name = "Test WS", skip_all)]
-async fn health_check_works() {
-    tracing::info!("Tracing: Spawning websocket connection task");
-    let network_provider = MockNetworkProvider::new();
-    let ((http_addr, grpc_addr), _ws_dispatch) =
-        spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
-
-    let address = format!("http://{http_addr}");
-
-    // Initialize the client
-    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
-        .expect("Failed to initialize client");
-
-    // Do the health check
-    assert!(client.health_check().await);
-}
 
 static ALICE: LazyLock<QualifiedUserName> = LazyLock::new(|| "alice@example.com".parse().unwrap());
 static BOB: LazyLock<QualifiedUserName> = LazyLock::new(|| "bob@example.com".parse().unwrap());
@@ -277,22 +254,6 @@ async fn delete_group() {
 async fn create_user() {
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
-}
-
-#[actix_rt::test]
-#[tracing::instrument(name = "Inexistant endpoint", skip_all)]
-async fn inexistant_endpoint() {
-    let network_provider = MockNetworkProvider::new();
-    let ((http_addr, grpc_addr), _ws_dispatch) =
-        spawn_app(Some("localhost".parse().unwrap()), network_provider).await;
-
-    // Initialize the client
-    let address = format!("http://{http_addr}");
-    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
-        .expect("Failed to initialize client");
-
-    // Call the inexistant endpoint
-    assert!(client.inexistant_endpoint().await);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

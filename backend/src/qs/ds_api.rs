@@ -13,7 +13,7 @@ use crate::messages::{
 };
 
 use super::{
-    PushNotificationProvider, Qs, WebsocketNotifier,
+    Notifier, PushNotificationProvider, Qs,
     client_id_decryption_key::StorableClientIdDecryptionKey, client_record::QsClientRecord,
     errors::QsEnqueueError, network_provider::NetworkProvider, qs_api::FederatedProcessingResult,
 };
@@ -28,7 +28,7 @@ impl Qs {
     /// queues, depending on the FQDN of the client.
     #[tracing::instrument(skip_all, err)]
     pub async fn enqueue_message<
-        W: WebsocketNotifier + Send,
+        W: Notifier + Send,
         N: NetworkProvider + Send,
         P: PushNotificationProvider + Send,
     >(
