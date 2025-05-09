@@ -14,21 +14,14 @@ use phnxprotos::{
     queue_service::v1::queue_service_client::QueueServiceClient,
 };
 use qs_api::grpc::QsGrpcClient;
-use reqwest::Url;
 use thiserror::Error;
 use tonic::transport::ClientTlsConfig;
 use tracing::info;
-use url::ParseError;
+use url::{ParseError, Url};
 
 pub mod as_api;
 pub mod ds_api;
 pub mod qs_api;
-
-/// Defines the type of protocol used for a specific endpoint.
-pub enum Protocol {
-    Http,
-    Ws,
-}
 
 // TODO: Turn this on once we have the necessary test infrastructure for
 // certificates in place.
@@ -36,31 +29,21 @@ const HTTPS_BY_DEFAULT: bool = false;
 
 #[derive(Error, Debug)]
 pub enum ApiClientInitError {
-    #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
     #[error("Failed to parse URL {0}")]
     UrlParsingError(String),
     #[error("Invalid URL {0}")]
     InvalidUrl(String),
-    #[error("Could not find hostname in URL {0}")]
-    NoHostname(String),
-    #[error("The use of TLS is mandatory")]
-    TlsRequired,
     #[error(transparent)]
-    TonicTranspor(#[from] tonic::transport::Error),
+    TonicTransport(#[from] tonic::transport::Error),
 }
-
-pub type HttpClient = reqwest::Client;
 
 // ApiClient is a wrapper around a reqwest client.
 // It exposes a single function for each API endpoint.
 #[derive(Debug, Clone)]
 pub struct ApiClient {
-    client: HttpClient,
     as_grpc_client: AsGrpcClient,
     qs_grpc_client: QsGrpcClient,
     ds_grpc_client: DsGrpcClient,
-    url: Url,
 }
 
 impl ApiClient {
@@ -103,64 +86,9 @@ impl ApiClient {
         let qs_grpc_client = QsGrpcClient::new(QueueServiceClient::new(channel));
 
         Ok(Self {
-            client,
             as_grpc_client,
             qs_grpc_client,
             ds_grpc_client,
-            url,
         })
-    }
-
-    /// Builds a URL for a given endpoint.
-    fn build_url(&self, protocol: Protocol, endpoint: &str) -> String {
-        let mut protocol_str = match protocol {
-            Protocol::Http => "http",
-            Protocol::Ws => "ws",
-        }
-        .to_string();
-        let tls_enabled = self.url.scheme() == "https";
-        if tls_enabled {
-            protocol_str.push('s')
-        };
-        let url = format!(
-            "{}://{}:{}{}",
-            protocol_str,
-            self.url.host_str().unwrap_or_default(),
-            self.url.port().unwrap_or(if tls_enabled {
-                DEFAULT_PORT_HTTPS
-            } else {
-                DEFAULT_PORT_HTTP
-            }),
-            endpoint
-        );
-        url
-    }
-
-    /// Call the health check endpoint
-    pub async fn health_check(&self) -> bool {
-        self.client
-            .get(self.build_url(Protocol::Http, ENDPOINT_HEALTH_CHECK))
-            .send()
-            .await
-            .is_ok()
-    }
-
-    /// Call an inexistant endpoint
-    pub async fn inexistant_endpoint(&self) -> bool {
-        let res = self
-            .client
-            .post(self.build_url(Protocol::Http, "/null"))
-            .body("test")
-            .send()
-            .await;
-        let status = match res {
-            Ok(r) => Some(r.status()),
-            Err(e) => e.status(),
-        };
-        if let Some(status) = status {
-            status == StatusCode::NOT_FOUND
-        } else {
-            false
-        }
     }
 }

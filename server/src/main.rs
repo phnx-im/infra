@@ -14,7 +14,6 @@ use phnxserver::{
     push_notification_provider::ProductionPushNotificationProvider,
     run,
     telemetry::{get_subscriber, init_subscriber},
-    ws::DispatchNotifier,
 };
 use phnxtypes::identifiers::Fqdn;
 use tracing::info;
