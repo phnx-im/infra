@@ -91,7 +91,7 @@ impl Store for CoreUser {
     }
 
     async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId> {
-        dbg!(self.add_contact(user_name).await)
+        self.add_contact(user_name).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {

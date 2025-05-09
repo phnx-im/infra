@@ -172,7 +172,13 @@ impl ApiClient {
         &self,
         sequence_number_start: u64,
         signing_key: &ClientSigningKey,
-    ) -> Result<(impl Stream<Item = Option<QueueMessage>> + Send, Ack), AsRequestError> {
+    ) -> Result<
+        (
+            impl Stream<Item = Option<QueueMessage>> + Send,
+            ListenResponder,
+        ),
+        AsRequestError,
+    > {
         let init_payload = InitListenPayload {
             client_id: Some(signing_key.credential().identity().clone().into()),
             sequence_number_start,
@@ -213,9 +219,9 @@ impl ApiClient {
             Some(Some(message))
         });
 
-        let ack = Ack { tx: requests_tx };
+        let responder = ListenResponder { tx: requests_tx };
 
-        Ok((messages, ack))
+        Ok((messages, responder))
     }
 
     pub async fn as_publish_connection_packages(
@@ -315,11 +321,11 @@ impl ApiClient {
     }
 }
 
-pub struct Ack {
+pub struct ListenResponder {
     tx: mpsc::Sender<ListenRequest>,
 }
 
-impl Ack {
+impl ListenResponder {
     pub async fn ack(&self, up_to_sequence_number: u64) {
         let ack_request = listen_request::Request::Ack(AckListenRequest {
             up_to_sequence_number,

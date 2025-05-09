@@ -42,9 +42,6 @@ impl Queues {
         Queue::sequence_number(&self.pool, queue_id)
             .await?
             .ok_or(QueueError::QueueNotFound)?;
-        if let Some(sequence_number) = sequence_number_start.checked_sub(1) {
-            self.ack(queue_id, sequence_number).await?;
-        }
 
         let mut pg_listener = PgListener::connect_with(&self.pool).await?;
         pg_listener
@@ -52,6 +49,9 @@ impl Queues {
             .await?;
 
         let cancel = self.track_listener(queue_id.clone()).await;
+        if let Some(sequence_number) = sequence_number_start.checked_sub(1) {
+            self.ack(queue_id, sequence_number).await?;
+        }
         Queue::requeue_processing_jobs(&self.pool, &queue_id).await?;
 
         let context = QueueStreamContext {
@@ -59,10 +59,10 @@ impl Queues {
             pg_listener,
             queue_id: queue_id.clone(),
             cancel: cancel.clone(),
-            state: FetchState::Fetching,
+            state: FetchState::Fetch,
         };
 
-        Ok(context.unfold())
+        Ok(context.into_stream())
     }
 
     async fn track_listener(&self, queue_id: AsClientId) -> CancellationToken {
@@ -95,7 +95,14 @@ impl Queues {
         queue_id: &AsClientId,
         up_to_sequence_number: u64,
     ) -> Result<(), QueueError> {
-        Queue::delete(&self.pool, queue_id, up_to_sequence_number).await
+        let transaction = self.pool.begin().await?;
+        // check if the queue exists
+        Queue::sequence_number(&self.pool, queue_id)
+            .await?
+            .ok_or(QueueError::QueueNotFound)?;
+        Queue::delete(&self.pool, queue_id, up_to_sequence_number).await?;
+        transaction.commit().await?;
+        Ok(())
     }
 }
 
@@ -154,17 +161,24 @@ struct QueueStreamContext {
 }
 
 enum FetchState {
-    Fetching,
-    Waiting,
+    /// Fetch the next message.
+    Fetch,
+    /// Wait for a notification to fetch the next message.
+    ///
+    /// This state is used when the queue is empty.
+    Wait,
 }
 
 impl QueueStreamContext {
-    fn unfold(self) -> impl Stream<Item = Option<QueueMessage>> + Send {
-        stream::unfold(self, async |mut state| {
+    fn into_stream(self) -> impl Stream<Item = Option<QueueMessage>> + Send {
+        stream::unfold(self, async |mut context| {
+            if context.cancel.is_cancelled() {
+                return None;
+            }
             loop {
-                match state.state {
-                    FetchState::Fetching => {
-                        let message = match state.fetch_next_message().await {
+                match context.state {
+                    FetchState::Fetch => {
+                        let message = match context.fetch_next_message().await {
                             Ok(message) => message,
                             Err(error) => {
                                 error!(%error, "failed to fetch next message");
@@ -172,15 +186,15 @@ impl QueueStreamContext {
                             }
                         };
                         if message.is_none() {
-                            state.state = FetchState::Waiting;
+                            context.state = FetchState::Wait;
                         }
-                        return Some((message, state));
+                        return Some((message, context));
                     }
-                    FetchState::Waiting => {
-                        if !state.wait().await {
+                    FetchState::Wait => {
+                        if !context.wait().await {
                             return None;
                         }
-                        state.state = FetchState::Fetching;
+                        context.state = FetchState::Fetch;
                     }
                 }
             }
@@ -254,8 +268,6 @@ mod persistence {
             client_id: &AsClientId,
             message: &QueueMessage,
         ) -> Result<(), QueueError> {
-            dbg!(client_id, message.sequence_number);
-
             // Begin the transaction
             let mut transaction = connection.begin().await?;
 
@@ -265,7 +277,12 @@ mod persistence {
                 client_id.client_id(),
             )
             .fetch_one(&mut *transaction)
-            .await?;
+            .await;
+            let sequence_number = match sequence_number {
+                Ok(sequence_number) => sequence_number,
+                Err(sqlx::Error::RowNotFound) => return Err(QueueError::QueueNotFound),
+                Err(error) => return Err(error.into()),
+            };
 
             if sequence_number != message.sequence_number as i64 {
                 tracing::warn!(
@@ -438,5 +455,338 @@ mod persistence {
 
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::pin::pin;
+
+    use phnxtypes::crypto::ear::AeadCiphertext;
+    use tokio::time::{Duration, timeout};
+    use tokio_stream::StreamExt;
+    use uuid::Uuid;
+
+    use crate::auth_service::{
+        client_record::persistence::tests::store_random_client_record,
+        user_record::persistence::tests::store_random_user_record,
+    };
+
+    use super::*;
+
+    fn new_msg(seq: u64, payload_str: &str) -> QueueMessage {
+        QueueMessage {
+            sequence_number: seq,
+            ciphertext: AeadCiphertext::new(payload_str.as_bytes().to_vec(), [0; 12]),
+        }
+    }
+
+    async fn new_queue(pool: &PgPool) -> anyhow::Result<AsClientId> {
+        let user_record = store_random_user_record(pool).await?;
+        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+        store_random_client_record(pool, client_id.clone()).await?;
+        Queue::new_and_store(&client_id, pool).await?;
+        Ok(client_id)
+    }
+
+    #[sqlx::test]
+    async fn test_enqueue_and_listen_single_message(pool: PgPool) {
+        let queue_id = new_queue(&pool).await.unwrap();
+        let queues = Queues::new(pool);
+
+        let msg1 = new_msg(0, "hello");
+        queues.enqueue(&queue_id, &msg1).await.unwrap();
+
+        let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
+
+        let received_msg = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .expect("Timeout waiting for message")
+            .expect("Stream ended prematurely")
+            .expect("Expected Some(QueueMessage), got None");
+
+        assert_eq!(received_msg, msg1);
+
+        // Check if queue is empty now for the listener (emits None)
+        let next_item = timeout(Duration::from_millis(50), stream.next()) // Short timeout
+            .await
+            .ok() // It's ok to timeout here, means no immediate message
+            .flatten();
+        assert_eq!(
+            next_item,
+            Some(None),
+            "Stream should yield Some(None) when queue is empty for the listener"
+        );
+    }
+
+    #[sqlx::test]
+    async fn test_listen_respects_sequence_number_start(pool: PgPool) {
+        let queue_id = new_queue(&pool).await.unwrap();
+        let queues = Queues::new(pool);
+
+        let msg1 = new_msg(0, "msg1");
+        let msg2 = new_msg(1, "msg2");
+        let msg3 = new_msg(2, "msg3");
+
+        queues.enqueue(&queue_id, &msg1).await.unwrap();
+        queues.enqueue(&queue_id, &msg2).await.unwrap();
+        queues.enqueue(&queue_id, &msg3).await.unwrap();
+
+        // Listen starting from sequence number 2
+        let mut stream = pin!(queues.listen(&queue_id, 1).await.unwrap());
+
+        let received_msg2 = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg2, msg2);
+
+        let received_msg3 = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg3, msg3);
+
+        // Listen again from 1, msg1 should be gone
+        let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
+        let first_after_relisten = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            first_after_relisten, msg2,
+            "Msg1 should have been acked by previous listen call starting at 2"
+        );
+    }
+
+    #[sqlx::test]
+    async fn test_ack_removes_messages(pool: PgPool) {
+        let queue_id = new_queue(&pool).await.unwrap();
+        let queues = Queues::new(pool);
+
+        let msg1 = new_msg(0, "msg1");
+        let msg2 = new_msg(1, "msg2");
+        let msg3 = new_msg(2, "msg3");
+
+        queues.enqueue(&queue_id, &msg1).await.unwrap();
+        queues.enqueue(&queue_id, &msg2).await.unwrap();
+        queues.enqueue(&queue_id, &msg3).await.unwrap();
+
+        queues.ack(&queue_id, 1).await.unwrap(); // Ack up to msg2
+
+        // Listen from the beginning (seq 0 or 1)
+        let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
+
+        // Should only receive msg3
+        let received_msg = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg, msg3);
+
+        // No more messages
+        let next_item = timeout(Duration::from_millis(50), stream.next())
+            .await
+            .ok()
+            .flatten();
+        assert_eq!(next_item, Some(None));
+    }
+
+    #[sqlx::test]
+    async fn test_new_listener_cancels_previous_one(pool: PgPool) {
+        let queue_id = new_queue(&pool).await.unwrap();
+        let queues = Queues::new(pool);
+
+        let msg1 = new_msg(0, "msg1");
+
+        queues.enqueue(&queue_id, &msg1).await.unwrap();
+
+        let mut stream1 = pin!(queues.listen(&queue_id, 0).await.unwrap());
+
+        // First listener gets the first message
+        let received_msg1_listener1 = timeout(Duration::from_secs(1), stream1.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg1_listener1, msg1);
+
+        // Start a new listener for the same queue
+        let _stream2 = queues.listen(&queue_id, 0).await.unwrap();
+
+        // Try to get another message from stream1.
+        // It should be cancelled, so it should yield None and then end.
+        // The mock implementation sends a single None upon cancellation.
+        let cancellation_signal = timeout(Duration::from_secs(1), stream1.next()).await;
+
+        match cancellation_signal {
+            Ok(None) => { /* Expected cancellation signal */ }
+            Ok(Some(m)) => {
+                panic!("Stream1 should have been cancelled, but received message: {m:?}")
+            }
+            Err(_) => panic!("Timeout waiting for stream1 to be cancelled"),
+        }
+    }
+
+    #[sqlx::test]
+    async fn test_listen_emits_none_when_empty_and_waits(pool: PgPool) {
+        let queue_id = new_queue(&pool).await.unwrap();
+        let queues = Queues::new(pool);
+
+        let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
+
+        // Initially empty, should yield None
+        let item = timeout(Duration::from_millis(100), stream.next()) // Increased timeout slightly
+            .await
+            .expect("Timeout waiting for initial None")
+            .expect("Stream should not end immediately");
+        assert_eq!(
+            item, None,
+            "Stream should yield None when queue is initially empty"
+        );
+
+        // Enqueue a message
+        let msg1 = new_msg(0, "new_message");
+        queues.enqueue(&queue_id, &msg1).await.unwrap();
+
+        // Should receive the new message
+        let received_msg = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .expect("Timeout waiting for new message")
+            .expect("Stream ended prematurely after enqueue")
+            .expect("Expected Some(QueueMessage) after enqueue, got None");
+        assert_eq!(received_msg, msg1);
+
+        // Queue is empty again for the listener
+        let next_item = timeout(Duration::from_millis(100), stream.next())
+            .await
+            .expect("Timeout waiting for new message")
+            .expect("Stream ended prematurely after enqueue");
+        assert_eq!(
+            next_item, None,
+            "Stream should yield None after consuming the message"
+        );
+
+        // Stream waits for the next message again
+        let next_item = timeout(Duration::from_millis(50), stream.next()).await.ok();
+        assert_eq!(next_item, None, "Stream should wait for the next message");
+    }
+
+    #[sqlx::test]
+    async fn test_multiple_messages_are_received_in_order(pool: PgPool) {
+        let queue_id = new_queue(&pool).await.unwrap();
+        let queues = Queues::new(pool);
+
+        let msg1 = new_msg(0, "msg1");
+        let msg2 = new_msg(1, "msg2");
+        let msg3 = new_msg(2, "msg3");
+
+        queues.enqueue(&queue_id, &msg1).await.unwrap();
+        queues.enqueue(&queue_id, &msg2).await.unwrap();
+        queues.enqueue(&queue_id, &msg3).await.unwrap();
+
+        let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
+
+        let recv_msg1 = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(recv_msg1, msg1);
+
+        let recv_msg2 = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(recv_msg2, msg2);
+
+        let recv_msg3 = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(recv_msg3, msg3);
+
+        let next_item = timeout(Duration::from_millis(50), stream.next())
+            .await
+            .ok()
+            .flatten();
+        assert_eq!(next_item, Some(None));
+    }
+
+    #[sqlx::test]
+    async fn test_ack_non_existent_queue(pool: PgPool) {
+        let queues = Queues::new(pool);
+        let queue_id = AsClientId::new("alice@localhost".parse().unwrap(), Uuid::new_v4());
+
+        let result = queues.ack(&queue_id, 0).await;
+
+        assert!(matches!(result, Err(QueueError::QueueNotFound)));
+    }
+
+    #[sqlx::test]
+    async fn test_enqueue_non_existent_queue(pool: PgPool) {
+        let queues = Queues::new(pool);
+        let queue_id = AsClientId::new("alice@localhost".parse().unwrap(), Uuid::new_v4());
+
+        let msg = new_msg(0, "msg");
+        let result = queues.enqueue(&queue_id, &msg).await;
+
+        assert!(matches!(result, Err(QueueError::QueueNotFound)));
+    }
+
+    #[sqlx::test]
+    async fn test_listen_acknowledges_past_messages_on_start(pool: PgPool) {
+        let queue_id = new_queue(&pool).await.unwrap();
+        let queues = Queues::new(pool);
+
+        let msg1 = new_msg(0, "past_msg1");
+        let msg2 = new_msg(1, "past_msg2");
+        let msg3 = new_msg(2, "current_msg3");
+        let msg4 = new_msg(3, "future_msg4");
+
+        queues.enqueue(&queue_id, &msg1).await.unwrap();
+        queues.enqueue(&queue_id, &msg2).await.unwrap();
+        queues.enqueue(&queue_id, &msg3).await.unwrap();
+        queues.enqueue(&queue_id, &msg4).await.unwrap();
+
+        // Listen starting from sequence number 2. Messages 1 and 2 should be acknowledged.
+        let mut stream = pin!(queues.listen(&queue_id, 2).await.unwrap());
+
+        let received_msg3 = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg3, msg3);
+
+        let received_msg4 = timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg4, msg4);
+
+        // If we were to ack msg2, then listen from 1, we should only get msg3, msg4
+        // But listen(2) already did this. Let's try acking something already acked.
+        queues.ack(&queue_id, 1).await.unwrap(); // Should be idempotent or no-op for already acked
+
+        // Listen again from a lower number, e.g. 0. Since msgs 1,2 were acked by listen(2),
+        // they should still be gone.
+        let mut stream_again = pin!(queues.listen(&queue_id, 0).await.unwrap());
+        let first_msg_stream_again = timeout(Duration::from_secs(1), stream_again.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            first_msg_stream_again, msg3,
+            "Messages 1 and 2 should remain acknowledged"
+        );
     }
 }

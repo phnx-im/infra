@@ -412,12 +412,12 @@ impl CoreUser {
             .credential()
             .identity()
             .client_id();
-        let (stream, ack) = api_client
+        let (stream, responder) = api_client
             .as_listen(sequence_number, &self.inner.key_store.signing_key)
             .await?;
-        let messages: Vec<QueueMessage> = dbg!(stream.map_while(identity).collect().await);
+        let messages: Vec<QueueMessage> = stream.map_while(identity).collect().await;
         if let Some(message) = messages.last() {
-            ack.ack(message.sequence_number).await;
+            responder.ack(message.sequence_number).await;
         }
         Ok(messages)
     }
