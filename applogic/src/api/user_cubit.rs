@@ -58,11 +58,11 @@ pub struct UiUser {
 #[derive(Debug)]
 struct UiUserInner {
     user_name: QualifiedUserName,
-    profile: Option<UserProfile>,
+    profile: UserProfile,
 }
 
 impl UiUser {
-    fn new(user_name: QualifiedUserName, profile: Option<UserProfile>) -> Self {
+    fn new(user_name: QualifiedUserName, profile: UserProfile) -> Self {
         let inner = Arc::new(UiUserInner { user_name, profile });
         Self { inner }
     }
@@ -73,7 +73,7 @@ impl UiUser {
             match core_user.own_user_profile().await {
                 Ok(profile) => {
                     let mut state = this.write().await;
-                    *state = UiUser::new(state.inner.user_name.clone(), Some(profile));
+                    *state = UiUser::new(state.inner.user_name.clone(), profile);
                 }
                 Err(error) => {
                     error!(%error, "Could not load own user profile");
@@ -88,15 +88,15 @@ impl UiUser {
     }
 
     #[frb(getter, sync)]
-    pub fn display_name(&self) -> Option<String> {
-        let profile = self.inner.profile.as_ref()?;
-        Some(profile.display_name.clone()?.to_string())
+    pub fn display_name(&self) -> String {
+        self.inner.profile.display_name.clone().to_string()
     }
 
     #[frb(getter, sync)]
     pub fn profile_picture(&self) -> Option<ImageData> {
-        let profile = self.inner.profile.as_ref()?;
-        Some(ImageData::from_asset(profile.profile_picture.clone()?))
+        Some(ImageData::from_asset(
+            self.inner.profile.profile_picture.clone()?,
+        ))
     }
 }
 
@@ -137,7 +137,7 @@ impl UserCubitBase {
         let core_user = user.user.clone();
         let state = Arc::new(RwLock::new(UiUser::new(
             core_user.user_name().clone(),
-            None,
+            UserProfile::from_user_name(core_user.user_name()),
         )));
 
         UiUser::spawn_load(state.clone(), core_user.clone());
@@ -213,12 +213,10 @@ impl UserCubitBase {
         let profile_picture = profile_picture.map(Asset::Value);
         let user = {
             let mut state = self.state.write().await;
-            let Some(user_profile) = &state.inner.profile else {
-                bail!("Can't set display name for user without a profile");
-            };
+            let user_profile = &state.inner.profile;
             let mut user_profile = user_profile.clone();
             if let Some(value) = display_name {
-                user_profile.display_name = Some(value);
+                user_profile.display_name = value;
             }
             if let Some(value) = profile_picture {
                 user_profile.profile_picture = Some(value);
@@ -226,7 +224,7 @@ impl UserCubitBase {
             self.core_user
                 .set_own_user_profile(user_profile.clone())
                 .await?;
-            let user = UiUser::new(state.inner.user_name.clone(), Some(user_profile.clone()));
+            let user = UiUser::new(state.inner.user_name.clone(), user_profile.clone());
             *state = user.clone();
             user
         };

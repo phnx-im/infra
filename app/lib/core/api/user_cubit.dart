@@ -19,7 +19,7 @@ import 'user.dart';
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>>
 abstract class UiUser implements RustOpaqueInterface {
-  String? get displayName;
+  String get displayName;
 
   ImageData? get profilePicture;
 

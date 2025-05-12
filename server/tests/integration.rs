@@ -347,7 +347,7 @@ async fn exchange_user_profiles() {
 
     let alice_profile = UserProfile {
         user_name: (*ALICE).clone(),
-        display_name: Some(alice_display_name.clone()),
+        display_name: alice_display_name.clone(),
         profile_picture: Some(alice_profile_picture.clone()),
     };
     setup
@@ -366,7 +366,7 @@ async fn exchange_user_profiles() {
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile {
         user_name: (*BOB).clone(),
-        display_name: Some(bob_display_name.clone()),
+        display_name: bob_display_name.clone(),
         profile_picture: Some(bob_profile_picture.clone()),
     };
 
@@ -397,17 +397,17 @@ async fn exchange_user_profiles() {
 
     assert_eq!(profile_picture, compressed_profile_picture);
 
-    assert!(bob_user_profile.display_name.unwrap() == bob_display_name);
+    assert!(bob_user_profile.display_name == bob_display_name);
 
     let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
 
     let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
 
-    assert_eq!(alice_user_profile.display_name.unwrap(), alice_display_name);
+    assert_eq!(alice_user_profile.display_name, alice_display_name);
 
     let new_user_profile = UserProfile {
         user_name: (*ALICE).clone(),
-        display_name: Some("New Alice".parse().unwrap()),
+        display_name: "New Alice".parse().unwrap(),
         profile_picture: None,
     };
 

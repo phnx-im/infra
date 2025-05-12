@@ -90,7 +90,7 @@ class CoreClient {
   Future<void> createUser(
     String userName,
     String address,
-    String? displayName,
+    String displayName,
     Uint8List? profilePicture,
   ) async {
     PlatformPushToken? pushToken;

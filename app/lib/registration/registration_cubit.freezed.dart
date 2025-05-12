@@ -24,7 +24,7 @@ mixin _$RegistrationState {
   bool get isUsernameValid =>
       throw _privateConstructorUsedError; // Display name/avatar screen data
   ImageData? get avatar => throw _privateConstructorUsedError;
-  String? get displayName => throw _privateConstructorUsedError;
+  String get displayName => throw _privateConstructorUsedError;
   bool get isSigningUp => throw _privateConstructorUsedError;
 
   /// Create a copy of RegistrationState
@@ -46,7 +46,7 @@ abstract class $RegistrationStateCopyWith<$Res> {
     String username,
     bool isUsernameValid,
     ImageData? avatar,
-    String? displayName,
+    String displayName,
     bool isSigningUp,
   });
 }
@@ -70,7 +70,7 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
     Object? username = null,
     Object? isUsernameValid = null,
     Object? avatar = freezed,
-    Object? displayName = freezed,
+    Object? displayName = null,
     Object? isSigningUp = null,
   }) {
     return _then(
@@ -96,10 +96,10 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
                     : avatar // ignore: cast_nullable_to_non_nullable
                         as ImageData?,
             displayName:
-                freezed == displayName
+                null == displayName
                     ? _value.displayName
                     : displayName // ignore: cast_nullable_to_non_nullable
-                        as String?,
+                        as String,
             isSigningUp:
                 null == isSigningUp
                     ? _value.isSigningUp
@@ -125,7 +125,7 @@ abstract class _$$RegistrationStateImplCopyWith<$Res>
     String username,
     bool isUsernameValid,
     ImageData? avatar,
-    String? displayName,
+    String displayName,
     bool isSigningUp,
   });
 }
@@ -148,7 +148,7 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
     Object? username = null,
     Object? isUsernameValid = null,
     Object? avatar = freezed,
-    Object? displayName = freezed,
+    Object? displayName = null,
     Object? isSigningUp = null,
   }) {
     return _then(
@@ -174,10 +174,10 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
                 : avatar // ignore: cast_nullable_to_non_nullable
                     as ImageData?,
         displayName:
-            freezed == displayName
+            null == displayName
                 ? _value.displayName
                 : displayName // ignore: cast_nullable_to_non_nullable
-                    as String?,
+                    as String,
         isSigningUp:
             null == isSigningUp
                 ? _value.isSigningUp
@@ -196,7 +196,7 @@ class _$RegistrationStateImpl extends _RegistrationState {
     this.username = '',
     this.isUsernameValid = false,
     this.avatar,
-    this.displayName,
+    this.displayName = '',
     this.isSigningUp = false,
   }) : super._();
 
@@ -215,7 +215,8 @@ class _$RegistrationStateImpl extends _RegistrationState {
   @override
   final ImageData? avatar;
   @override
-  final String? displayName;
+  @JsonKey()
+  final String displayName;
   @override
   @JsonKey()
   final bool isSigningUp;
@@ -271,7 +272,7 @@ abstract class _RegistrationState extends RegistrationState {
     final String username,
     final bool isUsernameValid,
     final ImageData? avatar,
-    final String? displayName,
+    final String displayName,
     final bool isSigningUp,
   }) = _$RegistrationStateImpl;
   const _RegistrationState._() : super._();
@@ -286,7 +287,7 @@ abstract class _RegistrationState extends RegistrationState {
   @override
   ImageData? get avatar;
   @override
-  String? get displayName;
+  String get displayName;
   @override
   bool get isSigningUp;
 

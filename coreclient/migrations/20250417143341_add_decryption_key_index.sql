@@ -9,6 +9,6 @@ CREATE TABLE IF NOT EXISTS users (
     user_name TEXT NOT NULL PRIMARY KEY,
     epoch INTEGER NOT NULL,
     decryption_key_index BLOB NOT NULL,
-    display_name TEXT,
+    display_name TEXT NOT NULL,
     profile_picture BLOB
 );

@@ -26,15 +26,15 @@ class MockUiUser implements UiUser {
     String? displayName,
     Uint8List? profilePicture,
   }) : _userName = userName,
-       _displayName = displayName,
+       _displayName = displayName ?? userName,
        _profilePicture = profilePicture?.toImageData();
 
   final String _userName;
-  final String? _displayName;
+  final String _displayName;
   final ImageData? _profilePicture;
 
   @override
-  String? get displayName => _displayName;
+  String get displayName => _displayName;
 
   @override
   void dispose() {}

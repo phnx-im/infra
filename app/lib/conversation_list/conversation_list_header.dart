@@ -90,7 +90,7 @@ class _UsernameSpace extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          displayName ?? "",
+          displayName,
           style: const TextStyle(
             color: colorDMB,
             fontSize: 13,

@@ -5,6 +5,7 @@
 //! This module provides structs and functions to interact with users in the
 //! various groups an InfraClient is a member of.
 
+use display_name::BaseDisplayName;
 pub use display_name::{DisplayName, DisplayNameError};
 use phnxtypes::{
     LibraryError,
@@ -34,25 +35,33 @@ pub(crate) mod persistence;
 pub(crate) mod process;
 pub(crate) mod update;
 
+const USER_PROFILE_LABEL: &str = "UserProfile";
+
 impl Signable for IndexedUserProfile {
-    type SignedOutput = VerifiableUserProfile;
+    type SignedOutput = SignedUserProfile;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
     }
 
     fn label(&self) -> &str {
-        "UserProfile"
+        USER_PROFILE_LABEL
     }
 }
 
-impl SignedStruct<IndexedUserProfile> for VerifiableUserProfile {
+impl SignedStruct<IndexedUserProfile> for SignedUserProfile {
     fn from_payload(payload: IndexedUserProfile, signature: Signature) -> Self {
         Self {
             tbs: payload,
             signature,
         }
     }
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct SignedUserProfile {
+    tbs: IndexedUserProfile,
+    signature: Signature,
 }
 
 impl Verifiable for VerifiableUserProfile {
@@ -65,7 +74,7 @@ impl Verifiable for VerifiableUserProfile {
     }
 
     fn label(&self) -> &str {
-        IndexedUserProfile::label(&self.tbs)
+        USER_PROFILE_LABEL
     }
 }
 
@@ -74,23 +83,19 @@ mod sealed {
     pub struct Seal;
 }
 
-impl VerifiedStruct<VerifiableUserProfile> for VerifiedUserProfile {
+impl VerifiedStruct<VerifiableUserProfile> for UnvalidatedUserProfile {
     type SealingType = Seal;
 
     fn from_verifiable(verifiable: VerifiableUserProfile, _seal: Self::SealingType) -> Self {
-        VerifiedUserProfile(verifiable.tbs)
+        verifiable.tbs
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct VerifiableUserProfile {
-    tbs: IndexedUserProfile,
+    tbs: UnvalidatedUserProfile,
     signature: Signature,
 }
-
-#[derive(Debug, Deserialize)]
-#[serde(transparent)]
-pub(crate) struct VerifiedUserProfile(IndexedUserProfile);
 
 #[derive(Debug, Error)]
 pub enum UserProfileValidationError {
@@ -113,8 +118,18 @@ pub enum UserProfileValidationError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserProfile {
     pub user_name: QualifiedUserName,
-    pub display_name: Option<DisplayName>,
+    pub display_name: DisplayName,
     pub profile_picture: Option<Asset>,
+}
+
+impl UserProfile {
+    pub fn from_user_name(user_name: &QualifiedUserName) -> Self {
+        Self {
+            user_name: user_name.clone(),
+            display_name: DisplayName::from_user_name(user_name),
+            profile_picture: None,
+        }
+    }
 }
 
 impl From<IndexedUserProfile> for UserProfile {
@@ -132,12 +147,35 @@ impl From<IndexedUserProfile> for UserProfile {
 #[derive(
     Debug, Clone, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
 )]
-pub(crate) struct IndexedUserProfile {
+pub(crate) struct BaseIndexedUserProfile<const VALIDATED: bool> {
     user_name: QualifiedUserName,
     epoch: u64,
     decryption_key_index: UserProfileKeyIndex,
-    display_name: Option<DisplayName>,
+    display_name: BaseDisplayName<VALIDATED>,
     profile_picture: Option<Asset>,
+}
+
+pub(crate) type IndexedUserProfile = BaseIndexedUserProfile<true>;
+
+pub(crate) type UnvalidatedUserProfile = BaseIndexedUserProfile<false>;
+
+impl UnvalidatedUserProfile {
+    /// Validates the display name and returns an [`IndexedUserProfile`].
+    /// If the display name is invalid, it is replaced with a default
+    /// based on the user name.
+    pub fn validate_display_name(self) -> IndexedUserProfile {
+        let display_name = self
+            .display_name
+            .validate()
+            .unwrap_or(DisplayName::from_user_name(&self.user_name));
+        IndexedUserProfile {
+            user_name: self.user_name,
+            epoch: self.epoch,
+            decryption_key_index: self.decryption_key_index,
+            display_name,
+            profile_picture: self.profile_picture,
+        }
+    }
 }
 
 #[derive(
@@ -182,7 +220,7 @@ impl Asset {
 
 #[derive(Debug, Serialize)]
 #[serde(transparent)]
-pub(crate) struct EncryptableUserProfile(VerifiableUserProfile);
+pub(crate) struct EncryptableUserProfile(SignedUserProfile);
 
 impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for EncryptableUserProfile {}
 impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for VerifiableUserProfile {}

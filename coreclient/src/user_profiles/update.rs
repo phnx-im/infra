@@ -8,12 +8,12 @@ use phnxtypes::{
 };
 
 use super::{
-    EncryptableUserProfile, IndexedUserProfile, UserProfile, UserProfileValidationError,
-    VerifiableUserProfile,
+    EncryptableUserProfile, IndexedUserProfile, SignedUserProfile, UserProfile,
+    UserProfileValidationError,
 };
 
 #[derive(Debug)]
-pub(crate) struct UserProfileUpdate(VerifiableUserProfile);
+pub(crate) struct UserProfileUpdate(SignedUserProfile);
 
 impl UserProfileUpdate {
     pub(crate) fn update_own_profile(
