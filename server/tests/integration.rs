@@ -630,6 +630,93 @@ async fn delete_user() {
         .unwrap();
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Update user profile on group join test", skip_all)]
+async fn update_user_profile_on_group_join() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+
+    // Alice and Bob are connected.
+    let _alice_bob_conversation = setup.connect_users(&ALICE, &BOB).await;
+    // Bob and Charlie are connected.
+    let _bob_charlie_conversation = setup.connect_users(&BOB, &CHARLIE).await;
+
+    // Alice updates her profile.
+    let alice_display_name: DisplayName = "4l1c3".parse().unwrap();
+    let alice_profile = UserProfile {
+        user_name: (*ALICE).clone(),
+        display_name: Some(alice_display_name.clone()),
+        profile_picture: None,
+    };
+    setup
+        .users
+        .get(&ALICE)
+        .unwrap()
+        .user
+        .set_own_user_profile(alice_profile)
+        .await
+        .unwrap();
+
+    // Bob doesn't fetch his queue, so he doesn't know about Alice's new profile.
+    // He creates a group and invites Charlie.
+    let conversation_id = setup.create_group(&BOB).await;
+
+    let bob = setup.users.get_mut(&BOB).unwrap();
+    bob.user
+        .invite_users(conversation_id, &[CHARLIE.clone()])
+        .await
+        .unwrap();
+
+    // Charlie accepts the invitation.
+    let charlie = setup.users.get_mut(&CHARLIE).unwrap();
+    let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
+    charlie
+        .user
+        .fully_process_qs_messages(charlie_qs_messages)
+        .await
+        .unwrap();
+
+    // Charlie should have Alice's old profile
+    let charlie_user_profile = charlie.user.user_profile(&ALICE).await.unwrap().unwrap();
+    assert_eq!(
+        charlie_user_profile.display_name.unwrap(),
+        "alice".parse().unwrap()
+    );
+
+    // Bob now invites Alice
+    let bob = setup.users.get_mut(&BOB).unwrap();
+    bob.user
+        .invite_users(conversation_id, &[ALICE.clone()])
+        .await
+        .unwrap();
+    // Alice accepts the invitation.
+    let alice = setup.users.get_mut(&ALICE).unwrap();
+    let alice_qs_messages = alice.user.qs_fetch_messages().await.unwrap();
+    alice
+        .user
+        .fully_process_qs_messages(alice_qs_messages)
+        .await
+        .unwrap();
+    // While processing her messages, Alice should have issued a profile update
+
+    // Charlie picks up his messages.
+    let charlie = setup.users.get_mut(&CHARLIE).unwrap();
+    let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
+    charlie
+        .user
+        .fully_process_qs_messages(charlie_qs_messages)
+        .await
+        .unwrap();
+    // Charlie should now have Alice's new profile.
+    let charlie_user_profile = charlie.user.user_profile(&ALICE).await.unwrap().unwrap();
+    assert_eq!(
+        charlie_user_profile.display_name.unwrap(),
+        alice_display_name
+    );
+}
+
 fn init_test_tracing() {
     let _ = tracing_subscriber::fmt::fmt()
         .with_test_writer()
