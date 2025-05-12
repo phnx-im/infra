@@ -168,10 +168,10 @@ mod tests {
     #[test]
     fn filters_out_disallowed_characters_anywhere_in_input() {
         let input = "\nHello\r\t, \tWor\rld!\n";
-        let expected = "Hello\t, \tWorld!"; // tabs are not disallowed in this case
+        let expected = "Hello, World!"; // tabs are not disallowed in this case
         let dn = DisplayName::from_str(input).unwrap();
 
-        for &c in DISALLOWED_CHARACTERS {
+        for c in DISALLOWED_CHARACTERS {
             assert!(
                 !dn.display_name.contains(c),
                 "Found disallowed char: {:?}",
