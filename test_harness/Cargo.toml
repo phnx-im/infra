@@ -21,3 +21,4 @@ tracing = { version = "0.1", features = ["log"] }
 mimi_content = { workspace = true }
 tracing-subscriber.workspace = true
 tempfile = "3.19.1"
+anyhow = "1.0.98"

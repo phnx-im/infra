@@ -25,7 +25,6 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 rand = "0.8.4"
 rand_chacha = "0.3.1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
-tokio-util = { workspace = true }
 image = "0.25.1"
 kamadak-exif = "0.6.1"
 derive_more = { workspace = true }
@@ -47,7 +46,6 @@ phnxprotos.workspace = true
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }
-actix-rt = "^2.7"
 phnxtypes = { path = "../types", features = ["test_utils"] }
 serde_json = "1.0.140"
 insta = { workspace = true, features = ["json"] }

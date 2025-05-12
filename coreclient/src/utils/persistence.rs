@@ -22,8 +22,8 @@ pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
-pub(crate) async fn open_phnx_db(client_db_path: &str) -> sqlx::Result<SqlitePool> {
-    let db_url = format!("sqlite://{}/{}", client_db_path, PHNX_DB_NAME);
+pub(crate) async fn open_phnx_db(db_path: &str) -> sqlx::Result<SqlitePool> {
+    let db_url = format!("sqlite://{}/{}", db_path, PHNX_DB_NAME);
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts
         .journal_mode(SqliteJournalMode::Wal)
@@ -93,7 +93,7 @@ pub async fn delete_client_database(db_path: &str, as_client_id: &AsClientId) ->
     if !Path::new(&full_phnx_db_path).exists() {
         bail!("phnx.db does not exist")
     }
-    let phnx_db = open_phnx_db(&client_db_path).await?;
+    let phnx_db = open_phnx_db(db_path).await?;
     ClientRecord::delete(&phnx_db, as_client_id).await?;
 
     Ok(())
