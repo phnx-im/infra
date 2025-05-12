@@ -25,40 +25,27 @@ impl FromStr for DisplayName {
     type Err = DisplayNameError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Trim whitespace at beginning and end.
-        let value = s.trim();
-        // Check if the display name is empty.
-        if value.is_empty() {
+        let display_name: String = s
+            .chars()
+            .filter(|&c| !DISALLOWED_CHARACTERS.contains(&c))
+            .collect::<String>() // intermediate cleaned string
+            .trim() // trim whitespace
+            .chars() // now safely truncate to 50 scalar values
+            .take(MAX_DISPLAY_NAME_CHARS)
+            .collect();
+
+        if display_name.is_empty() {
             return Err(DisplayNameError::DisplayNameEmpty);
         }
-        // If there are fewer than 50 chars, it also has fewer than 200 bytes.
-        if value.chars().count() > MAX_DISPLAY_NAME_CHARS {
-            return Err(DisplayNameError::DisplayNameTooLong);
-        }
-        if value.chars().any(|c| DISALLOWED_CHARACTERS.contains(&c)) {
-            return Err(DisplayNameError::InvalidCharacters);
-        }
-        Ok(Self {
-            display_name: value.to_string(),
-        })
+
+        Ok(Self { display_name })
     }
 }
 
 #[derive(Debug, Error)]
 pub enum DisplayNameError {
-    #[error("Display name is too long")]
-    DisplayNameTooLong,
     #[error("Display name is empty")]
     DisplayNameEmpty,
-    #[error("Display name contains invalid characters")]
-    InvalidCharacters,
-}
-
-impl DisplayName {
-    fn trimmed(&self) -> &str {
-        // Return the trimmed version of the display name.
-        self.display_name.trim()
-    }
 }
 
 impl sqlx::Type<Sqlite> for DisplayName {
@@ -85,14 +72,14 @@ impl<'r> Decode<'r, Sqlite> for DisplayName {
 
 impl Display for DisplayName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.trimmed())
+        write!(f, "{}", self.display_name)
     }
 }
 
 impl AsRef<str> for DisplayName {
     fn as_ref(&self) -> &str {
         // Use the trimmed version of the display name.
-        self.trimmed()
+        &self.display_name
     }
 }
 
@@ -124,7 +111,7 @@ mod tests {
     fn accepts_ascii_under_limit() {
         let name = "Alice";
         let dn = DisplayName::from_str(name).unwrap();
-        assert_eq!(&dn.display_name[..5], name);
+        assert_eq!(dn.display_name, name);
     }
 
     #[test]
@@ -135,104 +122,86 @@ mod tests {
     }
 
     #[test]
-    fn accepts_exactly_50_ascii_chars() {
-        let name = "a".repeat(MAX_DISPLAY_NAME_CHARS);
+    fn accepts_exactly_50_characters() {
+        let name = "a".repeat(50);
         let dn = DisplayName::from_str(&name).unwrap();
-        assert_eq!(&dn.display_name[..MAX_DISPLAY_NAME_CHARS], name);
+        assert_eq!(dn.display_name, name);
     }
 
     #[test]
-    fn rejects_more_than_50_chars() {
-        let name = "a".repeat(MAX_DISPLAY_NAME_CHARS + 1);
-        let result = DisplayName::from_str(&name);
-        assert!(matches!(result, Err(DisplayNameError::DisplayNameTooLong)));
-        assert_eq!(result.unwrap_err().to_string(), "Display name is too long");
-    }
-
-    #[test]
-    fn accepts_emoji_upto_200_bytes() {
-        let name = "🦀".repeat(MAX_DISPLAY_NAME_CHARS); // 4 bytes per char
-        let dn = DisplayName::from_str(&name).unwrap();
-        assert_eq!(dn.display_name.chars().count(), MAX_DISPLAY_NAME_CHARS);
-    }
-
-    #[test]
-    fn rejects_emoji_over_200_bytes() {
-        let name = "🦀".repeat(MAX_DISPLAY_NAME_CHARS + 1); // 204 bytes
-        let result = DisplayName::from_str(&name);
-        assert!(matches!(result, Err(DisplayNameError::DisplayNameTooLong)));
-        assert_eq!(result.unwrap_err().to_string(), "Display name is too long");
+    fn caps_display_name_at_50_chars_after_filtering() {
+        let input = "a\nb".repeat(30); // 90 chars, ~60 after filtering
+        let dn = DisplayName::from_str(&input).unwrap();
+        assert_eq!(dn.display_name.chars().count(), 50);
+        assert!(!dn.display_name.contains('\n'));
     }
 
     #[test]
     fn trims_whitespace_correctly() {
         let name = "  hello\t  ";
         let dn = DisplayName::from_str(name).unwrap();
-        assert!(dn.display_name.starts_with("hello"));
+        assert_eq!(dn.display_name, "hello");
     }
 
     #[test]
     fn accepts_right_to_left_script() {
-        // Arabic: "سلام" (salaam = peace)
-        let name = "سلام"; // 4 Arabic characters
+        let name = "سلام"; // Arabic
         let dn = DisplayName::from_str(name).unwrap();
-
-        // Check that the characters are preserved correctly
-        assert!(dn.display_name.starts_with(name));
+        assert_eq!(dn.display_name, name);
     }
 
     #[test]
     fn trims_whitespace_in_rtl_string() {
-        // Arabic: "سلام" (salaam = peace)
-        let input = "  سلام  "; // 4 Arabic characters
-
-        // "مرحبا" = 5 Arabic characters = 10 bytes in UTF-8
-        let expected_trimmed = "سلام";
-
+        let input = "  سلام  ";
         let dn = DisplayName::from_str(input).unwrap();
-
-        // Check: trimmed correctly
-        assert!(dn.display_name.starts_with(expected_trimmed));
+        assert_eq!(dn.display_name, "سلام");
     }
 
     #[test]
     fn accepts_grapheme_clusters_over_4_bytes() {
-        // A single emoji flag grapheme cluster: 2 code points, 8 bytes
-        let name = "🇺🇳"; // UN flag
-        assert_eq!(name.chars().count(), 2);
-        assert_eq!(name.len(), 8);
-
-        // Repeat 25 times = 50 scalar values, 200 bytes
-        let full = name.repeat(25);
-        assert_eq!(full.chars().count(), MAX_DISPLAY_NAME_CHARS);
-
-        let dn = DisplayName::from_str(&full).unwrap();
-        assert!(dn.display_name.starts_with(&full));
+        let flag = "🇺🇳"; // 2 scalar values, 8 bytes
+        let repeated = flag.repeat(25); // 50 scalar values
+        let dn = DisplayName::from_str(&repeated).unwrap();
+        assert_eq!(dn.display_name, repeated);
     }
 
     #[test]
-    fn rejects_display_name_with_disallowed_characters() {
-        for disallowed_char in DISALLOWED_CHARACTERS {
-            let name = format!("hello{}world", disallowed_char);
-            let result = DisplayName::from_str(&name);
+    fn filters_out_disallowed_characters_anywhere_in_input() {
+        let input = "\nHello\r\t, \tWor\rld!\n";
+        let expected = "Hello\t, \tWorld!"; // tabs are not disallowed in this case
+        let dn = DisplayName::from_str(input).unwrap();
+
+        for &c in DISALLOWED_CHARACTERS {
             assert!(
-                matches!(result, Err(DisplayNameError::InvalidCharacters)),
-                "Expected error for input: {:?}, got: {:?}",
-                name,
-                result
+                !dn.display_name.contains(c),
+                "Found disallowed char: {:?}",
+                c
             );
         }
-        // Test case with more than one and different disallowed characters
-        let name = format!(
-            "foo{}bar{}baz",
-            DISALLOWED_CHARACTERS[0], DISALLOWED_CHARACTERS[1]
-        );
-        let result = DisplayName::from_str(&name);
-        assert!(
-            matches!(result, Err(DisplayNameError::InvalidCharacters)),
-            "Expected error for input: {:?}, got: {:?}",
-            name,
-            result
-        );
+
+        assert_eq!(dn.display_name, expected);
+    }
+
+    #[test]
+    fn rejects_input_with_only_disallowed_and_whitespace() {
+        let input = "\n\r  \t ";
+        let result = DisplayName::from_str(input);
+        assert!(matches!(result, Err(DisplayNameError::DisplayNameEmpty)));
+    }
+
+    #[test]
+    fn handles_mixed_directionality() {
+        let input = "שלום Alice مرحبا";
+        let dn = DisplayName::from_str(input).unwrap();
+        assert!(dn.display_name.contains("שלום"));
+        assert!(dn.display_name.contains("Alice"));
+        assert!(dn.display_name.contains("مرحبا"));
+    }
+
+    #[test]
+    fn preserves_complex_emojis() {
+        let input = "👨‍👩‍👧‍👦 Family";
+        let dn = DisplayName::from_str(input).unwrap();
+        assert!(dn.display_name.contains("👨‍👩‍👧‍👦"));
     }
 }
