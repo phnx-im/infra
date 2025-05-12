@@ -209,7 +209,7 @@ impl UserCubitBase {
         display_name: Option<String>,
         profile_picture: Option<Vec<u8>>,
     ) -> anyhow::Result<()> {
-        let display_name = display_name.map(TryFrom::try_from).transpose()?;
+        let display_name = display_name.map(|s| s.parse()).transpose()?;
         let profile_picture = profile_picture.map(Asset::Value);
         let user = {
             let mut state = self.state.write().await;

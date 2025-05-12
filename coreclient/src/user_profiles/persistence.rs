@@ -105,7 +105,7 @@ mod tests {
             user_name: user_name.clone(),
             epoch: 0,
             decryption_key_index: user_profile_key.index().clone(),
-            display_name: Some("Alice".to_string().try_into().unwrap()),
+            display_name: Some("Alice".parse().unwrap()),
             profile_picture: Some(Asset::Value(vec![1, 2, 3])),
         };
         (user_profile, user_profile_key)
@@ -126,7 +126,7 @@ mod tests {
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
-        new_profile.display_name = Some("Alice In Wonderland".to_string().try_into()?);
+        new_profile.display_name = Some("Alice In Wonderland".parse()?);
         new_profile.profile_picture = None;
 
         // store again doesn't work
@@ -153,7 +153,7 @@ mod tests {
         assert_eq!(loaded, profile);
 
         let mut new_profile = profile.clone();
-        new_profile.display_name = Some("Alice In Wonderland".to_string().try_into()?);
+        new_profile.display_name = Some("Alice In Wonderland".parse()?);
         new_profile.profile_picture = None;
 
         new_profile.update(&pool, &mut notifier).await?;
