@@ -6,7 +6,10 @@ use super::{Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail};
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::ear::keys::EncryptedIdentityLinkKey,
+    crypto::{
+        ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey},
+        indexed_aead::keys::UserProfileKey,
+    },
     messages::client_ds::{CredentialUpdate, InfraAadMessage, InfraAadPayload},
 };
 use sqlx::SqlitePool;
@@ -22,6 +25,13 @@ use openmls::prelude::{
 
 use super::client_auth_info::{ClientAuthInfo, GroupMembership};
 
+pub(crate) struct ProcessMessageResult {
+    pub(crate) processed_message: ProcessedMessage,
+    pub(crate) we_were_removed: bool,
+    pub(crate) sender_client_credential: ClientCredential,
+    pub(crate) profile_infos: Vec<(ClientCredential, UserProfileKey)>,
+}
+
 impl Group {
     /// Process inbound message
     ///
@@ -32,7 +42,7 @@ impl Group {
         pool: &SqlitePool,
         api_clients: &ApiClients,
         message: impl Into<ProtocolMessage>,
-    ) -> Result<(ProcessedMessage, bool, ClientCredential)> {
+    ) -> Result<ProcessMessageResult> {
         // Phase 1: Process the message.
         let processed_message = {
             let mut connection = pool.acquire().await?;
@@ -44,6 +54,8 @@ impl Group {
 
         // Will be set to true if we were removed (or the group was deleted).
         let mut we_were_removed = false;
+        let mut encrypted_profile_infos: Vec<(ClientCredential, EncryptedUserProfileKey)> =
+            Vec::new();
         let sender_index = match processed_message.content() {
             // For now, we only care about commits.
             ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
@@ -60,7 +72,12 @@ impl Group {
                     } else {
                         bail!("Invalid sender type.")
                     };
-                return Ok((processed_message, false, sender_client_credential));
+                return Ok(ProcessMessageResult {
+                    processed_message,
+                    we_were_removed,
+                    sender_client_credential,
+                    profile_infos: Vec::new(),
+                });
             }
             ProcessedMessageContent::ProposalMessage(_proposal) => {
                 // Proposals are just returned and can then be added to the
@@ -104,15 +121,17 @@ impl Group {
                             .new_encrypted_identity_link_keys
                             .is_empty()
                         {
+                            let number_of_adds = staged_commit.add_proposals().count();
+                            let number_of_ilks = group_operation_payload
+                                .new_encrypted_identity_link_keys
+                                .len();
+                            let number_of_upks = group_operation_payload
+                                .new_encrypted_user_profile_keys
+                                .len();
                             // Make sure the vector lengths match.
-                            if staged_commit.add_proposals().count()
-                                != group_operation_payload
-                                    .new_encrypted_identity_link_keys
-                                    .len()
+                            if number_of_adds != number_of_ilks || number_of_adds != number_of_upks
                             {
-                                bail!(
-                                    "Number of add proposals and new identity link keys doesn't match."
-                                )
+                                bail!("Number of add proposals and new member keys doesn't match.")
                             }
                             // Prepare inputs for add processing
                             let added_clients = staged_commit
@@ -129,8 +148,20 @@ impl Group {
                                         .new_encrypted_identity_link_keys
                                         .into_iter(),
                                 );
-                            self.process_adds(staged_commit, api_clients, pool, added_clients)
+                            let client_auth_infos = self
+                                .process_adds(staged_commit, api_clients, pool, added_clients)
                                 .await?;
+                            // Match up client credentials and new UserProfileKeys
+                            let new_profile_infos: Vec<_> = client_auth_infos
+                                .into_iter()
+                                .map(|cai| cai.into_client_credential())
+                                .zip(
+                                    group_operation_payload
+                                        .new_encrypted_user_profile_keys
+                                        .into_iter(),
+                                )
+                                .collect();
+                            encrypted_profile_infos.extend(new_profile_infos);
                         }
 
                         // Process updates if there are any.
@@ -231,6 +262,10 @@ impl Group {
                         client_auth_info
                             .stage_add(pool.acquire().await?.as_mut())
                             .await?;
+                        encrypted_profile_infos.push((
+                            client_auth_info.into_client_credential(),
+                            join_connection_group_payload.encrypted_user_profile_key,
+                        ));
                     }
                     InfraAadPayload::Resync => {
                         // TODO: Validation:
@@ -298,7 +333,25 @@ impl Group {
             .clone()
             .into();
 
-        Ok((processed_message, we_were_removed, sender_client_credential))
+        // Decrypt any user profile keys
+        let profile_infos = encrypted_profile_infos
+            .into_iter()
+            .map(|(client_credential, encrypted_user_profile_key)| {
+                let user_profile_key = UserProfileKey::decrypt(
+                    self.identity_link_wrapper_key(),
+                    &encrypted_user_profile_key,
+                    client_credential.identity().user_name(),
+                )?;
+                Ok((client_credential, user_profile_key))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(ProcessMessageResult {
+            processed_message,
+            we_were_removed,
+            sender_client_credential,
+            profile_infos,
+        })
     }
 
     async fn process_adds(
@@ -307,7 +360,7 @@ impl Group {
         api_clients: &ApiClients,
         pool: &SqlitePool,
         added_clients: impl Iterator<Item = (Credential, EncryptedIdentityLinkKey)>,
-    ) -> Result<()> {
+    ) -> Result<Vec<ClientAuthInfo>> {
         // AddUsers Phase 1: Compute the free indices
         let added_clients_with_indices = GroupMembership::free_indices(pool, &self.group_id)
             .await?
@@ -346,7 +399,7 @@ impl Group {
             }
         }
 
-        Ok(())
+        Ok(client_auth_infos)
     }
 
     async fn process_update(

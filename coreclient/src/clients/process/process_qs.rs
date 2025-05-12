@@ -26,7 +26,7 @@ use tls_codec::DeserializeBytes;
 use crate::{
     ConversationMessage, PartialContact,
     conversations::ConversationType,
-    groups::{Group, client_auth_info::StorableClientCredential},
+    groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
 };
 
@@ -43,6 +43,7 @@ pub enum ProcessQsMessageResult {
     ConversationMessages(Vec<ConversationMessage>),
 }
 
+#[derive(Debug)]
 pub struct ProcessedQsMessages {
     pub new_conversations: Vec<ConversationId>,
     pub changed_conversations: Vec<ConversationId>,
@@ -222,7 +223,12 @@ impl CoreUser {
         drop(connection);
 
         // MLSMessage Phase 2: Process the message
-        let (processed_message, we_were_removed, sender_client_credential) = group
+        let ProcessMessageResult {
+            processed_message,
+            we_were_removed,
+            sender_client_credential,
+            profile_infos,
+        } = group
             .process_message(self.pool(), &self.inner.api_clients, protocol_message)
             .await?;
 
@@ -259,18 +265,27 @@ impl CoreUser {
         };
 
         // MLSMessage Phase 3: Store the updated group and the messages.
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            group.store_update(&mut *connection).await?;
-            let conversation_messages =
-                Self::store_messages(connection, notifier, conversation_id, group_messages).await?;
-            Ok(match (conversation_messages, conversation_changed) {
-                (messages, true) => {
-                    ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
-                }
-                (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
+        let res = self
+            .with_transaction_and_notifier(async |connection, notifier| {
+                group.store_update(&mut *connection).await?;
+                let conversation_messages =
+                    Self::store_messages(connection, notifier, conversation_id, group_messages)
+                        .await?;
+                Ok(match (conversation_messages, conversation_changed) {
+                    (messages, true) => {
+                        ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
+                    }
+                    (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
+                })
             })
-        })
-        .await
+            .await;
+
+        // MLSMessage Phase 4: Fetch user profiles of new clients and store them.
+        for client in profile_infos {
+            self.fetch_and_store_user_profile(client).await?;
+        }
+
+        res
     }
 
     fn handle_application_message(
