@@ -30,7 +30,7 @@ fn backend_interaction() {
     // The user initially creates a user profile
     let user_name = "alice@localhost".parse().unwrap();
     let user_profile_key = UserProfileKey::random(&user_name).unwrap();
-    let display_name = Some("Alice".to_string().try_into().unwrap());
+    let display_name = Some("Alice".parse().unwrap());
     let profile_picture = Some(Asset::Value(vec![1, 2, 3]));
     let (credential_csr, signing_key) = ClientCredentialCsr::new(
         AsClientId::random(user_name.clone()).unwrap(),
@@ -89,7 +89,7 @@ fn backend_interaction() {
     };
     let new_user_profile = UserProfile {
         user_name: user_name.clone(),
-        display_name: Some("Alice Wonderland".to_string().try_into().unwrap()),
+        display_name: Some("Alice Wonderland".parse().unwrap()),
         profile_picture: None,
     };
     let new_user_profile_key = UserProfileKey::random(&user_name).unwrap();
