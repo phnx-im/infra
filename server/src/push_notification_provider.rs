@@ -119,7 +119,7 @@ impl ProductionPushNotificationProvider {
     pub fn new(
         fcm_settings: Option<FcmSettings>,
         apns_settings: Option<ApnsSettings>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<Self> {
         // Read the FCN service account file
         let fcm_state = if let Some(fcm_settings) = fcm_settings {
             let service_account = std::fs::read_to_string(fcm_settings.path)?;

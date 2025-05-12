@@ -467,6 +467,12 @@ pub struct SealedClientReference {
     pub(crate) ciphertext: HpkeCiphertext,
 }
 
+impl SealedClientReference {
+    pub fn into_ciphertext(self) -> HpkeCiphertext {
+        self.ciphertext
+    }
+}
+
 impl Hash for SealedClientReference {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.ciphertext.kem_output.hash(state);
