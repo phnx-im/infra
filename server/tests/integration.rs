@@ -17,7 +17,6 @@ use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
-use tonic::Status;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -690,17 +689,16 @@ async fn update_user_profile_on_group_join() {
     // unsuccessfully try to download Alice's old profile.
     let charlie = setup.users.get_mut(&CHARLIE).unwrap();
     let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
-    let err: AsRequestError = charlie
+    let err = charlie
         .user
         .fully_process_qs_messages(charlie_qs_messages)
         .await
-        .expect_err("Charlie should not be able to process the messages")
-        .downcast()
-        .unwrap();
-
-    let expected_err =
-        AsRequestError::Tonic(Status::invalid_argument("No ciphertext matching index"));
-    assert!(matches!(err, expected_err));
+        .expect_err("Charlie should not be able to process the messages");
+    let AsRequestError::Tonic(tonic_err) = err.downcast().unwrap() else {
+        panic!("Unexpected error type");
+    };
+    assert_eq!(tonic_err.code(), tonic::Code::InvalidArgument);
+    assert_eq!(tonic_err.message(), "No ciphertext matching index");
 
     // Alice accepts the invitation.
     let alice = setup.users.get_mut(&ALICE).unwrap();
