@@ -14,6 +14,9 @@ use tracing::error;
 
 use crate::errors::{QueueError, StorageError};
 
+/// Maximum number of messages to fetch at once.
+const MAX_BUFFER_SIZE: usize = 32;
+
 /// Reliable, persistent message queue.
 ///
 /// Ensures messages are processed in order, supports message acknowledgment to handle failures,
@@ -50,10 +53,9 @@ impl Queues {
         queue_id: &AsClientId,
         sequence_number_start: u64,
     ) -> Result<impl Stream<Item = Option<QueueMessage>> + Send + use<>, QueueError> {
-        // check if the queue exists
-        Queue::sequence_number(&self.pool, queue_id)
-            .await?
-            .ok_or(QueueError::QueueNotFound)?;
+        if !Queue::exists(&self.pool, queue_id).await? {
+            return Err(QueueError::QueueNotFound);
+        }
 
         let mut pg_listener = PgListener::connect_with(&self.pool).await?;
         pg_listener
@@ -64,13 +66,14 @@ impl Queues {
         if let Some(sequence_number) = sequence_number_start.checked_sub(1) {
             self.ack(queue_id, sequence_number).await?;
         }
-        Queue::requeue_processing_jobs(&self.pool, &queue_id).await?;
 
         let context = QueueStreamContext {
             pool: self.pool.clone(),
             pg_listener,
             queue_id: queue_id.clone(),
             cancel: cancel.clone(),
+            next_sequence_number: sequence_number_start,
+            buffer: Vec::with_capacity(MAX_BUFFER_SIZE),
             state: FetchState::Fetch,
         };
 
@@ -109,21 +112,18 @@ impl Queues {
         queue_id: &AsClientId,
         up_to_sequence_number: u64,
     ) -> Result<(), QueueError> {
-        let transaction = self.pool.begin().await?;
-        // check if the queue exists
-        Queue::sequence_number(&self.pool, queue_id)
-            .await?
-            .ok_or(QueueError::QueueNotFound)?;
+        if !Queue::exists(&self.pool, queue_id).await? {
+            return Err(QueueError::QueueNotFound);
+        }
         Queue::delete(&self.pool, queue_id, up_to_sequence_number).await?;
-        transaction.commit().await?;
         Ok(())
     }
 
     async fn track_listener(&self, queue_id: AsClientId) -> CancellationToken {
-        let mut workers = self.listeners.lock().await;
-        workers.retain(|_, cancel| !cancel.is_cancelled());
+        let mut listeners = self.listeners.lock().await;
+        listeners.retain(|_, cancel| !cancel.is_cancelled());
         let cancel = CancellationToken::new();
-        if let Some(prev_cancel) = workers.insert(queue_id, cancel.clone()) {
+        if let Some(prev_cancel) = listeners.insert(queue_id, cancel.clone()) {
             prev_cancel.cancel();
         }
         cancel
@@ -154,6 +154,11 @@ struct QueueStreamContext {
     pg_listener: PgListener,
     queue_id: AsClientId,
     cancel: CancellationToken,
+    next_sequence_number: u64,
+    /// Buffer for already fetched messages
+    ///
+    /// Note: the messages are stored in descending order.
+    buffer: Vec<QueueMessage>,
     state: FetchState,
 }
 
@@ -168,49 +173,65 @@ enum FetchState {
 
 impl QueueStreamContext {
     fn into_stream(self) -> impl Stream<Item = Option<QueueMessage>> + Send {
-        stream::unfold(self, async |mut context| {
-            if context.cancel.is_cancelled() {
-                return None;
-            }
-            loop {
-                match context.state {
-                    FetchState::Fetch => {
-                        let message = match context.fetch_next_message().await {
-                            Ok(message) => message,
-                            Err(error) => {
-                                error!(%error, "failed to fetch next message");
-                                return None;
-                            }
-                        };
-                        if message.is_none() {
-                            context.state = FetchState::Wait;
-                        }
-                        return Some((message, context));
+        stream::unfold(
+            self,
+            async |mut context| -> Option<(Option<QueueMessage>, Self)> {
+                loop {
+                    if context.cancel.is_cancelled() {
+                        return None;
                     }
-                    FetchState::Wait => {
-                        if !context.wait().await {
-                            return None;
+                    if let Some(message) = context.buffer.pop() {
+                        return Some((Some(message), context));
+                    }
+                    // buffer is empty
+                    match context.state {
+                        FetchState::Fetch => {
+                            context.fetch_next_messages().await?;
+                            if context.buffer.is_empty() {
+                                // return sentinel value to indicate that the queue is empty
+                                context.state = FetchState::Wait;
+                                return Some((None, context));
+                            }
                         }
-                        context.state = FetchState::Fetch;
+                        FetchState::Wait => {
+                            context.wait_for_notification().await?;
+                            context.state = FetchState::Fetch;
+                        }
                     }
                 }
-            }
+            },
+        )
+    }
+
+    /// Fetches the next batch of messages into the internal buffer.
+    async fn fetch_next_messages(&mut self) -> Option<()> {
+        debug_assert!(self.buffer.is_empty());
+        Queue::fetch_into(
+            &self.pool,
+            &self.queue_id,
+            self.next_sequence_number,
+            MAX_BUFFER_SIZE,
+            &mut self.buffer,
+        )
+        .await
+        .inspect_err(|error| {
+            error!(%error, "failed to fetch next messages");
         })
+        .ok()?;
+        if let Some(message) = self.buffer.last() {
+            self.next_sequence_number = message.sequence_number + 1;
+        }
+        self.buffer.reverse();
+        Some(())
     }
 
-    async fn fetch_next_message(&self) -> Result<Option<QueueMessage>, QueueError> {
-        let sql_message = Queue::fetch(&self.pool, &self.queue_id).await?;
-        Ok(sql_message.map(|message| message.message.0))
-    }
-
-    /// Waits for either a new message or for the worker to be cancelled.
+    /// Waits for either a new message or for the listener to be cancelled.
     ///
-    /// Returns `true` if the worker should continue listening for new messages.
-    async fn wait(&mut self) -> bool {
-        // wait either for a new message or for the working to be stopped
+    /// Returns `None` if the listener was cancelled and should stop.
+    async fn wait_for_notification(&mut self) -> Option<()> {
         tokio::select! {
-            _ = self.pg_listener.recv() => true,
-            _ = self.cancel.cancelled() => false,
+            _ = self.pg_listener.recv() => Some(()),
+            _ = self.cancel.cancelled() => None,
         }
     }
 }
@@ -220,17 +241,13 @@ mod persistence {
         codec::{BlobDecoded, BlobEncoded},
         messages::QueueMessage,
     };
-    use sqlx::{Connection, query, query_as, query_scalar};
+    use sqlx::{Connection, query, query_scalar};
+    use tokio_stream::StreamExt;
     use uuid::Uuid;
 
     use crate::errors::QueueError;
 
     use super::*;
-
-    pub(super) struct SqlQueueMessage {
-        pub(super) sequence_number: i64,
-        pub(super) message: BlobDecoded<QueueMessage>,
-    }
 
     impl Queue<'_> {
         pub(super) async fn store(
@@ -247,17 +264,17 @@ mod persistence {
             Ok(())
         }
 
-        pub(super) async fn sequence_number(
+        pub(super) async fn exists(
             connection: impl PgExecutor<'_>,
             queue_id: &AsClientId,
-        ) -> sqlx::Result<Option<u64>> {
-            let n = query_scalar!(
+        ) -> sqlx::Result<bool> {
+            query_scalar!(
                 "SELECT sequence_number FROM as_queue_data WHERE queue_id = $1",
                 queue_id.client_id()
             )
             .fetch_optional(connection)
-            .await?;
-            Ok(n.and_then(|n| n.try_into().ok()))
+            .await
+            .map(|n| n.is_some())
         }
 
         pub(super) async fn enqueue(
@@ -319,58 +336,37 @@ mod persistence {
             Ok(())
         }
 
-        /// Fetches a message with the lowest sequence number, s.t.
+        /// Fetches a message with the given `sequence_number` into a buffer.
         ///
-        /// * status is `pending`,
-        /// * sequence number is >= `sequence_number` if `sequence_number` is not `None`.
-        ///
-        /// The message is set to have status `processing` before it is returned.
-        pub(super) async fn fetch(
-            pool: &PgPool,
+        /// `buffer` must be empty. The messages are fetched into the buffer in ascending order.
+        pub(super) async fn fetch_into<'a>(
+            executor: impl PgExecutor<'a> + 'a,
             client_id: &AsClientId,
-        ) -> Result<Option<SqlQueueMessage>, QueueError> {
-            let mut transaction = pool.begin().await?;
-
-            let message = query_as!(
-                SqlQueueMessage,
+            sequence_number: u64,
+            limit: usize,
+            buffer: &mut Vec<QueueMessage>,
+        ) -> Result<(), QueueError> {
+            let sequence_number: i64 = sequence_number
+                .try_into()
+                .map_err(|_| QueueError::LibraryError)?;
+            let limit: i64 = limit.try_into().map_err(|_| QueueError::LibraryError)?;
+            let mut messages = query_scalar!(
                 r#"SELECT
-                    sequence_number,
-                    message_bytes AS "message: _"
+                    message_bytes AS "message: BlobDecoded<QueueMessage>"
                 FROM as_queues
-                WHERE queue_id = $1 AND status = 'pending'
+                WHERE queue_id = $1 AND sequence_number >= $2
                 ORDER BY sequence_number ASC
                 FOR UPDATE SKIP LOCKED
-                LIMIT 1"#,
+                LIMIT $3"#,
                 client_id.client_id(),
+                sequence_number,
+                limit,
             )
-            .fetch_optional(&mut *transaction)
-            .await?;
-
-            if let Some(message) = message.as_ref() {
-                sqlx::query!(
-                    "UPDATE as_queues SET status = 'processing'
-                    WHERE queue_id = $1 and sequence_number = $2",
-                    client_id.client_id(),
-                    message.sequence_number,
-                )
-                .execute(&mut *transaction)
-                .await?;
+            .fetch(executor);
+            while let Some(message) = messages.next().await {
+                let BlobDecoded(message) = message?;
+                buffer.push(message);
             }
-
-            transaction.commit().await?;
-            Ok(message)
-        }
-
-        pub(super) async fn requeue_processing_jobs(
-            connection: impl PgExecutor<'_>,
-            queue_id: &AsClientId,
-        ) -> Result<(), QueueError> {
-            query!(
-                r#"UPDATE as_queues SET status = 'pending' WHERE queue_id = $1"#,
-                queue_id.client_id()
-            )
-            .execute(connection)
-            .await?;
             Ok(())
         }
 
@@ -433,22 +429,28 @@ mod persistence {
                 .await?;
             }
 
+            let mut buffer = Vec::new();
+            Queue::fetch_into(&pool, &client_id, 0, 10, &mut buffer).await?;
+            assert_eq!(buffer.len(), 10);
             for i in 0..10 {
-                let message = Queue::fetch(&pool, &client_id).await?.unwrap();
-                assert_eq!(message.sequence_number as u64, n + i);
-                assert_eq!(message.message.0, messages[i as usize]);
+                assert_eq!(buffer[i], messages[i]);
             }
-            assert!(Queue::fetch(&pool, &client_id).await?.is_none());
+
+            buffer.clear();
+            Queue::fetch_into(&pool, &client_id, 10, 1, &mut buffer).await?;
+            assert!(buffer.is_empty());
 
             Queue::delete(&pool, &client_id, n + 4).await?;
-            Queue::requeue_processing_jobs(&pool, &client_id).await?;
 
-            for i in 5..10 {
-                let message = Queue::fetch(&pool, &client_id).await?.unwrap();
-                assert_eq!(message.sequence_number as u64, n + i);
-                assert_eq!(message.message.0, messages[i as usize]);
+            Queue::fetch_into(&pool, &client_id, 5, 10, &mut buffer).await?;
+            assert_eq!(buffer.len(), 5);
+            for i in 0..5 {
+                assert_eq!(buffer[i], messages[i + 5]);
             }
-            assert!(Queue::fetch(&pool, &client_id).await?.is_none());
+
+            buffer.clear();
+            Queue::fetch_into(&pool, &client_id, 10, 1, &mut buffer).await?;
+            assert!(buffer.is_empty());
 
             Ok(())
         }
@@ -470,6 +472,8 @@ mod tests {
     };
 
     use super::*;
+
+    const STREAM_NEXT_TIMEOUT: Duration = Duration::from_secs(1);
 
     fn new_msg(seq: u64, payload_str: &str) -> QueueMessage {
         QueueMessage {
@@ -496,7 +500,7 @@ mod tests {
 
         let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
 
-        let received_msg = timeout(Duration::from_secs(1), stream.next())
+        let received_msg = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .expect("Timeout waiting for message")
             .expect("Stream ended prematurely")
@@ -505,10 +509,7 @@ mod tests {
         assert_eq!(received_msg, msg1);
 
         // Check if queue is empty now for the listener (emits None)
-        let next_item = timeout(Duration::from_millis(50), stream.next()) // Short timeout
-            .await
-            .ok() // It's ok to timeout here, means no immediate message
-            .flatten();
+        let next_item = timeout(STREAM_NEXT_TIMEOUT, stream.next()).await.unwrap();
         assert_eq!(
             next_item,
             Some(None),
@@ -532,14 +533,14 @@ mod tests {
         // Listen starting from sequence number 2
         let mut stream = pin!(queues.listen(&queue_id, 1).await.unwrap());
 
-        let received_msg2 = timeout(Duration::from_secs(1), stream.next())
+        let received_msg2 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
             .unwrap();
         assert_eq!(received_msg2, msg2);
 
-        let received_msg3 = timeout(Duration::from_secs(1), stream.next())
+        let received_msg3 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
@@ -548,7 +549,7 @@ mod tests {
 
         // Listen again from 1, msg1 should be gone
         let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
-        let first_after_relisten = timeout(Duration::from_secs(1), stream.next())
+        let first_after_relisten = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
@@ -578,7 +579,7 @@ mod tests {
         let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
 
         // Should only receive msg3
-        let received_msg = timeout(Duration::from_secs(1), stream.next())
+        let received_msg = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
@@ -586,10 +587,8 @@ mod tests {
         assert_eq!(received_msg, msg3);
 
         // No more messages
-        let next_item = timeout(Duration::from_millis(50), stream.next())
-            .await
-            .ok()
-            .flatten();
+        let next_item = timeout(STREAM_NEXT_TIMEOUT, stream.next()).await.unwrap();
+
         assert_eq!(next_item, Some(None));
     }
 
@@ -605,7 +604,7 @@ mod tests {
         let mut stream1 = pin!(queues.listen(&queue_id, 0).await.unwrap());
 
         // First listener gets the first message
-        let received_msg1_listener1 = timeout(Duration::from_secs(1), stream1.next())
+        let received_msg1_listener1 = timeout(STREAM_NEXT_TIMEOUT, stream1.next())
             .await
             .unwrap()
             .unwrap()
@@ -618,7 +617,7 @@ mod tests {
         // Try to get another message from stream1.
         // It should be cancelled, so it should yield None and then end.
         // The mock implementation sends a single None upon cancellation.
-        let cancellation_signal = timeout(Duration::from_secs(1), stream1.next()).await;
+        let cancellation_signal = timeout(STREAM_NEXT_TIMEOUT, stream1.next()).await;
 
         match cancellation_signal {
             Ok(None) => { /* Expected cancellation signal */ }
@@ -637,7 +636,7 @@ mod tests {
         let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
 
         // Initially empty, should yield None
-        let item = timeout(Duration::from_millis(100), stream.next()) // Increased timeout slightly
+        let item = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .expect("Timeout waiting for initial None")
             .expect("Stream should not end immediately");
@@ -651,7 +650,7 @@ mod tests {
         queues.enqueue(&queue_id, &msg1).await.unwrap();
 
         // Should receive the new message
-        let received_msg = timeout(Duration::from_secs(1), stream.next())
+        let received_msg = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .expect("Timeout waiting for new message")
             .expect("Stream ended prematurely after enqueue")
@@ -659,7 +658,7 @@ mod tests {
         assert_eq!(received_msg, msg1);
 
         // Queue is empty again for the listener
-        let next_item = timeout(Duration::from_millis(100), stream.next())
+        let next_item = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .expect("Timeout waiting for new message")
             .expect("Stream ended prematurely after enqueue");
@@ -669,8 +668,9 @@ mod tests {
         );
 
         // Stream waits for the next message again
-        let next_item = timeout(Duration::from_millis(50), stream.next()).await.ok();
-        assert_eq!(next_item, None, "Stream should wait for the next message");
+        timeout(Duration::from_millis(50), stream.next())
+            .await
+            .expect_err("Stream should wait for the next message");
     }
 
     #[sqlx::test]
@@ -688,31 +688,28 @@ mod tests {
 
         let mut stream = pin!(queues.listen(&queue_id, 0).await.unwrap());
 
-        let recv_msg1 = timeout(Duration::from_secs(1), stream.next())
+        let recv_msg1 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
             .unwrap();
         assert_eq!(recv_msg1, msg1);
 
-        let recv_msg2 = timeout(Duration::from_secs(1), stream.next())
+        let recv_msg2 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
             .unwrap();
         assert_eq!(recv_msg2, msg2);
 
-        let recv_msg3 = timeout(Duration::from_secs(1), stream.next())
+        let recv_msg3 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
             .unwrap();
         assert_eq!(recv_msg3, msg3);
 
-        let next_item = timeout(Duration::from_millis(50), stream.next())
-            .await
-            .ok()
-            .flatten();
+        let next_item = timeout(STREAM_NEXT_TIMEOUT, stream.next()).await.unwrap();
         assert_eq!(next_item, Some(None));
     }
 
@@ -755,14 +752,14 @@ mod tests {
         // Listen starting from sequence number 2. Messages 1 and 2 should be acknowledged.
         let mut stream = pin!(queues.listen(&queue_id, 2).await.unwrap());
 
-        let received_msg3 = timeout(Duration::from_secs(1), stream.next())
+        let received_msg3 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
             .unwrap();
         assert_eq!(received_msg3, msg3);
 
-        let received_msg4 = timeout(Duration::from_secs(1), stream.next())
+        let received_msg4 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
             .await
             .unwrap()
             .unwrap()
@@ -776,7 +773,7 @@ mod tests {
         // Listen again from a lower number, e.g. 0. Since msgs 1,2 were acked by listen(2),
         // they should still be gone.
         let mut stream_again = pin!(queues.listen(&queue_id, 0).await.unwrap());
-        let first_msg_stream_again = timeout(Duration::from_secs(1), stream_again.next())
+        let first_msg_stream_again = timeout(STREAM_NEXT_TIMEOUT, stream_again.next())
             .await
             .unwrap()
             .unwrap()

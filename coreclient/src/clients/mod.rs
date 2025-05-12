@@ -406,12 +406,6 @@ impl CoreUser {
     pub async fn as_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
         let sequence_number = QueueType::As.load_sequence_number(self.pool()).await?;
         let api_client = self.inner.api_clients.default_client()?;
-        self.inner
-            .key_store
-            .signing_key
-            .credential()
-            .identity()
-            .client_id();
         let (stream, responder) = api_client
             .as_listen(sequence_number, &self.inner.key_store.signing_key)
             .await?;
