@@ -300,6 +300,10 @@ impl ClientAuthInfo {
         &self.client_credential
     }
 
+    pub(super) fn into_client_credential(self) -> ClientCredential {
+        self.client_credential.into()
+    }
+
     pub(super) fn group_membership_mut(&mut self) -> &mut GroupMembership {
         &mut self.group_membership
     }
