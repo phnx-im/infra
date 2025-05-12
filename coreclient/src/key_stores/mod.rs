@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use anyhow::Result;
 use leaf_keys::LeafKeys;
@@ -62,6 +62,12 @@ pub(crate) struct MemoryUserKeyStoreBase<K> {
 }
 
 pub(crate) type MemoryUserKeyStore = MemoryUserKeyStoreBase<ClientSigningKey>;
+
+impl<K> fmt::Debug for MemoryUserKeyStoreBase<K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MemoryUserKeyStore").finish_non_exhaustive()
+    }
+}
 
 impl MemoryUserKeyStore {
     pub(crate) fn create_own_client_reference(&self, qs_client_id: &QsClientId) -> QsReference {

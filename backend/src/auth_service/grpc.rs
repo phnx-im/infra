@@ -7,10 +7,30 @@ use phnxprotos::{
     validation::MissingFieldExt,
 };
 
-use phnxtypes::{errors, messages::client_as_out::RegisterUserParamsIn};
+use phnxtypes::{
+    crypto::{
+        indexed_aead::keys::UserProfileKeyIndex,
+        signatures::{
+            private_keys::SignatureVerificationError,
+            signable::{Verifiable, VerifiedStruct},
+        },
+    },
+    errors, identifiers,
+    messages::{
+        client_as::{
+            AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
+            EnqueueMessageParams, UserConnectionPackagesParams,
+        },
+        client_as_out::{
+            AsPublishConnectionPackagesParamsTbsIn, GetUserProfileParams,
+            MergeUserProfileParamsTbs, RegisterUserParamsIn, StageUserProfileParamsTbs,
+        },
+    },
+};
 use tonic::{Request, Response, Status, async_trait};
+use tracing::error;
 
-use super::AuthService;
+use super::{AuthService, client_record::ClientRecord};
 
 pub struct GrpcAs {
     inner: AuthService,
@@ -19,6 +39,35 @@ pub struct GrpcAs {
 impl GrpcAs {
     pub fn new(inner: AuthService) -> Self {
         Self { inner }
+    }
+
+    async fn verify_client_auth<R, P>(
+        &self,
+        request: R,
+    ) -> Result<(identifiers::AsClientId, P), Status>
+    where
+        R: WithAsClientId + Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        let client_id = request.client_id()?;
+        let client_record = ClientRecord::load(&self.inner.db_pool, &client_id)
+            .await
+            .map_err(|error| {
+                error!(%error, %client_id, "failed to load client");
+                Status::internal("database error")
+            })?
+            .ok_or_else(|| Status::not_found("unknown client"))?;
+        let payload = request
+            .verify(client_record.credential.verifying_key())
+            .map_err(|error| match error {
+                SignatureVerificationError::VerificationFailure => {
+                    Status::unauthenticated("invalid signature")
+                }
+                SignatureVerificationError::LibraryError(_) => {
+                    Status::internal("unrecoverable error")
+                }
+            })?;
+        Ok((client_id, payload))
     }
 }
 
@@ -59,30 +108,162 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn delete_user(
         &self,
-        _request: Request<DeleteUserRequest>,
+        request: Request<DeleteUserRequest>,
     ) -> Result<Response<DeleteUserResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let (client_id, payload) = self
+            .verify_client_auth::<_, DeleteUserPayload>(request)
+            .await?;
+        let params = DeleteUserParamsTbs {
+            user_name: payload
+                .user_name
+                .ok_or_missing_field("user_name")?
+                .try_into()?,
+            client_id,
+        };
+        self.inner
+            .as_delete_user(params)
+            .await
+            .map_err(DeleteUserError)?;
+        Ok(Response::new(DeleteUserResponse {}))
     }
 
-    async fn publish_connection_package(
+    async fn publish_connection_packages(
         &self,
-        _request: Request<PublishConnectionPackageRequest>,
-    ) -> Result<Response<PublishConnectionPackageResponse>, Status> {
-        todo!()
+        request: Request<PublishConnectionPackagesRequest>,
+    ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
+        let request = request.into_inner();
+        let (client_id, payload) = self
+            .verify_client_auth::<_, PublishConnectionPackagesPayload>(request)
+            .await?;
+        let params = AsPublishConnectionPackagesParamsTbsIn {
+            client_id,
+            connection_packages: payload
+                .connection_packages
+                .into_iter()
+                .map(|package| package.try_into())
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+        self.inner
+            .as_publish_connection_packages(params)
+            .await
+            .map_err(PublishConnectionPackagesError)?;
+        Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
 
-    async fn get_connection_package(
+    async fn get_user_connection_packages(
         &self,
-        _request: Request<GetConnectionPackageRequest>,
-    ) -> Result<Response<GetConnectionPackageResponse>, Status> {
-        todo!()
+        request: Request<GetUserConnectionPackagesRequest>,
+    ) -> Result<Response<GetUserConnectionPackagesResponse>, Status> {
+        let request = request.into_inner();
+        let user_name = request
+            .user_name
+            .ok_or_missing_field("user_name")?
+            .try_into()?;
+        let params = UserConnectionPackagesParams { user_name };
+        let connection_packages = self
+            .inner
+            .as_user_connection_packages(params)
+            .await
+            .map_err(GetConnectionPackageError)?
+            .key_packages;
+        Ok(Response::new(GetUserConnectionPackagesResponse {
+            connection_packages: connection_packages.into_iter().map(Into::into).collect(),
+        }))
     }
 
     async fn as_credentials(
         &self,
         _request: Request<AsCredentialsRequest>,
     ) -> Result<Response<AsCredentialsResponse>, Status> {
-        todo!()
+        let response = self
+            .inner
+            .as_credentials(AsCredentialsParams {})
+            .await
+            .map_err(AsCredentialsError)?;
+        Ok(Response::new(AsCredentialsResponse {
+            as_credentials: response
+                .as_credentials
+                .into_iter()
+                .map(From::from)
+                .collect(),
+            as_intermediate_credentials: response
+                .as_intermediate_credentials
+                .into_iter()
+                .map(From::from)
+                .collect(),
+            revoked_credentials: response
+                .revoked_credentials
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        }))
+    }
+
+    async fn stage_user_profile(
+        &self,
+        request: Request<StageUserProfileRequest>,
+    ) -> Result<Response<StageUserProfileResponse>, Status> {
+        let request = request.into_inner();
+        let (client_id, payload) = self
+            .verify_client_auth::<_, StageUserProfilePayload>(request)
+            .await?;
+        let params = StageUserProfileParamsTbs {
+            client_id,
+            user_profile: payload
+                .encrypted_user_profile
+                .ok_or_missing_field("encrypted_user_profile")?
+                .try_into()?,
+        };
+        self.inner
+            .as_stage_user_profile(params)
+            .await
+            .map_err(StageUserProfileError)?;
+        Ok(Response::new(StageUserProfileResponse {}))
+    }
+
+    async fn merge_user_profile(
+        &self,
+        request: Request<MergeUserProfileRequest>,
+    ) -> Result<Response<MergeUserProfileResponse>, Status> {
+        let request = request.into_inner();
+        let (client_id, _payload) = self
+            .verify_client_auth::<_, MergeUserProfilePayload>(request)
+            .await?;
+        let params = MergeUserProfileParamsTbs { client_id };
+        self.inner
+            .as_merge_user_profile(params)
+            .await
+            .map_err(MergeUserProfileError)?;
+        Ok(Response::new(MergeUserProfileResponse {}))
+    }
+
+    async fn get_user_profile(
+        &self,
+        request: Request<GetUserProfileRequest>,
+    ) -> Result<Response<GetUserProfileResponse>, Status> {
+        let request = request.into_inner();
+        let client_id = request
+            .client_id
+            .ok_or_missing_field("client_id")?
+            .try_into()?;
+        let key_index = UserProfileKeyIndex::from_bytes(request.key_index.try_into().map_err(
+            |bytes: Vec<u8>| {
+                Status::invalid_argument(format!("invalid key index length: {}", bytes.len()))
+            },
+        )?);
+        let params = GetUserProfileParams {
+            client_id,
+            key_index,
+        };
+        let response = self
+            .inner
+            .as_get_user_profile(params)
+            .await
+            .map_err(GetUserProfileError)?;
+        Ok(Response::new(GetUserProfileResponse {
+            encrypted_user_profile: Some(response.encrypted_user_profile.into()),
+        }))
     }
 
     async fn issue_tokens(
@@ -94,16 +275,48 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn enqueue_messages(
         &self,
-        _request: Request<EnqueueMessagesRequest>,
+        request: Request<EnqueueMessagesRequest>,
     ) -> Result<Response<EnqueueMessagesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let params = EnqueueMessageParams {
+            client_id: request
+                .client_id
+                .ok_or_missing_field("client_id")?
+                .try_into()?,
+            connection_establishment_ctxt: request
+                .connection_establishment_package
+                .ok_or_missing_field("connection_establishment_package")?
+                .try_into()?,
+        };
+        self.inner
+            .as_enqueue_message(params)
+            .await
+            .map_err(EnqueueMessageError)?;
+        Ok(Response::new(EnqueueMessagesResponse {}))
     }
 
     async fn dequeue_messages(
         &self,
-        _request: Request<DequeueMessagesRequest>,
+        request: Request<DequeueMessagesRequest>,
     ) -> Result<Response<DequeueMessagesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let (sender, payload) = self
+            .verify_client_auth::<_, DequeueMessagesPayload>(request)
+            .await?;
+        let params = DequeueMessagesParamsTbs {
+            sender,
+            sequence_number_start: payload.sequence_number_start,
+            max_message_number: payload.max_message_number,
+        };
+        let response = self
+            .inner
+            .as_dequeue_messages(params)
+            .await
+            .map_err(DequeueMessagesError)?;
+        Ok(Response::new(DequeueMessagesResponse {
+            messages: response.messages.into_iter().map(Into::into).collect(),
+            remaining_messages_number: response.remaining_messages_number,
+        }))
     }
 }
 
@@ -126,5 +339,179 @@ impl From<RegisterUserError> for Status {
                 Status::invalid_argument(e.0.to_string())
             }
         }
+    }
+}
+
+struct DeleteUserError(errors::auth_service::DeleteUserError);
+
+impl From<DeleteUserError> for Status {
+    fn from(e: DeleteUserError) -> Self {
+        match e.0 {
+            errors::auth_service::DeleteUserError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct PublishConnectionPackagesError(errors::auth_service::PublishConnectionPackageError);
+
+impl From<PublishConnectionPackagesError> for Status {
+    fn from(e: PublishConnectionPackagesError) -> Self {
+        match e.0 {
+            errors::auth_service::PublishConnectionPackageError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::PublishConnectionPackageError::InvalidKeyPackage => {
+                Status::invalid_argument(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct GetConnectionPackageError(errors::auth_service::UserConnectionPackagesError);
+
+impl From<GetConnectionPackageError> for Status {
+    fn from(e: GetConnectionPackageError) -> Self {
+        match e.0 {
+            errors::auth_service::UserConnectionPackagesError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::UserConnectionPackagesError::UnknownUser => {
+                Status::not_found(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct AsCredentialsError(errors::auth_service::AsCredentialsError);
+
+impl From<AsCredentialsError> for Status {
+    fn from(e: AsCredentialsError) -> Self {
+        match e.0 {
+            errors::auth_service::AsCredentialsError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct EnqueueMessageError(errors::auth_service::EnqueueMessageError);
+
+impl From<EnqueueMessageError> for Status {
+    fn from(e: EnqueueMessageError) -> Self {
+        match e.0 {
+            errors::auth_service::EnqueueMessageError::LibraryError
+            | errors::auth_service::EnqueueMessageError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::EnqueueMessageError::ClientNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct DequeueMessagesError(errors::auth_service::AsDequeueError);
+
+impl From<DequeueMessagesError> for Status {
+    fn from(e: DequeueMessagesError) -> Self {
+        match e.0 {
+            errors::auth_service::AsDequeueError::StorageError => Status::internal(e.0.to_string()),
+            errors::auth_service::AsDequeueError::QueueNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct StageUserProfileError(errors::auth_service::StageUserProfileError);
+
+impl From<StageUserProfileError> for Status {
+    fn from(e: StageUserProfileError) -> Self {
+        match e.0 {
+            errors::auth_service::StageUserProfileError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::StageUserProfileError::UserNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct MergeUserProfileError(errors::auth_service::MergeUserProfileError);
+
+impl From<MergeUserProfileError> for Status {
+    fn from(e: MergeUserProfileError) -> Self {
+        match e.0 {
+            errors::auth_service::MergeUserProfileError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::MergeUserProfileError::UserNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+            errors::auth_service::MergeUserProfileError::NoStagedUserProfile => {
+                Status::failed_precondition(e.0.to_string())
+            }
+        }
+    }
+}
+
+struct GetUserProfileError(errors::auth_service::GetUserProfileError);
+
+impl From<GetUserProfileError> for Status {
+    fn from(e: GetUserProfileError) -> Self {
+        match e.0 {
+            errors::auth_service::GetUserProfileError::StorageError => {
+                Status::internal(e.0.to_string())
+            }
+            errors::auth_service::GetUserProfileError::UserNotFound => {
+                Status::not_found(e.0.to_string())
+            }
+            errors::auth_service::GetUserProfileError::NoCiphertextFound => {
+                Status::invalid_argument(e.0.to_string())
+            }
+        }
+    }
+}
+
+trait WithAsClientId {
+    fn client_id_proto(&self) -> Option<AsClientId>;
+    fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
+        Ok(self
+            .client_id_proto()
+            .ok_or_missing_field("client_id")?
+            .try_into()?)
+    }
+}
+
+impl WithAsClientId for DeleteUserRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
+    }
+}
+
+impl WithAsClientId for PublishConnectionPackagesRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
+    }
+}
+
+impl WithAsClientId for DequeueMessagesRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.sender.clone()
+    }
+}
+
+impl WithAsClientId for StageUserProfileRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
+    }
+}
+
+impl WithAsClientId for MergeUserProfileRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
     }
 }

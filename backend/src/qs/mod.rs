@@ -123,24 +123,26 @@ impl InfraService for Qs {
     }
 }
 
-pub enum WsNotification {
+pub enum Notification {
     Event(DsEventMessage),
     QueueUpdate,
 }
 
 #[derive(Debug)]
-pub enum WebsocketNotifierError {
-    WebsocketNotFound,
+pub enum NotifierError {
+    ClientNotFound,
 }
 
+/// Notifies connected and listening clients about events.
+///
 /// TODO: This should be unified with push notifications later
 #[expect(async_fn_in_trait)]
-pub trait WebsocketNotifier {
+pub trait Notifier {
     async fn notify(
         &self,
         client_id: &QsClientId,
-        ws_notification: WsNotification,
-    ) -> Result<(), WebsocketNotifierError>;
+        notification: Notification,
+    ) -> Result<(), NotifierError>;
 }
 
 #[derive(Debug)]

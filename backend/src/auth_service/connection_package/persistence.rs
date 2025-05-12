@@ -88,16 +88,6 @@ impl StorableConnectionPackage {
         .map_err(From::from)
     }
 
-    /// TODO: Last resort key package
-    pub(in crate::auth_service) async fn client_connection_package(
-        connection: &mut PgConnection,
-        client_id: &AsClientId,
-    ) -> Result<ConnectionPackage, StorageError> {
-        Self::load(connection, client_id.client_id())
-            .await
-            .map(From::from)
-    }
-
     /// Return a connection package for each client of a user referenced by a
     /// user name.
     pub(in crate::auth_service) async fn user_connection_packages(

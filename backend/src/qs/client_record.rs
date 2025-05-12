@@ -25,10 +25,10 @@ use phnxtypes::{
 use crate::{
     errors::StorageError,
     messages::intra_backend::DsFanOutPayload,
-    qs::{PushNotificationError, WsNotification},
+    qs::{Notification, PushNotificationError},
 };
 
-use super::{PushNotificationProvider, WebsocketNotifier, errors::EnqueueError, queue::Queue};
+use super::{Notifier, PushNotificationProvider, errors::EnqueueError, queue::Queue};
 
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
@@ -296,7 +296,7 @@ pub(crate) mod persistence {
 
 impl QsClientRecord {
     /// Put a message into the queue.
-    pub(crate) async fn enqueue<W: WebsocketNotifier, P: PushNotificationProvider>(
+    pub(crate) async fn enqueue<W: Notifier, P: PushNotificationProvider>(
         &mut self,
         connection: &mut PgConnection,
         client_id: &QsClientId,
@@ -327,7 +327,7 @@ impl QsClientRecord {
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if websocket_notifier
-                    .notify(client_id, WsNotification::QueueUpdate)
+                    .notify(client_id, Notification::QueueUpdate)
                     .await
                     .is_err()
                 {
@@ -415,7 +415,7 @@ impl QsClientRecord {
             DsFanOutPayload::EventMessage(event_message) => {
                 // We ignore the result, because dispatching events is best effort.œ
                 let _ = websocket_notifier
-                    .notify(client_id, WsNotification::Event(event_message))
+                    .notify(client_id, Notification::Event(event_message))
                     .await;
             }
         }

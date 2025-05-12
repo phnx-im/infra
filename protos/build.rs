@@ -19,4 +19,5 @@ fn main() {
             &["api"],
         )
         .unwrap();
+    println!("cargo:rerun-if-changed=api");
 }

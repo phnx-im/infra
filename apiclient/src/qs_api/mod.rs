@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use futures_util::Stream;
 use mls_assist::openmls::prelude::KeyPackage;
 use phnxprotos::queue_service::v1::QueueEvent;
 use phnxprotos::{
@@ -30,16 +29,12 @@ use phnxtypes::{
     },
 };
 use thiserror::Error;
-use tokio_stream::StreamExt;
+use tokio_stream::{Stream, StreamExt};
 use tracing::error;
 
 use crate::ApiClient;
 
 pub mod grpc;
-pub mod ws;
-
-#[cfg(test)]
-mod tests;
 
 #[derive(Error, Debug)]
 pub enum QsRequestError {
