@@ -57,7 +57,7 @@ fn backend_interaction() {
     assert!(
         user_record
             .clone()
-            .into_user_profile(&user_profile_key.index())
+            .into_user_profile(user_profile_key.index())
             .is_some()
     );
 
@@ -111,7 +111,7 @@ fn backend_interaction() {
     // should still work and return the old profile
     let returned_user_profile = user_record
         .clone()
-        .into_user_profile(&user_profile_key.index())
+        .into_user_profile(user_profile_key.index())
         .unwrap();
     assert_eq!(returned_user_profile, encrypted_user_profile);
 
@@ -122,14 +122,14 @@ fn backend_interaction() {
     assert!(
         user_record
             .clone()
-            .into_user_profile(&user_profile_key.index())
+            .into_user_profile(user_profile_key.index())
             .is_none()
     );
 
     // If we try to load the user profile using the new key it should work
     let returned_user_profile = user_record
         .clone()
-        .into_user_profile(&new_user_profile_key.index())
+        .into_user_profile(new_user_profile_key.index())
         .unwrap();
     assert_eq!(returned_user_profile, new_encrypted_user_profile);
 }
