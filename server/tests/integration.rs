@@ -17,6 +17,7 @@ use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
+use tonic::Status;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -678,19 +679,29 @@ async fn update_user_profile_on_group_join() {
         .await
         .unwrap();
 
-    // Charlie should have Alice's old profile
-    let charlie_user_profile = charlie.user.user_profile(&ALICE).await.unwrap().unwrap();
-    assert_eq!(
-        charlie_user_profile.display_name.unwrap(),
-        "alice".parse().unwrap()
-    );
-
     // Bob now invites Alice
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
         .invite_users(conversation_id, &[ALICE.clone()])
         .await
         .unwrap();
+
+    // Charlie processes his messages again, this will fail, because he will
+    // unsuccessfully try to download Alice's old profile.
+    let charlie = setup.users.get_mut(&CHARLIE).unwrap();
+    let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
+    let err: AsRequestError = charlie
+        .user
+        .fully_process_qs_messages(charlie_qs_messages)
+        .await
+        .expect_err("Charlie should not be able to process the messages")
+        .downcast()
+        .unwrap();
+
+    let expected_err =
+        AsRequestError::Tonic(Status::invalid_argument("No ciphertext matching index"));
+    assert!(matches!(err, expected_err));
+
     // Alice accepts the invitation.
     let alice = setup.users.get_mut(&ALICE).unwrap();
     let alice_qs_messages = alice.user.qs_fetch_messages().await.unwrap();
@@ -699,6 +710,7 @@ async fn update_user_profile_on_group_join() {
         .fully_process_qs_messages(alice_qs_messages)
         .await
         .unwrap();
+
     // While processing her messages, Alice should have issued a profile update
 
     // Charlie picks up his messages.
