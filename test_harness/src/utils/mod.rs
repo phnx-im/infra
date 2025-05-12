@@ -4,26 +4,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{
-    net::{SocketAddr, TcpListener},
-    time::Duration,
-};
+use std::{net::SocketAddr, time::Duration};
 
 pub mod setup;
 
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
 use phnxserver::{
-    RateLimitsConfig, ServerRunParams,
-    configurations::get_configuration_from_str,
-    endpoints::qs::{
-        push_notification_provider::ProductionPushNotificationProvider,
-        ws::DispatchWebsocketNotifier,
-    },
-    enqueue_provider::SimpleEnqueueProvider,
+    RateLimitsConfig, ServerRunParams, configurations::get_configuration_from_str,
+    dispatch::DispatchNotifier, enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
-    run,
+    push_notification_provider::ProductionPushNotificationProvider, run,
 };
 use phnxtypes::identifiers::Fqdn;
+use tokio::net::TcpListener;
 use uuid::Uuid;
 
 use crate::init_test_tracing;
@@ -43,7 +36,7 @@ const TEST_RATE_LIMITS: RateLimitsConfig = RateLimitsConfig {
 pub async fn spawn_app(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
-) -> ((SocketAddr, SocketAddr), DispatchWebsocketNotifier) {
+) -> (SocketAddr, DispatchNotifier) {
     spawn_app_with_rate_limits(domain, network_provider, TEST_RATE_LIMITS).await
 }
 
@@ -52,7 +45,7 @@ pub async fn spawn_app_with_rate_limits(
     domain: impl Into<Option<Fqdn>>,
     network_provider: MockNetworkProvider,
     rate_limits: RateLimitsConfig,
-) -> ((SocketAddr, SocketAddr), DispatchWebsocketNotifier) {
+) -> (SocketAddr, DispatchNotifier) {
     init_test_tracing();
 
     // Load configuration
@@ -61,19 +54,15 @@ pub async fn spawn_app_with_rate_limits(
     configuration.database.name = Uuid::new_v4().to_string();
 
     // Port binding
-    let port = 0;
     let host = configuration.application.host;
-    let listener =
-        TcpListener::bind(format!("{host}:{port}")).expect("Failed to bind to random port.");
     let domain = domain.into().unwrap_or_else(|| host.parse().unwrap());
-    let address = listener.local_addr().unwrap();
 
-    let grpc_listener = tokio::net::TcpListener::bind(format!("{host}:0"))
+    let grpc_listener = TcpListener::bind(format!("{host}:0"))
         .await
         .expect("Failed to bind to random port.");
     let grpc_address = grpc_listener.local_addr().unwrap();
 
-    let ws_dispatch_notifier = DispatchWebsocketNotifier::default_addr();
+    let ws_dispatch_notifier = DispatchNotifier::new();
 
     // DS storage provider
     let ds = Ds::new(&configuration.database, domain.clone())
@@ -105,22 +94,18 @@ pub async fn spawn_app_with_rate_limits(
 
     // Start the server
     let server = run(ServerRunParams {
-        listener,
-        grpc_listener,
+        listener: grpc_listener,
         ds,
         auth_service,
         qs,
         qs_connector,
-        network_provider,
         ws_dispatch_notifier: ws_dispatch_notifier.clone(),
         rate_limits,
-        num_actix_workers: Some(1),
-    })
-    .expect("Failed to bind to address.");
+    });
 
     // Execute the server in the background
     tokio::spawn(server);
 
     // Return the address
-    ((address, grpc_address), ws_dispatch_notifier)
+    (grpc_address, ws_dispatch_notifier)
 }

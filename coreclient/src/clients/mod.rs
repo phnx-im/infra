@@ -9,7 +9,7 @@ use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
-use phnxapiclient::{ApiClient, ApiClientInitError, qs_api::ws::QsWebSocket};
+use phnxapiclient::{ApiClient, ApiClientInitError};
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
@@ -43,10 +43,9 @@ use sqlx::SqlitePool;
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
-use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::{Asset, groups::Group};
+use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
@@ -90,11 +89,12 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const KEY_PACKAGES: usize = 50;
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CoreUser {
     inner: Arc<CoreUserInner>,
 }
 
+#[derive(Debug)]
 struct CoreUserInner {
     pool: SqlitePool,
     api_clients: ApiClients,
@@ -224,6 +224,32 @@ impl CoreUser {
         ClientRecord::set_default(&phnx_db, &as_client_id).await?;
 
         Ok(final_state.into_self_user(client_db, api_clients))
+    }
+
+    /// Delete this user on the server and locally.
+    ///
+    /// The user database is also deleted. The client record is removed from the phnx database.
+    pub async fn delete(self, db_path: &str) -> anyhow::Result<()> {
+        let as_client_id = self.as_client_id();
+        self.delete_ephemeral().await?;
+        delete_client_database(db_path, &as_client_id).await?;
+        Ok(())
+    }
+
+    /// Delete this user on the server.
+    ///
+    /// The local database and client record are not touched.
+    pub async fn delete_ephemeral(self) -> anyhow::Result<()> {
+        self.inner
+            .api_clients
+            .default_client()?
+            .as_delete_user(
+                self.user_name().clone(),
+                self.as_client_id().clone(),
+                &self.inner.key_store.signing_key,
+            )
+            .await?;
+        Ok(())
     }
 
     pub(crate) fn pool(&self) -> &SqlitePool {
@@ -478,18 +504,6 @@ impl CoreUser {
     pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
         let api_client = self.inner.api_clients.default_client()?;
         Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
-    }
-
-    pub async fn websocket(
-        &self,
-        timeout: u64,
-        retry_interval: u64,
-        cancel: CancellationToken,
-    ) -> Result<QsWebSocket> {
-        let api_client = self.inner.api_clients.default_client();
-        Ok(api_client?
-            .spawn_websocket(self.inner.qs_client_id, timeout, retry_interval, cancel)
-            .await?)
     }
 
     /// Mark all messages in the conversation with the given conversation id and

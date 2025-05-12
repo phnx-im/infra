@@ -59,3 +59,8 @@ message IndexedCiphertext {
 message Signature {
   bytes value = 1;
 }
+
+message HpkeCiphertext {
+  bytes kem_output = 1;
+  bytes ciphertext = 2;
+}
