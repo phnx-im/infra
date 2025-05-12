@@ -47,6 +47,8 @@ use super::ClientCredential;
 #[derive(Debug)]
 pub struct AsIntermediateKeyType;
 
+impl RawKey for AsIntermediateKeyType {}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AsIntermediateSigningKey {
     signing_key: SigningKey<AsIntermediateKeyType>,
@@ -95,6 +97,8 @@ pub enum SigningKeyCreationError {
 
 #[derive(Debug)]
 pub struct AsKeyType;
+
+impl RawKey for AsKeyType {}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AsSigningKey {

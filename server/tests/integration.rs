@@ -2,43 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-mod qs;
-
 use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
-use phnxapiclient::{ApiClient, ds_api::DsRequestError};
+use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
     store::Store,
 };
-use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
-use phnxserver_test_harness::utils::{setup::TestBackend, spawn_app};
+use phnxserver::RateLimitsConfig;
+use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
-
-#[actix_rt::test]
-#[tracing::instrument(name = "Test WS", skip_all)]
-async fn health_check_works() {
-    tracing::info!("Tracing: Spawning websocket connection task");
-    let network_provider = MockNetworkProvider::new();
-    let ((http_addr, grpc_addr), _ws_dispatch) =
-        spawn_app(Some("example.com".parse().unwrap()), network_provider).await;
-
-    let address = format!("http://{http_addr}");
-
-    // Initialize the client
-    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
-        .expect("Failed to initialize client");
-
-    // Do the health check
-    assert!(client.health_check().await);
-}
 
 static ALICE: LazyLock<QualifiedUserName> = LazyLock::new(|| "alice@example.com".parse().unwrap());
 static BOB: LazyLock<QualifiedUserName> = LazyLock::new(|| "bob@example.com".parse().unwrap());
@@ -80,7 +60,7 @@ async fn rate_limit() {
 
     let mut setup = TestBackend::single_with_rate_limits(RateLimitsConfig {
         period: Duration::from_secs(1), // replenish one token every 500ms
-        burst_size: 20,                 // allow total 20 request
+        burst_size: 30,                 // allow total 30 request
     })
     .await;
     setup.add_user(&ALICE).await;
@@ -274,22 +254,6 @@ async fn delete_group() {
 async fn create_user() {
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
-}
-
-#[actix_rt::test]
-#[tracing::instrument(name = "Inexistant endpoint", skip_all)]
-async fn inexistant_endpoint() {
-    let network_provider = MockNetworkProvider::new();
-    let ((http_addr, grpc_addr), _ws_dispatch) =
-        spawn_app(Some("localhost".parse().unwrap()), network_provider).await;
-
-    // Initialize the client
-    let address = format!("http://{http_addr}");
-    let client = ApiClient::with_default_http_client(address, grpc_addr.port())
-        .expect("Failed to initialize client");
-
-    // Call the inexistant endpoint
-    assert!(client.inexistant_endpoint().await);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -603,16 +567,28 @@ async fn client_persistence() {
     setup.add_persisted_user(&ALICE).await;
     let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
 
-    let client_db_path = setup.temp_dir();
+    let db_path = setup.temp_dir().to_owned();
 
     // Try to load the user from the database.
-    CoreUser::load(client_id.clone(), client_db_path.to_str().unwrap())
+    CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
         .await
         .unwrap();
 
-    fs::remove_file(client_db_path.join("phnx.db")).unwrap();
-    let client_db_path = client_db_path.join(format!("{}.db", client_id));
+    let client_db_path = db_path.join(format!("{}.db", client_id));
+    assert!(client_db_path.exists());
+
+    setup.delete_user(&ALICE).await;
+
+    assert!(!client_db_path.exists());
+    assert!(
+        CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
+            .await
+            .is_err()
+    );
+
+    // `CoreUser::load` opened the client DB, and so it was re-created.
     fs::remove_file(client_db_path).unwrap();
+    fs::remove_file(db_path.join("phnx.db")).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -627,6 +603,31 @@ async fn error_if_user_doesnt_exist() {
     let res = alice.add_contact(BOB.clone()).await;
 
     assert!(res.is_err());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Delete user test", skip_all)]
+async fn delete_user() {
+    let mut setup = TestBackend::single().await;
+
+    setup.add_user(&ALICE).await;
+    // Adding another user with the same name should fail.
+    match TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port()).await {
+        Ok(_) => panic!("Should not be able to create a user with the same name"),
+        Err(e) => match e.downcast_ref::<AsRequestError>().unwrap() {
+            AsRequestError::Tonic(status) => {
+                assert_eq!(status.code(), tonic::Code::AlreadyExists);
+            }
+            _ => panic!("Unexpected error type: {e}"),
+        },
+    }
+
+    setup.delete_user(&ALICE).await;
+    // After deletion, adding the user again should work.
+    // Note: Since the user is ephemeral, there is nothing to test on the client side.
+    TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port())
+        .await
+        .unwrap();
 }
 
 fn init_test_tracing() {

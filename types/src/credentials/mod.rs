@@ -115,11 +115,11 @@ impl From<AsCredentialBody> for AsCredential {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredentialBody {
-    version: MlsInfraVersion,
-    as_domain: Fqdn,
-    expiration_data: ExpirationData,
-    signature_scheme: SignatureScheme,
-    verifying_key: AsVerifyingKey,
+    pub version: MlsInfraVersion,
+    pub as_domain: Fqdn,
+    pub expiration_data: ExpirationData,
+    pub signature_scheme: SignatureScheme,
+    pub verifying_key: AsVerifyingKey,
 }
 
 impl Type<Sqlite> for AsCredentialBody {
@@ -174,6 +174,14 @@ impl AsCredential {
         Ok((credential, signing_key))
     }
 
+    pub fn from_parts(body: AsCredentialBody, fingerprint: CredentialFingerprint) -> Self {
+        Self { body, fingerprint }
+    }
+
+    pub fn into_parts(self) -> (AsCredentialBody, CredentialFingerprint) {
+        (self.body, self.fingerprint)
+    }
+
     pub fn fingerprint(&self) -> &CredentialFingerprint {
         &self.fingerprint
     }
@@ -195,10 +203,10 @@ const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
-    version: MlsInfraVersion,
-    as_domain: Fqdn,
-    signature_scheme: SignatureScheme,
-    verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
+    pub version: MlsInfraVersion,
+    pub as_domain: Fqdn,
+    pub signature_scheme: SignatureScheme,
+    pub verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
 }
 
 impl AsIntermediateCredentialCsr {
@@ -248,10 +256,10 @@ impl AsIntermediateCredentialCsr {
 }
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
-struct AsIntermediateCredentialPayload {
-    csr: AsIntermediateCredentialCsr,
-    expiration_data: ExpirationData,
-    signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
+pub struct AsIntermediateCredentialPayload {
+    pub csr: AsIntermediateCredentialCsr,
+    pub expiration_data: ExpirationData,
+    pub signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
 }
 
 pub const AS_INTERMEDIATE_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential";
@@ -298,6 +306,10 @@ impl Decode<'_, Sqlite> for AsIntermediateCredentialBody {
 }
 
 impl AsIntermediateCredentialBody {
+    pub fn into_parts(self) -> (AsIntermediateCredentialPayload, Signature) {
+        (self.credential, self.signature)
+    }
+
     fn hash(&self) -> CredentialFingerprint {
         CredentialFingerprint::with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
     }
@@ -329,6 +341,10 @@ impl tls_codec::Size for AsIntermediateCredential {
 }
 
 impl AsIntermediateCredential {
+    pub fn into_parts(self) -> (AsIntermediateCredentialBody, CredentialFingerprint) {
+        (self.body, self.fingerprint)
+    }
+
     pub fn verifying_key(&self) -> &AsIntermediateVerifyingKey {
         &self.body.credential.csr.verifying_key
     }
@@ -364,6 +380,13 @@ pub struct VerifiableAsIntermediateCredential {
 }
 
 impl VerifiableAsIntermediateCredential {
+    pub fn from_parts(credential: AsIntermediateCredentialPayload, signature: Signature) -> Self {
+        Self {
+            credential,
+            signature,
+        }
+    }
+
     pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
         &self.credential.signer_fingerprint
     }
