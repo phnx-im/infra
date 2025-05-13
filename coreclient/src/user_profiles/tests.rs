@@ -19,7 +19,7 @@ use phnxtypes::{
 };
 
 use crate::{
-    UserProfile,
+    DisplayName, UserProfile,
     user_profiles::{IndexedUserProfile, update::UserProfileUpdate},
 };
 
@@ -30,7 +30,7 @@ fn backend_interaction() {
     // The user initially creates a user profile
     let user_name = "alice@localhost".parse().unwrap();
     let user_profile_key = UserProfileKey::random(&user_name).unwrap();
-    let display_name = Some("Alice".parse().unwrap());
+    let display_name = DisplayName::from_str("Alice").unwrap();
     let profile_picture = Some(Asset::Value(vec![1, 2, 3]));
     let (credential_csr, signing_key) = ClientCredentialCsr::new(
         AsClientId::random(user_name.clone()).unwrap(),
@@ -84,12 +84,12 @@ fn backend_interaction() {
         user_name: user_name.clone(),
         epoch: 0,
         decryption_key_index: user_profile_key.index().clone(),
-        display_name: display_name.clone(),
+        display_name,
         profile_picture: profile_picture.clone(),
     };
     let new_user_profile = UserProfile {
         user_name: user_name.clone(),
-        display_name: Some("Alice Wonderland".parse().unwrap()),
+        display_name: "Alice Wonderland".parse().unwrap(),
         profile_picture: None,
     };
     let new_user_profile_key = UserProfileKey::random(&user_name).unwrap();
