@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::auth_service::{GetUserProfileError, MergeUserProfileError, StageUserProfileError},
-    messages::client_as_out::{
-        GetUserProfileParams, GetUserProfileResponse, MergeUserProfileParamsTbs,
-        StageUserProfileParamsTbs,
-    },
+use phnxtypes::messages::client_as_out::{
+    GetUserProfileParams, GetUserProfileResponse, MergeUserProfileParamsTbs,
+    StageUserProfileParamsTbs,
 };
 
-use crate::auth_service::{AuthService, user_record::UserRecord};
+use crate::{
+    auth_service::{AuthService, user_record::UserRecord},
+    errors::auth_service::{GetUserProfileError, MergeUserProfileError, StageUserProfileError},
+};
 
 impl AuthService {
     pub(crate) async fn as_get_user_profile(

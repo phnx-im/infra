@@ -8,7 +8,8 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::errors::GroupDeletionError;
+
+use crate::errors::GroupDeletionError;
 
 use super::group_state::DsGroupState;
 

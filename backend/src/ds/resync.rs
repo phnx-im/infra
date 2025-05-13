@@ -10,7 +10,9 @@ use mls_assist::{
     messages::AssistedMessageIn,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent},
 };
-use phnxtypes::{errors::ResyncClientError, time::Duration};
+use phnxtypes::time::Duration;
+
+use crate::errors::ResyncClientError;
 
 use super::process::USER_EXPIRATION_DAYS;
 

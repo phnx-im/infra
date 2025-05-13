@@ -8,7 +8,9 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{errors::ClientSelfRemovalError, time::Duration};
+use phnxtypes::time::Duration;
+
+use crate::errors::ClientSelfRemovalError;
 
 use super::process::USER_EXPIRATION_DAYS;
 

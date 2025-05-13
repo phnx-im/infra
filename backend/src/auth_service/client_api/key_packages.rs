@@ -3,27 +3,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    errors::auth_service::PublishConnectionPackageError,
-    messages::{
-        client_as::ConnectionPackage, client_as_out::AsPublishConnectionPackagesParamsTbsIn,
-    },
+    identifiers::AsClientId,
+    messages::{client_as::ConnectionPackage, client_as_out::ConnectionPackageIn},
 };
 
-use crate::auth_service::{
-    AuthService, connection_package::StorableConnectionPackage,
-    credentials::intermediate_signing_key::IntermediateCredential,
+use crate::{
+    auth_service::{
+        AuthService, connection_package::StorableConnectionPackage,
+        credentials::intermediate_signing_key::IntermediateCredential,
+    },
+    errors::auth_service::PublishConnectionPackageError,
 };
 
 impl AuthService {
     pub(crate) async fn as_publish_connection_packages(
         &self,
-        params: AsPublishConnectionPackagesParamsTbsIn,
+        client_id: AsClientId,
+        connection_packages: Vec<ConnectionPackageIn>,
     ) -> Result<(), PublishConnectionPackageError> {
-        let AsPublishConnectionPackagesParamsTbsIn {
-            client_id,
-            connection_packages,
-        } = params;
-
         let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
             .await
             .map_err(|e| {

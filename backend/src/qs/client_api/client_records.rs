@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    errors::qs::{QsCreateClientRecordError, QsUpdateClientRecordError},
     messages::client_qs::{
         CreateClientRecordParams, CreateClientRecordResponse, DeleteClientRecordParams,
         UpdateClientRecordParams,
@@ -12,7 +11,10 @@ use phnxtypes::{
 };
 use rand::rngs::OsRng;
 
-use crate::qs::{Qs, client_record::QsClientRecord};
+use crate::{
+    errors::qs::{QsCreateClientRecordError, QsUpdateClientRecordError},
+    qs::{Qs, client_record::QsClientRecord},
+};
 
 impl Qs {
     /// Create a new client record.

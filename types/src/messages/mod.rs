@@ -2,14 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt;
-
 use mls_assist::{
     openmls::prelude::OpenMlsRand, openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::OpenMlsProvider,
 };
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, TlsVarInt};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::crypto::{
     ear::{AeadCiphertext, Ciphertext},
@@ -21,7 +19,6 @@ pub mod client_as_out;
 pub mod client_ds;
 pub mod client_ds_out;
 pub mod client_qs;
-pub mod client_qs_out;
 pub mod push_token;
 pub mod welcome_attribution_info;
 
@@ -114,37 +111,6 @@ pub enum AsTokenType {
     AsEnqueue,
     DsGroupCreation,
     DsGroupOperation,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ApiVersion(TlsVarInt);
-
-impl ApiVersion {
-    pub const fn new(version: u64) -> Option<Self> {
-        // Note: At the moment of writing, Option::map is not a const fn.
-        match TlsVarInt::new(version) {
-            Some(v) => Some(Self(v)),
-            None => None,
-        }
-    }
-
-    pub const fn value(&self) -> u64 {
-        self.0.value()
-    }
-
-    pub(crate) const fn from_tls_value(value: TlsVarInt) -> Self {
-        Self(value)
-    }
-
-    pub const fn tls_value(&self) -> TlsVarInt {
-        self.0
-    }
-}
-
-impl fmt::Display for ApiVersion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value())
-    }
 }
 
 #[cfg(test)]
