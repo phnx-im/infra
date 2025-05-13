@@ -48,4 +48,9 @@ impl NewUserProfile {
         profile.tbs.store(executor, notifier).await?;
         Ok(EncryptableUserProfile(profile))
     }
+
+    #[cfg(test)]
+    pub(super) fn skip_storage(self) -> EncryptableUserProfile {
+        EncryptableUserProfile(self.0)
+    }
 }

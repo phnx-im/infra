@@ -19,22 +19,18 @@ pub enum UserProfileMergingError {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
-pub(super) struct UserRecord {
+pub struct UserRecord {
     user_name: QualifiedUserName,
     encrypted_user_profile: EncryptedUserProfile,
     staged_user_profile: Option<EncryptedUserProfile>,
 }
 
 impl UserRecord {
-    fn new(
-        user_name: QualifiedUserName,
-        encrypted_user_profile: EncryptedUserProfile,
-        staged_user_profile: Option<EncryptedUserProfile>,
-    ) -> Self {
+    pub fn new(user_name: QualifiedUserName, encrypted_user_profile: EncryptedUserProfile) -> Self {
         Self {
             user_name,
             encrypted_user_profile,
-            staged_user_profile,
+            staged_user_profile: None,
         }
     }
 
@@ -43,7 +39,7 @@ impl UserRecord {
         user_name: &QualifiedUserName,
         encrypted_user_profile: &EncryptedUserProfile,
     ) -> Result<Self, StorageError> {
-        let user_record = Self::new(user_name.clone(), encrypted_user_profile.clone(), None);
+        let user_record = Self::new(user_name.clone(), encrypted_user_profile.clone());
         user_record.store(connection).await?;
         Ok(user_record)
     }
@@ -53,7 +49,7 @@ impl UserRecord {
         &self.user_name
     }
 
-    pub(super) fn into_user_profile(
+    pub fn into_user_profile(
         self,
         key_index: &UserProfileKeyIndex,
     ) -> Option<EncryptedUserProfile> {
@@ -69,11 +65,11 @@ impl UserRecord {
 
     /// Stage a new user profile for the user. If a user profile is already
     /// staged, it will be replaced.
-    pub(super) fn stage_user_profile(&mut self, encrypted_user_profile: EncryptedUserProfile) {
+    pub fn stage_user_profile(&mut self, encrypted_user_profile: EncryptedUserProfile) {
         self.staged_user_profile = Some(encrypted_user_profile);
     }
 
-    pub(super) fn merge_user_profile(&mut self) -> Result<(), UserProfileMergingError> {
+    pub fn merge_user_profile(&mut self) -> Result<(), UserProfileMergingError> {
         let Some(staged_user_profile) = self.staged_user_profile.take() else {
             return Err(UserProfileMergingError::NoStagedUserProfile);
         };
@@ -115,12 +111,10 @@ pub(crate) mod persistence {
             )
             .fetch_optional(connection)
             .await?;
-            Ok(record.map(|record| {
-                UserRecord::new(
-                    user_name.clone(),
-                    record.encrypted_user_profile,
-                    record.staged_user_profile,
-                )
+            Ok(record.map(|record| UserRecord {
+                user_name: user_name.clone(),
+                encrypted_user_profile: record.encrypted_user_profile,
+                staged_user_profile: record.staged_user_profile,
             }))
         }
 

@@ -32,6 +32,8 @@ pub mod display_name;
 pub(crate) mod generate;
 pub(crate) mod persistence;
 pub(crate) mod process;
+#[cfg(test)]
+mod tests;
 pub(crate) mod update;
 
 impl Signable for IndexedUserProfile {
