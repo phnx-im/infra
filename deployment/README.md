@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+
+SPDX-License-Identifier: CC-BY-SA-4.0
+-->
+
 # Backend Deployment
 
 The backend server is deployed automatically from GitHub Actions. Currently,
