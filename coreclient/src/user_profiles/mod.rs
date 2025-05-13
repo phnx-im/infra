@@ -34,6 +34,8 @@ pub mod display_name;
 pub(crate) mod generate;
 pub(crate) mod persistence;
 pub(crate) mod process;
+#[cfg(test)]
+mod tests;
 pub(crate) mod update;
 
 const USER_PROFILE_LABEL: &str = "UserProfile";
