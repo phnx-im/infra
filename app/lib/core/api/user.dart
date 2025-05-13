@@ -60,7 +60,7 @@ abstract class User implements RustOpaqueInterface {
     required String address,
     required String path,
     PlatformPushToken? pushToken,
-    String? displayName,
+    required String displayName,
     Uint8List? profilePicture,
   }) => RustLib.instance.api.crateApiUserUserNew(
     userName: userName,

@@ -11,8 +11,27 @@ use super::*;
 
 /// A display name is a human-readable name that can be used to identify a user.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct DisplayName {
+pub struct BaseDisplayName<const VALIDATED: bool> {
     display_name: String,
+}
+
+pub type UnvalidatedDisplayName = BaseDisplayName<false>;
+
+pub type DisplayName = BaseDisplayName<true>;
+
+impl UnvalidatedDisplayName {
+    pub fn validate(self) -> Result<DisplayName, DisplayNameError> {
+        DisplayName::from_str(&self.display_name)
+    }
+}
+
+impl DisplayName {
+    pub fn from_user_name(user_name: &QualifiedUserName) -> Self {
+        // TODO: To be replaced by more sophisticated logic based on UUIDs
+        Self {
+            display_name: user_name.to_string(),
+        }
+    }
 }
 
 // Note that this counts chars, not graphemes. While chars are at most 4 bytes,
@@ -83,22 +102,22 @@ impl AsRef<str> for DisplayName {
     }
 }
 
-impl tls_codec::Size for DisplayName {
+impl<const VALIDATED: bool> tls_codec::Size for BaseDisplayName<VALIDATED> {
     fn tls_serialized_len(&self) -> usize {
         TlsStr(&self.display_name).tls_serialized_len()
     }
 }
 
-impl tls_codec::Serialize for DisplayName {
+impl<const VALIDATED: bool> tls_codec::Serialize for BaseDisplayName<VALIDATED> {
     fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
         TlsStr(&self.display_name).tls_serialize(writer)
     }
 }
 
-impl tls_codec::DeserializeBytes for DisplayName {
+impl<const VALIDATED: bool> tls_codec::DeserializeBytes for BaseDisplayName<VALIDATED> {
     fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
         let (TlsString(display_name), bytes) = TlsString::tls_deserialize_bytes(bytes)?;
-        let display_name = DisplayName { display_name };
+        let display_name = BaseDisplayName::<VALIDATED> { display_name };
         Ok((display_name, bytes))
     }
 }

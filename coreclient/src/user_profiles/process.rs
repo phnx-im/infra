@@ -9,7 +9,7 @@ use phnxtypes::{
 };
 
 use super::{
-    IndexedUserProfile, UserProfileValidationError, VerifiableUserProfile, VerifiedUserProfile,
+    IndexedUserProfile, UnvalidatedUserProfile, UserProfileValidationError, VerifiableUserProfile,
 };
 
 pub(crate) struct ExistingUserProfile(Option<IndexedUserProfile>);
@@ -28,21 +28,24 @@ impl ExistingUserProfile {
         user_profile: VerifiableUserProfile,
         credential: &ClientCredential,
     ) -> Result<PersistableUserProfile, UserProfileValidationError> {
-        let VerifiedUserProfile(user_profile) = user_profile.verify(credential.verifying_key())?;
+        let unvalidated_user_profile: UnvalidatedUserProfile =
+            user_profile.verify(credential.verifying_key())?;
         if let Some(existing_user_profile) = &self.0 {
-            if existing_user_profile.user_name != user_profile.user_name {
+            if existing_user_profile.user_name != unvalidated_user_profile.user_name {
                 return Err(UserProfileValidationError::MismatchingUserName {
                     expected: existing_user_profile.user_name.clone(),
-                    actual: user_profile.user_name,
+                    actual: unvalidated_user_profile.user_name,
                 });
             }
-            if existing_user_profile.epoch >= user_profile.epoch {
+            if existing_user_profile.epoch >= unvalidated_user_profile.epoch {
                 return Err(UserProfileValidationError::OutdatedUserProfile {
                     user_name: existing_user_profile.user_name.clone(),
-                    epoch: user_profile.epoch,
+                    epoch: unvalidated_user_profile.epoch,
                 });
             }
         }
+        let user_profile = unvalidated_user_profile.validate_display_name();
+
         Ok(PersistableUserProfile {
             old_profile_index: self.0.map(|profile| profile.decryption_key_index),
             user_profile,

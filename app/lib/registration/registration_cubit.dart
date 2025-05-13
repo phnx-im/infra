@@ -34,7 +34,7 @@ sealed class RegistrationState with _$RegistrationState {
 
     // Display name/avatar screen data
     ImageData? avatar,
-    String? displayName,
+    @Default('') String displayName,
     @Default(false) bool isSigningUp,
   }) = _RegistrationState;
 

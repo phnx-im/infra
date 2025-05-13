@@ -7,6 +7,10 @@ use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 use image::{ImageBuffer, Rgba};
 use mimi_content::MimiContent;
 use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
+use phnxprotos::{
+    auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
+    queue_service::v1::queue_service_server,
+};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcoreclient::{
@@ -17,6 +21,10 @@ use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use phnxtypes::identifiers::QualifiedUserName;
 use png::Encoder;
+use tonic::transport::Channel;
+use tonic_health::pb::{
+    HealthCheckRequest, health_check_response::ServingStatus, health_client::HealthClient,
+};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -347,7 +355,7 @@ async fn exchange_user_profiles() {
 
     let alice_profile = UserProfile {
         user_name: (*ALICE).clone(),
-        display_name: Some(alice_display_name.clone()),
+        display_name: alice_display_name.clone(),
         profile_picture: Some(alice_profile_picture.clone()),
     };
     setup
@@ -366,7 +374,7 @@ async fn exchange_user_profiles() {
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile {
         user_name: (*BOB).clone(),
-        display_name: Some(bob_display_name.clone()),
+        display_name: bob_display_name.clone(),
         profile_picture: Some(bob_profile_picture.clone()),
     };
 
@@ -397,17 +405,17 @@ async fn exchange_user_profiles() {
 
     assert_eq!(profile_picture, compressed_profile_picture);
 
-    assert!(bob_user_profile.display_name.unwrap() == bob_display_name);
+    assert!(bob_user_profile.display_name == bob_display_name);
 
     let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
 
     let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
 
-    assert_eq!(alice_user_profile.display_name.unwrap(), alice_display_name);
+    assert_eq!(alice_user_profile.display_name, alice_display_name);
 
     let new_user_profile = UserProfile {
         user_name: (*ALICE).clone(),
-        display_name: Some("New Alice".parse().unwrap()),
+        display_name: "New Alice".parse().unwrap(),
         profile_picture: None,
     };
 
@@ -647,7 +655,7 @@ async fn update_user_profile_on_group_join() {
     let alice_display_name: DisplayName = "4l1c3".parse().unwrap();
     let alice_profile = UserProfile {
         user_name: (*ALICE).clone(),
-        display_name: Some(alice_display_name.clone()),
+        display_name: alice_display_name.clone(),
         profile_picture: None,
     };
     setup
@@ -721,10 +729,41 @@ async fn update_user_profile_on_group_join() {
         .unwrap();
     // Charlie should now have Alice's new profile.
     let charlie_user_profile = charlie.user.user_profile(&ALICE).await.unwrap().unwrap();
-    assert_eq!(
-        charlie_user_profile.display_name.unwrap(),
-        alice_display_name
-    );
+    assert_eq!(charlie_user_profile.display_name, alice_display_name);
+}
+
+#[tracing::instrument(name = "Health check test", skip_all)]
+async fn health_check() {
+    let setup = TestBackend::single().await;
+    let endpoint = format!("http://localhost:{}", setup.grpc_port());
+    let channel = Channel::from_shared(endpoint)
+        .unwrap()
+        .connect()
+        .await
+        .unwrap();
+    let mut client = HealthClient::new(channel);
+
+    let names = [
+        auth_service_server::SERVICE_NAME,
+        delivery_service_server::SERVICE_NAME,
+        queue_service_server::SERVICE_NAME,
+    ];
+
+    for name in names {
+        let response = client
+            .check(HealthCheckRequest {
+                service: name.to_string(),
+            })
+            .await;
+        if let Err(error) = response {
+            panic!("Health check failed for service {name}: {error}");
+        }
+        let response = response.unwrap().into_inner();
+        assert_eq!(
+            ServingStatus::try_from(response.status).unwrap(),
+            ServingStatus::Serving
+        );
+    }
 }
 
 fn init_test_tracing() {
