@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::{
+    DisplayName,
     groups::client_auth_info::StorableClientCredential,
     key_stores::{
         MemoryUserKeyStoreBase,
@@ -138,7 +139,7 @@ impl BasicUserData {
             &key_store.signing_key,
             user_name.clone(),
             user_profile_key.index().clone(),
-            None,
+            DisplayName::from_user_name(user_name),
             None,
         )?
         .store(connection.as_mut(), &mut StoreNotifier::noop())

@@ -420,15 +420,15 @@ class UiUserProfile {
   /// Fully qualified user name
   final String userName;
 
-  /// Optional display name
-  final String? displayName;
+  /// Display name
+  final String displayName;
 
   /// Optional profile picture
   final ImageData? profilePicture;
 
   const UiUserProfile({
     required this.userName,
-    this.displayName,
+    required this.displayName,
     this.profilePicture,
   });
 

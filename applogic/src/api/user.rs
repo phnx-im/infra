@@ -67,7 +67,7 @@ impl User {
         address: String,
         path: String,
         push_token: Option<PlatformPushToken>,
-        display_name: Option<String>,
+        display_name: String,
         profile_picture: Option<Vec<u8>>,
     ) -> Result<User> {
         let user_name: QualifiedUserName = user_name.parse()?;
@@ -83,7 +83,7 @@ impl User {
 
         let user_profile = UserProfile {
             user_name: user_name.clone(),
-            display_name: display_name.map(|s| s.parse()).transpose()?,
+            display_name: display_name.parse()?,
             profile_picture: profile_picture.map(Asset::Value),
         };
 

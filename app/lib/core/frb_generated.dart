@@ -311,7 +311,7 @@ abstract class RustLibApi extends BaseApi {
     required NavigationCubitBase that,
   });
 
-  String? crateApiUserCubitUiUserDisplayName({required UiUser that});
+  String crateApiUserCubitUiUserDisplayName({required UiUser that});
 
   ImageData? crateApiUserCubitUiUserProfilePicture({required UiUser that});
 
@@ -387,7 +387,7 @@ abstract class RustLibApi extends BaseApi {
     required String address,
     required String path,
     PlatformPushToken? pushToken,
-    String? displayName,
+    required String displayName,
     Uint8List? profilePicture,
   });
 
@@ -2326,7 +2326,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  String? crateApiUserCubitUiUserDisplayName({required UiUser that}) {
+  String crateApiUserCubitUiUserDisplayName({required UiUser that}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
@@ -2338,7 +2338,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 49)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_String,
+          decodeSuccessData: sse_decode_String,
           decodeErrorData: null,
         ),
         constMeta: kCrateApiUserCubitUiUserDisplayNameConstMeta,
@@ -2977,7 +2977,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required String address,
     required String path,
     PlatformPushToken? pushToken,
-    String? displayName,
+    required String displayName,
     Uint8List? profilePicture,
   }) {
     return handler.executeNormal(
@@ -2988,7 +2988,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(address, serializer);
           sse_encode_String(path, serializer);
           sse_encode_opt_box_autoadd_platform_push_token(pushToken, serializer);
-          sse_encode_opt_String(displayName, serializer);
+          sse_encode_String(displayName, serializer);
           sse_encode_opt_list_prim_u_8_strict(profilePicture, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -5130,7 +5130,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return UiUserProfile(
       userName: dco_decode_String(arr[0]),
-      displayName: dco_decode_opt_String(arr[1]),
+      displayName: dco_decode_String(arr[1]),
       profilePicture: dco_decode_opt_box_autoadd_image_data(arr[2]),
     );
   }
@@ -6781,7 +6781,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiUserProfile sse_decode_ui_user_profile(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_userName = sse_decode_String(deserializer);
-    var var_displayName = sse_decode_opt_String(deserializer);
+    var var_displayName = sse_decode_String(deserializer);
     var var_profilePicture = sse_decode_opt_box_autoadd_image_data(
       deserializer,
     );
@@ -8528,7 +8528,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.userName, serializer);
-    sse_encode_opt_String(self.displayName, serializer);
+    sse_encode_String(self.displayName, serializer);
     sse_encode_opt_box_autoadd_image_data(self.profilePicture, serializer);
   }
 
@@ -9005,7 +9005,7 @@ class UiUserImpl extends RustOpaque implements UiUser {
         RustLib.instance.api.rust_arc_decrement_strong_count_UiUserPtr,
   );
 
-  String? get displayName =>
+  String get displayName =>
       RustLib.instance.api.crateApiUserCubitUiUserDisplayName(that: this);
 
   ImageData? get profilePicture =>

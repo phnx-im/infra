@@ -12,11 +12,9 @@ use sqlx::SqliteExecutor;
 
 use crate::store::StoreNotifier;
 
-use super::{
-    Asset, DisplayName, EncryptableUserProfile, IndexedUserProfile, VerifiableUserProfile,
-};
+use super::{Asset, DisplayName, EncryptableUserProfile, IndexedUserProfile, SignedUserProfile};
 
-pub(crate) struct NewUserProfile(VerifiableUserProfile);
+pub(crate) struct NewUserProfile(SignedUserProfile);
 
 impl NewUserProfile {
     /// Creates a new [`NewUserProfile`] with the given data and stores it in
@@ -25,7 +23,7 @@ impl NewUserProfile {
         signing_key: &PreliminaryClientSigningKey,
         user_name: QualifiedUserName,
         decryption_key_index: UserProfileKeyIndex,
-        display_name: Option<DisplayName>,
+        display_name: DisplayName,
         profile_picture: Option<Asset>,
     ) -> Result<Self, LibraryError> {
         let profile = IndexedUserProfile {
