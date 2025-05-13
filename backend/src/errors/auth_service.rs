@@ -192,7 +192,7 @@ impl From<GetUserProfileError> for Status {
 }
 
 #[derive(Debug, Error)]
-pub enum StageUserProfileError {
+pub(crate) enum StageUserProfileError {
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error
@@ -211,7 +211,7 @@ impl From<StageUserProfileError> for Status {
 }
 
 #[derive(Debug, Error)]
-pub enum MergeUserProfileError {
+pub(crate) enum MergeUserProfileError {
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error

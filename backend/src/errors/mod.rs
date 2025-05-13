@@ -80,7 +80,6 @@ impl From<phnxtypes::codec::Error> for QueueError {
 
 /// Potential errors when performing a group operation.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum GroupOperationError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
@@ -121,7 +120,6 @@ impl From<GroupOperationError> for Status {
 
 /// Potential errors when updating a client.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum ClientUpdateError {
     /// Invalid assisted message.
     #[error("Invalid assisted message.")]
@@ -154,7 +152,6 @@ impl From<ClientUpdateError> for Status {
 
 /// Potential errors when joining a connection group.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum JoinConnectionGroupError {
     /// Invalid assisted message.
     #[error("Invalid assisted message")]
@@ -186,7 +183,6 @@ impl From<JoinConnectionGroupError> for Status {
 
 /// Potential errors when adding a user.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum ClientAdditionError {
     #[error("Error merging commit: {0}")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
@@ -194,7 +190,6 @@ pub(crate) enum ClientAdditionError {
 
 /// Potential errors when removing clients.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum ClientRemovalError {
     #[error("Error merging commit: {0}")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
@@ -202,7 +197,6 @@ pub(crate) enum ClientRemovalError {
 
 /// Potential errors when deleting a group.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum GroupDeletionError {
     /// Invalid assisted message.
     #[error("Invalid assisted message")]
@@ -230,7 +224,6 @@ impl From<GroupDeletionError> for Status {
 
 /// Potential errors when processing a self remove proposal.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum ClientSelfRemovalError {
     /// Invalid assisted message.
     #[error("Invalid assisted message")]
@@ -258,7 +251,6 @@ impl From<ClientSelfRemovalError> for Status {
 
 /// Potential errors when resyncing a client.
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum ResyncClientError {
     /// Invalid assisted message.
     #[error("Invalid assisted message")]
