@@ -83,7 +83,7 @@ impl User {
 
         let user_profile = UserProfile {
             user_name: user_name.clone(),
-            display_name: display_name.map(TryFrom::try_from).transpose()?,
+            display_name: display_name.map(|s| s.parse()).transpose()?,
             profile_picture: profile_picture.map(Asset::Value),
         };
 

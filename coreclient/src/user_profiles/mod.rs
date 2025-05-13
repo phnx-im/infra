@@ -5,25 +5,110 @@
 //! This module provides structs and functions to interact with users in the
 //! various groups an InfraClient is a member of.
 
-use std::fmt::Display;
-
+pub use display_name::{DisplayName, DisplayNameError};
 use phnxtypes::{
+    LibraryError,
     crypto::{
         ear::{EarDecryptable, EarEncryptable},
         indexed_aead::{
             ciphertexts::{IndexDecryptable, IndexEncryptable},
             keys::{UserProfileKey, UserProfileKeyIndex, UserProfileKeyType},
         },
+        signatures::{
+            private_keys::SignatureVerificationError,
+            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+        },
     },
     identifiers::QualifiedUserName,
     messages::client_as_out::EncryptedUserProfileCtype,
 };
+use sealed::Seal;
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
+pub mod display_name;
+pub(crate) mod generate;
 pub(crate) mod persistence;
+pub(crate) mod process;
+pub(crate) mod update;
+
+impl Signable for IndexedUserProfile {
+    type SignedOutput = VerifiableUserProfile;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
+
+    fn label(&self) -> &str {
+        "UserProfile"
+    }
+}
+
+impl SignedStruct<IndexedUserProfile> for VerifiableUserProfile {
+    fn from_payload(payload: IndexedUserProfile, signature: Signature) -> Self {
+        Self {
+            tbs: payload,
+            signature,
+        }
+    }
+}
+
+impl Verifiable for VerifiableUserProfile {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tbs.tls_serialize_detached()
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        &self.signature
+    }
+
+    fn label(&self) -> &str {
+        IndexedUserProfile::label(&self.tbs)
+    }
+}
+
+mod sealed {
+    #[derive(Default)]
+    pub struct Seal;
+}
+
+impl VerifiedStruct<VerifiableUserProfile> for VerifiedUserProfile {
+    type SealingType = Seal;
+
+    fn from_verifiable(verifiable: VerifiableUserProfile, _seal: Self::SealingType) -> Self {
+        VerifiedUserProfile(verifiable.tbs)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct VerifiableUserProfile {
+    tbs: IndexedUserProfile,
+    signature: Signature,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(transparent)]
+pub(crate) struct VerifiedUserProfile(IndexedUserProfile);
+
+#[derive(Debug, Error)]
+pub enum UserProfileValidationError {
+    #[error("User profile is outdated")]
+    OutdatedUserProfile {
+        user_name: QualifiedUserName,
+        epoch: u64,
+    },
+    #[error("Mismatching user name")]
+    MismatchingUserName {
+        expected: QualifiedUserName,
+        actual: QualifiedUserName,
+    },
+    #[error(transparent)]
+    InvalidSignature(#[from] SignatureVerificationError),
+    #[error(transparent)]
+    LibraryError(#[from] LibraryError),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserProfile {
@@ -49,110 +134,10 @@ impl From<IndexedUserProfile> for UserProfile {
 )]
 pub(crate) struct IndexedUserProfile {
     user_name: QualifiedUserName,
+    epoch: u64,
     decryption_key_index: UserProfileKeyIndex,
     display_name: Option<DisplayName>,
     profile_picture: Option<Asset>,
-}
-
-impl IndexedUserProfile {
-    pub(crate) fn new(
-        user_name: QualifiedUserName,
-        decryption_key_index: UserProfileKeyIndex,
-        display_name: Option<DisplayName>,
-        profile_picture: Option<Asset>,
-    ) -> Self {
-        Self {
-            user_name,
-            decryption_key_index,
-            display_name,
-            profile_picture,
-        }
-    }
-
-    pub(crate) fn decryption_key_index(&self) -> &UserProfileKeyIndex {
-        &self.decryption_key_index
-    }
-}
-
-/// A display name is a human-readable name that can be used to identify a user.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct DisplayName {
-    display_name: String,
-}
-
-impl sqlx::Type<Sqlite> for DisplayName {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <String as sqlx::Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for DisplayName {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        Encode::<Sqlite>::encode_by_ref(&self.display_name, buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for DisplayName {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let display_name: String = Decode::<Sqlite>::decode(value)?;
-        Ok(Self { display_name })
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum DisplayNameError {
-    #[error("Invalid display name")]
-    InvalidDisplayName,
-}
-
-// We might want to add more constraints here, e.g. on the length of the display
-// name.
-impl TryFrom<String> for DisplayName {
-    type Error = DisplayNameError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self {
-            display_name: value,
-        })
-    }
-}
-
-impl Display for DisplayName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.display_name)
-    }
-}
-
-impl AsRef<str> for DisplayName {
-    fn as_ref(&self) -> &str {
-        &self.display_name
-    }
-}
-
-impl tls_codec::Size for DisplayName {
-    fn tls_serialized_len(&self) -> usize {
-        self.display_name.as_bytes().tls_serialized_len()
-    }
-}
-
-impl tls_codec::Serialize for DisplayName {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        self.display_name.as_bytes().tls_serialize(writer)
-    }
-}
-
-impl tls_codec::DeserializeBytes for DisplayName {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
-        let (display_name_bytes, bytes): (Vec<u8>, &[u8]) =
-            tls_codec::DeserializeBytes::tls_deserialize_bytes(bytes)?;
-        let display_name = String::from_utf8(display_name_bytes.to_vec()).map_err(|_| {
-            tls_codec::Error::DecodingError("Couldn't convert bytes to UTF-8 string".to_string())
-        })?;
-        Ok((DisplayName { display_name }, bytes))
-    }
 }
 
 #[derive(
@@ -195,8 +180,12 @@ impl Asset {
     }
 }
 
-impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
-impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for IndexedUserProfile {}
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
+pub(crate) struct EncryptableUserProfile(VerifiableUserProfile);
 
-impl IndexDecryptable<UserProfileKeyType, EncryptedUserProfileCtype> for IndexedUserProfile {}
-impl IndexEncryptable<UserProfileKeyType, EncryptedUserProfileCtype> for IndexedUserProfile {}
+impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for EncryptableUserProfile {}
+impl EarDecryptable<UserProfileKey, EncryptedUserProfileCtype> for VerifiableUserProfile {}
+
+impl IndexEncryptable<UserProfileKeyType, EncryptedUserProfileCtype> for EncryptableUserProfile {}
+impl IndexDecryptable<UserProfileKeyType, EncryptedUserProfileCtype> for VerifiableUserProfile {}
