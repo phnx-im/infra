@@ -23,7 +23,6 @@ use phnxtypes::{
         },
         errors::{DecryptionError, EncryptionError},
     },
-    errors::CborMlsAssistStorage,
     identifiers::{QsReference, SealedClientReference},
     messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
@@ -34,7 +33,7 @@ use thiserror::Error;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::errors::StorageError;
+use crate::errors::{CborMlsAssistStorage, StorageError};
 
 use super::{GROUP_STATE_EXPIRATION, ReservedGroupId, process::ExternalCommitInfo};
 

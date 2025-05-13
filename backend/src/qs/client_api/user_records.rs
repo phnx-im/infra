@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::qs::{QsCreateUserError, QsDeleteUserError, QsUpdateUserError},
-    messages::client_qs::{
-        CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
-        CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
-    },
+use phnxtypes::messages::client_qs::{
+    CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
+    CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
 };
 
-use crate::qs::{Qs, user_record::UserRecord};
+use crate::{
+    errors::qs::{QsCreateUserError, QsDeleteUserError, QsUpdateUserError},
+    qs::{Qs, user_record::UserRecord},
+};
 
 impl Qs {
     /// Update the info of a given queue. Requires a valid signature by the

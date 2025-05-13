@@ -7,11 +7,12 @@ use mls_assist::{
     openmls::prelude::ProcessedMessageContent, provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
-    errors::JoinConnectionGroupError,
     messages::client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParams},
     time::{Duration, TimeStamp},
 };
 use tls_codec::DeserializeBytes;
+
+use crate::errors::JoinConnectionGroupError;
 
 use super::{
     group_state::{DsGroupState, MemberProfile},

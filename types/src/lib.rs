@@ -17,7 +17,6 @@ pub mod codec;
 pub mod credentials;
 pub mod crypto;
 pub mod endpoint_paths;
-pub mod errors;
 pub mod identifiers;
 pub mod messages;
 pub mod time;
