@@ -661,9 +661,11 @@ async fn health_check() {
             .check(HealthCheckRequest {
                 service: name.to_string(),
             })
-            .await
-            .unwrap()
-            .into_inner();
+            .await;
+        if let Err(error) = response {
+            panic!("Health check failed for service {name}: {error}");
+        }
+        let response = response.unwrap().into_inner();
         assert_eq!(
             ServingStatus::try_from(response.status).unwrap(),
             ServingStatus::Serving

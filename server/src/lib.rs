@@ -22,6 +22,7 @@ use phnxprotos::{
 };
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::service::InterceptorLayer;
+use tonic_health::pb::health_server::{Health, HealthServer};
 use tower_governor::{
     GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
 };
@@ -96,6 +97,8 @@ pub async fn run<
         }
     });
 
+    let health_service = configure_health_service::<Qc, Np>().await;
+
     tonic::transport::Server::builder()
         .layer(InterceptorLayer::new(ConnectInfoInterceptor))
         .layer(
@@ -113,8 +116,24 @@ pub async fn run<
                 ),
         )
         .layer(GovernorLayer::new(governor_config))
+        .add_service(health_service)
         .add_service(AuthServiceServer::new(grpc_as))
         .add_service(DeliveryServiceServer::new(grpc_ds))
         .add_service(QueueServiceServer::new(grpc_qs))
         .serve_with_incoming(TcpListenerStream::new(grpc_listener))
+}
+
+async fn configure_health_service<
+    Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone,
+    Np: NetworkProvider,
+>() -> HealthServer<impl Health> {
+    let (reporter, service) = tonic_health::server::health_reporter();
+    reporter.set_serving::<AuthServiceServer<GrpcAs>>().await;
+    reporter
+        .set_serving::<DeliveryServiceServer<GrpcDs<Qc>>>()
+        .await;
+    reporter
+        .set_serving::<QueueServiceServer<GrpcQs<DispatchNotifier>>>()
+        .await;
+    service
 }
