@@ -13,7 +13,6 @@ use crate::{
         client_record::ClientRecord,
         connection_package::StorableConnectionPackage,
         credentials::{intermediate_signing_key::IntermediateCredential, signing_key::Credential},
-        queue::Queue,
     },
     errors::auth_service::{AsCredentialsError, EnqueueMessageError, UserConnectionPackagesError},
 };
@@ -82,11 +81,8 @@ impl AuthService {
         // TODO: Future work: PCS
 
         tracing::trace!("Enqueueing message in storage provider");
-        let mut connection = self.db_pool.acquire().await.map_err(|e| {
-            tracing::warn!("Failed to acquire connection from pool: {:?}", e);
-            EnqueueMessageError::StorageError
-        })?;
-        Queue::enqueue(&mut connection, &client_id, &queue_message)
+        self.queues
+            .enqueue(&client_id, &queue_message)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to enqueue message: {:?}", e);

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use futures_util::stream::BoxStream;
 use phnxprotos::{
     auth_service::v1::{auth_service_server, *},
     validation::MissingFieldExt,
@@ -18,8 +19,8 @@ use phnxtypes::{
     identifiers,
     messages::{
         client_as::{
-            AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
-            EnqueueMessageParams, UserConnectionPackagesParams,
+            AsCredentialsParams, DeleteUserParamsTbs, EnqueueMessageParams,
+            UserConnectionPackagesParams,
         },
         client_as_out::{
             GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
@@ -27,10 +28,11 @@ use phnxtypes::{
         },
     },
 };
-use tonic::{Request, Response, Status, async_trait};
+use tokio_stream::StreamExt;
+use tonic::{Request, Response, Status, Streaming, async_trait};
 use tracing::error;
 
-use super::{AuthService, client_record::ClientRecord};
+use super::{AuthService, client_record::ClientRecord, queue::Queues};
 
 pub struct GrpcAs {
     inner: AuthService,
@@ -68,6 +70,35 @@ impl GrpcAs {
                 }
             })?;
         Ok((client_id, payload))
+    }
+
+    async fn process_listen_requests_task(
+        queues: Queues,
+        client_id: identifiers::AsClientId,
+        mut requests: Streaming<ListenRequest>,
+    ) {
+        while let Some(request) = requests.next().await {
+            if let Err(error) = Self::process_listen_request(&queues, &client_id, request).await {
+                // We report the error, but don't stop processing requests.
+                // TODO(#466): Send this to the client.
+                error!(%error, "error processing listen request");
+            }
+        }
+    }
+
+    async fn process_listen_request(
+        queues: &Queues,
+        client_id: &identifiers::AsClientId,
+        request: Result<ListenRequest, Status>,
+    ) -> Result<(), Status> {
+        let request = request?;
+        let Some(listen_request::Request::Ack(ack_request)) = request.request else {
+            return Err(ListenProtocolViolation::OnlyAckRequestAllowed.into());
+        };
+        queues
+            .ack(client_id, ack_request.up_to_sequence_number)
+            .await?;
+        Ok(())
     }
 }
 
@@ -247,6 +278,47 @@ impl auth_service_server::AuthService for GrpcAs {
         todo!()
     }
 
+    type ListenStream = BoxStream<'static, Result<ListenResponse, Status>>;
+
+    async fn listen(
+        &self,
+        request: Request<Streaming<ListenRequest>>,
+    ) -> Result<Response<Self::ListenStream>, Status> {
+        let mut requests = request.into_inner();
+
+        let request = requests
+            .next()
+            .await
+            .ok_or(ListenProtocolViolation::MissingInitRequest)??;
+        let Some(listen_request::Request::Init(init_request)) = request.request else {
+            return Err(Status::failed_precondition("missing initial request"));
+        };
+
+        let (client_id, payload) = self
+            .verify_client_auth::<_, InitListenPayload>(init_request)
+            .await?;
+
+        let messages = self
+            .inner
+            .queues
+            .listen(&client_id, payload.sequence_number_start)
+            .await?;
+
+        tokio::spawn(Self::process_listen_requests_task(
+            self.inner.queues.clone(),
+            client_id.clone(),
+            requests,
+        ));
+
+        let responses = Box::pin(messages.map(|message| {
+            Ok(ListenResponse {
+                message: message.map(From::from),
+            })
+        }));
+
+        Ok(Response::new(responses))
+    }
+
     async fn enqueue_messages(
         &self,
         request: Request<EnqueueMessagesRequest>,
@@ -265,25 +337,19 @@ impl auth_service_server::AuthService for GrpcAs {
         self.inner.as_enqueue_message(params).await?;
         Ok(Response::new(EnqueueMessagesResponse {}))
     }
+}
 
-    async fn dequeue_messages(
-        &self,
-        request: Request<DequeueMessagesRequest>,
-    ) -> Result<Response<DequeueMessagesResponse>, Status> {
-        let request = request.into_inner();
-        let (sender, payload) = self
-            .verify_client_auth::<_, DequeueMessagesPayload>(request)
-            .await?;
-        let params = DequeueMessagesParamsTbs {
-            sender,
-            sequence_number_start: payload.sequence_number_start,
-            max_message_number: payload.max_message_number,
-        };
-        let response = self.inner.as_dequeue_messages(params).await?;
-        Ok(Response::new(DequeueMessagesResponse {
-            messages: response.messages.into_iter().map(Into::into).collect(),
-            remaining_messages_number: response.remaining_messages_number,
-        }))
+#[derive(Debug, thiserror::Error)]
+enum ListenProtocolViolation {
+    #[error("missing initial request")]
+    MissingInitRequest,
+    #[error("only ack request allowed")]
+    OnlyAckRequestAllowed,
+}
+
+impl From<ListenProtocolViolation> for Status {
+    fn from(error: ListenProtocolViolation) -> Self {
+        Status::failed_precondition(error.to_string())
     }
 }
 
@@ -309,12 +375,6 @@ impl WithAsClientId for PublishConnectionPackagesRequest {
     }
 }
 
-impl WithAsClientId for DequeueMessagesRequest {
-    fn client_id_proto(&self) -> Option<AsClientId> {
-        self.payload.as_ref()?.sender.clone()
-    }
-}
-
 impl WithAsClientId for StageUserProfileRequest {
     fn client_id_proto(&self) -> Option<AsClientId> {
         self.payload.as_ref()?.client_id.clone()
@@ -322,6 +382,12 @@ impl WithAsClientId for StageUserProfileRequest {
 }
 
 impl WithAsClientId for MergeUserProfileRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
+    }
+}
+
+impl WithAsClientId for InitListenRequest {
     fn client_id_proto(&self) -> Option<AsClientId> {
         self.payload.as_ref()?.client_id.clone()
     }
