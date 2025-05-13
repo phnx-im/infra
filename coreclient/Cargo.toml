@@ -49,6 +49,7 @@ phnxserver_test_harness = { path = "../test_harness" }
 phnxtypes = { path = "../types", features = ["test_utils"] }
 serde_json = "1.0.140"
 insta = { workspace = true, features = ["json"] }
+phnxbackend = { path = "../backend" }
 
 [build-dependencies]
 
