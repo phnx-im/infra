@@ -57,7 +57,6 @@ impl From<RegisterUserError> for Status {
 }
 
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum DeleteUserError {
     /// Storage provider error
     #[error("Storage provider error")]
@@ -74,7 +73,6 @@ impl From<DeleteUserError> for Status {
 }
 
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum PublishConnectionPackageError {
     /// Storage provider error
     #[error("Storage provider error")]
@@ -95,7 +93,6 @@ impl From<PublishConnectionPackageError> for Status {
 }
 
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum UserConnectionPackagesError {
     /// User could not be found
     #[error("User could not be found")]
@@ -116,7 +113,6 @@ impl From<UserConnectionPackagesError> for Status {
 }
 
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum EnqueueMessageError {
     /// Library error
     #[error("Library error")]
@@ -142,7 +138,6 @@ impl From<EnqueueMessageError> for Status {
 }
 
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum IssueTokensError {
     /// Storage provider error
     #[error("Storage provider error")]

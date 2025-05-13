@@ -3,39 +3,50 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use thiserror::Error;
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tonic::Status;
 
 /// Error fetching a message from the QS.
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsDequeueError {
+#[derive(Debug, Error)]
+pub(crate) enum QsDequeueError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
-    /// Couldn't find the requested queue.
-    #[error("Couldn't find the requested queue")]
-    QueueNotFound,
+}
+
+impl From<QsDequeueError> for Status {
+    fn from(e: QsDequeueError) -> Self {
+        let msg = e.to_string();
+        match e {
+            QsDequeueError::StorageError => Status::internal(msg),
+        }
+    }
 }
 
 // === Client ===
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsCreateClientRecordError {
+#[derive(Debug, Error)]
+pub(crate) enum QsCreateClientRecordError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,
     /// Error creating client record
     #[error("Error creating user record")]
     StorageError,
-    /// Invalid KeyPackage
-    #[error("Invalid KeyPackage")]
-    InvalidKeyPackage,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsUpdateClientRecordError {
+impl From<QsCreateClientRecordError> for Status {
+    fn from(e: QsCreateClientRecordError) -> Self {
+        let msg = e.to_string();
+        match e {
+            QsCreateClientRecordError::LibraryError | QsCreateClientRecordError::StorageError => {
+                Status::internal(msg)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub(crate) enum QsUpdateClientRecordError {
     /// Client not found
     #[error("Client not found")]
     UnknownClient,
@@ -44,27 +55,27 @@ pub enum QsUpdateClientRecordError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsGetClientError {
-    /// Error getting client record
-    #[error("Error getting client record")]
-    StorageError,
+impl From<QsUpdateClientRecordError> for Status {
+    fn from(e: QsUpdateClientRecordError) -> Self {
+        let msg = e.to_string();
+        match e {
+            QsUpdateClientRecordError::UnknownClient => Status::not_found(msg),
+            QsUpdateClientRecordError::StorageError => Status::internal(msg),
+        }
+    }
 }
 
 // === User ===
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsCreateUserError {
+#[derive(Debug, Error)]
+pub(crate) enum QsCreateUserError {
     /// Error creating client record
     #[error("Error creating user record")]
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsUpdateUserError {
+#[derive(Debug, Error)]
+pub(crate) enum QsUpdateUserError {
     /// User not found
     #[error("User not found")]
     UnknownUser,
@@ -73,17 +84,8 @@ pub enum QsUpdateUserError {
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsGetUserError {
-    /// Error getting user record
-    #[error("Error getting user record")]
-    StorageError,
-}
-
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsDeleteUserError {
+#[derive(Debug, Error)]
+pub(crate) enum QsDeleteUserError {
     /// Error deleteing user record
     #[error("Error deleteing user record")]
     StorageError,
@@ -91,11 +93,8 @@ pub enum QsDeleteUserError {
 
 // === Key Packages ===
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsPublishKeyPackagesError {
-    #[error("Library Error")]
-    LibraryError,
+#[derive(Debug, Error)]
+pub(crate) enum QsPublishKeyPackagesError {
     /// Error publishing key packages
     #[error("Error publishing key packages")]
     StorageError,
@@ -104,41 +103,49 @@ pub enum QsPublishKeyPackagesError {
     InvalidKeyPackage,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsClientKeyPackageError {
-    /// Error retrieving client key package
-    #[error("Error retrieving client key package")]
-    StorageError,
-    /// No KeyPackages are available
-    #[error("No KeyPackages are available")]
-    NoKeyPackages,
+impl From<QsPublishKeyPackagesError> for Status {
+    fn from(e: QsPublishKeyPackagesError) -> Self {
+        let msg = e.to_string();
+        match e {
+            QsPublishKeyPackagesError::StorageError => Status::internal(msg),
+            QsPublishKeyPackagesError::InvalidKeyPackage => Status::invalid_argument(msg),
+        }
+    }
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsKeyPackageError {
-    /// Library error
-    #[error("Library Error")]
-    LibraryError,
-    /// Decryption error
-    #[error("Decryption error")]
-    DecryptionError,
-    /// Invalid KeyPackage
-    #[error("Invalid KeyPackage")]
-    InvalidKeyPackage,
+#[derive(Debug, Error)]
+pub(crate) enum QsKeyPackageError {
     /// Error retrieving user key packages
     #[error("Error retrieving user key packages")]
     StorageError,
 }
 
-#[derive(Error, Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
-#[repr(u8)]
-pub enum QsEncryptionKeyError {
+impl From<QsKeyPackageError> for Status {
+    fn from(e: QsKeyPackageError) -> Self {
+        let msg = e.to_string();
+        match e {
+            QsKeyPackageError::StorageError => Status::internal(msg),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub(crate) enum QsEncryptionKeyError {
     /// Library error
     #[error("Library Error")]
     LibraryError,
     /// Error retrieving encryption key
     #[error("Error retrieving encryption key")]
     StorageError,
+}
+
+impl From<QsEncryptionKeyError> for Status {
+    fn from(e: QsEncryptionKeyError) -> Self {
+        let msg = e.to_string();
+        match e {
+            QsEncryptionKeyError::LibraryError | QsEncryptionKeyError::StorageError => {
+                Status::internal(msg)
+            }
+        }
+    }
 }
