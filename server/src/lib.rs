@@ -22,6 +22,7 @@ use phnxprotos::{
 };
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::service::InterceptorLayer;
+use tonic_health::pb::health_server::{Health, HealthServer};
 use tower_governor::{
     GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
 };
@@ -42,7 +43,7 @@ pub struct ServerRunParams<Qc> {
     pub auth_service: AuthService,
     pub qs: Qs,
     pub qs_connector: Qc,
-    pub ws_dispatch_notifier: DispatchNotifier,
+    pub dispatch_notifier: DispatchNotifier,
     pub rate_limits: RateLimitsConfig,
 }
 
@@ -54,14 +55,17 @@ pub struct RateLimitsConfig {
 }
 
 /// Configure and run the server application.
-pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: NetworkProvider>(
+pub async fn run<
+    Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone,
+    Np: NetworkProvider,
+>(
     ServerRunParams {
         listener: grpc_listener,
         ds,
         auth_service,
         qs,
         qs_connector,
-        ws_dispatch_notifier,
+        dispatch_notifier,
         rate_limits,
     }: ServerRunParams<Qc>,
 ) -> impl Future<Output = Result<(), tonic::transport::Error>> {
@@ -74,7 +78,7 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
     // GRPC server
     let grpc_as = GrpcAs::new(auth_service);
     let grpc_ds = GrpcDs::new(ds, qs_connector);
-    let grpc_qs = GrpcQs::new(qs, ws_dispatch_notifier);
+    let grpc_qs = GrpcQs::new(qs, dispatch_notifier);
 
     let RateLimitsConfig { period, burst_size } = rate_limits;
     let governor_config = GovernorConfigBuilder::default()
@@ -93,6 +97,8 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
         }
     });
 
+    let health_service = configure_health_service::<Qc, Np>().await;
+
     tonic::transport::Server::builder()
         .layer(InterceptorLayer::new(ConnectInfoInterceptor))
         .layer(
@@ -110,8 +116,24 @@ pub fn run<Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone, Np: Netwo
                 ),
         )
         .layer(GovernorLayer::new(governor_config))
+        .add_service(health_service)
         .add_service(AuthServiceServer::new(grpc_as))
         .add_service(DeliveryServiceServer::new(grpc_ds))
         .add_service(QueueServiceServer::new(grpc_qs))
         .serve_with_incoming(TcpListenerStream::new(grpc_listener))
+}
+
+async fn configure_health_service<
+    Qc: QsConnector<EnqueueError = QsEnqueueError<Np>> + Clone,
+    Np: NetworkProvider,
+>() -> HealthServer<impl Health> {
+    let (reporter, service) = tonic_health::server::health_reporter();
+    reporter.set_serving::<AuthServiceServer<GrpcAs>>().await;
+    reporter
+        .set_serving::<DeliveryServiceServer<GrpcDs<Qc>>>()
+        .await;
+    reporter
+        .set_serving::<QueueServiceServer<GrpcQs<DispatchNotifier>>>()
+        .await;
+    service
 }
