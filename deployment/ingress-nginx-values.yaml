@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+controller:
+  service:
+    annotations:
+      service.beta.kubernetes.io/upcloud-load-balancer-config: |
+                {
+                  "frontends": [
+                    {
+                      "name": "https",
+                      "mode": "http",
+                      "port": 443,
+                      "default_backend": "http",
+                      "networks": [
+                        {
+                          "name": "public-IPv4"
+                        }
+                      ],
+                      "tls_configs": [
+                        {
+                          "name": "phnx-infra-dev-cert",
+                          "certificate_bundle_uuid": "0a60fc75-2e82-4bc9-b0e8-f51c1c245cee"
+                        }
+                      ],
+                      "properties": {
+                        "http2_enabled": false
+                      }
+                    },
+                    {
+                      "name": "grpc",
+                      "mode": "http",
+                      "port": 50051,
+                      "default_backend": "https",
+                      "networks": [
+                        {
+                          "name": "public-IPv4"
+                        }
+                      ],
+                      "tls_configs": [
+                        {
+                          "name": "phnx-infra-dev-cert",
+                          "certificate_bundle_uuid": "0a60fc75-2e82-4bc9-b0e8-f51c1c245cee"
+                        }
+                      ],
+                      "properties": {
+                        "http2_enabled": true
+                      }
+                    }
+                  ],
+                  "backends": [
+                    {
+                      "name": "http",
+                      "properties": {
+                        "outbound_proxy_protocol": "v2",
+                        "http2_enabled": false,
+                        "tls_enabled": true
+                      }
+                    },
+                    {
+                      "name": "https",
+                      "properties": {
+                        "outbound_proxy_protocol": "v2",
+                        "http2_enabled": true,
+                        "tls_enabled": true
+                      }
+                    }
+                  ]
+                }
+  config:
+    use-forwarded-headers: "true"
+    compute-full-forwarded-for: "true"
+    use-proxy-protocol: "true"
+    real-ip-header: "proxy_protocol"
