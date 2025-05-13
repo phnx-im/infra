@@ -89,7 +89,7 @@ impl UiUser {
 
     #[frb(getter, sync)]
     pub fn display_name(&self) -> String {
-        self.inner.profile.display_name.clone().to_string()
+        self.inner.profile.display_name.to_string()
     }
 
     #[frb(getter, sync)]

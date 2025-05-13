@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};
 use thiserror::Error;
 use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tracing::info;
 
 pub mod display_name;
 pub(crate) mod generate;
@@ -164,10 +165,10 @@ impl UnvalidatedUserProfile {
     /// If the display name is invalid, it is replaced with a default
     /// based on the user name.
     pub fn validate_display_name(self) -> IndexedUserProfile {
-        let display_name = self
-            .display_name
-            .validate()
-            .unwrap_or(DisplayName::from_user_name(&self.user_name));
+        let display_name = self.display_name.validate().unwrap_or_else(|e| {
+            info!(error = %e, "Invalid display name, generating default");
+            DisplayName::from_user_name(&self.user_name)
+        });
         IndexedUserProfile {
             user_name: self.user_name,
             epoch: self.epoch,
