@@ -8,9 +8,12 @@ use phnxprotos::{
 };
 
 use phnxtypes::{
-    crypto::signatures::{
-        private_keys::SignatureVerificationError,
-        signable::{Verifiable, VerifiedStruct},
+    crypto::{
+        indexed_aead::keys::UserProfileKeyIndex,
+        signatures::{
+            private_keys::SignatureVerificationError,
+            signable::{Verifiable, VerifiedStruct},
+        },
     },
     identifiers,
     messages::{
@@ -18,7 +21,10 @@ use phnxtypes::{
             AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
             EnqueueMessageParams, UserConnectionPackagesParams,
         },
-        client_as_out::{GetUserProfileParams, RegisterUserParamsIn, UpdateUserProfileParamsTbs},
+        client_as_out::{
+            GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
+            StageUserProfileParamsTbs,
+        },
     },
 };
 use tonic::{Request, Response, Status, async_trait};
@@ -178,23 +184,36 @@ impl auth_service_server::AuthService for GrpcAs {
         }))
     }
 
-    async fn update_user_profile(
+    async fn stage_user_profile(
         &self,
-        request: Request<UpdateUserProfileRequest>,
-    ) -> Result<Response<UpdateUserProfileResponse>, Status> {
+        request: Request<StageUserProfileRequest>,
+    ) -> Result<Response<StageUserProfileResponse>, Status> {
         let request = request.into_inner();
         let (client_id, payload) = self
-            .verify_client_auth::<_, UpdateUserProfilePayload>(request)
+            .verify_client_auth::<_, StageUserProfilePayload>(request)
             .await?;
-        let params = UpdateUserProfileParamsTbs {
+        let params = StageUserProfileParamsTbs {
             client_id,
             user_profile: payload
                 .encrypted_user_profile
                 .ok_or_missing_field("encrypted_user_profile")?
                 .try_into()?,
         };
-        self.inner.as_update_user_profile(params).await?;
-        Ok(Response::new(UpdateUserProfileResponse {}))
+        self.inner.as_stage_user_profile(params).await?;
+        Ok(Response::new(StageUserProfileResponse {}))
+    }
+
+    async fn merge_user_profile(
+        &self,
+        request: Request<MergeUserProfileRequest>,
+    ) -> Result<Response<MergeUserProfileResponse>, Status> {
+        let request = request.into_inner();
+        let (client_id, _payload) = self
+            .verify_client_auth::<_, MergeUserProfilePayload>(request)
+            .await?;
+        let params = MergeUserProfileParamsTbs { client_id };
+        self.inner.as_merge_user_profile(params).await?;
+        Ok(Response::new(MergeUserProfileResponse {}))
     }
 
     async fn get_user_profile(
@@ -206,7 +225,15 @@ impl auth_service_server::AuthService for GrpcAs {
             .client_id
             .ok_or_missing_field("client_id")?
             .try_into()?;
-        let params = GetUserProfileParams { client_id };
+        let key_index = UserProfileKeyIndex::from_bytes(request.key_index.try_into().map_err(
+            |bytes: Vec<u8>| {
+                Status::invalid_argument(format!("invalid key index length: {}", bytes.len()))
+            },
+        )?);
+        let params = GetUserProfileParams {
+            client_id,
+            key_index,
+        };
         let response = self.inner.as_get_user_profile(params).await?;
         Ok(Response::new(GetUserProfileResponse {
             encrypted_user_profile: Some(response.encrypted_user_profile.into()),
@@ -288,7 +315,13 @@ impl WithAsClientId for DequeueMessagesRequest {
     }
 }
 
-impl WithAsClientId for UpdateUserProfileRequest {
+impl WithAsClientId for StageUserProfileRequest {
+    fn client_id_proto(&self) -> Option<AsClientId> {
+        self.payload.as_ref()?.client_id.clone()
+    }
+}
+
+impl WithAsClientId for MergeUserProfileRequest {
     fn client_id_proto(&self) -> Option<AsClientId> {
         self.payload.as_ref()?.client_id.clone()
     }

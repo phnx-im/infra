@@ -12,7 +12,10 @@ use crate::{
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
-        ear::Ciphertext,
+        indexed_aead::{
+            ciphertexts::IndexedCiphertext,
+            keys::{UserProfileKeyIndex, UserProfileKeyType},
+        },
         kdf::keys::RatchetSecret,
         signatures::{
             private_keys::SignatureVerificationError,
@@ -28,7 +31,7 @@ use super::{
     client_as::{ConnectionPackage, ConnectionPackageTbs},
 };
 
-#[derive(Debug)]
+#[derive(Debug, TlsDeserializeBytes, TlsSize)]
 pub struct UserConnectionPackagesResponseIn {
     pub connection_packages: Vec<ConnectionPackageIn>,
 }
@@ -120,14 +123,14 @@ pub struct RegisterUserParamsIn {
     pub encrypted_user_profile: EncryptedUserProfile,
 }
 
-#[derive(Debug)]
 pub struct GetUserProfileParams {
     pub client_id: AsClientId,
+    pub key_index: UserProfileKeyIndex,
 }
 
 #[derive(Debug)]
 pub struct EncryptedUserProfileCtype;
-pub type EncryptedUserProfile = Ciphertext<EncryptedUserProfileCtype>;
+pub type EncryptedUserProfile = IndexedCiphertext<UserProfileKeyType, EncryptedUserProfileCtype>;
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GetUserProfileResponse {
@@ -138,4 +141,27 @@ pub struct GetUserProfileResponse {
 pub struct UpdateUserProfileParamsTbs {
     pub client_id: AsClientId,
     pub user_profile: EncryptedUserProfile,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct StageUserProfileParamsTbs {
+    pub client_id: AsClientId,
+    pub user_profile: EncryptedUserProfile,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct StageUserProfileParams {
+    payload: StageUserProfileParamsTbs,
+    signature: Signature,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct MergeUserProfileParamsTbs {
+    pub client_id: AsClientId,
+}
+
+#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
+pub struct MergeUserProfileParams {
+    payload: MergeUserProfileParamsTbs,
+    signature: Signature,
 }

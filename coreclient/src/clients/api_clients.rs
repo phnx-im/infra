@@ -11,7 +11,7 @@ use phnxtypes::identifiers::Fqdn;
 
 use super::*;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct ApiClients {
     // We store our own domain such that we can manually map our own domain to
     // an API client that uses an IP address instead of the actual domain. This

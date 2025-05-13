@@ -8,7 +8,6 @@ use tonic::Status;
 
 /// Error fetching a message from the QS.
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum AsDequeueError {
     /// Storage provider error
     #[error("Storage provider error")]
@@ -25,7 +24,6 @@ impl From<AsDequeueError> for Status {
 }
 
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum RegisterUserError {
     /// Could not find signing key
     #[error("Could not find signing key")]
@@ -161,7 +159,6 @@ pub(crate) enum IssueTokensError {
 }
 
 #[derive(Error, Debug)]
-#[repr(u8)]
 pub(crate) enum AsCredentialsError {
     /// Storage provider error
     #[error("Storage provider error")]
@@ -178,8 +175,9 @@ impl From<AsCredentialsError> for Status {
 }
 
 #[derive(Debug, Error)]
-#[repr(u8)]
 pub(crate) enum GetUserProfileError {
+    #[error("No ciphertext matching index")]
+    NoCiphertextFound,
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error
@@ -191,15 +189,15 @@ impl From<GetUserProfileError> for Status {
     fn from(e: GetUserProfileError) -> Self {
         let msg = e.to_string();
         match e {
+            GetUserProfileError::NoCiphertextFound => Status::invalid_argument(msg),
             GetUserProfileError::UserNotFound => Status::not_found(msg),
             GetUserProfileError::StorageError => Status::internal(msg),
         }
     }
 }
 
-#[derive(Error, Debug)]
-#[repr(u8)]
-pub(crate) enum UpdateUserProfileError {
+#[derive(Debug, Error)]
+pub enum StageUserProfileError {
     #[error("User not found")]
     UserNotFound,
     /// Storage provider error
@@ -207,12 +205,35 @@ pub(crate) enum UpdateUserProfileError {
     StorageError,
 }
 
-impl From<UpdateUserProfileError> for Status {
-    fn from(e: UpdateUserProfileError) -> Self {
+impl From<StageUserProfileError> for Status {
+    fn from(e: StageUserProfileError) -> Self {
         let msg = e.to_string();
         match e {
-            UpdateUserProfileError::UserNotFound => Status::not_found(msg),
-            UpdateUserProfileError::StorageError => Status::internal(msg),
+            StageUserProfileError::UserNotFound => Status::not_found(msg),
+            StageUserProfileError::StorageError => Status::internal(msg),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum MergeUserProfileError {
+    #[error("User not found")]
+    UserNotFound,
+    /// Storage provider error
+    #[error("Storage provider error")]
+    StorageError,
+    /// No staged user profile
+    #[error("No staged user profile")]
+    NoStagedUserProfile,
+}
+
+impl From<MergeUserProfileError> for Status {
+    fn from(e: MergeUserProfileError) -> Self {
+        let msg = e.to_string();
+        match e {
+            MergeUserProfileError::UserNotFound => Status::not_found(msg),
+            MergeUserProfileError::StorageError => Status::internal(msg),
+            MergeUserProfileError::NoStagedUserProfile => Status::not_found(msg),
         }
     }
 }

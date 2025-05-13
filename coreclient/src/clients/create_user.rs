@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::{
+    DisplayName,
     groups::client_auth_info::StorableClientCredential,
     key_stores::{
         MemoryUserKeyStoreBase,
@@ -10,6 +11,7 @@ use crate::{
         indexed_keys::StorableIndexedKey,
         queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
     },
+    user_profiles::generate::NewUserProfile,
 };
 use phnxtypes::{
     credentials::{
@@ -17,7 +19,7 @@ use phnxtypes::{
     },
     crypto::{
         ear::{EarKey, GenericSerializable},
-        indexed_aead::keys::UserProfileKey,
+        indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
         kdf::keys::ConnectionKey,
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
@@ -133,18 +135,16 @@ impl BasicUserData {
         let mut connection = pool.acquire().await?;
         user_profile_key.store_own(connection.as_mut()).await?;
 
-        let user_profile = IndexedUserProfile::new(
+        let encrypted_user_profile = NewUserProfile::new(
+            &key_store.signing_key,
             user_name.clone(),
             user_profile_key.index().clone(),
+            DisplayName::from_user_name(user_name),
             None,
-            None,
-        );
-
-        user_profile
-            .upsert(connection.as_mut(), &mut StoreNotifier::noop())
-            .await?;
-
-        let encrypted_user_profile = user_profile.encrypt(&user_profile_key)?;
+        )?
+        .store(connection.as_mut(), &mut StoreNotifier::noop())
+        .await?
+        .encrypt_with_index(&user_profile_key)?;
 
         let initial_user_state = InitialUserState {
             client_credential_payload: client_credential_payload.clone(),

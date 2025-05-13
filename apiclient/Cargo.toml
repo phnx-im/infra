@@ -13,7 +13,6 @@ description = "HTTP and GRPC client for the server API"
 phnxprotos.workspace = true
 phnxtypes.workspace = true
 
-reqwest = { workspace = true }
 thiserror = { workspace = true }
 tracing = "0.1.41"
 mls-assist = { workspace = true }

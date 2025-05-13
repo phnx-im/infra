@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::messages::client_as_out::{
-    GetUserProfileParams, GetUserProfileResponse, UpdateUserProfileParamsTbs,
+    GetUserProfileParams, GetUserProfileResponse, MergeUserProfileParamsTbs,
+    StageUserProfileParamsTbs,
 };
 
 use crate::{
     auth_service::{AuthService, user_record::UserRecord},
-    errors::auth_service::{GetUserProfileError, UpdateUserProfileError},
+    errors::auth_service::{GetUserProfileError, MergeUserProfileError, StageUserProfileError},
 };
 
 impl AuthService {
@@ -16,7 +17,10 @@ impl AuthService {
         &self,
         params: GetUserProfileParams,
     ) -> Result<GetUserProfileResponse, GetUserProfileError> {
-        let GetUserProfileParams { client_id } = params;
+        let GetUserProfileParams {
+            client_id,
+            key_index,
+        } = params;
 
         let user_record = UserRecord::load(&self.db_pool, client_id.user_name())
             .await
@@ -26,7 +30,9 @@ impl AuthService {
             })?
             .ok_or(GetUserProfileError::UserNotFound)?;
 
-        let user_profile = user_record.into_encrypted_user_profile();
+        let user_profile = user_record
+            .into_user_profile(&key_index)
+            .ok_or(GetUserProfileError::NoCiphertextFound)?;
 
         let response = GetUserProfileResponse {
             encrypted_user_profile: user_profile,
@@ -35,11 +41,11 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_update_user_profile(
+    pub(crate) async fn as_stage_user_profile(
         &self,
-        params: UpdateUserProfileParamsTbs,
-    ) -> Result<(), UpdateUserProfileError> {
-        let UpdateUserProfileParamsTbs {
+        params: StageUserProfileParamsTbs,
+    ) -> Result<(), StageUserProfileError> {
+        let StageUserProfileParamsTbs {
             client_id,
             user_profile,
         } = params;
@@ -47,16 +53,42 @@ impl AuthService {
         let mut user_record = UserRecord::load(&self.db_pool, client_id.user_name())
             .await
             .map_err(|e| {
-                tracing::error!("Error loading user record: {:?}", e);
-                UpdateUserProfileError::StorageError
+                tracing::error!(error = %e, "Error loading user record");
+                StageUserProfileError::StorageError
             })?
-            .ok_or(UpdateUserProfileError::UserNotFound)?;
+            .ok_or(StageUserProfileError::UserNotFound)?;
 
-        user_record.set_user_profile(user_profile);
+        user_record.stage_user_profile(user_profile);
 
         user_record.update(&self.db_pool).await.map_err(|e| {
             tracing::error!("Error updating user record: {:?}", e);
-            UpdateUserProfileError::StorageError
+            StageUserProfileError::StorageError
+        })?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn as_merge_user_profile(
+        &self,
+        params: MergeUserProfileParamsTbs,
+    ) -> Result<(), MergeUserProfileError> {
+        let MergeUserProfileParamsTbs { client_id } = params;
+
+        let mut user_record = UserRecord::load(&self.db_pool, client_id.user_name())
+            .await
+            .map_err(|e| {
+                tracing::error!(error = %e, "Error loading user record");
+                MergeUserProfileError::StorageError
+            })?
+            .ok_or(MergeUserProfileError::UserNotFound)?;
+
+        user_record
+            .merge_user_profile()
+            .map_err(|_| MergeUserProfileError::NoStagedUserProfile)?;
+
+        user_record.update(&self.db_pool).await.map_err(|e| {
+            tracing::error!("Error updating user record: {:?}", e);
+            MergeUserProfileError::StorageError
         })?;
 
         Ok(())

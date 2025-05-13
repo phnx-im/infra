@@ -596,9 +596,9 @@ dependencies = [
 
 [[package]]
 name = "brotli"
-version = "8.0.0"
+version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf19e729cdbd51af9a397fb9ef8ac8378007b797f8273cfbfdf45dcaa316167b"
+checksum = "9991eea70ea4f293524138648e41ee89b0b2b12ddef3b255effa43c8056e0e0d"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
@@ -2689,6 +2689,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru-slab"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
+
+[[package]]
 name = "mac-notification-sys"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3328,7 +3334,6 @@ dependencies = [
  "mls-assist",
  "phnxprotos",
  "phnxtypes",
- "reqwest",
  "thiserror 2.0.12",
  "tls_codec",
  "tokio",
@@ -3416,6 +3421,7 @@ dependencies = [
  "openmls_rust_crypto",
  "openmls_traits",
  "phnxapiclient",
+ "phnxbackend",
  "phnxprotos",
  "phnxserver_test_harness",
  "phnxtypes",
@@ -3478,6 +3484,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
+ "tonic-health",
  "tower-http",
  "tower_governor",
  "tracing",
@@ -3492,6 +3499,7 @@ dependencies = [
 name = "phnxserver_test_harness"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "mimi_content",
  "phnxbackend",
  "phnxcoreclient",
@@ -3994,9 +4002,9 @@ dependencies = [
 
 [[package]]
 name = "quinn"
-version = "0.11.7"
+version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3bd15a6f2967aef83887dcb9fec0014580467e33720d073560cf015a5683012"
+checksum = "626214629cda6781b6dc1d316ba307189c85ba657213ce642d9c77670f8202c8"
 dependencies = [
  "bytes",
  "cfg_aliases",
@@ -4014,12 +4022,13 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.11"
+version = "0.11.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcbafbbdbb0f638fe3f35f3c56739f77a8a1d070cb25603226c83339b391472b"
+checksum = "49df843a9161c85bb8aae55f101bc0bac8bcafd637a620d9122fd7e0b2f7422e"
 dependencies = [
  "bytes",
  "getrandom 0.3.2",
+ "lru-slab",
  "rand 0.9.1",
  "ring",
  "rustc-hash",
@@ -5442,6 +5451,18 @@ dependencies = [
  "prost-types",
  "quote",
  "syn 2.0.101",
+]
+
+[[package]]
+name = "tonic-health"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb87334d340313fefa513b6e60794d44a86d5f039b523229c99c323e4e19ca4b"
+dependencies = [
+ "prost",
+ "tokio",
+ "tokio-stream",
+ "tonic",
 ]
 
 [[package]]

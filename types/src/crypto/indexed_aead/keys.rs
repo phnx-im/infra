@@ -68,6 +68,21 @@ pub type Key<KT> = TypedSecret<KT, KeySecretType, AEAD_KEY_SIZE>;
 /// of the same key type `KT` derived from the same [`BaseSecret`].
 pub type Index<KT> = TypedSecret<KT, IndexSecretType, AEAD_KEY_SIZE>;
 
+pub trait RawIndex {}
+
+impl<KT: RawIndex> Index<KT> {
+    pub fn from_bytes(bytes: [u8; AEAD_KEY_SIZE]) -> Self {
+        Self {
+            secret: Secret::from(bytes),
+            _type: PhantomData,
+        }
+    }
+
+    pub fn into_bytes(self) -> [u8; AEAD_KEY_SIZE] {
+        self.secret.into_secret()
+    }
+}
+
 impl<KT> BaseSecret<KT> {
     pub fn random() -> Result<Self, RandomnessError> {
         let value = Secret::<KDF_KEY_SIZE>::random()?;
@@ -92,6 +107,16 @@ impl<KT, ST, const LENGTH: usize> From<Secret<LENGTH>> for TypedSecret<KT, ST, L
     fn from(value: Secret<LENGTH>) -> Self {
         Self {
             secret: value,
+            _type: PhantomData,
+        }
+    }
+}
+
+impl<KT> Index<KT> {
+    #[cfg(any(test, feature = "test_utils"))]
+    pub fn dummy() -> Self {
+        Self {
+            secret: Secret::random().unwrap(),
             _type: PhantomData,
         }
     }
@@ -200,6 +225,8 @@ impl IndexedKeyType for UserProfileKeyType {
 }
 
 pub type UserProfileKeyIndex = Index<UserProfileKeyType>;
+
+impl RawIndex for UserProfileKeyType {}
 
 pub type UserProfileBaseSecret = BaseSecret<UserProfileKeyType>;
 

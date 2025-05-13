@@ -4,7 +4,6 @@
 
 use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
-use tokio::task::LocalSet;
 
 use crate::{
     clients::store::{ClientRecord, ClientRecordState, UserCreationState},
@@ -16,7 +15,7 @@ use super::api_clients::ApiClients;
 #[tokio::test(flavor = "multi_thread")]
 async fn user_stages() -> anyhow::Result<()> {
     // Set up backend
-    let setup = LocalSet::new().run_until(TestBackend::single()).await;
+    let setup = TestBackend::single().await;
     let server_url = setup.url().unwrap();
 
     let user_name = "alice@example.com";

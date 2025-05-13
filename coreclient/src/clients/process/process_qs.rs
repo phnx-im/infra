@@ -9,6 +9,7 @@ use openmls::{
 };
 use phnxtypes::{
     codec::PhnxCodec,
+    credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::AsClientId,
     messages::{
@@ -22,7 +23,11 @@ use phnxtypes::{
 };
 use tls_codec::DeserializeBytes;
 
-use crate::{ConversationMessage, PartialContact, conversations::ConversationType, groups::Group};
+use crate::{
+    ConversationMessage, PartialContact,
+    conversations::ConversationType,
+    groups::{Group, client_auth_info::StorableClientCredential},
+};
 
 use super::{
     Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
@@ -181,7 +186,7 @@ impl CoreUser {
         drop(connection);
 
         // MLSMessage Phase 2: Process the message
-        let (processed_message, we_were_removed, sender_client_id) = group
+        let (processed_message, we_were_removed, sender_client_credential) = group
             .process_message(self.pool(), &self.inner.api_clients, protocol_message)
             .await?;
 
@@ -191,7 +196,11 @@ impl CoreUser {
         // `conversation_changed` indicates whether the state of the conversation was updated
         let (group_messages, conversation_changed) = match processed_message.into_content() {
             ProcessedMessageContent::ApplicationMessage(application_message) => self
-                .handle_application_message(application_message, ds_timestamp, &sender_client_id)?,
+                .handle_application_message(
+                    application_message,
+                    ds_timestamp,
+                    sender_client_credential.identity(),
+                )?,
             ProcessedMessageContent::ProposalMessage(proposal) => {
                 self.handle_proposal_message(&mut group, *proposal).await?
             }
@@ -203,7 +212,7 @@ impl CoreUser {
                     aad,
                     ds_timestamp,
                     &sender,
-                    &sender_client_id,
+                    &sender_client_credential,
                     we_were_removed,
                 )
                 .await?
@@ -264,7 +273,7 @@ impl CoreUser {
         aad: Vec<u8>,
         ds_timestamp: TimeStamp,
         sender: &openmls::prelude::Sender,
-        sender_client_id: &AsClientId,
+        sender_client_credential: &ClientCredential,
         we_were_removed: bool,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
         // If a client joined externally, we check if the
@@ -282,7 +291,7 @@ impl CoreUser {
         {
             // Check if it was an external commit and if the user name matches
             if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_id.user_name() == user_name
+                && sender_client_credential.identity().user_name() == user_name
             {
                 // TODO: Handle the fact that an unexpected user joined the connection group.
             }
@@ -317,7 +326,7 @@ impl CoreUser {
 
             // UnconfirmedConnection Phase 2: Fetch the user profile.
             let user_profile_key_index = user_profile_key.index().clone();
-            self.fetch_and_store_user_profile((sender_client_id.clone(), user_profile_key))
+            self.fetch_and_store_user_profile((sender_client_credential.clone(), user_profile_key))
                 .await?;
 
             // Now we can turn the partial contact into a full one.
@@ -326,7 +335,7 @@ impl CoreUser {
                     self.pool(),
                     &mut notifier,
                     friendship_package,
-                    sender_client_id.clone(),
+                    sender_client_credential.identity().clone(),
                     user_profile_key_index,
                 )
                 .await?;
@@ -368,6 +377,10 @@ impl CoreUser {
             .client_by_index(&mut connection, params.sender_index)
             .await
             .context("No sender found")?;
+        let sender_credential =
+            StorableClientCredential::load_by_client_id(&mut *connection, &sender)
+                .await?
+                .context("No sender credential found")?;
         drop(connection);
 
         // Phase 2: Decrypt the new user profile key
@@ -377,8 +390,8 @@ impl CoreUser {
             sender.user_name(),
         )?;
 
-        // Phase 3: Fetch and store the (new) user profile
-        self.fetch_and_store_user_profile((sender, new_user_profile_key))
+        // Phase 3: Fetch and store the (new) user profile and key
+        self.fetch_and_store_user_profile((sender_credential.into(), new_user_profile_key))
             .await?;
 
         Ok(ProcessQsMessageResult::None)

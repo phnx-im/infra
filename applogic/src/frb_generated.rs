@@ -3391,7 +3391,7 @@ fn wire__crate__api__user__User_new_impl(
             let api_path = <String>::sse_decode(&mut deserializer);
             let api_push_token =
                 <Option<crate::api::user::PlatformPushToken>>::sse_decode(&mut deserializer);
-            let api_display_name = <Option<String>>::sse_decode(&mut deserializer);
+            let api_display_name = <String>::sse_decode(&mut deserializer);
             let api_profile_picture = <Option<Vec<u8>>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
@@ -5621,7 +5621,7 @@ impl SseDecode for crate::api::types::UiUserProfile {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_userName = <String>::sse_decode(deserializer);
-        let mut var_displayName = <Option<String>>::sse_decode(deserializer);
+        let mut var_displayName = <String>::sse_decode(deserializer);
         let mut var_profilePicture =
             <Option<crate::api::types::ImageData>>::sse_decode(deserializer);
         return crate::api::types::UiUserProfile {
@@ -8045,7 +8045,7 @@ impl SseEncode for crate::api::types::UiUserProfile {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.user_name, serializer);
-        <Option<String>>::sse_encode(self.display_name, serializer);
+        <String>::sse_encode(self.display_name, serializer);
         <Option<crate::api::types::ImageData>>::sse_encode(self.profile_picture, serializer);
     }
 }

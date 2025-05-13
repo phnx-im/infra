@@ -14,21 +14,14 @@ use phnxprotos::{
     queue_service::v1::queue_service_client::QueueServiceClient,
 };
 use qs_api::grpc::QsGrpcClient;
-use reqwest::Url;
 use thiserror::Error;
 use tonic::transport::ClientTlsConfig;
 use tracing::info;
-use url::ParseError;
+use url::{ParseError, Url};
 
 pub mod as_api;
 pub mod ds_api;
 pub mod qs_api;
-
-/// Defines the type of protocol used for a specific endpoint.
-pub enum Protocol {
-    Http,
-    Ws,
-}
 
 // TODO: Turn this on once we have the necessary test infrastructure for
 // certificates in place.
@@ -36,25 +29,17 @@ const HTTPS_BY_DEFAULT: bool = false;
 
 #[derive(Error, Debug)]
 pub enum ApiClientInitError {
-    #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
     #[error("Failed to parse URL {0}")]
     UrlParsingError(String),
     #[error("Invalid URL {0}")]
     InvalidUrl(String),
-    #[error("Could not find hostname in URL {0}")]
-    NoHostname(String),
-    #[error("The use of TLS is mandatory")]
-    TlsRequired,
     #[error(transparent)]
-    TonicTranspor(#[from] tonic::transport::Error),
+    TonicTransport(#[from] tonic::transport::Error),
 }
-
-pub type HttpClient = reqwest::Client;
 
 // ApiClient is a wrapper around a reqwest client.
 // It exposes a single function for each API endpoint.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ApiClient {
     as_grpc_client: AsGrpcClient,
     qs_grpc_client: QsGrpcClient,

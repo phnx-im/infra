@@ -409,8 +409,8 @@ impl From<Contact> for UiContact {
 pub struct UiUserProfile {
     /// Fully qualified user name
     pub user_name: String,
-    /// Optional display name
-    pub display_name: Option<String>,
+    /// Display name
+    pub display_name: String,
     /// Optional profile picture
     pub profile_picture: Option<ImageData>,
 }
@@ -419,10 +419,7 @@ impl UiUserProfile {
     pub(crate) fn from_profile(user_profile: &UserProfile) -> Self {
         Self {
             user_name: user_profile.user_name.to_string(),
-            display_name: user_profile
-                .display_name
-                .clone()
-                .map(|name| name.to_string()),
+            display_name: user_profile.display_name.clone().to_string(),
             profile_picture: user_profile
                 .profile_picture
                 .clone()

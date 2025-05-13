@@ -11,7 +11,7 @@ use phnxtypes::{
 use tonic::Status;
 
 use crate::{
-    common::convert::{InvalidNonceLen, QualifiedUserNameError},
+    common::convert::{InvalidIndexedCiphertext, InvalidNonceLen, QualifiedUserNameError},
     convert::{RefInto, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -398,7 +398,7 @@ impl From<messages::client_as_out::EncryptedUserProfile> for EncryptedUserProfil
 }
 
 impl TryFrom<EncryptedUserProfile> for messages::client_as_out::EncryptedUserProfile {
-    type Error = InvalidNonceLen;
+    type Error = InvalidIndexedCiphertext;
 
     fn try_from(proto: EncryptedUserProfile) -> Result<Self, Self::Error> {
         proto.ciphertext.unwrap_or_default().try_into()
