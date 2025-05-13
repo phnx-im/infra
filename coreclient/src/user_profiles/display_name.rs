@@ -6,6 +6,7 @@ use std::{fmt::Display, str::FromStr};
 
 use phnxtypes::identifiers::{TlsStr, TlsString};
 use thiserror::Error;
+use uuid::Uuid;
 
 use super::*;
 
@@ -31,6 +32,39 @@ impl DisplayName {
         Self {
             display_name: user_name.to_string(),
         }
+    }
+
+    pub fn from_uuid(uuid: &Uuid) -> Self {
+        let animals = [
+            "Alpaca",
+            "Bear",
+            "Cat",
+            "Duck",
+            "Elephant",
+            "Fox",
+            "Giraffe",
+            "Hedgehog",
+            "Iguana",
+            "Jaguar",
+            "Kangaroo",
+            "Lion",
+            "Meerkat",
+            "Narwhal",
+            "Ostrich",
+            "Penguin",
+            "Quail",
+            "Rabbit",
+            "Squirrel",
+            "Toucan",
+            "Umbrellabird",
+            "Walrus",
+            "Yak",
+            "Zebra",
+        ];
+        let animal = animals[uuid.as_u128() as usize % animals.len()];
+        let number = uuid.as_u128() % 1000;
+        let display_name = format!("{} {}", animal, number);
+        Self { display_name }
     }
 }
 
@@ -222,5 +256,31 @@ mod tests {
         let input = "👨‍👩‍👧‍👦 Family";
         let dn = DisplayName::from_str(input).unwrap();
         assert!(dn.display_name.contains("👨‍👩‍👧‍👦"));
+    }
+
+    #[test]
+    fn generate_from_uuid() {
+        let uuid = Uuid::new_v4();
+        let display_name = DisplayName::from_uuid(&uuid);
+
+        assert!(display_name.display_name.contains(' '));
+        assert!(
+            display_name
+                .display_name
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == ' ')
+        );
+
+        let uuid = Uuid::from_u128(0);
+        let display_name = DisplayName::from_uuid(&uuid);
+        assert_eq!(display_name.display_name, "Alpaca 0");
+
+        let uuid = Uuid::from_u128(1);
+        let display_name = DisplayName::from_uuid(&uuid);
+        assert_eq!(display_name.display_name, "Bear 1");
+
+        let uuid = Uuid::from_u128(555);
+        let display_name = DisplayName::from_uuid(&uuid);
+        assert_eq!(display_name.display_name, "Duck 555");
     }
 }
