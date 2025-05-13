@@ -80,7 +80,7 @@ impl GrpcAs {
         while let Some(request) = requests.next().await {
             if let Err(error) = Self::process_listen_request(&queues, &client_id, request).await {
                 // We report the error, but don't stop processing requests.
-                // TODO: Send this to the client.
+                // TODO(#466): Send this to the client.
                 error!(%error, "error processing listen request");
             }
         }

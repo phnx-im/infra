@@ -192,7 +192,10 @@ impl ApiClient {
                 request: Some(listen_request::Request::Init(init_request)),
             })
             .await
-            .expect("logic error: channel closed");
+            .map_err(|_| {
+                error!("logic error: channel closed");
+                tonic::Status::internal("logic error")
+            })?;
 
         let mut client = self.as_grpc_client.client();
 
