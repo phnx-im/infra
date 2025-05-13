@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{Group, openmls_provider::PhnxOpenMlsProvider};
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{
@@ -129,10 +129,12 @@ impl Group {
                                 .new_encrypted_user_profile_keys
                                 .len();
                             // Make sure the vector lengths match.
-                            if number_of_adds != number_of_ilks || number_of_adds != number_of_upks
-                            {
-                                bail!("Number of add proposals and new member keys doesn't match.")
-                            }
+                            let vector_lengths_match = number_of_adds == number_of_ilks
+                                && number_of_adds == number_of_upks;
+                            ensure!(
+                                vector_lengths_match,
+                                "Number of add proposals and new member keys doesn't match."
+                            );
                             // Prepare inputs for add processing
                             let added_clients = staged_commit
                                 .add_proposals()
