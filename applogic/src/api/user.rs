@@ -168,7 +168,8 @@ async fn load_ui_record(db_path: &str, record: &ClientRecord) -> anyhow::Result<
     let pool = open_client_db(&record.client_id, db_path).await?;
     let user_profile = UserProfile::load(&pool, &record.client_id)
         .await?
-        .map(|profile| UiUserProfile::from_profile(&profile));
+        .map(UiUserProfile::from_profile)
+        .unwrap_or_else(|| UiUserProfile::from_client_id(record.client_id.clone()));
     Ok(UiClientRecord {
         client_id: record.client_id.clone().into(),
         created_at: record.created_at,

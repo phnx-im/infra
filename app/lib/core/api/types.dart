@@ -13,65 +13,9 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 part 'types.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `timestamp`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
-
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiConversation>>
-abstract class UiConversation implements RustOpaqueInterface {
-  UiConversationAttributes get attributes;
-
-  UiConversationType get conversationType;
-
-  ConversationId get id;
-
-  UiConversationStatus get status;
-
-  set attributes(UiConversationAttributes attributes);
-
-  set conversationType(UiConversationType conversationType);
-
-  set id(ConversationId id);
-
-  set status(UiConversationStatus status);
-}
-
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiConversationDetails>>
-abstract class UiConversationDetails implements RustOpaqueInterface {
-  UiConversationAttributes get attributes;
-
-  UiConversationType get conversationType;
-
-  ConversationId get id;
-
-  UiConversationMessage? get lastMessage;
-
-  String get lastUsed;
-
-  int get messagesCount;
-
-  UiConversationStatus get status;
-
-  int get unreadMessages;
-
-  set attributes(UiConversationAttributes attributes);
-
-  set conversationType(UiConversationType conversationType);
-
-  set id(ConversationId id);
-
-  set lastMessage(UiConversationMessage? lastMessage);
-
-  set lastUsed(String lastUsed);
-
-  set messagesCount(int messagesCount);
-
-  set status(UiConversationStatus status);
-
-  set unreadMessages(int unreadMessages);
-}
-
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiConversationType>>
-abstract class UiConversationType implements RustOpaqueInterface {}
+// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_client_id`, `from_profile`, `load_from_conversation_type`, `timestamp`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiConversation`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 
 /// Mirror of the [`ConversationId`] types
 class ConversationId {
@@ -147,6 +91,9 @@ class UiClientId {
   const UiClientId({required this.uuid, required this.domain});
 
   @override
+  String toString() => '$uuid@$domain';
+
+  @override
   int get hashCode => uuid.hashCode ^ domain.hashCode;
 
   @override
@@ -167,13 +114,13 @@ class UiClientRecord {
   /// Also used for identifying the client database path.
   final UiClientId clientId;
   final DateTime createdAt;
-  final UiUserProfile? userProfile;
+  final UiUserProfile userProfile;
   final bool isFinished;
 
   const UiClientRecord({
     required this.clientId,
     required this.createdAt,
-    this.userProfile,
+    required this.userProfile,
     required this.isFinished,
   });
 
@@ -214,7 +161,7 @@ class UiContact {
 
 /// Content of a message including the sender and whether it was sent
 class UiContentMessage {
-  final String sender;
+  final UiClientId sender;
   final bool sent;
   final UiMimiContent content;
 
@@ -257,6 +204,54 @@ class UiConversationAttributes {
           runtimeType == other.runtimeType &&
           title == other.title &&
           picture == other.picture;
+}
+
+/// Details of a conversation
+class UiConversationDetails {
+  final ConversationId id;
+  final UiConversationStatus status;
+  final UiConversationType conversationType;
+  final String lastUsed;
+  final UiConversationAttributes attributes;
+  final int messagesCount;
+  final int unreadMessages;
+  final UiConversationMessage? lastMessage;
+
+  const UiConversationDetails({
+    required this.id,
+    required this.status,
+    required this.conversationType,
+    required this.lastUsed,
+    required this.attributes,
+    required this.messagesCount,
+    required this.unreadMessages,
+    this.lastMessage,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      status.hashCode ^
+      conversationType.hashCode ^
+      lastUsed.hashCode ^
+      attributes.hashCode ^
+      messagesCount.hashCode ^
+      unreadMessages.hashCode ^
+      lastMessage.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UiConversationDetails &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          status == other.status &&
+          conversationType == other.conversationType &&
+          lastUsed == other.lastUsed &&
+          attributes == other.attributes &&
+          messagesCount == other.messagesCount &&
+          unreadMessages == other.unreadMessages &&
+          lastMessage == other.lastMessage;
 }
 
 /// A message in a conversation
@@ -302,6 +297,23 @@ sealed class UiConversationStatus with _$UiConversationStatus {
   const factory UiConversationStatus.inactive(UiInactiveConversation field0) =
       UiConversationStatus_Inactive;
   const factory UiConversationStatus.active() = UiConversationStatus_Active;
+}
+
+@freezed
+sealed class UiConversationType with _$UiConversationType {
+  const UiConversationType._();
+
+  /// A connection conversation that is not yet confirmed by the other party.
+  const factory UiConversationType.unconfirmedConnection(UiUserProfile field0) =
+      UiConversationType_UnconfirmedConnection;
+
+  /// A connection conversation that is confirmed by the other party and for which we have
+  /// received the necessary secrets.
+  const factory UiConversationType.connection(UiUserProfile field0) =
+      UiConversationType_Connection;
+
+  /// A group conversation, that is, it can contains multiple participants.
+  const factory UiConversationType.group() = UiConversationType_Group;
 }
 
 /// Error message

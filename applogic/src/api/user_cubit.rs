@@ -239,7 +239,7 @@ impl UserCubitBase {
             .core_user
             .user_profile(&client_id.into())
             .await?
-            .map(|profile| UiUserProfile::from_profile(&profile));
+            .map(UiUserProfile::from_profile);
         Ok(user_profile)
     }
 

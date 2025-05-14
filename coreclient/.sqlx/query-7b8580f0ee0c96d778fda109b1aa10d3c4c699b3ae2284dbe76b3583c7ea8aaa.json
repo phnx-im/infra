@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                client_credential AS \"client_credential: _\"\n            FROM client_credentials\n            WHERE as_client_uuid = ? AND as_domain = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "client_credential: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7b8580f0ee0c96d778fda109b1aa10d3c4c699b3ae2284dbe76b3583c7ea8aaa"
+}

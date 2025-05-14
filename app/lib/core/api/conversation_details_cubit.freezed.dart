@@ -18,7 +18,7 @@ final _privateConstructorUsedError = UnsupportedError(
 /// @nodoc
 mixin _$ConversationDetailsState {
   UiConversationDetails? get conversation => throw _privateConstructorUsedError;
-  List<String> get members => throw _privateConstructorUsedError;
+  List<UiClientId> get members => throw _privateConstructorUsedError;
 
   /// Create a copy of ConversationDetailsState
   /// with the given fields replaced by the non-null parameter values.
@@ -34,7 +34,7 @@ abstract class $ConversationDetailsStateCopyWith<$Res> {
     $Res Function(ConversationDetailsState) then,
   ) = _$ConversationDetailsStateCopyWithImpl<$Res, ConversationDetailsState>;
   @useResult
-  $Res call({UiConversationDetails? conversation, List<String> members});
+  $Res call({UiConversationDetails? conversation, List<UiClientId> members});
 }
 
 /// @nodoc
@@ -66,7 +66,7 @@ class _$ConversationDetailsStateCopyWithImpl<
                 null == members
                     ? _value.members
                     : members // ignore: cast_nullable_to_non_nullable
-                        as List<String>,
+                        as List<UiClientId>,
           )
           as $Val,
     );
@@ -82,7 +82,7 @@ abstract class _$$ConversationDetailsStateImplCopyWith<$Res>
   ) = __$$ConversationDetailsStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({UiConversationDetails? conversation, List<String> members});
+  $Res call({UiConversationDetails? conversation, List<UiClientId> members});
 }
 
 /// @nodoc
@@ -114,7 +114,7 @@ class __$$ConversationDetailsStateImplCopyWithImpl<$Res>
             null == members
                 ? _value._members
                 : members // ignore: cast_nullable_to_non_nullable
-                    as List<String>,
+                    as List<UiClientId>,
       ),
     );
   }
@@ -125,15 +125,15 @@ class __$$ConversationDetailsStateImplCopyWithImpl<$Res>
 class _$ConversationDetailsStateImpl extends _ConversationDetailsState {
   const _$ConversationDetailsStateImpl({
     this.conversation,
-    required final List<String> members,
+    required final List<UiClientId> members,
   }) : _members = members,
        super._();
 
   @override
   final UiConversationDetails? conversation;
-  final List<String> _members;
+  final List<UiClientId> _members;
   @override
-  List<String> get members {
+  List<UiClientId> get members {
     if (_members is EqualUnmodifiableListView) return _members;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_members);
@@ -175,14 +175,14 @@ class _$ConversationDetailsStateImpl extends _ConversationDetailsState {
 abstract class _ConversationDetailsState extends ConversationDetailsState {
   const factory _ConversationDetailsState({
     final UiConversationDetails? conversation,
-    required final List<String> members,
+    required final List<UiClientId> members,
   }) = _$ConversationDetailsStateImpl;
   const _ConversationDetailsState._() : super._();
 
   @override
   UiConversationDetails? get conversation;
   @override
-  List<String> get members;
+  List<UiClientId> get members;
 
   /// Create a copy of ConversationDetailsState
   /// with the given fields replaced by the non-null parameter values.

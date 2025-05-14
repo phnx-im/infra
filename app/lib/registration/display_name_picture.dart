@@ -82,12 +82,15 @@ class _UserAvatarPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (username, avatar) = context.select(
-      (RegistrationCubit cubit) => (cubit.state.username, cubit.state.avatar),
+    final (displayName, avatar) = context.select(
+      (RegistrationCubit cubit) => (
+        cubit.state.displayName,
+        cubit.state.avatar,
+      ),
     );
 
     return UserAvatar(
-      username: username,
+      displayName: displayName,
       size: 100,
       image: avatar,
       onPressed: () async {

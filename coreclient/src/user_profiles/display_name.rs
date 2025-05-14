@@ -15,6 +15,12 @@ pub struct BaseDisplayName<const VALIDATED: bool> {
     display_name: String,
 }
 
+impl<const VALIDATED: bool> BaseDisplayName<VALIDATED> {
+    pub fn into_string(self) -> String {
+        self.display_name
+    }
+}
+
 pub type UnvalidatedDisplayName = BaseDisplayName<false>;
 
 pub type DisplayName = BaseDisplayName<true>;
@@ -28,9 +34,9 @@ impl UnvalidatedDisplayName {
 impl DisplayName {
     pub fn from_client_id(client_id: &AsClientId) -> Self {
         // TODO: To be replaced by more sophisticated logic based on UUIDs
-        Self {
-            display_name: client_id.to_string(),
-        }
+        let mut display_name = client_id.to_string();
+        display_name.truncate(6);
+        Self { display_name }
     }
 }
 

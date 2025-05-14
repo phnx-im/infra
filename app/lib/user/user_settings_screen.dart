@@ -49,9 +49,8 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final (userName, displayName, profilePicture) = context.select(
+    final (displayName, profilePicture) = context.select(
       (UserCubit cubit) => (
-        cubit.state.userName,
         cubit.state.displayName,
         cubit.state.profilePicture,
       ),
@@ -77,7 +76,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                 Column(
                   children: [
                     UserAvatar(
-                      username: userName,
+                      displayName: displayName,
                       size: 100,
                       image: newProfilePicture ?? profilePicture,
                       onPressed: () async {
@@ -96,7 +95,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                     ),
                     const SizedBox(height: 15),
                     Text(
-                      userName,
+                      displayName,
                       style: const TextStyle(color: colorDMB, fontSize: 12),
                     ),
                   ],

@@ -6,6 +6,5 @@
 library;
 
 export 'server_choice.dart';
-export 'username.dart';
 export 'display_name_picture.dart';
 export 'registration_cubit.dart';

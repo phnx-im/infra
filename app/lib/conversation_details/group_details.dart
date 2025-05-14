@@ -39,7 +39,7 @@ class GroupDetails extends StatelessWidget {
             UserAvatar(
               size: 64,
               image: conversation.attributes.picture,
-              username: conversation.username,
+              displayName: conversation.title,
               onPressed: () async {
                 final conversationDetailsCubit =
                     context.read<ConversationDetailsCubit>();
@@ -89,7 +89,7 @@ class GroupDetails extends StatelessWidget {
                                     ),
                               ),
                               title: Text(
-                                member,
+                                member.uuid.toString(), // TODO: display name
                                 style: Theme.of(context).textTheme.labelMedium,
                                 overflow: TextOverflow.ellipsis,
                               ),

@@ -112,10 +112,6 @@ where
         &self.state_tx
     }
 
-    pub(crate) fn borrow_state(&self) -> watch::Ref<'_, S> {
-        self.state_tx.borrow()
-    }
-
     pub(crate) fn cancellation_token(&self) -> &CancellationToken {
         &self.cancel
     }

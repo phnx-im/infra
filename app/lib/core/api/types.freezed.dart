@@ -190,6 +190,267 @@ abstract class UiConversationStatus_Active extends UiConversationStatus {
 }
 
 /// @nodoc
+mixin _$UiConversationType {}
+
+/// @nodoc
+abstract class $UiConversationTypeCopyWith<$Res> {
+  factory $UiConversationTypeCopyWith(
+    UiConversationType value,
+    $Res Function(UiConversationType) then,
+  ) = _$UiConversationTypeCopyWithImpl<$Res, UiConversationType>;
+}
+
+/// @nodoc
+class _$UiConversationTypeCopyWithImpl<$Res, $Val extends UiConversationType>
+    implements $UiConversationTypeCopyWith<$Res> {
+  _$UiConversationTypeCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+}
+
+/// @nodoc
+abstract class _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
+  factory _$$UiConversationType_UnconfirmedConnectionImplCopyWith(
+    _$UiConversationType_UnconfirmedConnectionImpl value,
+    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) then,
+  ) = __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({UiUserProfile field0});
+}
+
+/// @nodoc
+class __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>
+    extends
+        _$UiConversationTypeCopyWithImpl<
+          $Res,
+          _$UiConversationType_UnconfirmedConnectionImpl
+        >
+    implements _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
+  __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl(
+    _$UiConversationType_UnconfirmedConnectionImpl _value,
+    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiConversationType_UnconfirmedConnectionImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiUserProfile,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UiConversationType_UnconfirmedConnectionImpl
+    extends UiConversationType_UnconfirmedConnection {
+  const _$UiConversationType_UnconfirmedConnectionImpl(this.field0) : super._();
+
+  @override
+  final UiUserProfile field0;
+
+  @override
+  String toString() {
+    return 'UiConversationType.unconfirmedConnection(field0: $field0)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiConversationType_UnconfirmedConnectionImpl &&
+            (identical(other.field0, field0) || other.field0 == field0));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, field0);
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
+    _$UiConversationType_UnconfirmedConnectionImpl
+  >
+  get copyWith => __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<
+    _$UiConversationType_UnconfirmedConnectionImpl
+  >(this, _$identity);
+}
+
+abstract class UiConversationType_UnconfirmedConnection
+    extends UiConversationType {
+  const factory UiConversationType_UnconfirmedConnection(
+    final UiUserProfile field0,
+  ) = _$UiConversationType_UnconfirmedConnectionImpl;
+  const UiConversationType_UnconfirmedConnection._() : super._();
+
+  UiUserProfile get field0;
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
+    _$UiConversationType_UnconfirmedConnectionImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$UiConversationType_ConnectionImplCopyWith<$Res> {
+  factory _$$UiConversationType_ConnectionImplCopyWith(
+    _$UiConversationType_ConnectionImpl value,
+    $Res Function(_$UiConversationType_ConnectionImpl) then,
+  ) = __$$UiConversationType_ConnectionImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({UiUserProfile field0});
+}
+
+/// @nodoc
+class __$$UiConversationType_ConnectionImplCopyWithImpl<$Res>
+    extends
+        _$UiConversationTypeCopyWithImpl<
+          $Res,
+          _$UiConversationType_ConnectionImpl
+        >
+    implements _$$UiConversationType_ConnectionImplCopyWith<$Res> {
+  __$$UiConversationType_ConnectionImplCopyWithImpl(
+    _$UiConversationType_ConnectionImpl _value,
+    $Res Function(_$UiConversationType_ConnectionImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiConversationType_ConnectionImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiUserProfile,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UiConversationType_ConnectionImpl
+    extends UiConversationType_Connection {
+  const _$UiConversationType_ConnectionImpl(this.field0) : super._();
+
+  @override
+  final UiUserProfile field0;
+
+  @override
+  String toString() {
+    return 'UiConversationType.connection(field0: $field0)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiConversationType_ConnectionImpl &&
+            (identical(other.field0, field0) || other.field0 == field0));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, field0);
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UiConversationType_ConnectionImplCopyWith<
+    _$UiConversationType_ConnectionImpl
+  >
+  get copyWith => __$$UiConversationType_ConnectionImplCopyWithImpl<
+    _$UiConversationType_ConnectionImpl
+  >(this, _$identity);
+}
+
+abstract class UiConversationType_Connection extends UiConversationType {
+  const factory UiConversationType_Connection(final UiUserProfile field0) =
+      _$UiConversationType_ConnectionImpl;
+  const UiConversationType_Connection._() : super._();
+
+  UiUserProfile get field0;
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UiConversationType_ConnectionImplCopyWith<
+    _$UiConversationType_ConnectionImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$UiConversationType_GroupImplCopyWith<$Res> {
+  factory _$$UiConversationType_GroupImplCopyWith(
+    _$UiConversationType_GroupImpl value,
+    $Res Function(_$UiConversationType_GroupImpl) then,
+  ) = __$$UiConversationType_GroupImplCopyWithImpl<$Res>;
+}
+
+/// @nodoc
+class __$$UiConversationType_GroupImplCopyWithImpl<$Res>
+    extends
+        _$UiConversationTypeCopyWithImpl<$Res, _$UiConversationType_GroupImpl>
+    implements _$$UiConversationType_GroupImplCopyWith<$Res> {
+  __$$UiConversationType_GroupImplCopyWithImpl(
+    _$UiConversationType_GroupImpl _value,
+    $Res Function(_$UiConversationType_GroupImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+}
+
+/// @nodoc
+
+class _$UiConversationType_GroupImpl extends UiConversationType_Group {
+  const _$UiConversationType_GroupImpl() : super._();
+
+  @override
+  String toString() {
+    return 'UiConversationType.group()';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiConversationType_GroupImpl);
+  }
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+}
+
+abstract class UiConversationType_Group extends UiConversationType {
+  const factory UiConversationType_Group() = _$UiConversationType_GroupImpl;
+  const UiConversationType_Group._() : super._();
+}
+
+/// @nodoc
 mixin _$UiEventMessage {
   Object get field0 => throw _privateConstructorUsedError;
 }

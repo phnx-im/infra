@@ -36,9 +36,9 @@ class ConversationListHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _Avatar(),
-              Spacer(),
-              _UsernameSpace(),
-              Spacer(),
+              SizedBox(width: Spacings.xxxs),
+              Expanded(child: _DisplayNameSpace()),
+              SizedBox(width: Spacings.xxxs),
               _SettingsButton(),
             ],
           ),
@@ -53,8 +53,11 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (userName, profilePicture) = context.select(
-      (UserCubit cubit) => (cubit.state.userName, cubit.state.profilePicture),
+    final (displayName, profilePicture) = context.select(
+      (UserCubit cubit) => (
+        cubit.state.displayName,
+        cubit.state.profilePicture,
+      ),
     );
 
     return Padding(
@@ -65,8 +68,8 @@ class _Avatar extends StatelessWidget {
         children: [
           UserAvatar(
             size: 32,
-            username: userName,
             image: profilePicture,
+            displayName: displayName,
             onPressed: () {
               context.read<NavigationCubit>().openUserSettings();
             },
@@ -77,35 +80,23 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class _UsernameSpace extends StatelessWidget {
-  const _UsernameSpace();
+class _DisplayNameSpace extends StatelessWidget {
+  const _DisplayNameSpace();
 
   @override
   Widget build(BuildContext context) {
-    final (userName, displayName) = context.select(
-      (UserCubit cubit) => (cubit.state.userName, cubit.state.displayName),
+    final displayName = context.select(
+      (UserCubit cubit) => cubit.state.displayName,
     );
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          displayName,
-          style: const TextStyle(
-            color: colorDMB,
-            fontSize: 13,
-          ).merge(VariableFontWeight.bold),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          userName,
-          style: const TextStyle(
-            color: colorDMB,
-            fontSize: 10,
-          ).merge(VariableFontWeight.medium),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+    return Text(
+      displayName,
+      style: const TextStyle(
+        color: colorDMB,
+        fontSize: 13,
+      ).merge(VariableFontWeight.bold),
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
     );
   }
 }

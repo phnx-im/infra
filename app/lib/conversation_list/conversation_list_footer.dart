@@ -4,9 +4,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/user/user.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
 import 'conversation_list_cubit.dart';
 import 'create_conversation_view.dart';
@@ -27,29 +30,42 @@ class ConversationListFooter extends StatelessWidget {
             style: textButtonStyle(context),
             icon: const Icon(Icons.person, size: 20),
             onPressed: () async {
+              // Currently, we only support connections to the same domain.
+              final domain = context.read<UserCubit>().state.clientId.domain;
+
               final conversationListCubit =
                   context.read<ConversationListCubit>();
-              String connectionUsername = await showDialog(
-                context: context,
-                builder:
-                    (BuildContext context) => CreateConversationView(
-                      context,
-                      "New connection",
-                      "Enter the username to which you want to connect",
-                      "USERNAME",
-                      "Connect",
-                    ),
-              );
-              if (connectionUsername.isNotEmpty) {
+              String connectionUuid =
+                  (await showDialog(
+                    context: context,
+                    builder:
+                        (BuildContext context) => CreateConversationView(
+                          context,
+                          "New connection",
+                          "Enter the unique ID (UUID) of the user you want to connect to",
+                          "UUID",
+                          "Connect",
+                        ),
+                  )).trim();
+
+              if (connectionUuid.isNotEmpty) {
+                final clientUuid = UuidValue.withValidation(
+                  connectionUuid,
+                  ValidationMode.nonStrict,
+                );
+                final connectionId = UiClientId(
+                  uuid: clientUuid,
+                  domain: domain,
+                );
                 try {
                   await conversationListCubit.createConnection(
-                    userName: connectionUsername,
+                    clientId: connectionId,
                   );
                 } catch (e) {
                   if (context.mounted) {
                     showErrorBanner(
                       ScaffoldMessenger.of(context),
-                      'The user $connectionUsername could not be found',
+                      'Failed to add user with UUID $connectionUuid',
                     );
                   }
                 }

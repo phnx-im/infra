@@ -100,7 +100,7 @@ impl UnsentContent {
         // Store the message as unsent so that we don't lose it in case
         // something goes wrong.
         let conversation_message = ConversationMessage::new_unsent_message(
-            sender.to_string(),
+            sender.clone(),
             conversation_id,
             content.clone(),
         );

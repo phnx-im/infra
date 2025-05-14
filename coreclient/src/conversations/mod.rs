@@ -75,14 +75,14 @@ pub(super) struct ConversationPayload {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Conversation {
-    id: ConversationId,
+    pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
-    group_id: GroupId,
+    pub group_id: GroupId,
     // The timestamp of the last message that was (marked as) read by the user.
-    last_read: DateTime<Utc>,
-    status: ConversationStatus,
-    conversation_type: ConversationType,
-    attributes: ConversationAttributes,
+    pub last_read: DateTime<Utc>,
+    pub status: ConversationStatus,
+    pub conversation_type: ConversationType,
+    pub attributes: ConversationAttributes,
 }
 
 impl Conversation {

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contacts SET user_profile_key_index = ?\n            WHERE as_client_uuid = ? AND as_domain = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "50a7afa7b9c3e3f1e1d7d8476ef2190ae55f1fda403be81ecb8e161f17497750"
+}

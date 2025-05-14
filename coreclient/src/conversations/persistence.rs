@@ -296,7 +296,8 @@ impl Conversation {
                 conversation_messages cm
             ON
                 c.conversation_id = cm.conversation_id
-                AND cm.sender != 'system'
+                AND cm.sender_as_client_uuid IS NOT NULL
+                AND cm.sender_as_domain IS NOT NULL
                 AND cm.timestamp > c.last_read"#
         )
         .fetch_one(executor)
@@ -315,7 +316,8 @@ impl Conversation {
                 conversation_messages cm
             WHERE
                 cm.conversation_id = ?
-                AND cm.sender != 'system'"#,
+                AND cm.sender_as_client_uuid IS NOT NULL
+                AND cm.sender_as_domain IS NOT NULL"#,
             conversation_id
         )
         .fetch_one(executor)
@@ -334,7 +336,8 @@ impl Conversation {
                 conversation_messages
             WHERE
                 conversation_id = ?1
-                AND sender != 'system'
+                AND sender_as_client_uuid IS NOT NULL
+                AND sender_as_domain IS NOT NULL
                 AND timestamp >
                 (
                     SELECT

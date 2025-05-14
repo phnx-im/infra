@@ -126,13 +126,11 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
     message_id BLOB NOT NULL PRIMARY KEY,
     conversation_id BLOB NOT NULL,
     timestamp TEXT NOT NULL,
-    sender TEXT NOT NULL,
+    -- missing `sender_as_{client_uuid,domain}` fields means it is a system message
+    sender_as_client_uuid BLOB,
+    sender_as_domain TEXT,
     content BLOB NOT NULL,
     sent BOOLEAN NOT NULL,
-    CHECK (
-        sender LIKE 'user:%'
-        OR sender = 'system'
-    ),
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) DEFERRABLE INITIALLY DEFERRED
 );
 

@@ -22,7 +22,7 @@ use crate::StreamSink;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
-    types::{UiClientId, UiConversation, UiConversationDetails, UiConversationMessage},
+    types::{UiClientId, UiConversationDetails, UiConversationMessage, UiConversationType},
     user_cubit::UserCubitBase,
 };
 
@@ -211,13 +211,16 @@ pub(super) async fn converation_into_ui_details(
         .unwrap_or_default();
     // default is UNIX_EPOCH
 
-    let conversation = UiConversation::from(conversation);
+    let conversation_type =
+        UiConversationType::load_from_conversation_type(store, conversation.conversation_type)
+            .await;
+
     UiConversationDetails {
         id: conversation.id,
-        status: conversation.status,
-        conversation_type: conversation.conversation_type,
+        status: conversation.status.into(),
+        conversation_type,
         last_used,
-        attributes: conversation.attributes,
+        attributes: conversation.attributes.into(),
         messages_count,
         unread_messages,
         last_message,

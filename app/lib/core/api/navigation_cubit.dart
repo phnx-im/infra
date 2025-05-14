@@ -47,7 +47,7 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   Future<void> openIntroScreen({required IntroScreenType screen});
 
-  Future<void> openMemberDetails({required String member});
+  Future<void> openMemberDetails({required UiClientId member});
 
   Future<void> openUserSettings();
 
@@ -73,7 +73,7 @@ class HomeNavigationState with _$HomeNavigationState {
     @Default(false) bool conversationOpen,
     ConversationId? conversationId,
     DeveloperSettingsScreenType? developerSettingsScreen,
-    String? memberDetails,
+    UiClientId? memberDetails,
     @Default(false) bool userSettingsOpen,
     @Default(false) bool conversationDetailsOpen,
     @Default(false) bool addMembersOpen,
@@ -86,7 +86,6 @@ class HomeNavigationState with _$HomeNavigationState {
 enum IntroScreenType {
   intro,
   serverChoice,
-  username,
   displayNamePicture,
   developerSettings,
 }

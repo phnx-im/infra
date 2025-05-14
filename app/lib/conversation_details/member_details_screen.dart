@@ -18,7 +18,7 @@ class MemberDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (conversationId, memberUsername) = context.select(
+    final (conversationId, memberClientId) = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Intro(:final screens) =>
           throw StateError("No member details for intro screen"),
@@ -32,12 +32,12 @@ class MemberDetailsScreen extends StatelessWidget {
       },
     );
 
-    final ownUsername = context.select(
-      (UserCubit cubit) => cubit.state.userName,
+    final ownClientId = context.select(
+      (UserCubit cubit) => cubit.state.clientId,
     );
-    final isSelf = memberUsername == ownUsername;
+    final isSelf = memberClientId == ownClientId;
 
-    if (conversationId == null || memberUsername == null) {
+    if (conversationId == null || memberClientId == null) {
       return const SizedBox.shrink();
     }
 
@@ -61,11 +61,11 @@ class MemberDetailsScreen extends StatelessWidget {
                   size: 64,
                   profile:
                       () =>
-                          context.read<UserCubit>().userProfile(memberUsername),
+                          context.read<UserCubit>().userProfile(memberClientId),
                 ),
                 const SizedBox(height: _padding),
                 Text(
-                  memberUsername,
+                  memberClientId.uuid.toString(), // TODO: display name
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
                 const SizedBox(height: _padding),
@@ -99,7 +99,7 @@ class MemberDetailsScreen extends StatelessWidget {
                                       .read<UserCubit>()
                                       .removeUserFromConversation(
                                         conversationId,
-                                        memberUsername,
+                                        memberClientId,
                                       );
                                   if (context.mounted) {
                                     Navigator.of(context).pop(true);

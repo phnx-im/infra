@@ -13,12 +13,13 @@ use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
 use mimi_content::MimiContent;
 use phnxcoreclient::{
-    Asset, Contact, ContentMessage, Conversation, ConversationAttributes, ConversationMessage,
-    ConversationStatus, ConversationType, ErrorMessage, EventMessage, InactiveConversation,
-    Message, SystemMessage, UserProfile,
+    Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
+    ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
+    InactiveConversation, Message, SystemMessage, UserProfile, store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use phnxtypes::identifiers::AsClientId;
+use tracing::error;
 use uuid::Uuid;
 
 use super::markdown::MessageContent;
@@ -36,6 +37,10 @@ pub struct _ConversationId {
 
 /// UI representation of an [`AsClientId`]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_code = "
+    @override
+    String toString() => '$uuid@$domain';
+")]
 pub struct UiClientId {
     pub uuid: Uuid,
     pub domain: String,
@@ -125,22 +130,47 @@ impl From<InactiveConversation> for UiInactiveConversation {
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum UiConversationType {
     /// A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(AsClientId),
+    UnconfirmedConnection(UiUserProfile),
     /// A connection conversation that is confirmed by the other party and for which we have
     /// received the necessary secrets.
-    Connection(AsClientId),
+    Connection(UiUserProfile),
     /// A group conversation, that is, it can contains multiple participants.
     Group,
 }
 
-impl From<ConversationType> for UiConversationType {
-    fn from(conversation_type: ConversationType) -> Self {
+impl UiConversationType {
+    /// Converts [`ConversationType`] to [`UiConversationType`] but also load the corresponding
+    /// user profile.
+    ///
+    /// If the user profile cannot be loaded, or is not set, a minimal user profile is returned
+    /// with the display name derived from the client id.
+    #[frb(ignore)]
+    pub(crate) async fn load_from_conversation_type(
+        store: &impl Store,
+        conversation_type: ConversationType,
+    ) -> Self {
+        let load_profile = async |client_id| {
+            let user_profile = store
+                .user_profile(&client_id)
+                .await
+                .inspect_err(|error| error!(%error, "failed to load user profile"))
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| UserProfile {
+                    display_name: DisplayName::from_client_id(&client_id),
+                    client_id,
+                    profile_picture: None,
+                });
+            UiUserProfile::from_profile(user_profile)
+        };
         match conversation_type {
             ConversationType::UnconfirmedConnection(client_id) => {
-                UiConversationType::UnconfirmedConnection(client_id)
+                Self::UnconfirmedConnection(load_profile(client_id).await)
             }
-            ConversationType::Connection(client_id) => UiConversationType::Connection(client_id),
-            ConversationType::Group => UiConversationType::Group,
+            ConversationType::Connection(client_id) => {
+                Self::Connection(load_profile(client_id).await)
+            }
+            ConversationType::Group => Self::Group,
         }
     }
 }
@@ -161,17 +191,6 @@ impl From<ConversationAttributes> for UiConversationAttributes {
             picture: attributes
                 .picture()
                 .map(|a| ImageData::from_bytes(a.to_vec())),
-        }
-    }
-}
-
-impl From<Conversation> for UiConversation {
-    fn from(conversation: Conversation) -> Self {
-        Self {
-            id: conversation.id(),
-            status: UiConversationStatus::from(conversation.status().clone()),
-            conversation_type: UiConversationType::from(conversation.conversation_type().clone()),
-            attributes: UiConversationAttributes::from(conversation.attributes().clone()),
         }
     }
 }
@@ -278,17 +297,18 @@ impl From<MimiContent> for UiMimiContent {
 /// Content of a message including the sender and whether it was sent
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiContentMessage {
-    pub sender: String,
+    pub sender: UiClientId,
     pub sent: bool,
     pub content: UiMimiContent,
 }
 
 impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
+        let (sender, sent, content) = content_message.into_parts();
         Self {
-            sender: content_message.sender().to_string(),
-            sent: content_message.was_sent(),
-            content: UiMimiContent::from(content_message.content().clone()),
+            sender: sender.into(),
+            sent,
+            content: UiMimiContent::from(content),
         }
     }
 }
@@ -428,7 +448,7 @@ impl From<Contact> for UiContact {
 }
 
 /// Profile of a user
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct UiUserProfile {
     /// Client ID of the user
     pub client_id: UiClientId,
@@ -439,14 +459,20 @@ pub struct UiUserProfile {
 }
 
 impl UiUserProfile {
-    pub(crate) fn from_profile(user_profile: &UserProfile) -> Self {
+    pub(crate) fn from_profile(user_profile: UserProfile) -> Self {
         Self {
-            client_id: user_profile.client_id.clone().into(),
-            display_name: user_profile.display_name.clone().to_string(),
-            profile_picture: user_profile
-                .profile_picture
-                .clone()
-                .map(ImageData::from_asset),
+            client_id: user_profile.client_id.into(),
+            display_name: user_profile.display_name.into_string(),
+            profile_picture: user_profile.profile_picture.map(ImageData::from_asset),
+        }
+    }
+
+    pub(crate) fn from_client_id(client_id: AsClientId) -> Self {
+        let display_name = DisplayName::from_client_id(&client_id);
+        Self {
+            client_id: client_id.into(),
+            display_name: display_name.into_string(),
+            profile_picture: None,
         }
     }
 }
@@ -499,6 +525,6 @@ pub struct UiClientRecord {
     /// Also used for identifying the client database path.
     pub(crate) client_id: UiClientId,
     pub(crate) created_at: DateTime<Utc>,
-    pub(crate) user_profile: Option<UiUserProfile>,
+    pub(crate) user_profile: UiUserProfile,
     pub(crate) is_finished: bool,
 }

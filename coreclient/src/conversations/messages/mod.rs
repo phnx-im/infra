@@ -46,7 +46,7 @@ impl TimestampedMessage {
     ) -> Self {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
-                client_id.to_string(), // TODO: We need display name here!
+                client_id.clone(),
                 true,
                 content,
             ))),
@@ -130,7 +130,7 @@ impl ConversationMessage {
     }
 
     pub(crate) fn new_unsent_message(
-        sender: String,
+        sender: AsClientId,
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> ConversationMessage {
@@ -233,13 +233,13 @@ impl Message {
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
-    pub(super) sender: String,
+    pub(super) sender: AsClientId,
     pub(super) sent: bool,
     pub(super) content: MimiContent,
 }
 
 impl ContentMessage {
-    pub fn new(sender: String, sent: bool, content: MimiContent) -> Self {
+    pub fn new(sender: AsClientId, sent: bool, content: MimiContent) -> Self {
         Self {
             sender,
             sent,
@@ -247,12 +247,16 @@ impl ContentMessage {
         }
     }
 
-    pub fn was_sent(&self) -> bool {
-        self.sent
+    pub fn into_parts(self) -> (AsClientId, bool, MimiContent) {
+        (self.sender, self.sent, self.content)
     }
 
-    pub fn sender(&self) -> &str {
-        self.sender.as_ref()
+    pub fn sender(&self) -> &AsClientId {
+        &self.sender
+    }
+
+    pub fn was_sent(&self) -> bool {
+        self.sent
     }
 
     pub fn content(&self) -> &MimiContent {

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO group_membership (\n                as_client_uuid,\n                as_domain,\n                group_id,\n                leaf_index,\n                identity_link_key,\n                client_credential_fingerprint,\n                status\n            ) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "74a1f7d9ccced67998343ce492fcb276f90c60ca5c7b01ceb52169cd96c61f48"
+}
