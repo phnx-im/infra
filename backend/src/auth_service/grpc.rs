@@ -145,11 +145,11 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<GetUserConnectionPackagesRequest>,
     ) -> Result<Response<GetUserConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
-        let user_name = request
-            .user_name
-            .ok_or_missing_field("user_name")?
+        let client_id = request
+            .client_id
+            .ok_or_missing_field("client_id")?
             .try_into()?;
-        let params = UserConnectionPackagesParams { user_name };
+        let params = UserConnectionPackagesParams { client_id };
         let connection_packages = self
             .inner
             .as_user_connection_packages(params)

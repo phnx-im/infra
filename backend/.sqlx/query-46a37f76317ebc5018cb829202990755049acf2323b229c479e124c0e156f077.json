@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    queue_encryption_key\n                        AS \"queue_encryption_key: BlobDecoded<RatchetEncryptionKey>\",\n                    ratchet AS \"ratchet: BlobDecoded<AsQueueRatchet>\",\n                    activity_time,\n                    credential AS \"credential: FlatClientCredential\",\n                    remaining_tokens\n                FROM as_client_records WHERE client_id = $1",
+  "query": "SELECT\n                    queue_encryption_key\n                        AS \"queue_encryption_key: BlobDecoded<RatchetEncryptionKey>\",\n                    ratchet AS \"ratchet: BlobDecoded<AsQueueRatchet>\",\n                    activity_time,\n                    credential AS \"credential: FlatClientCredential\",\n                    remaining_tokens\n                FROM as_client_records\n                WHERE client_id = $1 AND domain = $2",
   "describe": {
     "columns": [
       {
@@ -29,42 +29,6 @@
                 [
                   "version",
                   "Bytea"
-                ],
-                [
-                  "client_id",
-                  {
-                    "Custom": {
-                      "name": "as_client_id",
-                      "kind": {
-                        "Composite": [
-                          [
-                            "user_name",
-                            {
-                              "Custom": {
-                                "name": "qualified_user_name",
-                                "kind": {
-                                  "Composite": [
-                                    [
-                                      "user_name",
-                                      "Text"
-                                    ],
-                                    [
-                                      "domain",
-                                      "Text"
-                                    ]
-                                  ]
-                                }
-                              }
-                            }
-                          ],
-                          [
-                            "client_id",
-                            "Uuid"
-                          ]
-                        ]
-                      }
-                    }
-                  }
                 ],
                 [
                   "signature_scheme",
@@ -115,7 +79,8 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Text"
       ]
     },
     "nullable": [
@@ -126,5 +91,5 @@
       false
     ]
   },
-  "hash": "94bc78eb14bc4e3c538822f5a14dcfd6bf968d8c44cb21d723d220630b5720c0"
+  "hash": "46a37f76317ebc5018cb829202990755049acf2323b229c479e124c0e156f077"
 }

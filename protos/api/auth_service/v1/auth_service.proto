@@ -30,8 +30,8 @@ service AuthService {
 // common
 
 message AsClientId {
-  common.v1.QualifiedUserName user_name = 1;
-  common.v1.Uuid client_id = 2;
+  common.v1.Uuid client_id = 1;
+  common.v1.Fqdn domain = 2;
 }
 
 message MlsInfraVersion {
@@ -142,7 +142,7 @@ message PublishConnectionPackagesResponse {}
 // get user connection packages
 
 message GetUserConnectionPackagesRequest {
-  common.v1.QualifiedUserName user_name = 1;
+  AsClientId client_id = 1;
 }
 
 message GetUserConnectionPackagesResponse {

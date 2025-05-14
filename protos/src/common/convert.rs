@@ -17,7 +17,7 @@ use phnxtypes::{
 use tonic::Status;
 
 use crate::{
-    convert::{FromRef, RefInto, TryFromRef, TryRefInto},
+    convert::{FromRef, TryFromRef, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
 
@@ -51,10 +51,10 @@ impl TryFromRef<'_, Fqdn> for identifiers::Fqdn {
     }
 }
 
-impl FromRef<'_, identifiers::Fqdn> for Fqdn {
-    fn from_ref(value: &identifiers::Fqdn) -> Self {
+impl From<identifiers::Fqdn> for Fqdn {
+    fn from(value: identifiers::Fqdn) -> Self {
         Fqdn {
-            value: value.to_string(),
+            value: value.into(),
         }
     }
 }
@@ -101,7 +101,7 @@ impl FromRef<'_, identifiers::QualifiedGroupId> for QualifiedGroupId {
     fn from_ref(value: &identifiers::QualifiedGroupId) -> QualifiedGroupId {
         QualifiedGroupId {
             group_uuid: Some(value.group_uuid().into()),
-            domain: Some(value.owning_domain().ref_into()),
+            domain: Some(value.owning_domain().clone().into()),
         }
     }
 }
@@ -327,7 +327,7 @@ impl From<identifiers::QualifiedUserName> for QualifiedUserName {
         let (user_name, domain) = value.into_parts();
         Self {
             name: Some(user_name.into()),
-            domain: Some(domain.ref_into()),
+            domain: Some(domain.into()),
         }
     }
 }

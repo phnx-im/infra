@@ -35,14 +35,13 @@ impl AuthService {
 
         // Check if a user entry with the name given in the client_csr already exists
         tracing::info!("Checking if user already exists");
-        let user_name_exists =
-            UserRecord::load(&self.db_pool, client_payload.identity().user_name())
-                .await
-                .map_err(|error| {
-                    error!(%error, "Error loading user record");
-                    RegisterUserError::StorageError
-                })?
-                .is_some();
+        let user_name_exists = UserRecord::load(&self.db_pool, client_payload.identity())
+            .await
+            .map_err(|error| {
+                error!(%error, "Error loading user record");
+                RegisterUserError::StorageError
+            })?
+            .is_some();
 
         if user_name_exists {
             return Err(RegisterUserError::UserAlreadyExists);
@@ -73,16 +72,12 @@ impl AuthService {
         let client_id = client_credential.identity();
 
         // Create the user entry with the information given in the request
-        UserRecord::new_and_store(
-            &self.db_pool,
-            client_id.user_name(),
-            &encrypted_user_profile,
-        )
-        .await
-        .map_err(|error| {
-            error!(%error, "Storage provider error");
-            RegisterUserError::StorageError
-        })?;
+        UserRecord::new_and_store(&self.db_pool, client_id, &encrypted_user_profile)
+            .await
+            .map_err(|error| {
+                error!(%error, "Storage provider error");
+                RegisterUserError::StorageError
+            })?;
 
         // Create the initial client entry
         let ratchet_key = initial_ratchet_secret
@@ -115,12 +110,12 @@ impl AuthService {
         params: DeleteUserParamsTbs,
     ) -> Result<(), DeleteUserError> {
         let DeleteUserParamsTbs {
-            user_name,
-            client_id: _,
+            user_name: _,
+            client_id,
         } = params;
 
         // Delete the user
-        UserRecord::delete(&self.db_pool, &user_name)
+        UserRecord::delete(&self.db_pool, &client_id)
             .await
             .map_err(|error| {
                 error!(%error, "Storage provider error");

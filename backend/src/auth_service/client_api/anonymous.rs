@@ -23,14 +23,14 @@ impl AuthService {
         &self,
         params: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponse, UserConnectionPackagesError> {
-        let UserConnectionPackagesParams { user_name } = params;
+        let UserConnectionPackagesParams { client_id } = params;
 
         let mut connection = self.db_pool.acquire().await.map_err(|e| {
             tracing::warn!("Failed to acquire connection from pool: {:?}", e);
             UserConnectionPackagesError::StorageError
         })?;
         let connection_packages =
-            StorableConnectionPackage::user_connection_packages(&mut connection, &user_name)
+            StorableConnectionPackage::user_connection_packages(&mut connection, &client_id)
                 .await
                 .map_err(|e| {
                     tracing::warn!(

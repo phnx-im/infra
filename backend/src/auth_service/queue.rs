@@ -195,10 +195,10 @@ mod persistence {
         #[sqlx::test]
         async fn enqueue_read_and_delete(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+            let client_id = user_record.client_id();
             store_random_client_record(&pool, client_id.clone()).await?;
 
-            let queue = Queue::new_and_store(&client_id, &pool).await?;
+            let queue = Queue::new_and_store(client_id, &pool).await?;
 
             let n: u64 = queue.sequence_number.try_into()?;
             let mut messages = Vec::new();
@@ -210,21 +210,20 @@ mod persistence {
                 messages.push(message);
                 Queue::enqueue(
                     pool.acquire().await?.as_mut(),
-                    &client_id,
+                    client_id,
                     messages.last().unwrap(),
                 )
                 .await?;
             }
 
             let (loaded, remaining) =
-                Queue::read_and_delete(pool.acquire().await?.as_mut(), &client_id, n + 1, 5)
-                    .await?;
+                Queue::read_and_delete(pool.acquire().await?.as_mut(), client_id, n + 1, 5).await?;
             assert_eq!(loaded.len(), 5);
             assert_eq!(remaining, 4);
             assert_eq!(loaded, &messages[1..6]);
 
             let (loaded, remaining) =
-                Queue::read_and_delete(pool.acquire().await?.as_mut(), &client_id, n + 1 + 5, 5)
+                Queue::read_and_delete(pool.acquire().await?.as_mut(), client_id, n + 1 + 5, 5)
                     .await?;
             assert_eq!(loaded.len(), 4);
             assert_eq!(remaining, 0);

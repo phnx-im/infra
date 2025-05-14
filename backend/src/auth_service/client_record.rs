@@ -62,7 +62,6 @@ pub(crate) mod persistence {
     use phnxtypes::{
         codec::{BlobDecoded, BlobEncoded},
         credentials::persistence::FlatClientCredential,
-        identifiers::QualifiedUserName,
     };
     use sqlx::{
         PgExecutor, query,
@@ -77,12 +76,12 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             let activity_time = DateTime::<Utc>::from(self.activity_time);
-            let client_credential = FlatClientCredential::from(&self.credential);
+            let client_credential = FlatClientCredential::new(&self.credential);
             let client_id = self.credential.identity();
             query!(
                 "INSERT INTO as_client_records (
                     client_id,
-                    user_name,
+                    domain,
                     queue_encryption_key,
                     ratchet,
                     activity_time,
@@ -90,7 +89,7 @@ pub(crate) mod persistence {
                     remaining_tokens
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 client_id.client_id(),
-                client_id.user_name().to_string(),
+                client_id.domain() as _,
                 BlobEncoded(&self.queue_encryption_key) as _,
                 BlobEncoded(&self.ratchet) as _,
                 activity_time,
@@ -107,7 +106,7 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             let activity_time = DateTime::<Utc>::from(self.activity_time);
-            let client_credential = FlatClientCredential::from(&self.credential);
+            let client_credential = FlatClientCredential::new(&self.credential);
             let client_id = self.credential.identity();
             query!(
                 "UPDATE as_client_records SET
@@ -116,13 +115,14 @@ pub(crate) mod persistence {
                     activity_time = $3,
                     credential = $4,
                     remaining_tokens = $5
-                WHERE client_id = $6",
+                WHERE client_id = $6 AND domain = $7",
                 BlobEncoded(&self.queue_encryption_key) as _,
                 BlobEncoded(&self.ratchet) as _,
                 activity_time,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
                 client_id.client_id(),
+                client_id.domain() as _,
             )
             .execute(connection)
             .await?;
@@ -141,8 +141,10 @@ pub(crate) mod persistence {
                     activity_time,
                     credential AS "credential: FlatClientCredential",
                     remaining_tokens
-                FROM as_client_records WHERE client_id = $1"#,
+                FROM as_client_records
+                WHERE client_id = $1 AND domain = $2"#,
                 client_id.client_id(),
+                client_id.domain() as _,
             )
             .fetch_optional(connection)
             .await?
@@ -151,7 +153,7 @@ pub(crate) mod persistence {
                     queue_encryption_key: record.queue_encryption_key.into_inner(),
                     ratchet: record.ratchet.into_inner(),
                     activity_time: record.activity_time.into(),
-                    credential: record.credential.into(),
+                    credential: record.credential.into_client_credential(client_id.clone()),
                     token_allowance: record.remaining_tokens,
                 })
             })
@@ -176,21 +178,22 @@ pub(crate) mod persistence {
         #[allow(dead_code)]
         pub(in crate::auth_service) async fn load_user_credentials(
             connection: impl PgExecutor<'_>,
-            user_name: &QualifiedUserName,
+            client_id: &AsClientId,
         ) -> Result<Vec<ClientCredential>, StorageError> {
-            sqlx::query_scalar!(
+            let credentials = sqlx::query_scalar!(
                 r#"SELECT credential as "client_credential: FlatClientCredential"
-                FROM as_client_records WHERE user_name = $1"#,
-                user_name.to_string(),
+                FROM as_client_records
+                WHERE client_id = $1 AND domain = $2"#,
+                client_id.client_id(),
+                client_id.domain() as _,
             )
             .fetch_all(connection)
-            .await?
-            .into_iter()
-            .map(|flat_credential| {
-                let client_credential = flat_credential.into();
-                Ok(client_credential)
-            })
-            .collect()
+            .await?;
+            let credentials = credentials
+                .into_iter()
+                .map(|flat_credential| flat_credential.into_client_credential(client_id.clone()))
+                .collect();
+            Ok(credentials)
         }
     }
 
@@ -203,7 +206,6 @@ pub(crate) mod persistence {
             time::{Duration, ExpirationData},
         };
         use sqlx::PgPool;
-        use uuid::Uuid;
 
         use crate::auth_service::user_record::persistence::tests::store_random_user_record;
 
@@ -243,11 +245,8 @@ pub(crate) mod persistence {
         #[sqlx::test]
         async fn load(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_record = store_random_client_record(
-                &pool,
-                AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
-            )
-            .await?;
+            let client_record =
+                store_random_client_record(&pool, user_record.client_id().clone()).await?;
 
             let loaded = ClientRecord::load(&pool, client_record.client_id())
                 .await?
@@ -260,46 +259,19 @@ pub(crate) mod persistence {
         #[sqlx::test]
         async fn load_user_credentials(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_records = vec![
-                store_random_client_record(
-                    &pool,
-                    AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
-                )
-                .await?,
-                store_random_client_record(
-                    &pool,
-                    AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
-                )
-                .await?,
-                store_random_client_record(
-                    &pool,
-                    AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
-                )
-                .await?,
-            ];
-
-            let mut loaded =
-                ClientRecord::load_user_credentials(&pool, user_record.user_name()).await?;
-            loaded.sort_by_key(|record| record.identity().client_id());
-            let mut expected: Vec<_> = client_records
-                .into_iter()
-                .map(|record| record.credential)
-                .collect();
-            expected.sort_by_key(|credential| credential.identity().client_id());
-
-            assert_eq!(loaded, expected);
-
+            let client_record =
+                store_random_client_record(&pool, user_record.client_id().clone()).await?;
+            let loaded =
+                ClientRecord::load_user_credentials(&pool, user_record.client_id()).await?;
+            assert_eq!(loaded, [client_record.credential]);
             Ok(())
         }
 
         #[sqlx::test]
         async fn update(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_record = store_random_client_record(
-                &pool,
-                AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
-            )
-            .await?;
+            let client_record =
+                store_random_client_record(&pool, user_record.client_id().clone()).await?;
 
             let loaded = ClientRecord::load(&pool, client_record.client_id())
                 .await?
@@ -320,11 +292,8 @@ pub(crate) mod persistence {
         #[sqlx::test]
         async fn delete(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_record = store_random_client_record(
-                &pool,
-                AsClientId::new(user_record.user_name().clone(), Uuid::new_v4()),
-            )
-            .await?;
+            let client_record =
+                store_random_client_record(&pool, user_record.client_id().clone()).await?;
 
             let loaded = ClientRecord::load(&pool, client_record.client_id())
                 .await?

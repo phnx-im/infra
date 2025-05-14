@@ -6,10 +6,7 @@ use std::{fmt, hash::Hash, str::FromStr};
 
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 use rand::{CryptoRng, Rng, RngCore};
-use sqlx::{
-    Database, Decode, Encode, Postgres, Sqlite, Type, encode::IsNull, error::BoxDynError,
-    postgres::PgValueRef,
-};
+use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use tls_codec_impls::TlsUuid;
 use tracing::{debug, error};
 use url::Host;
@@ -17,7 +14,6 @@ use uuid::Uuid;
 
 use crate::crypto::{
     ear::keys::PushTokenEarKey,
-    errors::RandomnessError,
     hpke::{ClientIdKeyType, HpkeDecryptable, HpkeEncryptable},
 };
 
@@ -32,6 +28,16 @@ pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Fqdn {
     domain: Host<String>,
+}
+
+impl From<Fqdn> for String {
+    fn from(value: Fqdn) -> Self {
+        match value.domain {
+            Host::Domain(domain) => domain,
+            Host::Ipv4(addr) => addr.to_string(),
+            Host::Ipv6(addr) => addr.to_string(),
+        }
+    }
 }
 
 impl<DB: Database> Type<DB> for Fqdn
@@ -55,9 +61,12 @@ where
     }
 }
 
-impl<'r> Decode<'r, Postgres> for Fqdn {
-    fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s: &str = Decode::<Postgres>::decode(value)?;
+impl<'r, DB: Database> Decode<'r, DB> for Fqdn
+where
+    &'r str: Decode<'r, DB>,
+{
+    fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let s: &str = Decode::<DB>::decode(value)?;
         let fqdn = s.parse().map_err(|error| {
             error!(%error, "Error parsing Fqdn from DB");
             sqlx::Error::Decode(Box::new(error))
@@ -354,43 +363,40 @@ impl fmt::Display for QualifiedUserName {
     TlsSize,
     TlsSerialize,
     TlsDeserializeBytes,
-    sqlx::Type, // Only for Postgres
 )]
-#[sqlx(type_name = "as_client_id")]
 pub struct AsClientId {
-    user_name: QualifiedUserName,
     client_id: TlsUuid,
+    domain: Fqdn,
 }
 
 impl fmt::Display for AsClientId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let client_id_str = self.client_id.to_string();
-        write!(f, "{}.{}", client_id_str, self.user_name)
+        write!(f, "{}@{}", self.client_id.0, self.domain)
     }
 }
 
 impl AsClientId {
-    pub fn new(user_name: QualifiedUserName, client_id: Uuid) -> Self {
+    pub fn new(client_id: Uuid, domain: Fqdn) -> Self {
         Self {
-            user_name,
             client_id: TlsUuid(client_id),
+            domain,
         }
     }
 
-    pub fn random(user_name: QualifiedUserName) -> Result<Self, RandomnessError> {
-        Ok(Self::new(user_name, Uuid::new_v4()))
-    }
-
-    pub fn user_name(&self) -> &QualifiedUserName {
-        &self.user_name
+    pub fn random(domain: Fqdn) -> Self {
+        Self::new(Uuid::new_v4(), domain)
     }
 
     pub fn client_id(&self) -> Uuid {
         *self.client_id
     }
 
-    pub fn into_parts(self) -> (QualifiedUserName, Uuid) {
-        (self.user_name, *self.client_id)
+    pub fn domain(&self) -> &Fqdn {
+        &self.domain
+    }
+
+    pub fn into_parts(self) -> (Uuid, Fqdn) {
+        (*self.client_id, self.domain)
     }
 }
 
@@ -404,44 +410,44 @@ pub enum AsClientIdError {
     UserNameError(#[from] QualifiedUserNameError),
 }
 
-impl FromStr for AsClientId {
-    type Err = AsClientIdError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let Some((client_id_str, user_name_str)) = s.split_once('.') else {
-            return Err(AsClientIdError::InvalidClientId);
-        };
-        let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
-        let user_name = user_name_str.parse()?;
-        Ok(Self {
-            user_name,
-            client_id,
-        })
-    }
-}
-
-impl Type<Sqlite> for AsClientId {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <String as Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for AsClientId {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let value = self.to_string();
-        Encode::<Sqlite>::encode(value, buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for AsClientId {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s: &str = Decode::<Sqlite>::decode(value)?;
-        Ok(s.parse()?)
-    }
-}
+// impl FromStr for AsClientId {
+//     type Err = AsClientIdError;
+//
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         let Some((client_id_str, user_name_str)) = s.split_once('.') else {
+//             return Err(AsClientIdError::InvalidClientId);
+//         };
+//         let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
+//         let user_name = user_name_str.parse()?;
+//         Ok(Self {
+//             user_name,
+//             client_id,
+//         })
+//     }
+// }
+//
+// impl Type<Sqlite> for AsClientId {
+//     fn type_info() -> <Sqlite as Database>::TypeInfo {
+//         <String as Type<Sqlite>>::type_info()
+//     }
+// }
+//
+// impl<'q> Encode<'q, Sqlite> for AsClientId {
+//     fn encode_by_ref(
+//         &self,
+//         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+//     ) -> Result<IsNull, BoxDynError> {
+//         let value = self.to_string();
+//         Encode::<Sqlite>::encode(value, buf)
+//     }
+// }
+//
+// impl<'r> Decode<'r, Sqlite> for AsClientId {
+//     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+//         let s: &str = Decode::<Sqlite>::decode(value)?;
+//         Ok(s.parse()?)
+//     }
+// }
 
 #[derive(
     Clone,

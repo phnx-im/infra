@@ -6,6 +6,7 @@ use phnxtypes::messages::client_as_out::{
     GetUserProfileParams, GetUserProfileResponse, MergeUserProfileParamsTbs,
     StageUserProfileParamsTbs,
 };
+use tracing::error;
 
 use crate::{
     auth_service::{AuthService, user_record::UserRecord},
@@ -22,12 +23,8 @@ impl AuthService {
             key_index,
         } = params;
 
-        let user_record = UserRecord::load(&self.db_pool, client_id.user_name())
-            .await
-            .map_err(|e| {
-                tracing::error!("Error loading user record: {:?}", e);
-                GetUserProfileError::StorageError
-            })?
+        let user_record = UserRecord::load(&self.db_pool, &client_id)
+            .await?
             .ok_or(GetUserProfileError::UserNotFound)?;
 
         let user_profile = user_record
@@ -50,18 +47,14 @@ impl AuthService {
             user_profile,
         } = params;
 
-        let mut user_record = UserRecord::load(&self.db_pool, client_id.user_name())
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "Error loading user record");
-                StageUserProfileError::StorageError
-            })?
+        let mut user_record = UserRecord::load(&self.db_pool, &client_id)
+            .await?
             .ok_or(StageUserProfileError::UserNotFound)?;
 
         user_record.stage_user_profile(user_profile);
 
         user_record.update(&self.db_pool).await.map_err(|e| {
-            tracing::error!("Error updating user record: {:?}", e);
+            error!("Error updating user record: {:?}", e);
             StageUserProfileError::StorageError
         })?;
 
@@ -74,12 +67,8 @@ impl AuthService {
     ) -> Result<(), MergeUserProfileError> {
         let MergeUserProfileParamsTbs { client_id } = params;
 
-        let mut user_record = UserRecord::load(&self.db_pool, client_id.user_name())
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "Error loading user record");
-                MergeUserProfileError::StorageError
-            })?
+        let mut user_record = UserRecord::load(&self.db_pool, &client_id)
+            .await?
             .ok_or(MergeUserProfileError::UserNotFound)?;
 
         user_record
@@ -87,7 +76,7 @@ impl AuthService {
             .map_err(|_| MergeUserProfileError::NoStagedUserProfile)?;
 
         user_record.update(&self.db_pool).await.map_err(|e| {
-            tracing::error!("Error updating user record: {:?}", e);
+            error!("Error updating user record: {:?}", e);
             MergeUserProfileError::StorageError
         })?;
 

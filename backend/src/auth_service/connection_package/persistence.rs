@@ -4,7 +4,7 @@
 
 use phnxtypes::{
     codec::{BlobDecoded, BlobEncoded},
-    identifiers::{AsClientId, QualifiedUserName},
+    identifiers::AsClientId,
     messages::client_as::ConnectionPackage,
 };
 use sqlx::{Arguments, Connection, PgConnection, PgExecutor, postgres::PgArguments};
@@ -92,7 +92,7 @@ impl StorableConnectionPackage {
     /// user name.
     pub(in crate::auth_service) async fn user_connection_packages(
         connection: &mut PgConnection,
-        user_name: &QualifiedUserName,
+        client_id: &AsClientId,
     ) -> Result<Vec<ConnectionPackage>, StorageError> {
         // Start the transaction
         let mut transaction = connection.begin().await?;
@@ -103,8 +103,9 @@ impl StorableConnectionPackage {
 
         // Collect all client ids associated with that user.
         let client_ids = sqlx::query_scalar!(
-            "SELECT client_id FROM as_client_records WHERE user_name = $1",
-            user_name.to_string(),
+            "SELECT client_id FROM as_client_records WHERE client_id = $1 AND domain = $2",
+            client_id.client_id(),
+            client_id.domain() as _,
         )
         .fetch_all(&mut *transaction)
         .await?;
@@ -171,7 +172,7 @@ mod tests {
     #[sqlx::test]
     async fn load(pool: PgPool) -> anyhow::Result<()> {
         let user_record = store_random_user_record(&pool).await?;
-        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+        let client_id = user_record.client_id().clone();
         let client_record = store_random_client_record(&pool, client_id.clone()).await?;
         let pkgs =
             store_random_connection_packages(&pool, &client_id, client_record.credential().clone())
@@ -203,33 +204,23 @@ mod tests {
     async fn user_connection_packages(pool: PgPool) -> anyhow::Result<()> {
         let user_record = store_random_user_record(&pool).await?;
 
-        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+        let client_id = user_record.client_id().clone();
         let client_record_a = store_random_client_record(&pool, client_id.clone()).await?;
-        let pkgs_a = store_random_connection_packages(
+        let pkgs = store_random_connection_packages(
             &pool,
             &client_id,
             client_record_a.credential().clone(),
         )
         .await?;
 
-        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
-        let client_record_b = store_random_client_record(&pool, client_id.clone()).await?;
-        let pkgs_b = store_random_connection_packages(
-            &pool,
-            &client_id,
-            client_record_b.credential().clone(),
-        )
-        .await?;
-
         let loaded = StorableConnectionPackage::user_connection_packages(
             pool.acquire().await?.as_mut(),
-            user_record.user_name(),
+            user_record.client_id(),
         )
         .await?;
 
-        assert_eq!(loaded.len(), 2);
-        assert!(loaded.contains(&pkgs_a[0]) || loaded.contains(&pkgs_a[1]));
-        assert!(loaded.contains(&pkgs_b[0]) || loaded.contains(&pkgs_b[1]));
+        assert_eq!(loaded.len(), 1);
+        assert!(loaded[0] == pkgs[0] || loaded[0] == pkgs[1]);
 
         Ok(())
     }

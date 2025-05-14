@@ -14,7 +14,7 @@ use tonic::Status;
 
 use crate::{
     common::convert::InvalidNonceLen,
-    convert::{FromRef, RefInto, TryFromRef, TryRefInto},
+    convert::{FromRef, TryFromRef, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
 
@@ -45,7 +45,7 @@ impl TryFrom<SealedClientReference> for identifiers::SealedClientReference {
 impl From<identifiers::QsReference> for QsReference {
     fn from(value: identifiers::QsReference) -> Self {
         Self {
-            client_homeserver_domain: Some(value.client_homeserver_domain.ref_into()),
+            client_homeserver_domain: Some(value.client_homeserver_domain.into()),
             sealed_reference: Some(value.sealed_reference.into()),
         }
     }

@@ -249,7 +249,7 @@ impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessage
 
 #[derive(Debug)]
 pub struct UserConnectionPackagesParams {
-    pub user_name: QualifiedUserName,
+    pub client_id: AsClientId,
 }
 
 #[derive(Debug)]

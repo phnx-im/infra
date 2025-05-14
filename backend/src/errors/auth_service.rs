@@ -5,6 +5,9 @@
 use phnxtypes::time::TimeStamp;
 use thiserror::Error;
 use tonic::Status;
+use tracing::error;
+
+use super::StorageError;
 
 /// Error fetching a message from the QS.
 #[derive(Error, Debug)]
@@ -180,6 +183,13 @@ pub(crate) enum GetUserProfileError {
     StorageError,
 }
 
+impl From<StorageError> for GetUserProfileError {
+    fn from(error: StorageError) -> Self {
+        error!(%error, "Error loading user record");
+        Self::StorageError
+    }
+}
+
 impl From<GetUserProfileError> for Status {
     fn from(e: GetUserProfileError) -> Self {
         let msg = e.to_string();
@@ -198,6 +208,13 @@ pub(crate) enum StageUserProfileError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
+}
+
+impl From<StorageError> for StageUserProfileError {
+    fn from(error: StorageError) -> Self {
+        error!(%error, "Error loading user record");
+        Self::StorageError
+    }
 }
 
 impl From<StageUserProfileError> for Status {
@@ -220,6 +237,13 @@ pub(crate) enum MergeUserProfileError {
     /// No staged user profile
     #[error("No staged user profile")]
     NoStagedUserProfile,
+}
+
+impl From<StorageError> for MergeUserProfileError {
+    fn from(error: StorageError) -> Self {
+        error!(%error, "Error loading user record");
+        Self::StorageError
+    }
 }
 
 impl From<MergeUserProfileError> for Status {

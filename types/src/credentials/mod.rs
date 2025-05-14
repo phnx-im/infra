@@ -623,7 +623,7 @@ impl VerifiableClientCredential {
     }
 
     pub fn domain(&self) -> &Fqdn {
-        self.payload.csr.client_id.user_name().domain()
+        self.payload.csr.client_id.domain()
     }
 
     pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
@@ -668,7 +668,6 @@ pub mod persistence {
     #[sqlx(type_name = "client_credential")]
     pub struct FlatClientCredential {
         version: Vec<u8>,
-        client_id: AsClientId,
         signature_scheme: Vec<u8>,
         verifying_key: ClientVerifyingKey,
         expiration_data: ExpirationData,
@@ -676,11 +675,10 @@ pub mod persistence {
         signature: Signature,
     }
 
-    impl From<&ClientCredential> for FlatClientCredential {
-        fn from(credential: &ClientCredential) -> Self {
+    impl FlatClientCredential {
+        pub fn new(credential: &ClientCredential) -> Self {
             Self {
                 version: PhnxCodec::to_vec(&credential.payload.csr.version).unwrap(),
-                client_id: credential.payload.csr.client_id.clone(),
                 signature_scheme: PhnxCodec::to_vec(&credential.payload.csr.signature_scheme)
                     .unwrap(),
                 verifying_key: credential.payload.csr.verifying_key.clone(),
@@ -689,23 +687,20 @@ pub mod persistence {
                 signature: credential.signature.clone(),
             }
         }
-    }
 
-    impl From<FlatClientCredential> for ClientCredential {
-        fn from(flat_credential: FlatClientCredential) -> Self {
+        pub fn into_client_credential(self, client_id: AsClientId) -> ClientCredential {
             let payload = ClientCredentialPayload {
                 csr: ClientCredentialCsr {
-                    version: PhnxCodec::from_slice(&flat_credential.version).unwrap(),
-                    client_id: flat_credential.client_id,
-                    signature_scheme: PhnxCodec::from_slice(&flat_credential.signature_scheme)
-                        .unwrap(),
-                    verifying_key: flat_credential.verifying_key,
+                    version: PhnxCodec::from_slice(&self.version).unwrap(),
+                    client_id,
+                    signature_scheme: PhnxCodec::from_slice(&self.signature_scheme).unwrap(),
+                    verifying_key: self.verifying_key,
                 },
-                expiration_data: flat_credential.expiration_data,
-                signer_fingerprint: flat_credential.signer_fingerprint,
+                expiration_data: self.expiration_data,
+                signer_fingerprint: self.signer_fingerprint,
             };
-            let signature = flat_credential.signature;
-            Self { payload, signature }
+            let signature = self.signature;
+            ClientCredential { payload, signature }
         }
     }
 }
