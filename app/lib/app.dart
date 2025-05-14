@@ -212,6 +212,8 @@ class ConversationDetailsCubitProvider extends StatelessWidget {
           return child;
         }
         return BlocProvider(
+          // rebuilds the cubit when a different conversation is selected
+          key: ValueKey("conversation-details-cubit-$conversationId"),
           create:
               (context) => ConversationDetailsCubit(
                 userCubit: context.read<UserCubit>(),
