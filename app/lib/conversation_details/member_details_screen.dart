@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/conversation_details/conversation_details_cubit.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -32,14 +33,20 @@ class MemberDetailsScreen extends StatelessWidget {
       },
     );
 
+    final roomState = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.roomState,
+    );
+
+    if (conversationId == null || memberUsername == null || roomState == null) {
+      return const SizedBox.shrink();
+    }
+
     final ownUsername = context.select(
       (UserCubit cubit) => cubit.state.userName,
     );
     final isSelf = memberUsername == ownUsername;
 
-    if (conversationId == null || memberUsername == null) {
-      return const SizedBox.shrink();
-    }
+    final canKick = roomState.testKick(target: 1); // TODO: Use UUID
 
     return Scaffold(
       appBar: AppBar(
@@ -71,8 +78,8 @@ class MemberDetailsScreen extends StatelessWidget {
                 const SizedBox(height: _padding),
               ],
             ),
-            // Show the remove user button if the user is not the current user
-            (!isSelf)
+            // Show the remove user button if the user is not the current user and has kicking rights
+            (!isSelf && canKick)
                 ? Padding(
                   padding: const EdgeInsets.all(_padding),
                   child: OutlinedButton(
