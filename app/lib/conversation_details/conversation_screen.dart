@@ -30,15 +30,6 @@ class ConversationScreen extends StatelessWidget {
       providers: [
         BlocProvider(
           // rebuilds the cubit when a different conversation is selected
-          key: ValueKey("conversation-detail-cubit-$conversationId"),
-          create:
-              (context) => ConversationDetailsCubit(
-                userCubit: context.read<UserCubit>(),
-                conversationId: conversationId,
-              ),
-        ),
-        BlocProvider(
-          // rebuilds the cubit when a different conversation is selected
           key: ValueKey("message-list-cubit-$conversationId"),
           create:
               (context) => MessageListCubit(
