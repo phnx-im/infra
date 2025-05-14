@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::LeafNodeIndex;
-use phnxtypes::{
-    crypto::ear::keys::EncryptedUserProfileKey, errors::DsProcessingError, time::TimeStamp,
-};
+use phnxtypes::{crypto::ear::keys::EncryptedUserProfileKey, time::TimeStamp};
+use tonic::Status;
 
 use super::group_state::DsGroupState;
 
@@ -14,13 +13,28 @@ impl DsGroupState {
         &mut self,
         sender_index: LeafNodeIndex,
         user_profile_key: EncryptedUserProfileKey,
-    ) -> Result<(), DsProcessingError> {
+    ) -> Result<(), UpdateUserProfileKeyError> {
         let client_profile = self
             .member_profiles
             .get_mut(&sender_index)
-            .ok_or(DsProcessingError::UnknownSender)?;
+            .ok_or(UpdateUserProfileKeyError::UnknownSender)?;
         client_profile.encrypted_user_profile_key = user_profile_key;
         client_profile.activity_time = TimeStamp::now();
         Ok(())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(super) enum UpdateUserProfileKeyError {
+    #[error("Unknown sender")]
+    UnknownSender,
+}
+
+impl From<UpdateUserProfileKeyError> for Status {
+    fn from(e: UpdateUserProfileKeyError) -> Self {
+        let msg = e.to_string();
+        match e {
+            UpdateUserProfileKeyError::UnknownSender => Status::invalid_argument(msg),
+        }
     }
 }

@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxprotos::auth_service::v1::{
-    AsCredentialsRequest, DeleteUserPayload, DequeueMessagesPayload, EnqueueMessagesRequest,
-    GetUserConnectionPackagesRequest, GetUserProfileRequest, MergeUserProfilePayload,
-    PublishConnectionPackagesPayload, RegisterUserRequest, StageUserProfilePayload,
+    AckListenRequest, AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
+    GetUserConnectionPackagesRequest, GetUserProfileRequest, InitListenPayload, ListenRequest,
+    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
+    StageUserProfilePayload, listen_request,
 };
 use phnxtypes::{
     LibraryError,
@@ -16,6 +17,7 @@ use phnxtypes::{
     },
     identifiers::{AsClientId, QualifiedUserName},
     messages::{
+        QueueMessage,
         client_as::{
             ConnectionPackage, EncryptedConnectionEstablishmentPackage,
             UserConnectionPackagesParams,
@@ -24,10 +26,11 @@ use phnxtypes::{
             AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
             RegisterUserResponseIn, UserConnectionPackagesResponseIn,
         },
-        client_qs::DequeueMessagesResponse,
     },
 };
 use thiserror::Error;
+use tokio::sync::mpsc;
+use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
 use tonic::Request;
 use tracing::error;
 
@@ -165,36 +168,63 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn as_dequeue_messages(
+    pub async fn as_listen(
         &self,
         sequence_number_start: u64,
-        max_message_number: u64,
         signing_key: &ClientSigningKey,
-    ) -> Result<DequeueMessagesResponse, AsRequestError> {
-        let payload = DequeueMessagesPayload {
-            sender: Some(signing_key.credential().identity().clone().into()),
+    ) -> Result<
+        (
+            impl Stream<Item = Option<QueueMessage>> + Send,
+            ListenResponder,
+        ),
+        AsRequestError,
+    > {
+        let init_payload = InitListenPayload {
+            client_id: Some(signing_key.credential().identity().clone().into()),
             sequence_number_start,
-            max_message_number,
         };
-        let request = payload.sign(signing_key)?;
-        let response = self
-            .as_grpc_client
-            .client()
-            .dequeue_messages(request)
+        let init_request = init_payload.sign(signing_key)?;
+
+        const ACK_CHANNEL_BUFFER_SIZE: usize = 16; // not too big for applying backpressure
+        let (requests_tx, requests_rx) = mpsc::channel(ACK_CHANNEL_BUFFER_SIZE);
+        requests_tx
+            .send(ListenRequest {
+                request: Some(listen_request::Request::Init(init_request)),
+            })
+            .await
+            .map_err(|_| {
+                error!("logic error: channel closed");
+                tonic::Status::internal("logic error")
+            })?;
+
+        let mut client = self.as_grpc_client.client();
+
+        let responses = client
+            .listen(ReceiverStream::new(requests_rx))
             .await?
             .into_inner();
-        Ok(DequeueMessagesResponse {
-            messages: response
-                .messages
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<_, _>>()
-                .map_err(|error| {
-                    error!(%error, "failed to convert dequeue message");
-                    AsRequestError::UnexpectedResponse
-                })?,
-            remaining_messages_number: response.remaining_messages_number,
-        })
+
+        let messages = responses.filter_map(|response| -> Option<Option<QueueMessage>> {
+            let response = response
+                .inspect_err(|error| {
+                    error!(%error, "error receiving response");
+                })
+                .ok()?;
+            let Some(message) = response.message else {
+                return Some(None); // sentinel value
+            };
+            let message = message
+                .try_into()
+                .inspect_err(|error| {
+                    error!(%error, "invalid message in response");
+                })
+                .ok()?;
+            Some(Some(message))
+        });
+
+        let responder = ListenResponder { tx: requests_tx };
+
+        Ok((messages, responder))
     }
 
     pub async fn as_publish_connection_packages(
@@ -291,5 +321,21 @@ impl ApiClient {
                 .map(From::from)
                 .collect(),
         })
+    }
+}
+
+pub struct ListenResponder {
+    tx: mpsc::Sender<ListenRequest>,
+}
+
+impl ListenResponder {
+    pub async fn ack(&self, up_to_sequence_number: u64) {
+        let ack_request = listen_request::Request::Ack(AckListenRequest {
+            up_to_sequence_number,
+        });
+        let request = ListenRequest {
+            request: Some(ack_request),
+        };
+        let _ = self.tx.send(request).await;
     }
 }

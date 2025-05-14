@@ -20,7 +20,6 @@ use phnxtypes::{
         ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
     },
-    errors::GroupOperationError,
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
     messages::{
         client_ds::{
@@ -34,7 +33,10 @@ use phnxtypes::{
 use tls_codec::DeserializeBytes;
 use tracing::warn;
 
-use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
+use crate::{
+    errors::GroupOperationError,
+    messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
+};
 
 use super::{group_state::MemberProfile, process::USER_EXPIRATION_DAYS};
 

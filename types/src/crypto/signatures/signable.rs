@@ -42,7 +42,6 @@ use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerializ
 use crate::{
     LibraryError,
     crypto::ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
-    messages::FriendshipToken,
 };
 
 use super::private_keys::{SignatureVerificationError, SigningKey, VerifyingKeyBehaviour};
@@ -73,10 +72,6 @@ impl Signature {
 
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
         Self(bytes)
-    }
-
-    pub(crate) fn from_token(token: FriendshipToken) -> Self {
-        Self(token.token().to_vec())
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
