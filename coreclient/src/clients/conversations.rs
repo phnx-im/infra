@@ -553,6 +553,7 @@ mod delete_conversation_flow {
 
 mod leave_conversation_flow {
     use anyhow::Context;
+    use mimi_room_policy::{MimiProposal, RoleIndex};
     use phnxtypes::messages::client_ds_out::SelfRemoveParamsOut;
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
 
@@ -592,6 +593,14 @@ mod leave_conversation_flow {
                 mut group,
                 state: (),
             } = self;
+
+            group.room_state.apply_regular_proposals(
+                &group.own_leaf_index(),
+                &[MimiProposal::ChangeRole {
+                    target: group.own_leaf_index(),
+                    role: RoleIndex::Outsider,
+                }],
+            )?;
 
             let params = group.stage_leave_group(connection)?;
 

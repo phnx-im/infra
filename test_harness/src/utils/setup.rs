@@ -823,7 +823,7 @@ impl TestBackend {
         conversation_id: ConversationId,
         remover_name: &QualifiedUserName,
         removed_names: Vec<&QualifiedUserName>,
-    ) {
+    ) -> anyhow::Result<()> {
         let removed_strings = removed_names
             .iter()
             .map(|n| n.to_string())
@@ -859,8 +859,7 @@ impl TestBackend {
                 conversation_id,
                 &removed_names.iter().copied().cloned().collect::<Vec<_>>(),
             )
-            .await
-            .expect("Error removing users.");
+            .await?;
 
         let mut expected_messages = HashSet::new();
 
@@ -984,6 +983,8 @@ impl TestBackend {
                 .collect::<HashSet<_>>();
             assert_eq!(removed_members, removed_set)
         }
+
+        Ok(())
     }
 
     /// Has the leaver leave the given group.
@@ -991,7 +992,7 @@ impl TestBackend {
         &mut self,
         conversation_id: ConversationId,
         leaver_name: &QualifiedUserName,
-    ) {
+    ) -> anyhow::Result<()> {
         info!(
             "{} leaves the group with id {}",
             leaver_name,
@@ -1001,7 +1002,7 @@ impl TestBackend {
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
-        leaver.leave_conversation(conversation_id).await.unwrap();
+        leaver.leave_conversation(conversation_id).await?;
 
         // Now have a random group member perform an update, thus committing the leave operation.
         // TODO: This is not really random. We should do better here. But also,
@@ -1034,6 +1035,8 @@ impl TestBackend {
 
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
         group_members.remove(leaver_name);
+
+        Ok(())
     }
 
     pub async fn delete_group(
@@ -1283,7 +1286,8 @@ impl TestBackend {
                         );
                         let members_to_remove = members_to_remove.iter().collect();
                         self.remove_from_group(conversation.id(), &random_user, members_to_remove)
-                            .await;
+                            .await
+                            .unwrap();
                     }
                 }
             }
@@ -1307,7 +1311,9 @@ impl TestBackend {
                         random_user,
                         conversation.id().uuid()
                     );
-                    self.leave_group(conversation.id(), &random_user).await;
+                    self.leave_group(conversation.id(), &random_user)
+                        .await
+                        .unwrap();
                 }
             }
             _ => panic!("Invalid action"),
