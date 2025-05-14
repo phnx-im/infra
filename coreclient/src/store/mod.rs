@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use mimi_room_policy::VerifiedRoomState;
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio_stream::Stream;
 use uuid::Uuid;
@@ -120,6 +121,11 @@ pub trait LocalStore {
         conversation_id: ConversationId,
         invited_users: &[QualifiedUserName],
     ) -> StoreResult<Vec<ConversationMessage>>;
+
+    async fn load_room_state(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<(u32, VerifiedRoomState)>;
 
     // contacts
 

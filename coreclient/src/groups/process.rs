@@ -4,6 +4,7 @@
 
 use super::{Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail, ensure};
+use mimi_room_policy::{MimiProposal, RoleIndex};
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{
@@ -12,7 +13,7 @@ use phnxtypes::{
     },
     messages::client_ds::{CredentialUpdate, InfraAadMessage, InfraAadPayload},
 };
-use sqlx::SqlitePool;
+use sqlx::SqliteConnection;
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 use tracing::info;
 
@@ -39,18 +40,17 @@ impl Group {
     /// the sender's client credential.
     pub(crate) async fn process_message(
         &mut self,
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         message: impl Into<ProtocolMessage>,
     ) -> Result<ProcessMessageResult> {
         // Phase 1: Process the message.
         let processed_message = {
-            let mut connection = pool.acquire().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut connection);
+            let provider = PhnxOpenMlsProvider::new(&mut *connection);
             self.mls_group.process_message(&provider, message)?
         };
 
-        let group_id = self.group_id();
+        let group_id = self.group_id().clone();
 
         // Will be set to true if we were removed (or the group was deleted).
         let mut we_were_removed = false;
@@ -65,7 +65,7 @@ impl Group {
                 info!("Message type: application");
                 let sender_client_credential =
                     if let Sender::Member(index) = processed_message.sender() {
-                        ClientAuthInfo::load(pool.acquire().await?.as_mut(), group_id, *index)
+                        ClientAuthInfo::load(&mut *connection, &group_id, *index)
                             .await?
                             .map(|info| info.into_client_credential())
                             .context("Could not find client credential of message sender")?
@@ -85,16 +85,40 @@ impl Group {
                 let Sender::Member(sender_index) = processed_message.sender() else {
                     bail!("Invalid sender type.")
                 };
+
+                // TODO: Room policy checks?
+
                 *sender_index
             }
             ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
+                let sender_index = match processed_message.sender() {
+                    Sender::Member(index) => index.to_owned(),
+                    Sender::NewMemberCommit => {
+                        self.mls_group.ext_commit_sender_index(staged_commit)?
+                    }
+                    Sender::External(_) | Sender::NewMemberProposal => {
+                        bail!("Invalid sender type.")
+                    }
+                };
+
                 // StagedCommitMessage Phase 1: Process the proposals.
 
                 // Before we process the AAD payload, we first process the
                 // proposals by value. Currently only removes are allowed.
                 for remove_proposal in staged_commit.remove_proposals() {
                     let removed_index = remove_proposal.remove_proposal().removed();
-                    GroupMembership::stage_removal(pool, group_id, removed_index).await?;
+
+                    // Room policy checks
+                    self.room_state.apply_regular_proposals(
+                        &sender_index.u32(),
+                        &[MimiProposal::ChangeRole {
+                            target: removed_index.u32(),
+                            role: RoleIndex::Outsider,
+                        }],
+                    )?;
+
+                    GroupMembership::stage_removal(&mut *connection, &group_id, removed_index)
+                        .await?;
                     if removed_index == self.mls_group().own_leaf_index() {
                         we_were_removed = true;
                     }
@@ -105,15 +129,6 @@ impl Group {
                 let aad_payload =
                     InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())?
                         .into_payload();
-                let sender_index = match processed_message.sender() {
-                    Sender::Member(index) => index.to_owned(),
-                    Sender::NewMemberCommit => {
-                        self.mls_group.ext_commit_sender_index(staged_commit)?
-                    }
-                    Sender::External(_) | Sender::NewMemberProposal => {
-                        bail!("Invalid sender type.")
-                    }
-                };
                 match aad_payload {
                     InfraAadPayload::GroupOperation(group_operation_payload) => {
                         // Process adds if there are any.
@@ -151,7 +166,13 @@ impl Group {
                                         .into_iter(),
                                 );
                             let client_auth_infos = self
-                                .process_adds(staged_commit, api_clients, pool, added_clients)
+                                .process_adds(
+                                    sender_index,
+                                    staged_commit,
+                                    api_clients,
+                                    &mut *connection,
+                                    added_clients,
+                                )
                                 .await?;
                             // Match up client credentials and new UserProfileKeys
                             let new_profile_infos: Vec<_> = client_auth_infos
@@ -176,7 +197,7 @@ impl Group {
                         if new_sender_credential != processed_message.credential() {
                             self.process_update(
                                 api_clients,
-                                pool,
+                                &mut *connection,
                                 new_sender_credential.clone(),
                                 group_operation_payload.credential_update_option,
                                 sender_index,
@@ -189,7 +210,7 @@ impl Group {
                             self.process_resync(
                                 &processed_message,
                                 staged_commit,
-                                pool.acquire().await?.as_mut(),
+                                &mut *connection,
                                 sender_index,
                             )
                             .await?;
@@ -214,9 +235,9 @@ impl Group {
                                 bail!("Invalid update client payload.")
                             };
                             let client_auth_info = ClientAuthInfo::decrypt_and_verify(
-                                pool,
+                                &mut *connection,
                                 api_clients,
-                                group_id,
+                                &group_id,
                                 self.identity_link_wrapper_key(),
                                 encrypted_identity_link_key,
                                 sender_index,
@@ -225,9 +246,7 @@ impl Group {
                             .await?;
 
                             // Persist the updated client auth info.
-                            client_auth_info
-                                .stage_update(pool.acquire().await?.as_mut())
-                                .await?;
+                            client_auth_info.stage_update(&mut *connection).await?;
                         };
                         // TODO: Validation:
                         // * Check that the sender type fits.
@@ -245,9 +264,9 @@ impl Group {
                         };
 
                         let client_auth_info = ClientAuthInfo::decrypt_and_verify(
-                            pool,
+                            &mut *connection,
                             api_clients,
-                            group_id,
+                            &group_id,
                             &self.identity_link_wrapper_key,
                             join_connection_group_payload.encrypted_identity_link_key,
                             sender_index,
@@ -261,9 +280,7 @@ impl Group {
                         // * Check that this group is indeed a connection group.
 
                         // JoinConnectionGroup Phase 2: Persist the client auth info.
-                        client_auth_info
-                            .stage_add(pool.acquire().await?.as_mut())
-                            .await?;
+                        client_auth_info.stage_add(&mut *connection).await?;
                         encrypted_profile_infos.push((
                             client_auth_info.into_client_credential(),
                             join_connection_group_payload.encrypted_user_profile_key,
@@ -287,15 +304,15 @@ impl Group {
                             .removed();
                         // Get the identity link key of the resyncing client
                         let identity_link_key =
-                            GroupMembership::load(pool, group_id, removed_index)
+                            GroupMembership::load(&mut *connection, &group_id, removed_index)
                                 .await?
                                 .context("Could not find group membership of resync sender")
                                 .map(|gm| gm.identity_link_key().clone())?;
 
                         let mut client_auth_info = ClientAuthInfo::decrypt_credential_and_verify(
-                            pool,
+                            &mut *connection,
                             api_clients,
-                            group_id,
+                            &group_id,
                             identity_link_key,
                             removed_index,
                             sender_credential,
@@ -306,9 +323,7 @@ impl Group {
                         client_auth_info
                             .group_membership_mut()
                             .set_leaf_index(sender_index);
-                        client_auth_info
-                            .stage_update(pool.acquire().await?.as_mut())
-                            .await?;
+                        client_auth_info.stage_update(&mut *connection).await?;
                     }
                     InfraAadPayload::DeleteGroup => {
                         we_were_removed = true;
@@ -323,12 +338,11 @@ impl Group {
         // it from the DB with status "staged".
 
         // Phase 2: Load the sender's client credential.
-        let mut connection = pool.acquire().await?;
         let sender_client_credential =
             if matches!(processed_message.sender(), Sender::NewMemberCommit) {
-                ClientAuthInfo::load_staged(&mut connection, group_id, sender_index).await?
+                ClientAuthInfo::load_staged(&mut *connection, &group_id, sender_index).await?
             } else {
-                ClientAuthInfo::load(&mut connection, group_id, sender_index).await?
+                ClientAuthInfo::load(&mut *connection, &group_id, sender_index).await?
             }
             .context("Could not find client credential of message sender")?
             .client_credential()
@@ -357,25 +371,39 @@ impl Group {
     }
 
     async fn process_adds(
-        &self,
+        &mut self,
+        sender_index: LeafNodeIndex,
         staged_commit: &StagedCommit,
         api_clients: &ApiClients,
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         added_clients: impl Iterator<Item = (Credential, EncryptedIdentityLinkKey)>,
     ) -> Result<Vec<ClientAuthInfo>> {
         // AddUsers Phase 1: Compute the free indices
-        let added_clients_with_indices = GroupMembership::free_indices(pool, &self.group_id)
-            .await?
-            .zip(added_clients.into_iter())
-            .map(|(index, (credential, eilk))| ((index, credential), eilk));
+        let added_clients_with_indices =
+            GroupMembership::free_indices(&mut *connection, &self.group_id)
+                .await?
+                .zip(added_clients.into_iter())
+                .map(|(index, (credential, eilk))| ((index, credential), eilk))
+                .collect::<Vec<_>>();
+
+        // Room policy checks
+        for client in &added_clients_with_indices {
+            self.room_state.apply_regular_proposals(
+                &sender_index.u32(),
+                &[MimiProposal::ChangeRole {
+                    target: client.0.0.u32(),
+                    role: RoleIndex::Regular,
+                }],
+            )?;
+        }
 
         // AddUsers Phase 2: Decrypt and verify the client credentials.
         let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
-            pool,
+            &mut *connection,
             api_clients,
             &self.group_id,
             self.identity_link_wrapper_key(),
-            added_clients_with_indices,
+            added_clients_with_indices.into_iter(),
         )
         .await?;
 
@@ -393,12 +421,9 @@ impl Group {
         }
         // We assume that leaf credentials are in the same order
         // as client credentials.
-        {
-            let mut connection = pool.acquire().await?;
-            for client_auth_info in client_auth_infos.iter() {
-                // Persist the client auth info.
-                client_auth_info.stage_add(&mut connection).await?;
-            }
+        for client_auth_info in client_auth_infos.iter() {
+            // Persist the client auth info.
+            client_auth_info.stage_add(&mut *connection).await?;
         }
 
         Ok(client_auth_infos)
@@ -407,7 +432,7 @@ impl Group {
     async fn process_update(
         &self,
         api_clients: &ApiClients,
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         new_sender_credential: Credential,
         credential_update_option: Option<CredentialUpdate>,
         sender_index: LeafNodeIndex,
@@ -417,7 +442,7 @@ impl Group {
             bail!("Invalid update client payload.")
         };
         let client_auth_info = ClientAuthInfo::decrypt_and_verify(
-            pool,
+            &mut *connection,
             api_clients,
             &self.group_id,
             self.identity_link_wrapper_key(),
@@ -427,9 +452,7 @@ impl Group {
         )
         .await?;
         // Persist the updated client auth info.
-        client_auth_info
-            .stage_update(pool.acquire().await?.as_mut())
-            .await?;
+        client_auth_info.stage_update(&mut *connection).await?;
 
         // TODO: Validation:
         // * Check that the client id is the same as before.

@@ -111,6 +111,7 @@ impl DsGrpcClient {
             encrypted_user_profile_key: Some(payload.encrypted_user_profile_key.into()),
             creator_client_reference: Some(payload.creator_client_reference.into()),
             group_info: Some(payload.group_info.try_ref_into()?),
+            room_state: payload.room_state,
         };
         let request = payload.sign(signing_key)?;
         self.client.clone().create_group(request).await?;
@@ -214,6 +215,7 @@ impl DsGrpcClient {
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
+            room_state: response.room_state,
         })
     }
 
@@ -374,6 +376,7 @@ impl DsGrpcClient {
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
+            room_state: response.room_state,
         })
     }
 

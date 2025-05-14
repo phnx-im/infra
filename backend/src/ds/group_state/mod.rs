@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     MlsAssistRustCrypto,
     group::Group,
@@ -55,6 +56,7 @@ pub(super) struct MemberProfile {
 /// TODO: Past group states are now included in mls-assist. However, we might
 /// have to store client credentials externally.
 pub(crate) struct DsGroupState {
+    pub(super) room_state: VerifiedRoomState,
     pub(super) group: Group,
     pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
@@ -67,6 +69,7 @@ impl DsGroupState {
         creator_encrypted_identity_link_key: EncryptedIdentityLinkKey,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
+        room_state: VerifiedRoomState,
     ) -> Self {
         let creator_client_profile = MemberProfile {
             encrypted_identity_link_key: creator_encrypted_identity_link_key,
@@ -76,10 +79,12 @@ impl DsGroupState {
             leaf_index: LeafNodeIndex::new(0u32),
             encrypted_user_profile_key: creator_encrypted_user_profile_key,
         };
+
         let client_profiles = [(LeafNodeIndex::new(0u32), creator_client_profile)].into();
         Self {
             provider,
             group,
+            room_state,
             member_profiles: client_profiles,
         }
     }
@@ -110,6 +115,7 @@ impl DsGroupState {
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
+            room_state: serde_json::to_vec(&self.room_state).unwrap(),
             encrypted_identity_link_keys,
             encrypted_user_profile_keys,
         }
@@ -242,6 +248,7 @@ impl StorableDsGroupData {
 pub(crate) struct SerializableDsGroupState {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
+    room_state: VerifiedRoomState,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
@@ -261,6 +268,7 @@ impl SerializableDsGroupState {
             group_id,
             serialized_provider,
             member_profiles: client_profiles,
+            room_state: group_state.room_state,
         })
     }
 
@@ -274,6 +282,7 @@ impl SerializableDsGroupState {
             provider,
             group,
             member_profiles: client_profiles,
+            room_state: self.room_state,
         })
     }
 }

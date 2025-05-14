@@ -11,8 +11,8 @@ use phnxtypes::{
     messages::FriendshipToken,
 };
 use sqlx::{
-    Database, Decode, Sqlite, SqliteExecutor, SqlitePool, error::BoxDynError, prelude::Type, query,
-    query_as,
+    Database, Decode, Sqlite, SqliteExecutor, SqliteTransaction, error::BoxDynError, prelude::Type,
+    query, query_as,
 };
 use tokio_stream::StreamExt;
 
@@ -237,7 +237,7 @@ impl PartialContact {
     /// persists the resulting contact.
     pub(crate) async fn mark_as_complete(
         self,
-        pool: &SqlitePool,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         friendship_package: FriendshipPackage,
         client: AsClientId,
@@ -256,12 +256,9 @@ impl PartialContact {
             user_profile_key_index,
         };
 
-        let mut transaction = pool.begin().await?;
+        self.delete(&mut **txn, notifier).await?;
+        contact.store(&mut **txn, notifier).await?;
 
-        self.delete(&mut *transaction, notifier).await?;
-        contact.store(&mut *transaction, notifier).await?;
-
-        transaction.commit().await?;
         Ok(contact)
     }
 }
@@ -387,15 +384,20 @@ mod tests {
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             user_profile_base_secret: user_profile_key.base_secret().clone(),
         };
+
+        let mut txn = pool.begin().await?;
+
         let contact = partial
             .mark_as_complete(
-                &pool,
+                &mut txn,
                 &mut store_notifier,
                 friendship_package,
                 AsClientId::new(user_name.clone(), Uuid::new_v4()),
                 user_profile_key.index().clone(),
             )
             .await?;
+
+        txn.commit().await?;
 
         let loaded = PartialContact::load(&pool, &user_name).await?;
         assert!(loaded.is_none());

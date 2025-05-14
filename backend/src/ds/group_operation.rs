@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mimi_room_policy::{MimiProposal, RoleIndex};
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedWelcome, SerializedMlsMessage},
@@ -31,7 +32,7 @@ use phnxtypes::{
     time::{Duration, TimeStamp},
 };
 use tls_codec::DeserializeBytes;
-use tracing::warn;
+use tracing::{error, warn};
 
 use crate::{
     errors::GroupOperationError,
@@ -142,6 +143,22 @@ impl DsGroupState {
             };
 
             let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
+
+            let mut i = 1;
+            for _user in &add_users_state.added_users {
+                if let Err(e) = self.room_state.apply_regular_proposals(
+                    &sender_index.leaf_index().u32(),
+                    &[MimiProposal::ChangeRole {
+                        target: self.group.members().map(|m| m.index.u32()).max().unwrap() + i, // TODO: This is wrong, but will be replaced with uuids anyway
+                        role: RoleIndex::Regular,
+                    }],
+                ) {
+                    error!("{e}");
+                    return Err(GroupOperationError::InvalidMessage);
+                };
+                i += 1;
+            }
+
             Some(add_users_state)
         };
 
@@ -194,6 +211,23 @@ impl DsGroupState {
             .remove_proposals()
             .map(|remove_proposal| remove_proposal.remove_proposal().removed())
             .collect::<Vec<_>>();
+
+        for removed in &removed_clients {
+            if *removed == sender_index.leaf_index() {
+                return Err(GroupOperationError::InvalidMessage);
+            }
+
+            if let Err(e) = self.room_state.apply_regular_proposals(
+                &sender_index.leaf_index().u32(),
+                &[MimiProposal::ChangeRole {
+                    target: removed.u32(),
+                    role: RoleIndex::Outsider,
+                }],
+            ) {
+                error!("{e:?}");
+                return Err(GroupOperationError::InvalidMessage);
+            };
+        }
 
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
@@ -335,6 +369,7 @@ impl DsGroupState {
                 group_state_ear_key: group_state_ear_key.clone(),
                 encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
                 ratchet_tree: self.group().export_ratchet_tree(),
+                room_state: serde_json::to_vec(&self.room_state).unwrap(),
                 encrypted_user_profile_keys: self.encrypted_user_profile_keys(),
             }
             .encrypt(&encryption_key, info, aad);
@@ -420,7 +455,7 @@ fn validate_added_users(
         .zip(aad_payload.new_encrypted_user_profile_keys)
         .map(|((kp, eilk), eupk)| (kp, eilk, eupk))
         .zip(add_users_info.encrypted_welcome_attribution_infos)
-        .collect();
+        .collect::<Vec<_>>();
 
     Ok(AddUsersState {
         added_users,

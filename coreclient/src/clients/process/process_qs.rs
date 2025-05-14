@@ -21,7 +21,9 @@ use phnxtypes::{
     },
     time::TimeStamp,
 };
+use sqlx::{Connection, SqliteTransaction};
 use tls_codec::DeserializeBytes;
+use tracing::error;
 
 use crate::{
     ConversationMessage, PartialContact,
@@ -48,6 +50,7 @@ pub struct ProcessedQsMessages {
     pub new_conversations: Vec<ConversationId>,
     pub changed_conversations: Vec<ConversationId>,
     pub new_messages: Vec<ConversationMessage>,
+    pub errors: Vec<anyhow::Error>,
 }
 
 impl CoreUser {
@@ -56,10 +59,10 @@ impl CoreUser {
         &self,
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
-        self.with_transaction(async |connection| {
-            let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&mut *connection).await?;
+        self.with_transaction(async |txn| {
+            let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&mut **txn).await?;
             let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
-            qs_queue_ratchet.update_ratchet(&mut *connection).await?;
+            qs_queue_ratchet.update_ratchet(&mut **txn).await?;
             Ok(payload.extract()?)
         })
         .await
@@ -114,10 +117,12 @@ impl CoreUser {
     ) -> Result<ProcessQsMessageResult> {
         // WelcomeBundle Phase 1: Join the group. This might involve
         // loading AS credentials or fetching them from the AS.
+        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
+
         let (group, member_profile_info) = Group::join_group(
             welcome_bundle,
             &self.inner.key_store.wai_ear_key,
-            self.pool(),
+            &mut txn,
             &self.inner.api_clients,
         )
         .await?;
@@ -129,14 +134,20 @@ impl CoreUser {
         // TODO: This can fail in some cases. If it does, we should fetch and
         // process messages and then try again.
         let mut own_profile_key_in_group = None;
-        for profile_info in member_profile_info {
-            if profile_info.client_credential.identity() == &self.as_client_id() {
-                // We already have our own profile info.
-                own_profile_key_in_group = Some(profile_info.user_profile_key);
-                continue;
+        self.with_notifier(async |notifier| {
+            for profile_info in member_profile_info {
+                // TODO: Don't fetch while holding a transaction!
+                if profile_info.client_credential.identity() == &self.as_client_id() {
+                    // We already have our own profile info.
+                    own_profile_key_in_group = Some(profile_info.user_profile_key);
+                    continue;
+                }
+                self.fetch_and_store_user_profile(&mut txn, notifier, profile_info)
+                    .await?;
             }
-            self.fetch_and_store_user_profile(profile_info).await?;
-        }
+            Ok(())
+        })
+        .await?;
 
         let Some(own_profile_key_in_group) = own_profile_key_in_group else {
             bail!("No profile info for our user found");
@@ -146,7 +157,7 @@ impl CoreUser {
         // members if they don't exist yet and store the group and the
         // new conversation.
         let (conversation_id, own_profile_key) = self
-            .with_transaction_and_notifier(async |connection, notifier| {
+            .with_notifier(async |notifier| {
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().context("No group data")?;
@@ -154,18 +165,20 @@ impl CoreUser {
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);
-                let own_profile_key = UserProfileKey::load_own(&mut *connection).await?;
+                let own_profile_key = UserProfileKey::load_own(&mut *txn).await?;
                 // If we've been in that conversation before, we delete the old
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
-                Conversation::delete(&mut *connection, notifier, conversation.id()).await?;
-                Group::delete_from_db(connection, &group_id).await?;
-                group.store(&mut *connection).await?;
-                conversation.store(&mut *connection, notifier).await?;
+                Conversation::delete(&mut *txn, notifier, conversation.id()).await?;
+                Group::delete_from_db(&mut txn, &group_id).await?;
+                group.store(&mut txn).await?;
+                conversation.store(&mut *txn, notifier).await?;
 
                 Ok((conversation.id(), own_profile_key))
             })
             .await?;
+
+        txn.commit().await?;
 
         // WelcomeBundle Phase 4: Check whether our user profile key is up to
         // date and if not, update it.
@@ -211,16 +224,18 @@ impl CoreUser {
         };
         // MLSMessage Phase 1: Load the conversation and the group.
         let group_id = protocol_message.group_id();
-        let conversation = Conversation::load_by_group_id(self.pool(), group_id)
+
+        let mut connection = self.pool().acquire().await?;
+        let mut txn = connection.begin_with("BEGIN IMMEDIATE").await?;
+
+        let conversation = Conversation::load_by_group_id(&mut *txn, group_id)
             .await?
             .ok_or_else(|| anyhow!("No conversation found for group ID {:?}", group_id))?;
         let conversation_id = conversation.id();
 
-        let mut connection = self.pool().acquire().await?;
-        let mut group = Group::load(&mut connection, group_id)
+        let mut group = Group::load_clean(&mut txn, group_id)
             .await?
             .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
-        drop(connection);
 
         // MLSMessage Phase 2: Process the message
         let ProcessMessageResult {
@@ -229,7 +244,7 @@ impl CoreUser {
             sender_client_credential,
             profile_infos,
         } = group
-            .process_message(self.pool(), &self.inner.api_clients, protocol_message)
+            .process_message(&mut txn, &self.inner.api_clients, protocol_message)
             .await?;
 
         let sender = processed_message.sender().clone();
@@ -244,10 +259,12 @@ impl CoreUser {
                     sender_client_credential.identity(),
                 )?,
             ProcessedMessageContent::ProposalMessage(proposal) => {
-                self.handle_proposal_message(&mut group, *proposal).await?
+                self.handle_proposal_message(&mut txn, &mut group, *proposal)
+                    .await?
             }
             ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                 self.handle_staged_commit_message(
+                    &mut txn,
                     &mut group,
                     conversation_id,
                     *staged_commit,
@@ -265,27 +282,31 @@ impl CoreUser {
         };
 
         // MLSMessage Phase 3: Store the updated group and the messages.
-        let res = self
-            .with_transaction_and_notifier(async |connection, notifier| {
-                group.store_update(&mut *connection).await?;
-                let conversation_messages =
-                    Self::store_messages(connection, notifier, conversation_id, group_messages)
-                        .await?;
-                Ok(match (conversation_messages, conversation_changed) {
-                    (messages, true) => {
-                        ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
-                    }
-                    (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
-                })
-            })
-            .await;
+        let mut notifier = self.store_notifier();
+
+        group.store_update(&mut *txn).await?;
+
+        let conversation_messages =
+            Self::store_messages(&mut txn, &mut notifier, conversation_id, group_messages).await?;
+
+        txn.commit().await?;
+
+        let res = match (conversation_messages, conversation_changed) {
+            (messages, true) => {
+                ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
+            }
+            (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
+        };
 
         // MLSMessage Phase 4: Fetch user profiles of new clients and store them.
         for client in profile_infos {
-            self.fetch_and_store_user_profile(client).await?;
+            self.fetch_and_store_user_profile(&mut connection, &mut notifier, client)
+                .await?;
         }
 
-        res
+        notifier.notify();
+
+        Ok(res)
     }
 
     fn handle_application_message(
@@ -304,20 +325,21 @@ impl CoreUser {
 
     async fn handle_proposal_message(
         &self,
+        txn: &mut SqliteTransaction<'_>,
         group: &mut Group,
         proposal: QueuedProposal,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
         // For now, we don't to anything here. The proposal
         // was processed by the MLS group and will be
         // committed with the next commit.
-        let mut connection = self.pool().acquire().await?;
-        group.store_proposal(&mut connection, proposal)?;
+        group.store_proposal(&mut *txn, proposal)?;
         Ok((vec![], false))
     }
 
     #[allow(clippy::too_many_arguments)]
     async fn handle_staged_commit_message(
         &self,
+        txn: &mut SqliteTransaction<'_>,
         group: &mut Group,
         conversation_id: ConversationId,
         staged_commit: openmls::prelude::StagedCommit,
@@ -331,7 +353,7 @@ impl CoreUser {
         // group belongs to an unconfirmed conversation.
 
         // StagedCommitMessage Phase 1: Load the conversation.
-        let mut conversation = Conversation::load(self.pool(), &conversation_id)
+        let mut conversation = Conversation::load(&mut **txn, &conversation_id)
             .await?
             .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
         let mut conversation_changed = false;
@@ -348,7 +370,7 @@ impl CoreUser {
             }
             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
             // friendship package
-            let partial_contact = PartialContact::load(self.pool(), user_name)
+            let partial_contact = PartialContact::load(&mut **txn, user_name)
                 .await?
                 .ok_or_else(|| anyhow!("No partial contact found for user name {}", user_name))?;
 
@@ -377,13 +399,17 @@ impl CoreUser {
 
             // UnconfirmedConnection Phase 2: Fetch the user profile.
             let user_profile_key_index = user_profile_key.index().clone();
-            self.fetch_and_store_user_profile((sender_client_credential.clone(), user_profile_key))
-                .await?;
+            self.fetch_and_store_user_profile(
+                txn,
+                &mut notifier,
+                (sender_client_credential.clone(), user_profile_key),
+            )
+            .await?;
 
             // Now we can turn the partial contact into a full one.
             partial_contact
                 .mark_as_complete(
-                    self.pool(),
+                    txn,
                     &mut notifier,
                     friendship_package,
                     sender_client_credential.identity().clone(),
@@ -391,7 +417,7 @@ impl CoreUser {
                 )
                 .await?;
 
-            conversation.confirm(self.pool(), &mut notifier).await?;
+            conversation.confirm(&mut **txn, &mut notifier).await?;
             conversation_changed = true;
         }
 
@@ -399,14 +425,13 @@ impl CoreUser {
 
         // If we were removed, we set the group to inactive.
         if we_were_removed {
-            let past_members = group.members(self.pool()).await.into_iter().collect();
+            let past_members = group.members(&mut **txn).await.into_iter().collect();
             conversation
-                .set_inactive(self.pool(), &mut notifier, past_members)
+                .set_inactive(&mut **txn, &mut notifier, past_members)
                 .await?;
         }
-        let mut connection = self.pool().acquire().await?;
         let group_messages = group
-            .merge_pending_commit(&mut connection, staged_commit, ds_timestamp)
+            .merge_pending_commit(txn, staged_commit, ds_timestamp)
             .await?;
 
         notifier.notify();
@@ -432,7 +457,6 @@ impl CoreUser {
             StorableClientCredential::load_by_client_id(&mut *connection, &sender)
                 .await?
                 .context("No sender credential found")?;
-        drop(connection);
 
         // Phase 2: Decrypt the new user profile key
         let new_user_profile_key = UserProfileKey::decrypt(
@@ -442,8 +466,15 @@ impl CoreUser {
         )?;
 
         // Phase 3: Fetch and store the (new) user profile and key
-        self.fetch_and_store_user_profile((sender_credential.into(), new_user_profile_key))
-            .await?;
+        self.with_notifier(async |notifier| {
+            self.fetch_and_store_user_profile(
+                &mut connection,
+                notifier,
+                (sender_credential.into(), new_user_profile_key),
+            )
+            .await
+        })
+        .await?;
 
         Ok(ProcessQsMessageResult::None)
     }
@@ -464,9 +495,19 @@ impl CoreUser {
         let mut new_conversations = vec![];
         let mut changed_conversations = vec![];
         let mut new_messages = vec![];
+        let mut errors = vec![];
         for qs_message in qs_messages {
             let qs_message_plaintext = self.decrypt_qs_queue_message(qs_message).await?;
-            match self.process_qs_message(qs_message_plaintext).await? {
+            let processed = match self.process_qs_message(qs_message_plaintext).await {
+                Ok(processed) => processed,
+                Err(e) => {
+                    error!("Processing message failed: {e:?}");
+                    errors.push(e);
+                    continue;
+                }
+            };
+
+            match processed {
                 ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
                     new_messages.extend(conversation_messages);
                 }
@@ -488,6 +529,7 @@ impl CoreUser {
             new_conversations,
             changed_conversations,
             new_messages,
+            errors,
         })
     }
 }

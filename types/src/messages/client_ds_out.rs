@@ -29,6 +29,7 @@ pub struct ExternalCommitInfoIn {
     pub ratchet_tree_in: RatchetTreeIn,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
+    pub room_state: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -46,6 +47,7 @@ pub struct CreateGroupParamsOut {
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_client_reference: QsReference,
     pub group_info: MlsMessageOut,
+    pub room_state: Vec<u8>,
 }
 
 #[derive(Debug)]

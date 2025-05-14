@@ -21,11 +21,14 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
-        let updated = UpdateKeyData::load(self.pool(), conversation_id)
-            .await?
-            // Phase 2: Send the update to the DS
-            .ds_update(&self.inner.api_clients)
-            .await?;
+        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
+
+        let update = UpdateKeyData::lock(&mut txn, conversation_id).await?;
+
+        txn.commit().await?;
+
+        // Phase 2: Send the update to the DS
+        let updated = update.ds_update(&self.inner.api_clients).await?;
 
         // Phase 3: Merge the commit into the group
         self.with_transaction_and_notifier(async |connection, notifier| {
@@ -40,7 +43,7 @@ impl CoreUser {
 mod update_key_flow {
     use anyhow::Context;
     use phnxtypes::{messages::client_ds_out::UpdateParamsOut, time::TimeStamp};
-    use sqlx::SqlitePool;
+    use sqlx::SqliteTransaction;
 
     use crate::{
         Conversation, ConversationId, ConversationMessage,
@@ -55,18 +58,18 @@ mod update_key_flow {
     }
 
     impl UpdateKeyData {
-        pub(super) async fn load(
-            pool: &SqlitePool,
+        pub(super) async fn lock(
+            txn: &mut SqliteTransaction<'_>,
             conversation_id: ConversationId,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(pool, &conversation_id)
+            let conversation = Conversation::load(&mut **txn, &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
-            let mut group = Group::load(pool.acquire().await?.as_mut(), group_id)
+            let mut group = Group::load_clean(txn, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-            let params = group.update(pool).await?;
+            let params = group.update(&mut *txn).await?;
             Ok(Self {
                 conversation,
                 group,

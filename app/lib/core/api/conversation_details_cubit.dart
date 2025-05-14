@@ -17,7 +17,7 @@ part 'conversation_details_cubit.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `handle_store_notification`, `load_and_emit_state`, `load_conversation_details`, `members_of_conversation`, `new`, `spawn`, `store_notifications_loop`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ConversationDetailsContext`, `MarkAsReadState`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `hash`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `hash`, `hash`
 // These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>
@@ -66,6 +66,11 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   Stream<ConversationDetailsState> stream();
 }
 
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiRoomState>>
+abstract class UiRoomState implements RustOpaqueInterface {
+  bool testKick({required int target});
+}
+
 /// The state of a single conversation
 ///
 /// Contains the conversation details and the list of members.
@@ -77,6 +82,7 @@ class ConversationDetailsState with _$ConversationDetailsState {
   const factory ConversationDetailsState({
     UiConversationDetails? conversation,
     required List<String> members,
+    UiRoomState? roomState,
   }) = _ConversationDetailsState;
   static Future<ConversationDetailsState> default_() =>
       RustLib.instance.api

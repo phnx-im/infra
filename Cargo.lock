@@ -2772,6 +2772,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
+name = "mimi-room-policy"
+version = "0.1.0"
+source = "git+https://github.com/phnx-im/mimi-room-policy#b2543f1b2628962a5a6ae9e52f1ec0913857d5ed"
+dependencies = [
+ "serde",
+ "thiserror 2.0.12",
+ "tls_codec",
+]
+
+[[package]]
 name = "mimi_content"
 version = "0.1.0"
 source = "git+https://github.com/phnx-im/mimi-content?rev=71495dc8fc794111c381649c4c6cbc6e258a0135#71495dc8fc794111c381649c4c6cbc6e258a0135"
@@ -3358,6 +3368,7 @@ dependencies = [
  "flutter_rust_bridge",
  "jni",
  "memmap2",
+ "mimi-room-policy",
  "mimi_content",
  "notify-rust",
  "parking_lot",
@@ -3388,6 +3399,7 @@ dependencies = [
  "async-trait",
  "futures-util",
  "insta",
+ "mimi-room-policy",
  "mls-assist",
  "phnxprotos",
  "phnxtypes",
@@ -3417,6 +3429,7 @@ dependencies = [
  "image",
  "insta",
  "kamadak-exif",
+ "mimi-room-policy",
  "mimi_content",
  "mls-assist",
  "openmls",
