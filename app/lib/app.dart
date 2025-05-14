@@ -15,6 +15,7 @@ import 'package:prototype/util/platform.dart';
 import 'package:prototype/user/user.dart';
 import 'package:provider/provider.dart';
 
+import 'conversation_details/conversation_details.dart';
 import 'registration/registration.dart';
 import 'theme/theme.dart';
 
@@ -110,41 +111,59 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         theme: themeData(context),
         routerConfig: _appRouter,
-        // This bloc has two tasks:
-        // 1. Listen to the loadable user and switch the navigation accordingly.
-        // 2. Provide the logged in user to the app, when it is loaded.
         builder:
-            (context, router) => BlocConsumer<LoadableUserCubit, LoadableUser>(
-              listenWhen: _isUserLoadedOrUnloaded,
-              buildWhen: _isUserLoadedOrUnloaded,
-              listener: (context, loadableUser) {
-                // Side Effect: navigate to the home screen or away to the intro
-                // screen, depending on whether the user was loaded or unloaded.
-                switch (loadableUser) {
-                  case LoadedUser(user: final _?):
-                    context.read<NavigationCubit>().openHome();
-                  case LoadingUser() || LoadedUser(user: null):
-                    context.read<NavigationCubit>().openIntro();
-                }
-              },
-              builder:
-                  (context, loadableUser) =>
-                      loadableUser.user != null
-                          // Logged-in user is accessible everywhere inside the app after
-                          // the user is loaded
-                          ? BlocProvider<UserCubit>(
-                            create:
-                                (context) => UserCubit(
-                                  coreClient: context.read<CoreClient>(),
-                                  navigationCubit:
-                                      context.read<NavigationCubit>(),
-                                  appStateStream: _appStateController.stream,
-                                ),
-                            child: router!,
-                          )
-                          : router!,
+            (context, router) => LoadableUserCubitProvider(
+              appStateController: _appStateController,
+              child: ConversationDetailsCubitProvider(child: router!),
             ),
       ),
+    );
+  }
+}
+
+class LoadableUserCubitProvider extends StatelessWidget {
+  const LoadableUserCubitProvider({
+    required this.appStateController,
+    required this.child,
+    super.key,
+  });
+
+  final StreamController<AppState> appStateController;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // This bloc has two tasks:
+    // 1. Listen to the loadable user and switch the navigation accordingly.
+    // 2. Provide the logged in user to the app, when it is loaded.
+    return BlocConsumer<LoadableUserCubit, LoadableUser>(
+      listenWhen: _isUserLoadedOrUnloaded,
+      buildWhen: _isUserLoadedOrUnloaded,
+      listener: (context, loadableUser) {
+        // Side Effect: navigate to the home screen or away to the intro
+        // screen, depending on whether the user was loaded or unloaded.
+        switch (loadableUser) {
+          case LoadedUser(user: final _?):
+            context.read<NavigationCubit>().openHome();
+          case LoadingUser() || LoadedUser(user: null):
+            context.read<NavigationCubit>().openIntro();
+        }
+      },
+      builder:
+          (context, loadableUser) =>
+              loadableUser.user != null
+                  // Logged-in user is accessible everywhere inside the app after
+                  // the user is loaded
+                  ? BlocProvider<UserCubit>(
+                    create:
+                        (context) => UserCubit(
+                          coreClient: context.read<CoreClient>(),
+                          navigationCubit: context.read<NavigationCubit>(),
+                          appStateStream: appStateController.stream,
+                        ),
+                    child: child,
+                  )
+                  : child,
     );
   }
 }
@@ -168,5 +187,39 @@ void _requestMobileNotifications() async {
       default:
         _log.info("Notification permission status: $status");
     }
+  }
+}
+
+/// Creates a [ConversationDetailsCubit] for the current conversation
+///
+/// This is used to mount the conversation details cubit when the user
+/// navigates to a conversation. The [ConversationDetailsCubit] can be
+/// then used from any screen.
+class ConversationDetailsCubitProvider extends StatelessWidget {
+  const ConversationDetailsCubitProvider({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<NavigationCubit, NavigationState>(
+      buildWhen:
+          (previous, current) =>
+              current.conversationId != previous.conversationId,
+      builder: (context, state) {
+        final conversationId = state.conversationId;
+        if (conversationId == null) {
+          return child;
+        }
+        return BlocProvider(
+          create:
+              (context) => ConversationDetailsCubit(
+                userCubit: context.read<UserCubit>(),
+                conversationId: conversationId,
+              ),
+          child: child,
+        );
+      },
+    );
   }
 }
