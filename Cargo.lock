@@ -2774,7 +2774,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mimi-room-policy"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-room-policy#b2543f1b2628962a5a6ae9e52f1ec0913857d5ed"
+source = "git+https://github.com/phnx-im/mimi-room-policy?rev=0629d057443007ff025faad942b5149bf2795b22#0629d057443007ff025faad942b5149bf2795b22"
 dependencies = [
  "serde",
  "thiserror 2.0.12",

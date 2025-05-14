@@ -41,7 +41,6 @@ impl CoreUser {
 
 mod remove_users_flow {
     use anyhow::Context;
-    use anyhow::anyhow;
     use phnxtypes::{
         identifiers::QualifiedUserName, messages::client_ds_out::GroupOperationParamsOut,
         time::TimeStamp,
@@ -73,7 +72,7 @@ mod remove_users_flow {
             let group_id = conversation.group_id();
             let mut group = Group::load_clean(txn, group_id)
                 .await?
-                .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
+                .with_context(|| format!("No group found for group ID {group_id:?}"))?;
 
             let mut clients = Vec::with_capacity(target_users.len());
 

@@ -501,7 +501,7 @@ impl CoreUser {
             let processed = match self.process_qs_message(qs_message_plaintext).await {
                 Ok(processed) => processed,
                 Err(e) => {
-                    error!("Processing message failed: {e:?}");
+                    error!(error = %e, "Processing message failed");
                     errors.push(e);
                     continue;
                 }

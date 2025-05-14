@@ -153,7 +153,7 @@ impl DsGroupState {
                         role: RoleIndex::Regular,
                     }],
                 ) {
-                    error!("{e}");
+                    error!(error = %e, "Failed to add new member to group state");
                     return Err(GroupOperationError::InvalidMessage);
                 };
                 i += 1;

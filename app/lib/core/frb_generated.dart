@@ -78,7 +78,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.9.0';
 
   @override
-  int get rustContentHash => 633826306;
+  int get rustContentHash => 1433467585;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -311,7 +311,7 @@ abstract class RustLibApi extends BaseApi {
     required NavigationCubitBase that,
   });
 
-  bool crateApiConversationDetailsCubitUiRoomStateTestKick({
+  bool crateApiConversationDetailsCubitUiRoomStateCanKick({
     required UiRoomState that,
     required int target,
   });
@@ -2339,7 +2339,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  bool crateApiConversationDetailsCubitUiRoomStateTestKick({
+  bool crateApiConversationDetailsCubitUiRoomStateCanKick({
     required UiRoomState that,
     required int target,
   }) {
@@ -2358,8 +2358,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_bool,
           decodeErrorData: null,
         ),
-        constMeta:
-            kCrateApiConversationDetailsCubitUiRoomStateTestKickConstMeta,
+        constMeta: kCrateApiConversationDetailsCubitUiRoomStateCanKickConstMeta,
         argValues: [that, target],
         apiImpl: this,
       ),
@@ -2367,9 +2366,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateApiConversationDetailsCubitUiRoomStateTestKickConstMeta =>
+  get kCrateApiConversationDetailsCubitUiRoomStateCanKickConstMeta =>
       const TaskConstMeta(
-        debugName: "UiRoomState_test_kick",
+        debugName: "UiRoomState_can_kick",
         argNames: ["that", "target"],
       );
 
@@ -9257,8 +9256,8 @@ class UiRoomStateImpl extends RustOpaque implements UiRoomState {
         RustLib.instance.api.rust_arc_decrement_strong_count_UiRoomStatePtr,
   );
 
-  bool testKick({required int target}) =>
-      RustLib.instance.api.crateApiConversationDetailsCubitUiRoomStateTestKick(
+  bool canKick({required int target}) =>
+      RustLib.instance.api.crateApiConversationDetailsCubitUiRoomStateCanKick(
         that: this,
         target: target,
       );
