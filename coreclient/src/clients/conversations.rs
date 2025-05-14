@@ -305,18 +305,18 @@ mod create_conversation_flow {
                 attributes,
             } = self;
 
-            let user_profile_key = UserProfileKey::load_own(&mut **txn).await?;
+            let user_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
             let encrypted_user_profile_key = user_profile_key.encrypt(
                 group.identity_link_wrapper_key(),
                 group_membership.client_id().user_name(),
             )?;
 
-            group_membership.store(&mut **txn).await?;
-            group.store(&mut *txn).await?;
+            group_membership.store(txn.as_mut()).await?;
+            group.store(txn).await?;
 
             let conversation =
                 Conversation::new_group_conversation(partial_params.group_id.clone(), attributes);
-            conversation.store(&mut **txn, notifier).await?;
+            conversation.store(txn.as_mut(), notifier).await?;
 
             Ok(StoredGroup {
                 group,
@@ -386,7 +386,7 @@ mod delete_conversation_flow {
             txn: &mut SqliteTransaction<'_>,
             conversation_id: ConversationId,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(&mut **txn, &conversation_id)
+            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
 
@@ -395,7 +395,7 @@ mod delete_conversation_flow {
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
 
-            let past_members = group.members(&mut **txn).await;
+            let past_members = group.members(txn.as_mut()).await;
 
             if past_members.len() == 1 {
                 let member = past_members.into_iter().next().unwrap();
@@ -569,7 +569,7 @@ mod leave_conversation_flow {
             txn: &mut SqliteTransaction<'_>,
             conversation_id: ConversationId,
         ) -> anyhow::Result<LeaveConversationData<()>> {
-            let conversation = Conversation::load(&mut **txn, &conversation_id)
+            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}",))?;
             let group_id = conversation.group_id();

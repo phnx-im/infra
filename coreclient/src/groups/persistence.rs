@@ -70,7 +70,7 @@ impl Group {
             pending_diff,
             room_state,
         )
-        .execute(&mut **txn)
+        .execute(txn.as_mut())
         .await?;
         Ok(())
     }
@@ -146,13 +146,13 @@ impl Group {
         txn: &mut sqlx::SqliteTransaction<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<()> {
-        if let Some(mut group) = Group::load(&mut *txn, group_id).await? {
-            let provider = PhnxOpenMlsProvider::new(&mut *txn);
+        if let Some(mut group) = Group::load(txn.as_mut(), group_id).await? {
+            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             group.mls_group.delete(provider.storage())?;
         };
         let group_id = GroupIdRefWrapper::from(group_id);
         query!("DELETE FROM groups WHERE group_id = ?", group_id)
-            .execute(&mut **txn)
+            .execute(txn.as_mut())
             .await?;
         Ok(())
     }

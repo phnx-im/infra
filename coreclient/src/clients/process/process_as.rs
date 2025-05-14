@@ -41,9 +41,9 @@ impl CoreUser {
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
         self.with_transaction(async |txn| {
-            let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut **txn).await?;
+            let mut as_queue_ratchet = StorableAsQueueRatchet::load(txn.as_mut()).await?;
             let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-            as_queue_ratchet.update_ratchet(&mut **txn).await?;
+            as_queue_ratchet.update_ratchet(txn.as_mut()).await?;
             Ok(payload.extract()?)
         })
         .await
@@ -276,12 +276,12 @@ impl CoreUser {
         conversation: &mut Conversation,
         contact: Contact,
     ) -> Result<()> {
-        group.store(&mut *txn).await?;
-        conversation.store(&mut **txn, notifier).await?;
+        group.store(txn).await?;
+        conversation.store(txn.as_mut(), notifier).await?;
 
         // TODO: For now, we automatically confirm conversations.
-        conversation.confirm(&mut **txn, notifier).await?;
-        contact.store(&mut **txn, notifier).await?;
+        conversation.confirm(txn.as_mut(), notifier).await?;
+        contact.store(txn.as_mut(), notifier).await?;
 
         Ok(())
     }

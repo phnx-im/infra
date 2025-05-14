@@ -212,8 +212,8 @@ impl VerifiedConnectionPackagesWithGroupId {
             group_id.clone(),
             group_data,
         )?;
-        group_membership.store(&mut **txn).await?;
-        group.store(&mut *txn).await?;
+        group_membership.store(txn.as_mut()).await?;
+        group.store(txn).await?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -224,7 +224,7 @@ impl VerifiedConnectionPackagesWithGroupId {
             connection_user_name.clone(),
             conversation_attributes,
         )?;
-        conversation.store(&mut **txn, notifier).await?;
+        conversation.store(txn.as_mut(), notifier).await?;
 
         Ok(LocalGroup {
             group,

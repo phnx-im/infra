@@ -60,9 +60,9 @@ impl CoreUser {
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
         self.with_transaction(async |txn| {
-            let mut qs_queue_ratchet = StorableQsQueueRatchet::load(&mut **txn).await?;
+            let mut qs_queue_ratchet = StorableQsQueueRatchet::load(txn.as_mut()).await?;
             let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
-            qs_queue_ratchet.update_ratchet(&mut **txn).await?;
+            qs_queue_ratchet.update_ratchet(txn.as_mut()).await?;
             Ok(payload.extract()?)
         })
         .await
@@ -165,14 +165,14 @@ impl CoreUser {
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);
-                let own_profile_key = UserProfileKey::load_own(&mut *txn).await?;
+                let own_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
                 // If we've been in that conversation before, we delete the old
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
-                Conversation::delete(&mut *txn, notifier, conversation.id()).await?;
+                Conversation::delete(txn.as_mut(), notifier, conversation.id()).await?;
                 Group::delete_from_db(&mut txn, &group_id).await?;
                 group.store(&mut txn).await?;
-                conversation.store(&mut *txn, notifier).await?;
+                conversation.store(txn.as_mut(), notifier).await?;
 
                 Ok((conversation.id(), own_profile_key))
             })
@@ -228,7 +228,7 @@ impl CoreUser {
         let mut connection = self.pool().acquire().await?;
         let mut txn = connection.begin_with("BEGIN IMMEDIATE").await?;
 
-        let conversation = Conversation::load_by_group_id(&mut *txn, group_id)
+        let conversation = Conversation::load_by_group_id(txn.as_mut(), group_id)
             .await?
             .ok_or_else(|| anyhow!("No conversation found for group ID {:?}", group_id))?;
         let conversation_id = conversation.id();
@@ -284,7 +284,7 @@ impl CoreUser {
         // MLSMessage Phase 3: Store the updated group and the messages.
         let mut notifier = self.store_notifier();
 
-        group.store_update(&mut *txn).await?;
+        group.store_update(txn.as_mut()).await?;
 
         let conversation_messages =
             Self::store_messages(&mut txn, &mut notifier, conversation_id, group_messages).await?;
@@ -332,7 +332,7 @@ impl CoreUser {
         // For now, we don't to anything here. The proposal
         // was processed by the MLS group and will be
         // committed with the next commit.
-        group.store_proposal(&mut *txn, proposal)?;
+        group.store_proposal(txn.as_mut(), proposal)?;
         Ok((vec![], false))
     }
 
@@ -353,7 +353,7 @@ impl CoreUser {
         // group belongs to an unconfirmed conversation.
 
         // StagedCommitMessage Phase 1: Load the conversation.
-        let mut conversation = Conversation::load(&mut **txn, &conversation_id)
+        let mut conversation = Conversation::load(txn.as_mut(), &conversation_id)
             .await?
             .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
         let mut conversation_changed = false;
@@ -370,7 +370,7 @@ impl CoreUser {
             }
             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
             // friendship package
-            let partial_contact = PartialContact::load(&mut **txn, user_name)
+            let partial_contact = PartialContact::load(txn.as_mut(), user_name)
                 .await?
                 .ok_or_else(|| anyhow!("No partial contact found for user name {}", user_name))?;
 
@@ -417,7 +417,7 @@ impl CoreUser {
                 )
                 .await?;
 
-            conversation.confirm(&mut **txn, &mut notifier).await?;
+            conversation.confirm(txn.as_mut(), &mut notifier).await?;
             conversation_changed = true;
         }
 
@@ -425,9 +425,9 @@ impl CoreUser {
 
         // If we were removed, we set the group to inactive.
         if we_were_removed {
-            let past_members = group.members(&mut **txn).await.into_iter().collect();
+            let past_members = group.members(txn.as_mut()).await.into_iter().collect();
             conversation
-                .set_inactive(&mut **txn, &mut notifier, past_members)
+                .set_inactive(txn.as_mut(), &mut notifier, past_members)
                 .await?;
         }
         let group_messages = group
