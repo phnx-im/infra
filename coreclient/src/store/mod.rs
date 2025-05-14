@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::AsClientId;
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -34,8 +34,6 @@ pub type StoreResult<T> = anyhow::Result<T>;
 pub trait LocalStore {
     // user
 
-    fn user_name(&self) -> &QualifiedUserName;
-
     async fn own_user_profile(&self) -> StoreResult<UserProfile>;
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<()>;
@@ -62,7 +60,7 @@ pub trait LocalStore {
     async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> StoreResult<Option<HashSet<QualifiedUserName>>>;
+    ) -> StoreResult<Option<HashSet<AsClientId>>>;
 
     async fn mark_conversation_as_read(
         &self,
@@ -106,7 +104,7 @@ pub trait LocalStore {
     async fn remove_users(
         &self,
         conversation_id: ConversationId,
-        target_users: &[QualifiedUserName],
+        target_users: Vec<AsClientId>,
     ) -> StoreResult<Vec<ConversationMessage>>;
 
     /// Invite users to an existing conversation.
@@ -118,7 +116,7 @@ pub trait LocalStore {
     async fn invite_users(
         &self,
         conversation_id: ConversationId,
-        invited_users: &[QualifiedUserName],
+        invited_users: &[AsClientId],
     ) -> StoreResult<Vec<ConversationMessage>>;
 
     // contacts
@@ -127,16 +125,15 @@ pub trait LocalStore {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId>;
+    async fn add_contact(&self, client_id: AsClientId) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
-    async fn contact(&self, user_name: &QualifiedUserName) -> StoreResult<Option<Contact>>;
+    async fn contact(&self, client_id: &AsClientId) -> StoreResult<Option<Contact>>;
 
     async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>>;
 
-    async fn user_profile(&self, user_name: &QualifiedUserName)
-    -> StoreResult<Option<UserProfile>>;
+    async fn user_profile(&self, client_id: &AsClientId) -> StoreResult<Option<UserProfile>>;
 
     // messages
 

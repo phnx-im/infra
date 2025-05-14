@@ -64,9 +64,9 @@ impl TestUser {
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
-        let server_url = format!("http://{}", hostname_str);
+        let server_url = format!("http://{hostname_str}").parse().unwrap();
 
-        let user = CoreUser::new_ephemeral(user_name.clone(), server_url, grpc_port, None).await?;
+        let user = CoreUser::new_ephemeral(server_url, grpc_port, None).await?;
         Ok(Self { user, db_dir: None })
     }
 
@@ -79,9 +79,9 @@ impl TestUser {
         let hostname_str = address_option
             .unwrap_or_else(|| format!("{}:{}", user_name.domain(), DEFAULT_PORT_HTTP));
 
-        let server_url = format!("http://{}", hostname_str);
+        let server_url = format!("http://{hostname_str}").parse().unwrap();
 
-        let user = CoreUser::new(user_name.clone(), server_url, grpc_port, db_dir, None)
+        let user = CoreUser::new(server_url, grpc_port, db_dir, None)
             .await
             .unwrap();
         Self {
@@ -857,7 +857,7 @@ impl TestBackend {
         let remove_messages = remover
             .remove_users(
                 conversation_id,
-                &removed_names.iter().copied().cloned().collect::<Vec<_>>(),
+                removed_names.iter().copied().cloned().collect::<Vec<_>>(),
             )
             .await
             .expect("Error removing users.");

@@ -30,6 +30,12 @@ pub struct Fqdn {
     domain: Host<String>,
 }
 
+impl From<Host> for Fqdn {
+    fn from(value: Host) -> Self {
+        Self { domain: value }
+    }
+}
+
 impl From<Fqdn> for String {
     fn from(value: Fqdn) -> Self {
         match value.domain {
@@ -359,6 +365,8 @@ impl fmt::Display for QualifiedUserName {
     Deserialize,
     Eq,
     PartialEq,
+    PartialOrd,
+    Ord,
     Hash,
     TlsSize,
     TlsSerialize,

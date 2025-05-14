@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{ConversationMessageId, utils::persistence::GroupIdWrapper};
 
-use super::{ConversationId, ConversationStatus, ConversationType, InactiveConversation};
+use super::{ConversationId, ConversationStatus, ConversationType};
 
 impl<DB> Type<DB> for ConversationId
 where
@@ -106,17 +106,18 @@ impl ConversationStatus {
         if value.starts_with("active") {
             return Ok(Self::Active);
         }
-        let Some(user_names) = value.strip_prefix("inactive:") else {
+        let Some(_user_names) = value.strip_prefix("inactive:") else {
             return Err(ConversationStatusFromDbError::InvalidType);
         };
-        let user_names = user_names
-            .split(',')
-            .map(|s| s.parse())
-            .collect::<Result<Vec<_>, _>>()
-            .inspect_err(|error| {
-                error!(%error, "Failed to parse user names from database");
-            })?;
-        Ok(Self::Inactive(InactiveConversation::new(user_names)))
+        todo!()
+        // let user_names = user_names
+        //     .split(',')
+        //     .map(|s| s.parse())
+        //     .collect::<Result<Vec<_>, _>>()
+        //     .inspect_err(|error| {
+        //         error!(%error, "Failed to parse user names from database");
+        //     })?;
+        // Ok(Self::Inactive(InactiveConversation::new(user_names)))
     }
 }
 
@@ -160,10 +161,10 @@ impl<'r> Decode<'r, Sqlite> for ConversationStatus {
 impl ConversationType {
     fn db_value(&self) -> Cow<'static, str> {
         match self {
-            Self::UnconfirmedConnection(user_name) => {
-                format!("unconfirmed_connection:{user_name}").into()
+            Self::UnconfirmedConnection(client_id) => {
+                format!("unconfirmed_connection:{client_id}").into()
             }
-            Self::Connection(user_name) => format!("connection:{user_name}").into(),
+            Self::Connection(client_id) => format!("connection:{client_id}").into(),
             Self::Group => "group".into(),
         }
     }
@@ -172,20 +173,26 @@ impl ConversationType {
         if value.starts_with("group") {
             return Ok(Self::Group);
         }
-        let Some((conversation_type, user_name)) = value.split_once(':') else {
+        let Some((conversation_type, _client_id)) = value.split_once(':') else {
             return Err(ConversationTypeFromDbError::InvalidType);
         };
         match conversation_type {
-            "unconfirmed_connection" => Ok(Self::UnconfirmedConnection(
-                user_name.parse().inspect_err(|error| {
-                    error!(%error, "Failed to parse user name from database");
-                })?,
-            )),
-            "connection" => Ok(Self::Connection(user_name.parse().inspect_err(
-                |error| {
-                    error!(%error, "Failed to parse user name from database");
-                },
-            )?)),
+            "unconfirmed_connection" => {
+                todo!()
+                // Ok(Self::UnconfirmedConnection(
+                //             user_name.parse().inspect_err(|error| {
+                //                 error!(%error, "Failed to parse user name from database");
+                //             })?,
+                //         ))
+            }
+            "connection" => {
+                todo!()
+                // Ok(Self::Connection(user_name.parse().inspect_err(
+                //             |error| {
+                //                 error!(%error, "Failed to parse user name from database");
+                //             },
+                //         )?))
+            }
             _ => Err(ConversationTypeFromDbError::InvalidType),
         }
     }

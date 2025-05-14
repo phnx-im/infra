@@ -11,7 +11,17 @@ use uuid::Uuid;
 use super::{Fqdn, UserName};
 
 #[derive(
-    Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, sqlx::Type,
+    Clone,
+    Copy,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    sqlx::Type,
 )]
 #[sqlx(transparent)]
 #[serde(transparent)]

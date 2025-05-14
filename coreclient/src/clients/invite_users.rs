@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use invite_users_flow::InviteUsersData;
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::AsClientId;
 
 use crate::{ConversationId, ConversationMessage};
 
@@ -19,7 +19,7 @@ impl CoreUser {
     pub(crate) async fn invite_users(
         &self,
         conversation_id: ConversationId,
-        invited_users: &[QualifiedUserName],
+        invited_users: &[AsClientId],
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load all the relevant conversation and all the contacts we
         // want to add.
@@ -53,7 +53,7 @@ mod invite_users_flow {
     use phnxtypes::{
         credentials::ClientCredential,
         crypto::ear::keys::WelcomeAttributionInfoEarKey,
-        identifiers::{Fqdn, QualifiedUserName},
+        identifiers::{AsClientId, Fqdn},
         messages::client_ds_out::GroupOperationParamsOut,
         time::TimeStamp,
     };
@@ -80,7 +80,7 @@ mod invite_users_flow {
         pub(super) async fn load(
             pool: &SqlitePool,
             conversation_id: ConversationId,
-            invited_users: &[QualifiedUserName],
+            invited_users: &[AsClientId],
         ) -> anyhow::Result<InviteUsersData<Vec<Contact>>> {
             let conversation = Conversation::load(pool, &conversation_id)
                 .await?
@@ -94,15 +94,13 @@ mod invite_users_flow {
                 // Get the WAI keys and client credentials for the invited users.
                 let contact = Contact::load(pool.acquire().await?.as_mut(), invited_user)
                     .await?
-                    .with_context(|| format!("Can't find contact with user name {invited_user}"))?;
+                    .with_context(|| format!("Can't find contact {invited_user}"))?;
                 contact_wai_keys.push(contact.wai_ear_key().clone());
 
-                for client_id in contact.clients() {
-                    if let Some(client_credential) =
-                        StorableClientCredential::load_by_client_id(pool, client_id).await?
-                    {
-                        client_credentials.push(ClientCredential::from(client_credential));
-                    }
+                if let Some(client_credential) =
+                    StorableClientCredential::load_by_client_id(pool, invited_user).await?
+                {
+                    client_credentials.push(ClientCredential::from(client_credential));
                 }
 
                 contacts.push(contact);

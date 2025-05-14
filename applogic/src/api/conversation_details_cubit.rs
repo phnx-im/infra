@@ -115,11 +115,10 @@ impl ConversationDetailsCubitBase {
             .map(|c| c.conversation_type.clone());
         match conversation_type {
             Some(
-                UiConversationType::UnconfirmedConnection(user_name)
-                | UiConversationType::Connection(user_name),
+                UiConversationType::UnconfirmedConnection(client_id)
+                | UiConversationType::Connection(client_id),
             ) => {
-                let qualified_username = user_name.parse()?;
-                let profile = self.context.store.user_profile(&qualified_username).await?;
+                let profile = self.context.store.user_profile(&client_id).await?;
                 Ok(profile.map(|profile| UiUserProfile::from_profile(&profile)))
             }
             Some(UiConversationType::Group) | None => Ok(None),

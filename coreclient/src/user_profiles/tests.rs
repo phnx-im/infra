@@ -28,8 +28,8 @@ use super::{Asset, generate::NewUserProfile};
 #[test]
 fn backend_interaction() {
     // The user initially creates a user profile
-    let user_name = "alice@localhost".parse().unwrap();
-    let user_profile_key = UserProfileKey::random(&user_name).unwrap();
+    let client_id = AsClientId::random("localhost".parse().unwrap()).unwrap();
+    let user_profile_key = UserProfileKey::random(&client_id).unwrap();
     let display_name = DisplayName::from_str("Alice").unwrap();
     let profile_picture = Some(Asset::Value(vec![1, 2, 3]));
     let (credential_csr, signing_key) = ClientCredentialCsr::new(
@@ -81,14 +81,14 @@ fn backend_interaction() {
     // Now the user wants to update their profile
     // (To simulate loading it from the DB, we just create a new one here)
     let current_profile = IndexedUserProfile {
-        user_name: user_name.clone(),
+        client_id: client_id.clone(),
         epoch: 0,
         decryption_key_index: user_profile_key.index().clone(),
         display_name,
         profile_picture: profile_picture.clone(),
     };
     let new_user_profile = UserProfile {
-        user_name: user_name.clone(),
+        client_id: client_id.clone(),
         display_name: "Alice Wonderland".parse().unwrap(),
         profile_picture: None,
     };

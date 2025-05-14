@@ -31,7 +31,7 @@ use phnxtypes::{
             signable::Signable,
         },
     },
-    identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId, QualifiedUserName},
+    identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId},
     messages::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
         client_as::ConnectionPackageTbs,
@@ -44,6 +44,7 @@ use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::Stream;
 use tracing::{error, info};
+use url::Url;
 
 use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
@@ -108,13 +109,19 @@ impl CoreUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
-        user_name: QualifiedUserName,
-        server_url: impl ToString,
+        server_url: Url,
         grpc_port: u16,
         db_path: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let as_client_id = AsClientId::random(user_name)?;
+        let domain = server_url
+            .host()
+            .context("missing host in server url")?
+            .to_owned()
+            .into();
+        let as_client_id = AsClientId::random(domain);
+        info!(%as_client_id, "creating new user");
+
         // Open the phnx db to store the client record
         let phnx_db = open_phnx_db(db_path).await?;
 
@@ -134,18 +141,15 @@ impl CoreUser {
 
     async fn new_with_connections(
         as_client_id: AsClientId,
-        server_url: impl ToString,
+        server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
         phnx_db: SqlitePool,
         client_db: SqlitePool,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
-        let api_clients = ApiClients::new(
-            as_client_id.user_name().domain().clone(),
-            server_url.clone(),
-            grpc_port,
-        );
+        let api_clients =
+            ApiClients::new(as_client_id.domain().clone(), server_url.clone(), grpc_port);
 
         let user_creation_state = UserCreationState::new(
             &client_db,
@@ -175,15 +179,19 @@ impl CoreUser {
     }
 
     /// The same as [`Self::new()`], except that databases are ephemeral and are
-    /// dropped together with this instance of CoreUser.
+    /// dropped together with this instance of [`CoreUser`].
     pub async fn new_ephemeral(
-        user_name: impl Into<QualifiedUserName>,
-        server_url: impl ToString,
+        server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let user_name = user_name.into();
-        let as_client_id = AsClientId::random(user_name)?;
+        let domain = server_url
+            .host()
+            .context("missing host in server url")?
+            .to_owned()
+            .into();
+        let as_client_id = AsClientId::random(domain);
+        info!(%as_client_id, "creating new ephemeral user");
 
         // Open the phnx db to store the client record
         let phnx_db = open_db_in_memory().await?;
@@ -214,7 +222,7 @@ impl CoreUser {
 
         let phnx_db = open_phnx_db(db_path).await?;
         let api_clients = ApiClients::new(
-            as_client_id.user_name().domain().clone(),
+            as_client_id.domain().clone(),
             user_creation_state.server_url(),
             DEFAULT_PORT_GRPC,
         );
@@ -230,7 +238,7 @@ impl CoreUser {
     ///
     /// The user database is also deleted. The client record is removed from the phnx database.
     pub async fn delete(self, db_path: &str) -> anyhow::Result<()> {
-        let as_client_id = self.as_client_id();
+        let as_client_id = self.as_client_id().clone();
         self.delete_ephemeral().await?;
         delete_client_database(db_path, &as_client_id).await?;
         Ok(())
@@ -244,7 +252,6 @@ impl CoreUser {
             .api_clients
             .default_client()?
             .as_delete_user(
-                self.user_name().clone(),
                 self.as_client_id().clone(),
                 &self.inner.key_store.signing_key,
             )
@@ -301,7 +308,7 @@ impl CoreUser {
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
-        if &user_profile.user_name != self.user_name() {
+        if &user_profile.client_id != self.as_client_id() {
             bail!("Can't set user profile for users other than the current user.",);
         }
         if let Some(profile_picture) = user_profile.profile_picture {
@@ -361,9 +368,9 @@ impl CoreUser {
         Ok(buf)
     }
 
-    /// Get the user profile of the user with the given [`QualifiedUserName`].
-    pub async fn user_profile(&self, user_name: &QualifiedUserName) -> Result<Option<UserProfile>> {
-        let user = IndexedUserProfile::load(self.pool(), user_name).await?;
+    /// Get the user profile of the user with the given [`AsClientId`].
+    pub async fn user_profile(&self, client_id: &AsClientId) -> Result<Option<UserProfile>> {
+        let user = IndexedUserProfile::load(self.pool(), client_id).await?;
         Ok(user.map(From::from))
     }
 
@@ -422,15 +429,12 @@ impl CoreUser {
         Ok(contacts)
     }
 
-    pub async fn contact(&self, user_name: &QualifiedUserName) -> Option<Contact> {
-        self.try_contact(user_name).await.ok().flatten()
+    pub async fn contact(&self, client_id: &AsClientId) -> Option<Contact> {
+        self.try_contact(client_id).await.ok().flatten()
     }
 
-    pub async fn try_contact(
-        &self,
-        user_name: &QualifiedUserName,
-    ) -> sqlx::Result<Option<Contact>> {
-        Contact::load(self.pool(), user_name).await
+    pub async fn try_contact(&self, client_id: &AsClientId) -> sqlx::Result<Option<Contact>> {
+        Contact::load(self.pool(), client_id).await
     }
 
     pub async fn partial_contacts(&self) -> sqlx::Result<Vec<PartialContact>> {
@@ -445,25 +449,16 @@ impl CoreUser {
         }
         .encrypt(&self.inner.key_store.qs_client_id_encryption_key, &[], &[]);
         QsReference {
-            client_homeserver_domain: self.user_name().domain().clone(),
+            client_homeserver_domain: self.as_client_id().domain().clone(),
             sealed_reference,
         }
-    }
-
-    pub fn user_name(&self) -> &QualifiedUserName {
-        self.inner
-            .key_store
-            .signing_key
-            .credential()
-            .identity()
-            .user_name()
     }
 
     /// Returns None if there is no conversation with the given id.
     pub async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> Option<HashSet<QualifiedUserName>> {
+    ) -> Option<HashSet<AsClientId>> {
         self.try_conversation_participants(conversation_id)
             .await
             .ok()?
@@ -472,7 +467,7 @@ impl CoreUser {
     pub(crate) async fn try_conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> Result<Option<HashSet<QualifiedUserName>>> {
+    ) -> Result<Option<HashSet<AsClientId>>> {
         let Some(conversation) = Conversation::load(self.pool(), &conversation_id).await? else {
             return Ok(None);
         };
@@ -490,7 +485,7 @@ impl CoreUser {
     pub async fn pending_removes(
         &self,
         conversation_id: ConversationId,
-    ) -> Option<Vec<QualifiedUserName>> {
+    ) -> Option<Vec<AsClientId>> {
         let conversation = Conversation::load(self.pool(), &conversation_id)
             .await
             .ok()??;
@@ -609,13 +604,8 @@ impl CoreUser {
         Ok(())
     }
 
-    pub fn as_client_id(&self) -> AsClientId {
-        self.inner
-            .key_store
-            .signing_key
-            .credential()
-            .identity()
-            .clone()
+    pub fn as_client_id(&self) -> &AsClientId {
+        self.inner.key_store.signing_key.credential().identity()
     }
 
     async fn store_messages(
@@ -636,7 +626,7 @@ impl CoreUser {
 
     /// Returns the user profile of this [`CoreUser`].
     pub async fn own_user_profile(&self) -> sqlx::Result<UserProfile> {
-        IndexedUserProfile::load(self.pool(), self.user_name())
+        IndexedUserProfile::load(self.pool(), self.as_client_id())
             .await
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap().into())

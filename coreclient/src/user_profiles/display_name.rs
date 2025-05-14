@@ -26,10 +26,10 @@ impl UnvalidatedDisplayName {
 }
 
 impl DisplayName {
-    pub fn from_user_name(user_name: &QualifiedUserName) -> Self {
+    pub fn from_client_id(client_id: &AsClientId) -> Self {
         // TODO: To be replaced by more sophisticated logic based on UUIDs
         Self {
-            display_name: user_name.to_string(),
+            display_name: client_id.to_string(),
         }
     }
 }

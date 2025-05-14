@@ -22,7 +22,7 @@ use crate::StreamSink;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
-    types::{UiConversation, UiConversationDetails, UiConversationMessage},
+    types::{UiClientId, UiConversation, UiConversationDetails, UiConversationMessage},
     user_cubit::UserCubitBase,
 };
 
@@ -84,9 +84,9 @@ impl ConversationListCubitBase {
 
     /// Creates a new 1:1 connection with the given user.
     ///
-    /// `user_name` is the fully qualified user name of the contact.
-    pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
-        let id = self.context.store.add_contact(user_name.parse()?).await?;
+    /// `client_id` is the unique client id of the contact.
+    pub async fn create_connection(&self, client_id: UiClientId) -> anyhow::Result<ConversationId> {
+        let id = self.context.store.add_contact(client_id.into()).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }

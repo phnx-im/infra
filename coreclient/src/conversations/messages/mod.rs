@@ -42,11 +42,11 @@ impl TimestampedMessage {
     pub(crate) fn from_application_message(
         application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
-        sender_name: &QualifiedUserName,
+        client_id: &AsClientId,
     ) -> Self {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
-                sender_name.to_string(),
+                client_id.to_string(), // TODO: We need display name here!
                 true,
                 content,
             ))),
@@ -271,10 +271,11 @@ pub enum EventMessage {
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+// TODO: Use display names here?
 pub enum SystemMessage {
     // The first UserName is the adder/remover the second is the added/removed.
-    Add(QualifiedUserName, QualifiedUserName),
-    Remove(QualifiedUserName, QualifiedUserName),
+    Add(AsClientId, AsClientId),
+    Remove(AsClientId, AsClientId),
 }
 
 impl Display for SystemMessage {

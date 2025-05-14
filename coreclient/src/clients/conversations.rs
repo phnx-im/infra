@@ -283,7 +283,7 @@ mod create_conversation_flow {
             let user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
             let encrypted_user_profile_key = user_profile_key.encrypt(
                 group.identity_link_wrapper_key(),
-                group_membership.client_id().user_name(),
+                group_membership.client_id(),
             )?;
 
             group_membership.store(&mut *connection).await?;
@@ -338,8 +338,7 @@ mod delete_conversation_flow {
 
     use anyhow::Context;
     use phnxtypes::{
-        identifiers::QualifiedUserName, messages::client_ds_out::DeleteGroupParamsOut,
-        time::TimeStamp,
+        identifiers::AsClientId, messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
     };
     use sqlx::{SqliteConnection, SqlitePool};
 
@@ -395,7 +394,7 @@ mod delete_conversation_flow {
 
     pub(super) struct LoadedSingleUserConversationData {
         conversation: Conversation,
-        member: QualifiedUserName,
+        member: AsClientId,
     }
 
     impl LoadedSingleUserConversationData {
@@ -418,7 +417,7 @@ mod delete_conversation_flow {
     pub(super) struct LoadedConversationData<S> {
         conversation: Conversation,
         group: Group,
-        past_members: HashSet<QualifiedUserName>,
+        past_members: HashSet<AsClientId>,
         state: S,
     }
 
@@ -496,7 +495,7 @@ mod delete_conversation_flow {
 
     pub(super) struct DeletedGroup {
         conversation: Conversation,
-        past_members: HashSet<QualifiedUserName>,
+        past_members: HashSet<AsClientId>,
         messages: Vec<TimestampedMessage>,
     }
 

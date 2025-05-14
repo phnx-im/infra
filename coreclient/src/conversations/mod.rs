@@ -7,7 +7,7 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName},
+    identifiers::{AsClientId, Fqdn, QualifiedGroupId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,7 @@ pub struct Conversation {
 impl Conversation {
     pub(crate) fn new_connection_conversation(
         group_id: GroupId,
-        user_name: QualifiedUserName,
+        client_id: AsClientId,
         attributes: ConversationAttributes,
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
@@ -98,7 +98,7 @@ impl Conversation {
             group_id,
             last_read: Utc::now(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            conversation_type: ConversationType::UnconfirmedConnection(client_id),
             attributes,
         };
         Ok(conversation)
@@ -163,7 +163,7 @@ impl Conversation {
         &mut self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-        past_members: Vec<QualifiedUserName>,
+        past_members: Vec<AsClientId>,
     ) -> sqlx::Result<()> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
         Self::update_status(executor, notifier, self.id, &new_status).await?;
@@ -196,15 +196,15 @@ pub enum ConversationStatus {
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct InactiveConversation {
-    pub past_members: Vec<QualifiedUserName>,
+    pub past_members: Vec<AsClientId>,
 }
 
 impl InactiveConversation {
-    pub fn new(past_members: Vec<QualifiedUserName>) -> Self {
+    pub fn new(past_members: Vec<AsClientId>) -> Self {
         Self { past_members }
     }
 
-    pub fn past_members(&self) -> &[QualifiedUserName] {
+    pub fn past_members(&self) -> &[AsClientId] {
         &self.past_members
     }
 }
@@ -212,10 +212,10 @@ impl InactiveConversation {
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(QualifiedUserName),
+    UnconfirmedConnection(AsClientId),
     // A connection conversation that is confirmed by the other party and for
     // which we have received the necessary secrets.
-    Connection(QualifiedUserName),
+    Connection(AsClientId),
     Group,
 }
 

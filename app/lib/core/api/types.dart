@@ -13,9 +13,65 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 part 'types.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_qualified_user_name`, `timestamp`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiConversation`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
+// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `timestamp`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiConversation>>
+abstract class UiConversation implements RustOpaqueInterface {
+  UiConversationAttributes get attributes;
+
+  UiConversationType get conversationType;
+
+  ConversationId get id;
+
+  UiConversationStatus get status;
+
+  set attributes(UiConversationAttributes attributes);
+
+  set conversationType(UiConversationType conversationType);
+
+  set id(ConversationId id);
+
+  set status(UiConversationStatus status);
+}
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiConversationDetails>>
+abstract class UiConversationDetails implements RustOpaqueInterface {
+  UiConversationAttributes get attributes;
+
+  UiConversationType get conversationType;
+
+  ConversationId get id;
+
+  UiConversationMessage? get lastMessage;
+
+  String get lastUsed;
+
+  int get messagesCount;
+
+  UiConversationStatus get status;
+
+  int get unreadMessages;
+
+  set attributes(UiConversationAttributes attributes);
+
+  set conversationType(UiConversationType conversationType);
+
+  set id(ConversationId id);
+
+  set lastMessage(UiConversationMessage? lastMessage);
+
+  set lastUsed(String lastUsed);
+
+  set messagesCount(int messagesCount);
+
+  set status(UiConversationStatus status);
+
+  set unreadMessages(int unreadMessages);
+}
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiConversationType>>
+abstract class UiConversationType implements RustOpaqueInterface {}
 
 /// Mirror of the [`ConversationId`] types
 class ConversationId {
@@ -83,6 +139,25 @@ class ImageData {
           hash == other.hash;
 }
 
+/// UI representation of an [`AsClientId`]
+class UiClientId {
+  final UuidValue uuid;
+  final String domain;
+
+  const UiClientId({required this.uuid, required this.domain});
+
+  @override
+  int get hashCode => uuid.hashCode ^ domain.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UiClientId &&
+          runtimeType == other.runtimeType &&
+          uuid == other.uuid &&
+          domain == other.domain;
+}
+
 /// Client record of a user
 ///
 /// Each user has a client record which identifies the users database.
@@ -90,15 +165,13 @@ class UiClientRecord {
   /// The unique identifier of the client
   ///
   /// Also used for identifying the client database path.
-  final UuidValue clientId;
-  final UiUserName userName;
+  final UiClientId clientId;
   final DateTime createdAt;
   final UiUserProfile? userProfile;
   final bool isFinished;
 
   const UiClientRecord({
     required this.clientId,
-    required this.userName,
     required this.createdAt,
     this.userProfile,
     required this.isFinished,
@@ -107,7 +180,6 @@ class UiClientRecord {
   @override
   int get hashCode =>
       clientId.hashCode ^
-      userName.hashCode ^
       createdAt.hashCode ^
       userProfile.hashCode ^
       isFinished.hashCode;
@@ -118,7 +190,6 @@ class UiClientRecord {
       other is UiClientRecord &&
           runtimeType == other.runtimeType &&
           clientId == other.clientId &&
-          userName == other.userName &&
           createdAt == other.createdAt &&
           userProfile == other.userProfile &&
           isFinished == other.isFinished;
@@ -126,20 +197,19 @@ class UiClientRecord {
 
 /// Contact of the logged-in user
 class UiContact {
-  /// Fully qualified user name
-  final String userName;
+  final UiClientId clientId;
 
-  const UiContact({required this.userName});
+  const UiContact({required this.clientId});
 
   @override
-  int get hashCode => userName.hashCode;
+  int get hashCode => clientId.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is UiContact &&
           runtimeType == other.runtimeType &&
-          userName == other.userName;
+          clientId == other.clientId;
 }
 
 /// Content of a message including the sender and whether it was sent
@@ -189,54 +259,6 @@ class UiConversationAttributes {
           picture == other.picture;
 }
 
-/// Details of a conversation
-class UiConversationDetails {
-  final ConversationId id;
-  final UiConversationStatus status;
-  final UiConversationType conversationType;
-  final String lastUsed;
-  final UiConversationAttributes attributes;
-  final int messagesCount;
-  final int unreadMessages;
-  final UiConversationMessage? lastMessage;
-
-  const UiConversationDetails({
-    required this.id,
-    required this.status,
-    required this.conversationType,
-    required this.lastUsed,
-    required this.attributes,
-    required this.messagesCount,
-    required this.unreadMessages,
-    this.lastMessage,
-  });
-
-  @override
-  int get hashCode =>
-      id.hashCode ^
-      status.hashCode ^
-      conversationType.hashCode ^
-      lastUsed.hashCode ^
-      attributes.hashCode ^
-      messagesCount.hashCode ^
-      unreadMessages.hashCode ^
-      lastMessage.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiConversationDetails &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          status == other.status &&
-          conversationType == other.conversationType &&
-          lastUsed == other.lastUsed &&
-          attributes == other.attributes &&
-          messagesCount == other.messagesCount &&
-          unreadMessages == other.unreadMessages &&
-          lastMessage == other.lastMessage;
-}
-
 /// A message in a conversation
 class UiConversationMessage {
   final ConversationId conversationId;
@@ -280,23 +302,6 @@ sealed class UiConversationStatus with _$UiConversationStatus {
   const factory UiConversationStatus.inactive(UiInactiveConversation field0) =
       UiConversationStatus_Inactive;
   const factory UiConversationStatus.active() = UiConversationStatus_Active;
-}
-
-@freezed
-sealed class UiConversationType with _$UiConversationType {
-  const UiConversationType._();
-
-  /// A connection conversation that is not yet confirmed by the other party.
-  const factory UiConversationType.unconfirmedConnection(String field0) =
-      UiConversationType_UnconfirmedConnection;
-
-  /// A connection conversation that is confirmed by the other party and for which we have
-  /// received the necessary secrets.
-  const factory UiConversationType.connection(String field0) =
-      UiConversationType_Connection;
-
-  /// A group conversation, that is, it can contains multiple participants.
-  const factory UiConversationType.group() = UiConversationType_Group;
 }
 
 /// Error message
@@ -397,28 +402,10 @@ class UiSystemMessage {
           message == other.message;
 }
 
-class UiUserName {
-  final String userName;
-  final String domain;
-
-  const UiUserName({required this.userName, required this.domain});
-
-  @override
-  int get hashCode => userName.hashCode ^ domain.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiUserName &&
-          runtimeType == other.runtimeType &&
-          userName == other.userName &&
-          domain == other.domain;
-}
-
 /// Profile of a user
 class UiUserProfile {
-  /// Fully qualified user name
-  final String userName;
+  /// Client ID of the user
+  final UiClientId clientId;
 
   /// Display name
   final String displayName;
@@ -427,21 +414,21 @@ class UiUserProfile {
   final ImageData? profilePicture;
 
   const UiUserProfile({
-    required this.userName,
+    required this.clientId,
     required this.displayName,
     this.profilePicture,
   });
 
   @override
   int get hashCode =>
-      userName.hashCode ^ displayName.hashCode ^ profilePicture.hashCode;
+      clientId.hashCode ^ displayName.hashCode ^ profilePicture.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is UiUserProfile &&
           runtimeType == other.runtimeType &&
-          userName == other.userName &&
+          clientId == other.clientId &&
           displayName == other.displayName &&
           profilePicture == other.profilePicture;
 }

@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::AsClientId;
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -16,10 +16,6 @@ use crate::{
 use super::{Store, StoreNotification, StoreResult};
 
 impl Store for CoreUser {
-    fn user_name(&self) -> &QualifiedUserName {
-        self.user_name()
-    }
-
     async fn own_user_profile(&self) -> StoreResult<UserProfile> {
         Ok(self.own_user_profile().await?)
     }
@@ -52,7 +48,7 @@ impl Store for CoreUser {
     async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> StoreResult<Option<HashSet<QualifiedUserName>>> {
+    ) -> StoreResult<Option<HashSet<AsClientId>>> {
         self.try_conversation_participants(conversation_id).await
     }
 
@@ -77,7 +73,7 @@ impl Store for CoreUser {
     async fn remove_users(
         &self,
         conversation_id: ConversationId,
-        target_users: &[QualifiedUserName],
+        target_users: Vec<AsClientId>,
     ) -> StoreResult<Vec<ConversationMessage>> {
         self.remove_users(conversation_id, target_users).await
     }
@@ -85,32 +81,29 @@ impl Store for CoreUser {
     async fn invite_users(
         &self,
         conversation_id: ConversationId,
-        invited_users: &[QualifiedUserName],
+        invited_users: &[AsClientId],
     ) -> StoreResult<Vec<ConversationMessage>> {
         self.invite_users(conversation_id, invited_users).await
     }
 
-    async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId> {
-        self.add_contact(user_name).await
+    async fn add_contact(&self, client_id: AsClientId) -> StoreResult<ConversationId> {
+        self.add_contact(client_id).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
         Ok(self.contacts().await?)
     }
 
-    async fn contact(&self, user_name: &QualifiedUserName) -> StoreResult<Option<Contact>> {
-        Ok(self.try_contact(user_name).await?)
+    async fn contact(&self, client_id: &AsClientId) -> StoreResult<Option<Contact>> {
+        Ok(self.try_contact(client_id).await?)
     }
 
     async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>> {
         Ok(self.partial_contacts().await?)
     }
 
-    async fn user_profile(
-        &self,
-        user_name: &QualifiedUserName,
-    ) -> StoreResult<Option<UserProfile>> {
-        self.user_profile(user_name).await
+    async fn user_profile(&self, client_id: &AsClientId) -> StoreResult<Option<UserProfile>> {
+        self.user_profile(client_id).await
     }
 
     async fn messages(

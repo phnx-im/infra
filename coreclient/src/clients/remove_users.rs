@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::AsClientId;
 use remove_users_flow::RemoveUsersData;
 
 use crate::{ConversationId, ConversationMessage};
@@ -19,7 +19,7 @@ impl CoreUser {
     pub(crate) async fn remove_users(
         &self,
         conversation_id: ConversationId,
-        target_users: &[QualifiedUserName],
+        target_users: Vec<AsClientId>,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load the group and conversation and prepare the commit.
         let removed = RemoveUsersData::load(self.pool(), conversation_id, target_users)
@@ -40,8 +40,7 @@ impl CoreUser {
 mod remove_users_flow {
     use anyhow::Context;
     use phnxtypes::{
-        identifiers::QualifiedUserName, messages::client_ds_out::GroupOperationParamsOut,
-        time::TimeStamp,
+        identifiers::AsClientId, messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
     };
     use sqlx::SqlitePool;
 
@@ -62,7 +61,7 @@ mod remove_users_flow {
         pub(super) async fn load(
             pool: &SqlitePool,
             conversation_id: ConversationId,
-            target_users: &[QualifiedUserName],
+            target_users: Vec<AsClientId>,
         ) -> anyhow::Result<Self> {
             let conversation = Conversation::load(pool, &conversation_id)
                 .await?
@@ -72,12 +71,8 @@ mod remove_users_flow {
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
 
-            let mut clients = Vec::with_capacity(target_users.len());
-            for user_name in target_users {
-                clients.extend(group.user_client_ids(pool, user_name).await);
-            }
             let params = group
-                .remove(pool.acquire().await?.as_mut(), clients)
+                .remove(pool.acquire().await?.as_mut(), target_users)
                 .await?;
             Ok(Self {
                 conversation,

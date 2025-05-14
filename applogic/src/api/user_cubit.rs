@@ -14,7 +14,6 @@ use phnxcoreclient::{
     clients::{QueueEvent, queue_event},
 };
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
-use phnxtypes::identifiers::QualifiedUserName;
 use tokio::sync::{RwLock, watch};
 use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};
@@ -33,7 +32,7 @@ use crate::{
 
 use super::{
     navigation_cubit::{NavigationCubitBase, NavigationState},
-    types::ImageData,
+    types::{ImageData, UiClientId},
     user::User,
 };
 
@@ -57,13 +56,12 @@ pub struct UiUser {
 
 #[derive(Debug)]
 struct UiUserInner {
-    user_name: QualifiedUserName,
     profile: UserProfile,
 }
 
 impl UiUser {
-    fn new(user_name: QualifiedUserName, profile: UserProfile) -> Self {
-        let inner = Arc::new(UiUserInner { user_name, profile });
+    fn new(profile: UserProfile) -> Self {
+        let inner = Arc::new(UiUserInner { profile });
         Self { inner }
     }
 
@@ -73,7 +71,7 @@ impl UiUser {
             match core_user.own_user_profile().await {
                 Ok(profile) => {
                     let mut state = this.write().await;
-                    *state = UiUser::new(state.inner.user_name.clone(), profile);
+                    *state = UiUser::new(profile);
                 }
                 Err(error) => {
                     error!(%error, "Could not load own user profile");
@@ -83,8 +81,8 @@ impl UiUser {
     }
 
     #[frb(getter, sync)]
-    pub fn user_name(&self) -> String {
-        self.inner.user_name.to_string()
+    pub fn client_id(&self) -> UiClientId {
+        self.inner.profile.client_id.clone().into()
     }
 
     #[frb(getter, sync)]
@@ -135,10 +133,9 @@ impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
         let core_user = user.user.clone();
-        let state = Arc::new(RwLock::new(UiUser::new(
-            core_user.user_name().clone(),
-            UserProfile::from_user_name(core_user.user_name()),
-        )));
+        let state = Arc::new(RwLock::new(UiUser::new(UserProfile::from_client_id(
+            core_user.as_client_id(),
+        ))));
 
         UiUser::spawn_load(state.clone(), core_user.clone());
 
@@ -224,7 +221,7 @@ impl UserCubitBase {
             self.core_user
                 .set_own_user_profile(user_profile.clone())
                 .await?;
-            let user = UiUser::new(state.inner.user_name.clone(), user_profile.clone());
+            let user = UiUser::new(user_profile);
             *state = user.clone();
             user
         };
@@ -232,13 +229,15 @@ impl UserCubitBase {
         Ok(())
     }
 
-    /// Get the user profile of the user with the given [`QualifiedUserName`].
+    /// Get the user profile of the user with the given [`AsClientId`].
     #[frb(positional)]
-    pub async fn user_profile(&self, user_name: String) -> anyhow::Result<Option<UiUserProfile>> {
-        let user_name = user_name.parse()?;
+    pub async fn user_profile(
+        &self,
+        client_id: UiClientId,
+    ) -> anyhow::Result<Option<UiUserProfile>> {
         let user_profile = self
             .core_user
-            .user_profile(&user_name)
+            .user_profile(&client_id.into())
             .await?
             .map(|profile| UiUserProfile::from_profile(&profile));
         Ok(user_profile)
@@ -248,11 +247,10 @@ impl UserCubitBase {
     pub async fn add_user_to_conversation(
         &self,
         conversation_id: ConversationId,
-        user_name: String,
+        client_id: UiClientId,
     ) -> anyhow::Result<()> {
-        let user_name: QualifiedUserName = user_name.parse()?;
         self.core_user
-            .invite_users(conversation_id, &[user_name])
+            .invite_users(conversation_id, &[client_id.into()])
             .await?;
         Ok(())
     }
@@ -261,11 +259,10 @@ impl UserCubitBase {
     pub async fn remove_user_from_conversation(
         &self,
         conversation_id: ConversationId,
-        user_name: String,
+        client_id: UiClientId,
     ) -> anyhow::Result<()> {
-        let user_name: QualifiedUserName = user_name.parse()?;
         self.core_user
-            .remove_users(conversation_id, &[user_name])
+            .remove_users(conversation_id, vec![client_id.into()])
             .await?;
         Ok(())
     }

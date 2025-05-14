@@ -18,8 +18,8 @@ use phnxtypes::{
     identifiers,
     messages::{
         client_as::{
-            AsCredentialsParams, DeleteUserParamsTbs, DequeueMessagesParamsTbs,
-            EnqueueMessageParams, UserConnectionPackagesParams,
+            AsCredentialsParams, DequeueMessagesParamsTbs, EnqueueMessageParams,
+            UserConnectionPackagesParams,
         },
         client_as_out::{
             GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
@@ -110,14 +110,14 @@ impl auth_service_server::AuthService for GrpcAs {
         let (client_id, payload) = self
             .verify_client_auth::<_, DeleteUserPayload>(request)
             .await?;
-        let params = DeleteUserParamsTbs {
-            user_name: payload
-                .user_name
-                .ok_or_missing_field("user_name")?
-                .try_into()?,
-            client_id,
-        };
-        self.inner.as_delete_user(params).await?;
+        let payload_client_id: identifiers::AsClientId = payload
+            .client_id
+            .ok_or_missing_field("client_id")?
+            .try_into()?;
+        if payload_client_id != client_id {
+            return Err(Status::invalid_argument("only possible to delete own user"));
+        }
+        self.inner.as_delete_user(&client_id).await?;
         Ok(Response::new(DeleteUserResponse {}))
     }
 

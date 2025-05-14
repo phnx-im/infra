@@ -38,7 +38,7 @@ async fn user_stages() -> anyhow::Result<()> {
     let client_records = ClientRecord::load_all(&phnx_db).await?;
     assert!(client_records.len() == 1);
     let client_record = client_records.first().unwrap();
-    assert!(client_record.as_client_id == as_client_id);
+    assert!(client_record.client_id == as_client_id);
     assert!(matches!(
         client_record.client_record_state,
         ClientRecordState::InProgress

@@ -66,6 +66,13 @@ pub(crate) enum DeleteUserError {
     StorageError,
 }
 
+impl From<sqlx::Error> for DeleteUserError {
+    fn from(e: sqlx::Error) -> Self {
+        error!(%e, "Error deleting user");
+        DeleteUserError::StorageError
+    }
+}
+
 impl From<DeleteUserError> for Status {
     fn from(e: DeleteUserError) -> Self {
         let msg = e.to_string();

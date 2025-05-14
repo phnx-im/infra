@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::AsClientId};
 use sqlx::{SqliteExecutor, query, query_as};
 
 use crate::store::StoreNotifier;
 
-use super::{IndexedUserProfile, UserProfile};
+use super::{Asset, IndexedUserProfile, UserProfile, display_name::BaseDisplayName};
 
 impl IndexedUserProfile {
-    /// Stores this [`NewUserProfile`].
+    /// Stores this [`BaseIndexedUserProfile`].
     ///
     /// Will throw an error if there already exists a user profile with the same
     /// user name.
@@ -19,11 +19,20 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
+        let uuid = self.client_id.client_id();
+        let domain = self.client_id.domain();
         let epoch = self.epoch as i64;
         query!(
-            "INSERT INTO users (user_name, epoch, decryption_key_index, display_name, profile_picture)
-            VALUES (?, ?, ?, ?, ?)",
-            self.user_name,
+            "INSERT INTO users (
+                as_client_uuid,
+                as_domain,
+                epoch,
+                decryption_key_index,
+                display_name,
+                profile_picture
+            ) VALUES (?, ?, ?, ?, ?, ?)",
+            uuid,
+            domain,
             epoch,
             self.decryption_key_index,
             self.display_name,
@@ -31,7 +40,7 @@ impl IndexedUserProfile {
         )
         .execute(executor)
         .await?;
-        notifier.update(self.user_name.clone());
+        notifier.update(self.client_id.clone());
         Ok(())
     }
 
@@ -41,10 +50,18 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
+        let uuid = self.client_id.client_id();
+        let domain = self.client_id.domain();
         let epoch = self.epoch as i64;
         query!(
-            "UPDATE users SET epoch = ?2, decryption_key_index = ?3, display_name = ?4, profile_picture = ?5 WHERE user_name = ?1",
-            self.user_name,
+            "UPDATE users SET
+                epoch = ?3,
+                decryption_key_index = ?4,
+                display_name = ?5,
+                profile_picture = ?6
+            WHERE as_client_uuid = ?1 AND as_domain = ?2",
+            uuid,
+            domain,
             epoch,
             self.decryption_key_index,
             self.display_name,
@@ -52,38 +69,71 @@ impl IndexedUserProfile {
         )
         .execute(executor)
         .await?;
-        notifier.update(self.user_name.clone());
+        notifier.update(self.client_id.clone());
         Ok(())
+    }
+}
+
+struct SqlUser {
+    epoch: u64,
+    decryption_key_index: UserProfileKeyIndex,
+    display_name: BaseDisplayName<true>,
+    profile_picture: Option<Asset>,
+}
+
+impl From<(AsClientId, SqlUser)> for IndexedUserProfile {
+    fn from(
+        (
+            client_id,
+            SqlUser {
+                epoch,
+                decryption_key_index,
+                display_name,
+                profile_picture,
+            },
+        ): (AsClientId, SqlUser),
+    ) -> Self {
+        Self {
+            client_id,
+            epoch,
+            decryption_key_index,
+            display_name,
+            profile_picture,
+        }
     }
 }
 
 impl IndexedUserProfile {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        user_name: &QualifiedUserName,
+        client_id: &AsClientId,
     ) -> sqlx::Result<Option<Self>> {
+        let uuid = client_id.client_id();
+        let domain = client_id.domain();
         query_as!(
-            IndexedUserProfile,
+            SqlUser,
             r#"SELECT
-                user_name AS "user_name: _",
                 epoch AS "epoch: _",
                 decryption_key_index AS "decryption_key_index: _",
                 display_name AS "display_name: _",
                 profile_picture AS "profile_picture: _"
-            FROM users WHERE user_name = ?"#,
-            user_name,
+            FROM users
+            WHERE as_client_uuid = ? AND as_domain = ?"#,
+            uuid,
+            domain,
         )
         .fetch_optional(executor)
         .await
+        .map(|res| res.map(|user| (client_id.clone(), user).into()))
     }
 }
 
 impl UserProfile {
     pub async fn load(
         executor: impl SqliteExecutor<'_>,
-        user_name: &QualifiedUserName,
+        client_id: &AsClientId,
     ) -> sqlx::Result<Option<Self>> {
-        IndexedUserProfile::load(executor, user_name)
+        IndexedUserProfile::load(executor, client_id)
             .await
             .map(|res| res.map(From::from))
     }
@@ -99,10 +149,10 @@ mod tests {
     use super::*;
 
     fn test_profile() -> (IndexedUserProfile, UserProfileKey) {
-        let user_name = "alice@localhost".parse().unwrap();
-        let user_profile_key = UserProfileKey::random(&user_name).unwrap();
+        let client_id = AsClientId::random("localhost".parse().unwrap()).unwrap();
+        let user_profile_key = UserProfileKey::random(&client_id).unwrap();
         let user_profile = IndexedUserProfile {
-            user_name: user_name.clone(),
+            client_id,
             epoch: 0,
             decryption_key_index: user_profile_key.index().clone(),
             display_name: "Alice".parse().unwrap(),

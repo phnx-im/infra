@@ -166,7 +166,7 @@ impl CoreUser {
 
         let encrypted_user_profile_key = own_user_profile_key.encrypt(
             &cep_tbs.connection_group_identity_link_wrapper_key,
-            self.user_name(),
+            self.as_client_id(),
         )?;
 
         let encrypted_friendship_package = FriendshipPackage {
@@ -201,7 +201,7 @@ impl CoreUser {
             .get(qgid.owning_domain())?
             .ds_connection_group_info(
                 cep_tbs.connection_group_id.clone(),
-                &cep_tbs.connection_group_ear_key,
+                &cep_tbs.connection_group_ear_key, //
             )
             .await?)
     }
@@ -238,8 +238,9 @@ impl CoreUser {
 
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
-            sender_client_id.user_name().clone(),
-            ConversationAttributes::new(sender_client_id.user_name().to_string(), None),
+            sender_client_id.clone(),
+            // TODO: conversation title
+            ConversationAttributes::new(sender_client_id.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
             sender_client_id.clone(),

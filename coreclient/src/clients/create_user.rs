@@ -63,7 +63,7 @@ impl BasicUserData {
         // Prepare user account creation
         debug!(client_id =% self.as_client_id, "Creating new client");
         // Let's turn TLS off for now.
-        let domain = self.as_client_id.user_name().domain();
+        let domain = self.as_client_id.domain();
         // Fetch credentials from AS
         let as_intermediate_credential =
             AsCredentials::get_intermediate_credential(pool, api_clients, domain).await?;
@@ -129,17 +129,16 @@ impl BasicUserData {
             None => None,
         };
 
-        let user_name = self.as_client_id.user_name();
-        let user_profile_key = UserProfileKey::random(user_name)?;
+        let user_profile_key = UserProfileKey::random(&self.as_client_id)?;
 
         let mut connection = pool.acquire().await?;
         user_profile_key.store_own(connection.as_mut()).await?;
 
         let encrypted_user_profile = NewUserProfile::new(
             &key_store.signing_key,
-            user_name.clone(),
+            self.as_client_id.clone(),
             user_profile_key.index().clone(),
-            DisplayName::from_user_name(user_name),
+            DisplayName::from_client_id(&self.as_client_id),
             None,
         )?
         .store(connection.as_mut(), &mut StoreNotifier::noop())

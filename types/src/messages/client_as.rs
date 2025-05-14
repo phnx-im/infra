@@ -26,7 +26,7 @@ use crate::{
         ratchet::QueueRatchet,
         signatures::signable::{Signable, Signature, SignedStruct, VerifiedStruct},
     },
-    identifiers::{AsClientId, QualifiedUserName},
+    identifiers::AsClientId,
     time::ExpirationData,
 };
 
@@ -139,12 +139,6 @@ pub struct RegisterUserParams {
 #[derive(Debug)]
 pub struct RegisterUserResponse {
     pub client_credential: ClientCredential,
-}
-
-#[derive(Debug)]
-pub struct DeleteUserParamsTbs {
-    pub user_name: QualifiedUserName,
-    pub client_id: AsClientId,
 }
 
 // === Client ===

@@ -5,7 +5,7 @@
 use std::{collections::BTreeMap, mem, sync::Arc};
 
 use enumset::{EnumSet, EnumSetType};
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::AsClientId;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};
@@ -214,7 +214,7 @@ pub enum StoreOperation {
 // `QualifiedUserName` is not copy and quite large.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::From)]
 pub enum StoreEntityId {
-    User(QualifiedUserName),
+    User(AsClientId),
     Conversation(ConversationId),
     Message(ConversationMessageId),
 }

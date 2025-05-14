@@ -119,7 +119,6 @@ message DeleteUserRequest {
 }
 
 message DeleteUserPayload {
-  common.v1.QualifiedUserName user_name = 1;
   AsClientId client_id = 2;
 }
 
@@ -203,7 +202,8 @@ message GetConnectionPackageResponse {
 // user connection package
 
 message GetConnectionPackagesRequest {
-  common.v1.QualifiedUserName user_name = 1;
+  // TODO: can we remove this field?
+  AsClientId client_id = 1;
 }
 
 message GetConnectionPackagesResponse {

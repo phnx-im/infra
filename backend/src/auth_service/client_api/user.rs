@@ -5,10 +5,8 @@
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::signatures::signable::Signable,
-    messages::{
-        client_as::{DeleteUserParamsTbs, RegisterUserResponse},
-        client_as_out::RegisterUserParamsIn,
-    },
+    identifiers::AsClientId,
+    messages::{client_as::RegisterUserResponse, client_as_out::RegisterUserParamsIn},
     time::TimeStamp,
 };
 use tracing::error;
@@ -107,21 +105,9 @@ impl AuthService {
 
     pub(crate) async fn as_delete_user(
         &self,
-        params: DeleteUserParamsTbs,
+        client_id: &AsClientId,
     ) -> Result<(), DeleteUserError> {
-        let DeleteUserParamsTbs {
-            user_name: _,
-            client_id,
-        } = params;
-
-        // Delete the user
-        UserRecord::delete(&self.db_pool, &client_id)
-            .await
-            .map_err(|error| {
-                error!(%error, "Storage provider error");
-                DeleteUserError::StorageError
-            })?;
-
+        UserRecord::delete(&self.db_pool, client_id).await?;
         Ok(())
     }
 }
