@@ -37,15 +37,6 @@ message Fqdn {
   string value = 1;
 }
 
-message UserName {
-  string value = 1;
-}
-
-message QualifiedUserName {
-  UserName name = 1;
-  Fqdn domain = 2;
-}
-
 message Ciphertext {
   bytes ciphertext = 1;
   bytes nonce = 2;

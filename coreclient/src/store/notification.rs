@@ -210,8 +210,8 @@ pub enum StoreOperation {
 /// Identifier of an enitity of a [`super::Store`].
 ///
 /// Used to identify added, updated or removed entites in a [`StoreNotification`].
-// Note(perf): I would prefer this type to be copy and smaller in memory (currently 48 bytes), but
-// `QualifiedUserName` is not copy and quite large.
+// Note(perf): I would prefer this type to be copy and smaller in memory (currently 40 bytes), but
+// `AsClientId` is not copy and quite large.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::From)]
 pub enum StoreEntityId {
     User(AsClientId),

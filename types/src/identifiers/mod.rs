@@ -6,7 +6,7 @@ use std::{fmt, hash::Hash, str::FromStr};
 
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 use rand::{CryptoRng, Rng, RngCore};
-use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
+use sqlx::{Database, Decode, Encode, Type, encode::IsNull, error::BoxDynError};
 use tls_codec_impls::TlsUuid;
 use tracing::{debug, error};
 use url::Host;
@@ -258,107 +258,6 @@ impl From<UserName> for String {
 #[derive(
     Clone,
     Debug,
-    TlsSerialize,
-    TlsSize,
-    TlsDeserializeBytes,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-    sqlx::Type, // only for postgres
-)]
-#[sqlx(type_name = "qualified_user_name")]
-pub struct QualifiedUserName {
-    user_name: UserName,
-    domain: Fqdn,
-}
-
-impl QualifiedUserName {
-    pub fn new(user_name: UserName, domain: Fqdn) -> Self {
-        Self { user_name, domain }
-    }
-
-    pub fn into_parts(self) -> (UserName, Fqdn) {
-        (self.user_name, self.domain)
-    }
-}
-
-impl Type<Sqlite> for QualifiedUserName {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <String as Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for QualifiedUserName {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let value = self.to_string();
-        Encode::<Sqlite>::encode(value, buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for QualifiedUserName {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s: &str = Decode::<Sqlite>::decode(value)?;
-        Ok(s.parse()?)
-    }
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum QualifiedUserNameError {
-    #[error("Invalid string representation of qualified user name")]
-    InvalidString,
-    #[error(transparent)]
-    InvalidUserName(#[from] UserNameError),
-    #[error(transparent)]
-    InvalidFqdn(#[from] FqdnError),
-}
-
-impl FromStr for QualifiedUserName {
-    type Err = QualifiedUserNameError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut split_name = s.split('@');
-        let user_name_str = split_name
-            .next()
-            .ok_or(QualifiedUserNameError::InvalidString)?;
-        let user_name = UserName::try_from(user_name_str.to_string())?;
-        // UserNames MUST be qualified
-        let domain = split_name
-            .next()
-            .ok_or(QualifiedUserNameError::InvalidString)?;
-        if split_name.next().is_some() {
-            return Err(QualifiedUserNameError::InvalidString);
-        }
-        let domain = domain.parse()?;
-        Ok(QualifiedUserName { user_name, domain })
-    }
-}
-
-impl QualifiedUserName {
-    pub fn user_name(&self) -> &UserName {
-        &self.user_name
-    }
-
-    pub fn domain(&self) -> &Fqdn {
-        &self.domain
-    }
-}
-
-impl fmt::Display for QualifiedUserName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}@{}", self.user_name, self.domain)
-    }
-}
-
-#[derive(
-    Clone,
-    Debug,
     Serialize,
     Deserialize,
     Eq,
@@ -405,55 +304,6 @@ impl AsClientId {
         (*self.client_id, self.domain)
     }
 }
-
-#[derive(Debug, Clone, Error)]
-pub enum AsClientIdError {
-    #[error("The given string does not represent a valid client id")]
-    InvalidClientId,
-    #[error("The UUID of this client id is invalid: {0}")]
-    InvalidClientUuid(#[from] uuid::Error),
-    #[error("The user name of the client id is invalid: {0}")]
-    UserNameError(#[from] QualifiedUserNameError),
-}
-
-// impl FromStr for AsClientId {
-//     type Err = AsClientIdError;
-//
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         let Some((client_id_str, user_name_str)) = s.split_once('.') else {
-//             return Err(AsClientIdError::InvalidClientId);
-//         };
-//         let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
-//         let user_name = user_name_str.parse()?;
-//         Ok(Self {
-//             user_name,
-//             client_id,
-//         })
-//     }
-// }
-//
-// impl Type<Sqlite> for AsClientId {
-//     fn type_info() -> <Sqlite as Database>::TypeInfo {
-//         <String as Type<Sqlite>>::type_info()
-//     }
-// }
-//
-// impl<'q> Encode<'q, Sqlite> for AsClientId {
-//     fn encode_by_ref(
-//         &self,
-//         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-//     ) -> Result<IsNull, BoxDynError> {
-//         let value = self.to_string();
-//         Encode::<Sqlite>::encode(value, buf)
-//     }
-// }
-//
-// impl<'r> Decode<'r, Sqlite> for AsClientId {
-//     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-//         let s: &str = Decode::<Sqlite>::decode(value)?;
-//         Ok(s.parse()?)
-//     }
-// }
 
 #[derive(
     Clone,
