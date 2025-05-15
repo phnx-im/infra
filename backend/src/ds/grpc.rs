@@ -245,12 +245,14 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .creator_client_reference
             .ok_or_missing_field("creator_client_reference")?
             .try_into()?;
+        let room_state = serde_json::from_slice(&payload.room_state).unwrap(); // TODO Handle error
         let group_state = DsGroupState::new(
             provider,
             group,
             encrypted_identity_link_key,
             encrypted_user_profile_key,
             creator_client_reference,
+            room_state,
         );
         let encrypted_group_state = group_state.encrypt(&ear_key)?;
 
@@ -357,6 +359,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
+            room_state: commit_info.room_state,
         }))
     }
 
@@ -399,6 +402,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
+            room_state: commit_info.room_state,
         }))
     }
 

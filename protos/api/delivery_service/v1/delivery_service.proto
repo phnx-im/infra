@@ -84,6 +84,7 @@ message CreateGroupPayload {
   EncryptedUserProfileKey encrypted_user_profile_key = 5;
   QsReference creator_client_reference = 6;
   MlsMessage group_info = 7;
+  bytes room_state = 8;
 }
 
 message EncryptedIdentityLinkKey {
@@ -143,6 +144,7 @@ message ExternalCommitInfoResponse {
   RatchetTree ratchet_tree = 2;
   repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
+  bytes room_state = 5;
 }
 
 message GroupInfo {
@@ -161,6 +163,7 @@ message ConnectionGroupInfoResponse {
   RatchetTree ratchet_tree = 2;
   repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
+  bytes room_state = 5;
 }
 
 // update

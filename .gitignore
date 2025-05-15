@@ -9,3 +9,4 @@ target
 backend/test_certs/
 .ruby-version
 .env
+app/macos/build

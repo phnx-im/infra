@@ -52,7 +52,7 @@ impl DsGroupState {
                 return Err(ClientUpdateError::InvalidMessage);
             }
         } else {
-            tracing::warn!("Client update message was not acommit");
+            tracing::warn!("Client update message was not a commit");
             return Err(ClientUpdateError::InvalidMessage);
         };
 

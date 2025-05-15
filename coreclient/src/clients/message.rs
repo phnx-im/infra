@@ -19,7 +19,7 @@ impl CoreUser {
     /// Send a message and return it.
     ///
     /// The message unsent messages is stored, then sent to the DS and finally returned. The
-    /// converstion is marked as read until this message.
+    /// conversation is marked as read until this message.
     pub(crate) async fn send_message(
         &self,
         conversation_id: ConversationId,
@@ -54,11 +54,11 @@ impl CoreUser {
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&self, local_message_id: Uuid) -> anyhow::Result<()> {
         let unsent_group_message = self
-            .with_transaction(async |connection| {
+            .with_transaction(async |txn| {
                 LocalMessage { local_message_id }
-                    .load(connection)
+                    .load_for_resend(txn)
                     .await?
-                    .create_group_message(&PhnxOpenMlsProvider::new(connection))
+                    .create_group_message(&PhnxOpenMlsProvider::new(txn))
             })
             .await?;
 
@@ -85,7 +85,7 @@ struct UnsentContent {
 impl UnsentContent {
     async fn store_unsent_message(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        txn: &mut sqlx::SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         sender: &QualifiedUserName,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
@@ -94,7 +94,7 @@ impl UnsentContent {
             content,
         } = self;
 
-        let conversation = Conversation::load(&mut *connection, &conversation_id)
+        let conversation = Conversation::load(txn.as_mut(), &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
         // Store the message as unsent so that we don't lose it in case
@@ -104,12 +104,10 @@ impl UnsentContent {
             conversation_id,
             content.clone(),
         );
-        conversation_message
-            .store(&mut *connection, notifier)
-            .await?;
+        conversation_message.store(txn.as_mut(), notifier).await?;
 
         let group_id = conversation.group_id();
-        let group = Group::load(connection, group_id)
+        let group = Group::load_clean(txn, group_id)
             .await?
             .with_context(|| format!("Can't find group with id {group_id:?}"))?;
 
@@ -128,7 +126,7 @@ struct LocalMessage {
 }
 
 impl LocalMessage {
-    async fn load(
+    async fn load_for_resend(
         self,
         connection: &mut SqliteConnection,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdated>> {
@@ -152,6 +150,7 @@ impl LocalMessage {
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
         let group_id = conversation.group_id();
+
         let group = Group::load(connection, group_id)
             .await?
             .with_context(|| format!("Can't find group with id {group_id:?}"))?;

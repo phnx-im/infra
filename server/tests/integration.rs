@@ -188,7 +188,7 @@ async fn remove_from_group() {
     assert!(charlie_user_profile_bob.user_name == *BOB);
 
     setup
-        .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE, &BOB])
+        .remove_from_group(conversation_id, &ALICE, vec![&BOB])
         .await;
 
     // Now that charlie is not in a group with Bob anymore, the user profile
@@ -236,7 +236,7 @@ async fn leave_group() {
     setup
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    setup.leave_group(conversation_id, &ALICE).await;
+    setup.leave_group(conversation_id, &BOB).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -252,8 +252,7 @@ async fn delete_group() {
     setup
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    let bob = &BOB;
-    let delete_group = setup.delete_group(conversation_id, bob);
+    let delete_group = setup.delete_group(conversation_id, &ALICE);
     delete_group.await;
 }
 
@@ -298,7 +297,7 @@ async fn full_cycle() {
         .invite_to_group(conversation_id, &ALICE, vec![&CHARLIE])
         .await;
 
-    // Add dave, connect him with charlie and invite him to the group. Then have dave remove alice and bob.
+    // Add dave, connect him with charlie and invite him to the group. Then have alice remove dave and bob.
     setup.add_user(&DAVE).await;
     setup.connect_users(&CHARLIE, &DAVE).await;
 
@@ -311,12 +310,12 @@ async fn full_cycle() {
         .await;
 
     setup
-        .remove_from_group(conversation_id, &DAVE, vec![&ALICE, &BOB])
+        .remove_from_group(conversation_id, &ALICE, vec![&DAVE, &BOB])
         .await;
 
     setup.leave_group(conversation_id, &CHARLIE).await;
 
-    setup.delete_group(conversation_id, &DAVE).await
+    setup.delete_group(conversation_id, &ALICE).await
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -697,12 +696,17 @@ async fn update_user_profile_on_group_join() {
     // unsuccessfully try to download Alice's old profile.
     let charlie = setup.users.get_mut(&CHARLIE).unwrap();
     let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
-    let err = charlie
+    let result = charlie
         .user
         .fully_process_qs_messages(charlie_qs_messages)
         .await
-        .expect_err("Charlie should not be able to process the messages");
-    let AsRequestError::Tonic(tonic_err) = err.downcast().unwrap() else {
+        .unwrap();
+
+    assert!(result.changed_conversations.is_empty());
+    assert!(result.new_conversations.is_empty());
+    assert!(result.new_messages.is_empty());
+    let err = &result.errors[0];
+    let AsRequestError::Tonic(tonic_err) = err.downcast_ref().unwrap() else {
         panic!("Unexpected error type");
     };
     assert_eq!(tonic_err.code(), tonic::Code::InvalidArgument);

@@ -5,6 +5,8 @@
 use tonic_build::Config;
 
 fn main() {
+    println!("cargo:rerun-if-changed=api");
+
     let protoc_path = protoc_bin_vendored::protoc_bin_path().unwrap();
     let mut config = Config::new();
     config.protoc_executable(protoc_path);

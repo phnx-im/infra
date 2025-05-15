@@ -651,11 +651,11 @@ impl CoreUser {
     /// back if the function returns `Err`.
     pub(crate) async fn with_transaction<T: Send>(
         &self,
-        f: impl AsyncFnOnce(&mut sqlx::SqliteConnection) -> anyhow::Result<T>,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction<'_>) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        let mut transaction = self.pool().begin().await?;
-        let value = f(&mut transaction).await?;
-        transaction.commit().await?;
+        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
+        let value = f(&mut txn).await?;
+        txn.commit().await?;
         Ok(value)
     }
 
@@ -666,12 +666,22 @@ impl CoreUser {
     /// after the transaction is committed successfully.
     pub(crate) async fn with_transaction_and_notifier<T: Send>(
         &self,
-        f: impl AsyncFnOnce(&mut sqlx::SqliteConnection, &mut StoreNotifier) -> anyhow::Result<T>,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction<'_>, &mut StoreNotifier) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        let mut transaction = self.pool().begin().await?;
+        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
         let mut notifier = self.store_notifier();
-        let value = f(&mut transaction, &mut notifier).await?;
-        transaction.commit().await?;
+        let value = f(&mut txn, &mut notifier).await?;
+        txn.commit().await?;
+        notifier.notify();
+        Ok(value)
+    }
+
+    pub(crate) async fn with_notifier<T: Send>(
+        &self,
+        f: impl AsyncFnOnce(&mut StoreNotifier) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let mut notifier = self.store_notifier();
+        let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
     }

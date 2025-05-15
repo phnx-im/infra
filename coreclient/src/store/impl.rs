@@ -4,6 +4,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
+use mimi_room_policy::VerifiedRoomState;
 use phnxtypes::identifiers::QualifiedUserName;
 use tokio_stream::Stream;
 use uuid::Uuid;
@@ -88,6 +89,13 @@ impl Store for CoreUser {
         invited_users: &[QualifiedUserName],
     ) -> StoreResult<Vec<ConversationMessage>> {
         self.invite_users(conversation_id, invited_users).await
+    }
+
+    async fn load_room_state(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<(u32, VerifiedRoomState)> {
+        self.load_room_state(&conversation_id).await
     }
 
     async fn add_contact(&self, user_name: QualifiedUserName) -> StoreResult<ConversationId> {
