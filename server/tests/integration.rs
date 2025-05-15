@@ -19,7 +19,7 @@ use phnxcoreclient::{
 };
 use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::AsClientId;
 use png::Encoder;
 use tonic::transport::Channel;
 use tonic_health::pb::{
@@ -27,12 +27,16 @@ use tonic_health::pb::{
 };
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 
-static ALICE: LazyLock<QualifiedUserName> = LazyLock::new(|| "alice@example.com".parse().unwrap());
-static BOB: LazyLock<QualifiedUserName> = LazyLock::new(|| "bob@example.com".parse().unwrap());
-static CHARLIE: LazyLock<QualifiedUserName> =
-    LazyLock::new(|| "charlie@example.com".parse().unwrap());
-static DAVE: LazyLock<QualifiedUserName> = LazyLock::new(|| "dave@example.com".parse().unwrap());
+static ALICE: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(1), "example.com".parse().unwrap()));
+static BOB: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(2), "example.com".parse().unwrap()));
+static CHARLIE: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(3), "example.com".parse().unwrap()));
+static DAVE: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(4), "example.com".parse().unwrap()));
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Connect users test", skip_all)]
@@ -185,7 +189,7 @@ async fn remove_from_group() {
     // he hasn't connected with them.
     let charlie = setup.get_user(&CHARLIE);
     let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap().unwrap();
-    assert!(charlie_user_profile_bob.user_name == *BOB);
+    assert!(charlie_user_profile_bob.client_id == *BOB);
 
     setup
         .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE, &BOB])
@@ -354,7 +358,7 @@ async fn exchange_user_profiles() {
     let alice_profile_picture = Asset::Value(png_bytes.clone());
 
     let alice_profile = UserProfile {
-        user_name: (*ALICE).clone(),
+        client_id: (*ALICE).clone(),
         display_name: alice_display_name.clone(),
         profile_picture: Some(alice_profile_picture.clone()),
     };
@@ -373,7 +377,7 @@ async fn exchange_user_profiles() {
     let bob_display_name: DisplayName = "B0b".parse().unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile {
-        user_name: (*BOB).clone(),
+        client_id: (*BOB).clone(),
         display_name: bob_display_name.clone(),
         profile_picture: Some(bob_profile_picture.clone()),
     };
@@ -414,7 +418,7 @@ async fn exchange_user_profiles() {
     assert_eq!(alice_user_profile.display_name, alice_display_name);
 
     let new_user_profile = UserProfile {
-        user_name: (*ALICE).clone(),
+        client_id: (*ALICE).clone(),
         display_name: "New Alice".parse().unwrap(),
         profile_picture: None,
     };
@@ -573,7 +577,7 @@ async fn client_persistence() {
     // Create and persist the user.
     let mut setup = TestBackend::single().await;
     setup.add_persisted_user(&ALICE).await;
-    let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
+    let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id().clone();
 
     let db_path = setup.temp_dir().to_owned();
 

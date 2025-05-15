@@ -104,9 +104,7 @@ impl FromStr for Fqdn {
             return Err(FqdnError::NotADomainName);
         }
         match Host::parse(s)? {
-            Host::Domain(_) => Ok(Self {
-                domain: Host::<String>::parse(s)?,
-            }),
+            domain @ Host::Domain(_) => Ok(Self { domain }),
             // Fqdns can't be IP addresses.
             Host::Ipv4(_) | Host::Ipv6(_) => Err(FqdnError::NotADomainName),
         }

@@ -351,7 +351,7 @@ impl CoreUser {
         // If we were removed, we set the group to inactive.
         let mut connection = self.pool().acquire().await?;
         if we_were_removed {
-            let past_members = group.members(self.pool()).await.into_iter().collect();
+            let past_members = group.members(&mut *connection).await.into_iter().collect();
             conversation
                 .set_inactive(&mut connection, &mut notifier, past_members)
                 .await?;

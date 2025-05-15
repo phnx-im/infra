@@ -440,8 +440,7 @@ mod tests {
 
     /// Returns test credential with a fixed identity but random payload.
     fn test_client_credential(client_id: Uuid) -> StorableClientCredential {
-        let client_id =
-            AsClientId::new(format!("{client_id}@localhost").parse().unwrap(), client_id);
+        let client_id = AsClientId::new(client_id, "localhost".parse().unwrap());
         let (client_credential_csr, _) =
             ClientCredentialCsr::new(client_id, SignatureScheme::ED25519).unwrap();
         let fingerprint = CredentialFingerprint::new_for_test(b"fingerprint".to_vec());
@@ -664,26 +663,6 @@ mod tests {
         )
         .await?;
         assert_eq!(indices, [index_b]);
-
-        Ok(())
-    }
-
-    #[sqlx::test]
-    async fn group_membership_user_client_ids(pool: SqlitePool) -> anyhow::Result<()> {
-        let credential = test_client_credential(Uuid::new_v4());
-        credential.store(&pool).await?;
-
-        let index = LeafNodeIndex::new(0);
-        let membership = test_group_membership(&credential, index);
-
-        membership.store(&pool).await?;
-        let client_ids = GroupMembership::user_client_ids(
-            &pool,
-            &membership.group_id,
-            membership.client_id.user_name(),
-        )
-        .await?;
-        assert_eq!(client_ids, [credential.identity().clone()]);
 
         Ok(())
     }

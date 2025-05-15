@@ -149,7 +149,7 @@ mod tests {
     use super::*;
 
     fn test_profile() -> (IndexedUserProfile, UserProfileKey) {
-        let client_id = AsClientId::random("localhost".parse().unwrap()).unwrap();
+        let client_id = AsClientId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&client_id).unwrap();
         let user_profile = IndexedUserProfile {
             client_id,
@@ -170,7 +170,7 @@ mod tests {
         key.store(&pool).await?;
 
         profile.store(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
+        let loaded = IndexedUserProfile::load(&pool, &profile.client_id)
             .await?
             .expect("profile exists");
         assert_eq!(loaded, profile);
@@ -197,7 +197,7 @@ mod tests {
         key.store(&pool).await?;
 
         profile.store(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
+        let loaded = IndexedUserProfile::load(&pool, &profile.client_id)
             .await?
             .expect("profile exists");
         assert_eq!(loaded, profile);
@@ -207,7 +207,7 @@ mod tests {
         new_profile.profile_picture = None;
 
         new_profile.update(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.user_name)
+        let loaded = IndexedUserProfile::load(&pool, &profile.client_id)
             .await?
             .expect("profile exists");
         assert_ne!(loaded, profile);

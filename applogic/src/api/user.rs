@@ -6,7 +6,7 @@
 
 use std::cmp::Reverse;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     Asset, UserProfile,
@@ -16,10 +16,14 @@ use phnxcoreclient::{
     },
     open_client_db,
 };
-use phnxtypes::{DEFAULT_PORT_GRPC, messages::push_token::PushTokenOperator};
+use phnxtypes::{
+    DEFAULT_PORT_GRPC, identifiers::AsClientId, messages::push_token::PushTokenOperator,
+};
 use tracing::error;
 
 pub(crate) use phnxtypes::messages::push_token::PushToken;
+use url::Url;
+use uuid::Uuid;
 
 use super::types::{UiClientId, UiClientRecord, UiUserProfile};
 
@@ -62,8 +66,16 @@ impl User {
         display_name: String,
         profile_picture: Option<Vec<u8>>,
     ) -> Result<User> {
-        let server_url = address.parse()?;
+        let server_url: Url = address.parse()?;
+        let domain = server_url
+            .host()
+            .context("missing host in server url")?
+            .to_owned()
+            .into();
+        let client_id = AsClientId::new(Uuid::new_v4(), domain);
+
         let user = CoreUser::new(
+            client_id,
             server_url,
             DEFAULT_PORT_GRPC,
             &path,

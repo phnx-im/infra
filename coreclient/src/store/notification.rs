@@ -262,28 +262,28 @@ mod tests {
         let tx = StoreNotificationsSender::new();
 
         let ops_1: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User("alice@localhost".parse().unwrap()),
+            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
             StoreOperation::Add.into(),
         )]
         .into_iter()
         .collect();
 
         let ops_2: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User("bob@localhost".parse().unwrap()),
+            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
             StoreOperation::Update.into(),
         )]
         .into_iter()
         .collect();
 
         let ops_3: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User("eve@localhost".parse().unwrap()),
+            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
             StoreOperation::Remove.into(),
         )]
         .into_iter()
         .collect();
 
         let ops_4: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User("mallory@localhost".parse().unwrap()),
+            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
             StoreOperation::Add.into(),
         )]
         .into_iter()

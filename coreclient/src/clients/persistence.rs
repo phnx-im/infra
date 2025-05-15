@@ -261,9 +261,9 @@ mod tests {
     use super::*;
 
     fn new_client_record(id: Uuid, created_at: DateTime<Utc>) -> ClientRecord {
-        let client_id = AsClientId::new(format!("{id}@localhost").parse().unwrap(), id);
+        let client_id = AsClientId::new(id, "localhost".parse().unwrap());
         ClientRecord {
-            client_id: client_id.clone(),
+            client_id,
             client_record_state: ClientRecordState::Finished,
             created_at,
             is_default: false,
@@ -308,11 +308,10 @@ mod tests {
     }
 
     static USER_CREATION_STATE_BASIC: LazyLock<UserCreationState> = LazyLock::new(|| {
-        let user_name = "alice@localhost".parse().unwrap();
         let user_id = Uuid::from_u128(1);
 
         UserCreationState::BasicUserData(BasicUserData {
-            as_client_id: AsClientId::new(user_name, user_id),
+            as_client_id: AsClientId::new(user_id, "localhost".parse().unwrap()),
             server_url: "localhost".to_owned(),
             push_token: Some(PushToken::new(
                 PushTokenOperator::Google,

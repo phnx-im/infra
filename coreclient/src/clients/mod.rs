@@ -109,32 +109,22 @@ impl CoreUser {
     /// Create a new user with the given `user_name`. If a user with this name
     /// already exists, this will overwrite that user.
     pub async fn new(
+        client_id: AsClientId,
         server_url: Url,
         grpc_port: u16,
         db_path: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let domain = server_url
-            .host()
-            .context("missing host in server url")?
-            .to_owned()
-            .into();
-        let as_client_id = AsClientId::random(domain);
-        info!(%as_client_id, "creating new user");
+        info!(%client_id, "creating new user");
 
         // Open the phnx db to store the client record
         let phnx_db = open_phnx_db(db_path).await?;
 
         // Open client specific db
-        let client_db = open_client_db(&as_client_id, db_path).await?;
+        let client_db = open_client_db(&client_id, db_path).await?;
 
         Self::new_with_connections(
-            as_client_id,
-            server_url,
-            grpc_port,
-            push_token,
-            phnx_db,
-            client_db,
+            client_id, server_url, grpc_port, push_token, phnx_db, client_db,
         )
         .await
     }
@@ -181,17 +171,12 @@ impl CoreUser {
     /// The same as [`Self::new()`], except that databases are ephemeral and are
     /// dropped together with this instance of [`CoreUser`].
     pub async fn new_ephemeral(
+        client_id: AsClientId,
         server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let domain = server_url
-            .host()
-            .context("missing host in server url")?
-            .to_owned()
-            .into();
-        let as_client_id = AsClientId::random(domain);
-        info!(%as_client_id, "creating new ephemeral user");
+        info!(%client_id, "creating new ephemeral user");
 
         // Open the phnx db to store the client record
         let phnx_db = open_db_in_memory().await?;
@@ -200,12 +185,7 @@ impl CoreUser {
         let client_db = open_db_in_memory().await?;
 
         Self::new_with_connections(
-            as_client_id,
-            server_url,
-            grpc_port,
-            push_token,
-            phnx_db,
-            client_db,
+            client_id, server_url, grpc_port, push_token, phnx_db, client_db,
         )
         .await
     }

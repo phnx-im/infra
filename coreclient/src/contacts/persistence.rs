@@ -296,7 +296,6 @@ mod tests {
         messages::FriendshipToken,
     };
     use sqlx::SqlitePool;
-    use uuid::Uuid;
 
     use crate::{
         ConversationId, conversations::persistence::tests::test_conversation,
@@ -306,7 +305,7 @@ mod tests {
     use super::*;
 
     fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
-        let client_id = AsClientId::random("localhost".parse().unwrap()).unwrap();
+        let client_id = AsClientId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&client_id).unwrap();
         let contact = Contact {
             client_id,
@@ -320,7 +319,7 @@ mod tests {
     }
 
     fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
-        let client_id = AsClientId::random("localhost".parse().unwrap()).unwrap();
+        let client_id = AsClientId::random("localhost".parse().unwrap());
         PartialContact {
             client_id,
             conversation_id,
@@ -333,13 +332,15 @@ mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let (contact, user_profile_key) = test_contact(conversation.id());
         user_profile_key.store(&pool).await?;
         contact.store(&pool, &mut store_notifier).await?;
 
-        let loaded = Contact::load(&pool, &contact.user_name).await?.unwrap();
+        let loaded = Contact::load(&pool, &contact.client_id).await?.unwrap();
         assert_eq!(loaded, contact);
 
         Ok(())
@@ -350,12 +351,14 @@ mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let contact = test_partial_contact(conversation.id());
         contact.store(&pool, &mut store_notifier).await?;
 
-        let loaded = PartialContact::load(&pool, &contact.user_name)
+        let loaded = PartialContact::load(&pool, &contact.client_id)
             .await?
             .unwrap();
         assert_eq!(loaded, contact);
@@ -368,7 +371,9 @@ mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let alice = test_partial_contact(conversation.id());
         let bob = test_partial_contact(conversation.id());
@@ -387,9 +392,12 @@ mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let partial = test_partial_contact(conversation.id());
+        let client_id = partial.client_id.clone();
 
         let user_profile_key = UserProfileKey::random(&partial.client_id)?;
         user_profile_key.store(&pool).await?;
@@ -411,10 +419,10 @@ mod tests {
             )
             .await?;
 
-        let loaded = PartialContact::load(&pool, &user_name).await?;
+        let loaded = PartialContact::load(&pool, &client_id).await?;
         assert!(loaded.is_none());
 
-        let loaded = Contact::load(&pool, &user_name).await?.unwrap();
+        let loaded = Contact::load(&pool, &client_id).await?.unwrap();
         assert_eq!(loaded, contact);
 
         Ok(())

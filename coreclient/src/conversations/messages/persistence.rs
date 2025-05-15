@@ -405,7 +405,7 @@ pub(crate) mod tests {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
         let message = Message::Content(Box::new(ContentMessage {
-            sender: "alice@localhost".to_string(),
+            sender: AsClientId::random("localhost".parse().unwrap()),
             sent: false,
             content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
@@ -422,7 +422,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message = test_conversation_message(conversation.id());
 
@@ -440,7 +442,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
@@ -462,7 +466,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message = test_conversation_message(conversation.id());
         message.store(&pool, &mut store_notifier).await?;
@@ -496,7 +502,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
@@ -510,8 +518,8 @@ pub(crate) mod tests {
             timestamped_message: TimestampedMessage {
                 timestamp: Utc::now().into(),
                 message: Message::Event(EventMessage::System(SystemMessage::Add(
-                    "alice@localhost".parse()?,
-                    "bob@localhost".parse()?,
+                    AsClientId::random("localhost".parse()?),
+                    AsClientId::random("localhost".parse()?),
                 ))),
             },
         }
@@ -529,7 +537,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
@@ -548,7 +558,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());

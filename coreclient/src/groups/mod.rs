@@ -916,13 +916,14 @@ impl Group {
 
     /// Returns a set containing the [`AsClientId`] of the members of the group.
     pub(crate) async fn members(&self, executor: impl SqliteExecutor<'_>) -> HashSet<AsClientId> {
-        let Ok(group_members) = GroupMembership::group_members(executor, self.group_id()).await
-        else {
-            error!("Could not retrieve group members");
-            return HashSet::new();
-        };
-        // deduplicate by collecting into as set
-        group_members.into_iter().collect()
+        match GroupMembership::group_members(executor, self.group_id()).await {
+            // deduplicate by collecting into as set
+            Ok(group_members) => group_members.into_iter().collect(),
+            Err(error) => {
+                error!(%error, "Could not retrieve group members");
+                HashSet::new()
+            }
+        }
     }
 
     pub(super) async fn update(

@@ -3377,6 +3377,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
 ]
 
@@ -3493,6 +3494,7 @@ dependencies = [
  "tracing-futures",
  "tracing-log 0.2.0",
  "tracing-subscriber",
+ "uuid",
  "zeroize",
 ]
 

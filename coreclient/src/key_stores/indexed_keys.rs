@@ -157,7 +157,7 @@ mod tests {
     #[sqlx::test]
     fn user_profile_key_storage(pool: SqlitePool) {
         let mut connection = pool.acquire().await.unwrap();
-        let client_id = AsClientId::random("example.com".parse().unwrap()).unwrap();
+        let client_id = AsClientId::random("example.com".parse().unwrap());
         let key = UserProfileKey::random(&client_id).unwrap();
         let index = key.index().clone();
         key.store_own(&mut connection).await.unwrap();
