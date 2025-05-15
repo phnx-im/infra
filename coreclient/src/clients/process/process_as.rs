@@ -15,7 +15,7 @@ use phnxtypes::{
     },
 };
 use sqlx::SqliteConnection;
-use sqlx::{Connection, SqliteTransaction};
+use sqlx::SqliteTransaction;
 use tls_codec::DeserializeBytes;
 use tracing::error;
 
@@ -26,6 +26,7 @@ use crate::{
     groups::{Group, ProfileInfo},
     key_stores::{indexed_keys::StorableIndexedKey, leaf_keys::LeafKeys},
     store::StoreNotifier,
+    utils::connection_ext::ConnectionExt,
 };
 
 use super::{
@@ -106,18 +107,18 @@ impl CoreUser {
                 let mut notifier = self.store_notifier();
 
                 // Store group, conversation & contact
-                let mut txn = connection.begin_with("BEGIN IMMEDIATE").await?;
-
-                self.store_group_conversation_contact(
-                    &mut txn,
-                    &mut notifier,
-                    &group,
-                    &mut conversation,
-                    contact,
-                )
-                .await?;
-
-                txn.commit().await?;
+                connection
+                    .with_transaction(async |txn| {
+                        self.store_group_conversation_contact(
+                            txn,
+                            &mut notifier,
+                            &group,
+                            &mut conversation,
+                            contact,
+                        )
+                        .await
+                    })
+                    .await?;
 
                 // Send confirmation
                 self.send_confirmation_to_ds(commit, group_info, &cep_tbs, qgid)

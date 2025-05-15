@@ -96,15 +96,15 @@ impl CoreUser {
     }
 
     pub(crate) async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
-        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
-
-        // Phase 1: Load the conversation and the group
-        let leave = LeaveConversationData::load(&mut txn, conversation_id)
-            .await?
-            .stage_leave_group(&mut txn)
+        let leave = self
+            .with_transaction(async |txn| {
+                // Phase 1: Load the conversation and the group
+                LeaveConversationData::load(txn, conversation_id)
+                    .await?
+                    .stage_leave_group(txn)
+                    .await
+            })
             .await?;
-
-        txn.commit().await?;
 
         // Phase 2: Send the leave to the DS
         leave

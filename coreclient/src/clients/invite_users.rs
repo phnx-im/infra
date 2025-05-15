@@ -4,9 +4,8 @@
 
 use invite_users_flow::InviteUsersData;
 use phnxtypes::identifiers::QualifiedUserName;
-use sqlx::Connection;
 
-use crate::{ConversationId, ConversationMessage};
+use crate::{ConversationId, ConversationMessage, utils::connection_ext::ConnectionExt as _};
 
 use super::CoreUser;
 
@@ -45,17 +44,16 @@ impl CoreUser {
 
         // Phase 5: Merge the commit into the group
         // Now that we know the commit went through, we can merge the commit
-        let mut txn = connection.begin_with("BEGIN IMMEDIATE").await?;
-
-        let conversation_messages = self
-            .with_notifier(async |notifier| {
-                invited
-                    .merge_pending_commit(&mut txn, notifier, conversation_id)
-                    .await
+        let conversation_messages = connection
+            .with_transaction(async |txn| {
+                self.with_notifier(async |notifier| {
+                    invited
+                        .merge_pending_commit(txn, notifier, conversation_id)
+                        .await
+                })
+                .await
             })
             .await?;
-
-        txn.commit().await?;
 
         Ok(conversation_messages)
     }
@@ -71,7 +69,7 @@ mod invite_users_flow {
         messages::client_ds_out::GroupOperationParamsOut,
         time::TimeStamp,
     };
-    use sqlx::{Connection as _, SqliteConnection};
+    use sqlx::SqliteConnection;
 
     use crate::{
         Contact, Conversation, ConversationId, ConversationMessage,
@@ -80,6 +78,7 @@ mod invite_users_flow {
         groups::{Group, client_auth_info::StorableClientCredential},
         key_stores::MemoryUserKeyStore,
         store::StoreNotifier,
+        utils::connection_ext::ConnectionExt,
     };
 
     pub(super) struct InviteUsersData<S> {
@@ -177,24 +176,26 @@ mod invite_users_flow {
                 state: contact_add_infos,
             } = self;
 
-            let mut txn = connection.begin_with("BEGIN IMMEDIATE").await?;
+            let (group, params) = connection
+                .with_transaction(async |txn| {
+                    let mut group = Group::load_clean(txn, &group_id)
+                        .await?
+                        .with_context(|| format!("Can't find group with id {group_id:?}"))?;
 
-            let mut group = Group::load_clean(&mut txn, &group_id)
-                .await?
-                .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+                    // Adds new member and stages commit
+                    let params = group
+                        .stage_invite(
+                            txn,
+                            &key_store.signing_key,
+                            contact_add_infos,
+                            contact_wai_keys,
+                            client_credentials,
+                        )
+                        .await?;
 
-            // Adds new member and stages commit
-            let params = group
-                .stage_invite(
-                    &mut txn,
-                    &key_store.signing_key,
-                    contact_add_infos,
-                    contact_wai_keys,
-                    client_credentials,
-                )
+                    Ok((group, params))
+                })
                 .await?;
-
-            txn.commit().await?;
 
             Ok(InviteUsersParams {
                 group,

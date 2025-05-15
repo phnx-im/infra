@@ -4,7 +4,7 @@
 
 use update_key_flow::UpdateKeyData;
 
-use crate::{ConversationId, ConversationMessage};
+use crate::{ConversationId, ConversationMessage, utils::connection_ext::ConnectionExt};
 
 use super::CoreUser;
 
@@ -21,19 +21,22 @@ impl CoreUser {
         conversation_id: ConversationId,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
-        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
-
-        let update = UpdateKeyData::lock(&mut txn, conversation_id).await?;
-
-        txn.commit().await?;
+        let mut connection = self.pool().acquire().await?;
+        let update = connection
+            .with_transaction(async |txn| UpdateKeyData::lock(txn, conversation_id).await)
+            .await?;
 
         // Phase 2: Send the update to the DS
         let updated = update.ds_update(&self.inner.api_clients).await?;
 
         // Phase 3: Merge the commit into the group
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            updated
-                .merge_pending_commit(connection, notifier, conversation_id)
+        self.with_notifier(async |notifier| {
+            connection
+                .with_transaction(async |txn| {
+                    updated
+                        .merge_pending_commit(txn, notifier, conversation_id)
+                        .await
+                })
                 .await
         })
         .await

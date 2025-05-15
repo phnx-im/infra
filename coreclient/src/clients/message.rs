@@ -54,11 +54,11 @@ impl CoreUser {
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&self, local_message_id: Uuid) -> anyhow::Result<()> {
         let unsent_group_message = self
-            .with_transaction(async |connection| {
+            .with_transaction(async |txn| {
                 LocalMessage { local_message_id }
-                    .load_for_resend(connection)
+                    .load_for_resend(txn)
                     .await?
-                    .create_group_message(&PhnxOpenMlsProvider::new(connection))
+                    .create_group_message(&PhnxOpenMlsProvider::new(txn))
             })
             .await?;
 
