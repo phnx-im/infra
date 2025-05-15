@@ -274,12 +274,12 @@ impl TestBackend {
 
         let group_members = self.groups.get(&conversation_id).unwrap();
         // Have all group members fetch and process messages.
-        for group_member_name in group_members.iter() {
+        for group_member_id in group_members.iter() {
             // skip the sender
-            if group_member_name == updater_id {
+            if group_member_id == updater_id {
                 continue;
             }
-            let test_group_member = self.users.get_mut(group_member_name).unwrap();
+            let test_group_member = self.users.get_mut(group_member_id).unwrap();
             let group_member = &mut test_group_member.user;
             let group_members_before = group_member
                 .conversation_participants(conversation_id)
@@ -567,8 +567,8 @@ impl TestBackend {
             )))
         );
 
-        for recipient_name in &recipients {
-            let recipient = self.users.get_mut(recipient_name).unwrap();
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
             let recipient_user = &mut recipient.user;
 
             let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
@@ -672,9 +672,9 @@ impl TestBackend {
             .expect("Error inviting users.");
 
         let mut expected_messages = HashSet::new();
-        for invitee_name in &invitees {
+        for invitee_id in &invitees {
             let expected_message =
-                format!("{} added {} to the conversation", inviter_id, invitee_name,);
+                format!("{} added {} to the conversation", inviter_id, invitee_id);
             expected_messages.insert(expected_message);
         }
 
@@ -694,8 +694,8 @@ impl TestBackend {
 
         // Now that the invitation is out, have the invitees and all other group
         // members fetch and process QS messages.
-        for invitee_name in &invitees {
-            let test_invitee = self.users.get_mut(invitee_name).unwrap();
+        for invitee_id in &invitees {
+            let test_invitee = self.users.get_mut(invitee_id).unwrap();
             let invitee = &mut test_invitee.user;
             let mut invitee_conversations_before = invitee.conversations().await.unwrap();
 
@@ -711,7 +711,7 @@ impl TestBackend {
             let new_conversation_position = invitee_conversations_after
                 .iter()
                 .position(|c| c.id() == conversation_id)
-                .unwrap_or_else(|| panic!("{invitee_name} should have created a new conversation titles {conversation_uuid}"));
+                .unwrap_or_else(|| panic!("{invitee_id} should have created a new conversation titles {conversation_uuid}"));
             let conversation = invitee_conversations_after.remove(new_conversation_position);
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
@@ -779,8 +779,8 @@ impl TestBackend {
             assert_eq!(new_members, invitee_set)
         }
 
-        for invitee_name in &invitees {
-            let unique_member = group_members.insert((*invitee_name).clone());
+        for invitee_id in &invitees {
+            let unique_member = group_members.insert((*invitee_id).clone());
             assert!(unique_member);
         }
 
@@ -789,14 +789,14 @@ impl TestBackend {
         // QS and that notifications are flushed.
         self.send_message(conversation_id, inviter_id, invitees.clone())
             .await;
-        for invitee_name in &invitees {
+        for invitee_id in &invitees {
             let recipients: Vec<_> = invitees
                 .iter()
-                .filter(|&name| name != invitee_name)
+                .filter(|&name| name != invitee_id)
                 .chain([&inviter_id].into_iter())
-                .map(|name| name.to_owned())
+                .cloned()
                 .collect();
-            self.send_message(conversation_id, invitee_name, recipients)
+            self.send_message(conversation_id, invitee_id, recipients)
                 .await;
         }
     }
@@ -807,9 +807,9 @@ impl TestBackend {
         &mut self,
         conversation_id: ConversationId,
         remover_id: &AsClientId,
-        removed_names: Vec<&AsClientId>,
+        removed_ids: Vec<&AsClientId>,
     ) {
-        let removed_strings = removed_names
+        let removed_strings = removed_ids
             .iter()
             .map(|n| n.to_string())
             .collect::<Vec<_>>();
@@ -842,17 +842,17 @@ impl TestBackend {
         let remove_messages = remover
             .remove_users(
                 conversation_id,
-                removed_names.iter().copied().cloned().collect::<Vec<_>>(),
+                removed_ids.iter().copied().cloned().collect::<Vec<_>>(),
             )
             .await
             .expect("Error removing users.");
 
         let mut expected_messages = HashSet::new();
 
-        for removed_name in &removed_names {
+        for removed_id in &removed_ids {
             let expected_message = format!(
                 "{} removed {} from the conversation",
-                remover_id, removed_name,
+                remover_id, removed_id,
             );
             expected_messages.insert(expected_message);
         }
@@ -864,18 +864,18 @@ impl TestBackend {
             .conversation_participants(conversation_id)
             .await
             .expect("Error getting group members.");
-        let removed_members = remover_group_members_before
+        let removed_members: HashSet<_> = remover_group_members_before
             .difference(&remover_group_members_after)
-            .map(|name| name.to_owned())
-            .collect::<HashSet<_>>();
-        let removed_set = removed_names
+            .cloned()
+            .collect();
+        let removed_set: HashSet<_> = removed_ids
             .iter()
-            .map(|name| (*name).clone())
-            .collect::<HashSet<_>>();
+            .map(|&client_id| client_id.clone())
+            .collect();
         assert_eq!(removed_members, removed_set);
 
-        for removed_name in &removed_names {
-            let test_removed = self.users.get_mut(removed_name).unwrap();
+        for removed_id in &removed_ids {
+            let test_removed = self.users.get_mut(removed_id).unwrap();
             let removed = &mut test_removed.user;
             let removed_conversations_before = removed
                 .conversations()
@@ -906,7 +906,7 @@ impl TestBackend {
                 .find(|c| c.id() == conversation_id)
                 .unwrap_or_else(|| {
                     panic!(
-                        "{removed_name} should have the conversation with id {}",
+                        "{removed_id} should have the conversation with id {}",
                         conversation_id.uuid()
                     )
                 });
@@ -928,8 +928,8 @@ impl TestBackend {
             }
         }
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
-        for removed_name in &removed_names {
-            let remove_successful = group_members.remove(removed_name);
+        for removed_id in &removed_ids {
+            let remove_successful = group_members.remove(removed_id);
             assert!(remove_successful);
         }
         // Now have the rest of the group pick up and process their messages.
@@ -958,14 +958,11 @@ impl TestBackend {
                 .conversation_participants(conversation_id)
                 .await
                 .unwrap();
-            let removed_members = group_members_before
+            let removed_members: HashSet<_> = group_members_before
                 .difference(&group_members_after)
-                .map(|name| name.to_owned())
-                .collect::<HashSet<_>>();
-            let removed_set = removed_names
-                .iter()
-                .map(|name| (*name).clone())
-                .collect::<HashSet<_>>();
+                .cloned()
+                .collect();
+            let removed_set: HashSet<_> = removed_ids.iter().cloned().cloned().collect();
             assert_eq!(removed_members, removed_set)
         }
     }
@@ -989,12 +986,12 @@ impl TestBackend {
         // tests.
         let group_members = self.groups.get(&conversation_id).unwrap().clone();
         let mut random_member_iter = group_members.iter();
-        let mut random_member_name = random_member_iter.next().unwrap();
+        let mut random_member_id = random_member_iter.next().unwrap();
         // Ensure that the random member isn't the leaver.
-        if random_member_name == leaver_id {
-            random_member_name = random_member_iter.next().unwrap()
+        if random_member_id == leaver_id {
+            random_member_id = random_member_iter.next().unwrap()
         }
-        let test_random_member = self.users.get_mut(random_member_name).unwrap();
+        let test_random_member = self.users.get_mut(random_member_id).unwrap();
         let random_member = &mut test_random_member.user;
 
         // First fetch and process the QS messages to make sure the member has the proposal.
@@ -1009,7 +1006,7 @@ impl TestBackend {
         // pick up and process their messages. This also tests that group
         // members were removed correctly from the local group and that the
         // leaver has turned its conversation inactive.
-        self.commit_to_proposals(conversation_id, random_member_name.clone())
+        self.commit_to_proposals(conversation_id, random_member_id.clone())
             .await;
 
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
@@ -1177,7 +1174,7 @@ impl TestBackend {
                     .choose(rng)
                 {
                     let number_of_invitees = rng.gen_range(1..=5);
-                    let mut invitee_names = Vec::new();
+                    let mut invitees = Vec::new();
                     for invitee in self.users.keys() {
                         let is_group_member = self
                             .groups
@@ -1192,16 +1189,16 @@ impl TestBackend {
                             .into_iter()
                             .any(|contact| &contact.client_id == invitee);
                         if !is_group_member && is_connected && invitee != &random_user {
-                            invitee_names.push(invitee);
+                            invitees.push(invitee);
                         }
                     }
-                    let invitee_names = invitee_names
+                    let invitees = invitees
                         .into_iter()
                         .cloned()
                         .choose_multiple(rng, number_of_invitees);
                     // It can happen that there are no suitable users to invite
-                    if !invitee_names.is_empty() {
-                        let invitee_strings = invitee_names
+                    if !invitees.is_empty() {
+                        let invitee_strings = invitees
                             .iter()
                             .map(|invitee| invitee.to_string())
                             .collect::<Vec<_>>();
@@ -1215,7 +1212,7 @@ impl TestBackend {
                         self.invite_to_group(
                             conversation.id(),
                             &random_user,
-                            invitee_names.iter().collect(),
+                            invitees.iter().collect(),
                         )
                         .await;
                     }

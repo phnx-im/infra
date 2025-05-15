@@ -3090,7 +3090,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_user_profile_impl(
             let api_client_id = <crate::api::types::UiClientId>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
-                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                transform_result_sse::<_, ()>(
                     (move || async move {
                         let mut api_that_guard = None;
                         let decode_indices_ =
@@ -3109,11 +3109,13 @@ fn wire__crate__api__user_cubit__UserCubitBase_user_profile_impl(
                             }
                         }
                         let api_that_guard = api_that_guard.unwrap();
-                        let output_ok = crate::api::user_cubit::UserCubitBase::user_profile(
-                            &*api_that_guard,
-                            api_client_id,
-                        )
-                        .await?;
+                        let output_ok = Result::<_, ()>::Ok(
+                            crate::api::user_cubit::UserCubitBase::user_profile(
+                                &*api_that_guard,
+                                api_client_id,
+                            )
+                            .await,
+                        )?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -5192,17 +5194,6 @@ impl SseDecode for Option<crate::api::types::UiConversationMessage> {
             return Some(<crate::api::types::UiConversationMessage>::sse_decode(
                 deserializer,
             ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::api::types::UiUserProfile> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::api::types::UiUserProfile>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -7707,16 +7698,6 @@ impl SseEncode for Option<crate::api::types::UiConversationMessage> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::types::UiConversationMessage>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::api::types::UiUserProfile> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::api::types::UiUserProfile>::sse_encode(value, serializer);
         }
     }
 }

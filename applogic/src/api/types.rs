@@ -19,7 +19,6 @@ use phnxcoreclient::{
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use phnxtypes::identifiers::AsClientId;
-use tracing::error;
 use uuid::Uuid;
 
 use super::markdown::MessageContent;
@@ -150,17 +149,7 @@ impl UiConversationType {
         conversation_type: ConversationType,
     ) -> Self {
         let load_profile = async |client_id| {
-            let user_profile = store
-                .user_profile(&client_id)
-                .await
-                .inspect_err(|error| error!(%error, "failed to load user profile"))
-                .ok()
-                .flatten()
-                .unwrap_or_else(|| UserProfile {
-                    display_name: DisplayName::from_client_id(&client_id),
-                    client_id,
-                    profile_picture: None,
-                });
+            let user_profile = store.user_profile(&client_id).await;
             UiUserProfile::from_profile(user_profile)
         };
         match conversation_type {

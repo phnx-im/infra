@@ -211,53 +211,6 @@ impl FromStr for QualifiedGroupId {
 #[derive(
     Clone,
     Debug,
-    TlsSerialize,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-    sqlx::Type,
-)]
-#[sqlx(transparent)]
-pub struct UserName(TlsString);
-
-impl fmt::Display for UserName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum UserNameError {
-    #[error("The given string does not represent a valid user name")]
-    InvalidUserName,
-}
-
-impl TryFrom<String> for UserName {
-    type Error = UserNameError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.contains(['@', '.']) {
-            Err(UserNameError::InvalidUserName)
-        } else {
-            Ok(Self(TlsString(value)))
-        }
-    }
-}
-
-impl From<UserName> for String {
-    fn from(value: UserName) -> Self {
-        value.0.0
-    }
-}
-
-#[derive(
-    Clone,
-    Debug,
     Serialize,
     Deserialize,
     Eq,
@@ -460,20 +413,5 @@ mod tests {
         let fqdn_str = "192.168.0.1";
         let result = Fqdn::from_str(fqdn_str);
         assert!(matches!(result, Err(FqdnError::NotADomainName)));
-    }
-
-    #[test]
-    fn valid_user_name() {
-        let user_name = UserName::try_from("alice".to_string());
-        assert_eq!(user_name.unwrap().0.0, "alice");
-    }
-
-    #[test]
-    fn invalid_user_name() {
-        let user_name = UserName::try_from("alice@host".to_string());
-        assert!(matches!(user_name, Err(UserNameError::InvalidUserName)));
-
-        let user_name = UserName::try_from("alice.bob".to_string());
-        assert!(matches!(user_name, Err(UserNameError::InvalidUserName)));
     }
 }

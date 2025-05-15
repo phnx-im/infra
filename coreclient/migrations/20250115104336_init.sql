@@ -370,7 +370,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON contacts FOR EACH ROW BEGIN
 -- Delete user profile keys if the corresponding contact is deleted. Since key
--- indexes include the user name in their derivation, they are unique per user
+-- indexes include the user id in their derivation, they are unique per user
 -- and we don't need to check if they are used by another user (or ourselves).
 DELETE FROM indexed_keys
 WHERE

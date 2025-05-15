@@ -106,8 +106,8 @@ struct CoreUserInner {
 }
 
 impl CoreUser {
-    /// Create a new user with the given `user_name`. If a user with this name
-    /// already exists, this will overwrite that user.
+    /// Create a new user with the given `client_id`. If a user with this name already exists, this
+    /// will overwrite that user.
     pub async fn new(
         client_id: AsClientId,
         server_url: Url,
@@ -349,9 +349,19 @@ impl CoreUser {
     }
 
     /// Get the user profile of the user with the given [`AsClientId`].
-    pub async fn user_profile(&self, client_id: &AsClientId) -> Result<Option<UserProfile>> {
-        let user = IndexedUserProfile::load(self.pool(), client_id).await?;
-        Ok(user.map(From::from))
+    ///
+    /// In case of an error, or if the user profile is not found, the client id is used as a
+    /// fallback.
+    pub async fn user_profile(&self, client_id: &AsClientId) -> UserProfile {
+        IndexedUserProfile::load(self.pool(), client_id)
+            .await
+            .inspect_err(|error| {
+                error!(%error, "Error loading user profile; fallback to client_id");
+            })
+            .ok()
+            .flatten()
+            .map(UserProfile::from)
+            .unwrap_or_else(|| UserProfile::from_client_id(client_id))
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {

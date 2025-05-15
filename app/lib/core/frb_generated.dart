@@ -356,7 +356,7 @@ abstract class RustLibApi extends BaseApi {
     required UserCubitBase that,
   });
 
-  Future<UiUserProfile?> crateApiUserCubitUserCubitBaseUserProfile({
+  Future<UiUserProfile> crateApiUserCubitUserCubitBaseUserProfile({
     required UserCubitBase that,
     required UiClientId clientId,
   });
@@ -2725,7 +2725,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<UiUserProfile?> crateApiUserCubitUserCubitBaseUserProfile({
+  Future<UiUserProfile> crateApiUserCubitUserCubitBaseUserProfile({
     required UserCubitBase that,
     required UiClientId clientId,
   }) {
@@ -2746,8 +2746,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_ui_user_profile,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_ui_user_profile,
+          decodeErrorData: null,
         ),
         constMeta: kCrateApiUserCubitUserCubitBaseUserProfileConstMeta,
         argValues: [that, clientId],
@@ -4751,12 +4751,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiUserProfile? dco_decode_opt_box_autoadd_ui_user_profile(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_ui_user_profile(raw);
-  }
-
-  @protected
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_list_prim_u_8_strict(raw);
@@ -6391,19 +6385,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_ui_conversation_message(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  UiUserProfile? sse_decode_opt_box_autoadd_ui_user_profile(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_ui_user_profile(deserializer));
     } else {
       return null;
     }
@@ -8204,19 +8185,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_box_autoadd_ui_user_profile(
-    UiUserProfile? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_ui_user_profile(self, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_opt_list_prim_u_8_strict(
     Uint8List? self,
     SseSerializer serializer,
@@ -9041,7 +9009,7 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
       RustLib.instance.api.crateApiUserCubitUserCubitBaseStream(that: this);
 
   /// Get the user profile of the user with the given [`AsClientId`].
-  Future<UiUserProfile?> userProfile(UiClientId clientId) =>
+  Future<UiUserProfile> userProfile(UiClientId clientId) =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseUserProfile(
         that: this,
         clientId: clientId,

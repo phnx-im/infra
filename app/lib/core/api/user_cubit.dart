@@ -62,7 +62,7 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   Stream<UiUser> stream();
 
   /// Get the user profile of the user with the given [`AsClientId`].
-  Future<UiUserProfile?> userProfile(UiClientId clientId);
+  Future<UiUserProfile> userProfile(UiClientId clientId);
 }
 
 enum AppState { background, foreground }

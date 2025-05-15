@@ -102,7 +102,7 @@ impl Store for CoreUser {
         Ok(self.partial_contacts().await?)
     }
 
-    async fn user_profile(&self, client_id: &AsClientId) -> StoreResult<Option<UserProfile>> {
+    async fn user_profile(&self, client_id: &AsClientId) -> UserProfile {
         self.user_profile(client_id).await
     }
 

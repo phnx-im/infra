@@ -12,8 +12,7 @@ use super::{Asset, IndexedUserProfile, UserProfile, display_name::BaseDisplayNam
 impl IndexedUserProfile {
     /// Stores this [`BaseIndexedUserProfile`].
     ///
-    /// Will throw an error if there already exists a user profile with the same
-    /// user name.
+    /// Will return an error if there already exists a user profile with the same user id.
     pub(super) async fn store(
         &self,
         executor: impl SqliteExecutor<'_>,

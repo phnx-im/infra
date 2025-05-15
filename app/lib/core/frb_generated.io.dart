@@ -603,9 +603,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  UiUserProfile? dco_decode_opt_box_autoadd_ui_user_profile(dynamic raw);
-
-  @protected
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
@@ -1252,11 +1249,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiConversationMessage? sse_decode_opt_box_autoadd_ui_conversation_message(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiUserProfile? sse_decode_opt_box_autoadd_ui_user_profile(
     SseDeserializer deserializer,
   );
 
@@ -2065,12 +2057,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_ui_conversation_message(
     UiConversationMessage? self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_opt_box_autoadd_ui_user_profile(
-    UiUserProfile? self,
     SseSerializer serializer,
   );
 

@@ -188,7 +188,7 @@ async fn remove_from_group() {
     // Check that Charlie has a user profile stored for BOB, even though
     // he hasn't connected with them.
     let charlie = setup.get_user(&CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap().unwrap();
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
     assert!(charlie_user_profile_bob.client_id == *BOB);
 
     setup
@@ -196,10 +196,10 @@ async fn remove_from_group() {
         .await;
 
     // Now that charlie is not in a group with Bob anymore, the user profile
-    // should be removed.
+    // should be the default one derived from the client id.
     let charlie = setup.get_user(&CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap();
-    assert!(charlie_user_profile_bob.is_none());
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
+    assert_eq!(charlie_user_profile_bob, UserProfile::from_client_id(&BOB));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -395,9 +395,7 @@ async fn exchange_user_profiles() {
         .unwrap()
         .user
         .user_profile(&BOB)
-        .await
-        .unwrap()
-        .unwrap();
+        .await;
 
     let profile_picture = bob_user_profile
         .profile_picture
@@ -413,7 +411,7 @@ async fn exchange_user_profiles() {
 
     let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
 
-    let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
+    let alice_user_profile = alice.user_profile(&ALICE).await;
 
     assert_eq!(alice_user_profile.display_name, alice_display_name);
 
@@ -431,7 +429,7 @@ async fn exchange_user_profiles() {
     let bob = &mut setup.users.get_mut(&BOB).unwrap().user;
     let qs_messages = bob.qs_fetch_messages().await.unwrap();
     bob.fully_process_qs_messages(qs_messages).await.unwrap();
-    let alice_user_profile = bob.user_profile(&ALICE).await.unwrap().unwrap();
+    let alice_user_profile = bob.user_profile(&ALICE).await;
 
     assert_eq!(alice_user_profile, new_user_profile);
 }
@@ -623,9 +621,9 @@ async fn delete_user() {
     let mut setup = TestBackend::single().await;
 
     setup.add_user(&ALICE).await;
-    // Adding another user with the same name should fail.
+    // Adding another user with the same id should fail.
     match TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port()).await {
-        Ok(_) => panic!("Should not be able to create a user with the same name"),
+        Ok(_) => panic!("Should not be able to create a user with the same id"),
         Err(e) => match e.downcast_ref::<AsRequestError>().unwrap() {
             AsRequestError::Tonic(status) => {
                 assert_eq!(status.code(), tonic::Code::AlreadyExists);

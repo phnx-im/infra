@@ -133,7 +133,7 @@ pub trait LocalStore {
 
     async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>>;
 
-    async fn user_profile(&self, client_id: &AsClientId) -> StoreResult<Option<UserProfile>>;
+    async fn user_profile(&self, client_id: &AsClientId) -> UserProfile;
 
     // messages
 

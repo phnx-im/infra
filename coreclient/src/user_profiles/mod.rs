@@ -162,7 +162,7 @@ pub(crate) type UnvalidatedUserProfile = BaseIndexedUserProfile<false>;
 impl UnvalidatedUserProfile {
     /// Validates the display name and returns an [`IndexedUserProfile`].
     /// If the display name is invalid, it is replaced with a default
-    /// based on the user name.
+    /// based on the user id.
     pub fn validate_display_name(self) -> IndexedUserProfile {
         let display_name = self.display_name.validate().unwrap_or_else(|e| {
             info!(error = %e, "Invalid display name, generating default");
