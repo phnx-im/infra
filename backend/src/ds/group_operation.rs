@@ -144,19 +144,18 @@ impl DsGroupState {
 
             let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
 
-            let mut i = 1;
+            let mut slots = self.free_indices().await;
             for _user in &add_users_state.added_users {
                 if let Err(e) = self.room_state.apply_regular_proposals(
                     &sender_index.leaf_index().u32(),
                     &[MimiProposal::ChangeRole {
-                        target: self.group.members().map(|m| m.index.u32()).max().unwrap() + i, // TODO: This is wrong, but will be replaced with uuids anyway
+                        target: slots.next().unwrap().u32(),
                         role: RoleIndex::Regular,
                     }],
                 ) {
                     error!(error = %e, "Failed to add new member to group state");
                     return Err(GroupOperationError::InvalidMessage);
                 };
-                i += 1;
             }
 
             Some(add_users_state)
