@@ -68,7 +68,7 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiRoomState>>
 abstract class UiRoomState implements RustOpaqueInterface {
-  bool testKick({required int target});
+  bool canKick({required int target});
 }
 
 /// The state of a single conversation

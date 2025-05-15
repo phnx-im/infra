@@ -35,7 +35,7 @@ impl CoreUser {
         // Phase 1: Store the new user profile key in the database
         let encryptable_user_profile = self
             .with_transaction_and_notifier(async |txn, notifier| {
-                let current_profile = IndexedUserProfile::load(&mut **txn, self.user_name())
+                let current_profile = IndexedUserProfile::load(txn.as_mut(), self.user_name())
                     .await?
                     .context("Failed to load own user profile")?;
 
@@ -45,10 +45,10 @@ impl CoreUser {
                     user_profile_key.index().clone(),
                     &self.inner.key_store.signing_key,
                 )?
-                .store(&mut **txn, notifier)
+                .store(txn.as_mut(), notifier)
                 .await?;
 
-                user_profile_key.store_own(&mut *txn).await?;
+                user_profile_key.store_own(txn.as_mut()).await?;
                 Ok(user_profile)
             })
             .await?;

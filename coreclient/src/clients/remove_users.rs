@@ -41,7 +41,6 @@ impl CoreUser {
 
 mod remove_users_flow {
     use anyhow::Context;
-    use anyhow::anyhow;
     use phnxtypes::{
         identifiers::QualifiedUserName, messages::client_ds_out::GroupOperationParamsOut,
         time::TimeStamp,
@@ -67,21 +66,21 @@ mod remove_users_flow {
             conversation_id: ConversationId,
             target_users: &[QualifiedUserName],
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(&mut **txn, &conversation_id)
+            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
             let mut group = Group::load_clean(txn, group_id)
                 .await?
-                .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
+                .with_context(|| format!("No group found for group ID {group_id:?}"))?;
 
             let mut clients = Vec::with_capacity(target_users.len());
 
             for user_name in target_users {
-                clients.extend(group.user_client_ids(&mut **txn, user_name).await);
+                clients.extend(group.user_client_ids(txn.as_mut(), user_name).await);
             }
 
-            let params = group.stage_remove(&mut *txn, clients).await?;
+            let params = group.stage_remove(txn.as_mut(), clients).await?;
 
             Ok(Self {
                 conversation,
@@ -129,10 +128,10 @@ mod remove_users_flow {
             } = self;
 
             let group_messages = group
-                .merge_pending_commit(&mut *txn, None, ds_timestamp)
+                .merge_pending_commit(txn.as_mut(), None, ds_timestamp)
                 .await?;
-            group.store_update(&mut **txn).await?;
-            CoreUser::store_messages(&mut *txn, notifier, conversation_id, group_messages).await
+            group.store_update(txn.as_mut()).await?;
+            CoreUser::store_messages(txn.as_mut(), notifier, conversation_id, group_messages).await
         }
     }
 }

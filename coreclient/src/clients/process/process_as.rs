@@ -15,7 +15,7 @@ use phnxtypes::{
     },
 };
 use sqlx::SqliteConnection;
-use sqlx::{Connection, SqliteTransaction};
+use sqlx::SqliteTransaction;
 use tls_codec::DeserializeBytes;
 use tracing::error;
 
@@ -26,6 +26,7 @@ use crate::{
     groups::{Group, ProfileInfo},
     key_stores::{indexed_keys::StorableIndexedKey, leaf_keys::LeafKeys},
     store::StoreNotifier,
+    utils::connection_ext::ConnectionExt,
 };
 
 use super::{
@@ -41,9 +42,9 @@ impl CoreUser {
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
         self.with_transaction(async |txn| {
-            let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut **txn).await?;
+            let mut as_queue_ratchet = StorableAsQueueRatchet::load(txn.as_mut()).await?;
             let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-            as_queue_ratchet.update_ratchet(&mut **txn).await?;
+            as_queue_ratchet.update_ratchet(txn.as_mut()).await?;
             Ok(payload.extract()?)
         })
         .await
@@ -106,18 +107,18 @@ impl CoreUser {
                 let mut notifier = self.store_notifier();
 
                 // Store group, conversation & contact
-                let mut txn = connection.begin_with("BEGIN IMMEDIATE").await?;
-
-                self.store_group_conversation_contact(
-                    &mut txn,
-                    &mut notifier,
-                    &group,
-                    &mut conversation,
-                    contact,
-                )
-                .await?;
-
-                txn.commit().await?;
+                connection
+                    .with_transaction(async |txn| {
+                        self.store_group_conversation_contact(
+                            txn,
+                            &mut notifier,
+                            &group,
+                            &mut conversation,
+                            contact,
+                        )
+                        .await
+                    })
+                    .await?;
 
                 // Send confirmation
                 self.send_confirmation_to_ds(commit, group_info, &cep_tbs, qgid)
@@ -276,12 +277,12 @@ impl CoreUser {
         conversation: &mut Conversation,
         contact: Contact,
     ) -> Result<()> {
-        group.store(&mut *txn).await?;
-        conversation.store(&mut **txn, notifier).await?;
+        group.store(txn).await?;
+        conversation.store(txn.as_mut(), notifier).await?;
 
         // TODO: For now, we automatically confirm conversations.
-        conversation.confirm(&mut **txn, notifier).await?;
-        contact.store(&mut **txn, notifier).await?;
+        conversation.confirm(txn.as_mut(), notifier).await?;
+        contact.store(txn.as_mut(), notifier).await?;
 
         Ok(())
     }

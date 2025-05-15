@@ -256,8 +256,8 @@ impl PartialContact {
             user_profile_key_index,
         };
 
-        self.delete(&mut **txn, notifier).await?;
-        contact.store(&mut **txn, notifier).await?;
+        self.delete(txn.as_mut(), notifier).await?;
+        contact.store(txn.as_mut(), notifier).await?;
 
         Ok(contact)
     }

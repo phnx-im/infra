@@ -17,7 +17,6 @@ use phnxtypes::{
         client_ds_out::CreateGroupParamsOut,
     },
 };
-use sqlx::Connection;
 use sqlx::SqliteConnection;
 use tracing::info;
 
@@ -29,6 +28,7 @@ use crate::{
         MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
     },
     store::StoreNotifier,
+    utils::connection_ext::ConnectionExt as _,
 };
 
 use super::{
@@ -57,19 +57,19 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         // Phase 4: Prepare the connection locally
-        let mut txn = connection.begin_with("BEGIN IMMEDIATE").await?;
-
-        let local_group = connection_packages
-            .create_local_connection_group(
-                &mut txn,
-                &mut notifier,
-                &self.inner.key_store,
-                self.user_name(),
-                &user_name,
-            )
+        let local_group = connection
+            .with_transaction(async |txn| {
+                connection_packages
+                    .create_local_connection_group(
+                        txn,
+                        &mut notifier,
+                        &self.inner.key_store,
+                        self.user_name(),
+                        &user_name,
+                    )
+                    .await
+            })
             .await?;
-
-        txn.commit().await?;
 
         let client_reference = self.create_own_client_reference();
 
@@ -212,8 +212,8 @@ impl VerifiedConnectionPackagesWithGroupId {
             group_id.clone(),
             group_data,
         )?;
-        group_membership.store(&mut **txn).await?;
-        group.store(&mut *txn).await?;
+        group_membership.store(txn.as_mut()).await?;
+        group.store(txn).await?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -224,7 +224,7 @@ impl VerifiedConnectionPackagesWithGroupId {
             connection_user_name.clone(),
             conversation_attributes,
         )?;
-        conversation.store(&mut **txn, notifier).await?;
+        conversation.store(txn.as_mut(), notifier).await?;
 
         Ok(LocalGroup {
             group,

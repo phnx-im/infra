@@ -63,6 +63,24 @@ pub(crate) struct DsGroupState {
 }
 
 impl DsGroupState {
+    // TODO: This is copied from CoreClient. Can we move this to openmls?
+    //
+    // Computes free indices based on existing leaf indices and staged removals.
+    // Not that staged additions are not considered.
+    pub(super) async fn free_indices(&mut self) -> impl Iterator<Item = LeafNodeIndex> + 'static {
+        let leaf_indices = self.member_profiles.keys().cloned().collect::<Vec<_>>();
+
+        let highest_index = leaf_indices
+            .last()
+            .cloned()
+            .unwrap_or(LeafNodeIndex::new(0));
+
+        (0..highest_index.u32())
+            .filter(move |index| !leaf_indices.contains(&LeafNodeIndex::new(*index)))
+            .chain(highest_index.u32() + 1..)
+            .map(LeafNodeIndex::new)
+    }
+
     pub(crate) fn new(
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,

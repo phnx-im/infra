@@ -54,11 +54,11 @@ impl CoreUser {
     /// Re-try sending a message, where sending previously failed.
     pub async fn re_send_message(&self, local_message_id: Uuid) -> anyhow::Result<()> {
         let unsent_group_message = self
-            .with_transaction(async |connection| {
+            .with_transaction(async |txn| {
                 LocalMessage { local_message_id }
-                    .load_for_resend(connection)
+                    .load_for_resend(txn)
                     .await?
-                    .create_group_message(&PhnxOpenMlsProvider::new(connection))
+                    .create_group_message(&PhnxOpenMlsProvider::new(txn))
             })
             .await?;
 
@@ -94,7 +94,7 @@ impl UnsentContent {
             content,
         } = self;
 
-        let conversation = Conversation::load(&mut **txn, &conversation_id)
+        let conversation = Conversation::load(txn.as_mut(), &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
         // Store the message as unsent so that we don't lose it in case
@@ -104,7 +104,7 @@ impl UnsentContent {
             conversation_id,
             content.clone(),
         );
-        conversation_message.store(&mut **txn, notifier).await?;
+        conversation_message.store(txn.as_mut(), notifier).await?;
 
         let group_id = conversation.group_id();
         let group = Group::load_clean(txn, group_id)

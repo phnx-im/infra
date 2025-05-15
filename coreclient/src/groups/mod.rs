@@ -296,7 +296,7 @@ impl Group {
         // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
         // decrypt the encrypted credentials
         let (mls_group, joiner_info, welcome_attribution_info) = {
-            let provider = PhnxOpenMlsProvider::new(&mut *txn);
+            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             let key_package_bundle: KeyPackageBundle = welcome_bundle
                 .welcome
                 .welcome
@@ -332,16 +332,16 @@ impl Group {
             )?;
             // Check if there is already a group with the same ID.
             let group_id = processed_welcome.unverified_group_info().group_id().clone();
-            if let Some(group) = Self::load(&mut *txn, &group_id).await? {
+            if let Some(group) = Self::load(txn.as_mut(), &group_id).await? {
                 // If the group is active, we can't join it.
                 if group.mls_group().is_active() {
                     bail!("We can't join a group that is still active.");
                 }
                 // Otherwise, we delete the old group.
-                Self::delete_from_db(&mut *txn, &group_id).await?;
+                Self::delete_from_db(txn, &group_id).await?;
             }
 
-            let provider = PhnxOpenMlsProvider::new(&mut *txn);
+            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             let staged_welcome = processed_welcome.into_staged_welcome(&provider, None)?;
 
             let mls_group = staged_welcome.into_group(&provider)?;
@@ -355,7 +355,7 @@ impl Group {
 
             let sender_client_id = verifiable_attribution_info.sender();
             let sender_client_credential =
-                StorableClientCredential::load_by_client_id(&mut **txn, &sender_client_id)
+                StorableClientCredential::load_by_client_id(txn.as_mut(), &sender_client_id)
                     .await?
                     .ok_or_else(|| {
                         anyhow!("Could not find client credential of sender in database.")
@@ -395,11 +395,11 @@ impl Group {
             }
         }
 
-        let leaf_keys = LeafKeys::load(&mut **txn, verifying_key)
+        let leaf_keys = LeafKeys::load(txn.as_mut(), verifying_key)
             .await?
             .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
         // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
-        LeafKeys::delete(&mut **txn, verifying_key).await?;
+        LeafKeys::delete(txn.as_mut(), verifying_key).await?;
 
         let leaf_signer = leaf_keys.into_leaf_signer();
 
@@ -992,7 +992,7 @@ impl Group {
             InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
-            let provider = PhnxOpenMlsProvider::new(&mut *txn);
+            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             let (mls_message, _welcome_option, group_info) = self
                 .mls_group
                 .self_update(&provider, &self.leaf_signer, LeafNodeParameters::default())
@@ -1011,7 +1011,7 @@ impl Group {
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                &mut **txn,
+                txn.as_mut(),
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )
