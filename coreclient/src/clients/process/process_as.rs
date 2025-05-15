@@ -259,7 +259,7 @@ impl CoreUser {
     ) -> Result<()> {
         let mut connection = self.pool().acquire().await?;
         group.store(&mut *connection).await?;
-        conversation.store(&mut *connection, notifier).await?;
+        conversation.store(&mut connection, notifier).await?;
 
         // TODO: For now, we automatically confirm conversations.
         conversation.confirm(&mut *connection, notifier).await?;

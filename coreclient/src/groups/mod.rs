@@ -54,7 +54,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{SqliteExecutor, SqlitePool};
+use sqlx::{SqliteConnection, SqliteExecutor, SqlitePool};
 use tracing::{debug, error};
 
 use crate::{
@@ -898,22 +898,6 @@ impl Group {
         &self.group_state_ear_key
     }
 
-    // /// Returns the [`AsClientId`] of the clients owned by the given user.
-    // pub(crate) async fn user_client_ids(
-    //     &self,
-    //     executor: impl SqliteExecutor<'_>,
-    //     user_name: &QualifiedUserName,
-    // ) -> Vec<AsClientId> {
-    //     todo!()
-    //     // match GroupMembership::user_client_ids(executor, self.group_id(), user_name).await {
-    //     //     Ok(user_client_ids) => user_client_ids,
-    //     //     Err(error) => {
-    //     //         error!(%error, "Could not retrieve user client IDs");
-    //     //         Vec::new()
-    //     //     }
-    //     // }
-    // }
-
     pub async fn client_by_index(
         &self,
         connection: &mut sqlx::SqliteConnection,
@@ -941,7 +925,10 @@ impl Group {
         group_members.into_iter().collect()
     }
 
-    pub(super) async fn update(&mut self, pool: &SqlitePool) -> Result<UpdateParamsOut> {
+    pub(super) async fn update(
+        &mut self,
+        connection: &mut SqliteConnection,
+    ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
         let aad_payload = UpdateParamsAad {
             option_encrypted_identity_link_key: None,
@@ -950,8 +937,7 @@ impl Group {
             InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
-            let mut connection = pool.acquire().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut connection);
+            let provider = PhnxOpenMlsProvider::new(&mut *connection);
             let (mls_message, _welcome_option, group_info) = self
                 .mls_group
                 .self_update(&provider, &self.leaf_signer, LeafNodeParameters::default())
@@ -970,7 +956,7 @@ impl Group {
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                pool,
+                &mut *connection,
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )

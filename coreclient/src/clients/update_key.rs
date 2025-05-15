@@ -59,14 +59,15 @@ mod update_key_flow {
             pool: &SqlitePool,
             conversation_id: ConversationId,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(pool, &conversation_id)
+            let mut connection = pool.acquire().await?;
+            let conversation = Conversation::load(&mut connection, &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
-            let mut group = Group::load(pool.acquire().await?.as_mut(), group_id)
+            let mut group = Group::load(&mut connection, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-            let params = group.update(pool).await?;
+            let params = group.update(&mut connection).await?;
             Ok(Self {
                 conversation,
                 group,

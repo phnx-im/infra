@@ -174,12 +174,12 @@ impl CoreUser {
         };
         // MLSMessage Phase 1: Load the conversation and the group.
         let group_id = protocol_message.group_id();
-        let conversation = Conversation::load_by_group_id(self.pool(), group_id)
+        let mut connection = self.pool().acquire().await?;
+        let conversation = Conversation::load_by_group_id(&mut connection, group_id)
             .await?
             .ok_or_else(|| anyhow!("No conversation found for group ID {:?}", group_id))?;
         let conversation_id = conversation.id();
 
-        let mut connection = self.pool().acquire().await?;
         let mut group = Group::load(&mut connection, group_id)
             .await?
             .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
@@ -280,9 +280,12 @@ impl CoreUser {
         // group belongs to an unconfirmed conversation.
 
         // StagedCommitMessage Phase 1: Load the conversation.
-        let mut conversation = Conversation::load(self.pool(), &conversation_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
+        let mut conversation =
+            Conversation::load(self.pool().acquire().await?.as_mut(), &conversation_id)
+                .await?
+                .ok_or_else(|| {
+                    anyhow!("Can't find conversation with id {}", conversation_id.uuid())
+                })?;
         let mut conversation_changed = false;
 
         let mut notifier = self.store_notifier();
@@ -346,13 +349,13 @@ impl CoreUser {
         // StagedCommitMessage Phase 2: Merge the staged commit into the group.
 
         // If we were removed, we set the group to inactive.
+        let mut connection = self.pool().acquire().await?;
         if we_were_removed {
             let past_members = group.members(self.pool()).await.into_iter().collect();
             conversation
-                .set_inactive(self.pool(), &mut notifier, past_members)
+                .set_inactive(&mut connection, &mut notifier, past_members)
                 .await?;
         }
-        let mut connection = self.pool().acquire().await?;
         let group_messages = group
             .merge_pending_commit(&mut connection, staged_commit, ds_timestamp)
             .await?;

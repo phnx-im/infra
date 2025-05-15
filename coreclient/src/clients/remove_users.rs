@@ -63,17 +63,16 @@ mod remove_users_flow {
             conversation_id: ConversationId,
             target_users: Vec<AsClientId>,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(pool, &conversation_id)
+            let mut connection = pool.acquire().await?;
+            let conversation = Conversation::load(&mut connection, &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
-            let mut group = Group::load(pool.acquire().await?.as_mut(), group_id)
+            let mut group = Group::load(&mut connection, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
 
-            let params = group
-                .remove(pool.acquire().await?.as_mut(), target_users)
-                .await?;
+            let params = group.remove(&mut connection, target_users).await?;
             Ok(Self {
                 conversation,
                 group,

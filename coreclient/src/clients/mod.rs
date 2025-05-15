@@ -468,28 +468,25 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
     ) -> Result<Option<HashSet<AsClientId>>> {
-        let Some(conversation) = Conversation::load(self.pool(), &conversation_id).await? else {
-            return Ok(None);
-        };
-        let Some(group) = Group::load(
-            self.pool().acquire().await?.as_mut(),
-            conversation.group_id(),
-        )
-        .await?
+        let mut connection = self.pool().acquire().await?;
+        let Some(conversation) = Conversation::load(&mut connection, &conversation_id).await?
         else {
             return Ok(None);
         };
-        Ok(Some(group.members(self.pool()).await))
+        let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
+            return Ok(None);
+        };
+        Ok(Some(group.members(&mut *connection).await))
     }
 
     pub async fn pending_removes(
         &self,
         conversation_id: ConversationId,
     ) -> Option<Vec<AsClientId>> {
-        let conversation = Conversation::load(self.pool(), &conversation_id)
+        let mut connection = self.pool().acquire().await.ok()?;
+        let conversation = Conversation::load(&mut connection, &conversation_id)
             .await
             .ok()??;
-        let mut connection = self.pool().acquire().await.ok()?;
         let group = Group::load(&mut connection, conversation.group_id())
             .await
             .ok()??;

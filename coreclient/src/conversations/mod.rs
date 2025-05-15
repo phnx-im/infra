@@ -11,7 +11,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqliteExecutor;
+use sqlx::{SqliteConnection, SqliteExecutor};
 use uuid::Uuid;
 
 use crate::store::StoreNotifier;
@@ -135,6 +135,10 @@ impl Conversation {
         &self.status
     }
 
+    pub fn status_mut(&mut self) -> &mut ConversationStatus {
+        &mut self.status
+    }
+
     pub fn attributes(&self) -> &ConversationAttributes {
         &self.attributes
     }
@@ -161,7 +165,7 @@ impl Conversation {
 
     pub(crate) async fn set_inactive(
         &mut self,
-        executor: impl SqliteExecutor<'_>,
+        executor: &mut SqliteConnection,
         notifier: &mut StoreNotifier,
         past_members: Vec<AsClientId>,
     ) -> sqlx::Result<()> {
@@ -206,6 +210,10 @@ impl InactiveConversation {
 
     pub fn past_members(&self) -> &[AsClientId] {
         &self.past_members
+    }
+
+    pub fn past_members_mut(&mut self) -> &mut Vec<AsClientId> {
+        &mut self.past_members
     }
 }
 

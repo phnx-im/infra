@@ -82,7 +82,8 @@ mod invite_users_flow {
             conversation_id: ConversationId,
             invited_users: &[AsClientId],
         ) -> anyhow::Result<InviteUsersData<Vec<Contact>>> {
-            let conversation = Conversation::load(pool, &conversation_id)
+            let mut connection = pool.acquire().await?;
+            let conversation = Conversation::load(&mut connection, &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
 
@@ -92,13 +93,14 @@ mod invite_users_flow {
 
             for invited_user in invited_users {
                 // Get the WAI keys and client credentials for the invited users.
-                let contact = Contact::load(pool.acquire().await?.as_mut(), invited_user)
+                let contact = Contact::load(&mut *connection, invited_user)
                     .await?
                     .with_context(|| format!("Can't find contact {invited_user}"))?;
                 contact_wai_keys.push(contact.wai_ear_key().clone());
 
                 if let Some(client_credential) =
-                    StorableClientCredential::load_by_client_id(pool, invited_user).await?
+                    StorableClientCredential::load_by_client_id(&mut *connection, invited_user)
+                        .await?
                 {
                     client_credentials.push(ClientCredential::from(client_credential));
                 }

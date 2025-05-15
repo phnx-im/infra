@@ -109,16 +109,17 @@ impl CoreUser {
         conversation_id: ConversationId,
         picture: Option<Vec<u8>>,
     ) -> Result<()> {
-        let mut notifier = self.store_notifier();
-        let mut conversation = Conversation::load(self.pool(), &conversation_id)
+        let mut connection = self.pool().acquire().await?;
+        let mut conversation = Conversation::load(&mut connection, &conversation_id)
             .await?
             .ok_or_else(|| {
                 let id = conversation_id.uuid();
                 anyhow!("Can't find conversation with id {id}")
             })?;
         let resized_picture_option = picture.and_then(|picture| self.resize_image(&picture).ok());
+        let mut notifier = self.store_notifier();
         conversation
-            .set_conversation_picture(self.pool(), &mut notifier, resized_picture_option)
+            .set_conversation_picture(&mut *connection, &mut notifier, resized_picture_option)
             .await?;
         notifier.notify();
         Ok(())
@@ -153,11 +154,11 @@ impl CoreUser {
     }
 
     pub(crate) async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
-        Conversation::load_all(self.pool()).await
+        Conversation::load_all(self.pool().acquire().await?.as_mut()).await
     }
 
     pub async fn conversation(&self, conversation_id: &ConversationId) -> Option<Conversation> {
-        Conversation::load(self.pool(), conversation_id)
+        Conversation::load(self.pool().acquire().await.ok()?.as_mut(), conversation_id)
             .await
             .ok()
             .flatten()
@@ -360,14 +361,15 @@ mod delete_conversation_flow {
             pool: &SqlitePool,
             conversation_id: ConversationId,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(pool, &conversation_id)
+            let mut connection = pool.acquire().await?;
+            let conversation = Conversation::load(&mut connection, &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
-            let group = Group::load(pool.acquire().await?.as_mut(), group_id)
+            let group = Group::load(&mut connection, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-            let past_members = group.members(pool).await;
+            let past_members = group.members(&mut *connection).await;
 
             if past_members.len() == 1 {
                 let member = past_members.into_iter().next().unwrap();
@@ -541,11 +543,12 @@ mod leave_conversation_flow {
             pool: &SqlitePool,
             conversation_id: ConversationId,
         ) -> anyhow::Result<LeaveConversationData<()>> {
-            let conversation = Conversation::load(pool, &conversation_id)
+            let mut connection = pool.acquire().await?;
+            let conversation = Conversation::load(&mut connection, &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}",))?;
             let group_id = conversation.group_id();
-            let group = Group::load(pool.acquire().await?.as_mut(), group_id)
+            let group = Group::load(&mut connection, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
             Ok(Self {

@@ -111,16 +111,26 @@ CREATE TABLE IF NOT EXISTS conversations (
     conversation_picture BLOB,
     group_id BLOB NOT NULL,
     last_read TEXT NOT NULL,
-    conversation_status TEXT NOT NULL CHECK (
-        conversation_status LIKE 'active'
-        OR conversation_status LIKE 'inactive:%'
-    ),
-    conversation_type TEXT NOT NULL CHECK (
-        conversation_type LIKE 'group'
-        OR conversation_type LIKE 'unconfirmed_connection:%'
-        OR conversation_type LIKE 'connection:%'
-    )
+    -- missing `connection_as_{client_uuid,domain}` fields means it is a group conversation
+    connection_as_client_uuid BLOB,
+    connection_as_domain TEXT,
+    is_confirmed_connection BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
+
+CREATE TABLE IF NOT EXISTS conversation_past_members (
+    conversation_id BLOB NOT NULL,
+    member_as_client_uuid BLOB NOT NULL,
+    member_as_domain TEXT NOT NULL,
+    PRIMARY KEY (
+        conversation_id,
+        member_as_client_uuid,
+        member_as_domain
+    ),
+    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS conversation_past_members_conversation_id_idx ON conversation_past_members (conversation_id);
 
 CREATE TABLE IF NOT EXISTS conversation_messages (
     message_id BLOB NOT NULL PRIMARY KEY,
