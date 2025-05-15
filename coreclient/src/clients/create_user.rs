@@ -61,7 +61,7 @@ impl BasicUserData {
         api_clients: &ApiClients,
     ) -> Result<InitialUserState> {
         // Prepare user account creation
-        debug!(client_id =% self.as_client_id, "Creating new client");
+        debug!(client_id =? self.as_client_id, "Creating new client");
         // Let's turn TLS off for now.
         let domain = self.as_client_id.domain();
         // Fetch credentials from AS

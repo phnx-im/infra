@@ -151,13 +151,13 @@ impl TestBackend {
 
     pub async fn add_persisted_user(&mut self, client_id: &AsClientId) {
         let path = self.temp_dir.path().to_str().unwrap();
-        info!(%path, "Creating persisted {client_id}");
+        info!(%path, ?client_id, "Creating persisted user");
         let user = TestUser::new_persisted(client_id, self.url(), self.grpc_port, path).await;
         self.users.insert(client_id.clone(), user);
     }
 
     pub async fn add_user(&mut self, client_id: &AsClientId) {
-        info!("Creating {client_id}");
+        info!(?client_id, "Creating user");
         let user = TestUser::new(client_id, self.url(), self.grpc_port).await;
         self.users.insert(client_id.clone(), user);
     }
@@ -186,8 +186,7 @@ impl TestBackend {
         updater_id: AsClientId,
     ) {
         info!(
-            "{} performs an update in group {}",
-            updater_id,
+            "{updater_id:?} performs an update in group {}",
             conversation_id.uuid()
         );
 
@@ -262,8 +261,7 @@ impl TestBackend {
 
     pub async fn update_group(&mut self, conversation_id: ConversationId, updater_id: &AsClientId) {
         info!(
-            "{} performs an update in group {}",
-            updater_id,
+            "{updater_id:?} performs an update in group {}",
             conversation_id.uuid()
         );
 
@@ -306,9 +304,10 @@ impl TestBackend {
         user1_id: &AsClientId,
         user2_id: &AsClientId,
     ) -> ConversationId {
-        info!("Connecting users {} and {}", user1_id, user2_id);
+        info!("Connecting users {user1_id:?} and {user2_id:?}");
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
+        let user1_diplay_name = user1.own_user_profile().await.unwrap().display_name;
         let user1_partial_contacts_before = user1.partial_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
         user1.add_contact(user2_id.clone()).await.unwrap();
@@ -330,7 +329,7 @@ impl TestBackend {
                 assert_eq!(before.client_id, after.client_id);
             });
         let mut user1_conversations_after = user1.conversations().await.unwrap();
-        let test_title = format!("Connection group: {} - {}", user1_id, user2_id);
+        let test_title = format!("Connection group: {user1_id:?} - {user2_id:?}");
         let new_conversation_position = user1_conversations_after
             .iter()
             .position(|c| c.attributes().title() == test_title)
@@ -353,9 +352,9 @@ impl TestBackend {
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
-        info!("{} fetches AS messages", user2_id);
+        info!("{user2_id:?} fetches AS messages");
         let as_messages = user2.as_fetch_messages().await.unwrap();
-        info!("{} processes AS messages", user2_id);
+        info!("{user2_id:?} processes AS messages");
         user2.fully_process_as_messages(as_messages).await.unwrap();
         // User 2 should have auto-accepted (for now at least) the connection request.
         let mut user2_contacts_after = user2.contacts().await.unwrap();
@@ -385,7 +384,7 @@ impl TestBackend {
         );
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| c.attributes().title() == user1_id.to_string())
+            .position(|c| c.attributes().title() == user1_diplay_name.to_string())
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -411,9 +410,9 @@ impl TestBackend {
             .map(|contact| contact.client_id.clone())
             .collect();
         let user1_conversations_before = user1.conversations().await.unwrap();
-        info!("{} fetches QS messages", user1_id);
+        info!("{user1_id:?} fetches QS messages");
         let qs_messages = user1.qs_fetch_messages().await.unwrap();
-        info!("{} processes QS messages", user1_id);
+        info!("{user1_id:?} processes QS messages");
         user1.fully_process_qs_messages(qs_messages).await.unwrap();
 
         // User 1 should have added user 2 to its contacts now and a connection
@@ -527,10 +526,12 @@ impl TestBackend {
         sender_id: &AsClientId,
         recipients: Vec<&AsClientId>,
     ) -> ConversationMessageId {
-        let recipient_strings = recipients.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+        let recipient_strings = recipients
+            .iter()
+            .map(|n| format!("{n:?}"))
+            .collect::<Vec<_>>();
         info!(
-            "{} sends a message to {}",
-            sender_id,
+            "{sender_id:?} sends a message to {}",
             recipient_strings.join(", ")
         );
         let message: String = OsRng
@@ -636,7 +637,10 @@ impl TestBackend {
         inviter_id: &AsClientId,
         invitees: Vec<&AsClientId>,
     ) {
-        let invitee_strings = invitees.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+        let invitee_strings = invitees
+            .iter()
+            .map(|n| format!("{n:?}"))
+            .collect::<Vec<_>>();
         let test_inviter = self.users.get_mut(inviter_id).unwrap();
         let inviter = &mut test_inviter.user;
 
@@ -651,8 +655,7 @@ impl TestBackend {
         let inviter_conversation = inviter.conversation(&conversation_id).await.unwrap();
 
         info!(
-            "{} invites {} to the group with id {}",
-            inviter_id,
+            "{inviter_id:?} invites {} to the group with id {}",
             invitee_strings.join(", "),
             conversation_id.uuid()
         );
@@ -674,7 +677,7 @@ impl TestBackend {
         let mut expected_messages = HashSet::new();
         for invitee_id in &invitees {
             let expected_message =
-                format!("{} added {} to the conversation", inviter_id, invitee_id);
+                format!("{inviter_id:?} added {invitee_id:?} to the conversation");
             expected_messages.insert(expected_message);
         }
 
@@ -711,7 +714,7 @@ impl TestBackend {
             let new_conversation_position = invitee_conversations_after
                 .iter()
                 .position(|c| c.id() == conversation_id)
-                .unwrap_or_else(|| panic!("{invitee_id} should have created a new conversation titles {conversation_uuid}"));
+                .unwrap_or_else(|| panic!("{invitee_id:?} should have created a new conversation titles {conversation_uuid}"));
             let conversation = invitee_conversations_after.remove(new_conversation_position);
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
@@ -811,7 +814,7 @@ impl TestBackend {
     ) {
         let removed_strings = removed_ids
             .iter()
-            .map(|n| n.to_string())
+            .map(|n| format!("{n:?}"))
             .collect::<Vec<_>>();
         let test_remover = self.users.get_mut(remover_id).unwrap();
         let remover = &mut test_remover.user;
@@ -826,8 +829,7 @@ impl TestBackend {
             .expect("Error processing qs messages.");
 
         info!(
-            "{} removes {} from the group with id {}",
-            remover_id,
+            "{remover_id:?} removes {} from the group with id {}",
             removed_strings.join(", "),
             conversation_id.uuid()
         );
@@ -850,10 +852,8 @@ impl TestBackend {
         let mut expected_messages = HashSet::new();
 
         for removed_id in &removed_ids {
-            let expected_message = format!(
-                "{} removed {} from the conversation",
-                remover_id, removed_id,
-            );
+            let expected_message =
+                format!("{remover_id:?} removed {removed_id:?} from the conversation");
             expected_messages.insert(expected_message);
         }
 
@@ -906,7 +906,7 @@ impl TestBackend {
                 .find(|c| c.id() == conversation_id)
                 .unwrap_or_else(|| {
                     panic!(
-                        "{removed_id} should have the conversation with id {}",
+                        "{removed_id:?} should have the conversation with id {}",
                         conversation_id.uuid()
                     )
                 });
@@ -970,8 +970,7 @@ impl TestBackend {
     /// Has the leaver leave the given group.
     pub async fn leave_group(&mut self, conversation_id: ConversationId, leaver_id: &AsClientId) {
         info!(
-            "{} leaves the group with id {}",
-            leaver_id,
+            "{leaver_id:?} leaves the group with id {}",
             conversation_id.uuid()
         );
         let test_leaver = self.users.get_mut(leaver_id).unwrap();
@@ -1015,8 +1014,7 @@ impl TestBackend {
 
     pub async fn delete_group(&mut self, conversation_id: ConversationId, deleter_id: &AsClientId) {
         info!(
-            "{} deletes the group with id {}",
-            deleter_id,
+            "{deleter_id:?} deletes the group with id {}",
             conversation_id.uuid()
         );
         let test_deleter = self.users.get_mut(deleter_id).unwrap();
@@ -1143,7 +1141,7 @@ impl TestBackend {
                 if let Some(other_user) = other_users.into_iter().choose(rng) {
                     info!(
                         random_operation = true,
-                        "Random operation: Connecting {} and {}", random_user, other_user
+                        "Random operation: Connecting {random_user:?} and {other_user:?}"
                     );
                     self.connect_users(&random_user, &other_user).await;
                 }
@@ -1200,12 +1198,11 @@ impl TestBackend {
                     if !invitees.is_empty() {
                         let invitee_strings = invitees
                             .iter()
-                            .map(|invitee| invitee.to_string())
+                            .map(|invitee| format!("{invitee:?}"))
                             .collect::<Vec<_>>();
                         info!(
                             random_operation = true,
-                            "Random operation: {} invites {} to group {}",
-                            random_user,
+                            "Random operation: {random_user:?} invites {} to group {}",
                             invitee_strings.join(", "),
                             conversation.id().uuid()
                         );
@@ -1244,12 +1241,11 @@ impl TestBackend {
                     if !members_to_remove.is_empty() {
                         let removed_strings = members_to_remove
                             .iter()
-                            .map(|removed| removed.to_string())
+                            .map(|removed| format!("{removed:?}"))
                             .collect::<Vec<_>>();
                         info!(
                             random_operation = true,
-                            "Random operation: {} removes {} from group {}",
-                            random_user,
+                            "Random operation: {random_user:?} removes {} from group {}",
                             removed_strings.join(", "),
                             conversation.id().uuid()
                         );
@@ -1275,8 +1271,7 @@ impl TestBackend {
                 {
                     info!(
                         random_operation = true,
-                        "Random operation: {} leaves group {}",
-                        random_user,
+                        "Random operation: {random_user:?} leaves group {}",
                         conversation.id().uuid()
                     );
                     self.leave_group(conversation.id(), &random_user).await;
@@ -1292,7 +1287,14 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
         .into_iter()
         .filter_map(|m| {
             if let Message::Event(EventMessage::System(system_message)) = m.message() {
-                Some(system_message.to_string())
+                match system_message {
+                    SystemMessage::Add(adder, added) => {
+                        Some(format!("{adder:?} added {added:?} to the conversation"))
+                    }
+                    SystemMessage::Remove(remover, removed) => Some(format!(
+                        "{remover:?} removed {removed:?} from the conversation"
+                    )),
+                }
             } else {
                 None
             }

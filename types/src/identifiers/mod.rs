@@ -210,7 +210,6 @@ impl FromStr for QualifiedGroupId {
 
 #[derive(
     Clone,
-    Debug,
     Serialize,
     Deserialize,
     Eq,
@@ -227,7 +226,7 @@ pub struct AsClientId {
     domain: Fqdn,
 }
 
-impl fmt::Display for AsClientId {
+impl fmt::Debug for AsClientId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}@{}", self.client_id.0, self.domain)
     }

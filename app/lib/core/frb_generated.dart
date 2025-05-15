@@ -4476,12 +4476,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<String> dco_decode_list_String(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_String).toList();
-  }
-
-  @protected
   List<IntroScreenType> dco_decode_list_intro_screen_type(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_intro_screen_type).toList();
@@ -4991,7 +4985,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return UiInactiveConversation(pastMembers: dco_decode_list_String(arr[0]));
+    return UiInactiveConversation(
+      pastMembers: dco_decode_list_ui_client_id(arr[0]),
+    );
   }
 
   @protected
@@ -5974,18 +5970,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<String> sse_decode_list_String(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <String>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_String(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
   List<IntroScreenType> sse_decode_list_intro_screen_type(
     SseDeserializer deserializer,
   ) {
@@ -6653,7 +6637,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_pastMembers = sse_decode_list_String(deserializer);
+    var var_pastMembers = sse_decode_list_ui_client_id(deserializer);
     return UiInactiveConversation(pastMembers: var_pastMembers);
   }
 
@@ -7799,15 +7783,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_String(List<String> self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_String(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_list_intro_screen_type(
     List<IntroScreenType> self,
     SseSerializer serializer,
@@ -8415,7 +8390,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_String(self.pastMembers, serializer);
+    sse_encode_list_ui_client_id(self.pastMembers, serializer);
   }
 
   @protected

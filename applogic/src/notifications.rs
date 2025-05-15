@@ -25,7 +25,7 @@ impl User {
                     phnxcoreclient::ConversationType::UnconfirmedConnection(client_id)
                     | phnxcoreclient::ConversationType::Connection(client_id) => self
                         .user
-                        .user_profile(&client_id)
+                        .user_profile(client_id)
                         .await
                         .display_name
                         .to_string(),
@@ -35,7 +35,8 @@ impl User {
                 };
                 let body = conversation_message
                     .message()
-                    .string_representation(conversation.conversation_type());
+                    .string_representation(&self.user, conversation.conversation_type())
+                    .await;
                 notifications.push(NotificationContent {
                     identifier: NotificationId::random(),
                     title: title.to_owned(),
@@ -74,22 +75,21 @@ impl User {
     ) {
         for conversation_id in connection_conversations {
             if let Some(conversation) = self.user.conversation(conversation_id).await {
-                let contact_name = match conversation.conversation_type() {
-                    phnxcoreclient::ConversationType::UnconfirmedConnection(username)
-                    | phnxcoreclient::ConversationType::Connection(username) => {
-                        username.to_string()
-                    }
-                    _ => "".to_string(),
-                };
-                let title = format!("New connection request from {}", contact_name);
-                let body = "Open to accept or ignore".to_owned();
+                if let phnxcoreclient::ConversationType::UnconfirmedConnection(client_id)
+                | phnxcoreclient::ConversationType::Connection(client_id) =
+                    conversation.conversation_type()
+                {
+                    let contact_name = self.user.user_profile(client_id).await.display_name;
+                    let title = format!("New connection request from {contact_name}");
+                    let body = "Open to accept or ignore".to_owned();
 
-                notifications.push(NotificationContent {
-                    identifier: NotificationId::random(),
-                    title: title.to_owned(),
-                    body: body.to_owned(),
-                    conversation_id: Some(*conversation_id),
-                });
+                    notifications.push(NotificationContent {
+                        identifier: NotificationId::random(),
+                        title: title.to_owned(),
+                        body: body.to_owned(),
+                        conversation_id: Some(*conversation_id),
+                    });
+                };
             }
         }
     }

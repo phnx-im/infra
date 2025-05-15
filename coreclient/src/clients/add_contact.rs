@@ -99,7 +99,7 @@ async fn fetch_user_connection_packages(
 ) -> anyhow::Result<FetchedUseConnectionPackage> {
     // Phase 1: Fetch connection key packages from the AS
     let domain = client_id.domain();
-    info!(%client_id, "Adding contact");
+    info!(?client_id, "Adding contact");
 
     let client = api_clients.get(domain)?;
     let params = UserConnectionPackagesParams {
@@ -111,7 +111,7 @@ async fn fetch_user_connection_packages(
     // check here locally just to be sure.
     ensure!(
         !user_key_packages.connection_packages.is_empty(),
-        "User {client_id} does not exist"
+        "User {client_id:?} does not exist"
     );
 
     Ok(FetchedUseConnectionPackage { user_key_packages })
@@ -195,7 +195,8 @@ impl VerifiedConnectionPackagesWithGroupId {
         } = self;
 
         info!("Creating local connection group");
-        let title = format!("Connection group: {self_client_id} - {connection_client_id}");
+        // TODO: Use display names here
+        let title = format!("Connection group: {self_client_id:?} - {connection_client_id:?}");
         let conversation_attributes = ConversationAttributes::new(title, None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
 

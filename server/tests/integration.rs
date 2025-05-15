@@ -584,7 +584,11 @@ async fn client_persistence() {
         .await
         .unwrap();
 
-    let client_db_path = db_path.join(format!("{}.db", client_id));
+    let client_db_path = db_path.join(format!(
+        "{}@{}.db",
+        client_id.client_id(),
+        client_id.domain()
+    ));
     assert!(client_db_path.exists());
 
     setup.delete_user(&ALICE).await;

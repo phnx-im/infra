@@ -2,13 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::Formatter;
-
 use mimi_content::MimiContent;
 use openmls::framing::ApplicationMessage;
 use tracing::warn;
 
-use crate::store::StoreNotifier;
+use crate::store::{Store, StoreNotifier};
 
 use super::*;
 
@@ -202,16 +200,23 @@ impl Message {
 
     /// Returns a string representation of the message for use in UI
     /// notifications.
-    pub fn string_representation(&self, conversation_type: &ConversationType) -> String {
+    pub async fn string_representation(
+        &self,
+        store: &impl Store,
+        conversation_type: &ConversationType,
+    ) -> String {
         match self {
             Message::Content(content_message) => match conversation_type {
                 ConversationType::Group => {
-                    let sender = &content_message.sender;
+                    let display_name = store
+                        .user_profile(&content_message.sender)
+                        .await
+                        .display_name;
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
                         .unwrap_or_else(|e| format!("Error: {e}"));
-                    format!("{sender}: {content}")
+                    format!("{display_name}: {content}")
                 }
                 ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
                     let content = content_message
@@ -222,7 +227,7 @@ impl Message {
                 }
             },
             Message::Event(event_message) => match &event_message {
-                EventMessage::System(system) => system.to_string(),
+                EventMessage::System(system) => system.string_representation(store).await,
                 EventMessage::Error(error) => error.message().to_string(),
             },
         }
@@ -275,29 +280,26 @@ pub enum EventMessage {
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-// TODO: Use display names here?
 pub enum SystemMessage {
     // The first UserName is the adder/remover the second is the added/removed.
     Add(AsClientId, AsClientId),
     Remove(AsClientId, AsClientId),
 }
 
-impl Display for SystemMessage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl SystemMessage {
+    async fn string_representation(&self, store: &impl Store) -> String {
         match self {
             SystemMessage::Add(adder, added) => {
-                if adder == added {
-                    write!(f, "{} joined the conversation", adder)
-                } else {
-                    write!(f, "{} added {} to the conversation", adder, added)
-                }
+                let adder_display_name = store.user_profile(adder).await.display_name;
+                let added_display_name = store.user_profile(added).await.display_name;
+                format!("{adder_display_name} added {added_display_name} to the conversation")
             }
             SystemMessage::Remove(remover, removed) => {
-                if remover == removed {
-                    write!(f, "{} left the conversation", remover)
-                } else {
-                    write!(f, "{} removed {} from the conversation", remover, removed)
-                }
+                let remover_display_name = store.user_profile(remover).await.display_name;
+                let removed_display_name = store.user_profile(removed).await.display_name;
+                format!(
+                    "{remover_display_name} removed {removed_display_name} from the conversation"
+                )
             }
         }
     }

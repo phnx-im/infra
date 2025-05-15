@@ -88,8 +88,9 @@ impl CoreUser {
                     .await?;
 
                 // Create conversation
-                let (mut conversation, contact) =
-                    self.create_connection_conversation(&group, &cep_tbs)?;
+                let (mut conversation, contact) = self
+                    .create_connection_conversation(&group, &cep_tbs)
+                    .await?;
 
                 let mut notifier = self.store_notifier();
 
@@ -229,18 +230,20 @@ impl CoreUser {
         Ok((group, commit, group_info, member_profile_info))
     }
 
-    fn create_connection_conversation(
+    async fn create_connection_conversation(
         &self,
         group: &Group,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
     ) -> Result<(Conversation, Contact)> {
         let sender_client_id = cep_tbs.sender_client_credential.identity();
 
+        let display_name = self.user_profile(sender_client_id).await.display_name;
+
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
             sender_client_id.clone(),
             // TODO: conversation title
-            ConversationAttributes::new(sender_client_id.to_string(), None),
+            ConversationAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
             sender_client_id.clone(),

@@ -4776,18 +4776,6 @@ impl SseDecode for isize {
     }
 }
 
-impl SseDecode for Vec<String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = vec![];
-        for idx_ in 0..len_ {
-            ans_.push(<String>::sse_decode(deserializer));
-        }
-        return ans_;
-    }
-}
-
 impl SseDecode for Vec<crate::api::navigation_cubit::IntroScreenType> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5493,7 +5481,7 @@ impl SseDecode for crate::api::types::UiFlightPosition {
 impl SseDecode for crate::api::types::UiInactiveConversation {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_pastMembers = <Vec<String>>::sse_decode(deserializer);
+        let mut var_pastMembers = <Vec<crate::api::types::UiClientId>>::sse_decode(deserializer);
         return crate::api::types::UiInactiveConversation {
             past_members: var_pastMembers,
         };
@@ -7371,16 +7359,6 @@ impl SseEncode for isize {
     }
 }
 
-impl SseEncode for Vec<String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <String>::sse_encode(item, serializer);
-        }
-    }
-}
-
 impl SseEncode for Vec<crate::api::navigation_cubit::IntroScreenType> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -7936,7 +7914,7 @@ impl SseEncode for crate::api::types::UiFlightPosition {
 impl SseEncode for crate::api::types::UiInactiveConversation {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<String>>::sse_encode(self.past_members, serializer);
+        <Vec<crate::api::types::UiClientId>>::sse_encode(self.past_members, serializer);
     }
 }
 

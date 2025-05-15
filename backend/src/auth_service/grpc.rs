@@ -53,7 +53,7 @@ impl GrpcAs {
         let client_record = ClientRecord::load(&self.inner.db_pool, &client_id)
             .await
             .map_err(|error| {
-                error!(%error, %client_id, "failed to load client");
+                error!(%error, ?client_id, "failed to load client");
                 Status::internal("database error")
             })?
             .ok_or_else(|| Status::not_found("unknown client"))?;

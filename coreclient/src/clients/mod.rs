@@ -115,7 +115,7 @@ impl CoreUser {
         db_path: &str,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        info!(%client_id, "creating new user");
+        info!(?client_id, "creating new user");
 
         // Open the phnx db to store the client record
         let phnx_db = open_phnx_db(db_path).await?;
@@ -176,7 +176,7 @@ impl CoreUser {
         grpc_port: u16,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        info!(%client_id, "creating new ephemeral user");
+        info!(?client_id, "creating new ephemeral user");
 
         // Open the phnx db to store the client record
         let phnx_db = open_db_in_memory().await?;

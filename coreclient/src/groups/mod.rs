@@ -1116,7 +1116,7 @@ impl TimestampedMessage {
                 .ok_or_else(|| anyhow!("Could not find client credential of sender"))?;
             let client_id = client_auth_info.client_credential().identity();
             debug!(
-                %client_id,
+                ?client_id,
                 %sender_index, "Client has updated their key material",
             );
         }

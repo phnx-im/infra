@@ -362,7 +362,7 @@ enum UiFlightPosition {
 
 /// Inactive conversation with past members
 class UiInactiveConversation {
-  final List<String> pastMembers;
+  final List<UiClientId> pastMembers;
 
   const UiInactiveConversation({required this.pastMembers});
 

@@ -34,8 +34,7 @@ impl UnvalidatedDisplayName {
 impl DisplayName {
     pub fn from_client_id(client_id: &AsClientId) -> Self {
         // TODO: To be replaced by more sophisticated logic based on UUIDs
-        let mut display_name = client_id.to_string();
-        display_name.truncate(6);
+        let display_name = format!("{}@{}", client_id.client_id(), client_id.domain());
         Self { display_name }
     }
 }

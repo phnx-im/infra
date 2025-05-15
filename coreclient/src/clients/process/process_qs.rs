@@ -302,7 +302,9 @@ impl CoreUser {
             // friendship package
             let partial_contact = PartialContact::load(self.pool(), client_id)
                 .await?
-                .with_context(|| format!("No partial contact found with client_id: {client_id}"))?;
+                .with_context(|| {
+                    format!("No partial contact found with client_id: {client_id:?}")
+                })?;
 
             // This is a bit annoying, since we already
             // de-serialized this in the group processing

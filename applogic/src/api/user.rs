@@ -140,7 +140,7 @@ impl User {
                     loaded_user = Some(user);
                     break;
                 }
-                Err(error) => error!(%as_client_id, %error, "Failed to load user"),
+                Err(error) => error!(?as_client_id, %error, "Failed to load user"),
             };
         }
 

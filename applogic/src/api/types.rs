@@ -110,7 +110,7 @@ impl From<ConversationStatus> for UiConversationStatus {
 /// Inactive conversation with past members
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct UiInactiveConversation {
-    pub past_members: Vec<String>,
+    pub past_members: Vec<UiClientId>,
 }
 
 impl From<InactiveConversation> for UiInactiveConversation {
@@ -119,8 +119,9 @@ impl From<InactiveConversation> for UiInactiveConversation {
             past_members: inactive
                 .past_members()
                 .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>(),
+                .cloned()
+                .map(From::from)
+                .collect(),
         }
     }
 }
@@ -326,9 +327,16 @@ pub struct UiSystemMessage {
 
 impl From<SystemMessage> for UiSystemMessage {
     fn from(system_message: SystemMessage) -> Self {
-        Self {
-            message: system_message.to_string(),
-        }
+        // TODO: Use display names here
+        let message = match system_message {
+            SystemMessage::Add(adder, added) => {
+                format!("{adder:?} added {added:?} to the conversation")
+            }
+            SystemMessage::Remove(remover, removed) => {
+                format!("{remover:?} removed {removed:?} from the conversation")
+            }
+        };
+        Self { message }
     }
 }
 
