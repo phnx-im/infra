@@ -51,7 +51,7 @@ mimi_content = { workspace = true }
 derive_more = { workspace = true }
 url = "2.5.4"
 
-[target.'cfg(all(target_os = "linux", target_os = "windows"))'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
 notify-rust = "4"
 
 [dev-dependencies]
