@@ -352,6 +352,8 @@ impl From<ListenProtocolViolation> for Status {
 
 trait WithAsClientId {
     fn client_id_proto(&self) -> Option<AsClientId>;
+
+    #[expect(clippy::result_large_err)]
     fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
         Ok(self
             .client_id_proto()
