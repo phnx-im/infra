@@ -10,11 +10,13 @@ use phnxtypes::{
     },
     messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
+use sqlx::SqliteConnection;
 
 use crate::{
     Contact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
+    store::StoreNotifier,
     user_profiles::{
         IndexedUserProfile, UserProfile, VerifiableUserProfile, process::ExistingUserProfile,
         update::UserProfileUpdate,
@@ -32,11 +34,10 @@ impl CoreUser {
 
         // Phase 1: Store the new user profile key in the database
         let encryptable_user_profile = self
-            .with_transaction_and_notifier(async |transaction, notifier| {
-                let current_profile =
-                    IndexedUserProfile::load(&mut *transaction, self.as_client_id())
-                        .await?
-                        .context("Failed to load own user profile")?;
+            .with_transaction_and_notifier(async |txn, notifier| {
+                let current_profile = IndexedUserProfile::load(txn.as_mut(), self.as_client_id())
+                    .await?
+                    .context("Failed to load own user profile")?;
 
                 let user_profile = UserProfileUpdate::update_own_profile(
                     current_profile,
@@ -44,10 +45,10 @@ impl CoreUser {
                     user_profile_key.index().clone(),
                     &self.inner.key_store.signing_key,
                 )?
-                .store(&mut *transaction, notifier)
+                .store(txn.as_mut(), notifier)
                 .await?;
 
-                user_profile_key.store_own(&mut *transaction).await?;
+                user_profile_key.store_own(txn.as_mut()).await?;
                 Ok(user_profile)
             })
             .await?;
@@ -105,6 +106,8 @@ impl CoreUser {
 
     pub(crate) async fn fetch_and_store_user_profile(
         &self,
+        connection: &mut SqliteConnection,
+        notifier: &mut StoreNotifier,
         profile_info: impl Into<ProfileInfo>,
     ) -> anyhow::Result<()> {
         let ProfileInfo {
@@ -114,7 +117,7 @@ impl CoreUser {
         let client_id = client_credential.identity();
 
         // Phase 1: Check if the profile in the DB is up to date.
-        let existing_user_profile = ExistingUserProfile::load(self.pool(), client_id).await?;
+        let existing_user_profile = ExistingUserProfile::load(&mut *connection, client_id).await?;
         if existing_user_profile.matches_index(user_profile_key.index()) {
             return Ok(());
         }
@@ -122,6 +125,7 @@ impl CoreUser {
         // Phase 2: Fetch the user profile from the server
         let api_client = self.inner.api_clients.get(client_id.domain())?;
 
+        // TODO: Avoid network calls while in transaction
         let GetUserProfileResponse {
             encrypted_user_profile,
         } = api_client
@@ -137,24 +141,20 @@ impl CoreUser {
             .process_decrypted_user_profile(verifiable_user_profile, &client_credential)?;
 
         // Phase 3: Store the user profile and key in the database
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            user_profile_key.store(&mut *connection).await?;
-            persistable_user_profile
-                .persist(&mut *connection, notifier)
-                .await?;
-            Contact::update_user_profile_key_index(
-                &mut *connection,
-                client_id,
-                user_profile_key.index(),
-            )
+        user_profile_key.store(&mut *connection).await?;
+        persistable_user_profile
+            .persist(&mut *connection, notifier)
             .await?;
-            if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
-                // Delete the old user profile key
-                UserProfileKey::delete(connection, old_user_profile_index).await?;
-            }
-            Ok(())
-        })
+        Contact::update_user_profile_key_index(
+            &mut *connection,
+            client_id,
+            user_profile_key.index(),
+        )
         .await?;
+        if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
+            // Delete the old user profile key
+            UserProfileKey::delete(connection, old_user_profile_index).await?;
+        }
 
         Ok(())
     }

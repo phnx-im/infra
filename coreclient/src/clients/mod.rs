@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, convert::identity, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use store::ClientRecord;
 use thiserror::Error;
-use tokio_stream::Stream;
+use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info};
 use url::Url;
 
@@ -373,13 +373,7 @@ impl CoreUser {
             let api_client = self.inner.api_clients.default_client()?;
             let mut response = match &queue_type {
                 QueueType::As => {
-                    api_client
-                        .as_dequeue_messages(
-                            sequence_number,
-                            1_000_000,
-                            &self.inner.key_store.signing_key,
-                        )
-                        .await?
+                    unimplemented!()
                 }
                 QueueType::Qs => {
                     api_client
@@ -407,7 +401,16 @@ impl CoreUser {
     }
 
     pub async fn as_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue(QueueType::As).await
+        let sequence_number = QueueType::As.load_sequence_number(self.pool()).await?;
+        let api_client = self.inner.api_clients.default_client()?;
+        let (stream, responder) = api_client
+            .as_listen(sequence_number, &self.inner.key_store.signing_key)
+            .await?;
+        let messages: Vec<QueueMessage> = stream.map_while(identity).collect().await;
+        if let Some(message) = messages.last() {
+            responder.ack(message.sequence_number).await;
+        }
+        Ok(messages)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
@@ -625,11 +628,11 @@ impl CoreUser {
     /// back if the function returns `Err`.
     pub(crate) async fn with_transaction<T: Send>(
         &self,
-        f: impl AsyncFnOnce(&mut sqlx::SqliteConnection) -> anyhow::Result<T>,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction<'_>) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        let mut transaction = self.pool().begin().await?;
-        let value = f(&mut transaction).await?;
-        transaction.commit().await?;
+        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
+        let value = f(&mut txn).await?;
+        txn.commit().await?;
         Ok(value)
     }
 
@@ -640,12 +643,22 @@ impl CoreUser {
     /// after the transaction is committed successfully.
     pub(crate) async fn with_transaction_and_notifier<T: Send>(
         &self,
-        f: impl AsyncFnOnce(&mut sqlx::SqliteConnection, &mut StoreNotifier) -> anyhow::Result<T>,
+        f: impl AsyncFnOnce(&mut sqlx::SqliteTransaction<'_>, &mut StoreNotifier) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        let mut transaction = self.pool().begin().await?;
+        let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
         let mut notifier = self.store_notifier();
-        let value = f(&mut transaction, &mut notifier).await?;
-        transaction.commit().await?;
+        let value = f(&mut txn, &mut notifier).await?;
+        txn.commit().await?;
+        notifier.notify();
+        Ok(value)
+    }
+
+    pub(crate) async fn with_notifier<T: Send>(
+        &self,
+        f: impl AsyncFnOnce(&mut StoreNotifier) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let mut notifier = self.store_notifier();
+        let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
     }

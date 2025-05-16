@@ -17,7 +17,7 @@ use phnxtypes::{
     },
     identifiers::AsClientId,
 };
-use sqlx::{SqliteExecutor, SqlitePool};
+use sqlx::{SqliteConnection, SqliteExecutor};
 
 use crate::{clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials};
 
@@ -54,12 +54,12 @@ impl StorableClientCredential {
     }
 
     pub(crate) async fn verify(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
     ) -> Result<Self> {
         let client_credential = AsCredentials::verify_client_credential(
-            pool,
+            connection,
             api_clients,
             verifiable_client_credential,
         )
@@ -148,7 +148,7 @@ impl ClientAuthInfo {
     /// verification of the signature over the [`PseudonymousCredential`], as
     /// well as the signature over the [`ClientCredential`].
     pub(super) async fn decrypt_and_verify_all(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
@@ -160,7 +160,7 @@ impl ClientAuthInfo {
         for ((leaf_index, credential), encrypted_identity_link_key) in encrypted_client_information
         {
             let client_auth_info = Self::decrypt_and_verify(
-                pool,
+                connection,
                 api_clients,
                 group_id,
                 wrapper_key,
@@ -176,7 +176,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given credential.
     pub(super) async fn decrypt_credential_and_verify(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         identity_link_key: IdentityLinkKey,
@@ -188,7 +188,7 @@ impl ClientAuthInfo {
         let credential_plaintext =
             pseudonymous_credential.decrypt_and_verify(&identity_link_key)?;
         let client_credential = StorableClientCredential::verify(
-            pool,
+            connection,
             api_clients,
             credential_plaintext.client_credential,
         )
@@ -209,7 +209,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given identity link key and credential.
     pub(super) async fn decrypt_and_verify(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
@@ -220,7 +220,7 @@ impl ClientAuthInfo {
         let identity_link_key =
             IdentityLinkKey::decrypt(wrapper_key, &encrypted_identity_link_key)?;
         Self::decrypt_credential_and_verify(
-            pool,
+            connection,
             api_clients,
             group_id,
             identity_link_key,

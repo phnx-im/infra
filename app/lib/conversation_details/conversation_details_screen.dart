@@ -5,7 +5,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/widgets/widgets.dart';
 
 import 'connection_details.dart';
@@ -20,22 +19,7 @@ class ConversationDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversationId = context.select(
-      (NavigationCubit cubit) => cubit.state.conversationId,
-    );
-    if (conversationId == null) {
-      throw StateError("an active conversation is obligatory");
-    }
-
-    return BlocProvider(
-      key: ValueKey(conversationId),
-      create:
-          (context) => ConversationDetailsCubit(
-            userCubit: context.read(),
-            conversationId: conversationId,
-          ),
-      child: const ConversationDetailsScreenView(),
-    );
+    return const ConversationDetailsScreenView();
   }
 }
 

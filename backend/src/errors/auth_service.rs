@@ -9,23 +9,6 @@ use tracing::error;
 
 use super::StorageError;
 
-/// Error fetching a message from the QS.
-#[derive(Error, Debug)]
-pub(crate) enum AsDequeueError {
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-}
-
-impl From<AsDequeueError> for Status {
-    fn from(e: AsDequeueError) -> Self {
-        let msg = e.to_string();
-        match e {
-            AsDequeueError::StorageError => Status::internal(msg),
-        }
-    }
-}
-
 #[derive(Error, Debug)]
 pub(crate) enum RegisterUserError {
     /// Could not find signing key

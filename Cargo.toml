@@ -23,7 +23,7 @@ phnxprotos = { path = "./protos" }
 
 uuid = "1.16.0"
 
-sqlx = { version = "0.8.2", default-features = false, features = [
+sqlx = { version = "0.8.5", default-features = false, features = [
     "macros",
     "uuid",
     "chrono",
@@ -31,6 +31,8 @@ sqlx = { version = "0.8.2", default-features = false, features = [
     "bigdecimal",
     "runtime-tokio",
 ] }
+
+mimi-room-policy = { git = "https://github.com/phnx-im/mimi-room-policy", rev = "0629d057443007ff025faad942b5149bf2795b22" }
 
 tls_codec = { version = "0.4.1", features = ["derive", "serde", "mls"] }
 
@@ -58,6 +60,7 @@ tracing-subscriber = { version = "0.3", features = [
     "parking_lot",
 ] }
 
+tokio = { version = "1.18.2", features = ["macros"] }
 tokio-stream = "0.1.17"
 tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }

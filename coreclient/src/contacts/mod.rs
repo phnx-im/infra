@@ -15,7 +15,7 @@ use phnxtypes::{
     identifiers::AsClientId,
     messages::FriendshipToken,
 };
-use sqlx::SqlitePool;
+use sqlx::SqliteConnection;
 
 use crate::{
     ConversationId,
@@ -69,7 +69,7 @@ impl Contact {
 
     pub(crate) async fn fetch_add_infos(
         &self,
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<ContactAddInfos> {
         let invited_user_domain = self.client_id.domain();
@@ -89,12 +89,15 @@ impl Contact {
         let (plaintext, identity_link_key) =
             pseudonymous_credential.derive_decrypt_and_verify(&self.connection_key)?;
         // Verify the client credential
-        let incoming_client_credential =
-            StorableClientCredential::verify(pool, api_clients, plaintext.client_credential)
-                .await?;
+        let incoming_client_credential = StorableClientCredential::verify(
+            &mut *connection,
+            api_clients,
+            plaintext.client_credential,
+        )
+        .await?;
         // Check that the client credential is the same as the one we have on file.
         let Some(current_client_credential) = StorableClientCredential::load_by_client_id(
-            pool,
+            &mut *connection,
             incoming_client_credential.identity(),
         )
         .await?
@@ -104,7 +107,8 @@ impl Contact {
         if current_client_credential.fingerprint() != incoming_client_credential.fingerprint() {
             anyhow::bail!("Client credential does not match");
         }
-        let user_profile_key = UserProfileKey::load(pool, &self.user_profile_key_index).await?;
+        let user_profile_key =
+            UserProfileKey::load(&mut *connection, &self.user_profile_key_index).await?;
         let add_info = ContactAddInfos {
             key_package: verified_key_package,
             identity_link_key,

@@ -22,16 +22,18 @@ impl CoreUser {
         target_users: Vec<AsClientId>,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load the group and conversation and prepare the commit.
-        let removed = RemoveUsersData::load(self.pool(), conversation_id, target_users)
-            .await?
-            // Phase 2: Send the commit to the DS
-            .ds_group_operation(&self.inner.api_clients)
+        let remove = self
+            .with_transaction(async |txn| {
+                RemoveUsersData::stage_remove(txn, conversation_id, target_users).await
+            })
             .await?;
+
+        // Phase 2: Send the commit to the DS
+        let removed = remove.ds_group_operation(&self.inner.api_clients).await?;
+
         // Phase 3: Merge the commit into the group
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            removed
-                .merge_pending_commit(connection, notifier, conversation_id)
-                .await
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            removed.accept(txn, notifier, conversation_id).await
         })
         .await
     }
@@ -42,7 +44,7 @@ mod remove_users_flow {
     use phnxtypes::{
         identifiers::AsClientId, messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
     };
-    use sqlx::SqlitePool;
+    use sqlx::SqliteTransaction;
 
     use crate::{
         Conversation, ConversationId, ConversationMessage,
@@ -58,21 +60,21 @@ mod remove_users_flow {
     }
 
     impl RemoveUsersData {
-        pub(super) async fn load(
-            pool: &SqlitePool,
+        pub(super) async fn stage_remove(
+            txn: &mut SqliteTransaction<'_>,
             conversation_id: ConversationId,
             target_users: Vec<AsClientId>,
         ) -> anyhow::Result<Self> {
-            let mut connection = pool.acquire().await?;
-            let conversation = Conversation::load(&mut connection, &conversation_id)
+            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
-            let mut group = Group::load(&mut connection, group_id)
+            let mut group = Group::load_clean(txn, group_id)
                 .await?
-                .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+                .with_context(|| format!("No group found for group ID {group_id:?}"))?;
 
-            let params = group.remove(&mut connection, target_users).await?;
+            let params = group.stage_remove(txn.as_mut(), target_users).await?;
+
             Ok(Self {
                 conversation,
                 group,
@@ -107,9 +109,9 @@ mod remove_users_flow {
     }
 
     impl RemovedUsers {
-        pub(super) async fn merge_pending_commit(
+        pub(super) async fn accept(
             self,
-            connection: &mut sqlx::SqliteConnection,
+            txn: &mut sqlx::SqliteTransaction<'_>,
             notifier: &mut StoreNotifier,
             conversation_id: ConversationId,
         ) -> anyhow::Result<Vec<ConversationMessage>> {
@@ -117,12 +119,12 @@ mod remove_users_flow {
                 mut group,
                 ds_timestamp,
             } = self;
+
             let group_messages = group
-                .merge_pending_commit(&mut *connection, None, ds_timestamp)
+                .merge_pending_commit(txn.as_mut(), None, ds_timestamp)
                 .await?;
-            group.store_update(&mut *connection).await?;
-            CoreUser::store_messages(&mut *connection, notifier, conversation_id, group_messages)
-                .await
+            group.store_update(txn.as_mut()).await?;
+            CoreUser::store_messages(txn.as_mut(), notifier, conversation_id, group_messages).await
         }
     }
 }

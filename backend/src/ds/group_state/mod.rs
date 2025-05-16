@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     MlsAssistRustCrypto,
     group::Group,
@@ -55,18 +56,38 @@ pub(super) struct MemberProfile {
 /// TODO: Past group states are now included in mls-assist. However, we might
 /// have to store client credentials externally.
 pub(crate) struct DsGroupState {
+    pub(super) room_state: VerifiedRoomState,
     pub(super) group: Group,
     pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
 }
 
 impl DsGroupState {
+    // TODO: This is copied from CoreClient. Can we move this to openmls?
+    //
+    // Computes free indices based on existing leaf indices and staged removals.
+    // Not that staged additions are not considered.
+    pub(super) async fn free_indices(&mut self) -> impl Iterator<Item = LeafNodeIndex> + 'static {
+        let leaf_indices = self.member_profiles.keys().cloned().collect::<Vec<_>>();
+
+        let highest_index = leaf_indices
+            .last()
+            .cloned()
+            .unwrap_or(LeafNodeIndex::new(0));
+
+        (0..highest_index.u32())
+            .filter(move |index| !leaf_indices.contains(&LeafNodeIndex::new(*index)))
+            .chain(highest_index.u32() + 1..)
+            .map(LeafNodeIndex::new)
+    }
+
     pub(crate) fn new(
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
         creator_encrypted_identity_link_key: EncryptedIdentityLinkKey,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
+        room_state: VerifiedRoomState,
     ) -> Self {
         let creator_client_profile = MemberProfile {
             encrypted_identity_link_key: creator_encrypted_identity_link_key,
@@ -76,10 +97,12 @@ impl DsGroupState {
             leaf_index: LeafNodeIndex::new(0u32),
             encrypted_user_profile_key: creator_encrypted_user_profile_key,
         };
+
         let client_profiles = [(LeafNodeIndex::new(0u32), creator_client_profile)].into();
         Self {
             provider,
             group,
+            room_state,
             member_profiles: client_profiles,
         }
     }
@@ -110,6 +133,7 @@ impl DsGroupState {
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
+            room_state: serde_json::to_vec(&self.room_state).unwrap(),
             encrypted_identity_link_keys,
             encrypted_user_profile_keys,
         }
@@ -242,6 +266,7 @@ impl StorableDsGroupData {
 pub(crate) struct SerializableDsGroupState {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
+    room_state: VerifiedRoomState,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
@@ -261,6 +286,7 @@ impl SerializableDsGroupState {
             group_id,
             serialized_provider,
             member_profiles: client_profiles,
+            room_state: group_state.room_state,
         })
     }
 
@@ -274,6 +300,7 @@ impl SerializableDsGroupState {
             provider,
             group,
             member_profiles: client_profiles,
+            room_state: self.room_state,
         })
     }
 }

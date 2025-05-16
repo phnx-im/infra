@@ -4,6 +4,8 @@
 
 //! A single conversation details feature
 
+use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
+
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
@@ -35,6 +37,28 @@ use super::{
 pub struct ConversationDetailsState {
     pub conversation: Option<UiConversationDetails>,
     pub members: Vec<UiClientId>,
+    pub room_state: Option<UiRoomState>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct UiRoomState {
+    our_user: u32,
+    state: VerifiedRoomState,
+}
+
+impl UiRoomState {
+    #[frb(sync)]
+    pub fn can_kick(&self, target: u32) -> bool {
+        self.state
+            .can_apply_regular_proposals(
+                &self.our_user,
+                &[MimiProposal::ChangeRole {
+                    target,
+                    role: RoleIndex::Outsider,
+                }],
+            )
+            .is_ok()
+    }
 }
 
 /// The cubit responsible for a single conversation
@@ -104,26 +128,6 @@ impl ConversationDetailsCubitBase {
         )
         .await
     }
-
-    // /// Load user profile of the conversation (only for non-group conversations)
-    // pub async fn load_conversation_user_profile(&self) -> anyhow::Result<Option<UiUserProfile>> {
-    //     let conversation_type = self
-    //         .core
-    //         .borrow_state()
-    //         .conversation
-    //         .as_ref()
-    //         .map(|c| c.conversation_type.clone());
-    //     match conversation_type {
-    //         Some(
-    //             UiConversationType::UnconfirmedConnection(client_id)
-    //             | UiConversationType::Connection(client_id),
-    //         ) => {
-    //             let profile = self.context.store.user_profile(&client_id).await?;
-    //             Ok(profile.map(|profile| UiUserProfile::from_profile(&profile)))
-    //         }
-    //         Some(UiConversationType::Group) | None => Ok(None),
-    //     }
-    // }
 
     /// Sends a message to the conversation.
     ///
@@ -215,7 +219,7 @@ impl ConversationDetailsCubitBase {
     }
 }
 
-/// Loads the intial state and listen to the changes
+/// Loads the initial state and listen to the changes
 #[frb(ignore)]
 #[derive(Clone)]
 struct ConversationDetailsContext {
@@ -262,6 +266,18 @@ impl ConversationDetailsContext {
         } else {
             Vec::new()
         };
+        let room_state = if let Some(details) = &details {
+            if let Ok((our_id, state)) = self.store.load_room_state(&details.id).await {
+                Some(UiRoomState {
+                    our_user: our_id,
+                    state,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         if let Some(last_read) = last_read {
             let _ = self.mark_as_read_tx.send_replace(MarkAsReadState::Marked {
@@ -273,6 +289,7 @@ impl ConversationDetailsContext {
         let new_state = ConversationDetailsState {
             conversation: details,
             members,
+            room_state,
         };
         let _ = self.state_tx.send(new_state);
     }

@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS "groups" (
     leaf_signer BLOB NOT NULL,
     identity_link_wrapper_key BLOB NOT NULL,
     group_state_ear_key BLOB NOT NULL,
-    pending_diff BLOB
+    pending_diff BLOB,
+    room_state BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS client_credentials (

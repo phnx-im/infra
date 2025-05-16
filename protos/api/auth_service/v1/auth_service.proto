@@ -23,8 +23,8 @@ service AuthService {
 
   rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
 
+  rpc Listen(stream ListenRequest) returns (stream ListenResponse);
   rpc EnqueueMessages(EnqueueMessagesRequest) returns (EnqueueMessagesResponse);
-  rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
 }
 
 // common
@@ -320,22 +320,34 @@ message EncryptedConnectionEstablishmentPackage {
 
 message EnqueueMessagesResponse {}
 
-// dequeue messages
+// listen
 
-message DequeueMessagesRequest {
-  DequeueMessagesPayload payload = 1;
+message ListenRequest {
+  oneof request {
+    InitListenRequest init = 1;
+    AckListenRequest ack = 2;
+  }
+}
+
+message InitListenRequest {
+  InitListenPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message DequeueMessagesPayload {
-  AsClientId sender = 1;
+message InitListenPayload {
+  AsClientId client_id = 1;
   uint64 sequence_number_start = 2;
-  uint64 max_message_number = 3;
 }
 
-message DequeueMessagesResponse {
-  repeated QueueMessage messages = 1;
-  uint64 remaining_messages_number = 2;
+message AckListenRequest {
+  uint64 up_to_sequence_number = 1;
+}
+
+message ListenResponse {
+  // Optional message
+  //
+  // When not present, there are currently no messages in the queue.
+  QueueMessage message = 1;
 }
 
 message QueueMessage {

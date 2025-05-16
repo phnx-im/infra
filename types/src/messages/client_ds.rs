@@ -224,6 +224,7 @@ pub struct CreateGroupParams {
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_qs_reference: QsReference,
     pub group_info: MlsMessageIn,
+    pub room_state: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -326,6 +327,7 @@ pub struct DsJoinerInformation {
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub ratchet_tree: RatchetTree,
+    pub room_state: Vec<u8>,
 }
 
 impl GenericSerializable for DsJoinerInformation {
@@ -361,6 +363,7 @@ pub struct DsJoinerInformationIn {
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub ratchet_tree: RatchetTreeIn,
+    pub room_state: Vec<u8>,
 }
 
 impl HpkeDecryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformationIn {}

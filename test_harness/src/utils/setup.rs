@@ -307,7 +307,6 @@ impl TestBackend {
         info!("Connecting users {user1_id:?} and {user2_id:?}");
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
-        let user1_diplay_name = user1.own_user_profile().await.unwrap().display_name;
         let user1_partial_contacts_before = user1.partial_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
         user1.add_contact(user2_id.clone()).await.unwrap();
@@ -384,7 +383,7 @@ impl TestBackend {
         );
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| c.attributes().title() == user1_diplay_name.to_string())
+            .position(|c| c.attributes().title() == format!("{user1_id:?}"))
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
