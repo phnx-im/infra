@@ -10,30 +10,27 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/developer/developer.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
-import 'package:uuid/uuid.dart';
 
+import '../helpers.dart';
 import '../mocks.dart';
 
 final clientRecords = [
   UiClientRecord(
-    clientId: UuidValue.fromString("7c19e63f-b636-4808-a034-0b7cdb462bce"),
-    userName: const UiUserName(userName: "alice", domain: "localhost"),
+    clientId: 1.clientId(),
     createdAt: DateTime.parse("2023-01-01T00:00:00.000Z"),
-    userProfile: null,
+    userProfile: UiUserProfile(clientId: 1.clientId(), displayName: "alice"),
     isFinished: true,
   ),
   UiClientRecord(
-    clientId: UuidValue.fromString("b984c959-c83f-4c99-8999-e6d9d485b172"),
-    userName: const UiUserName(userName: "alice", domain: "example.com"),
+    clientId: 2.clientId(),
     createdAt: DateTime.parse("2024-01-01T00:00:00.000Z"),
-    userProfile: null,
+    userProfile: UiUserProfile(clientId: 2.clientId(), displayName: "alice"),
     isFinished: true,
   ),
   UiClientRecord(
-    clientId: UuidValue.fromString("c5091f2f-9409-41b1-9965-5955d12f39b2"),
-    userName: const UiUserName(userName: "bob", domain: "localhost"),
+    clientId: 3.clientId(),
     createdAt: DateTime.parse("2025-01-01T00:00:00.000Z"),
-    userProfile: null,
+    userProfile: UiUserProfile(clientId: 3.clientId(), displayName: "bob"),
     isFinished: false,
   ),
 ];
@@ -47,9 +44,7 @@ void main() {
       user = MockUser();
       loadableUserCubit = MockLoadableUserCubit();
 
-      when(() => user.userName).thenReturn("alice@localhost");
-      // when(() => user.clientId).thenReturn(
-      //     UuidValue.fromString("7c19e63f-b636-4808-a034-0b7cdb462bce"));
+      when(() => user.clientId).thenReturn(1.clientId());
       when(() => loadableUserCubit.state).thenReturn(LoadableUser.loaded(user));
     });
 

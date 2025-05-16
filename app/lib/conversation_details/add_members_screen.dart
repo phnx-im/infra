@@ -72,10 +72,7 @@ class AddMembersScreenView extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Checkbox(
-                          value: selectedContacts.contains(
-                            // TODO: display name
-                            contact.clientId.toString(),
-                          ),
+                          value: selectedContacts.contains(contact.clientId),
                           checkColor: colorDMB,
                           fillColor: WidgetStateProperty.all(colorGreyLight),
                           focusColor: Colors.transparent,

@@ -10,6 +10,8 @@ import 'package:test/test.dart';
 import '../conversation_list/conversation_list_content_test.dart';
 import '../helpers.dart';
 
+final bobId = 2.clientId();
+
 void main() {
   group('MessageCubit', () {
     test('UiConversationMessage equality', () {
@@ -19,7 +21,7 @@ void main() {
         timestamp: '2023-01-01T00:00:00.000Z',
         message: UiMessage_Content(
           UiContentMessage(
-            sender: 'bob@localhost',
+            sender: bobId,
             sent: true,
             content: UiMimiContent(
               plainBody: 'Hello Alice',
@@ -36,7 +38,7 @@ void main() {
         timestamp: '2023-01-01T00:00:00.000Z',
         message: UiMessage_Content(
           UiContentMessage(
-            sender: 'bob@localhost',
+            sender: bobId,
             sent: true,
             content: UiMimiContent(
               plainBody: 'Hello Alice',
