@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use phnxtypes::codec::{BlobDecoded, BlobEncoded};
 use privacypass::{
     TruncatedTokenKeyId,
-    batched_tokens_ristretto255::server::BatchedKeyStore,
+    common::store::PrivateKeyStore,
     private_tokens::{Ristretto255, VoprfServer},
 };
 use sqlx::PgConnection;
@@ -28,7 +28,8 @@ impl<'a> AuthServiceBatchedKeyStoreProvider<'a> {
 }
 
 #[async_trait]
-impl BatchedKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
+impl PrivateKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
+    type CS = Ristretto255;
     /// Inserts a keypair with a given `truncated_token_key_id` into the key store.
     ///
     /// On conflict, an error is logged and the value is not inserted.
