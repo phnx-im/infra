@@ -4,7 +4,10 @@
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
 
-use privacypass::batched_tokens_ristretto255::{TokenRequest, TokenResponse};
+use privacypass::{
+    amortized_tokens::{AmortizedBatchTokenRequest, AmortizedBatchTokenResponse},
+    private_tokens::Ristretto255,
+};
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
@@ -270,10 +273,10 @@ pub struct AsCredentialsResponse {
 pub struct IssueTokensParamsTbs {
     pub client_id: AsClientId,
     pub token_type: AsTokenType,
-    pub token_request: TokenRequest,
+    pub token_request: AmortizedBatchTokenRequest<Ristretto255>,
 }
 
 #[derive(Debug)]
 pub struct IssueTokensResponse {
-    pub tokens: TokenResponse,
+    pub tokens: AmortizedBatchTokenResponse<Ristretto255>,
 }

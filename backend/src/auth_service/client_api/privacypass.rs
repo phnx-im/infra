@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse};
-use privacypass::batched_tokens_ristretto255::server::Server;
+use privacypass::amortized_tokens::server::Server;
 
 use crate::{
     auth_service::{
