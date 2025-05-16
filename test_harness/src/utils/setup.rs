@@ -383,7 +383,9 @@ impl TestBackend {
         );
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| c.attributes().title() == format!("{user1_id:?}"))
+            .position(|c| {
+                c.attributes().title() == DisplayName::from_client_id(user1_id).to_string()
+            })
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
