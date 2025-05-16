@@ -40,9 +40,6 @@ class ConversationDetailsCubit
   Future<void> setConversationPicture({required Uint8List? bytes}) =>
       _impl.setConversationPicture(bytes: bytes);
 
-  // Future<UiUserProfile?> loadConversationUserProfile() =>
-  //     _impl.loadConversationUserProfile();
-
   void sendMessage(String messageText) =>
       _impl.sendMessage(messageText: messageText);
 
