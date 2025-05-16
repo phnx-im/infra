@@ -38,7 +38,7 @@ use phnxtypes::{
         kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
-    identifiers::{AsClientId, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedUserName},
+    identifiers::{AsClientId, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
     messages::{
         client_ds::{
             DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
@@ -415,7 +415,7 @@ impl Group {
                 UserProfileKey::decrypt(
                     welcome_attribution_info.identity_link_wrapper_key(),
                     &eupk,
-                    ci.identity().user_name(),
+                    ci.identity(),
                 )
                 .map(|user_profile_key| ProfileInfo {
                     user_profile_key,
@@ -512,15 +512,12 @@ impl Group {
                     .map(|client_auth_info| client_auth_info.client_credential()),
             )
             .map(|(eupk, ci)| {
-                UserProfileKey::decrypt(
-                    &identity_link_wrapper_key,
-                    &eupk,
-                    ci.identity().user_name(),
+                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.identity()).map(
+                    |user_profile_key| ProfileInfo {
+                        user_profile_key,
+                        client_credential: ci.clone().into(),
+                    },
                 )
-                .map(|user_profile_key| ProfileInfo {
-                    user_profile_key,
-                    client_credential: ci.clone().into(),
-                })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -596,7 +593,7 @@ impl Group {
             .map(|(upk, client_credential)| {
                 upk.encrypt(
                     &self.identity_link_wrapper_key,
-                    client_credential.identity().user_name(),
+                    client_credential.identity(),
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -932,21 +929,6 @@ impl Group {
         &self.group_state_ear_key
     }
 
-    /// Returns the [`AsClientId`] of the clients owned by the given user.
-    pub(crate) async fn user_client_ids(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-        user_name: &QualifiedUserName,
-    ) -> Vec<AsClientId> {
-        match GroupMembership::user_client_ids(executor, self.group_id(), user_name).await {
-            Ok(user_client_ids) => user_client_ids,
-            Err(error) => {
-                error!(%error, "Could not retrieve user client IDs");
-                Vec::new()
-            }
-        }
-    }
-
     pub async fn client_by_index(
         &self,
         connection: &mut sqlx::SqliteConnection,
@@ -963,21 +945,16 @@ impl Group {
         &self.identity_link_wrapper_key
     }
 
-    /// Returns a set containing the [`UserName`] of the members of the group.
-    pub(crate) async fn members(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-    ) -> HashSet<QualifiedUserName> {
-        let Ok(group_members) = GroupMembership::group_members(executor, self.group_id()).await
-        else {
-            error!("Could not retrieve group members");
-            return HashSet::new();
-        };
-        group_members
-            .into_iter()
-            .map(|client_id| client_id.user_name().clone())
-            // Collecting to a HashSet first to deduplicate.
-            .collect()
+    /// Returns a set containing the [`AsClientId`] of the members of the group.
+    pub(crate) async fn members(&self, executor: impl SqliteExecutor<'_>) -> HashSet<AsClientId> {
+        match GroupMembership::group_members(executor, self.group_id()).await {
+            // deduplicate by collecting into as set
+            Ok(group_members) => group_members.into_iter().collect(),
+            Err(error) => {
+                error!(%error, "Could not retrieve group members");
+                HashSet::new()
+            }
+        }
     }
 
     pub(super) async fn update(
@@ -1053,12 +1030,12 @@ impl Group {
     pub(crate) async fn pending_removes(
         &self,
         connection: &mut sqlx::SqliteConnection,
-    ) -> Vec<QualifiedUserName> {
+    ) -> Vec<AsClientId> {
         let mut pending_removes = Vec::new();
         for proposal in self.mls_group().pending_proposals() {
             if let Proposal::Remove(rp) = proposal.proposal() {
                 if let Some(client) = self.client_by_index(connection, rp.removed()).await {
-                    pending_removes.push(client.user_name().clone());
+                    pending_removes.push(client);
                 }
             }
         }
@@ -1107,7 +1084,6 @@ impl TimestampedMessage {
             }
             .client_credential()
             .identity()
-            .user_name()
             .clone();
             let removed_index = remove_proposal.remove_proposal().removed();
             let removed = ClientAuthInfo::load_staged(connection, group_id, removed_index)
@@ -1115,7 +1091,6 @@ impl TimestampedMessage {
                 .ok_or_else(|| anyhow!("Could not find client credential of removed"))?
                 .client_credential()
                 .identity()
-                .user_name()
                 .clone();
             removed_set.insert((remover, removed));
         }
@@ -1139,7 +1114,6 @@ impl TimestampedMessage {
                 .ok_or_else(|| anyhow!("Could not find client credential of sender"))?
                 .client_credential()
                 .identity()
-                .user_name()
                 .clone();
             // Get the name of the added member from the diff containing
             // the new clients.
@@ -1153,7 +1127,6 @@ impl TimestampedMessage {
                 })?
                 .client_credential()
                 .identity()
-                .user_name()
                 .clone();
             adds_set.insert((sender_name, addee_name));
         }
@@ -1172,9 +1145,9 @@ impl TimestampedMessage {
             let client_auth_info = ClientAuthInfo::load(&mut *connection, group_id, *sender_index)
                 .await?
                 .ok_or_else(|| anyhow!("Could not find client credential of sender"))?;
-            let user_name = client_auth_info.client_credential().identity().user_name();
+            let client_id = client_auth_info.client_credential().identity();
             debug!(
-                %user_name,
+                ?client_id,
                 %sender_index, "Client has updated their key material",
             );
         }

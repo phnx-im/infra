@@ -23,7 +23,7 @@ use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
     conversation_list_cubit::converation_into_ui_details,
-    types::{UiConversationDetails, UiConversationType, UiUserProfile},
+    types::{UiClientId, UiConversationDetails},
     user_cubit::UserCubitBase,
 };
 
@@ -36,7 +36,7 @@ use super::{
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationDetailsState {
     pub conversation: Option<UiConversationDetails>,
-    pub members: Vec<String>,
+    pub members: Vec<UiClientId>,
     pub room_state: Option<UiRoomState>,
 }
 
@@ -127,27 +127,6 @@ impl ConversationDetailsCubitBase {
             bytes.clone(),
         )
         .await
-    }
-
-    /// Load user profile of the conversation (only for non-group conversations)
-    pub async fn load_conversation_user_profile(&self) -> anyhow::Result<Option<UiUserProfile>> {
-        let conversation_type = self
-            .core
-            .borrow_state()
-            .conversation
-            .as_ref()
-            .map(|c| c.conversation_type.clone());
-        match conversation_type {
-            Some(
-                UiConversationType::UnconfirmedConnection(user_name)
-                | UiConversationType::Connection(user_name),
-            ) => {
-                let qualified_username = user_name.parse()?;
-                let profile = self.context.store.user_profile(&qualified_username).await?;
-                Ok(profile.map(|profile| UiUserProfile::from_profile(&profile)))
-            }
-            Some(UiConversationType::Group) | None => Ok(None),
-        }
     }
 
     /// Sends a message to the conversation.
@@ -324,14 +303,14 @@ impl ConversationDetailsContext {
         ))
     }
 
-    async fn members_of_conversation(&self) -> anyhow::Result<Vec<String>> {
+    async fn members_of_conversation(&self) -> anyhow::Result<Vec<UiClientId>> {
         Ok(self
             .store
             .conversation_participants(self.conversation_id)
             .await
             .unwrap_or_default()
             .into_iter()
-            .map(|c| c.to_string())
+            .map(From::from)
             .collect())
     }
 

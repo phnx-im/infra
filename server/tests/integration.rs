@@ -19,7 +19,7 @@ use phnxcoreclient::{
 };
 use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::AsClientId;
 use png::Encoder;
 use tonic::transport::Channel;
 use tonic_health::pb::{
@@ -27,12 +27,16 @@ use tonic_health::pb::{
 };
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 
-static ALICE: LazyLock<QualifiedUserName> = LazyLock::new(|| "alice@example.com".parse().unwrap());
-static BOB: LazyLock<QualifiedUserName> = LazyLock::new(|| "bob@example.com".parse().unwrap());
-static CHARLIE: LazyLock<QualifiedUserName> =
-    LazyLock::new(|| "charlie@example.com".parse().unwrap());
-static DAVE: LazyLock<QualifiedUserName> = LazyLock::new(|| "dave@example.com".parse().unwrap());
+static ALICE: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(1), "example.com".parse().unwrap()));
+static BOB: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(2), "example.com".parse().unwrap()));
+static CHARLIE: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(3), "example.com".parse().unwrap()));
+static DAVE: LazyLock<AsClientId> =
+    LazyLock::new(|| AsClientId::new(Uuid::from_u128(4), "example.com".parse().unwrap()));
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Connect users test", skip_all)]
@@ -184,18 +188,18 @@ async fn remove_from_group() {
     // Check that Charlie has a user profile stored for BOB, even though
     // he hasn't connected with them.
     let charlie = setup.get_user(&CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap().unwrap();
-    assert!(charlie_user_profile_bob.user_name == *BOB);
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
+    assert!(charlie_user_profile_bob.client_id == *BOB);
 
     setup
         .remove_from_group(conversation_id, &ALICE, vec![&BOB])
         .await;
 
     // Now that charlie is not in a group with Bob anymore, the user profile
-    // should be removed.
+    // should be the default one derived from the client id.
     let charlie = setup.get_user(&CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap();
-    assert!(charlie_user_profile_bob.is_none());
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
+    assert_eq!(charlie_user_profile_bob, UserProfile::from_client_id(&BOB));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -353,7 +357,7 @@ async fn exchange_user_profiles() {
     let alice_profile_picture = Asset::Value(png_bytes.clone());
 
     let alice_profile = UserProfile {
-        user_name: (*ALICE).clone(),
+        client_id: (*ALICE).clone(),
         display_name: alice_display_name.clone(),
         profile_picture: Some(alice_profile_picture.clone()),
     };
@@ -372,7 +376,7 @@ async fn exchange_user_profiles() {
     let bob_display_name: DisplayName = "B0b".parse().unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile {
-        user_name: (*BOB).clone(),
+        client_id: (*BOB).clone(),
         display_name: bob_display_name.clone(),
         profile_picture: Some(bob_profile_picture.clone()),
     };
@@ -390,9 +394,7 @@ async fn exchange_user_profiles() {
         .unwrap()
         .user
         .user_profile(&BOB)
-        .await
-        .unwrap()
-        .unwrap();
+        .await;
 
     let profile_picture = bob_user_profile
         .profile_picture
@@ -408,12 +410,12 @@ async fn exchange_user_profiles() {
 
     let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
 
-    let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
+    let alice_user_profile = alice.user_profile(&ALICE).await;
 
     assert_eq!(alice_user_profile.display_name, alice_display_name);
 
     let new_user_profile = UserProfile {
-        user_name: (*ALICE).clone(),
+        client_id: (*ALICE).clone(),
         display_name: "New Alice".parse().unwrap(),
         profile_picture: None,
     };
@@ -426,7 +428,7 @@ async fn exchange_user_profiles() {
     let bob = &mut setup.users.get_mut(&BOB).unwrap().user;
     let qs_messages = bob.qs_fetch_messages().await.unwrap();
     bob.fully_process_qs_messages(qs_messages).await.unwrap();
-    let alice_user_profile = bob.user_profile(&ALICE).await.unwrap().unwrap();
+    let alice_user_profile = bob.user_profile(&ALICE).await;
 
     assert_eq!(alice_user_profile, new_user_profile);
 }
@@ -572,7 +574,7 @@ async fn client_persistence() {
     // Create and persist the user.
     let mut setup = TestBackend::single().await;
     setup.add_persisted_user(&ALICE).await;
-    let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
+    let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id().clone();
 
     let db_path = setup.temp_dir().to_owned();
 
@@ -581,7 +583,11 @@ async fn client_persistence() {
         .await
         .unwrap();
 
-    let client_db_path = db_path.join(format!("{}.db", client_id));
+    let client_db_path = db_path.join(format!(
+        "{}@{}.db",
+        client_id.client_id(),
+        client_id.domain()
+    ));
     assert!(client_db_path.exists());
 
     setup.delete_user(&ALICE).await;
@@ -618,9 +624,9 @@ async fn delete_user() {
     let mut setup = TestBackend::single().await;
 
     setup.add_user(&ALICE).await;
-    // Adding another user with the same name should fail.
+    // Adding another user with the same id should fail.
     match TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port()).await {
-        Ok(_) => panic!("Should not be able to create a user with the same name"),
+        Ok(_) => panic!("Should not be able to create a user with the same id"),
         Err(e) => match e.downcast_ref::<AsRequestError>().unwrap() {
             AsRequestError::Tonic(status) => {
                 assert_eq!(status.code(), tonic::Code::AlreadyExists);
@@ -653,7 +659,7 @@ async fn update_user_profile_on_group_join() {
     // Alice updates her profile.
     let alice_display_name: DisplayName = "4l1c3".parse().unwrap();
     let alice_profile = UserProfile {
-        user_name: (*ALICE).clone(),
+        client_id: (*ALICE).clone(),
         display_name: alice_display_name.clone(),
         profile_picture: None,
     };
@@ -732,7 +738,7 @@ async fn update_user_profile_on_group_join() {
         .await
         .unwrap();
     // Charlie should now have Alice's new profile.
-    let charlie_user_profile = charlie.user.user_profile(&ALICE).await.unwrap().unwrap();
+    let charlie_user_profile = charlie.user.user_profile(&ALICE).await;
     assert_eq!(charlie_user_profile.display_name, alice_display_name);
 }
 

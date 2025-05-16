@@ -45,7 +45,7 @@ class NavigationCubit implements StateStreamableSource<NavigationState> {
 
   Future<void> openAddMembers() => _impl.openAddMembers();
 
-  Future<void> openMemberDetails(String member) =>
+  Future<void> openMemberDetails(UiClientId member) =>
       _impl.openMemberDetails(member: member);
 
   Future<void> openDeveloperSettings({

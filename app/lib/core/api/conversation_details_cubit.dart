@@ -26,9 +26,6 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
 
   bool get isClosed;
 
-  /// Load user profile of the conversation (only for non-group conversations)
-  Future<UiUserProfile?> loadConversationUserProfile();
-
   /// Marks the conversation as read until the given message id (including).
   ///
   /// The calls to this method are debounced with a fixed delay.
@@ -81,7 +78,7 @@ class ConversationDetailsState with _$ConversationDetailsState {
   const ConversationDetailsState._();
   const factory ConversationDetailsState({
     UiConversationDetails? conversation,
-    required List<String> members,
+    required List<UiClientId> members,
     UiRoomState? roomState,
   }) = _ConversationDetailsState;
   static Future<ConversationDetailsState> default_() =>

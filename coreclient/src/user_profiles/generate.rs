@@ -6,13 +6,14 @@ use phnxtypes::{
     LibraryError,
     credentials::keys::PreliminaryClientSigningKey,
     crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Signable as _},
-    identifiers::QualifiedUserName,
 };
 use sqlx::SqliteExecutor;
 
 use crate::store::StoreNotifier;
 
-use super::{Asset, DisplayName, EncryptableUserProfile, IndexedUserProfile, SignedUserProfile};
+use super::{
+    AsClientId, Asset, DisplayName, EncryptableUserProfile, IndexedUserProfile, SignedUserProfile,
+};
 
 pub(crate) struct NewUserProfile(SignedUserProfile);
 
@@ -21,13 +22,13 @@ impl NewUserProfile {
     /// the database.
     pub(crate) fn new(
         signing_key: &PreliminaryClientSigningKey,
-        user_name: QualifiedUserName,
+        client_id: AsClientId,
         decryption_key_index: UserProfileKeyIndex,
         display_name: DisplayName,
         profile_picture: Option<Asset>,
     ) -> Result<Self, LibraryError> {
         let profile = IndexedUserProfile {
-            user_name,
+            client_id,
             epoch: 0,
             decryption_key_index,
             display_name,

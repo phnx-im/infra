@@ -15,7 +15,7 @@ use phnxtypes::{
         RatchetEncryptionKey, indexed_aead::keys::UserProfileKeyIndex, kdf::keys::RatchetSecret,
         signatures::signable::Signable,
     },
-    identifiers::{AsClientId, QualifiedUserName},
+    identifiers::AsClientId,
     messages::{
         QueueMessage,
         client_as::{
@@ -155,12 +155,10 @@ impl ApiClient {
 
     pub async fn as_delete_user(
         &self,
-        user_name: QualifiedUserName,
         client_id: AsClientId,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = DeleteUserPayload {
-            user_name: Some(user_name.into()),
             client_id: Some(client_id.into()),
         };
         let request = payload.sign(signing_key)?;
@@ -250,7 +248,7 @@ impl ApiClient {
         payload: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {
         let request = GetUserConnectionPackagesRequest {
-            user_name: Some(payload.user_name.into()),
+            client_id: Some(payload.client_id.into()),
         };
         let response = self
             .as_grpc_client

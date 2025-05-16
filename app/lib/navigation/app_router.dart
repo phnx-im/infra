@@ -148,7 +148,6 @@ extension on IntroScreenType {
   ValueKey<String> get key => switch (this) {
     IntroScreenType.intro => const ValueKey("intro-screen"),
     IntroScreenType.serverChoice => const ValueKey("server-choice-screen"),
-    IntroScreenType.username => const ValueKey("username-screen"),
     IntroScreenType.displayNamePicture => const ValueKey(
       "display-name-picture-screen",
     ),
@@ -160,7 +159,6 @@ extension on IntroScreenType {
   Widget get screen => switch (this) {
     IntroScreenType.intro => const IntroScreen(),
     IntroScreenType.serverChoice => const ServerChoice(),
-    IntroScreenType.username => const UsernameChoice(),
     IntroScreenType.displayNamePicture => const DisplayNameAvatarChoice(),
     IntroScreenType.developerSettings => const DeveloperSettingsScreen(),
   };

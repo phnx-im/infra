@@ -446,6 +446,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformPushToken dco_decode_box_autoadd_platform_push_token(dynamic raw);
 
   @protected
+  UiClientId dco_decode_box_autoadd_ui_client_id(dynamic raw);
+
+  @protected
   UiConversationDetails dco_decode_box_autoadd_ui_conversation_details(
     dynamic raw,
   );
@@ -468,9 +471,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiSystemMessage dco_decode_box_autoadd_ui_system_message(dynamic raw);
-
-  @protected
-  UiUserName dco_decode_box_autoadd_ui_user_name(dynamic raw);
 
   @protected
   UiUserProfile dco_decode_box_autoadd_ui_user_profile(dynamic raw);
@@ -517,9 +517,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_isize(dynamic raw);
 
   @protected
-  List<String> dco_decode_list_String(dynamic raw);
-
-  @protected
   List<IntroScreenType> dco_decode_list_intro_screen_type(dynamic raw);
 
   @protected
@@ -551,6 +548,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<RangedInlineElement> dco_decode_list_ranged_inline_element(dynamic raw);
+
+  @protected
+  List<UiClientId> dco_decode_list_ui_client_id(dynamic raw);
 
   @protected
   List<UiClientRecord> dco_decode_list_ui_client_record(dynamic raw);
@@ -621,6 +621,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiClientId? dco_decode_opt_box_autoadd_ui_client_id(dynamic raw);
+
+  @protected
   UiConversationDetails? dco_decode_opt_box_autoadd_ui_conversation_details(
     dynamic raw,
   );
@@ -629,9 +632,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiConversationMessage? dco_decode_opt_box_autoadd_ui_conversation_message(
     dynamic raw,
   );
-
-  @protected
-  UiUserProfile? dco_decode_opt_box_autoadd_ui_user_profile(dynamic raw);
 
   @protected
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
@@ -656,6 +656,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int dco_decode_u_8(dynamic raw);
+
+  @protected
+  UiClientId dco_decode_ui_client_id(dynamic raw);
 
   @protected
   UiClientRecord dco_decode_ui_client_record(dynamic raw);
@@ -701,9 +704,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiSystemMessage dco_decode_ui_system_message(dynamic raw);
-
-  @protected
-  UiUserName dco_decode_ui_user_name(dynamic raw);
 
   @protected
   UiUserProfile dco_decode_ui_user_profile(dynamic raw);
@@ -1079,6 +1079,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiClientId sse_decode_box_autoadd_ui_client_id(SseDeserializer deserializer);
+
+  @protected
   UiConversationDetails sse_decode_box_autoadd_ui_conversation_details(
     SseDeserializer deserializer,
   );
@@ -1107,9 +1110,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiSystemMessage sse_decode_box_autoadd_ui_system_message(
     SseDeserializer deserializer,
   );
-
-  @protected
-  UiUserName sse_decode_box_autoadd_ui_user_name(SseDeserializer deserializer);
 
   @protected
   UiUserProfile sse_decode_box_autoadd_ui_user_profile(
@@ -1168,9 +1168,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_isize(SseDeserializer deserializer);
 
   @protected
-  List<String> sse_decode_list_String(SseDeserializer deserializer);
-
-  @protected
   List<IntroScreenType> sse_decode_list_intro_screen_type(
     SseDeserializer deserializer,
   );
@@ -1214,6 +1211,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RangedInlineElement> sse_decode_list_ranged_inline_element(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<UiClientId> sse_decode_list_ui_client_id(SseDeserializer deserializer);
 
   @protected
   List<UiClientRecord> sse_decode_list_ui_client_record(
@@ -1296,17 +1296,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiClientId? sse_decode_opt_box_autoadd_ui_client_id(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   UiConversationDetails? sse_decode_opt_box_autoadd_ui_conversation_details(
     SseDeserializer deserializer,
   );
 
   @protected
   UiConversationMessage? sse_decode_opt_box_autoadd_ui_conversation_message(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiUserProfile? sse_decode_opt_box_autoadd_ui_user_profile(
     SseDeserializer deserializer,
   );
 
@@ -1339,6 +1339,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
+
+  @protected
+  UiClientId sse_decode_ui_client_id(SseDeserializer deserializer);
 
   @protected
   UiClientRecord sse_decode_ui_client_record(SseDeserializer deserializer);
@@ -1396,9 +1399,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiSystemMessage sse_decode_ui_system_message(SseDeserializer deserializer);
-
-  @protected
-  UiUserName sse_decode_ui_user_name(SseDeserializer deserializer);
 
   @protected
   UiUserProfile sse_decode_ui_user_profile(SseDeserializer deserializer);
@@ -1855,6 +1855,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_ui_client_id(
+    UiClientId self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_ui_conversation_details(
     UiConversationDetails self,
     SseSerializer serializer,
@@ -1887,12 +1893,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_ui_system_message(
     UiSystemMessage self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_box_autoadd_ui_user_name(
-    UiUserName self,
     SseSerializer serializer,
   );
 
@@ -1966,9 +1966,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_isize(PlatformInt64 self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_String(List<String> self, SseSerializer serializer);
-
-  @protected
   void sse_encode_list_intro_screen_type(
     List<IntroScreenType> self,
     SseSerializer serializer,
@@ -2022,6 +2019,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_ranged_inline_element(
     List<RangedInlineElement> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_ui_client_id(
+    List<UiClientId> self,
     SseSerializer serializer,
   );
 
@@ -2130,6 +2133,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_ui_client_id(
+    UiClientId? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_ui_conversation_details(
     UiConversationDetails? self,
     SseSerializer serializer,
@@ -2138,12 +2147,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_ui_conversation_message(
     UiConversationMessage? self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_opt_box_autoadd_ui_user_profile(
-    UiUserProfile? self,
     SseSerializer serializer,
   );
 
@@ -2185,6 +2188,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ui_client_id(UiClientId self, SseSerializer serializer);
 
   @protected
   void sse_encode_ui_client_record(
@@ -2266,9 +2272,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     UiSystemMessage self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_ui_user_name(UiUserName self, SseSerializer serializer);
 
   @protected
   void sse_encode_ui_user_profile(UiUserProfile self, SseSerializer serializer);

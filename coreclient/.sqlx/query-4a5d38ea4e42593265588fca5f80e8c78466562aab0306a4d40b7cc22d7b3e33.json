@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR REPLACE INTO client_record\n            (as_client_uuid, as_domain, record_state, created_at, is_default)\n            VALUES (?1, ?2, ?3, ?4, ?5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "4a5d38ea4e42593265588fca5f80e8c78466562aab0306a4d40b7cc22d7b3e33"
+}

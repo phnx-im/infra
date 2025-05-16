@@ -29,13 +29,10 @@ class ConnectionDetails extends StatelessWidget {
         spacing: Spacings.l,
         children: [
           const SizedBox(height: Spacings.l),
-          FutureUserAvatar(
+          UserAvatar(
             size: 64,
-            profile:
-                () =>
-                    context
-                        .read<ConversationDetailsCubit>()
-                        .loadConversationUserProfile(),
+            displayName: conversation.title,
+            image: conversation.attributes.picture,
           ),
           Text(
             conversation.title,

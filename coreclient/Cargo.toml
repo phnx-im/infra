@@ -45,6 +45,7 @@ tokio-stream = { version = "0.1.17", features = ["sync"] }
 trait-variant = "0.1.2"
 enumset = "1.1.5"
 phnxprotos.workspace = true
+url = "2.5.4"
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

@@ -67,7 +67,7 @@ pub async fn delete_databases(client_db_path: &str) -> Result<()> {
     let phnx_db_connection = open_phnx_db(client_db_path).await?;
     if let Ok(client_records) = ClientRecord::load_all(&phnx_db_connection).await {
         for client_record in client_records {
-            let client_db_name = client_db_name(&client_record.as_client_id);
+            let client_db_name = client_db_name(&client_record.client_id);
             let client_db_path = format!("{client_db_path}/{client_db_name}");
             if let Err(error) = fs::remove_file(&client_db_path) {
                 error!(%error, %client_db_path, "Failed to delete client DB")
@@ -100,7 +100,7 @@ pub async fn delete_client_database(db_path: &str, as_client_id: &AsClientId) ->
 }
 
 fn client_db_name(as_client_id: &AsClientId) -> String {
-    format!("{}.db", as_client_id)
+    format!("{}@{}.db", as_client_id.client_id(), as_client_id.domain())
 }
 
 pub async fn open_client_db(

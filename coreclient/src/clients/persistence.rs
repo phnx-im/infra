@@ -2,12 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
+use chrono::{DateTime, Utc};
+use phnxtypes::{
+    codec::PhnxCodec,
+    identifiers::{AsClientId, Fqdn},
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
     query, query_as, query_scalar, sqlite::SqliteTypeInfo,
 };
+use uuid::Uuid;
 
 use crate::utils::persistence::open_phnx_db;
 
@@ -60,10 +65,13 @@ impl UserCreationState {
         executor: impl SqliteExecutor<'_>,
         client_id: &AsClientId,
     ) -> sqlx::Result<Option<Self>> {
+        let uuid = client_id.client_id();
+        let domain = client_id.domain();
         query_scalar!(
             r#"SELECT state AS "state: _"
-            FROM user_creation_state WHERE client_id = ?1"#,
-            client_id,
+            FROM user_creation_state WHERE as_client_uuid = ? AND as_domain = ?"#,
+            uuid,
+            domain
         )
         .fetch_optional(executor)
         .await
@@ -71,9 +79,14 @@ impl UserCreationState {
 
     pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let client_id = self.client_id();
+        let uuid = client_id.client_id();
+        let domain = client_id.domain();
         query!(
-            "INSERT OR REPLACE INTO user_creation_state (client_id, state) VALUES (?, ?)",
-            client_id,
+            "INSERT OR REPLACE INTO user_creation_state
+                (as_client_uuid, as_domain, state)
+            VALUES (?, ?, ?)",
+            uuid,
+            domain,
             self
         )
         .execute(executor)
@@ -114,6 +127,25 @@ impl<'r> Decode<'r, Sqlite> for ClientRecordState {
     }
 }
 
+struct SqlClientRecord {
+    as_client_uuid: Uuid,
+    as_domain: Fqdn,
+    client_record_state: ClientRecordState,
+    created_at: DateTime<Utc>,
+    is_default: bool,
+}
+
+impl From<SqlClientRecord> for ClientRecord {
+    fn from(value: SqlClientRecord) -> Self {
+        Self {
+            client_id: AsClientId::new(value.as_client_uuid, value.as_domain),
+            client_record_state: value.client_record_state,
+            created_at: value.created_at,
+            is_default: value.is_default,
+        }
+    }
+}
+
 impl ClientRecord {
     pub async fn load_all_from_phnx_db(phnx_db_path: &str) -> sqlx::Result<Vec<Self>> {
         let pool = open_phnx_db(phnx_db_path).await?;
@@ -121,36 +153,43 @@ impl ClientRecord {
     }
 
     pub async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
-        query_as!(
-            ClientRecord,
+        let records = query_as!(
+            SqlClientRecord,
             r#"
             SELECT
-                client_id AS "as_client_id: _",
+                as_client_uuid AS "as_client_uuid: _",
+                as_domain AS "as_domain: _",
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
-                is_default AS "is_default: _"
+                is_default
             FROM client_record"#
         )
         .fetch_all(executor)
-        .await
+        .await?;
+        Ok(records.into_iter().map(From::from).collect())
     }
 
     pub(super) async fn load(
         executor: impl SqliteExecutor<'_>,
         client_id: &AsClientId,
     ) -> sqlx::Result<Option<Self>> {
+        let uuid = client_id.client_id();
+        let domain = client_id.domain();
         query_as!(
-            ClientRecord,
+            SqlClientRecord,
             r#"SELECT
-                client_id AS "as_client_id: _",
+                as_client_uuid AS "as_client_uuid: _",
+                as_domain AS "as_domain: _",
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
-                is_default AS "is_default: _"
-            FROM client_record WHERE client_id = ?"#,
-            client_id
+                is_default
+            FROM client_record WHERE as_client_uuid = ? AND as_domain = ?"#,
+            uuid,
+            domain
         )
         .fetch_optional(executor)
         .await
+        .map(|res| res.map(From::from))
     }
 
     pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
@@ -158,11 +197,14 @@ impl ClientRecord {
             ClientRecordState::InProgress => "in_progress",
             ClientRecordState::Finished => "finished",
         };
+        let uuid = self.client_id.client_id();
+        let domain = self.client_id.domain();
         query!(
             "INSERT OR REPLACE INTO client_record
-            (client_id, record_state, created_at, is_default)
-            VALUES (?1, ?2, ?3, ?4)",
-            self.as_client_id,
+            (as_client_uuid, as_domain, record_state, created_at, is_default)
+            VALUES (?1, ?2, ?3, ?4, ?5)",
+            uuid,
+            domain,
             record_state_str,
             self.created_at,
             self.is_default,
@@ -176,9 +218,12 @@ impl ClientRecord {
         executor: impl SqliteExecutor<'_>,
         client_id: &AsClientId,
     ) -> sqlx::Result<()> {
+        let uuid = client_id.client_id();
+        let domain = client_id.domain();
         query!(
-            "UPDATE client_record SET is_default = (client_id == ?)",
-            client_id,
+            "UPDATE client_record SET is_default = (as_client_uuid == ? AND as_domain == ?)",
+            uuid,
+            domain,
         )
         .execute(executor)
         .await?;
@@ -189,9 +234,15 @@ impl ClientRecord {
         executor: impl SqliteExecutor<'_>,
         client_id: &AsClientId,
     ) -> sqlx::Result<()> {
-        query!("DELETE FROM client_record WHERE client_id = ?", client_id)
-            .execute(executor)
-            .await?;
+        let uuid = client_id.client_id();
+        let domain = client_id.domain();
+        query!(
+            "DELETE FROM client_record WHERE as_client_uuid = ? AND as_domain = ?",
+            uuid,
+            domain
+        )
+        .execute(executor)
+        .await?;
         Ok(())
     }
 }
@@ -210,9 +261,9 @@ mod tests {
     use super::*;
 
     fn new_client_record(id: Uuid, created_at: DateTime<Utc>) -> ClientRecord {
-        let client_id = AsClientId::new(format!("{id}@localhost").parse().unwrap(), id);
+        let client_id = AsClientId::new(id, "localhost".parse().unwrap());
         ClientRecord {
-            as_client_id: client_id.clone(),
+            client_id,
             client_record_state: ClientRecordState::Finished,
             created_at,
             is_default: false,
@@ -236,20 +287,20 @@ mod tests {
 
         // Set default to alice set alice is_default
         alice_record.is_default = true;
-        ClientRecord::set_default(&pool, &alice_record.as_client_id).await?;
+        ClientRecord::set_default(&pool, &alice_record.client_id).await?;
         let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Set default to bob clears alice is_default
         alice_record.is_default = false;
         bob_record.is_default = true;
-        ClientRecord::set_default(&pool, &bob_record.as_client_id).await?;
+        ClientRecord::set_default(&pool, &bob_record.client_id).await?;
         let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Delete client records
-        ClientRecord::delete(&pool, &alice_record.as_client_id).await?;
-        ClientRecord::delete(&pool, &bob_record.as_client_id).await?;
+        ClientRecord::delete(&pool, &alice_record.client_id).await?;
+        ClientRecord::delete(&pool, &bob_record.client_id).await?;
         let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, []);
 
@@ -257,11 +308,10 @@ mod tests {
     }
 
     static USER_CREATION_STATE_BASIC: LazyLock<UserCreationState> = LazyLock::new(|| {
-        let user_name = "alice@localhost".parse().unwrap();
         let user_id = Uuid::from_u128(1);
 
         UserCreationState::BasicUserData(BasicUserData {
-            as_client_id: AsClientId::new(user_name, user_id),
+            as_client_id: AsClientId::new(user_id, "localhost".parse().unwrap()),
             server_url: "localhost".to_owned(),
             push_token: Some(PushToken::new(
                 PushTokenOperator::Google,

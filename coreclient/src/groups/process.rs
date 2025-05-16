@@ -274,7 +274,7 @@ impl Group {
                         )
                         .await?;
                         // TODO: (More) validation:
-                        // * Check that the user name is unique.
+                        // * Check that the user id is unique.
                         // * Check that the proposals fit the operation.
                         // * Check that the sender type fits the operation.
                         // * Check that this group is indeed a connection group.
@@ -356,7 +356,7 @@ impl Group {
                 let user_profile_key = UserProfileKey::decrypt(
                     self.identity_link_wrapper_key(),
                     &encrypted_user_profile_key,
-                    client_credential.identity().user_name(),
+                    client_credential.identity(),
                 )?;
                 Ok((client_credential, user_profile_key))
             })
@@ -409,7 +409,7 @@ impl Group {
 
         // TODO: Validation:
         // * Check that this commit only contains (inline) add proposals
-        // * User names MUST be unique within the group (check both new
+        // * User ids MUST be unique within the group (check both new
         //   and existing credentials for duplicates).
         // * Client IDs MUST be unique within the group (only need to
         //   check new credentials, as client IDs are scoped to user

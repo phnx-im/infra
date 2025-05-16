@@ -10,7 +10,7 @@ use phnxtypes::{
         ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable,
         indexed_aead::keys::UserProfileKey, signatures::signable::Signable,
     },
-    identifiers::{Fqdn, QsReference, QualifiedUserName},
+    identifiers::{AsClientId, Fqdn, QsReference},
     messages::{
         client_as::{ConnectionPackage, UserConnectionPackagesParams},
         client_as_out::UserConnectionPackagesResponseIn,
@@ -42,14 +42,14 @@ impl CoreUser {
     /// conversation.
     pub(crate) async fn add_contact(
         &self,
-        user_name: QualifiedUserName,
+        client_id: AsClientId,
     ) -> anyhow::Result<ConversationId> {
         let mut connection = self.pool().acquire().await?;
 
         let connection_packages =
-            fetch_user_connection_packages(&self.inner.api_clients, user_name.clone())
+            fetch_user_connection_packages(&self.inner.api_clients, client_id.clone())
                 .await? // Phase 1: Fetch connection key packages from the AS
-                .verify(&mut connection, &self.inner.api_clients, user_name.domain())
+                .verify(&mut connection, &self.inner.api_clients, client_id.domain())
                 .await? // Phase 2: Verify the connection key packages
                 .request_group_id(&self.inner.api_clients)
                 .await?; // Phase 3: Request a group id from the DS
@@ -64,8 +64,8 @@ impl CoreUser {
                         txn,
                         &mut notifier,
                         &self.inner.key_store,
-                        self.user_name(),
-                        &user_name,
+                        self.as_client_id(),
+                        &client_id,
                     )
                     .await
             })
@@ -79,15 +79,15 @@ impl CoreUser {
                 &mut notifier,
                 &self.inner.key_store,
                 client_reference,
-                self.user_name(),
-                user_name.clone(),
+                self.as_client_id(),
+                client_id.clone(),
             )
             .await?;
 
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages
         let conversation_id = local_partial_contact
-            .create_connection_group(&self.inner.api_clients, user_name.domain())
+            .create_connection_group(&self.inner.api_clients, client_id.domain())
             .await?;
 
         notifier.notify();
@@ -98,25 +98,23 @@ impl CoreUser {
 
 async fn fetch_user_connection_packages(
     api_clients: &ApiClients,
-    user_name: QualifiedUserName,
+    client_id: AsClientId,
 ) -> anyhow::Result<FetchedUseConnectionPackage> {
-    let params = UserConnectionPackagesParams {
-        user_name: user_name.clone(),
-    };
-
     // Phase 1: Fetch connection key packages from the AS
-    let user_domain = user_name.domain();
-    info!(%user_name, "Adding contact");
-    let user_key_packages = api_clients
-        .get(user_domain)?
-        .as_user_connection_packages(params)
-        .await?;
+    let domain = client_id.domain();
+    info!(?client_id, "Adding contact");
+
+    let client = api_clients.get(domain)?;
+    let params = UserConnectionPackagesParams {
+        client_id: client_id.clone(),
+    };
+    let user_key_packages = client.as_user_connection_packages(params).await?;
 
     // The AS should return an error if the user does not exist, but we
     // check here locally just to be sure.
     ensure!(
         !user_key_packages.connection_packages.is_empty(),
-        "User {user_name} does not exist"
+        "User {client_id:?} does not exist"
     );
 
     Ok(FetchedUseConnectionPackage { user_key_packages })
@@ -191,8 +189,8 @@ impl VerifiedConnectionPackagesWithGroupId {
         txn: &mut sqlx::SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
-        self_user_name: &QualifiedUserName,
-        connection_user_name: &QualifiedUserName,
+        self_client_id: &AsClientId,
+        connection_client_id: &AsClientId,
     ) -> anyhow::Result<LocalGroup> {
         let Self {
             verified_connection_packages,
@@ -200,7 +198,8 @@ impl VerifiedConnectionPackagesWithGroupId {
         } = self;
 
         info!("Creating local connection group");
-        let title = format!("Connection group: {self_user_name} - {connection_user_name}");
+        // TODO: Use display names here
+        let title = format!("Connection group: {self_client_id:?} - {connection_client_id:?}");
         let conversation_attributes = ConversationAttributes::new(title, None);
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
 
@@ -221,7 +220,7 @@ impl VerifiedConnectionPackagesWithGroupId {
         // Create the connection conversation
         let conversation = Conversation::new_connection_conversation(
             group_id.clone(),
-            connection_user_name.clone(),
+            connection_client_id.clone(),
             conversation_attributes,
         )?;
         conversation.store(txn.as_mut(), notifier).await?;
@@ -249,8 +248,8 @@ impl LocalGroup {
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
         own_client_reference: QsReference,
-        own_user_name: &QualifiedUserName,
-        contact_user_name: QualifiedUserName,
+        own_client_id: &AsClientId,
+        contact_client_id: AsClientId,
     ) -> anyhow::Result<LocalPartialContact> {
         let Self {
             group,
@@ -272,7 +271,7 @@ impl LocalGroup {
 
         // Create and persist a new partial contact
         PartialContact::new(
-            contact_user_name.clone(),
+            contact_client_id.clone(),
             conversation_id,
             friendship_package_ear_key.clone(),
         )
@@ -291,7 +290,7 @@ impl LocalGroup {
         .sign(&key_store.signing_key)?;
 
         let encrypted_user_profile_key =
-            own_user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_name)?;
+            own_user_profile_key.encrypt(group.identity_link_wrapper_key(), own_client_id)?;
         let params = partial_params.into_params(own_client_reference, encrypted_user_profile_key);
 
         Ok(LocalPartialContact {

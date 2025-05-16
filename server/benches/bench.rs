@@ -9,8 +9,9 @@ use std::{
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use phnxserver_test_harness::utils::setup::TestBackend;
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::{AsClientId, Fqdn};
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 const NUM_THREADS: usize = 4;
 
@@ -30,8 +31,8 @@ fn benchmarks(c: &mut Criterion) {
         seed
     };
 
-    let alice: QualifiedUserName = format!("alice{}@example.com", rng()).parse().unwrap();
-    let bob: QualifiedUserName = format!("bob{}@example.com", rng()).parse().unwrap();
+    let alice = AsClientId::new(Uuid::from_u128(1), "example.com".parse().unwrap());
+    let bob = AsClientId::new(Uuid::from_u128(2), "example.com".parse().unwrap());
 
     let conversation_alice_bob = runtime.block_on(async {
         let mut setup = setup.lock().await;
@@ -47,14 +48,14 @@ fn benchmarks(c: &mut Criterion) {
 
     group.bench_function("add_user", |b| {
         b.to_async(&runtime).iter_custom(|iter| {
-            let suffix = rng();
+            let offset = rng();
+            let domain: Fqdn = "example.com".parse().unwrap();
             let setup = setup.clone();
             let mut elapsed = Duration::default();
             async move {
                 let mut setup = setup.lock().await;
                 for i in 0..iter {
-                    let bob: QualifiedUserName =
-                        format!("bob_{i}_{suffix}@example.com").parse().unwrap();
+                    let bob = AsClientId::new(Uuid::from_u128((offset + i).into()), domain.clone());
                     let time = Instant::now();
                     setup.add_user(&bob).await;
                     elapsed += time.elapsed();
@@ -67,14 +68,14 @@ fn benchmarks(c: &mut Criterion) {
     group.bench_function("connect_users", |b| {
         b.to_async(&runtime).iter_custom(|iter| {
             let alice = alice.clone();
-            let suffix = rng();
+            let offset = rng();
+            let domain: Fqdn = "example.com".parse().unwrap();
             let setup = setup.clone();
             let mut elapsed = Duration::default();
             async move {
                 let mut setup = setup.lock().await;
                 for i in 0..iter {
-                    let bob: QualifiedUserName =
-                        format!("bob_{i}_{suffix}@example.com").parse().unwrap();
+                    let bob = AsClientId::new(Uuid::from_u128((offset + i).into()), domain.clone());
                     setup.add_user(&bob).await;
                     let time = Instant::now();
                     setup.connect_users(&alice, &bob).await;
@@ -109,9 +110,10 @@ fn benchmarks(c: &mut Criterion) {
     });
 
     const NUM_USERS: usize = 10;
-    let suffix = rng();
-    let bobs: Vec<QualifiedUserName> = (0..NUM_USERS)
-        .map(|i| format!("bob_{i}_{suffix}@example.com").parse().unwrap())
+    let offset = rng();
+    let domain: Fqdn = "example.com".parse().unwrap();
+    let bobs: Vec<AsClientId> = (0..NUM_USERS as u64)
+        .map(|i| AsClientId::new(Uuid::from_u128((offset + i).into()), domain.clone()))
         .collect();
     runtime.block_on(async {
         let mut setup = setup.lock().await;

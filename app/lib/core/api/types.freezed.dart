@@ -221,7 +221,7 @@ abstract class _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
     $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) then,
   ) = __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>;
   @useResult
-  $Res call({String field0});
+  $Res call({UiUserProfile field0});
 }
 
 /// @nodoc
@@ -247,7 +247,7 @@ class __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>
         null == field0
             ? _value.field0
             : field0 // ignore: cast_nullable_to_non_nullable
-                as String,
+                as UiUserProfile,
       ),
     );
   }
@@ -260,7 +260,7 @@ class _$UiConversationType_UnconfirmedConnectionImpl
   const _$UiConversationType_UnconfirmedConnectionImpl(this.field0) : super._();
 
   @override
-  final String field0;
+  final UiUserProfile field0;
 
   @override
   String toString() {
@@ -293,11 +293,12 @@ class _$UiConversationType_UnconfirmedConnectionImpl
 
 abstract class UiConversationType_UnconfirmedConnection
     extends UiConversationType {
-  const factory UiConversationType_UnconfirmedConnection(final String field0) =
-      _$UiConversationType_UnconfirmedConnectionImpl;
+  const factory UiConversationType_UnconfirmedConnection(
+    final UiUserProfile field0,
+  ) = _$UiConversationType_UnconfirmedConnectionImpl;
   const UiConversationType_UnconfirmedConnection._() : super._();
 
-  String get field0;
+  UiUserProfile get field0;
 
   /// Create a copy of UiConversationType
   /// with the given fields replaced by the non-null parameter values.
@@ -315,7 +316,7 @@ abstract class _$$UiConversationType_ConnectionImplCopyWith<$Res> {
     $Res Function(_$UiConversationType_ConnectionImpl) then,
   ) = __$$UiConversationType_ConnectionImplCopyWithImpl<$Res>;
   @useResult
-  $Res call({String field0});
+  $Res call({UiUserProfile field0});
 }
 
 /// @nodoc
@@ -341,7 +342,7 @@ class __$$UiConversationType_ConnectionImplCopyWithImpl<$Res>
         null == field0
             ? _value.field0
             : field0 // ignore: cast_nullable_to_non_nullable
-                as String,
+                as UiUserProfile,
       ),
     );
   }
@@ -354,7 +355,7 @@ class _$UiConversationType_ConnectionImpl
   const _$UiConversationType_ConnectionImpl(this.field0) : super._();
 
   @override
-  final String field0;
+  final UiUserProfile field0;
 
   @override
   String toString() {
@@ -386,11 +387,11 @@ class _$UiConversationType_ConnectionImpl
 }
 
 abstract class UiConversationType_Connection extends UiConversationType {
-  const factory UiConversationType_Connection(final String field0) =
+  const factory UiConversationType_Connection(final UiUserProfile field0) =
       _$UiConversationType_ConnectionImpl;
   const UiConversationType_Connection._() : super._();
 
-  String get field0;
+  UiUserProfile get field0;
 
   /// Create a copy of UiConversationType
   /// with the given fields replaced by the non-null parameter values.

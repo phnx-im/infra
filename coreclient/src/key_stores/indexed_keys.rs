@@ -149,7 +149,7 @@ pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin + Debug>:
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::crypto::indexed_aead::keys::UserProfileKey;
+    use phnxtypes::{crypto::indexed_aead::keys::UserProfileKey, identifiers::AsClientId};
     use sqlx::SqlitePool;
 
     use crate::key_stores::indexed_keys::StorableIndexedKey;
@@ -157,8 +157,8 @@ mod tests {
     #[sqlx::test]
     fn user_profile_key_storage(pool: SqlitePool) {
         let mut connection = pool.acquire().await.unwrap();
-        let user_name = "test_user@example.com".parse().unwrap();
-        let key = UserProfileKey::random(&user_name).unwrap();
+        let client_id = AsClientId::random("example.com".parse().unwrap());
+        let key = UserProfileKey::random(&client_id).unwrap();
         let index = key.index().clone();
         key.store_own(&mut connection).await.unwrap();
 
@@ -171,7 +171,7 @@ mod tests {
         assert_eq!(key, loaded_key);
 
         // Update key
-        let new_key = UserProfileKey::random(&user_name).unwrap();
+        let new_key = UserProfileKey::random(&client_id).unwrap();
         new_key.store_own(&mut connection).await.unwrap();
         let loaded_key = UserProfileKey::load_own(connection.as_mut()).await.unwrap();
         assert_eq!(new_key, loaded_key);

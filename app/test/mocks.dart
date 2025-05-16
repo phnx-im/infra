@@ -15,6 +15,8 @@ import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/registration/registration.dart';
 import 'package:prototype/user/user.dart';
 
+import 'helpers.dart';
+
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
 
@@ -22,16 +24,19 @@ class MockUserCubit extends MockCubit<UiUser> implements UserCubit {}
 
 class MockUiUser implements UiUser {
   MockUiUser({
-    required String userName,
-    String? displayName,
+    required int id,
+    required String displayName,
     Uint8List? profilePicture,
-  }) : _userName = userName,
-       _displayName = displayName ?? userName,
+  }) : _clientId = id.clientId(),
+       _displayName = displayName,
        _profilePicture = profilePicture?.toImageData();
 
-  final String _userName;
+  final UiClientId _clientId;
   final String _displayName;
   final ImageData? _profilePicture;
+
+  @override
+  UiClientId get clientId => _clientId;
 
   @override
   String get displayName => _displayName;
@@ -44,9 +49,6 @@ class MockUiUser implements UiUser {
 
   @override
   ImageData? get profilePicture => _profilePicture;
-
-  @override
-  String get userName => _userName;
 }
 
 class MockConversationDetailsCubit extends MockCubit<ConversationDetailsState>

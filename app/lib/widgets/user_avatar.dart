@@ -11,13 +11,13 @@ import 'package:prototype/util/cached_memory_image.dart';
 class UserAvatar extends StatelessWidget {
   const UserAvatar({
     super.key,
-    required this.username,
+    required this.displayName,
     this.size = 24.0,
     this.image,
     this.onPressed,
   });
 
-  final String username;
+  final String displayName;
   final double size;
   final ImageData? image;
   final VoidCallback? onPressed;
@@ -40,7 +40,7 @@ class UserAvatar extends StatelessWidget {
             foregroundImage:
                 image != null ? CachedMemoryImage.fromImageData(image!) : null,
             child: Text(
-              username.characters.firstOrNull?.toUpperCase() ?? "",
+              displayName.characters.firstOrNull?.toUpperCase() ?? "",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10 * size / 24,
@@ -84,7 +84,7 @@ class _FutureUserAvatarState extends State<FutureUserAvatar> {
       future: _profileFuture,
       builder:
           (context, snapshot) => UserAvatar(
-            username: snapshot.data?.userName ?? " ",
+            displayName: snapshot.data?.displayName ?? " ",
             image: snapshot.data?.profilePicture,
             size: widget.size,
             onPressed: widget.onPressed,

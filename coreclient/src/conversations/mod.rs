@@ -7,11 +7,11 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{Fqdn, QualifiedGroupId, QualifiedUserName},
+    identifiers::{AsClientId, Fqdn, QualifiedGroupId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqliteExecutor;
+use sqlx::{SqliteConnection, SqliteExecutor};
 use uuid::Uuid;
 
 use crate::store::StoreNotifier;
@@ -75,20 +75,20 @@ pub(super) struct ConversationPayload {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Conversation {
-    id: ConversationId,
+    pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
-    group_id: GroupId,
+    pub group_id: GroupId,
     // The timestamp of the last message that was (marked as) read by the user.
-    last_read: DateTime<Utc>,
-    status: ConversationStatus,
-    conversation_type: ConversationType,
-    attributes: ConversationAttributes,
+    pub last_read: DateTime<Utc>,
+    pub status: ConversationStatus,
+    pub conversation_type: ConversationType,
+    pub attributes: ConversationAttributes,
 }
 
 impl Conversation {
     pub(crate) fn new_connection_conversation(
         group_id: GroupId,
-        user_name: QualifiedUserName,
+        client_id: AsClientId,
         attributes: ConversationAttributes,
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
@@ -98,7 +98,7 @@ impl Conversation {
             group_id,
             last_read: Utc::now(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_name),
+            conversation_type: ConversationType::UnconfirmedConnection(client_id),
             attributes,
         };
         Ok(conversation)
@@ -135,6 +135,10 @@ impl Conversation {
         &self.status
     }
 
+    pub fn status_mut(&mut self) -> &mut ConversationStatus {
+        &mut self.status
+    }
+
     pub fn attributes(&self) -> &ConversationAttributes {
         &self.attributes
     }
@@ -161,9 +165,9 @@ impl Conversation {
 
     pub(crate) async fn set_inactive(
         &mut self,
-        executor: impl SqliteExecutor<'_>,
+        executor: &mut SqliteConnection,
         notifier: &mut StoreNotifier,
-        past_members: Vec<QualifiedUserName>,
+        past_members: Vec<AsClientId>,
     ) -> sqlx::Result<()> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
         Self::update_status(executor, notifier, self.id, &new_status).await?;
@@ -196,26 +200,30 @@ pub enum ConversationStatus {
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct InactiveConversation {
-    pub past_members: Vec<QualifiedUserName>,
+    pub past_members: Vec<AsClientId>,
 }
 
 impl InactiveConversation {
-    pub fn new(past_members: Vec<QualifiedUserName>) -> Self {
+    pub fn new(past_members: Vec<AsClientId>) -> Self {
         Self { past_members }
     }
 
-    pub fn past_members(&self) -> &[QualifiedUserName] {
+    pub fn past_members(&self) -> &[AsClientId] {
         &self.past_members
+    }
+
+    pub fn past_members_mut(&mut self) -> &mut Vec<AsClientId> {
+        &mut self.past_members
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(QualifiedUserName),
+    UnconfirmedConnection(AsClientId),
     // A connection conversation that is confirmed by the other party and for
     // which we have received the necessary secrets.
-    Connection(QualifiedUserName),
+    Connection(AsClientId),
     Group,
 }
 

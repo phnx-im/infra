@@ -28,7 +28,7 @@ final messages = [
     timestamp: '2023-01-01T00:00:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 'bob@localhost',
+        sender: 2.clientId(),
         sent: true,
         content: UiMimiContent(
           plainBody: 'Hello Alice from Bob',
@@ -45,7 +45,7 @@ final messages = [
     timestamp: '2023-01-01T00:01:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 'eve@localhost',
+        sender: 3.clientId(),
         sent: true,
         content: UiMimiContent(
           plainBody:
@@ -65,7 +65,7 @@ final messages = [
     timestamp: '2023-01-01T00:02:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 'alice@localhost',
+        sender: 1.clientId(),
         sent: true,
         content: UiMimiContent(
           plainBody: 'Hello Bob and Eve',
@@ -82,7 +82,7 @@ final messages = [
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 'alice@localhost',
+        sender: 1.clientId(),
         sent: true,
         content: UiMimiContent(
           plainBody: 'How are you doing?',
@@ -99,7 +99,7 @@ final messages = [
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 'alice@localhost',
+        sender: 1.clientId(),
         sent: true,
         content: UiMimiContent(
           plainBody: '''Nice to see you both here! 👋
@@ -126,6 +126,7 @@ MessageCubit createMockMessageCubit({
 void main() {
   setUpAll(() {
     registerFallbackValue(0.conversationMessageId());
+    registerFallbackValue(0.clientId());
   });
 
   group('MessageListView', () {
@@ -140,7 +141,7 @@ void main() {
 
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(userName: 'alice@localhost'));
+      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
       when(
         () => userCubit.userProfile(any()),
       ).thenAnswer((_) => Future.value(null));

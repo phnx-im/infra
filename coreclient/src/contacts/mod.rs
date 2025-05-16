@@ -12,7 +12,7 @@ use phnxtypes::{
         indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
-    identifiers::{AsClientId, QualifiedUserName},
+    identifiers::AsClientId,
     messages::FriendshipToken,
 };
 use sqlx::SqliteConnection;
@@ -29,8 +29,7 @@ pub(crate) mod persistence;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contact {
-    pub user_name: QualifiedUserName,
-    pub(crate) clients: Vec<AsClientId>,
+    pub client_id: AsClientId,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
@@ -55,11 +54,10 @@ impl Contact {
     ) -> Result<Self, LibraryError> {
         let user_profile_key = UserProfileKey::from_base_secret(
             friendship_package.user_profile_base_secret,
-            client_id.user_name(),
+            &client_id,
         )?;
         let contact = Self {
-            user_name: client_id.user_name().clone(),
-            clients: vec![client_id],
+            client_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             connection_key: friendship_package.connection_key,
@@ -69,18 +67,12 @@ impl Contact {
         Ok(contact)
     }
 
-    /// Get the user name of this contact.
-    pub fn user_name(&self) -> &QualifiedUserName {
-        &self.user_name
-    }
-
     pub(crate) async fn fetch_add_infos(
         &self,
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<ContactAddInfos> {
-        let invited_user = self.user_name.clone();
-        let invited_user_domain = invited_user.domain();
+        let invited_user_domain = self.client_id.domain();
 
         let key_package_response = api_clients
             .get(invited_user_domain)?
@@ -125,10 +117,6 @@ impl Contact {
         Ok(add_info)
     }
 
-    pub(crate) fn clients(&self) -> &[AsClientId] {
-        &self.clients
-    }
-
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
         &self.wai_ear_key
     }
@@ -137,7 +125,7 @@ impl Contact {
 /// Contact which has not yet accepted our connection request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartialContact {
-    pub user_name: QualifiedUserName,
+    pub client_id: AsClientId,
     // ID of the connection conversation with this contact.
     pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
@@ -145,12 +133,12 @@ pub struct PartialContact {
 
 impl PartialContact {
     pub(crate) fn new(
-        user_name: QualifiedUserName,
+        client_id: AsClientId,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Self {
         Self {
-            user_name,
+            client_id,
             conversation_id,
             friendship_package_ear_key,
         }

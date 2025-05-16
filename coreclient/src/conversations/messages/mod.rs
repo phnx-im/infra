@@ -2,13 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt::Formatter;
-
 use mimi_content::MimiContent;
 use openmls::framing::ApplicationMessage;
 use tracing::warn;
 
-use crate::store::StoreNotifier;
+use crate::store::{Store, StoreNotifier};
 
 use super::*;
 
@@ -42,11 +40,11 @@ impl TimestampedMessage {
     pub(crate) fn from_application_message(
         application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
-        sender_name: &QualifiedUserName,
+        client_id: &AsClientId,
     ) -> Self {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
-                sender_name.to_string(),
+                client_id.clone(),
                 true,
                 content,
             ))),
@@ -130,7 +128,7 @@ impl ConversationMessage {
     }
 
     pub(crate) fn new_unsent_message(
-        sender: String,
+        sender: AsClientId,
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> ConversationMessage {
@@ -202,16 +200,23 @@ impl Message {
 
     /// Returns a string representation of the message for use in UI
     /// notifications.
-    pub fn string_representation(&self, conversation_type: &ConversationType) -> String {
+    pub async fn string_representation(
+        &self,
+        store: &impl Store,
+        conversation_type: &ConversationType,
+    ) -> String {
         match self {
             Message::Content(content_message) => match conversation_type {
                 ConversationType::Group => {
-                    let sender = &content_message.sender;
+                    let display_name = store
+                        .user_profile(&content_message.sender)
+                        .await
+                        .display_name;
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
                         .unwrap_or_else(|e| format!("Error: {e}"));
-                    format!("{sender}: {content}")
+                    format!("{display_name}: {content}")
                 }
                 ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
                     let content = content_message
@@ -222,7 +227,7 @@ impl Message {
                 }
             },
             Message::Event(event_message) => match &event_message {
-                EventMessage::System(system) => system.to_string(),
+                EventMessage::System(system) => system.string_representation(store).await,
                 EventMessage::Error(error) => error.message().to_string(),
             },
         }
@@ -233,13 +238,13 @@ impl Message {
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
-    pub(super) sender: String,
+    pub(super) sender: AsClientId,
     pub(super) sent: bool,
     pub(super) content: MimiContent,
 }
 
 impl ContentMessage {
-    pub fn new(sender: String, sent: bool, content: MimiContent) -> Self {
+    pub fn new(sender: AsClientId, sent: bool, content: MimiContent) -> Self {
         Self {
             sender,
             sent,
@@ -247,12 +252,16 @@ impl ContentMessage {
         }
     }
 
-    pub fn was_sent(&self) -> bool {
-        self.sent
+    pub fn into_parts(self) -> (AsClientId, bool, MimiContent) {
+        (self.sender, self.sent, self.content)
     }
 
-    pub fn sender(&self) -> &str {
-        self.sender.as_ref()
+    pub fn sender(&self) -> &AsClientId {
+        &self.sender
+    }
+
+    pub fn was_sent(&self) -> bool {
+        self.sent
     }
 
     pub fn content(&self) -> &MimiContent {
@@ -273,26 +282,24 @@ pub enum EventMessage {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum SystemMessage {
     // The first UserName is the adder/remover the second is the added/removed.
-    Add(QualifiedUserName, QualifiedUserName),
-    Remove(QualifiedUserName, QualifiedUserName),
+    Add(AsClientId, AsClientId),
+    Remove(AsClientId, AsClientId),
 }
 
-impl Display for SystemMessage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl SystemMessage {
+    async fn string_representation(&self, store: &impl Store) -> String {
         match self {
             SystemMessage::Add(adder, added) => {
-                if adder == added {
-                    write!(f, "{} joined the conversation", adder)
-                } else {
-                    write!(f, "{} added {} to the conversation", adder, added)
-                }
+                let adder_display_name = store.user_profile(adder).await.display_name;
+                let added_display_name = store.user_profile(added).await.display_name;
+                format!("{adder_display_name} added {added_display_name} to the conversation")
             }
             SystemMessage::Remove(remover, removed) => {
-                if remover == removed {
-                    write!(f, "{} left the conversation", remover)
-                } else {
-                    write!(f, "{} removed {} from the conversation", remover, removed)
-                }
+                let remover_display_name = store.user_profile(remover).await.display_name;
+                let removed_display_name = store.user_profile(removed).await.display_name;
+                format!(
+                    "{remover_display_name} removed {removed_display_name} from the conversation"
+                )
             }
         }
     }

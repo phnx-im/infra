@@ -147,12 +147,13 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                   if (user != null)
                     ListTile(
                       title: Text(
-                        user.userName,
+                        user.clientId.uuid
+                            .toString(), // TODO: Add also a display name
                         style: Theme.of(context).textTheme.bodyLarge
                             ?.copyWith(color: Colors.red)
                             .merge(_titleFontWeight),
                       ),
-                      subtitle: Text("id: ${user.clientId}"),
+                      subtitle: Text("Domain: ${user.clientId.domain}"),
                       trailing: const Icon(Icons.delete),
                       onTap:
                           () => _confirmDialog(

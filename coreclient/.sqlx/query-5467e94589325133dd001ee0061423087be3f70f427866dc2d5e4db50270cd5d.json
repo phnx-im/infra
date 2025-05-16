@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO partial_contacts\n                (as_client_uuid, as_domain, conversation_id, friendship_package_ear_key)\n                VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "5467e94589325133dd001ee0061423087be3f70f427866dc2d5e4db50270cd5d"
+}
