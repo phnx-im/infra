@@ -121,16 +121,17 @@ impl CoreUser {
         conversation_id: ConversationId,
         picture: Option<Vec<u8>>,
     ) -> Result<()> {
-        let mut notifier = self.store_notifier();
-        let mut conversation = Conversation::load(self.pool(), &conversation_id)
+        let mut connection = self.pool().acquire().await?;
+        let mut conversation = Conversation::load(&mut connection, &conversation_id)
             .await?
             .ok_or_else(|| {
                 let id = conversation_id.uuid();
                 anyhow!("Can't find conversation with id {id}")
             })?;
         let resized_picture_option = picture.and_then(|picture| self.resize_image(&picture).ok());
+        let mut notifier = self.store_notifier();
         conversation
-            .set_conversation_picture(self.pool(), &mut notifier, resized_picture_option)
+            .set_conversation_picture(&mut *connection, &mut notifier, resized_picture_option)
             .await?;
         notifier.notify();
         Ok(())
@@ -165,11 +166,11 @@ impl CoreUser {
     }
 
     pub(crate) async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
-        Conversation::load_all(self.pool()).await
+        Conversation::load_all(self.pool().acquire().await?.as_mut()).await
     }
 
     pub async fn conversation(&self, conversation_id: &ConversationId) -> Option<Conversation> {
-        Conversation::load(self.pool(), conversation_id)
+        Conversation::load(self.pool().acquire().await.ok()?.as_mut(), conversation_id)
             .await
             .ok()
             .flatten()
@@ -308,7 +309,7 @@ mod create_conversation_flow {
             let user_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
             let encrypted_user_profile_key = user_profile_key.encrypt(
                 group.identity_link_wrapper_key(),
-                group_membership.client_id().user_name(),
+                group_membership.client_id(),
             )?;
 
             group_membership.store(txn.as_mut()).await?;
@@ -363,8 +364,7 @@ mod delete_conversation_flow {
 
     use anyhow::Context;
     use phnxtypes::{
-        identifiers::QualifiedUserName, messages::client_ds_out::DeleteGroupParamsOut,
-        time::TimeStamp,
+        identifiers::AsClientId, messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
     };
     use sqlx::{SqliteConnection, SqliteTransaction};
 
@@ -422,7 +422,7 @@ mod delete_conversation_flow {
 
     pub(super) struct LoadedSingleUserConversationData {
         conversation: Conversation,
-        member: QualifiedUserName,
+        member: AsClientId,
     }
 
     impl LoadedSingleUserConversationData {
@@ -445,7 +445,7 @@ mod delete_conversation_flow {
     pub(super) struct LoadedConversationData<S> {
         conversation: Conversation,
         group: Group,
-        past_members: HashSet<QualifiedUserName>,
+        past_members: HashSet<AsClientId>,
         state: S,
     }
 
@@ -523,7 +523,7 @@ mod delete_conversation_flow {
 
     pub(super) struct DeletedGroup {
         conversation: Conversation,
-        past_members: HashSet<QualifiedUserName>,
+        past_members: HashSet<AsClientId>,
         messages: Vec<TimestampedMessage>,
     }
 

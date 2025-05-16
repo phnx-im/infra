@@ -19,9 +19,6 @@ final _privateConstructorUsedError = UnsupportedError(
 mixin _$RegistrationState {
   // Domain choice screen data
   String get domain =>
-      throw _privateConstructorUsedError; // Username screen data
-  String get username => throw _privateConstructorUsedError;
-  bool get isUsernameValid =>
       throw _privateConstructorUsedError; // Display name/avatar screen data
   ImageData? get avatar => throw _privateConstructorUsedError;
   String get displayName => throw _privateConstructorUsedError;
@@ -43,8 +40,6 @@ abstract class $RegistrationStateCopyWith<$Res> {
   @useResult
   $Res call({
     String domain,
-    String username,
-    bool isUsernameValid,
     ImageData? avatar,
     String displayName,
     bool isSigningUp,
@@ -67,8 +62,6 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
   @override
   $Res call({
     Object? domain = null,
-    Object? username = null,
-    Object? isUsernameValid = null,
     Object? avatar = freezed,
     Object? displayName = null,
     Object? isSigningUp = null,
@@ -80,16 +73,6 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
                     ? _value.domain
                     : domain // ignore: cast_nullable_to_non_nullable
                         as String,
-            username:
-                null == username
-                    ? _value.username
-                    : username // ignore: cast_nullable_to_non_nullable
-                        as String,
-            isUsernameValid:
-                null == isUsernameValid
-                    ? _value.isUsernameValid
-                    : isUsernameValid // ignore: cast_nullable_to_non_nullable
-                        as bool,
             avatar:
                 freezed == avatar
                     ? _value.avatar
@@ -122,8 +105,6 @@ abstract class _$$RegistrationStateImplCopyWith<$Res>
   @useResult
   $Res call({
     String domain,
-    String username,
-    bool isUsernameValid,
     ImageData? avatar,
     String displayName,
     bool isSigningUp,
@@ -145,8 +126,6 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? domain = null,
-    Object? username = null,
-    Object? isUsernameValid = null,
     Object? avatar = freezed,
     Object? displayName = null,
     Object? isSigningUp = null,
@@ -158,16 +137,6 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
                 ? _value.domain
                 : domain // ignore: cast_nullable_to_non_nullable
                     as String,
-        username:
-            null == username
-                ? _value.username
-                : username // ignore: cast_nullable_to_non_nullable
-                    as String,
-        isUsernameValid:
-            null == isUsernameValid
-                ? _value.isUsernameValid
-                : isUsernameValid // ignore: cast_nullable_to_non_nullable
-                    as bool,
         avatar:
             freezed == avatar
                 ? _value.avatar
@@ -193,8 +162,6 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
 class _$RegistrationStateImpl extends _RegistrationState {
   const _$RegistrationStateImpl({
     this.domain = '',
-    this.username = '',
-    this.isUsernameValid = false,
     this.avatar,
     this.displayName = '',
     this.isSigningUp = false,
@@ -204,13 +171,6 @@ class _$RegistrationStateImpl extends _RegistrationState {
   @override
   @JsonKey()
   final String domain;
-  // Username screen data
-  @override
-  @JsonKey()
-  final String username;
-  @override
-  @JsonKey()
-  final bool isUsernameValid;
   // Display name/avatar screen data
   @override
   final ImageData? avatar;
@@ -223,7 +183,7 @@ class _$RegistrationStateImpl extends _RegistrationState {
 
   @override
   String toString() {
-    return 'RegistrationState(domain: $domain, username: $username, isUsernameValid: $isUsernameValid, avatar: $avatar, displayName: $displayName, isSigningUp: $isSigningUp)';
+    return 'RegistrationState(domain: $domain, avatar: $avatar, displayName: $displayName, isSigningUp: $isSigningUp)';
   }
 
   @override
@@ -232,10 +192,6 @@ class _$RegistrationStateImpl extends _RegistrationState {
         (other.runtimeType == runtimeType &&
             other is _$RegistrationStateImpl &&
             (identical(other.domain, domain) || other.domain == domain) &&
-            (identical(other.username, username) ||
-                other.username == username) &&
-            (identical(other.isUsernameValid, isUsernameValid) ||
-                other.isUsernameValid == isUsernameValid) &&
             (identical(other.avatar, avatar) || other.avatar == avatar) &&
             (identical(other.displayName, displayName) ||
                 other.displayName == displayName) &&
@@ -244,15 +200,8 @@ class _$RegistrationStateImpl extends _RegistrationState {
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    domain,
-    username,
-    isUsernameValid,
-    avatar,
-    displayName,
-    isSigningUp,
-  );
+  int get hashCode =>
+      Object.hash(runtimeType, domain, avatar, displayName, isSigningUp);
 
   /// Create a copy of RegistrationState
   /// with the given fields replaced by the non-null parameter values.
@@ -269,8 +218,6 @@ class _$RegistrationStateImpl extends _RegistrationState {
 abstract class _RegistrationState extends RegistrationState {
   const factory _RegistrationState({
     final String domain,
-    final String username,
-    final bool isUsernameValid,
     final ImageData? avatar,
     final String displayName,
     final bool isSigningUp,
@@ -279,11 +226,7 @@ abstract class _RegistrationState extends RegistrationState {
 
   // Domain choice screen data
   @override
-  String get domain; // Username screen data
-  @override
-  String get username;
-  @override
-  bool get isUsernameValid; // Display name/avatar screen data
+  String get domain; // Display name/avatar screen data
   @override
   ImageData? get avatar;
   @override

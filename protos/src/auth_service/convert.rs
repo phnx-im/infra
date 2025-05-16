@@ -11,8 +11,8 @@ use phnxtypes::{
 use tonic::Status;
 
 use crate::{
-    common::convert::{InvalidIndexedCiphertext, InvalidNonceLen, QualifiedUserNameError},
-    convert::{RefInto, TryRefInto},
+    common::convert::{InvalidIndexedCiphertext, InvalidNonceLen},
+    convert::TryRefInto,
     validation::{MissingFieldError, MissingFieldExt},
 };
 
@@ -27,10 +27,10 @@ use super::v1::{
 
 impl From<identifiers::AsClientId> for AsClientId {
     fn from(value: identifiers::AsClientId) -> Self {
-        let (user_name, client_id) = value.into_parts();
+        let (client_id, domain) = value.into_parts();
         Self {
-            user_name: Some(user_name.into()),
             client_id: Some(client_id.into()),
+            domain: Some(domain.into()),
         }
     }
 }
@@ -40,11 +40,8 @@ impl TryFrom<AsClientId> for identifiers::AsClientId {
 
     fn try_from(proto: AsClientId) -> Result<Self, Self::Error> {
         Ok(Self::new(
-            proto
-                .user_name
-                .ok_or_missing_field("user_name")?
-                .try_into()?,
             proto.client_id.ok_or_missing_field("client_id")?.into(),
+            proto.domain.ok_or_missing_field("domain")?.try_ref_into()?,
         ))
     }
 }
@@ -54,7 +51,7 @@ pub enum AsClientIdError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError<&'static str>),
     #[error(transparent)]
-    QualifiedUserName(#[from] QualifiedUserNameError),
+    Fqdn(#[from] identifiers::FqdnError),
 }
 
 impl From<AsClientIdError> for Status {
@@ -439,7 +436,7 @@ impl From<credentials::AsCredentialBody> for AsCredentialBody {
         let signature_scheme: SignatureScheme = value.signature_scheme.into();
         Self {
             version: Some(value.version.into()),
-            as_domain: Some(value.as_domain.ref_into()),
+            as_domain: Some(value.as_domain.into()),
             expiration_data: Some(value.expiration_data.into()),
             signature_scheme: signature_scheme.into(),
             verifying_key: Some(value.verifying_key.into()),
@@ -596,7 +593,7 @@ impl From<credentials::AsIntermediateCredentialCsr> for AsIntermediateCredential
     fn from(value: credentials::AsIntermediateCredentialCsr) -> Self {
         Self {
             version: Some(value.version.into()),
-            as_domain: Some(value.as_domain.ref_into()),
+            as_domain: Some(value.as_domain.into()),
             signature_scheme: SignatureScheme::from(value.signature_scheme).into(),
             verifying_key: Some(value.verifying_key.into()),
         }

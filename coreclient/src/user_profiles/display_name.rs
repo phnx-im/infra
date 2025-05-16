@@ -16,6 +16,12 @@ pub struct BaseDisplayName<const VALIDATED: bool> {
     display_name: String,
 }
 
+impl<const VALIDATED: bool> BaseDisplayName<VALIDATED> {
+    pub fn into_string(self) -> String {
+        self.display_name
+    }
+}
+
 pub type UnvalidatedDisplayName = BaseDisplayName<false>;
 
 pub type DisplayName = BaseDisplayName<true>;
@@ -27,14 +33,11 @@ impl UnvalidatedDisplayName {
 }
 
 impl DisplayName {
-    pub fn from_user_name(user_name: &QualifiedUserName) -> Self {
-        // TODO: To be replaced by more sophisticated logic based on UUIDs
-        Self {
-            display_name: user_name.to_string(),
-        }
+    pub fn from_client_id(client_id: &AsClientId) -> Self {
+        Self::from_uuid(client_id.client_id())
     }
 
-    pub fn from_uuid(uuid: &Uuid) -> Self {
+    fn from_uuid(uuid: Uuid) -> Self {
         let animals = [
             "Alpaca",
             "Bear",
@@ -261,7 +264,7 @@ mod tests {
     #[test]
     fn generate_from_uuid() {
         let uuid = Uuid::new_v4();
-        let display_name = DisplayName::from_uuid(&uuid);
+        let display_name = DisplayName::from_uuid(uuid);
 
         assert!(display_name.display_name.contains(' '));
         assert!(
@@ -272,15 +275,15 @@ mod tests {
         );
 
         let uuid = Uuid::from_u128(0);
-        let display_name = DisplayName::from_uuid(&uuid);
+        let display_name = DisplayName::from_uuid(uuid);
         assert_eq!(display_name.display_name, "Alpaca 0");
 
         let uuid = Uuid::from_u128(1);
-        let display_name = DisplayName::from_uuid(&uuid);
+        let display_name = DisplayName::from_uuid(uuid);
         assert_eq!(display_name.display_name, "Bear 1");
 
         let uuid = Uuid::from_u128(555);
-        let display_name = DisplayName::from_uuid(&uuid);
+        let display_name = DisplayName::from_uuid(uuid);
         assert_eq!(display_name.display_name, "Duck 555");
     }
 }

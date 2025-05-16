@@ -18,7 +18,7 @@ final _privateConstructorUsedError = UnsupportedError(
 /// @nodoc
 mixin _$ConversationDetailsState {
   UiConversationDetails? get conversation => throw _privateConstructorUsedError;
-  List<String> get members => throw _privateConstructorUsedError;
+  List<UiClientId> get members => throw _privateConstructorUsedError;
   UiRoomState? get roomState => throw _privateConstructorUsedError;
 
   /// Create a copy of ConversationDetailsState
@@ -37,7 +37,7 @@ abstract class $ConversationDetailsStateCopyWith<$Res> {
   @useResult
   $Res call({
     UiConversationDetails? conversation,
-    List<String> members,
+    List<UiClientId> members,
     UiRoomState? roomState,
   });
 }
@@ -75,7 +75,7 @@ class _$ConversationDetailsStateCopyWithImpl<
                 null == members
                     ? _value.members
                     : members // ignore: cast_nullable_to_non_nullable
-                        as List<String>,
+                        as List<UiClientId>,
             roomState:
                 freezed == roomState
                     ? _value.roomState
@@ -98,7 +98,7 @@ abstract class _$$ConversationDetailsStateImplCopyWith<$Res>
   @useResult
   $Res call({
     UiConversationDetails? conversation,
-    List<String> members,
+    List<UiClientId> members,
     UiRoomState? roomState,
   });
 }
@@ -136,7 +136,7 @@ class __$$ConversationDetailsStateImplCopyWithImpl<$Res>
             null == members
                 ? _value._members
                 : members // ignore: cast_nullable_to_non_nullable
-                    as List<String>,
+                    as List<UiClientId>,
         roomState:
             freezed == roomState
                 ? _value.roomState
@@ -152,16 +152,16 @@ class __$$ConversationDetailsStateImplCopyWithImpl<$Res>
 class _$ConversationDetailsStateImpl extends _ConversationDetailsState {
   const _$ConversationDetailsStateImpl({
     this.conversation,
-    required final List<String> members,
+    required final List<UiClientId> members,
     this.roomState,
   }) : _members = members,
        super._();
 
   @override
   final UiConversationDetails? conversation;
-  final List<String> _members;
+  final List<UiClientId> _members;
   @override
-  List<String> get members {
+  List<UiClientId> get members {
     if (_members is EqualUnmodifiableListView) return _members;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_members);
@@ -209,7 +209,7 @@ class _$ConversationDetailsStateImpl extends _ConversationDetailsState {
 abstract class _ConversationDetailsState extends ConversationDetailsState {
   const factory _ConversationDetailsState({
     final UiConversationDetails? conversation,
-    required final List<String> members,
+    required final List<UiClientId> members,
     final UiRoomState? roomState,
   }) = _$ConversationDetailsStateImpl;
   const _ConversationDetailsState._() : super._();
@@ -217,7 +217,7 @@ abstract class _ConversationDetailsState extends ConversationDetailsState {
   @override
   UiConversationDetails? get conversation;
   @override
-  List<String> get members;
+  List<UiClientId> get members;
   @override
   UiRoomState? get roomState;
 

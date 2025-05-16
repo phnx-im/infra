@@ -18,10 +18,7 @@ use phnxtypes::{
     },
     identifiers,
     messages::{
-        client_as::{
-            AsCredentialsParams, DeleteUserParamsTbs, EnqueueMessageParams,
-            UserConnectionPackagesParams,
-        },
+        client_as::{AsCredentialsParams, EnqueueMessageParams, UserConnectionPackagesParams},
         client_as_out::{
             GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
             StageUserProfileParamsTbs,
@@ -55,7 +52,7 @@ impl GrpcAs {
         let client_record = ClientRecord::load(&self.inner.db_pool, &client_id)
             .await
             .map_err(|error| {
-                error!(%error, %client_id, "failed to load client");
+                error!(%error, ?client_id, "failed to load client");
                 Status::internal("database error")
             })?
             .ok_or_else(|| Status::not_found("unknown client"))?;
@@ -141,14 +138,14 @@ impl auth_service_server::AuthService for GrpcAs {
         let (client_id, payload) = self
             .verify_client_auth::<_, DeleteUserPayload>(request)
             .await?;
-        let params = DeleteUserParamsTbs {
-            user_name: payload
-                .user_name
-                .ok_or_missing_field("user_name")?
-                .try_into()?,
-            client_id,
-        };
-        self.inner.as_delete_user(params).await?;
+        let payload_client_id: identifiers::AsClientId = payload
+            .client_id
+            .ok_or_missing_field("client_id")?
+            .try_into()?;
+        if payload_client_id != client_id {
+            return Err(Status::invalid_argument("only possible to delete own user"));
+        }
+        self.inner.as_delete_user(&client_id).await?;
         Ok(Response::new(DeleteUserResponse {}))
     }
 
@@ -176,11 +173,11 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<GetUserConnectionPackagesRequest>,
     ) -> Result<Response<GetUserConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
-        let user_name = request
-            .user_name
-            .ok_or_missing_field("user_name")?
+        let client_id = request
+            .client_id
+            .ok_or_missing_field("client_id")?
             .try_into()?;
-        let params = UserConnectionPackagesParams { user_name };
+        let params = UserConnectionPackagesParams { client_id };
         let connection_packages = self
             .inner
             .as_user_connection_packages(params)
@@ -355,6 +352,8 @@ impl From<ListenProtocolViolation> for Status {
 
 trait WithAsClientId {
     fn client_id_proto(&self) -> Option<AsClientId>;
+
+    #[expect(clippy::result_large_err)]
     fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
         Ok(self
             .client_id_proto()

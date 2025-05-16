@@ -18,14 +18,13 @@ async fn user_stages() -> anyhow::Result<()> {
     let setup = TestBackend::single().await;
     let server_url = setup.url().unwrap();
 
-    let user_name = "alice@example.com";
-    let as_client_id = AsClientId::random(user_name.parse().unwrap()).unwrap();
+    let as_client_id = AsClientId::random("example.com".parse().unwrap());
 
     let phnx_db = open_db_in_memory().await?;
     let client_db = open_db_in_memory().await?;
 
     let api_clients = ApiClients::new(
-        as_client_id.user_name().domain().clone(),
+        as_client_id.domain().clone(),
         server_url.clone(),
         setup.grpc_port(),
     );
@@ -38,7 +37,7 @@ async fn user_stages() -> anyhow::Result<()> {
     let client_records = ClientRecord::load_all(&phnx_db).await?;
     assert!(client_records.len() == 1);
     let client_record = client_records.first().unwrap();
-    assert!(client_record.as_client_id == as_client_id);
+    assert!(client_record.client_id == as_client_id);
     assert!(matches!(
         client_record.client_record_state,
         ClientRecordState::InProgress

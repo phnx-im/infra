@@ -5,6 +5,9 @@
 use phnxtypes::time::TimeStamp;
 use thiserror::Error;
 use tonic::Status;
+use tracing::error;
+
+use super::StorageError;
 
 #[derive(Error, Debug)]
 pub(crate) enum RegisterUserError {
@@ -44,6 +47,13 @@ pub(crate) enum DeleteUserError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
+}
+
+impl From<sqlx::Error> for DeleteUserError {
+    fn from(e: sqlx::Error) -> Self {
+        error!(%e, "Error deleting user");
+        DeleteUserError::StorageError
+    }
 }
 
 impl From<DeleteUserError> for Status {
@@ -163,6 +173,13 @@ pub(crate) enum GetUserProfileError {
     StorageError,
 }
 
+impl From<StorageError> for GetUserProfileError {
+    fn from(error: StorageError) -> Self {
+        error!(%error, "Error loading user record");
+        Self::StorageError
+    }
+}
+
 impl From<GetUserProfileError> for Status {
     fn from(e: GetUserProfileError) -> Self {
         let msg = e.to_string();
@@ -181,6 +198,13 @@ pub(crate) enum StageUserProfileError {
     /// Storage provider error
     #[error("Storage provider error")]
     StorageError,
+}
+
+impl From<StorageError> for StageUserProfileError {
+    fn from(error: StorageError) -> Self {
+        error!(%error, "Error loading user record");
+        Self::StorageError
+    }
 }
 
 impl From<StageUserProfileError> for Status {
@@ -203,6 +227,13 @@ pub(crate) enum MergeUserProfileError {
     /// No staged user profile
     #[error("No staged user profile")]
     NoStagedUserProfile,
+}
+
+impl From<StorageError> for MergeUserProfileError {
+    fn from(error: StorageError) -> Self {
+        error!(%error, "Error loading user record");
+        Self::StorageError
+    }
 }
 
 impl From<MergeUserProfileError> for Status {

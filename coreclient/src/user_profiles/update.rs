@@ -22,12 +22,12 @@ impl UserProfileUpdate {
         key_index: UserProfileKeyIndex,
         signing_key: &ClientSigningKey,
     ) -> Result<UserProfileUpdate, UserProfileValidationError> {
-        let expected_user_name = signing_key.credential().identity().user_name();
-        let profile_user_name = new_user_profile.user_name;
-        if &profile_user_name != expected_user_name {
-            return Err(UserProfileValidationError::MismatchingUserName {
-                expected: expected_user_name.clone(),
-                actual: profile_user_name,
+        let expected_client_id = signing_key.credential().identity();
+        let profile_client_id = new_user_profile.client_id;
+        if &profile_client_id != expected_client_id {
+            return Err(UserProfileValidationError::MismatchingClientId {
+                expected: expected_client_id.clone(),
+                actual: profile_client_id,
             });
         }
         current_profile.display_name = new_user_profile.display_name;

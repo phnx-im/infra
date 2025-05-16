@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::QualifiedUserName,
+    crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::AsClientId,
     messages::client_as_out::EncryptedUserProfile,
 };
 use thiserror::Error;
@@ -20,33 +20,33 @@ pub enum UserProfileMergingError {
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct UserRecord {
-    user_name: QualifiedUserName,
+    client_id: AsClientId,
     encrypted_user_profile: EncryptedUserProfile,
     staged_user_profile: Option<EncryptedUserProfile>,
 }
 
 impl UserRecord {
-    pub fn new(user_name: QualifiedUserName, encrypted_user_profile: EncryptedUserProfile) -> Self {
+    pub fn new(client_id: AsClientId, encrypted_user_profile: EncryptedUserProfile) -> Self {
         Self {
-            user_name,
+            client_id,
             encrypted_user_profile,
             staged_user_profile: None,
         }
     }
 
-    pub(super) async fn new_and_store(
-        connection: impl sqlx::PgExecutor<'_>,
-        user_name: &QualifiedUserName,
-        encrypted_user_profile: &EncryptedUserProfile,
-    ) -> Result<Self, StorageError> {
-        let user_record = Self::new(user_name.clone(), encrypted_user_profile.clone());
-        user_record.store(connection).await?;
-        Ok(user_record)
+    #[cfg(test)]
+    pub fn client_id(&self) -> &AsClientId {
+        &self.client_id
     }
 
-    #[cfg(test)]
-    pub(super) fn user_name(&self) -> &QualifiedUserName {
-        &self.user_name
+    pub(super) async fn new_and_store(
+        connection: impl sqlx::PgExecutor<'_>,
+        client_id: &AsClientId,
+        encrypted_user_profile: &EncryptedUserProfile,
+    ) -> Result<Self, StorageError> {
+        let user_record = Self::new(client_id.clone(), encrypted_user_profile.clone());
+        user_record.store(connection).await?;
+        Ok(user_record)
     }
 
     pub fn into_user_profile(
@@ -79,9 +79,7 @@ impl UserRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxtypes::{
-        identifiers::QualifiedUserName, messages::client_as_out::EncryptedUserProfile,
-    };
+    use phnxtypes::{identifiers::AsClientId, messages::client_as_out::EncryptedUserProfile};
     use sqlx::{PgExecutor, query, query_as};
 
     use crate::errors::StorageError;
@@ -93,7 +91,7 @@ pub(crate) mod persistence {
         /// exists for the given UserId.
         pub(in crate::auth_service) async fn load(
             connection: impl PgExecutor<'_>,
-            user_name: &QualifiedUserName,
+            client_id: &AsClientId,
         ) -> Result<Option<UserRecord>, StorageError> {
             struct AsUserRecord {
                 encrypted_user_profile: EncryptedUserProfile,
@@ -106,13 +104,14 @@ pub(crate) mod persistence {
                     encrypted_user_profile AS "encrypted_user_profile: _",
                     staged_user_profile AS "staged_user_profile: _"
                 FROM as_user_records
-                WHERE user_name = $1"#,
-                user_name.to_string(),
+                WHERE client_id = $1 AND domain = $2"#,
+                client_id.client_id(),
+                client_id.domain() as _,
             )
             .fetch_optional(connection)
             .await?;
             Ok(record.map(|record| UserRecord {
-                user_name: user_name.clone(),
+                client_id: client_id.clone(),
                 encrypted_user_profile: record.encrypted_user_profile,
                 staged_user_profile: record.staged_user_profile,
             }))
@@ -126,10 +125,11 @@ pub(crate) mod persistence {
             query!(
                 "UPDATE as_user_records
                 SET encrypted_user_profile = $1, staged_user_profile = $2
-                WHERE user_name = $3",
+                WHERE client_id = $3 AND domain = $4",
                 self.encrypted_user_profile as _,
                 self.staged_user_profile as _,
-                self.user_name.to_string()
+                self.client_id.client_id(),
+                self.client_id.domain() as _,
             )
             .execute(connection)
             .await?;
@@ -143,10 +143,11 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             query!(
-                "INSERT INTO as_user_records 
-                    (user_name, encrypted_user_profile, staged_user_profile) 
-                    VALUES ($1, $2, $3)",
-                self.user_name.to_string(),
+                "INSERT INTO as_user_records
+                    (client_id, domain, encrypted_user_profile, staged_user_profile)
+                    VALUES ($1, $2, $3, $4)",
+                self.client_id.client_id(),
+                self.client_id.domain() as _,
                 self.encrypted_user_profile as _,
                 self.staged_user_profile as _,
             )
@@ -164,12 +165,13 @@ pub(crate) mod persistence {
         ///  - All key packages for the respective clients
         pub(in crate::auth_service) async fn delete(
             connection: impl PgExecutor<'_>,
-            user_name: &QualifiedUserName,
+            client_id: &AsClientId,
         ) -> Result<(), sqlx::Error> {
             // The database cascades the delete to the clients and their connection packages.
             query!(
-                "DELETE FROM as_user_records WHERE user_name = $1",
-                user_name.to_string()
+                "DELETE FROM as_user_records WHERE client_id = $1 AND domain = $2",
+                client_id.client_id(),
+                client_id.domain() as _,
             )
             .execute(connection)
             .await?;
@@ -181,15 +183,14 @@ pub(crate) mod persistence {
     pub(crate) mod tests {
         use phnxtypes::messages::client_as_out::EncryptedUserProfile;
         use sqlx::PgPool;
-        use uuid::Uuid;
 
         use super::*;
 
         pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
-            let user_name: QualifiedUserName = format!("{}@example.com", Uuid::new_v4()).parse()?;
+            let client_id = AsClientId::random("example.com".parse()?);
             let encrypted_user_profile = EncryptedUserProfile::dummy();
             let record = UserRecord {
-                user_name,
+                client_id,
                 encrypted_user_profile,
                 staged_user_profile: None,
             };
@@ -201,7 +202,7 @@ pub(crate) mod persistence {
         async fn load(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
 
-            let loaded = UserRecord::load(&pool, &user_record.user_name)
+            let loaded = UserRecord::load(&pool, &user_record.client_id)
                 .await?
                 .expect("missing user record");
             assert_eq!(loaded, user_record);
@@ -213,14 +214,14 @@ pub(crate) mod persistence {
         async fn delete(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
 
-            let loaded = UserRecord::load(&pool, &user_record.user_name)
+            let loaded = UserRecord::load(&pool, &user_record.client_id)
                 .await?
                 .expect("missing user record");
             assert_eq!(loaded, user_record);
 
-            UserRecord::delete(&pool, &user_record.user_name).await?;
+            UserRecord::delete(&pool, &user_record.client_id).await?;
 
-            let loaded = UserRecord::load(&pool, &user_record.user_name).await?;
+            let loaded = UserRecord::load(&pool, &user_record.client_id).await?;
             assert!(loaded.is_none());
 
             Ok(())

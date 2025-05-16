@@ -6,12 +6,14 @@ use anyhow::bail;
 use mimi_content::MimiContent;
 use phnxtypes::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
+    identifiers::{AsClientId, Fqdn},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteExecutor, query, query_as};
 use tokio_stream::StreamExt;
 use tracing::{error, warn};
+use uuid::Uuid;
 
 use crate::{ContentMessage, ConversationId, ConversationMessage, Message, store::StoreNotifier};
 
@@ -76,15 +78,14 @@ struct SqlConversationMessage {
     message_id: ConversationMessageId,
     conversation_id: ConversationId,
     timestamp: TimeStamp,
-    sender: String,
+    sender_as_client_uuid: Option<Uuid>,
+    sender_as_domain: Option<Fqdn>,
     content: BlobDecoded<VersionedMessage>,
     sent: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
 enum VersionedMessageError {
-    #[error("Invalid user prefix")]
-    InvalidUserPrefix,
     #[error(transparent)]
     Codec(#[from] codec::Error),
 }
@@ -103,23 +104,16 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             message_id,
             conversation_id,
             timestamp,
-            sender,
+            sender_as_client_uuid,
+            sender_as_domain,
             content,
             sent,
         }: SqlConversationMessage,
     ) -> Result<Self, Self::Error> {
-        let message = match sender.as_str() {
-            "system" => {
-                Message::Event(content.into_inner().to_event_message().unwrap_or_else(|e| {
-                    warn!("Event parsing failed: {e}");
-                    EventMessage::Error(ErrorMessage::new("Event parsing failed".to_owned()))
-                }))
-            }
-            _ => {
-                let sender = sender
-                    .strip_prefix("user:")
-                    .ok_or_else(|| VersionedMessageError::InvalidUserPrefix)?
-                    .to_owned();
+        let message = match (sender_as_client_uuid, sender_as_domain) {
+            // user message
+            (Some(sender_as_client_uuid), Some(sender_as_domain)) => {
+                let sender = AsClientId::new(sender_as_client_uuid, sender_as_domain);
                 content
                     .into_inner()
                     .to_mimi_content()
@@ -137,7 +131,13 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
                         )))
                     })
             }
+            // system message
+            _ => Message::Event(content.into_inner().to_event_message().unwrap_or_else(|e| {
+                warn!("Event parsing failed: {e}");
+                EventMessage::Error(ErrorMessage::new("Event parsing failed".to_owned()))
+            })),
         };
+
         let timestamped_message = TimestampedMessage { timestamp, message };
         Ok(ConversationMessage {
             conversation_message_id: message_id,
@@ -158,7 +158,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender,
+                sender_as_client_uuid AS "sender_as_client_uuid: _",
+                sender_as_domain AS "sender_as_domain: _",
                 content As "content: _",
                 sent
             FROM conversation_messages WHERE message_id = ?"#,
@@ -185,7 +186,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender,
+                sender_as_client_uuid AS "sender_as_client_uuid: _",
+                sender_as_domain AS "sender_as_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
@@ -218,13 +220,14 @@ impl ConversationMessage {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> anyhow::Result<()> {
-        let sender = match &self.timestamped_message.message {
-            Message::Content(content_message) => {
-                format!("user:{}", content_message.sender)
-            }
-            Message::Event(_) => "system".to_string(),
+        let (sender_uuid, sender_domain) = match &self.timestamped_message.message {
+            Message::Content(content_message) => Some((
+                content_message.sender.client_id(),
+                content_message.sender.domain(),
+            ))
+            .unzip(),
+            Message::Event(_) => (None, None),
         };
-
         let content = match &self.timestamped_message.message {
             Message::Content(content_message) => {
                 VersionedMessage::from_mimi_content(&content_message.content)?
@@ -238,13 +241,20 @@ impl ConversationMessage {
         };
 
         query!(
-            "INSERT INTO conversation_messages
-            (message_id, conversation_id, timestamp, sender, content, sent)
-            VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO conversation_messages (
+                message_id,
+                conversation_id,
+                timestamp,
+                sender_as_client_uuid,
+                sender_as_domain,
+                content,
+                sent
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)",
             self.conversation_message_id,
             self.conversation_id,
             self.timestamped_message.timestamp,
-            sender,
+            sender_uuid,
+            sender_domain,
             content,
             sent,
         )
@@ -290,11 +300,14 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender,
+                sender_as_client_uuid AS "sender_as_client_uuid: _",
+                sender_as_domain AS "sender_as_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
-            WHERE conversation_id = ? AND sender != 'system'
+            WHERE conversation_id = ?
+                AND sender_as_client_uuid IS NOT NULL
+                AND sender_as_domain IS NOT NULL
             ORDER BY timestamp DESC LIMIT 1"#,
             conversation_id,
         )
@@ -318,7 +331,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender,
+                sender_as_client_uuid AS "sender_as_client_uuid: _",
+                sender_as_domain AS "sender_as_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
@@ -349,7 +363,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender,
+                sender_as_client_uuid AS "sender_as_client_uuid: _",
+                sender_as_domain AS "sender_as_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
@@ -390,7 +405,7 @@ pub(crate) mod tests {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
         let message = Message::Content(Box::new(ContentMessage {
-            sender: "alice@localhost".to_string(),
+            sender: AsClientId::random("localhost".parse().unwrap()),
             sent: false,
             content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
@@ -407,7 +422,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message = test_conversation_message(conversation.id());
 
@@ -425,7 +442,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
@@ -447,7 +466,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message = test_conversation_message(conversation.id());
         message.store(&pool, &mut store_notifier).await?;
@@ -481,7 +502,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
@@ -495,8 +518,8 @@ pub(crate) mod tests {
             timestamped_message: TimestampedMessage {
                 timestamp: Utc::now().into(),
                 message: Message::Event(EventMessage::System(SystemMessage::Add(
-                    "alice@localhost".parse()?,
-                    "bob@localhost".parse()?,
+                    AsClientId::random("localhost".parse()?),
+                    AsClientId::random("localhost".parse()?),
                 ))),
             },
         }
@@ -514,7 +537,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());
@@ -533,7 +558,9 @@ pub(crate) mod tests {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation.id());
         let message_b = test_conversation_message(conversation.id());

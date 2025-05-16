@@ -176,7 +176,7 @@ impl ClientRecordState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRecord {
-    pub as_client_id: AsClientId,
+    pub client_id: AsClientId,
     pub client_record_state: ClientRecordState,
     pub created_at: DateTime<Utc>,
     pub is_default: bool,
@@ -185,7 +185,7 @@ pub struct ClientRecord {
 impl ClientRecord {
     pub(super) fn new(as_client_id: AsClientId) -> Self {
         Self {
-            as_client_id,
+            client_id: as_client_id,
             client_record_state: ClientRecordState::InProgress,
             created_at: Utc::now(),
             is_default: false,

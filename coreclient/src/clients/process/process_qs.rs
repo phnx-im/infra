@@ -137,7 +137,7 @@ impl CoreUser {
                 let mut own_profile_key_in_group = None;
                 for profile_info in member_profile_info {
                     // TODO: Don't fetch while holding a transaction!
-                    if profile_info.client_credential.identity() == &self.as_client_id() {
+                    if profile_info.client_credential.identity() == self.as_client_id() {
                         // We already have our own profile info.
                         own_profile_key_in_group = Some(profile_info.user_profile_key);
                         continue;
@@ -188,7 +188,7 @@ impl CoreUser {
                 .api_clients
                 .get(qualified_group_id.owning_domain())?;
             let encrypted_profile_key =
-                own_profile_key.encrypt(group.identity_link_wrapper_key(), self.user_name())?;
+                own_profile_key.encrypt(group.identity_link_wrapper_key(), self.as_client_id())?;
             let params = UserProfileKeyUpdateParams {
                 group_id: group.group_id().clone(),
                 sender_index: group.own_index(),
@@ -330,7 +330,7 @@ impl CoreUser {
         let group_messages = vec![TimestampedMessage::from_application_message(
             application_message,
             ds_timestamp,
-            sender_client_id.user_name(),
+            sender_client_id,
         )];
         Ok((group_messages, false))
     }
@@ -372,19 +372,21 @@ impl CoreUser {
 
         let mut notifier = self.store_notifier();
 
-        if let ConversationType::UnconfirmedConnection(user_name) = conversation.conversation_type()
+        if let ConversationType::UnconfirmedConnection(client_id) = conversation.conversation_type()
         {
             // Check if it was an external commit and if the user name matches
             if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_credential.identity().user_name() == user_name
+                && sender_client_credential.identity() == client_id
             {
                 // TODO: Handle the fact that an unexpected user joined the connection group.
             }
             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
             // friendship package
-            let partial_contact = PartialContact::load(txn.as_mut(), user_name)
+            let partial_contact = PartialContact::load(txn.as_mut(), client_id)
                 .await?
-                .ok_or_else(|| anyhow!("No partial contact found for user name {}", user_name))?;
+                .with_context(|| {
+                    format!("No partial contact found with client_id: {client_id:?}")
+                })?;
 
             // This is a bit annoying, since we already
             // de-serialized this in the group processing
@@ -406,7 +408,7 @@ impl CoreUser {
 
             let user_profile_key = UserProfileKey::from_base_secret(
                 friendship_package.user_profile_base_secret.clone(),
-                user_name,
+                client_id,
             )?;
 
             // UnconfirmedConnection Phase 2: Fetch the user profile.
@@ -424,7 +426,6 @@ impl CoreUser {
                     txn,
                     &mut notifier,
                     friendship_package,
-                    sender_client_credential.identity().clone(),
                     user_profile_key_index,
                 )
                 .await?;
@@ -474,7 +475,7 @@ impl CoreUser {
         let new_user_profile_key = UserProfileKey::decrypt(
             group.identity_link_wrapper_key(),
             &params.user_profile_key,
-            sender.user_name(),
+            &sender,
         )?;
 
         // Phase 3: Fetch and store the (new) user profile and key

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                COUNT(cm.conversation_id) AS \"count: _\"\n            FROM\n                conversations c\n            LEFT JOIN\n                conversation_messages cm\n            ON\n                c.conversation_id = cm.conversation_id\n                AND cm.sender_as_client_uuid IS NOT NULL\n                AND cm.sender_as_domain IS NOT NULL\n                AND cm.timestamp > c.last_read",
+  "describe": {
+    "columns": [
+      {
+        "name": "count: _",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fa60fcdfa778952cb828d34a6b390dec92733982fcd8ab0608891773ab427ce3"
+}

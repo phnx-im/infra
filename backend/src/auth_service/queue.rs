@@ -408,10 +408,10 @@ mod persistence {
         #[sqlx::test]
         async fn enqueue_fetch_delete_and_requeue(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+            let client_id = user_record.client_id();
             store_random_client_record(&pool, client_id.clone()).await?;
 
-            let queue = Queue::new_and_store(&client_id, &pool).await?;
+            let queue = Queue::new_and_store(client_id, &pool).await?;
 
             let n: u64 = queue.sequence_number.try_into()?;
             let mut messages = Vec::new();
@@ -423,33 +423,33 @@ mod persistence {
                 messages.push(message);
                 Queue::enqueue(
                     pool.acquire().await?.as_mut(),
-                    &client_id,
+                    client_id,
                     messages.last().unwrap(),
                 )
                 .await?;
             }
 
             let mut buffer = Vec::new();
-            Queue::fetch_into(&pool, &client_id, 0, 10, &mut buffer).await?;
+            Queue::fetch_into(&pool, client_id, 0, 10, &mut buffer).await?;
             assert_eq!(buffer.len(), 10);
             for i in 0..10 {
                 assert_eq!(buffer[i], messages[i]);
             }
 
             buffer.clear();
-            Queue::fetch_into(&pool, &client_id, 10, 1, &mut buffer).await?;
+            Queue::fetch_into(&pool, client_id, 10, 1, &mut buffer).await?;
             assert!(buffer.is_empty());
 
-            Queue::delete(&pool, &client_id, n + 4).await?;
+            Queue::delete(&pool, client_id, n + 4).await?;
 
-            Queue::fetch_into(&pool, &client_id, 5, 10, &mut buffer).await?;
+            Queue::fetch_into(&pool, client_id, 5, 10, &mut buffer).await?;
             assert_eq!(buffer.len(), 5);
             for i in 0..5 {
                 assert_eq!(buffer[i], messages[i + 5]);
             }
 
             buffer.clear();
-            Queue::fetch_into(&pool, &client_id, 10, 1, &mut buffer).await?;
+            Queue::fetch_into(&pool, client_id, 10, 1, &mut buffer).await?;
             assert!(buffer.is_empty());
 
             Ok(())
@@ -464,7 +464,6 @@ mod tests {
     use phnxtypes::crypto::ear::AeadCiphertext;
     use tokio::time::{Duration, timeout};
     use tokio_stream::StreamExt;
-    use uuid::Uuid;
 
     use crate::auth_service::{
         client_record::persistence::tests::store_random_client_record,
@@ -484,7 +483,7 @@ mod tests {
 
     async fn new_queue(pool: &PgPool) -> anyhow::Result<AsClientId> {
         let user_record = store_random_user_record(pool).await?;
-        let client_id = AsClientId::new(user_record.user_name().clone(), Uuid::new_v4());
+        let client_id = user_record.client_id().clone();
         store_random_client_record(pool, client_id.clone()).await?;
         Queue::new_and_store(&client_id, pool).await?;
         Ok(client_id)
@@ -716,7 +715,7 @@ mod tests {
     #[sqlx::test]
     async fn test_ack_non_existent_queue(pool: PgPool) {
         let queues = Queues::new(pool);
-        let queue_id = AsClientId::new("alice@localhost".parse().unwrap(), Uuid::new_v4());
+        let queue_id = AsClientId::random("localhost".parse().unwrap());
 
         let result = queues.ack(&queue_id, 0).await;
 
@@ -726,7 +725,7 @@ mod tests {
     #[sqlx::test]
     async fn test_enqueue_non_existent_queue(pool: PgPool) {
         let queues = Queues::new(pool);
-        let queue_id = AsClientId::new("alice@localhost".parse().unwrap(), Uuid::new_v4());
+        let queue_id = AsClientId::random("localhost".parse().unwrap());
 
         let msg = new_msg(0, "msg");
         let result = queues.enqueue(&queue_id, &msg).await;

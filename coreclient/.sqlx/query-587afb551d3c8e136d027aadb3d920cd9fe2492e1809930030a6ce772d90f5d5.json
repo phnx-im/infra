@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO conversation_past_members (\n                            conversation_id,\n                            member_as_client_uuid,\n                            member_as_domain\n                        )\n                        VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "587afb551d3c8e136d027aadb3d920cd9fe2492e1809930030a6ce772d90f5d5"
+}

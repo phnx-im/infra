@@ -33,7 +33,7 @@ void main() {
       ).thenReturn(const NavigationState.home());
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(userName: "alice@localhost"));
+      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
     });
 
     Widget buildSubject() => MultiBlocProvider(

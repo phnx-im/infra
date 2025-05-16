@@ -26,8 +26,8 @@ class TextMessageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName = context.select((UserCubit cubit) => cubit.state.userName);
-    final isSender = contentMessage.sender == userName;
+    final clientId = context.select((UserCubit cubit) => cubit.state.clientId);
+    final isSender = contentMessage.sender == clientId;
 
     return Column(
       children: [
@@ -180,7 +180,7 @@ class _TextMessage extends StatelessWidget {
 class _Sender extends StatelessWidget {
   const _Sender({required this.sender, required this.isSender});
 
-  final String sender;
+  final UiClientId sender;
   final bool isSender;
 
   @override
@@ -194,24 +194,27 @@ class _Sender extends StatelessWidget {
             profile: () => context.read<UserCubit>().userProfile(sender),
           ),
           const SizedBox(width: 10),
-          _Username(sender: sender, isSender: isSender),
+          _DisplayName(
+            displayName: sender.uuid.toString(), // TODO: display name
+            isSender: isSender,
+          ),
         ],
       ),
     );
   }
 }
 
-class _Username extends StatelessWidget {
-  const _Username({required this.sender, required this.isSender});
+class _DisplayName extends StatelessWidget {
+  const _DisplayName({required this.displayName, required this.isSender});
 
-  final String sender;
+  final String displayName;
   final bool isSender;
 
   @override
   Widget build(BuildContext context) {
     return SelectionContainer.disabled(
       child: Text(
-        isSender ? "You" : sender.split("@").firstOrNull ?? "",
+        isSender ? "You" : displayName,
         style: const TextStyle(
           color: colorDMB,
           fontSize: 12,

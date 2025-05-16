@@ -4,14 +4,18 @@
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use sqlx::{Connection, SqliteExecutor, query, query_as, query_scalar};
+use phnxtypes::identifiers::{AsClientId, Fqdn};
+use sqlx::{Connection, SqliteConnection, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use tracing::info;
+use uuid::Uuid;
 
 use crate::{
     Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
     ConversationStatus, ConversationType, store::StoreNotifier, utils::persistence::GroupIdWrapper,
 };
+
+use super::InactiveConversation;
 
 struct SqlConversation {
     conversation_id: ConversationId,
@@ -19,27 +23,51 @@ struct SqlConversation {
     conversation_picture: Option<Vec<u8>>,
     group_id: GroupIdWrapper,
     last_read: DateTime<Utc>,
-    conversation_status: ConversationStatus,
-    conversation_type: ConversationType,
+    connection_as_client_uuid: Option<Uuid>,
+    connection_as_domain: Option<Fqdn>,
+    is_confirmed_connection: bool,
+    is_active: bool,
 }
 
-impl From<SqlConversation> for Conversation {
-    fn from(
-        SqlConversation {
+impl SqlConversation {
+    fn convert(self, past_members: Vec<SqlPastMember>) -> Conversation {
+        let Self {
             conversation_id,
             conversation_title,
             conversation_picture,
             group_id: GroupIdWrapper(group_id),
             last_read,
-            conversation_status,
-            conversation_type,
-        }: SqlConversation,
-    ) -> Self {
-        Self {
+            connection_as_client_uuid,
+            connection_as_domain,
+            is_confirmed_connection,
+            is_active,
+        } = self;
+
+        let conversation_type = match (connection_as_client_uuid, connection_as_domain) {
+            (Some(client_uuid), Some(domain)) => {
+                let connection_client_id = AsClientId::new(client_uuid, domain);
+                if is_confirmed_connection {
+                    ConversationType::Connection(connection_client_id)
+                } else {
+                    ConversationType::UnconfirmedConnection(connection_client_id)
+                }
+            }
+            _ => ConversationType::Group,
+        };
+
+        let status = if is_active {
+            ConversationStatus::Active
+        } else {
+            ConversationStatus::Inactive(InactiveConversation::new(
+                past_members.into_iter().map(From::from).collect(),
+            ))
+        };
+
+        Conversation {
             id: conversation_id,
             group_id,
             last_read,
-            status: conversation_status,
+            status,
             conversation_type,
             attributes: ConversationAttributes {
                 title: conversation_title,
@@ -47,12 +75,38 @@ impl From<SqlConversation> for Conversation {
             },
         }
     }
+
+    async fn load_past_members(
+        &self,
+        connection: &mut SqliteConnection,
+    ) -> sqlx::Result<Vec<SqlPastMember>> {
+        if self.is_active {
+            return Ok(Vec::new());
+        }
+        Conversation::load_past_members(connection, self.conversation_id).await
+    }
+}
+
+struct SqlPastMember {
+    member_as_client_uuid: Uuid,
+    member_as_domain: Fqdn,
+}
+
+impl From<SqlPastMember> for AsClientId {
+    fn from(
+        SqlPastMember {
+            member_as_client_uuid,
+            member_as_domain,
+        }: SqlPastMember,
+    ) -> Self {
+        AsClientId::new(member_as_client_uuid, member_as_domain)
+    }
 }
 
 impl Conversation {
     pub(crate) async fn store(
         &self,
-        executor: impl SqliteExecutor<'_>,
+        connection: &mut SqliteConnection,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         info!(
@@ -63,8 +117,26 @@ impl Conversation {
         let title = self.attributes().title();
         let picture = self.attributes().picture();
         let group_id = self.group_id.as_slice();
-        let conversation_status = self.status();
-        let conversation_type = self.conversation_type();
+        let (is_active, past_members) = match self.status() {
+            ConversationStatus::Inactive(inactive_conversation) => {
+                (false, inactive_conversation.past_members().to_vec())
+            }
+            ConversationStatus::Active => (true, Vec::new()),
+        };
+        let (is_confirmed_connection, connection_as_client_uuid, connection_as_domain) =
+            match self.conversation_type() {
+                ConversationType::UnconfirmedConnection(client_id) => (
+                    false,
+                    Some(client_id.client_id()),
+                    Some(client_id.domain().clone()),
+                ),
+                ConversationType::Connection(client_id) => (
+                    true,
+                    Some(client_id.client_id()),
+                    Some(client_id.domain().clone()),
+                ),
+                ConversationType::Group => (true, None, None),
+            };
         query!(
             "INSERT INTO conversations (
                 conversation_id,
@@ -72,29 +144,52 @@ impl Conversation {
                 conversation_picture,
                 group_id,
                 last_read,
-                conversation_status,
-                conversation_type
+                connection_as_client_uuid,
+                connection_as_domain,
+                is_confirmed_connection,
+                is_active
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)",
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             self.id,
             title,
             picture,
             group_id,
             self.last_read,
-            conversation_status,
-            conversation_type
+            connection_as_client_uuid,
+            connection_as_domain,
+            is_confirmed_connection,
+            is_active,
         )
-        .execute(executor)
+        .execute(&mut *connection)
         .await?;
+
+        for member in past_members {
+            let (uuid, domain) = member.into_parts();
+            query!(
+                "INSERT OR IGNORE INTO conversation_past_members (
+                    conversation_id,
+                    member_as_client_uuid,
+                    member_as_domain
+                )
+                VALUES (?, ?, ?)",
+                self.id,
+                uuid,
+                domain,
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+
         notifier.add(self.id);
         Ok(())
     }
 
     pub(crate) async fn load(
-        executor: impl SqliteExecutor<'_>,
+        connection: &mut SqliteConnection,
         conversation_id: &ConversationId,
     ) -> sqlx::Result<Option<Conversation>> {
-        query_as!(
+        let mut transaction = connection.begin().await?;
+        let conversation = query_as!(
             SqlConversation,
             r#"SELECT
                 conversation_id AS "conversation_id: _",
@@ -102,23 +197,31 @@ impl Conversation {
                 conversation_picture,
                 group_id AS "group_id: _",
                 last_read AS "last_read: _",
-                conversation_status AS "conversation_status: _",
-                conversation_type AS "conversation_type: _"
+                connection_as_client_uuid AS "connection_as_client_uuid: _",
+                connection_as_domain AS "connection_as_domain: _",
+                is_confirmed_connection,
+                is_active
             FROM conversations
             WHERE conversation_id = ?"#,
             conversation_id
         )
-        .fetch_optional(executor)
-        .await
-        .map(|value| value.map(From::from))
+        .fetch_optional(&mut *transaction)
+        .await?;
+        let Some(conversation) = conversation else {
+            return Ok(None);
+        };
+        let members = conversation.load_past_members(&mut transaction).await?;
+        transaction.commit().await?;
+        Ok(Some(conversation.convert(members)))
     }
 
     pub(crate) async fn load_by_group_id(
-        executor: impl SqliteExecutor<'_>,
+        connection: &mut SqliteConnection,
         group_id: &GroupId,
     ) -> sqlx::Result<Option<Conversation>> {
         let group_id = group_id.as_slice();
-        query_as!(
+        let mut transaction = connection.begin().await?;
+        let conversation = query_as!(
             SqlConversation,
             r#"SELECT
                 conversation_id AS "conversation_id: _",
@@ -126,20 +229,28 @@ impl Conversation {
                 conversation_picture,
                 group_id AS "group_id: _",
                 last_read AS "last_read: _",
-                conversation_status AS "conversation_status: _",
-                conversation_type AS "conversation_type: _"
+                connection_as_client_uuid AS "connection_as_client_uuid: _",
+                connection_as_domain AS "connection_as_domain: _",
+                is_confirmed_connection,
+                is_active
             FROM conversations WHERE group_id = ?"#,
             group_id
         )
-        .fetch_optional(executor)
-        .await
-        .map(|value| value.map(From::from))
+        .fetch_optional(&mut *transaction)
+        .await?;
+        let Some(conversation) = conversation else {
+            return Ok(None);
+        };
+        let members = conversation.load_past_members(&mut transaction).await?;
+        transaction.commit().await?;
+        Ok(Some(conversation.convert(members)))
     }
 
     pub(crate) async fn load_all(
-        executor: impl SqliteExecutor<'_>,
+        connection: &mut SqliteConnection,
     ) -> sqlx::Result<Vec<Conversation>> {
-        query_as!(
+        let mut transaction = connection.begin().await?;
+        let mut conversations = query_as!(
             SqlConversation,
             r#"SELECT
                 conversation_id AS "conversation_id: _",
@@ -147,14 +258,27 @@ impl Conversation {
                 conversation_picture,
                 group_id AS "group_id: _",
                 last_read AS "last_read: _",
-                conversation_status AS "conversation_status: _",
-                conversation_type AS "conversation_type: _"
+                connection_as_client_uuid AS "connection_as_client_uuid: _",
+                connection_as_domain AS "connection_as_domain: _",
+                is_confirmed_connection,
+                is_active
             FROM conversations"#,
         )
-        .fetch(executor)
-        .map(|res| res.map(From::from))
-        .collect()
-        .await
+        .fetch(&mut *transaction)
+        .map(|res| res.map(|conversation| conversation.convert(Vec::new())))
+        .collect::<sqlx::Result<Vec<Conversation>>>()
+        .await?;
+        for conversation in &mut conversations {
+            let id = conversation.id();
+            if let ConversationStatus::Inactive(inactive) = conversation.status_mut() {
+                let members = Conversation::load_past_members(&mut *transaction, id).await?;
+                inactive
+                    .past_members_mut()
+                    .extend(members.into_iter().map(From::from));
+            }
+        }
+        transaction.commit().await?;
+        Ok(conversations)
     }
 
     pub(super) async fn update_picture(
@@ -175,18 +299,54 @@ impl Conversation {
     }
 
     pub(super) async fn update_status(
-        executor: impl SqliteExecutor<'_>,
+        connection: &mut SqliteConnection,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
         status: &ConversationStatus,
     ) -> sqlx::Result<()> {
-        query!(
-            "UPDATE conversations SET conversation_status = ? WHERE conversation_id = ?",
-            status,
-            conversation_id,
-        )
-        .execute(executor)
-        .await?;
+        let mut transaction = connection.begin().await?;
+        match status {
+            ConversationStatus::Inactive(inactive) => {
+                query!(
+                    "UPDATE conversations SET is_active = false WHERE conversation_id = ?",
+                    conversation_id,
+                )
+                .execute(&mut *transaction)
+                .await?;
+                query!(
+                    "DELETE FROM conversation_past_members WHERE conversation_id = ?",
+                    conversation_id,
+                )
+                .execute(&mut *transaction)
+                .await?;
+                for member in inactive.past_members() {
+                    let uuid = member.client_id();
+                    let domain = member.domain();
+                    query!(
+                        "INSERT OR IGNORE INTO conversation_past_members (
+                            conversation_id,
+                            member_as_client_uuid,
+                            member_as_domain
+                        )
+                        VALUES (?, ?, ?)",
+                        conversation_id,
+                        uuid,
+                        domain,
+                    )
+                    .execute(&mut *transaction)
+                    .await?;
+                }
+            }
+            ConversationStatus::Active => {
+                query!(
+                    "UPDATE conversations SET is_active = true WHERE conversation_id = ?",
+                    conversation_id,
+                )
+                .execute(&mut *transaction)
+                .await?;
+            }
+        }
+        transaction.commit().await?;
         notifier.update(conversation_id);
         Ok(())
     }
@@ -296,7 +456,8 @@ impl Conversation {
                 conversation_messages cm
             ON
                 c.conversation_id = cm.conversation_id
-                AND cm.sender != 'system'
+                AND cm.sender_as_client_uuid IS NOT NULL
+                AND cm.sender_as_domain IS NOT NULL
                 AND cm.timestamp > c.last_read"#
         )
         .fetch_one(executor)
@@ -315,7 +476,8 @@ impl Conversation {
                 conversation_messages cm
             WHERE
                 cm.conversation_id = ?
-                AND cm.sender != 'system'"#,
+                AND cm.sender_as_client_uuid IS NOT NULL
+                AND cm.sender_as_domain IS NOT NULL"#,
             conversation_id
         )
         .fetch_one(executor)
@@ -334,7 +496,8 @@ impl Conversation {
                 conversation_messages
             WHERE
                 conversation_id = ?1
-                AND sender != 'system'
+                AND sender_as_client_uuid IS NOT NULL
+                AND sender_as_domain IS NOT NULL
                 AND timestamp >
                 (
                     SELECT
@@ -357,22 +520,84 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         conversation_type: &ConversationType,
     ) -> sqlx::Result<()> {
-        query!(
-            "UPDATE conversations SET conversation_type = ? WHERE conversation_id = ?",
-            conversation_type,
-            self.id,
-        )
-        .execute(executor)
-        .await?;
+        match conversation_type {
+            ConversationType::UnconfirmedConnection(as_client_id) => {
+                let uuid = as_client_id.client_id();
+                let domain = as_client_id.domain();
+                query!(
+                    "UPDATE conversations SET
+                        connection_as_client_uuid = ?,
+                        connection_as_domain = ?,
+                        is_confirmed_connection = false
+                    WHERE conversation_id = ?",
+                    uuid,
+                    domain,
+                    self.id,
+                )
+                .execute(executor)
+                .await?;
+            }
+            ConversationType::Connection(as_client_id) => {
+                let uuid = as_client_id.client_id();
+                let domain = as_client_id.domain();
+                query!(
+                    "UPDATE conversations SET
+                        connection_as_client_uuid = ?,
+                        connection_as_domain = ?,
+                        is_confirmed_connection = true
+                    WHERE conversation_id = ?",
+                    uuid,
+                    domain,
+                    self.id,
+                )
+                .execute(executor)
+                .await?;
+            }
+            ConversationType::Group => {
+                query!(
+                    "UPDATE conversations SET
+                        connection_as_client_uuid = NULL,
+                        connection_as_domain = NULL
+                    WHERE conversation_id = ?",
+                    self.id,
+                )
+                .execute(executor)
+                .await?;
+            }
+        }
         notifier.update(self.id);
         Ok(())
+    }
+
+    async fn load_past_members(
+        executor: impl SqliteExecutor<'_>,
+        conversation_id: ConversationId,
+    ) -> sqlx::Result<Vec<SqlPastMember>> {
+        let mut members = query_as!(
+            SqlPastMember,
+            r#"SELECT
+                member_as_client_uuid AS "member_as_client_uuid: _",
+                member_as_domain AS "member_as_domain: _"
+            FROM conversation_past_members
+            WHERE conversation_id = ?"#,
+            conversation_id
+        )
+        .fetch_all(executor)
+        .await?;
+        // make the order deterministic
+        members.sort_unstable_by(|a, b| {
+            a.member_as_client_uuid
+                .cmp(&b.member_as_client_uuid)
+                .then(a.member_as_domain.cmp(&b.member_as_domain))
+        });
+        Ok(members)
     }
 }
 
 #[cfg(test)]
 pub mod tests {
     use chrono::Duration;
-    use sqlx::SqlitePool;
+    use sqlx::{Sqlite, pool::PoolConnection};
     use uuid::Uuid;
 
     use crate::{
@@ -400,12 +625,14 @@ pub mod tests {
     }
 
     #[sqlx::test]
-    async fn store_load(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn store_load(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
-        let loaded = Conversation::load(&pool, &conversation.id)
+        conversation
+            .store(&mut connection, &mut store_notifier)
+            .await?;
+        let loaded = Conversation::load(&mut connection, &conversation.id)
             .await?
             .expect("missing conversation");
         assert_eq!(loaded, conversation);
@@ -414,12 +641,14 @@ pub mod tests {
     }
 
     #[sqlx::test]
-    async fn store_load_by_group_id(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn store_load_by_group_id(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
-        let loaded = Conversation::load_by_group_id(&pool, &conversation.group_id)
+        conversation
+            .store(&mut connection, &mut store_notifier)
+            .await?;
+        let loaded = Conversation::load_by_group_id(&mut connection, &conversation.group_id)
             .await?
             .expect("missing conversation");
         assert_eq!(loaded, conversation);
@@ -428,31 +657,39 @@ pub mod tests {
     }
 
     #[sqlx::test]
-    async fn store_load_all(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn store_load_all(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation_a = test_conversation();
-        conversation_a.store(&pool, &mut store_notifier).await?;
+        conversation_a
+            .store(&mut connection, &mut store_notifier)
+            .await?;
 
         let conversation_b = test_conversation();
-        conversation_b.store(&pool, &mut store_notifier).await?;
+        conversation_b
+            .store(&mut connection, &mut store_notifier)
+            .await?;
 
-        let loaded = Conversation::load_all(&pool).await?;
+        let loaded = Conversation::load_all(&mut connection).await?;
         assert_eq!(loaded, [conversation_a, conversation_b]);
 
         Ok(())
     }
 
     #[sqlx::test]
-    async fn update_conversation_picture(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn update_conversation_picture(
+        mut connection: PoolConnection<Sqlite>,
+    ) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let mut conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(&mut connection, &mut store_notifier)
+            .await?;
 
         let new_picture = [1, 2, 3];
         Conversation::update_picture(
-            &pool,
+            &mut *connection,
             &mut store_notifier,
             conversation.id,
             Some(&new_picture),
@@ -461,76 +698,105 @@ pub mod tests {
 
         conversation.attributes.picture = Some(new_picture.to_vec());
 
-        let loaded = Conversation::load(&pool, &conversation.id).await?.unwrap();
+        let loaded = Conversation::load(&mut connection, &conversation.id)
+            .await?
+            .unwrap();
         assert_eq!(loaded, conversation);
 
         Ok(())
     }
 
     #[sqlx::test]
-    async fn update_conversation_status(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn update_conversation_status(
+        mut connection: PoolConnection<Sqlite>,
+    ) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let mut conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
+        conversation
+            .store(&mut connection, &mut store_notifier)
+            .await?;
 
-        let past_members = vec![
-            "alice@localhost".parse().unwrap(),
-            "bob@localhost".parse().unwrap(),
+        let mut past_members = vec![
+            AsClientId::random("localhost".parse().unwrap()),
+            AsClientId::random("localhost".parse().unwrap()),
         ];
+        // implicit assumption: past members are sorted
+        past_members.sort_unstable();
+
         let status = ConversationStatus::Inactive(InactiveConversation::new(past_members));
-        Conversation::update_status(&pool, &mut store_notifier, conversation.id, &status).await?;
+        Conversation::update_status(
+            &mut connection,
+            &mut store_notifier,
+            conversation.id,
+            &status,
+        )
+        .await?;
 
         conversation.status = status;
-        let loaded = Conversation::load(&pool, &conversation.id).await?.unwrap();
+        let loaded = Conversation::load(&mut connection, &conversation.id)
+            .await?
+            .unwrap();
         assert_eq!(loaded, conversation);
 
         Ok(())
     }
 
     #[sqlx::test]
-    async fn delete(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn delete(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation = test_conversation();
-        conversation.store(&pool, &mut store_notifier).await?;
-        let loaded = Conversation::load(&pool, &conversation.id).await?.unwrap();
+        conversation
+            .store(&mut connection, &mut store_notifier)
+            .await?;
+        let loaded = Conversation::load(&mut connection, &conversation.id)
+            .await?
+            .unwrap();
         assert_eq!(loaded, conversation);
 
-        Conversation::delete(&pool, &mut store_notifier, conversation.id).await?;
-        let loaded = Conversation::load(&pool, &conversation.id).await?;
+        Conversation::delete(&mut *connection, &mut store_notifier, conversation.id).await?;
+        let loaded = Conversation::load(&mut connection, &conversation.id).await?;
         assert!(loaded.is_none());
 
         Ok(())
     }
 
     #[sqlx::test]
-    async fn counters(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn counters(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
         let conversation_a = test_conversation();
-        conversation_a.store(&pool, &mut store_notifier).await?;
+        conversation_a
+            .store(&mut connection, &mut store_notifier)
+            .await?;
 
         let conversation_b = test_conversation();
-        conversation_b.store(&pool, &mut store_notifier).await?;
+        conversation_b
+            .store(&mut connection, &mut store_notifier)
+            .await?;
 
         let message_a = test_conversation_message(conversation_a.id());
         let message_b = test_conversation_message(conversation_b.id());
 
-        message_a.store(&pool, &mut store_notifier).await?;
-        message_b.store(&pool, &mut store_notifier).await?;
+        message_a
+            .store(&mut *connection, &mut store_notifier)
+            .await?;
+        message_b
+            .store(&mut *connection, &mut store_notifier)
+            .await?;
 
-        let n = Conversation::messages_count(&pool, conversation_a.id()).await?;
+        let n = Conversation::messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
-        let n = Conversation::messages_count(&pool, conversation_b.id()).await?;
+        let n = Conversation::messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 1);
 
-        let n = Conversation::global_unread_message_count(&pool).await?;
+        let n = Conversation::global_unread_message_count(&mut *connection).await?;
         assert_eq!(n, 2);
 
         Conversation::mark_as_read(
-            pool.acquire().await?.as_mut(),
+            &mut connection,
             &mut store_notifier,
             [(
                 conversation_a.id(),
@@ -538,39 +804,39 @@ pub mod tests {
             )],
         )
         .await?;
-        let n = Conversation::unread_messages_count(&pool, conversation_a.id()).await?;
+        let n = Conversation::unread_messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
         Conversation::mark_as_read(
-            pool.acquire().await?.as_mut(),
+            &mut connection,
             &mut store_notifier,
             [(conversation_a.id(), Utc::now())],
         )
         .await?;
-        let n = Conversation::unread_messages_count(&pool, conversation_a.id()).await?;
+        let n = Conversation::unread_messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 0);
 
         Conversation::mark_as_read_until_message_id(
-            pool.acquire().await?.as_mut(),
+            &mut connection,
             &mut store_notifier,
             conversation_b.id(),
             ConversationMessageId::random(),
         )
         .await?;
-        let n = Conversation::unread_messages_count(&pool, conversation_b.id()).await?;
+        let n = Conversation::unread_messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 1);
 
         Conversation::mark_as_read_until_message_id(
-            pool.acquire().await?.as_mut(),
+            &mut connection,
             &mut store_notifier,
             conversation_b.id(),
             message_b.id(),
         )
         .await?;
-        let n = Conversation::unread_messages_count(&pool, conversation_b.id()).await?;
+        let n = Conversation::unread_messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 0);
 
-        let n = Conversation::global_unread_message_count(&pool).await?;
+        let n = Conversation::global_unread_message_count(&mut *connection).await?;
         assert_eq!(n, 0);
 
         Ok(())

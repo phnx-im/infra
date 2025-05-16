@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO group_membership (\n                as_client_uuid,\n                as_domain,\n                group_id,\n                leaf_index,\n                identity_link_key,\n                client_credential_fingerprint,\n                status)\n            VALUES (?, ?, ?, ?, ?, ?, 'staged_update')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "d4b38370a84cc1484581607ea2f0d00d16e3f60c1843e68e9d1e2e273e3da952"
+}

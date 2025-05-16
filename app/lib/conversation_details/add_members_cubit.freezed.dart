@@ -18,7 +18,7 @@ final _privateConstructorUsedError = UnsupportedError(
 /// @nodoc
 mixin _$AddMembersState {
   List<UiContact> get contacts => throw _privateConstructorUsedError;
-  Set<String> get selectedContacts => throw _privateConstructorUsedError;
+  Set<UiClientId> get selectedContacts => throw _privateConstructorUsedError;
 
   /// Create a copy of AddMembersState
   /// with the given fields replaced by the non-null parameter values.
@@ -34,7 +34,7 @@ abstract class $AddMembersStateCopyWith<$Res> {
     $Res Function(AddMembersState) then,
   ) = _$AddMembersStateCopyWithImpl<$Res, AddMembersState>;
   @useResult
-  $Res call({List<UiContact> contacts, Set<String> selectedContacts});
+  $Res call({List<UiContact> contacts, Set<UiClientId> selectedContacts});
 }
 
 /// @nodoc
@@ -63,7 +63,7 @@ class _$AddMembersStateCopyWithImpl<$Res, $Val extends AddMembersState>
                 null == selectedContacts
                     ? _value.selectedContacts
                     : selectedContacts // ignore: cast_nullable_to_non_nullable
-                        as Set<String>,
+                        as Set<UiClientId>,
           )
           as $Val,
     );
@@ -79,7 +79,7 @@ abstract class _$$AddMembersStateImplCopyWith<$Res>
   ) = __$$AddMembersStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({List<UiContact> contacts, Set<String> selectedContacts});
+  $Res call({List<UiContact> contacts, Set<UiClientId> selectedContacts});
 }
 
 /// @nodoc
@@ -107,7 +107,7 @@ class __$$AddMembersStateImplCopyWithImpl<$Res>
             null == selectedContacts
                 ? _value._selectedContacts
                 : selectedContacts // ignore: cast_nullable_to_non_nullable
-                    as Set<String>,
+                    as Set<UiClientId>,
       ),
     );
   }
@@ -118,7 +118,7 @@ class __$$AddMembersStateImplCopyWithImpl<$Res>
 class _$AddMembersStateImpl implements _AddMembersState {
   const _$AddMembersStateImpl({
     required final List<UiContact> contacts,
-    required final Set<String> selectedContacts,
+    required final Set<UiClientId> selectedContacts,
   }) : _contacts = contacts,
        _selectedContacts = selectedContacts;
 
@@ -130,9 +130,9 @@ class _$AddMembersStateImpl implements _AddMembersState {
     return EqualUnmodifiableListView(_contacts);
   }
 
-  final Set<String> _selectedContacts;
+  final Set<UiClientId> _selectedContacts;
   @override
-  Set<String> get selectedContacts {
+  Set<UiClientId> get selectedContacts {
     if (_selectedContacts is EqualUnmodifiableSetView) return _selectedContacts;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableSetView(_selectedContacts);
@@ -177,13 +177,13 @@ class _$AddMembersStateImpl implements _AddMembersState {
 abstract class _AddMembersState implements AddMembersState {
   const factory _AddMembersState({
     required final List<UiContact> contacts,
-    required final Set<String> selectedContacts,
+    required final Set<UiClientId> selectedContacts,
   }) = _$AddMembersStateImpl;
 
   @override
   List<UiContact> get contacts;
   @override
-  Set<String> get selectedContacts;
+  Set<UiClientId> get selectedContacts;
 
   /// Create a copy of AddMembersState
   /// with the given fields replaced by the non-null parameter values.
