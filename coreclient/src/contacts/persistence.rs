@@ -21,8 +21,8 @@ use crate::{
 };
 
 struct SqlContact {
-    as_client_uuid: Uuid,
-    as_domain: Fqdn,
+    user_uuid: Uuid,
+    user_domain: Fqdn,
     conversation_id: ConversationId,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     friendship_token: FriendshipToken,
@@ -33,8 +33,8 @@ struct SqlContact {
 impl From<SqlContact> for Contact {
     fn from(
         SqlContact {
-            as_client_uuid,
-            as_domain,
+            user_uuid,
+            user_domain,
             wai_ear_key,
             friendship_token,
             conversation_id,
@@ -43,7 +43,7 @@ impl From<SqlContact> for Contact {
         }: SqlContact,
     ) -> Self {
         Self {
-            user_id: UserId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(user_uuid, user_domain),
             wai_ear_key,
             friendship_token,
             connection_key,
@@ -63,14 +63,14 @@ impl Contact {
         query_as!(
             SqlContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 connection_key AS "connection_key: _",
                 user_profile_key_index AS "user_profile_key_index: _"
-            FROM contacts WHERE as_client_uuid = ? AND as_domain = ?"#,
+            FROM contacts WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain
         )
@@ -83,8 +83,8 @@ impl Contact {
         query_as!(
             SqlContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
@@ -107,8 +107,8 @@ impl Contact {
         let domain = self.user_id.domain();
         query!(
             "INSERT INTO contacts (
-                as_client_uuid,
-                as_domain,
+                user_uuid,
+                user_domain,
                 conversation_id,
                 wai_ear_key,
                 friendship_token,
@@ -140,7 +140,7 @@ impl Contact {
         let domain = client_id.domain();
         query!(
             "UPDATE contacts SET user_profile_key_index = ?
-            WHERE as_client_uuid = ? AND as_domain = ?",
+            WHERE user_uuid = ? AND user_domain = ?",
             key_index,
             uuid,
             domain,
@@ -152,8 +152,8 @@ impl Contact {
 }
 
 struct SqlPartialContact {
-    as_client_uuid: Uuid,
-    as_domain: Fqdn,
+    user_uuid: Uuid,
+    user_domain: Fqdn,
     conversation_id: ConversationId,
     friendship_package_ear_key: FriendshipPackageEarKey,
 }
@@ -161,14 +161,14 @@ struct SqlPartialContact {
 impl From<SqlPartialContact> for PartialContact {
     fn from(
         SqlPartialContact {
-            as_client_uuid,
-            as_domain,
+            user_uuid,
+            user_domain,
             conversation_id,
             friendship_package_ear_key,
         }: SqlPartialContact,
     ) -> Self {
         Self {
-            user_id: UserId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(user_uuid, user_domain),
             conversation_id,
             friendship_package_ear_key,
         }
@@ -185,12 +185,12 @@ impl PartialContact {
         query_as!(
             SqlPartialContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _"
             FROM partial_contacts
-            WHERE as_client_uuid = ? AND as_domain = ?"#,
+            WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain,
         )
@@ -203,8 +203,8 @@ impl PartialContact {
         let contacts = query_as!(
             SqlPartialContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _"
             FROM partial_contacts"#
@@ -223,7 +223,7 @@ impl PartialContact {
         let uuid = self.user_id.uuid();
         query!(
             "INSERT INTO partial_contacts
-                (as_client_uuid, as_domain, conversation_id, friendship_package_ear_key)
+                (user_uuid, user_domain, conversation_id, friendship_package_ear_key)
                 VALUES (?, ?, ?, ?)",
             uuid,
             domain,
@@ -247,7 +247,7 @@ impl PartialContact {
         let domain = self.user_id.domain();
         query!(
             "DELETE FROM partial_contacts
-            WHERE as_client_uuid = ? AND as_domain = ?",
+            WHERE user_uuid = ? AND user_domain = ?",
             uuid,
             domain,
         )

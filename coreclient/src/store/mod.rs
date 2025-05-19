@@ -131,15 +131,15 @@ pub trait LocalStore {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    async fn add_contact(&self, client_id: UserId) -> StoreResult<ConversationId>;
+    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
-    async fn contact(&self, client_id: &UserId) -> StoreResult<Option<Contact>>;
+    async fn contact(&self, user_id: &UserId) -> StoreResult<Option<Contact>>;
 
     async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>>;
 
-    async fn user_profile(&self, client_id: &UserId) -> UserProfile;
+    async fn user_profile(&self, user_id: &UserId) -> UserProfile;
 
     // messages
 

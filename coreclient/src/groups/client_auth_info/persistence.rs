@@ -45,7 +45,7 @@ impl StorableClientCredential {
             r#"SELECT
                 client_credential AS "client_credential: _"
             FROM client_credentials
-            WHERE as_client_uuid = ? AND as_domain = ?"#,
+            WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain,
         )
@@ -62,7 +62,7 @@ impl StorableClientCredential {
         let domain = client_id.domain();
         query!(
             "INSERT OR IGNORE INTO client_credentials
-                (fingerprint, as_client_uuid, as_domain, client_credential) VALUES (?, ?, ?, ?)",
+                (fingerprint, user_uuid, user_domain, client_credential) VALUES (?, ?, ?, ?)",
             fingerprint,
             uuid,
             domain,
@@ -77,8 +77,8 @@ impl StorableClientCredential {
 struct SqlGroupMembership {
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupIdWrapper,
-    as_client_uuid: Uuid,
-    as_domain: Fqdn,
+    user_uuid: Uuid,
+    user_domain: Fqdn,
     leaf_index: u32,
     identity_link_key: IdentityLinkKey,
 }
@@ -88,14 +88,14 @@ impl From<SqlGroupMembership> for GroupMembership {
         SqlGroupMembership {
             client_credential_fingerprint,
             group_id: GroupIdWrapper(group_id),
-            as_client_uuid,
-            as_domain,
+            user_uuid,
+            user_domain,
             leaf_index,
             identity_link_key,
         }: SqlGroupMembership,
     ) -> Self {
         Self {
-            client_id: UserId::new(as_client_uuid, as_domain),
+            client_id: UserId::new(user_uuid, user_domain),
             group_id,
             leaf_index: LeafNodeIndex::new(leaf_index),
             identity_link_key: IdentityLinkKey::from(identity_link_key),
@@ -131,8 +131,8 @@ impl GroupMembership {
                 identity_link_key = staged.identity_link_key
             FROM group_membership AS staged
             WHERE merged.group_id = staged.group_id
-              AND merged.as_client_uuid = staged.as_client_uuid
-              AND merged.as_domain = staged.as_domain
+              AND merged.user_uuid = staged.user_uuid
+              AND merged.user_domain = staged.user_domain
               AND merged.status = 'merged'
               AND staged.status = 'staged_update'"
         )
@@ -168,8 +168,8 @@ impl GroupMembership {
         let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT OR IGNORE INTO group_membership (
-                as_client_uuid,
-                as_domain,
+                user_uuid,
+                user_domain,
                 group_id,
                 leaf_index,
                 identity_link_key,
@@ -196,8 +196,8 @@ impl GroupMembership {
         let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT INTO group_membership (
-                as_client_uuid,
-                as_domain,
+                user_uuid,
+                user_domain,
                 group_id,
                 leaf_index,
                 identity_link_key,
@@ -224,8 +224,8 @@ impl GroupMembership {
         let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT INTO group_membership (
-                as_client_uuid,
-                as_domain,
+                user_uuid,
+                user_domain,
                 group_id,
                 leaf_index,
                 identity_link_key,
@@ -298,8 +298,8 @@ impl GroupMembership {
                 r#"SELECT
                     client_credential_fingerprint AS "client_credential_fingerprint: _",
                     group_id AS "group_id: _",
-                    as_client_uuid AS "as_client_uuid: _",
-                    as_domain AS "as_domain: _",
+                    user_uuid AS "user_uuid: _",
+                    user_domain AS "user_domain: _",
                     leaf_index AS "leaf_index: _",
                     identity_link_key AS "identity_link_key: _"
                 FROM group_membership
@@ -316,8 +316,8 @@ impl GroupMembership {
                 r#"SELECT
                     client_credential_fingerprint AS "client_credential_fingerprint: _",
                     group_id AS "group_id: _",
-                    as_client_uuid AS "as_client_uuid: _",
-                    as_domain AS "as_domain: _",
+                    user_uuid AS "user_uuid: _",
+                    user_domain AS "user_domain: _",
                     leaf_index AS "leaf_index: _",
                     identity_link_key AS "identity_link_key: _"
                 FROM group_membership
@@ -367,7 +367,7 @@ impl GroupMembership {
             .join(",");
         let query_string = format!(
             "SELECT leaf_index FROM group_membership
-            WHERE group_id = ? AND (as_client_uuid, as_domain) IN ({})",
+            WHERE group_id = ? AND (user_uuid, user_domain) IN ({})",
             placeholders
         );
 
@@ -391,26 +391,26 @@ impl GroupMembership {
         group_id: &GroupId,
     ) -> sqlx::Result<Vec<UserId>> {
         struct SqlGroupMember {
-            as_client_uuid: Uuid,
-            as_domain: Fqdn,
+            user_uuid: Uuid,
+            user_domain: Fqdn,
         }
 
         let group_id = GroupIdRefWrapper::from(group_id);
         query_as!(
             SqlGroupMember,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _"
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _"
             FROM group_membership WHERE group_id = ?"#,
             group_id
         )
         .fetch(executor)
         .map(|res| {
             let SqlGroupMember {
-                as_client_uuid,
-                as_domain,
+                user_uuid,
+                user_domain,
             } = res?;
-            Ok(UserId::new(as_client_uuid, as_domain))
+            Ok(UserId::new(user_uuid, user_domain))
         })
         .collect()
         .await

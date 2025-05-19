@@ -23,8 +23,8 @@ struct SqlConversation {
     conversation_picture: Option<Vec<u8>>,
     group_id: GroupIdWrapper,
     last_read: DateTime<Utc>,
-    connection_as_client_uuid: Option<Uuid>,
-    connection_as_domain: Option<Fqdn>,
+    connection_user_uuid: Option<Uuid>,
+    connection_user_domain: Option<Fqdn>,
     is_confirmed_connection: bool,
     is_active: bool,
 }
@@ -37,13 +37,13 @@ impl SqlConversation {
             conversation_picture,
             group_id: GroupIdWrapper(group_id),
             last_read,
-            connection_as_client_uuid,
-            connection_as_domain,
+            connection_user_uuid,
+            connection_user_domain,
             is_confirmed_connection,
             is_active,
         } = self;
 
-        let conversation_type = match (connection_as_client_uuid, connection_as_domain) {
+        let conversation_type = match (connection_user_uuid, connection_user_domain) {
             (Some(client_uuid), Some(domain)) => {
                 let connection_client_id = UserId::new(client_uuid, domain);
                 if is_confirmed_connection {
@@ -88,18 +88,18 @@ impl SqlConversation {
 }
 
 struct SqlPastMember {
-    member_as_client_uuid: Uuid,
-    member_as_domain: Fqdn,
+    member_user_uuid: Uuid,
+    member_user_domain: Fqdn,
 }
 
 impl From<SqlPastMember> for UserId {
     fn from(
         SqlPastMember {
-            member_as_client_uuid,
-            member_as_domain,
+            member_user_uuid,
+            member_user_domain,
         }: SqlPastMember,
     ) -> Self {
-        UserId::new(member_as_client_uuid, member_as_domain)
+        UserId::new(member_user_uuid, member_user_domain)
     }
 }
 
@@ -123,7 +123,7 @@ impl Conversation {
             }
             ConversationStatus::Active => (true, Vec::new()),
         };
-        let (is_confirmed_connection, connection_as_client_uuid, connection_as_domain) =
+        let (is_confirmed_connection, connection_user_uuid, connection_user_domain) =
             match self.conversation_type() {
                 ConversationType::UnconfirmedConnection(client_id) => (
                     false,
@@ -144,8 +144,8 @@ impl Conversation {
                 conversation_picture,
                 group_id,
                 last_read,
-                connection_as_client_uuid,
-                connection_as_domain,
+                connection_user_uuid,
+                connection_user_domain,
                 is_confirmed_connection,
                 is_active
             )
@@ -155,8 +155,8 @@ impl Conversation {
             picture,
             group_id,
             self.last_read,
-            connection_as_client_uuid,
-            connection_as_domain,
+            connection_user_uuid,
+            connection_user_domain,
             is_confirmed_connection,
             is_active,
         )
@@ -168,8 +168,8 @@ impl Conversation {
             query!(
                 "INSERT OR IGNORE INTO conversation_past_members (
                     conversation_id,
-                    member_as_client_uuid,
-                    member_as_domain
+                    member_user_uuid,
+                    member_user_domain
                 )
                 VALUES (?, ?, ?)",
                 self.id,
@@ -197,8 +197,8 @@ impl Conversation {
                 conversation_picture,
                 group_id AS "group_id: _",
                 last_read AS "last_read: _",
-                connection_as_client_uuid AS "connection_as_client_uuid: _",
-                connection_as_domain AS "connection_as_domain: _",
+                connection_user_uuid AS "connection_user_uuid: _",
+                connection_user_domain AS "connection_user_domain: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations
@@ -229,8 +229,8 @@ impl Conversation {
                 conversation_picture,
                 group_id AS "group_id: _",
                 last_read AS "last_read: _",
-                connection_as_client_uuid AS "connection_as_client_uuid: _",
-                connection_as_domain AS "connection_as_domain: _",
+                connection_user_uuid AS "connection_user_uuid: _",
+                connection_user_domain AS "connection_user_domain: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations WHERE group_id = ?"#,
@@ -258,8 +258,8 @@ impl Conversation {
                 conversation_picture,
                 group_id AS "group_id: _",
                 last_read AS "last_read: _",
-                connection_as_client_uuid AS "connection_as_client_uuid: _",
-                connection_as_domain AS "connection_as_domain: _",
+                connection_user_uuid AS "connection_user_uuid: _",
+                connection_user_domain AS "connection_user_domain: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations"#,
@@ -325,8 +325,8 @@ impl Conversation {
                     query!(
                         "INSERT OR IGNORE INTO conversation_past_members (
                             conversation_id,
-                            member_as_client_uuid,
-                            member_as_domain
+                            member_user_uuid,
+                            member_user_domain
                         )
                         VALUES (?, ?, ?)",
                         conversation_id,
@@ -456,8 +456,8 @@ impl Conversation {
                 conversation_messages cm
             ON
                 c.conversation_id = cm.conversation_id
-                AND cm.sender_as_client_uuid IS NOT NULL
-                AND cm.sender_as_domain IS NOT NULL
+                AND cm.sender_user_uuid IS NOT NULL
+                AND cm.sender_user_domain IS NOT NULL
                 AND cm.timestamp > c.last_read"#
         )
         .fetch_one(executor)
@@ -476,8 +476,8 @@ impl Conversation {
                 conversation_messages cm
             WHERE
                 cm.conversation_id = ?
-                AND cm.sender_as_client_uuid IS NOT NULL
-                AND cm.sender_as_domain IS NOT NULL"#,
+                AND cm.sender_user_uuid IS NOT NULL
+                AND cm.sender_user_domain IS NOT NULL"#,
             conversation_id
         )
         .fetch_one(executor)
@@ -496,8 +496,8 @@ impl Conversation {
                 conversation_messages
             WHERE
                 conversation_id = ?1
-                AND sender_as_client_uuid IS NOT NULL
-                AND sender_as_domain IS NOT NULL
+                AND sender_user_uuid IS NOT NULL
+                AND sender_user_domain IS NOT NULL
                 AND timestamp >
                 (
                     SELECT
@@ -526,8 +526,8 @@ impl Conversation {
                 let domain = as_client_id.domain();
                 query!(
                     "UPDATE conversations SET
-                        connection_as_client_uuid = ?,
-                        connection_as_domain = ?,
+                        connection_user_uuid = ?,
+                        connection_user_domain = ?,
                         is_confirmed_connection = false
                     WHERE conversation_id = ?",
                     uuid,
@@ -542,8 +542,8 @@ impl Conversation {
                 let domain = as_client_id.domain();
                 query!(
                     "UPDATE conversations SET
-                        connection_as_client_uuid = ?,
-                        connection_as_domain = ?,
+                        connection_user_uuid = ?,
+                        connection_user_domain = ?,
                         is_confirmed_connection = true
                     WHERE conversation_id = ?",
                     uuid,
@@ -556,8 +556,8 @@ impl Conversation {
             ConversationType::Group => {
                 query!(
                     "UPDATE conversations SET
-                        connection_as_client_uuid = NULL,
-                        connection_as_domain = NULL
+                        connection_user_uuid = NULL,
+                        connection_user_domain = NULL
                     WHERE conversation_id = ?",
                     self.id,
                 )
@@ -576,8 +576,8 @@ impl Conversation {
         let mut members = query_as!(
             SqlPastMember,
             r#"SELECT
-                member_as_client_uuid AS "member_as_client_uuid: _",
-                member_as_domain AS "member_as_domain: _"
+                member_user_uuid AS "member_user_uuid: _",
+                member_user_domain AS "member_user_domain: _"
             FROM conversation_past_members
             WHERE conversation_id = ?"#,
             conversation_id
@@ -586,9 +586,9 @@ impl Conversation {
         .await?;
         // make the order deterministic
         members.sort_unstable_by(|a, b| {
-            a.member_as_client_uuid
-                .cmp(&b.member_as_client_uuid)
-                .then(a.member_as_domain.cmp(&b.member_as_domain))
+            a.member_user_uuid
+                .cmp(&b.member_user_uuid)
+                .then(a.member_user_domain.cmp(&b.member_user_domain))
         });
         Ok(members)
     }

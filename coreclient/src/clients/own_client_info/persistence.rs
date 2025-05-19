@@ -15,8 +15,8 @@ impl OwnClientInfo {
                 server_url,
                 qs_user_id,
                 qs_client_id,
-                as_client_uuid,
-                as_domain
+                user_uuid,
+                user_domain
             ) VALUES (?, ?, ?, ?, ?)",
             self.server_url,
             self.qs_user_id,
@@ -55,13 +55,13 @@ mod tests {
         let server_url = row.try_get(0)?;
         let qs_user_id = row.try_get(1)?;
         let qs_client_id = row.try_get(2)?;
-        let as_client_uuid = row.try_get(3)?;
-        let as_domain = row.try_get(4)?;
+        let user_uuid = row.try_get(3)?;
+        let user_domain = row.try_get(4)?;
         let loaded = OwnClientInfo {
             server_url,
             qs_user_id,
             qs_client_id,
-            user_id: UserId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(user_uuid, user_domain),
         };
 
         assert_eq!(loaded, own_client_info);

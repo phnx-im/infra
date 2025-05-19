@@ -23,8 +23,8 @@ impl IndexedUserProfile {
         let epoch = self.epoch as i64;
         query!(
             "INSERT INTO users (
-                as_client_uuid,
-                as_domain,
+                user_uuid,
+                user_domain,
                 epoch,
                 decryption_key_index,
                 display_name,
@@ -58,7 +58,7 @@ impl IndexedUserProfile {
                 decryption_key_index = ?4,
                 display_name = ?5,
                 profile_picture = ?6
-            WHERE as_client_uuid = ?1 AND as_domain = ?2",
+            WHERE user_uuid = ?1 AND user_domain = ?2",
             uuid,
             domain,
             epoch,
@@ -117,7 +117,7 @@ impl IndexedUserProfile {
                 display_name AS "display_name: _",
                 profile_picture AS "profile_picture: _"
             FROM users
-            WHERE as_client_uuid = ? AND as_domain = ?"#,
+            WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain,
         )

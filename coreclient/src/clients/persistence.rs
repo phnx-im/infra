@@ -69,7 +69,7 @@ impl UserCreationState {
         let domain = client_id.domain();
         query_scalar!(
             r#"SELECT state AS "state: _"
-            FROM user_creation_state WHERE as_client_uuid = ? AND as_domain = ?"#,
+            FROM user_creation_state WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain
         )
@@ -83,7 +83,7 @@ impl UserCreationState {
         let domain = client_id.domain();
         query!(
             "INSERT OR REPLACE INTO user_creation_state
-                (as_client_uuid, as_domain, state)
+                (user_uuid, user_domain, state)
             VALUES (?, ?, ?)",
             uuid,
             domain,
@@ -128,8 +128,8 @@ impl<'r> Decode<'r, Sqlite> for ClientRecordState {
 }
 
 struct SqlClientRecord {
-    as_client_uuid: Uuid,
-    as_domain: Fqdn,
+    user_uuid: Uuid,
+    user_domain: Fqdn,
     client_record_state: ClientRecordState,
     created_at: DateTime<Utc>,
     is_default: bool,
@@ -138,7 +138,7 @@ struct SqlClientRecord {
 impl From<SqlClientRecord> for ClientRecord {
     fn from(value: SqlClientRecord) -> Self {
         Self {
-            client_id: UserId::new(value.as_client_uuid, value.as_domain),
+            client_id: UserId::new(value.user_uuid, value.user_domain),
             client_record_state: value.client_record_state,
             created_at: value.created_at,
             is_default: value.is_default,
@@ -157,8 +157,8 @@ impl ClientRecord {
             SqlClientRecord,
             r#"
             SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
                 is_default
@@ -178,12 +178,12 @@ impl ClientRecord {
         query_as!(
             SqlClientRecord,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
                 is_default
-            FROM client_record WHERE as_client_uuid = ? AND as_domain = ?"#,
+            FROM client_record WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain
         )
@@ -201,7 +201,7 @@ impl ClientRecord {
         let domain = self.client_id.domain();
         query!(
             "INSERT OR REPLACE INTO client_record
-            (as_client_uuid, as_domain, record_state, created_at, is_default)
+            (user_uuid, user_domain, record_state, created_at, is_default)
             VALUES (?1, ?2, ?3, ?4, ?5)",
             uuid,
             domain,
@@ -221,7 +221,7 @@ impl ClientRecord {
         let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
-            "UPDATE client_record SET is_default = (as_client_uuid == ? AND as_domain == ?)",
+            "UPDATE client_record SET is_default = (user_uuid == ? AND user_domain == ?)",
             uuid,
             domain,
         )
@@ -237,7 +237,7 @@ impl ClientRecord {
         let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
-            "DELETE FROM client_record WHERE as_client_uuid = ? AND as_domain = ?",
+            "DELETE FROM client_record WHERE user_uuid = ? AND user_domain = ?",
             uuid,
             domain
         )
