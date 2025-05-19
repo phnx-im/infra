@@ -50,9 +50,9 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final (clientId, displayName, profilePicture) = context.select(
+    final (userId, displayName, profilePicture) = context.select(
       (UserCubit cubit) => (
-        cubit.state.clientId,
+        cubit.state.userId,
         cubit.state.displayName,
         cubit.state.profilePicture,
       ),
@@ -110,14 +110,14 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                       children: [
                         const Spacer(),
                         SelectableText(
-                          clientId.uuid.toString(),
+                          userId.uuid.toString(),
                           style: const TextStyle(color: colorDMB, fontSize: 12),
                         ),
                         IconButton(
                           icon: const Icon(Icons.copy),
                           onPressed: () {
                             Clipboard.setData(
-                              ClipboardData(text: clientId.uuid.toString()),
+                              ClipboardData(text: userId.uuid.toString()),
                             );
                           },
                         ),

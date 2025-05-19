@@ -190,9 +190,10 @@ impl CoreUser {
         .await
     }
 
-    /// Load a user from the database. If a user creation process with a
-    /// matching `AsClientId` was interrupted before, this will resume that
-    /// process.
+    /// Load a user from the database.
+    ///
+    /// If a user creation process with a matching `UserId` was interrupted before, this will
+    /// resume that process.
     pub async fn load(user_id: UserId, db_path: &str) -> Result<CoreUser> {
         let client_db = open_client_db(&user_id, db_path).await?;
 

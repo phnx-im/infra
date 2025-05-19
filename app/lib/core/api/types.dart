@@ -392,7 +392,7 @@ class UiSystemMessage {
           message == other.message;
 }
 
-/// UI representation of an [`AsClientId`]
+/// UI representation of an [`UserId`]
 class UiUserId {
   final UuidValue uuid;
   final String domain;

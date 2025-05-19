@@ -10,10 +10,10 @@ import 'package:uuid/uuid.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// ClientId of the conversation (for group it is null)
-  UiClientId? get clientId => switch (conversationType) {
+  UiUserId? get userId => switch (conversationType) {
     UiConversationType_UnconfirmedConnection(field0: final profile) =>
-      profile.clientId,
-    UiConversationType_Connection(field0: final profile) => profile.clientId,
+      profile.userId,
+    UiConversationType_Connection(field0: final profile) => profile.userId,
     UiConversationType_Group() => null,
   };
 

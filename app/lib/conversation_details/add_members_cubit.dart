@@ -14,7 +14,7 @@ part 'add_members_cubit.freezed.dart';
 class AddMembersState with _$AddMembersState {
   const factory AddMembersState({
     required List<UiContact> contacts,
-    required Set<UiClientId> selectedContacts,
+    required Set<UiUserId> selectedContacts,
   }) = _AddMembersState;
 }
 
@@ -28,11 +28,11 @@ class AddMembersCubit extends Cubit<AddMembersState> {
   }
 
   void toggleContact(UiContact contact) {
-    final selectedContacts = HashSet<UiClientId>.from(state.selectedContacts);
-    if (selectedContacts.contains(contact.clientId)) {
-      selectedContacts.remove(contact.clientId);
+    final selectedContacts = HashSet<UiUserId>.from(state.selectedContacts);
+    if (selectedContacts.contains(contact.userId)) {
+      selectedContacts.remove(contact.userId);
     } else {
-      selectedContacts.add(contact.clientId);
+      selectedContacts.add(contact.userId);
     }
     emit(state.copyWith(selectedContacts: selectedContacts));
   }

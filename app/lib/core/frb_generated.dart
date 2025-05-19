@@ -9256,7 +9256,7 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
   Stream<UiUser> stream() =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseStream(that: this);
 
-  /// Get the user profile of the user with the given [`AsClientId`].
+  /// Get the user profile of the user with the given [`UiUserId`].
   Future<UiUserProfile> userProfile(UiUserId userId) => RustLib.instance.api
       .crateApiUserCubitUserCubitBaseUserProfile(that: this, userId: userId);
 }

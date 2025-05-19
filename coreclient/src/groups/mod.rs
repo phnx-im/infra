@@ -945,7 +945,7 @@ impl Group {
         &self.identity_link_wrapper_key
     }
 
-    /// Returns a set containing the [`AsClientId`] of the members of the group.
+    /// Returns a set containing the [`UserId`] of the members of the group.
     pub(crate) async fn members(&self, executor: impl SqliteExecutor<'_>) -> HashSet<UserId> {
         match GroupMembership::group_members(executor, self.group_id()).await {
             // deduplicate by collecting into as set

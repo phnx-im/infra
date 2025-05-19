@@ -95,14 +95,14 @@ class _ClientRecordsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ownClientId = context.select(
-      (LoadableUserCubit cubit) => cubit.state.user?.clientId,
+      (LoadableUserCubit cubit) => cubit.state.user?.userId,
     );
 
     return Center(
       child: ListView(
         children:
             clientRecords.map((record) {
-              final isCurrentUser = record.clientId == ownClientId;
+              final isCurrentUser = record.userId == ownClientId;
               final currentUserSuffix = isCurrentUser ? " (current)" : "";
 
               final textColor =
@@ -130,8 +130,8 @@ class _ClientRecordsList extends StatelessWidget {
                 ),
                 title: Text(record.userProfile.displayName + currentUserSuffix),
                 subtitle: Text(
-                  "Domain: ${record.clientId.domain}\n"
-                  "ID: ${record.clientId.uuid.toString()}\n"
+                  "Domain: ${record.userId.domain}\n"
+                  "ID: ${record.userId.uuid.toString()}\n"
                   "Created: ${record.createdAt}\n"
                   "Fully registered: ${record.isFinished ? "yes" : "no"}",
                 ),
@@ -140,7 +140,7 @@ class _ClientRecordsList extends StatelessWidget {
                         ? () {
                           final coreClient = context.read<CoreClient>();
                           coreClient.logout();
-                          coreClient.loadUser(clientId: record.clientId);
+                          coreClient.loadUser(userId: record.userId);
                         }
                         : null,
               );

@@ -24,7 +24,7 @@ final conversations = [
     id: 1.conversationId(),
     status: const UiConversationStatus.active(),
     conversationType: UiConversationType_Connection(
-      UiUserProfile(clientId: 2.clientId(), displayName: 'Bob'),
+      UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
     ),
     unreadMessages: 10,
     messagesCount: 10,
@@ -36,7 +36,7 @@ final conversations = [
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: 2.clientId(),
+          sender: 2.userId(),
           sent: true,
           content: UiMimiContent(
             plainBody: 'Hello Alice',
@@ -52,7 +52,7 @@ final conversations = [
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
     conversationType: UiConversationType_UnconfirmedConnection(
-      UiUserProfile(clientId: 3.clientId(), displayName: 'Eve'),
+      UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
     ),
     unreadMessages: 0,
     messagesCount: 10,
@@ -64,7 +64,7 @@ final conversations = [
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: 3.clientId(),
+          sender: 3.userId(),
           sent: true,
           content: UiMimiContent(
             plainBody:
@@ -93,7 +93,7 @@ final conversations = [
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: 4.clientId(),
+          sender: 4.userId(),
           sent: true,
           content: UiMimiContent(
             plainBody: 'Hello All',

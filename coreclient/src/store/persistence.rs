@@ -20,7 +20,7 @@ use crate::{ConversationId, ConversationMessageId};
 use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 
 #[derive(Serialize, Deserialize)]
-struct StoredAsClientId<'a>(Cow<'a, UserId>);
+struct StoredUserId<'a>(Cow<'a, UserId>);
 
 impl Type<Sqlite> for StoreEntityId {
     fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
@@ -35,7 +35,7 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
     ) -> Result<IsNull, BoxDynError> {
         match self {
             StoreEntityId::User(user_id) => {
-                let bytes = PhnxCodec::to_vec(&StoredAsClientId(Cow::Borrowed(user_id)))?;
+                let bytes = PhnxCodec::to_vec(&StoredUserId(Cow::Borrowed(user_id)))?;
                 Encode::<Sqlite>::encode(bytes, buf)
             }
             StoreEntityId::Conversation(conversation_id) => {
@@ -89,7 +89,7 @@ impl SqlStoreNotification {
         } = self;
         let entity_id = match kind {
             StoreEntityKind::User => {
-                let StoredAsClientId(user_id) = PhnxCodec::from_slice(&entity_id)?;
+                let StoredUserId(user_id) = PhnxCodec::from_slice(&entity_id)?;
                 StoreEntityId::User(user_id.into_owned())
             }
             StoreEntityKind::Conversation => {

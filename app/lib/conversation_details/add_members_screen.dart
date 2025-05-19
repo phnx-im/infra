@@ -63,16 +63,16 @@ class AddMembersScreenView extends StatelessWidget {
                         leading: FutureUserAvatar(
                           profile:
                               () => context.read<UserCubit>().userProfile(
-                                contact.clientId,
+                                contact.userId,
                               ),
                         ),
                         title: Text(
-                          contact.clientId.toString(), // TODO: display name
+                          contact.userId.toString(), // TODO: display name
                           style: Theme.of(context).textTheme.labelMedium,
                           overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Checkbox(
-                          value: selectedContacts.contains(contact.clientId),
+                          value: selectedContacts.contains(contact.userId),
                           checkColor: colorDMB,
                           fillColor: WidgetStateProperty.all(colorGreyLight),
                           focusColor: Colors.transparent,
@@ -120,14 +120,14 @@ class AddMembersScreenView extends StatelessWidget {
   void _addSelectedContacts(
     NavigationCubit navigation,
     UserCubit userCubit,
-    Set<UiClientId> selectedContacts,
+    Set<UiUserId> selectedContacts,
   ) async {
     final conversationId = navigation.state.conversationId;
     if (conversationId == null) {
       throw StateError("an active conversation is obligatory");
     }
-    for (final clientId in selectedContacts) {
-      await userCubit.addUserToConversation(conversationId, clientId);
+    for (final userId in selectedContacts) {
+      await userCubit.addUserToConversation(conversationId, userId);
     }
     navigation.pop();
   }

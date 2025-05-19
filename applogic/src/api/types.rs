@@ -34,7 +34,7 @@ pub struct _ConversationId {
     pub uuid: Uuid,
 }
 
-/// UI representation of an [`AsClientId`]
+/// UI representation of an [`UserId`]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(dart_code = "
     @override

@@ -28,7 +28,7 @@ void main() {
       user = MockUser();
       loadableUserCubit = MockLoadableUserCubit();
 
-      when(() => user.clientId).thenReturn(1.clientId());
+      when(() => user.userId).thenReturn(1.userId());
       when(() => loadableUserCubit.state).thenReturn(LoadableUser.loaded(user));
     });
 

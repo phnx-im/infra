@@ -229,7 +229,7 @@ impl UserCubitBase {
         Ok(())
     }
 
-    /// Get the user profile of the user with the given [`AsClientId`].
+    /// Get the user profile of the user with the given [`UiUserId`].
     #[frb(positional)]
     pub async fn user_profile(&self, user_id: UiUserId) -> UiUserProfile {
         let profile = self.core_user.user_profile(&user_id.into()).await;

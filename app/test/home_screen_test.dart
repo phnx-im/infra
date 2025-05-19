@@ -26,7 +26,7 @@ import 'mocks.dart';
 void main() {
   setUpAll(() {
     registerFallbackValue(0.conversationMessageId());
-    registerFallbackValue(0.clientId());
+    registerFallbackValue(0.userId());
   });
 
   group('HomeScreen', () {

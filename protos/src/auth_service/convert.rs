@@ -36,7 +36,7 @@ impl From<identifiers::UserId> for UserId {
 }
 
 impl TryFrom<UserId> for identifiers::UserId {
-    type Error = AsClientIdError;
+    type Error = UserIdError;
 
     fn try_from(proto: UserId) -> Result<Self, Self::Error> {
         Ok(Self::new(
@@ -47,16 +47,16 @@ impl TryFrom<UserId> for identifiers::UserId {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum AsClientIdError {
+pub enum UserIdError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError<&'static str>),
     #[error(transparent)]
     Fqdn(#[from] identifiers::FqdnError),
 }
 
-impl From<AsClientIdError> for Status {
-    fn from(e: AsClientIdError) -> Self {
-        Status::invalid_argument(format!("invalid AS client id: {e}"))
+impl From<UserIdError> for Status {
+    fn from(e: UserIdError) -> Self {
+        Status::invalid_argument(format!("invalid user id: {e}"))
     }
 }
 
@@ -104,7 +104,7 @@ pub enum ClientCredentialCsrError {
     #[error(transparent)]
     Signature(#[from] UnsupportedSignatureScheme),
     #[error(transparent)]
-    ClientId(#[from] AsClientIdError),
+    ClientId(#[from] UserIdError),
 }
 
 #[derive(Debug, thiserror::Error)]

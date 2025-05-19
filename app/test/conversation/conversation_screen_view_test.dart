@@ -21,12 +21,12 @@ import '../mocks.dart';
 
 final conversation = conversations[2];
 
-final members = [1.clientId(), 2.clientId(), 3.clientId()];
+final members = [1.userId(), 2.userId(), 3.userId()];
 
 void main() {
   setUpAll(() {
     registerFallbackValue(0.conversationMessageId());
-    registerFallbackValue(0.clientId());
+    registerFallbackValue(0.userId());
   });
 
   group('ConversationScreenView', () {

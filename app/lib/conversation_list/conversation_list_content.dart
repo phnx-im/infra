@@ -142,7 +142,7 @@ class _ListTileBottom extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ownClientId = context.select(
-      (UserCubit cubit) => cubit.state.clientId,
+      (UserCubit cubit) => cubit.state.userId,
     );
 
     return Row(
@@ -213,7 +213,7 @@ class _LastMessage extends StatelessWidget {
   const _LastMessage({required this.conversation, required this.ownClientId});
 
   final UiConversationDetails conversation;
-  final UiClientId ownClientId;
+  final UiUserId ownClientId;
 
   @override
   Widget build(BuildContext context) {

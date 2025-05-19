@@ -47,7 +47,7 @@ class CoreClient {
   User get user => _user!;
 
   set user(User? user) {
-    _log.info("setting user: ${user?.clientId}");
+    _log.info("setting user: ${user?.userId}");
     _userController.add(user);
     _user = user;
   }
@@ -65,7 +65,7 @@ class CoreClient {
 
   // used in dev settings
   Future<void> deleteUserDatabase() async {
-    await deleteClientDatabase(dbPath: await dbPath(), clientId: user.clientId);
+    await deleteClientDatabase(dbPath: await dbPath(), userId: user.userId);
     _userController.add(null);
     _user = null;
   }
@@ -111,10 +111,10 @@ class CoreClient {
       profilePicture: profilePicture,
     );
 
-    _log.info("User registered: ${user.clientId}");
+    _log.info("User registered: ${user.userId}");
   }
 
-  Future<void> loadUser({required UiClientId clientId}) async {
-    user = await User.load(dbPath: await dbPath(), clientId: clientId);
+  Future<void> loadUser({required UiUserId userId}) async {
+    user = await User.load(dbPath: await dbPath(), userId: userId);
   }
 }

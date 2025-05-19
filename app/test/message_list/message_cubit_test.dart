@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 import '../conversation_list/conversation_list_content_test.dart';
 import '../helpers.dart';
 
-final bobId = 2.clientId();
+final bobId = 2.userId();
 
 void main() {
   group('MessageCubit', () {
