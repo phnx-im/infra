@@ -127,12 +127,12 @@ impl Conversation {
             match self.conversation_type() {
                 ConversationType::UnconfirmedConnection(client_id) => (
                     false,
-                    Some(client_id.client_id()),
+                    Some(client_id.uuid()),
                     Some(client_id.domain().clone()),
                 ),
                 ConversationType::Connection(client_id) => (
                     true,
-                    Some(client_id.client_id()),
+                    Some(client_id.uuid()),
                     Some(client_id.domain().clone()),
                 ),
                 ConversationType::Group => (true, None, None),
@@ -320,7 +320,7 @@ impl Conversation {
                 .execute(&mut *transaction)
                 .await?;
                 for member in inactive.past_members() {
-                    let uuid = member.client_id();
+                    let uuid = member.uuid();
                     let domain = member.domain();
                     query!(
                         "INSERT OR IGNORE INTO conversation_past_members (
@@ -522,7 +522,7 @@ impl Conversation {
     ) -> sqlx::Result<()> {
         match conversation_type {
             ConversationType::UnconfirmedConnection(as_client_id) => {
-                let uuid = as_client_id.client_id();
+                let uuid = as_client_id.uuid();
                 let domain = as_client_id.domain();
                 query!(
                     "UPDATE conversations SET
@@ -538,7 +538,7 @@ impl Conversation {
                 .await?;
             }
             ConversationType::Connection(as_client_id) => {
-                let uuid = as_client_id.client_id();
+                let uuid = as_client_id.uuid();
                 let domain = as_client_id.domain();
                 query!(
                     "UPDATE conversations SET

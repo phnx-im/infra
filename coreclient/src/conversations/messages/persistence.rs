@@ -222,7 +222,7 @@ impl ConversationMessage {
     ) -> anyhow::Result<()> {
         let (sender_uuid, sender_domain) = match &self.timestamped_message.message {
             Message::Content(content_message) => Some((
-                content_message.sender.client_id(),
+                content_message.sender.uuid(),
                 content_message.sender.domain(),
             ))
             .unzip(),

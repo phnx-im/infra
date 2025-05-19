@@ -59,7 +59,7 @@ impl Queues {
 
         let mut pg_listener = PgListener::connect_with(&self.pool).await?;
         pg_listener
-            .listen(&format!("as_queue_{}", queue_id.client_id()))
+            .listen(&format!("as_queue_{}", queue_id.uuid()))
             .await?;
 
         let cancel = self.track_listener(queue_id.clone()).await;
@@ -95,7 +95,7 @@ impl Queues {
         let mut transaction = self.pool.begin().await?;
 
         Queue::enqueue(&mut transaction, queue_id, message).await?;
-        let query = format!(r#"NOTIFY "as_queue_{}""#, queue_id.client_id());
+        let query = format!(r#"NOTIFY "as_queue_{}""#, queue_id.uuid());
         sqlx::query(&query).execute(&mut *transaction).await?;
 
         transaction.commit().await?;
@@ -256,7 +256,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             query!(
                 "INSERT INTO as_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
-                self.queue_id.client_id(),
+                self.queue_id.uuid(),
                 self.sequence_number
             )
             .execute(connection)
@@ -270,7 +270,7 @@ mod persistence {
         ) -> sqlx::Result<bool> {
             query_scalar!(
                 "SELECT sequence_number FROM as_queue_data WHERE queue_id = $1",
-                queue_id.client_id()
+                queue_id.uuid()
             )
             .fetch_optional(connection)
             .await
@@ -288,7 +288,7 @@ mod persistence {
             // Check if sequence numbers are consistent.
             let sequence_number = query_scalar!(
                 "SELECT sequence_number FROM as_queue_data WHERE queue_id = $1 FOR UPDATE",
-                client_id.client_id(),
+                client_id.uuid(),
             )
             .fetch_one(&mut *transaction)
             .await;
@@ -314,7 +314,7 @@ mod persistence {
                 "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes)
                 VALUES ($1, $2, $3, $4)",
                 message_id,
-                client_id.client_id(),
+                client_id.uuid(),
                 sequence_number,
                 BlobEncoded(&message) as _,
             )
@@ -325,7 +325,7 @@ mod persistence {
             // Increase the sequence number and store it.
             query!(
                 "UPDATE as_queue_data SET sequence_number = $2 WHERE queue_id = $1",
-                client_id.client_id(),
+                client_id.uuid(),
                 new_sequence_number
             )
             .execute(&mut *transaction)
@@ -358,7 +358,7 @@ mod persistence {
                 ORDER BY sequence_number ASC
                 FOR UPDATE SKIP LOCKED
                 LIMIT $3"#,
-                client_id.client_id(),
+                client_id.uuid(),
                 sequence_number,
                 limit,
             )
@@ -383,7 +383,7 @@ mod persistence {
                 r#"DELETE FROM as_queues
                 WHERE queue_id = $1
                 AND sequence_number <= $2"#,
-                client_id.client_id(),
+                client_id.uuid(),
                 up_to_sequence_number,
             )
             .execute(connection)
@@ -408,7 +408,7 @@ mod persistence {
         #[sqlx::test]
         async fn enqueue_fetch_delete_and_requeue(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_id = user_record.client_id();
+            let client_id = user_record.user_id();
             store_random_client_record(&pool, client_id.clone()).await?;
 
             let queue = Queue::new_and_store(client_id, &pool).await?;
@@ -483,7 +483,7 @@ mod tests {
 
     async fn new_queue(pool: &PgPool) -> anyhow::Result<UserId> {
         let user_record = store_random_user_record(pool).await?;
-        let client_id = user_record.client_id().clone();
+        let client_id = user_record.user_id().clone();
         store_random_client_record(pool, client_id.clone()).await?;
         Queue::new_and_store(&client_id, pool).await?;
         Ok(client_id)

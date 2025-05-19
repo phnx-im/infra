@@ -100,7 +100,7 @@ pub async fn delete_client_database(db_path: &str, as_client_id: &UserId) -> Res
 }
 
 fn client_db_name(as_client_id: &UserId) -> String {
-    format!("{}@{}.db", as_client_id.client_id(), as_client_id.domain())
+    format!("{}@{}.db", as_client_id.uuid(), as_client_id.domain())
 }
 
 pub async fn open_client_db(

@@ -58,7 +58,7 @@ impl Contact {
         executor: impl SqliteExecutor<'_>,
         client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query_as!(
             SqlContact,
@@ -103,7 +103,7 @@ impl Contact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         query!(
             "INSERT INTO contacts (
@@ -136,7 +136,7 @@ impl Contact {
         client_id: &UserId,
         key_index: &UserProfileKeyIndex,
     ) -> sqlx::Result<()> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
             "UPDATE contacts SET user_profile_key_index = ?
@@ -180,7 +180,7 @@ impl PartialContact {
         executor: impl SqliteExecutor<'_>,
         client: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client.client_id();
+        let uuid = client.uuid();
         let domain = client.domain();
         query_as!(
             SqlPartialContact,
@@ -220,7 +220,7 @@ impl PartialContact {
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         let domain = self.client_id.domain();
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         query!(
             "INSERT INTO partial_contacts
                 (as_client_uuid, as_domain, conversation_id, friendship_package_ear_key)
@@ -243,7 +243,7 @@ impl PartialContact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         query!(
             "DELETE FROM partial_contacts

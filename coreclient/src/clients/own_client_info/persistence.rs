@@ -8,7 +8,7 @@ use super::OwnClientInfo;
 
 impl OwnClientInfo {
     pub(crate) async fn store(&self, executor: impl sqlx::SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let as_client_id = self.as_client_id.client_id();
+        let as_client_id = self.as_client_id.uuid();
         let domain = self.as_client_id.domain();
         query!(
             "INSERT INTO own_client_info (

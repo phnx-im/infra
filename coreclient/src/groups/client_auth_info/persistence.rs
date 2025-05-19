@@ -39,7 +39,7 @@ impl StorableClientCredential {
         executor: impl SqliteExecutor<'_>,
         client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query_scalar!(
             r#"SELECT
@@ -58,7 +58,7 @@ impl StorableClientCredential {
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let fingerprint = self.fingerprint();
         let client_id = self.client_credential.identity();
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
             "INSERT OR IGNORE INTO client_credentials
@@ -161,7 +161,7 @@ impl GroupMembership {
     }
 
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
@@ -189,7 +189,7 @@ impl GroupMembership {
     }
 
     pub(super) async fn stage_update(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
@@ -217,7 +217,7 @@ impl GroupMembership {
     }
 
     pub(super) async fn stage_add(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
@@ -373,7 +373,7 @@ impl GroupMembership {
 
         let mut query = sqlx::query(&query_string).bind(GroupIdRefWrapper::from(group_id));
         for client_id in client_ids {
-            query = query.bind(client_id.client_id()).bind(client_id.domain());
+            query = query.bind(client_id.uuid()).bind(client_id.domain());
         }
 
         query

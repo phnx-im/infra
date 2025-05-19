@@ -65,7 +65,7 @@ impl UserCreationState {
         executor: impl SqliteExecutor<'_>,
         client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query_scalar!(
             r#"SELECT state AS "state: _"
@@ -79,7 +79,7 @@ impl UserCreationState {
 
     pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let client_id = self.client_id();
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
             "INSERT OR REPLACE INTO user_creation_state
@@ -173,7 +173,7 @@ impl ClientRecord {
         executor: impl SqliteExecutor<'_>,
         client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query_as!(
             SqlClientRecord,
@@ -197,7 +197,7 @@ impl ClientRecord {
             ClientRecordState::InProgress => "in_progress",
             ClientRecordState::Finished => "finished",
         };
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         query!(
             "INSERT OR REPLACE INTO client_record
@@ -218,7 +218,7 @@ impl ClientRecord {
         executor: impl SqliteExecutor<'_>,
         client_id: &UserId,
     ) -> sqlx::Result<()> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
             "UPDATE client_record SET is_default = (as_client_uuid == ? AND as_domain == ?)",
@@ -234,7 +234,7 @@ impl ClientRecord {
         executor: impl SqliteExecutor<'_>,
         client_id: &UserId,
     ) -> sqlx::Result<()> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
             "DELETE FROM client_record WHERE as_client_uuid = ? AND as_domain = ?",

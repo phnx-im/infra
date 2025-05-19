@@ -18,7 +18,7 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         let epoch = self.epoch as i64;
         query!(
@@ -49,7 +49,7 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
+        let uuid = self.client_id.uuid();
         let domain = self.client_id.domain();
         let epoch = self.epoch as i64;
         query!(
@@ -107,7 +107,7 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.client_id();
+        let uuid = client_id.uuid();
         let domain = client_id.domain();
         query_as!(
             SqlUser,
