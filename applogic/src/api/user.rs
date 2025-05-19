@@ -70,10 +70,10 @@ impl User {
             .context("missing host in server url")?
             .to_owned()
             .into();
-        let client_id = UserId::new(Uuid::new_v4(), domain);
+        let user_id = UserId::new(Uuid::new_v4(), domain);
 
         let user = CoreUser::new(
-            client_id,
+            user_id,
             server_url,
             DEFAULT_PORT_GRPC,
             &path,

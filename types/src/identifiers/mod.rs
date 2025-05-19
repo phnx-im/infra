@@ -233,9 +233,9 @@ impl fmt::Debug for UserId {
 }
 
 impl UserId {
-    pub fn new(client_id: Uuid, domain: Fqdn) -> Self {
+    pub fn new(uuid: Uuid, domain: Fqdn) -> Self {
         Self {
-            uuid: TlsUuid(client_id),
+            uuid: TlsUuid(uuid),
             domain,
         }
     }

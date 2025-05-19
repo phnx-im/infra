@@ -574,23 +574,23 @@ async fn client_persistence() {
     // Create and persist the user.
     let mut setup = TestBackend::single().await;
     setup.add_persisted_user(&ALICE).await;
-    let client_id = setup.users.get(&ALICE).unwrap().user.user_id().clone();
+    let user_id = setup.users.get(&ALICE).unwrap().user.user_id().clone();
 
     let db_path = setup.temp_dir().to_owned();
 
     // Try to load the user from the database.
-    CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
+    CoreUser::load(user_id.clone(), db_path.to_str().unwrap())
         .await
         .unwrap();
 
-    let client_db_path = db_path.join(format!("{}@{}.db", client_id.uuid(), client_id.domain()));
+    let client_db_path = db_path.join(format!("{}@{}.db", user_id.uuid(), user_id.domain()));
     assert!(client_db_path.exists());
 
     setup.delete_user(&ALICE).await;
 
     assert!(!client_db_path.exists());
     assert!(
-        CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
+        CoreUser::load(user_id.clone(), db_path.to_str().unwrap())
             .await
             .is_err()
     );

@@ -22,10 +22,10 @@ impl User {
                 .await
             {
                 let title = match conversation.conversation_type() {
-                    phnxcoreclient::ConversationType::UnconfirmedConnection(client_id)
-                    | phnxcoreclient::ConversationType::Connection(client_id) => self
+                    phnxcoreclient::ConversationType::UnconfirmedConnection(user_id)
+                    | phnxcoreclient::ConversationType::Connection(user_id) => self
                         .user
-                        .user_profile(client_id)
+                        .user_profile(user_id)
                         .await
                         .display_name
                         .to_string(),
