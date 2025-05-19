@@ -433,7 +433,7 @@ impl From<credentials::AsCredentialBody> for AsCredentialBody {
         let signature_scheme: SignatureScheme = value.signature_scheme.into();
         Self {
             version: Some(value.version.into()),
-            as_domain: Some(value.as_domain.into()),
+            user_domain: Some(value.user_domain.into()),
             expiration_data: Some(value.expiration_data.into()),
             signature_scheme: signature_scheme.into(),
             verifying_key: Some(value.verifying_key.into()),
@@ -450,9 +450,9 @@ impl TryFrom<AsCredentialBody> for credentials::AsCredentialBody {
             .try_into()?;
         Ok(Self {
             version: proto.version.ok_or_missing_field("version")?.try_into()?,
-            as_domain: proto
-                .as_domain
-                .ok_or_missing_field("as_domain")?
+            user_domain: proto
+                .user_domain
+                .ok_or_missing_field("user_domain")?
                 .try_ref_into()?,
             expiration_data: proto
                 .expiration_data
@@ -590,7 +590,7 @@ impl From<credentials::AsIntermediateCredentialCsr> for AsIntermediateCredential
     fn from(value: credentials::AsIntermediateCredentialCsr) -> Self {
         Self {
             version: Some(value.version.into()),
-            as_domain: Some(value.as_domain.into()),
+            user_domain: Some(value.user_domain.into()),
             signature_scheme: SignatureScheme::from(value.signature_scheme).into(),
             verifying_key: Some(value.verifying_key.into()),
         }
@@ -607,9 +607,9 @@ impl TryFrom<AsIntermediateCredentialCsr> for credentials::AsIntermediateCredent
             .try_into()?;
         Ok(Self {
             version,
-            as_domain: proto
-                .as_domain
-                .ok_or_missing_field("as_domain")?
+            user_domain: proto
+                .user_domain
+                .ok_or_missing_field("user_domain")?
                 .try_ref_into()?,
             signature_scheme,
             verifying_key: proto

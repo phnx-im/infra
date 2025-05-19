@@ -227,7 +227,7 @@ message AsCredential {
 
 message AsCredentialBody {
   MlsInfraVersion version = 1;
-  common.v1.Fqdn as_domain = 2;
+  common.v1.Fqdn user_domain = 2;
   ExpirationData expiration_data = 3;
   SignatureScheme signature_scheme = 4;
   AsVerifyingKey verifying_key = 5;
@@ -255,7 +255,7 @@ message AsIntermediateCredentialPayload {
 
 message AsIntermediateCredentialCsr {
   MlsInfraVersion version = 1;
-  common.v1.Fqdn as_domain = 2;
+  common.v1.Fqdn user_domain = 2;
   SignatureScheme signature_scheme = 3;
   AsIntermediateVerifyingKey verifying_key = 4;
 }

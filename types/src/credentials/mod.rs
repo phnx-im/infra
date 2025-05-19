@@ -116,7 +116,7 @@ impl From<AsCredentialBody> for AsCredential {
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredentialBody {
     pub version: MlsInfraVersion,
-    pub as_domain: Fqdn,
+    pub user_domain: Fqdn,
     pub expiration_data: ExpirationData,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: AsVerifyingKey,
@@ -151,7 +151,7 @@ impl AsCredential {
     /// The default [`ExpirationData`] for an [`AsCredential`] is five years.
     pub fn new(
         signature_scheme: SignatureScheme,
-        as_domain: Fqdn,
+        user_domain: Fqdn,
         expiration_data_option: Option<ExpirationData>,
     ) -> Result<(Self, AsSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
@@ -162,7 +162,7 @@ impl AsCredential {
         let verifying_key = signing_key.verifying_key().clone();
         let body = AsCredentialBody {
             version,
-            as_domain,
+            user_domain,
             expiration_data,
             signature_scheme,
             verifying_key,
@@ -191,7 +191,7 @@ impl AsCredential {
     }
 
     pub fn domain(&self) -> &Fqdn {
-        &self.body.as_domain
+        &self.body.user_domain
     }
 
     pub fn body(&self) -> &AsCredentialBody {
@@ -204,7 +204,7 @@ const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
     pub version: MlsInfraVersion,
-    pub as_domain: Fqdn,
+    pub user_domain: Fqdn,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
 }
@@ -218,7 +218,7 @@ impl AsIntermediateCredentialCsr {
     /// signed.
     pub fn new(
         signature_scheme: SignatureScheme,
-        as_domain: Fqdn,
+        user_domain: Fqdn,
     ) -> Result<(Self, PreliminaryAsIntermediateSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
         let prelim_signing_key = PreliminaryAsIntermediateSigningKey::generate()?;
@@ -226,7 +226,7 @@ impl AsIntermediateCredentialCsr {
             version,
             signature_scheme,
             verifying_key: prelim_signing_key.verifying_key().clone().convert(),
-            as_domain,
+            user_domain,
         };
         Ok((credential, prelim_signing_key))
     }
@@ -354,7 +354,7 @@ impl AsIntermediateCredential {
     }
 
     pub fn domain(&self) -> &Fqdn {
-        &self.body.credential.csr.as_domain
+        &self.body.credential.csr.user_domain
     }
 
     pub fn body(&self) -> &AsIntermediateCredentialBody {
