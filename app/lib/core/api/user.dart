@@ -18,19 +18,14 @@ part 'user.freezed.dart';
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<User>>
 abstract class User implements RustOpaqueInterface {
-  /// The unique identifier of the logged in user
-  UiClientId get clientId;
-
   /// Total number of unread messages across all conversations
   Future<int> get globalUnreadMessagesCount;
 
   static Future<User> load({
     required String dbPath,
-    required UiClientId clientId,
-  }) => RustLib.instance.api.crateApiUserUserLoad(
-    dbPath: dbPath,
-    clientId: clientId,
-  );
+    required UiUserId userId,
+  }) =>
+      RustLib.instance.api.crateApiUserUserLoad(dbPath: dbPath, userId: userId);
 
   /// Loads all client records from the phnx database
   ///
@@ -67,6 +62,9 @@ abstract class User implements RustOpaqueInterface {
 
   /// Update the push token.
   Future<void> updatePushToken(PlatformPushToken? pushToken);
+
+  /// The unique identifier of the logged in user
+  UiUserId get userId;
 }
 
 @freezed

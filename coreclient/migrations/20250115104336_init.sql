@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS client_credentials (
     client_credential BLOB NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS client_credentials_as_client_id ON client_credentials (user_uuid, user_domain);
+CREATE INDEX IF NOT EXISTS client_credentials_user_id ON client_credentials (user_uuid, user_domain);
 
 CREATE TABLE IF NOT EXISTS group_membership (
     client_credential_fingerprint BLOB NOT NULL,

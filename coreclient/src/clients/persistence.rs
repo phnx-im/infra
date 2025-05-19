@@ -63,10 +63,10 @@ impl<'r> Decode<'r, Sqlite> for UserCreationState {
 impl UserCreationState {
     pub(super) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query_scalar!(
             r#"SELECT state AS "state: _"
             FROM user_creation_state WHERE user_uuid = ? AND user_domain = ?"#,
@@ -78,9 +78,9 @@ impl UserCreationState {
     }
 
     pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let client_id = self.user_id();
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let user_id = self.user_id();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "INSERT OR REPLACE INTO user_creation_state
                 (user_uuid, user_domain, state)
@@ -138,7 +138,7 @@ struct SqlClientRecord {
 impl From<SqlClientRecord> for ClientRecord {
     fn from(value: SqlClientRecord) -> Self {
         Self {
-            client_id: UserId::new(value.user_uuid, value.user_domain),
+            user_id: UserId::new(value.user_uuid, value.user_domain),
             client_record_state: value.client_record_state,
             created_at: value.created_at,
             is_default: value.is_default,
@@ -171,10 +171,10 @@ impl ClientRecord {
 
     pub(super) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query_as!(
             SqlClientRecord,
             r#"SELECT
@@ -197,8 +197,8 @@ impl ClientRecord {
             ClientRecordState::InProgress => "in_progress",
             ClientRecordState::Finished => "finished",
         };
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         query!(
             "INSERT OR REPLACE INTO client_record
             (user_uuid, user_domain, record_state, created_at, is_default)
@@ -216,10 +216,10 @@ impl ClientRecord {
 
     pub async fn set_default(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<()> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "UPDATE client_record SET is_default = (user_uuid == ? AND user_domain == ?)",
             uuid,
@@ -232,10 +232,10 @@ impl ClientRecord {
 
     pub(crate) async fn delete(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<()> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "DELETE FROM client_record WHERE user_uuid = ? AND user_domain = ?",
             uuid,
@@ -261,9 +261,9 @@ mod tests {
     use super::*;
 
     fn new_client_record(id: Uuid, created_at: DateTime<Utc>) -> ClientRecord {
-        let client_id = UserId::new(id, "localhost".parse().unwrap());
+        let user_id = UserId::new(id, "localhost".parse().unwrap());
         ClientRecord {
-            client_id,
+            user_id,
             client_record_state: ClientRecordState::Finished,
             created_at,
             is_default: false,
@@ -287,20 +287,20 @@ mod tests {
 
         // Set default to alice set alice is_default
         alice_record.is_default = true;
-        ClientRecord::set_default(&pool, &alice_record.client_id).await?;
+        ClientRecord::set_default(&pool, &alice_record.user_id).await?;
         let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Set default to bob clears alice is_default
         alice_record.is_default = false;
         bob_record.is_default = true;
-        ClientRecord::set_default(&pool, &bob_record.client_id).await?;
+        ClientRecord::set_default(&pool, &bob_record.user_id).await?;
         let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, [alice_record.clone(), bob_record.clone()]);
 
         // Delete client records
-        ClientRecord::delete(&pool, &alice_record.client_id).await?;
-        ClientRecord::delete(&pool, &bob_record.client_id).await?;
+        ClientRecord::delete(&pool, &alice_record.user_id).await?;
+        ClientRecord::delete(&pool, &bob_record.user_id).await?;
         let records = ClientRecord::load_all(&pool).await?;
         assert_eq!(records, []);
 

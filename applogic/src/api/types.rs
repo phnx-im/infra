@@ -40,14 +40,14 @@ pub struct _ConversationId {
     @override
     String toString() => '$uuid@$domain';
 ")]
-pub struct UiClientId {
+pub struct UiUserId {
     pub uuid: Uuid,
     pub domain: String,
 }
 
-impl From<UserId> for UiClientId {
-    fn from(client_id: UserId) -> Self {
-        let (uuid, domain) = client_id.into_parts();
+impl From<UserId> for UiUserId {
+    fn from(user_id: UserId) -> Self {
+        let (uuid, domain) = user_id.into_parts();
         Self {
             uuid,
             domain: domain.into(),
@@ -55,11 +55,11 @@ impl From<UserId> for UiClientId {
     }
 }
 
-impl From<UiClientId> for UserId {
-    fn from(client_id: UiClientId) -> Self {
+impl From<UiUserId> for UserId {
+    fn from(user_id: UiUserId) -> Self {
         UserId::new(
-            client_id.uuid,
-            client_id.domain.parse().expect("logic error: invalid data"),
+            user_id.uuid,
+            user_id.domain.parse().expect("logic error: invalid data"),
         )
     }
 }
@@ -110,7 +110,7 @@ impl From<ConversationStatus> for UiConversationStatus {
 /// Inactive conversation with past members
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct UiInactiveConversation {
-    pub past_members: Vec<UiClientId>,
+    pub past_members: Vec<UiUserId>,
 }
 
 impl From<InactiveConversation> for UiInactiveConversation {
@@ -149,17 +149,15 @@ impl UiConversationType {
         store: &impl Store,
         conversation_type: ConversationType,
     ) -> Self {
-        let load_profile = async |client_id| {
-            let user_profile = store.user_profile(&client_id).await;
+        let load_profile = async |user_id| {
+            let user_profile = store.user_profile(&user_id).await;
             UiUserProfile::from_profile(user_profile)
         };
         match conversation_type {
-            ConversationType::UnconfirmedConnection(client_id) => {
-                Self::UnconfirmedConnection(load_profile(client_id).await)
+            ConversationType::UnconfirmedConnection(user_id) => {
+                Self::UnconfirmedConnection(load_profile(user_id).await)
             }
-            ConversationType::Connection(client_id) => {
-                Self::Connection(load_profile(client_id).await)
-            }
+            ConversationType::Connection(user_id) => Self::Connection(load_profile(user_id).await),
             ConversationType::Group => Self::Group,
         }
     }
@@ -287,7 +285,7 @@ impl From<MimiContent> for UiMimiContent {
 /// Content of a message including the sender and whether it was sent
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiContentMessage {
-    pub sender: UiClientId,
+    pub sender: UiUserId,
     pub sent: bool,
     pub content: UiMimiContent,
 }
@@ -433,13 +431,13 @@ impl UiFlightPosition {
 /// Contact of the logged-in user
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct UiContact {
-    pub client_id: UiClientId,
+    pub user_id: UiUserId,
 }
 
 impl From<Contact> for UiContact {
     fn from(contact: Contact) -> Self {
         Self {
-            client_id: contact.user_id.into(),
+            user_id: contact.user_id.into(),
         }
     }
 }
@@ -447,8 +445,8 @@ impl From<Contact> for UiContact {
 /// Profile of a user
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct UiUserProfile {
-    /// Client ID of the user
-    pub client_id: UiClientId,
+    /// ID of the user
+    pub user_id: UiUserId,
     /// Display name
     pub display_name: String,
     /// Optional profile picture
@@ -458,16 +456,16 @@ pub struct UiUserProfile {
 impl UiUserProfile {
     pub(crate) fn from_profile(user_profile: UserProfile) -> Self {
         Self {
-            client_id: user_profile.client_id.into(),
+            user_id: user_profile.user_id.into(),
             display_name: user_profile.display_name.into_string(),
             profile_picture: user_profile.profile_picture.map(ImageData::from_asset),
         }
     }
 
-    pub(crate) fn from_client_id(client_id: UserId) -> Self {
+    pub(crate) fn from_user_id(client_id: UserId) -> Self {
         let display_name = DisplayName::from_user_id(&client_id);
         Self {
-            client_id: client_id.into(),
+            user_id: client_id.into(),
             display_name: display_name.into_string(),
             profile_picture: None,
         }
@@ -517,10 +515,10 @@ impl ImageData {
 /// Each user has a client record which identifies the users database.
 #[derive(Debug)]
 pub struct UiClientRecord {
-    /// The unique identifier of the client
+    /// The unique identifier of the user
     ///
     /// Also used for identifying the client database path.
-    pub(crate) client_id: UiClientId,
+    pub(crate) user_id: UiUserId,
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) user_profile: UiUserProfile,
     pub(crate) is_finished: bool,

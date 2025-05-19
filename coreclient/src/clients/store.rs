@@ -30,11 +30,11 @@ impl UserCreationState {
     pub(super) fn user_id(&self) -> &UserId {
         match self {
             Self::BasicUserData(state) => state.user_id(),
-            Self::InitialUserState(state) => state.client_id(),
+            Self::InitialUserState(state) => state.user_id(),
             Self::PostRegistrationInitState(state) => state.user_id(),
-            Self::UnfinalizedRegistrationState(state) => state.client_id(),
-            Self::AsRegisteredUserState(state) => state.client_id(),
-            Self::QsRegisteredUserState(state) => state.client_id(),
+            Self::UnfinalizedRegistrationState(state) => state.user_id(),
+            Self::AsRegisteredUserState(state) => state.user_id(),
+            Self::QsRegisteredUserState(state) => state.user_id(),
             Self::FinalUserState(state) => state.user_id(),
         }
     }
@@ -54,15 +54,15 @@ impl UserCreationState {
     pub(super) async fn new(
         client_db: &SqlitePool,
         phnx_db: &SqlitePool,
-        as_client_id: UserId,
+        user_id: UserId,
         server_url: impl ToString,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let client_record = ClientRecord::new(as_client_id.clone());
+        let client_record = ClientRecord::new(user_id.clone());
         client_record.store(phnx_db).await?;
 
         let basic_user_data = BasicUserData {
-            user_id: as_client_id.clone(),
+            user_id: user_id.clone(),
             server_url: server_url.to_string(),
             push_token,
         };
@@ -176,16 +176,16 @@ impl ClientRecordState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRecord {
-    pub client_id: UserId,
+    pub user_id: UserId,
     pub client_record_state: ClientRecordState,
     pub created_at: DateTime<Utc>,
     pub is_default: bool,
 }
 
 impl ClientRecord {
-    pub(super) fn new(as_client_id: UserId) -> Self {
+    pub(super) fn new(user_id: UserId) -> Self {
         Self {
-            client_id: as_client_id,
+            user_id,
             client_record_state: ClientRecordState::InProgress,
             created_at: Utc::now(),
             is_default: false,

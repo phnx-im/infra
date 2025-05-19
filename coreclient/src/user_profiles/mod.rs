@@ -103,7 +103,7 @@ pub(crate) struct VerifiableUserProfile {
 #[derive(Debug, Error)]
 pub enum UserProfileValidationError {
     #[error("User profile is outdated")]
-    OutdatedUserProfile { client_id: UserId, epoch: u64 },
+    OutdatedUserProfile { user_id: UserId, epoch: u64 },
     #[error("Mismatching client id")]
     MismatchingClientId { expected: UserId, actual: UserId },
     #[error(transparent)]
@@ -114,16 +114,16 @@ pub enum UserProfileValidationError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserProfile {
-    pub client_id: UserId,
+    pub user_id: UserId,
     pub display_name: DisplayName,
     pub profile_picture: Option<Asset>,
 }
 
 impl UserProfile {
-    pub fn from_client_id(client_id: &UserId) -> Self {
+    pub fn from_user_id(user_id: &UserId) -> Self {
         Self {
-            client_id: client_id.clone(),
-            display_name: DisplayName::from_user_id(client_id),
+            user_id: user_id.clone(),
+            display_name: DisplayName::from_user_id(user_id),
             profile_picture: None,
         }
     }
@@ -132,7 +132,7 @@ impl UserProfile {
 impl From<IndexedUserProfile> for UserProfile {
     fn from(user_profile: IndexedUserProfile) -> Self {
         Self {
-            client_id: user_profile.client_id,
+            user_id: user_profile.user_id,
             display_name: user_profile.display_name,
             profile_picture: user_profile.profile_picture,
         }
@@ -145,7 +145,7 @@ impl From<IndexedUserProfile> for UserProfile {
     Debug, Clone, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
 )]
 pub(crate) struct BaseIndexedUserProfile<const VALIDATED: bool> {
-    client_id: UserId,
+    user_id: UserId,
     epoch: u64,
     decryption_key_index: UserProfileKeyIndex,
     display_name: BaseDisplayName<VALIDATED>,
@@ -163,10 +163,10 @@ impl UnvalidatedUserProfile {
     pub fn validate_display_name(self) -> IndexedUserProfile {
         let display_name = self.display_name.validate().unwrap_or_else(|e| {
             info!(error = %e, "Invalid display name, generating default");
-            DisplayName::from_user_id(&self.client_id)
+            DisplayName::from_user_id(&self.user_id)
         });
         IndexedUserProfile {
-            client_id: self.client_id,
+            user_id: self.user_id,
             epoch: self.epoch,
             decryption_key_index: self.decryption_key_index,
             display_name,

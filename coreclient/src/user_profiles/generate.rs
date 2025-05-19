@@ -28,7 +28,7 @@ impl NewUserProfile {
         profile_picture: Option<Asset>,
     ) -> Result<Self, LibraryError> {
         let profile = IndexedUserProfile {
-            client_id,
+            user_id: client_id,
             epoch: 0,
             decryption_key_index,
             display_name,

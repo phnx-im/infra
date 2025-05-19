@@ -78,14 +78,14 @@ fn backend_interaction() {
     // Now the user wants to update their profile
     // (To simulate loading it from the DB, we just create a new one here)
     let current_profile = IndexedUserProfile {
-        client_id: client_id.clone(),
+        user_id: client_id.clone(),
         epoch: 0,
         decryption_key_index: user_profile_key.index().clone(),
         display_name,
         profile_picture: profile_picture.clone(),
     };
     let new_user_profile = UserProfile {
-        client_id: client_id.clone(),
+        user_id: client_id.clone(),
         display_name: "Alice Wonderland".parse().unwrap(),
         profile_picture: None,
     };

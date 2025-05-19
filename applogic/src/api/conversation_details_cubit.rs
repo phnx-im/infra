@@ -23,7 +23,7 @@ use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
     conversation_list_cubit::converation_into_ui_details,
-    types::{UiClientId, UiConversationDetails},
+    types::{UiConversationDetails, UiUserId},
     user_cubit::UserCubitBase,
 };
 
@@ -36,7 +36,7 @@ use super::{
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationDetailsState {
     pub conversation: Option<UiConversationDetails>,
-    pub members: Vec<UiClientId>,
+    pub members: Vec<UiUserId>,
     pub room_state: Option<UiRoomState>,
 }
 
@@ -303,7 +303,7 @@ impl ConversationDetailsContext {
         ))
     }
 
-    async fn members_of_conversation(&self) -> anyhow::Result<Vec<UiClientId>> {
+    async fn members_of_conversation(&self) -> anyhow::Result<Vec<UiUserId>> {
         Ok(self
             .store
             .conversation_participants(self.conversation_id)

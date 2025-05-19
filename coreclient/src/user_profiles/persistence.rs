@@ -18,8 +18,8 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let epoch = self.epoch as i64;
         query!(
             "INSERT INTO users (
@@ -39,7 +39,7 @@ impl IndexedUserProfile {
         )
         .execute(executor)
         .await?;
-        notifier.update(self.client_id.clone());
+        notifier.update(self.user_id.clone());
         Ok(())
     }
 
@@ -49,8 +49,8 @@ impl IndexedUserProfile {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let epoch = self.epoch as i64;
         query!(
             "UPDATE users SET
@@ -68,7 +68,7 @@ impl IndexedUserProfile {
         )
         .execute(executor)
         .await?;
-        notifier.update(self.client_id.clone());
+        notifier.update(self.user_id.clone());
         Ok(())
     }
 }
@@ -93,7 +93,7 @@ impl From<(UserId, SqlUser)> for IndexedUserProfile {
         ): (UserId, SqlUser),
     ) -> Self {
         Self {
-            client_id,
+            user_id: client_id,
             epoch,
             decryption_key_index,
             display_name,
@@ -151,7 +151,7 @@ mod tests {
         let client_id = UserId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&client_id).unwrap();
         let user_profile = IndexedUserProfile {
-            client_id,
+            user_id: client_id,
             epoch: 0,
             decryption_key_index: user_profile_key.index().clone(),
             display_name: "Alice".parse().unwrap(),
@@ -169,7 +169,7 @@ mod tests {
         key.store(&pool).await?;
 
         profile.store(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.client_id)
+        let loaded = IndexedUserProfile::load(&pool, &profile.user_id)
             .await?
             .expect("profile exists");
         assert_eq!(loaded, profile);
@@ -196,7 +196,7 @@ mod tests {
         key.store(&pool).await?;
 
         profile.store(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.client_id)
+        let loaded = IndexedUserProfile::load(&pool, &profile.user_id)
             .await?
             .expect("profile exists");
         assert_eq!(loaded, profile);
@@ -206,7 +206,7 @@ mod tests {
         new_profile.profile_picture = None;
 
         new_profile.update(&pool, &mut notifier).await?;
-        let loaded = IndexedUserProfile::load(&pool, &profile.client_id)
+        let loaded = IndexedUserProfile::load(&pool, &profile.user_id)
             .await?
             .expect("profile exists");
         assert_ne!(loaded, profile);

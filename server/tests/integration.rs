@@ -189,7 +189,7 @@ async fn remove_from_group() {
     // he hasn't connected with them.
     let charlie = setup.get_user(&CHARLIE);
     let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
-    assert!(charlie_user_profile_bob.client_id == *BOB);
+    assert!(charlie_user_profile_bob.user_id == *BOB);
 
     setup
         .remove_from_group(conversation_id, &ALICE, vec![&BOB])
@@ -199,7 +199,7 @@ async fn remove_from_group() {
     // should be the default one derived from the client id.
     let charlie = setup.get_user(&CHARLIE);
     let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
-    assert_eq!(charlie_user_profile_bob, UserProfile::from_client_id(&BOB));
+    assert_eq!(charlie_user_profile_bob, UserProfile::from_user_id(&BOB));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -357,7 +357,7 @@ async fn exchange_user_profiles() {
     let alice_profile_picture = Asset::Value(png_bytes.clone());
 
     let alice_profile = UserProfile {
-        client_id: (*ALICE).clone(),
+        user_id: (*ALICE).clone(),
         display_name: alice_display_name.clone(),
         profile_picture: Some(alice_profile_picture.clone()),
     };
@@ -376,7 +376,7 @@ async fn exchange_user_profiles() {
     let bob_display_name: DisplayName = "B0b".parse().unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile {
-        client_id: (*BOB).clone(),
+        user_id: (*BOB).clone(),
         display_name: bob_display_name.clone(),
         profile_picture: Some(bob_profile_picture.clone()),
     };
@@ -415,7 +415,7 @@ async fn exchange_user_profiles() {
     assert_eq!(alice_user_profile.display_name, alice_display_name);
 
     let new_user_profile = UserProfile {
-        client_id: (*ALICE).clone(),
+        user_id: (*ALICE).clone(),
         display_name: "New Alice".parse().unwrap(),
         profile_picture: None,
     };
@@ -655,7 +655,7 @@ async fn update_user_profile_on_group_join() {
     // Alice updates her profile.
     let alice_display_name: DisplayName = "4l1c3".parse().unwrap();
     let alice_profile = UserProfile {
-        client_id: (*ALICE).clone(),
+        user_id: (*ALICE).clone(),
         display_name: alice_display_name.clone(),
         profile_picture: None,
     };

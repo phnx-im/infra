@@ -203,7 +203,7 @@ impl InitialUserState {
         Ok(post_registration_init_state)
     }
 
-    pub(super) fn client_id(&self) -> &UserId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.client_credential_payload.identity()
     }
 
@@ -347,7 +347,7 @@ impl UnfinalizedRegistrationState {
         Ok(as_registered_user_state)
     }
 
-    pub(super) fn client_id(&self) -> &UserId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -402,7 +402,7 @@ impl AsRegisteredUserState {
         Ok(qs_registered_user_state)
     }
 
-    pub(super) fn client_id(&self) -> &UserId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -463,7 +463,7 @@ impl QsRegisteredUserState {
         Ok(state)
     }
 
-    pub(super) fn client_id(&self) -> &UserId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 

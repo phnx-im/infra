@@ -44,12 +44,12 @@ impl SqlConversation {
         } = self;
 
         let conversation_type = match (connection_user_uuid, connection_user_domain) {
-            (Some(client_uuid), Some(domain)) => {
-                let connection_client_id = UserId::new(client_uuid, domain);
+            (Some(user_uuid), Some(domain)) => {
+                let connection_user_id = UserId::new(user_uuid, domain);
                 if is_confirmed_connection {
-                    ConversationType::Connection(connection_client_id)
+                    ConversationType::Connection(connection_user_id)
                 } else {
-                    ConversationType::UnconfirmedConnection(connection_client_id)
+                    ConversationType::UnconfirmedConnection(connection_user_id)
                 }
             }
             _ => ConversationType::Group,
@@ -125,16 +125,12 @@ impl Conversation {
         };
         let (is_confirmed_connection, connection_user_uuid, connection_user_domain) =
             match self.conversation_type() {
-                ConversationType::UnconfirmedConnection(client_id) => (
-                    false,
-                    Some(client_id.uuid()),
-                    Some(client_id.domain().clone()),
-                ),
-                ConversationType::Connection(client_id) => (
-                    true,
-                    Some(client_id.uuid()),
-                    Some(client_id.domain().clone()),
-                ),
+                ConversationType::UnconfirmedConnection(user_id) => {
+                    (false, Some(user_id.uuid()), Some(user_id.domain().clone()))
+                }
+                ConversationType::Connection(user_id) => {
+                    (true, Some(user_id.uuid()), Some(user_id.domain().clone()))
+                }
                 ConversationType::Group => (true, None, None),
             };
         query!(
@@ -521,9 +517,9 @@ impl Conversation {
         conversation_type: &ConversationType,
     ) -> sqlx::Result<()> {
         match conversation_type {
-            ConversationType::UnconfirmedConnection(as_client_id) => {
-                let uuid = as_client_id.uuid();
-                let domain = as_client_id.domain();
+            ConversationType::UnconfirmedConnection(user_id) => {
+                let uuid = user_id.uuid();
+                let domain = user_id.domain();
                 query!(
                     "UPDATE conversations SET
                         connection_user_uuid = ?,
@@ -537,9 +533,9 @@ impl Conversation {
                 .execute(executor)
                 .await?;
             }
-            ConversationType::Connection(as_client_id) => {
-                let uuid = as_client_id.uuid();
-                let domain = as_client_id.domain();
+            ConversationType::Connection(user_id) => {
+                let uuid = user_id.uuid();
+                let domain = user_id.domain();
                 query!(
                     "UPDATE conversations SET
                         connection_user_uuid = ?,

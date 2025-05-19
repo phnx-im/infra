@@ -23,7 +23,7 @@ impl UserProfileUpdate {
         signing_key: &ClientSigningKey,
     ) -> Result<UserProfileUpdate, UserProfileValidationError> {
         let expected_client_id = signing_key.credential().identity();
-        let profile_client_id = new_user_profile.client_id;
+        let profile_client_id = new_user_profile.user_id;
         if &profile_client_id != expected_client_id {
             return Err(UserProfileValidationError::MismatchingClientId {
                 expected: expected_client_id.clone(),

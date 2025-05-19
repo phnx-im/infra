@@ -284,7 +284,7 @@ impl CoreUser {
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
-        if &user_profile.client_id != self.user_id() {
+        if &user_profile.user_id != self.user_id() {
             bail!("Can't set user profile for users other than the current user.",);
         }
         if let Some(profile_picture) = user_profile.profile_picture {
@@ -357,7 +357,7 @@ impl CoreUser {
             .ok()
             .flatten()
             .map(UserProfile::from)
-            .unwrap_or_else(|| UserProfile::from_client_id(client_id))
+            .unwrap_or_else(|| UserProfile::from_user_id(client_id))
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {

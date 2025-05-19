@@ -16,7 +16,7 @@ Future<void> deleteDatabases({required String dbPath}) =>
 
 Future<void> deleteClientDatabase({
   required String dbPath,
-  required UiClientId clientId,
+  required UiUserId clientId,
 }) => RustLib.instance.api.crateApiUtilsDeleteClientDatabase(
   dbPath: dbPath,
   clientId: clientId,

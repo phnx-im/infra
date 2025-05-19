@@ -34,8 +34,8 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
         buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         match self {
-            StoreEntityId::User(as_client_id) => {
-                let bytes = PhnxCodec::to_vec(&StoredAsClientId(Cow::Borrowed(as_client_id)))?;
+            StoreEntityId::User(user_id) => {
+                let bytes = PhnxCodec::to_vec(&StoredAsClientId(Cow::Borrowed(user_id)))?;
                 Encode::<Sqlite>::encode(bytes, buf)
             }
             StoreEntityId::Conversation(conversation_id) => {
@@ -89,8 +89,8 @@ impl SqlStoreNotification {
         } = self;
         let entity_id = match kind {
             StoreEntityKind::User => {
-                let StoredAsClientId(as_client_id) = PhnxCodec::from_slice(&entity_id)?;
-                StoreEntityId::User(as_client_id.into_owned())
+                let StoredAsClientId(user_id) = PhnxCodec::from_slice(&entity_id)?;
+                StoreEntityId::User(user_id.into_owned())
             }
             StoreEntityKind::Conversation => {
                 StoreEntityId::Conversation(ConversationId::new(Uuid::from_slice(&entity_id)?))
