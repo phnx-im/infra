@@ -42,14 +42,14 @@ impl GrpcAs {
 
     async fn verify_client_auth<R, P>(&self, request: R) -> Result<(identifiers::UserId, P), Status>
     where
-        R: WithAsClientId + Verifiable,
+        R: WithUserId + Verifiable,
         P: VerifiedStruct<R>,
     {
-        let client_id = request.client_id()?;
-        let client_record = ClientRecord::load(&self.inner.db_pool, &client_id)
+        let user_id = request.user_id()?;
+        let client_record = ClientRecord::load(&self.inner.db_pool, &user_id)
             .await
             .map_err(|error| {
-                error!(%error, ?client_id, "failed to load client");
+                error!(%error, ?user_id, "failed to load client");
                 Status::internal("database error")
             })?
             .ok_or_else(|| Status::not_found("unknown client"))?;
@@ -63,16 +63,16 @@ impl GrpcAs {
                     Status::internal("unrecoverable error")
                 }
             })?;
-        Ok((client_id, payload))
+        Ok((user_id, payload))
     }
 
     async fn process_listen_requests_task(
         queues: Queues,
-        client_id: identifiers::UserId,
+        user_id: identifiers::UserId,
         mut requests: Streaming<ListenRequest>,
     ) {
         while let Some(request) = requests.next().await {
-            if let Err(error) = Self::process_listen_request(&queues, &client_id, request).await {
+            if let Err(error) = Self::process_listen_request(&queues, &user_id, request).await {
                 // We report the error, but don't stop processing requests.
                 // TODO(#466): Send this to the client.
                 error!(%error, "error processing listen request");
@@ -82,7 +82,7 @@ impl GrpcAs {
 
     async fn process_listen_request(
         queues: &Queues,
-        client_id: &identifiers::UserId,
+        user_id: &identifiers::UserId,
         request: Result<ListenRequest, Status>,
     ) -> Result<(), Status> {
         let request = request?;
@@ -90,7 +90,7 @@ impl GrpcAs {
             return Err(ListenProtocolViolation::OnlyAckRequestAllowed.into());
         };
         queues
-            .ack(client_id, ack_request.up_to_sequence_number)
+            .ack(user_id, ack_request.up_to_sequence_number)
             .await?;
         Ok(())
     }
@@ -132,17 +132,15 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<DeleteUserRequest>,
     ) -> Result<Response<DeleteUserResponse>, Status> {
         let request = request.into_inner();
-        let (client_id, payload) = self
+        let (user_id, payload) = self
             .verify_client_auth::<_, DeleteUserPayload>(request)
             .await?;
-        let payload_client_id: identifiers::UserId = payload
-            .client_id
-            .ok_or_missing_field("client_id")?
-            .try_into()?;
-        if payload_client_id != client_id {
+        let payload_user_id: identifiers::UserId =
+            payload.user_id.ok_or_missing_field("user_id")?.try_into()?;
+        if payload_user_id != user_id {
             return Err(Status::invalid_argument("only possible to delete own user"));
         }
-        self.inner.as_delete_user(&client_id).await?;
+        self.inner.as_delete_user(&user_id).await?;
         Ok(Response::new(DeleteUserResponse {}))
     }
 
@@ -151,7 +149,7 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<PublishConnectionPackagesRequest>,
     ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
-        let (client_id, payload) = self
+        let (user_id, payload) = self
             .verify_client_auth::<_, PublishConnectionPackagesPayload>(request)
             .await?;
         let connection_packages = payload
@@ -160,7 +158,7 @@ impl auth_service_server::AuthService for GrpcAs {
             .map(|package| package.try_into())
             .collect::<Result<Vec<_>, _>>()?;
         self.inner
-            .as_publish_connection_packages(client_id, connection_packages)
+            .as_publish_connection_packages(user_id, connection_packages)
             .await?;
         Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
@@ -170,11 +168,8 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<GetUserConnectionPackagesRequest>,
     ) -> Result<Response<GetUserConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
-        let client_id = request
-            .client_id
-            .ok_or_missing_field("client_id")?
-            .try_into()?;
-        let params = UserConnectionPackagesParams { client_id };
+        let user_id = request.user_id.ok_or_missing_field("user_id")?.try_into()?;
+        let params = UserConnectionPackagesParams { user_id };
         let connection_packages = self
             .inner
             .as_user_connection_packages(params)
@@ -214,11 +209,11 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<StageUserProfileRequest>,
     ) -> Result<Response<StageUserProfileResponse>, Status> {
         let request = request.into_inner();
-        let (client_id, payload) = self
+        let (user_id, payload) = self
             .verify_client_auth::<_, StageUserProfilePayload>(request)
             .await?;
         let params = StageUserProfileParamsTbs {
-            client_id,
+            user_id,
             user_profile: payload
                 .encrypted_user_profile
                 .ok_or_missing_field("encrypted_user_profile")?
@@ -233,10 +228,10 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<MergeUserProfileRequest>,
     ) -> Result<Response<MergeUserProfileResponse>, Status> {
         let request = request.into_inner();
-        let (client_id, _payload) = self
+        let (user_id, _payload) = self
             .verify_client_auth::<_, MergeUserProfilePayload>(request)
             .await?;
-        let params = MergeUserProfileParamsTbs { client_id };
+        let params = MergeUserProfileParamsTbs { user_id };
         self.inner.as_merge_user_profile(params).await?;
         Ok(Response::new(MergeUserProfileResponse {}))
     }
@@ -246,19 +241,13 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<GetUserProfileRequest>,
     ) -> Result<Response<GetUserProfileResponse>, Status> {
         let request = request.into_inner();
-        let client_id = request
-            .client_id
-            .ok_or_missing_field("client_id")?
-            .try_into()?;
+        let user_id = request.user_id.ok_or_missing_field("user_id")?.try_into()?;
         let key_index = UserProfileKeyIndex::from_bytes(request.key_index.try_into().map_err(
             |bytes: Vec<u8>| {
                 Status::invalid_argument(format!("invalid key index length: {}", bytes.len()))
             },
         )?);
-        let params = GetUserProfileParams {
-            client_id,
-            key_index,
-        };
+        let params = GetUserProfileParams { user_id, key_index };
         let response = self.inner.as_get_user_profile(params).await?;
         Ok(Response::new(GetUserProfileResponse {
             encrypted_user_profile: Some(response.encrypted_user_profile.into()),
@@ -288,19 +277,19 @@ impl auth_service_server::AuthService for GrpcAs {
             return Err(Status::failed_precondition("missing initial request"));
         };
 
-        let (client_id, payload) = self
+        let (user_id, payload) = self
             .verify_client_auth::<_, InitListenPayload>(init_request)
             .await?;
 
         let messages = self
             .inner
             .queues
-            .listen(&client_id, payload.sequence_number_start)
+            .listen(&user_id, payload.sequence_number_start)
             .await?;
 
         tokio::spawn(Self::process_listen_requests_task(
             self.inner.queues.clone(),
-            client_id.clone(),
+            user_id.clone(),
             requests,
         ));
 
@@ -319,10 +308,7 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<EnqueueMessagesResponse>, Status> {
         let request = request.into_inner();
         let params = EnqueueMessageParams {
-            client_id: request
-                .client_id
-                .ok_or_missing_field("client_id")?
-                .try_into()?,
+            user_id: request.user_id.ok_or_missing_field("user_id")?.try_into()?,
             connection_establishment_ctxt: request
                 .connection_establishment_package
                 .ok_or_missing_field("connection_establishment_package")?
@@ -347,44 +333,44 @@ impl From<ListenProtocolViolation> for Status {
     }
 }
 
-trait WithAsClientId {
-    fn client_id_proto(&self) -> Option<AsClientId>;
+trait WithUserId {
+    fn user_id_proto(&self) -> Option<UserId>;
 
     #[expect(clippy::result_large_err)]
-    fn client_id(&self) -> Result<identifiers::UserId, Status> {
+    fn user_id(&self) -> Result<identifiers::UserId, Status> {
         Ok(self
-            .client_id_proto()
-            .ok_or_missing_field("client_id")?
+            .user_id_proto()
+            .ok_or_missing_field("user_id")?
             .try_into()?)
     }
 }
 
-impl WithAsClientId for DeleteUserRequest {
-    fn client_id_proto(&self) -> Option<AsClientId> {
-        self.payload.as_ref()?.client_id.clone()
+impl WithUserId for DeleteUserRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.user_id.clone()
     }
 }
 
-impl WithAsClientId for PublishConnectionPackagesRequest {
-    fn client_id_proto(&self) -> Option<AsClientId> {
-        self.payload.as_ref()?.client_id.clone()
+impl WithUserId for PublishConnectionPackagesRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.user_id.clone()
     }
 }
 
-impl WithAsClientId for StageUserProfileRequest {
-    fn client_id_proto(&self) -> Option<AsClientId> {
-        self.payload.as_ref()?.client_id.clone()
+impl WithUserId for StageUserProfileRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.user_id.clone()
     }
 }
 
-impl WithAsClientId for MergeUserProfileRequest {
-    fn client_id_proto(&self) -> Option<AsClientId> {
-        self.payload.as_ref()?.client_id.clone()
+impl WithUserId for MergeUserProfileRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.user_id.clone()
     }
 }
 
-impl WithAsClientId for InitListenRequest {
-    fn client_id_proto(&self) -> Option<AsClientId> {
-        self.payload.as_ref()?.client_id.clone()
+impl WithUserId for InitListenRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.user_id.clone()
     }
 }

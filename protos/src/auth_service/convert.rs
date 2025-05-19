@@ -17,30 +17,30 @@ use crate::{
 };
 
 use super::v1::{
-    AsClientId, AsCredential, AsCredentialBody, AsIntermediateCredential,
-    AsIntermediateCredentialBody, AsIntermediateCredentialCsr, AsIntermediateCredentialPayload,
-    AsIntermediateVerifyingKey, AsVerifyingKey, ClientCredential, ClientCredentialCsr,
-    ClientCredentialPayload, ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage,
-    ConnectionPackagePayload, CredentialFingerprint, EncryptedConnectionEstablishmentPackage,
-    EncryptedUserProfile, ExpirationData, MlsInfraVersion, QueueMessage, SignatureScheme,
+    AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
+    AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
+    AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
+    CredentialFingerprint, EncryptedConnectionEstablishmentPackage, EncryptedUserProfile,
+    ExpirationData, MlsInfraVersion, QueueMessage, SignatureScheme, UserId,
 };
 
-impl From<identifiers::UserId> for AsClientId {
+impl From<identifiers::UserId> for UserId {
     fn from(value: identifiers::UserId) -> Self {
-        let (client_id, domain) = value.into_parts();
+        let (uuid, domain) = value.into_parts();
         Self {
-            client_id: Some(client_id.into()),
+            uuid: Some(uuid.into()),
             domain: Some(domain.into()),
         }
     }
 }
 
-impl TryFrom<AsClientId> for identifiers::UserId {
+impl TryFrom<UserId> for identifiers::UserId {
     type Error = AsClientIdError;
 
-    fn try_from(proto: AsClientId) -> Result<Self, Self::Error> {
+    fn try_from(proto: UserId) -> Result<Self, Self::Error> {
         Ok(Self::new(
-            proto.client_id.ok_or_missing_field("client_id")?.into(),
+            proto.uuid.ok_or_missing_field("user_id")?.into(),
             proto.domain.ok_or_missing_field("domain")?.try_ref_into()?,
         ))
     }
@@ -64,7 +64,7 @@ impl From<credentials::ClientCredentialCsr> for ClientCredentialCsr {
     fn from(value: credentials::ClientCredentialCsr) -> Self {
         Self {
             msl_version: value.version as u32,
-            client_id: Some(value.client_id.into()),
+            user_id: Some(value.user_id.into()),
             signature_scheme: value.signature_scheme as i32,
             verifying_key: Some(value.verifying_key.into()),
         }
@@ -85,10 +85,7 @@ impl TryFrom<ClientCredentialCsr> for credentials::ClientCredentialCsr {
 
         Ok(Self {
             version,
-            client_id: proto
-                .client_id
-                .ok_or_missing_field("client_id")?
-                .try_into()?,
+            user_id: proto.user_id.ok_or_missing_field("user_id")?.try_into()?,
             signature_scheme,
             verifying_key: proto
                 .verifying_key

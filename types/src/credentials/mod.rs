@@ -428,7 +428,7 @@ const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 )]
 pub struct ClientCredentialCsr {
     pub version: MlsInfraVersion,
-    pub client_id: UserId,
+    pub user_id: UserId,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: ClientVerifyingKey,
 }
@@ -441,7 +441,7 @@ impl ClientCredentialCsr {
     /// key can be turned into a [`keys::AsIntermediateSigningKey`] once the CSR is
     /// signed.
     pub fn new(
-        client_id: UserId,
+        user_id: UserId,
         signature_scheme: SignatureScheme,
     ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
@@ -450,7 +450,7 @@ impl ClientCredentialCsr {
             version,
             signature_scheme,
             verifying_key: prelim_signing_key.verifying_key().clone().convert(),
-            client_id,
+            user_id,
         };
         Ok((credential, prelim_signing_key))
     }
@@ -507,7 +507,7 @@ impl Signable for ClientCredentialPayload {
 
 impl ClientCredentialPayload {
     pub fn identity(&self) -> &UserId {
-        &self.csr.client_id
+        &self.csr.user_id
     }
 }
 
@@ -623,15 +623,15 @@ impl VerifiableClientCredential {
     }
 
     pub fn domain(&self) -> &Fqdn {
-        self.payload.csr.client_id.domain()
+        self.payload.csr.user_id.domain()
     }
 
     pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
         &self.payload.signer_fingerprint
     }
 
-    pub fn client_id(&self) -> &UserId {
-        &self.payload.csr.client_id
+    pub fn user_id(&self) -> &UserId {
+        &self.payload.csr.user_id
     }
 }
 
@@ -692,7 +692,7 @@ pub mod persistence {
             let payload = ClientCredentialPayload {
                 csr: ClientCredentialCsr {
                     version: PhnxCodec::from_slice(&self.version).unwrap(),
-                    client_id,
+                    user_id: client_id,
                     signature_scheme: PhnxCodec::from_slice(&self.signature_scheme).unwrap(),
                     verifying_key: self.verifying_key,
                 },

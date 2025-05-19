@@ -22,14 +22,14 @@ impl AuthService {
         &self,
         params: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponse, UserConnectionPackagesError> {
-        let UserConnectionPackagesParams { client_id } = params;
+        let UserConnectionPackagesParams { user_id } = params;
 
         let mut connection = self.db_pool.acquire().await.map_err(|e| {
             tracing::warn!("Failed to acquire connection from pool: {:?}", e);
             UserConnectionPackagesError::StorageError
         })?;
         let connection_packages =
-            StorableConnectionPackage::user_connection_packages(&mut connection, &client_id)
+            StorableConnectionPackage::user_connection_packages(&mut connection, &user_id)
                 .await
                 .map_err(|e| {
                     tracing::warn!(
@@ -56,12 +56,12 @@ impl AuthService {
         params: EnqueueMessageParams,
     ) -> Result<(), EnqueueMessageError> {
         let EnqueueMessageParams {
-            client_id,
+            user_id,
             connection_establishment_ctxt,
         } = params;
 
         // Fetch the client record.
-        let mut client_record = ClientRecord::load(&self.db_pool, &client_id)
+        let mut client_record = ClientRecord::load(&self.db_pool, &user_id)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to load client record: {:?}", e);
@@ -82,7 +82,7 @@ impl AuthService {
 
         tracing::trace!("Enqueueing message in storage provider");
         self.queues
-            .enqueue(&client_id, &queue_message)
+            .enqueue(&user_id, &queue_message)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to enqueue message: {:?}", e);

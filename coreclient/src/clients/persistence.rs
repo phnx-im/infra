@@ -78,7 +78,7 @@ impl UserCreationState {
     }
 
     pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let client_id = self.client_id();
+        let client_id = self.user_id();
         let uuid = client_id.uuid();
         let domain = client_id.domain();
         query!(
@@ -311,7 +311,7 @@ mod tests {
         let user_id = Uuid::from_u128(1);
 
         UserCreationState::BasicUserData(BasicUserData {
-            as_client_id: UserId::new(user_id, "localhost".parse().unwrap()),
+            user_id: UserId::new(user_id, "localhost".parse().unwrap()),
             server_url: "localhost".to_owned(),
             push_token: Some(PushToken::new(
                 PushTokenOperator::Google,

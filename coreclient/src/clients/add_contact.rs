@@ -95,15 +95,14 @@ impl CoreUser {
 
 async fn fetch_user_connection_packages(
     api_clients: &ApiClients,
-    client_id: UserId,
+    user_id: UserId,
 ) -> anyhow::Result<FetchedUseConnectionPackage> {
     // Phase 1: Fetch connection key packages from the AS
-    let domain = client_id.domain();
-    info!(?client_id, "Adding contact");
+    info!(?user_id, "Adding contact");
 
-    let client = api_clients.get(domain)?;
+    let client = api_clients.get(user_id.domain())?;
     let params = UserConnectionPackagesParams {
-        client_id: client_id.clone(),
+        user_id: user_id.clone(),
     };
     let user_key_packages = client.as_user_connection_packages(params).await?;
 
@@ -111,7 +110,7 @@ async fn fetch_user_connection_packages(
     // check here locally just to be sure.
     ensure!(
         !user_key_packages.connection_packages.is_empty(),
-        "User {client_id:?} does not exist"
+        "User {user_id:?} does not exist"
     );
 
     Ok(FetchedUseConnectionPackage { user_key_packages })

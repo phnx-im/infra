@@ -239,7 +239,7 @@ impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessage
 
 #[derive(Debug)]
 pub struct UserConnectionPackagesParams {
-    pub client_id: UserId,
+    pub user_id: UserId,
 }
 
 #[derive(Debug)]
@@ -249,7 +249,7 @@ pub struct UserConnectionPackagesResponse {
 
 #[derive(Debug)]
 pub struct EnqueueMessageParams {
-    pub client_id: UserId,
+    pub user_id: UserId,
     pub connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
 }
 

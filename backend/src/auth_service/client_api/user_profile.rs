@@ -19,7 +19,7 @@ impl AuthService {
         params: GetUserProfileParams,
     ) -> Result<GetUserProfileResponse, GetUserProfileError> {
         let GetUserProfileParams {
-            client_id,
+            user_id: client_id,
             key_index,
         } = params;
 
@@ -43,7 +43,7 @@ impl AuthService {
         params: StageUserProfileParamsTbs,
     ) -> Result<(), StageUserProfileError> {
         let StageUserProfileParamsTbs {
-            client_id,
+            user_id: client_id,
             user_profile,
         } = params;
 
@@ -65,7 +65,7 @@ impl AuthService {
         &self,
         params: MergeUserProfileParamsTbs,
     ) -> Result<(), MergeUserProfileError> {
-        let MergeUserProfileParamsTbs { client_id } = params;
+        let MergeUserProfileParamsTbs { user_id: client_id } = params;
 
         let mut user_record = UserRecord::load(&self.db_pool, &client_id)
             .await?

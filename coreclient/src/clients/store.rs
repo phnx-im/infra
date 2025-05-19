@@ -27,11 +27,11 @@ pub(crate) enum UserCreationState {
 }
 
 impl UserCreationState {
-    pub(super) fn client_id(&self) -> &UserId {
+    pub(super) fn user_id(&self) -> &UserId {
         match self {
-            Self::BasicUserData(state) => state.client_id(),
+            Self::BasicUserData(state) => state.user_id(),
             Self::InitialUserState(state) => state.client_id(),
-            Self::PostRegistrationInitState(state) => state.client_id(),
+            Self::PostRegistrationInitState(state) => state.user_id(),
             Self::UnfinalizedRegistrationState(state) => state.client_id(),
             Self::AsRegisteredUserState(state) => state.client_id(),
             Self::QsRegisteredUserState(state) => state.client_id(),
@@ -62,7 +62,7 @@ impl UserCreationState {
         client_record.store(phnx_db).await?;
 
         let basic_user_data = BasicUserData {
-            as_client_id: as_client_id.clone(),
+            user_id: as_client_id.clone(),
             server_url: server_url.to_string(),
             push_token,
         };
@@ -118,7 +118,7 @@ impl UserCreationState {
         // If we just transitioned into the final state, we need to update the
         // client record.
         if let UserCreationState::FinalUserState(_) = new_state {
-            let mut client_record = ClientRecord::load(phnx_db, new_state.client_id())
+            let mut client_record = ClientRecord::load(phnx_db, new_state.user_id())
                 .await?
                 .ok_or(anyhow!("Client record not found"))?;
             client_record.finish();

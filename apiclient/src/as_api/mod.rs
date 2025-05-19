@@ -91,11 +91,11 @@ impl ApiClient {
 
     pub async fn as_get_user_profile(
         &self,
-        client_id: UserId,
+        user_id: UserId,
         key_index: UserProfileKeyIndex,
     ) -> Result<GetUserProfileResponse, AsRequestError> {
         let request = GetUserProfileRequest {
-            client_id: Some(client_id.into()),
+            user_id: Some(user_id.into()),
             key_index: key_index.into_bytes().to_vec(),
         };
         let response = self
@@ -121,12 +121,12 @@ impl ApiClient {
 
     pub async fn as_stage_user_profile(
         &self,
-        client_id: UserId,
+        user_id: UserId,
         signing_key: &ClientSigningKey,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
         let payload = StageUserProfilePayload {
-            client_id: Some(client_id.into()),
+            user_id: Some(user_id.into()),
             encrypted_user_profile: Some(encrypted_user_profile.into()),
         };
         let request = payload.sign(signing_key)?;
@@ -139,11 +139,11 @@ impl ApiClient {
 
     pub async fn as_merge_user_profile(
         &self,
-        client_id: UserId,
+        user_id: UserId,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = MergeUserProfilePayload {
-            client_id: Some(client_id.into()),
+            user_id: Some(user_id.into()),
         };
         let request = payload.sign(signing_key)?;
         self.as_grpc_client
@@ -155,11 +155,11 @@ impl ApiClient {
 
     pub async fn as_delete_user(
         &self,
-        client_id: UserId,
+        user_id: UserId,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = DeleteUserPayload {
-            client_id: Some(client_id.into()),
+            user_id: Some(user_id.into()),
         };
         let request = payload.sign(signing_key)?;
         self.as_grpc_client.client().delete_user(request).await?;
@@ -178,7 +178,7 @@ impl ApiClient {
         AsRequestError,
     > {
         let init_payload = InitListenPayload {
-            client_id: Some(signing_key.credential().identity().clone().into()),
+            user_id: Some(signing_key.credential().identity().clone().into()),
             sequence_number_start,
         };
         let init_request = init_payload.sign(signing_key)?;
@@ -227,12 +227,12 @@ impl ApiClient {
 
     pub async fn as_publish_connection_packages(
         &self,
-        client_id: UserId,
+        user_id: UserId,
         connection_packages: Vec<ConnectionPackage>,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = PublishConnectionPackagesPayload {
-            client_id: Some(client_id.into()),
+            user_id: Some(user_id.into()),
             connection_packages: connection_packages.into_iter().map(From::from).collect(),
         };
         let request = payload.sign(signing_key)?;
@@ -248,7 +248,7 @@ impl ApiClient {
         payload: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {
         let request = GetUserConnectionPackagesRequest {
-            client_id: Some(payload.client_id.into()),
+            user_id: Some(payload.user_id.into()),
         };
         let response = self
             .as_grpc_client
@@ -272,11 +272,11 @@ impl ApiClient {
 
     pub async fn as_enqueue_message(
         &self,
-        client_id: UserId,
+        user_id: UserId,
         connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
     ) -> Result<(), AsRequestError> {
         let request = EnqueueMessagesRequest {
-            client_id: Some(client_id.into()),
+            user_id: Some(user_id.into()),
             connection_establishment_package: Some(connection_establishment_ctxt.into()),
         };
         self.as_grpc_client
