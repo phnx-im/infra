@@ -23,7 +23,7 @@ impl StorableConnectionPackage {
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
         let mut query_string =
-            String::from("INSERT INTO connection_packages (user_id, connection_package) VALUES");
+            String::from("INSERT INTO connection_packages (user_uuid, connection_package) VALUES");
 
         for (i, connection_package) in connection_packages.into_iter().enumerate() {
             let connection_package: StorableConnectionPackageRef = connection_package.into();

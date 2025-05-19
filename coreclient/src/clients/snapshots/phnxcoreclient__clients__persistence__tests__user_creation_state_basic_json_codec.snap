@@ -4,8 +4,8 @@ expression: "&*USER_CREATION_STATE_BASIC"
 ---
 {
   "BasicUserData": {
-    "as_client_id": {
-      "client_id": "00000000-0000-0000-0000-000000000001",
+    "user_id": {
+      "uuid": "00000000-0000-0000-0000-000000000001",
       "domain": {
         "domain": {
           "Domain": "localhost"
