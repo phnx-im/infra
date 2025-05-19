@@ -265,7 +265,7 @@ pub struct AsCredentialsResponse {
 
 #[derive(Debug)]
 pub struct IssueTokensParamsTbs {
-    pub client_id: UserId,
+    pub user_id: UserId,
     pub token_type: AsTokenType,
     pub token_request: AmortizedBatchTokenRequest<Ristretto255>,
 }
