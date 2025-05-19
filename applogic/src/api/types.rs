@@ -439,7 +439,7 @@ pub struct UiContact {
 impl From<Contact> for UiContact {
     fn from(contact: Contact) -> Self {
         Self {
-            client_id: contact.client_id.into(),
+            client_id: contact.user_id.into(),
         }
     }
 }
@@ -465,7 +465,7 @@ impl UiUserProfile {
     }
 
     pub(crate) fn from_client_id(client_id: UserId) -> Self {
-        let display_name = DisplayName::from_client_id(&client_id);
+        let display_name = DisplayName::from_user_id(&client_id);
         Self {
             client_id: client_id.into(),
             display_name: display_name.into_string(),

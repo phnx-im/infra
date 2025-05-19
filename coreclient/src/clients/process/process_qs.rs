@@ -137,7 +137,7 @@ impl CoreUser {
                 let mut own_profile_key_in_group = None;
                 for profile_info in member_profile_info {
                     // TODO: Don't fetch while holding a transaction!
-                    if profile_info.client_credential.identity() == self.as_client_id() {
+                    if profile_info.client_credential.identity() == self.user_id() {
                         // We already have our own profile info.
                         own_profile_key_in_group = Some(profile_info.user_profile_key);
                         continue;
@@ -188,7 +188,7 @@ impl CoreUser {
                 .api_clients
                 .get(qualified_group_id.owning_domain())?;
             let encrypted_profile_key =
-                own_profile_key.encrypt(group.identity_link_wrapper_key(), self.as_client_id())?;
+                own_profile_key.encrypt(group.identity_link_wrapper_key(), self.user_id())?;
             let params = UserProfileKeyUpdateParams {
                 group_id: group.group_id().clone(),
                 sender_index: group.own_index(),

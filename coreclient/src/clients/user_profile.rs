@@ -30,12 +30,12 @@ impl CoreUser {
         &self,
         user_profile_content: UserProfile,
     ) -> anyhow::Result<()> {
-        let user_profile_key = UserProfileKey::random(self.as_client_id())?;
+        let user_profile_key = UserProfileKey::random(self.user_id())?;
 
         // Phase 1: Store the new user profile key in the database
         let encryptable_user_profile = self
             .with_transaction_and_notifier(async |txn, notifier| {
-                let current_profile = IndexedUserProfile::load(txn.as_mut(), self.as_client_id())
+                let current_profile = IndexedUserProfile::load(txn.as_mut(), self.user_id())
                     .await?
                     .context("Failed to load own user profile")?;
 
@@ -62,14 +62,14 @@ impl CoreUser {
 
         api_client
             .as_stage_user_profile(
-                self.as_client_id().clone(),
+                self.user_id().clone(),
                 &self.inner.key_store.signing_key,
                 encrypted_user_profile,
             )
             .await?;
 
         // Phase 4: Send a notification to all groups
-        let own_client_id = self.as_client_id();
+        let own_client_id = self.user_id();
         let mut connection = self.pool().acquire().await?;
         let groups_ids = Group::load_all_group_ids(&mut connection).await?;
         for group_id in groups_ids {
@@ -95,10 +95,7 @@ impl CoreUser {
 
         // Phase 5: Merge the user profile on the server
         api_client
-            .as_merge_user_profile(
-                self.as_client_id().clone(),
-                &self.inner.key_store.signing_key,
-            )
+            .as_merge_user_profile(self.user_id().clone(), &self.inner.key_store.signing_key)
             .await?;
 
         Ok(())

@@ -31,7 +31,7 @@ impl CoreUser {
                     conversation_id,
                     content,
                 }
-                .store_unsent_message(connection, notifier, self.as_client_id())
+                .store_unsent_message(connection, notifier, self.user_id())
                 .await?
                 .create_group_message(&PhnxOpenMlsProvider::new(connection))?
                 .store_group_update(connection, notifier)

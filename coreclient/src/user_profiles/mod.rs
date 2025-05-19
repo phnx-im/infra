@@ -123,7 +123,7 @@ impl UserProfile {
     pub fn from_client_id(client_id: &UserId) -> Self {
         Self {
             client_id: client_id.clone(),
-            display_name: DisplayName::from_client_id(client_id),
+            display_name: DisplayName::from_user_id(client_id),
             profile_picture: None,
         }
     }
@@ -163,7 +163,7 @@ impl UnvalidatedUserProfile {
     pub fn validate_display_name(self) -> IndexedUserProfile {
         let display_name = self.display_name.validate().unwrap_or_else(|e| {
             info!(error = %e, "Invalid display name, generating default");
-            DisplayName::from_client_id(&self.client_id)
+            DisplayName::from_user_id(&self.client_id)
         });
         IndexedUserProfile {
             client_id: self.client_id,

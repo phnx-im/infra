@@ -35,7 +35,7 @@ impl UserCreationState {
             Self::UnfinalizedRegistrationState(state) => state.client_id(),
             Self::AsRegisteredUserState(state) => state.client_id(),
             Self::QsRegisteredUserState(state) => state.client_id(),
-            Self::FinalUserState(state) => state.client_id(),
+            Self::FinalUserState(state) => state.user_id(),
         }
     }
 

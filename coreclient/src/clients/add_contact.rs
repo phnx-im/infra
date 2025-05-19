@@ -61,7 +61,7 @@ impl CoreUser {
                         txn,
                         &mut notifier,
                         &self.inner.key_store,
-                        self.as_client_id(),
+                        self.user_id(),
                         &client_id,
                     )
                     .await
@@ -76,7 +76,7 @@ impl CoreUser {
                 &mut notifier,
                 &self.inner.key_store,
                 client_reference,
-                self.as_client_id(),
+                self.user_id(),
                 client_id.clone(),
             )
             .await?;

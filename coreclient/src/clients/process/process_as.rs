@@ -186,7 +186,7 @@ impl CoreUser {
 
         let encrypted_user_profile_key = own_user_profile_key.encrypt(
             &cep_tbs.connection_group_identity_link_wrapper_key,
-            self.as_client_id(),
+            self.user_id(),
         )?;
 
         let encrypted_friendship_package = FriendshipPackage {

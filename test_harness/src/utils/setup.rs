@@ -46,38 +46,38 @@ impl AsMut<CoreUser> for TestUser {
 }
 
 impl TestUser {
-    pub async fn new(client_id: &UserId, address_option: Option<String>, grpc_port: u16) -> Self {
-        Self::try_new(client_id, address_option, grpc_port)
+    pub async fn new(user_id: &UserId, address_option: Option<String>, grpc_port: u16) -> Self {
+        Self::try_new(user_id, address_option, grpc_port)
             .await
             .unwrap()
     }
 
     pub async fn try_new(
-        client_id: &UserId,
+        user_id: &UserId,
         address_option: Option<String>,
         grpc_port: u16,
     ) -> anyhow::Result<Self> {
-        let hostname_str = address_option
-            .unwrap_or_else(|| format!("{}:{}", client_id.domain(), DEFAULT_PORT_HTTP));
+        let hostname_str =
+            address_option.unwrap_or_else(|| format!("{}:{}", user_id.domain(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{hostname_str}").parse().unwrap();
 
-        let user = CoreUser::new_ephemeral(client_id.clone(), server_url, grpc_port, None).await?;
+        let user = CoreUser::new_ephemeral(user_id.clone(), server_url, grpc_port, None).await?;
         Ok(Self { user, db_dir: None })
     }
 
     pub async fn new_persisted(
-        client_id: &UserId,
+        user_id: &UserId,
         address_option: Option<String>,
         grpc_port: u16,
         db_dir: &str,
     ) -> Self {
-        let hostname_str = address_option
-            .unwrap_or_else(|| format!("{}:{}", client_id.domain(), DEFAULT_PORT_HTTP));
+        let hostname_str =
+            address_option.unwrap_or_else(|| format!("{}:{}", user_id.domain(), DEFAULT_PORT_HTTP));
 
         let server_url = format!("http://{hostname_str}").parse().unwrap();
 
-        let user = CoreUser::new(client_id.clone(), server_url, grpc_port, db_dir, None)
+        let user = CoreUser::new(user_id.clone(), server_url, grpc_port, db_dir, None)
             .await
             .unwrap();
         Self {
@@ -145,29 +145,29 @@ impl TestBackend {
         self.temp_dir.path()
     }
 
-    pub async fn add_persisted_user(&mut self, client_id: &UserId) {
+    pub async fn add_persisted_user(&mut self, user_id: &UserId) {
         let path = self.temp_dir.path().to_str().unwrap();
-        info!(%path, ?client_id, "Creating persisted user");
-        let user = TestUser::new_persisted(client_id, self.url(), self.grpc_port, path).await;
-        self.users.insert(client_id.clone(), user);
+        info!(%path, ?user_id, "Creating persisted user");
+        let user = TestUser::new_persisted(user_id, self.url(), self.grpc_port, path).await;
+        self.users.insert(user_id.clone(), user);
     }
 
-    pub async fn add_user(&mut self, client_id: &UserId) {
-        info!(?client_id, "Creating user");
-        let user = TestUser::new(client_id, self.url(), self.grpc_port).await;
-        self.users.insert(client_id.clone(), user);
+    pub async fn add_user(&mut self, user_id: &UserId) {
+        info!(?user_id, "Creating user");
+        let user = TestUser::new(user_id, self.url(), self.grpc_port).await;
+        self.users.insert(user_id.clone(), user);
     }
 
-    pub fn get_user(&self, client_id: &UserId) -> &TestUser {
-        self.users.get(client_id).unwrap()
+    pub fn get_user(&self, user_id: &UserId) -> &TestUser {
+        self.users.get(user_id).unwrap()
     }
 
-    pub fn take_user(&mut self, client_id: &UserId) -> TestUser {
-        self.users.remove(client_id).unwrap()
+    pub fn take_user(&mut self, user_id: &UserId) -> TestUser {
+        self.users.remove(user_id).unwrap()
     }
 
-    pub async fn delete_user(&mut self, client_id: &UserId) {
-        let test_user = self.take_user(client_id);
+    pub async fn delete_user(&mut self, user_id: &UserId) {
+        let test_user = self.take_user(user_id);
         match test_user.db_dir {
             Some(db_dir) => test_user.user.delete(db_dir.as_str()).await.unwrap(),
             None => test_user.user.delete_ephemeral().await.unwrap(),
@@ -309,7 +309,7 @@ impl TestBackend {
         );
         let new_user_position = user1_partial_contacts_after
             .iter()
-            .position(|c| &c.client_id == user2_id)
+            .position(|c| &c.user_id == user2_id)
             .expect(&error_msg);
         // If we remove the new user, the partial contact lists should be the same.
         user1_partial_contacts_after.remove(new_user_position);
@@ -317,7 +317,7 @@ impl TestBackend {
             .into_iter()
             .zip(user1_partial_contacts_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.client_id, after.client_id);
+                assert_eq!(before.user_id, after.user_id);
             });
         let mut user1_conversations_after = user1.conversations().await.unwrap();
         let test_title = format!("Connection group: {user1_id:?} - {user2_id:?}");
@@ -357,7 +357,7 @@ impl TestBackend {
         );
         let new_contact_position = user2_contacts_after
             .iter()
-            .position(|c| &c.client_id == user1_id)
+            .position(|c| &c.user_id == user1_id)
             .expect("User 1 should be in the partial contacts list of user 2");
         // If we remove the new user, the partial contact lists should be the same.
         user2_contacts_after.remove(new_contact_position);
@@ -365,7 +365,7 @@ impl TestBackend {
             .into_iter()
             .zip(user2_contacts_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.client_id, after.client_id);
+                assert_eq!(before.user_id, after.user_id);
             });
         // User 2 should have created a connection group.
         let mut user2_conversations_after = user2.conversations().await.unwrap();
@@ -375,9 +375,7 @@ impl TestBackend {
         );
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| {
-                c.attributes().title() == DisplayName::from_client_id(user1_id).to_string()
-            })
+            .position(|c| c.attributes().title() == DisplayName::from_user_id(user1_id).to_string())
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -392,7 +390,7 @@ impl TestBackend {
             });
         let user2_conversation_id = conversation.id();
 
-        let user2_id = user2.as_client_id().clone();
+        let user2_id = user2.user_id().clone();
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
         let user1_contacts_before: HashSet<_> = user1
@@ -400,7 +398,7 @@ impl TestBackend {
             .await
             .unwrap()
             .into_iter()
-            .map(|contact| contact.client_id.clone())
+            .map(|contact| contact.user_id.clone())
             .collect();
         let user1_conversations_before = user1.conversations().await.unwrap();
         info!("{user1_id:?} fetches QS messages");
@@ -415,7 +413,7 @@ impl TestBackend {
             .await
             .unwrap()
             .into_iter()
-            .map(|contact| contact.client_id.clone())
+            .map(|contact| contact.user_id.clone())
             .collect();
         let new_user_vec: Vec<_> = user1_contacts_after
             .difference(&user1_contacts_before)
@@ -550,12 +548,12 @@ impl TestBackend {
             .send_message(conversation_id, orig_message.clone())
             .await
             .unwrap();
-        let sender_user_id = test_sender.user.as_client_id().to_owned();
+        let sender_user_id = test_sender.user.user_id().clone();
 
         assert_eq!(
             message.message(),
             &Message::Content(Box::new(ContentMessage::new(
-                test_sender.user.as_client_id().clone(),
+                test_sender.user.user_id().clone(),
                 true,
                 orig_message.clone()
             )))
@@ -861,10 +859,7 @@ impl TestBackend {
             .difference(&remover_group_members_after)
             .cloned()
             .collect();
-        let removed_set: HashSet<_> = removed_ids
-            .iter()
-            .map(|&client_id| client_id.clone())
-            .collect();
+        let removed_set: HashSet<_> = removed_ids.iter().map(|&user_id| user_id.clone()).collect();
         assert_eq!(removed_members, removed_set);
 
         for removed_id in &removed_ids {
@@ -1126,7 +1121,7 @@ impl TestBackend {
                         .await
                         .unwrap()
                         .into_iter()
-                        .any(|contact| contact.client_id == random_user);
+                        .any(|contact| contact.user_id == random_user);
                     if user != &random_user && !is_contact {
                         other_users.push(user.clone());
                     }
@@ -1178,7 +1173,7 @@ impl TestBackend {
                             .await
                             .unwrap()
                             .into_iter()
-                            .any(|contact| &contact.client_id == invitee);
+                            .any(|contact| &contact.user_id == invitee);
                         if !is_group_member && is_connected && invitee != &random_user {
                             invitees.push(invitee);
                         }

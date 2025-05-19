@@ -42,7 +42,7 @@ impl ClientRecord {
         // Initialize the client's queue.
         let mut transaction = connection.begin().await?;
         record.store(&mut *transaction).await?;
-        Queue::new_and_store(record.client_id(), &mut *transaction).await?;
+        Queue::new_and_store(record.user_id(), &mut *transaction).await?;
         transaction.commit().await?;
 
         Ok(record)
@@ -53,7 +53,7 @@ impl ClientRecord {
         &self.credential
     }
 
-    fn client_id(&self) -> &UserId {
+    fn user_id(&self) -> &UserId {
         self.credential.identity()
     }
 }
@@ -77,7 +77,7 @@ pub(crate) mod persistence {
         ) -> Result<(), StorageError> {
             let activity_time = DateTime::<Utc>::from(self.activity_time);
             let client_credential = FlatClientCredential::new(&self.credential);
-            let client_id = self.credential.identity();
+            let user_id = self.credential.identity();
             query!(
                 "INSERT INTO as_client_records (
                     user_uuid,
@@ -88,8 +88,8 @@ pub(crate) mod persistence {
                     credential,
                     remaining_tokens
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                client_id.uuid(),
-                client_id.domain() as _,
+                user_id.uuid(),
+                user_id.domain() as _,
                 BlobEncoded(&self.queue_encryption_key) as _,
                 BlobEncoded(&self.ratchet) as _,
                 activity_time,
@@ -163,11 +163,11 @@ pub(crate) mod persistence {
         #[allow(dead_code)]
         pub(in crate::auth_service) async fn delete(
             connection: impl PgExecutor<'_>,
-            client_id: &UserId,
+            user_id: &UserId,
         ) -> Result<(), StorageError> {
             query!(
                 "DELETE FROM as_client_records WHERE user_uuid = $1",
-                client_id.uuid(),
+                user_id.uuid(),
             )
             .execute(connection)
             .await?;
@@ -178,20 +178,20 @@ pub(crate) mod persistence {
         #[allow(dead_code)]
         pub(in crate::auth_service) async fn load_user_credentials(
             connection: impl PgExecutor<'_>,
-            client_id: &UserId,
+            user_id: &UserId,
         ) -> Result<Vec<ClientCredential>, StorageError> {
             let credentials = sqlx::query_scalar!(
                 r#"SELECT credential as "client_credential: FlatClientCredential"
                 FROM as_client_records
                 WHERE user_uuid = $1 AND user_domain = $2"#,
-                client_id.uuid(),
-                client_id.domain() as _,
+                user_id.uuid(),
+                user_id.domain() as _,
             )
             .fetch_all(connection)
             .await?;
             let credentials = credentials
                 .into_iter()
-                .map(|flat_credential| flat_credential.into_client_credential(client_id.clone()))
+                .map(|flat_credential| flat_credential.into_client_credential(user_id.clone()))
                 .collect();
             Ok(credentials)
         }
@@ -213,15 +213,15 @@ pub(crate) mod persistence {
 
         pub(crate) async fn store_random_client_record(
             pool: &PgPool,
-            client_id: UserId,
+            user_id: UserId,
         ) -> anyhow::Result<ClientRecord> {
-            let record = random_client_record(client_id)?;
+            let record = random_client_record(user_id)?;
             record.store(pool).await?;
             Ok(record)
         }
 
-        fn random_client_record(client_id: UserId) -> Result<ClientRecord, anyhow::Error> {
-            let (csr, _) = ClientCredentialCsr::new(client_id, SignatureScheme::ED25519)?;
+        fn random_client_record(user_id: UserId) -> Result<ClientRecord, anyhow::Error> {
+            let (csr, _) = ClientCredentialCsr::new(user_id, SignatureScheme::ED25519)?;
             let expiration_data = ExpirationData::new(Duration::days(90));
             let record = ClientRecord {
                 queue_encryption_key: RatchetEncryptionKey::new_for_test(
@@ -248,7 +248,7 @@ pub(crate) mod persistence {
             let client_record =
                 store_random_client_record(&pool, user_record.user_id().clone()).await?;
 
-            let loaded = ClientRecord::load(&pool, client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.user_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, client_record);
@@ -272,15 +272,15 @@ pub(crate) mod persistence {
             let client_record =
                 store_random_client_record(&pool, user_record.user_id().clone()).await?;
 
-            let loaded = ClientRecord::load(&pool, client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.user_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, client_record);
 
-            let updated_client_record = random_client_record(client_record.client_id().clone())?;
+            let updated_client_record = random_client_record(client_record.user_id().clone())?;
 
             updated_client_record.update(&pool).await?;
-            let loaded = ClientRecord::load(&pool, client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.user_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, updated_client_record);
@@ -294,14 +294,14 @@ pub(crate) mod persistence {
             let client_record =
                 store_random_client_record(&pool, user_record.user_id().clone()).await?;
 
-            let loaded = ClientRecord::load(&pool, client_record.client_id())
+            let loaded = ClientRecord::load(&pool, client_record.user_id())
                 .await?
                 .expect("missing client record");
             assert_eq!(loaded, client_record);
 
-            ClientRecord::delete(&pool, client_record.client_id()).await?;
+            ClientRecord::delete(&pool, client_record.user_id()).await?;
 
-            let loaded = ClientRecord::load(&pool, client_record.client_id()).await?;
+            let loaded = ClientRecord::load(&pool, client_record.user_id()).await?;
             assert!(loaded.is_none());
 
             Ok(())

@@ -43,7 +43,7 @@ impl From<SqlContact> for Contact {
         }: SqlContact,
     ) -> Self {
         Self {
-            client_id: UserId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(as_client_uuid, as_domain),
             wai_ear_key,
             friendship_token,
             connection_key,
@@ -103,8 +103,8 @@ impl Contact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         query!(
             "INSERT INTO contacts (
                 as_client_uuid,
@@ -126,7 +126,7 @@ impl Contact {
         .execute(executor)
         .await?;
         notifier
-            .add(self.client_id.clone())
+            .add(self.user_id.clone())
             .update(self.conversation_id);
         Ok(())
     }
@@ -168,7 +168,7 @@ impl From<SqlPartialContact> for PartialContact {
         }: SqlPartialContact,
     ) -> Self {
         Self {
-            client_id: UserId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(as_client_uuid, as_domain),
             conversation_id,
             friendship_package_ear_key,
         }
@@ -219,8 +219,8 @@ impl PartialContact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let domain = self.client_id.domain();
-        let uuid = self.client_id.uuid();
+        let domain = self.user_id.domain();
+        let uuid = self.user_id.uuid();
         query!(
             "INSERT INTO partial_contacts
                 (as_client_uuid, as_domain, conversation_id, friendship_package_ear_key)
@@ -233,7 +233,7 @@ impl PartialContact {
         .execute(executor)
         .await?;
         notifier
-            .add(self.client_id.clone())
+            .add(self.user_id.clone())
             .update(self.conversation_id);
         Ok(())
     }
@@ -243,8 +243,8 @@ impl PartialContact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         query!(
             "DELETE FROM partial_contacts
             WHERE as_client_uuid = ? AND as_domain = ?",
@@ -253,7 +253,7 @@ impl PartialContact {
         )
         .execute(executor)
         .await?;
-        notifier.remove(self.client_id.clone());
+        notifier.remove(self.user_id.clone());
         Ok(())
     }
 
@@ -267,7 +267,7 @@ impl PartialContact {
         user_profile_key_index: UserProfileKeyIndex,
     ) -> anyhow::Result<Contact> {
         let contact = Contact {
-            client_id: self.client_id.clone(),
+            user_id: self.user_id.clone(),
             conversation_id: self.conversation_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
@@ -305,7 +305,7 @@ mod tests {
         let client_id = UserId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&client_id).unwrap();
         let contact = Contact {
-            client_id,
+            user_id: client_id,
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             friendship_token: FriendshipToken::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
@@ -318,7 +318,7 @@ mod tests {
     fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
         let client_id = UserId::random("localhost".parse().unwrap());
         PartialContact {
-            client_id,
+            user_id: client_id,
             conversation_id,
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
         }
@@ -337,7 +337,7 @@ mod tests {
         user_profile_key.store(&pool).await?;
         contact.store(&pool, &mut store_notifier).await?;
 
-        let loaded = Contact::load(&pool, &contact.client_id).await?.unwrap();
+        let loaded = Contact::load(&pool, &contact.user_id).await?.unwrap();
         assert_eq!(loaded, contact);
 
         Ok(())
@@ -355,7 +355,7 @@ mod tests {
         let contact = test_partial_contact(conversation.id());
         contact.store(&pool, &mut store_notifier).await?;
 
-        let loaded = PartialContact::load(&pool, &contact.client_id)
+        let loaded = PartialContact::load(&pool, &contact.user_id)
             .await?
             .unwrap();
         assert_eq!(loaded, contact);
@@ -394,9 +394,9 @@ mod tests {
             .await?;
 
         let partial = test_partial_contact(conversation.id());
-        let client_id = partial.client_id.clone();
+        let client_id = partial.user_id.clone();
 
-        let user_profile_key = UserProfileKey::random(&partial.client_id)?;
+        let user_profile_key = UserProfileKey::random(&partial.user_id)?;
         user_profile_key.store(&pool).await?;
 
         partial.store(&pool, &mut store_notifier).await?;

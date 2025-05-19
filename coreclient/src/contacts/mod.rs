@@ -29,7 +29,7 @@ pub(crate) mod persistence;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contact {
-    pub client_id: UserId,
+    pub user_id: UserId,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
@@ -48,16 +48,16 @@ pub(crate) struct ContactAddInfos {
 
 impl Contact {
     pub(crate) fn from_friendship_package(
-        client_id: UserId,
+        user_id: UserId,
         conversation_id: ConversationId,
         friendship_package: FriendshipPackage,
     ) -> Result<Self, LibraryError> {
         let user_profile_key = UserProfileKey::from_base_secret(
             friendship_package.user_profile_base_secret,
-            &client_id,
+            &user_id,
         )?;
         let contact = Self {
-            client_id,
+            user_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             connection_key: friendship_package.connection_key,
@@ -72,7 +72,7 @@ impl Contact {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<ContactAddInfos> {
-        let invited_user_domain = self.client_id.domain();
+        let invited_user_domain = self.user_id.domain();
 
         let key_package_response = api_clients
             .get(invited_user_domain)?
@@ -125,7 +125,7 @@ impl Contact {
 /// Contact which has not yet accepted our connection request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartialContact {
-    pub client_id: UserId,
+    pub user_id: UserId,
     // ID of the connection conversation with this contact.
     pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
@@ -133,12 +133,12 @@ pub struct PartialContact {
 
 impl PartialContact {
     pub(crate) fn new(
-        client_id: UserId,
+        user_id: UserId,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Self {
         Self {
-            client_id,
+            user_id,
             conversation_id,
             friendship_package_ear_key,
         }

@@ -574,7 +574,7 @@ async fn client_persistence() {
     // Create and persist the user.
     let mut setup = TestBackend::single().await;
     setup.add_persisted_user(&ALICE).await;
-    let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id().clone();
+    let client_id = setup.users.get(&ALICE).unwrap().user.user_id().clone();
 
     let db_path = setup.temp_dir().to_owned();
 

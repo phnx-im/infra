@@ -8,8 +8,8 @@ use super::OwnClientInfo;
 
 impl OwnClientInfo {
     pub(crate) async fn store(&self, executor: impl sqlx::SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let as_client_id = self.as_client_id.uuid();
-        let domain = self.as_client_id.domain();
+        let as_client_id = self.user_id.uuid();
+        let domain = self.user_id.domain();
         query!(
             "INSERT INTO own_client_info (
                 server_url,
@@ -44,7 +44,7 @@ mod tests {
             server_url: "https://localhost".to_string(),
             qs_user_id: QsUserId::random(),
             qs_client_id: QsClientId::random(&mut rand::thread_rng()),
-            as_client_id: UserId::new(Uuid::new_v4(), "localhost".parse().unwrap()),
+            user_id: UserId::new(Uuid::new_v4(), "localhost".parse().unwrap()),
         };
 
         own_client_info.store(&pool).await?;
@@ -61,7 +61,7 @@ mod tests {
             server_url,
             qs_user_id,
             qs_client_id,
-            as_client_id: UserId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(as_client_uuid, as_domain),
         };
 
         assert_eq!(loaded, own_client_info);

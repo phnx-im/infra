@@ -82,7 +82,7 @@ impl User {
         .await?;
 
         let user_profile = UserProfile {
-            client_id: user.as_client_id().clone(),
+            client_id: user.user_id().clone(),
             display_name: display_name.parse()?,
             profile_picture: profile_picture.map(Asset::Value),
         };
@@ -170,7 +170,7 @@ impl User {
     /// The unique identifier of the logged in user
     #[frb(getter, sync)]
     pub fn client_id(&self) -> UiClientId {
-        self.user.as_client_id().clone().into()
+        self.user.user_id().clone().into()
     }
 }
 

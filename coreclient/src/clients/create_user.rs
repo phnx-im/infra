@@ -138,7 +138,7 @@ impl BasicUserData {
             &key_store.signing_key,
             self.as_client_id.clone(),
             user_profile_key.index().clone(),
-            DisplayName::from_client_id(&self.as_client_id),
+            DisplayName::from_user_id(&self.as_client_id),
             None,
         )?
         .store(connection.as_mut(), &mut StoreNotifier::noop())
@@ -500,7 +500,7 @@ impl PersistedUserState {
         CoreUser { inner }
     }
 
-    pub(super) fn client_id(&self) -> &UserId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.state.key_store.signing_key.credential().identity()
     }
 

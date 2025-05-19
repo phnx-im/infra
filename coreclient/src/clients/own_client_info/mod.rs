@@ -13,5 +13,5 @@ pub(crate) struct OwnClientInfo {
     pub(crate) server_url: String,
     pub(crate) qs_user_id: QsUserId,
     pub(crate) qs_client_id: QsClientId,
-    pub(crate) as_client_id: UserId,
+    pub(crate) user_id: UserId,
 }
