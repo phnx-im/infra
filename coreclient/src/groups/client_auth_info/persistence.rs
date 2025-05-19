@@ -6,7 +6,7 @@ use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
     crypto::ear::keys::IdentityLinkKey,
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
 };
 use sqlx::{Row, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
@@ -37,7 +37,7 @@ impl StorableClientCredential {
 
     pub(crate) async fn load_by_client_id(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         let uuid = client_id.client_id();
         let domain = client_id.domain();
@@ -95,7 +95,7 @@ impl From<SqlGroupMembership> for GroupMembership {
         }: SqlGroupMembership,
     ) -> Self {
         Self {
-            client_id: AsClientId::new(as_client_uuid, as_domain),
+            client_id: UserId::new(as_client_uuid, as_domain),
             group_id,
             leaf_index: LeafNodeIndex::new(leaf_index),
             identity_link_key: IdentityLinkKey::from(identity_link_key),
@@ -358,7 +358,7 @@ impl GroupMembership {
     pub(in crate::groups) async fn client_indices(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-        client_ids: &[AsClientId],
+        client_ids: &[UserId],
     ) -> sqlx::Result<Vec<LeafNodeIndex>> {
         let placeholders = client_ids
             .iter()
@@ -389,7 +389,7 @@ impl GroupMembership {
     pub(in crate::groups) async fn group_members(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-    ) -> sqlx::Result<Vec<AsClientId>> {
+    ) -> sqlx::Result<Vec<UserId>> {
         struct SqlGroupMember {
             as_client_uuid: Uuid,
             as_domain: Fqdn,
@@ -410,7 +410,7 @@ impl GroupMembership {
                 as_client_uuid,
                 as_domain,
             } = res?;
-            Ok(AsClientId::new(as_client_uuid, as_domain))
+            Ok(UserId::new(as_client_uuid, as_domain))
         })
         .collect()
         .await
@@ -440,7 +440,7 @@ mod tests {
 
     /// Returns test credential with a fixed identity but random payload.
     fn test_client_credential(client_id: Uuid) -> StorableClientCredential {
-        let client_id = AsClientId::new(client_id, "localhost".parse().unwrap());
+        let client_id = UserId::new(client_id, "localhost".parse().unwrap());
         let (client_credential_csr, _) =
             ClientCredentialCsr::new(client_id, SignatureScheme::ED25519).unwrap();
         let fingerprint = CredentialFingerprint::new_for_test(b"fingerprint".to_vec());

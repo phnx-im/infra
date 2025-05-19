@@ -27,7 +27,7 @@ pub(crate) enum UserCreationState {
 }
 
 impl UserCreationState {
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         match self {
             Self::BasicUserData(state) => state.client_id(),
             Self::InitialUserState(state) => state.client_id(),
@@ -54,7 +54,7 @@ impl UserCreationState {
     pub(super) async fn new(
         client_db: &SqlitePool,
         phnx_db: &SqlitePool,
-        as_client_id: AsClientId,
+        as_client_id: UserId,
         server_url: impl ToString,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
@@ -176,14 +176,14 @@ impl ClientRecordState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRecord {
-    pub client_id: AsClientId,
+    pub client_id: UserId,
     pub client_record_state: ClientRecordState,
     pub created_at: DateTime<Utc>,
     pub is_default: bool,
 }
 
 impl ClientRecord {
-    pub(super) fn new(as_client_id: AsClientId) -> Self {
+    pub(super) fn new(as_client_id: UserId) -> Self {
         Self {
             client_id: as_client_id,
             client_record_state: ClientRecordState::InProgress,

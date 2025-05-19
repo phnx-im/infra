@@ -4,7 +4,7 @@
 
 use phnxtypes::{
     codec::{BlobDecoded, BlobEncoded},
-    identifiers::AsClientId,
+    identifiers::UserId,
     messages::client_as::ConnectionPackage,
 };
 use sqlx::{Arguments, Connection, PgConnection, PgExecutor, postgres::PgArguments};
@@ -19,7 +19,7 @@ impl StorableConnectionPackage {
     pub(in crate::auth_service) async fn store_multiple(
         connection: impl PgExecutor<'_>,
         connection_packages: impl IntoIterator<Item = &ConnectionPackage>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
         let mut query_string =
@@ -92,7 +92,7 @@ impl StorableConnectionPackage {
     /// user name.
     pub(in crate::auth_service) async fn user_connection_packages(
         connection: &mut PgConnection,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> Result<Vec<ConnectionPackage>, StorageError> {
         // Start the transaction
         let mut transaction = connection.begin().await?;
@@ -143,7 +143,7 @@ mod tests {
 
     async fn store_random_connection_packages(
         pool: &PgPool,
-        client_id: &AsClientId,
+        client_id: &UserId,
         client_credential: ClientCredential,
     ) -> anyhow::Result<Vec<ConnectionPackage>> {
         let pkgs = vec![

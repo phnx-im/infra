@@ -33,7 +33,7 @@ impl UnvalidatedDisplayName {
 }
 
 impl DisplayName {
-    pub fn from_client_id(client_id: &AsClientId) -> Self {
+    pub fn from_client_id(client_id: &UserId) -> Self {
         Self::from_uuid(client_id.client_id())
     }
 

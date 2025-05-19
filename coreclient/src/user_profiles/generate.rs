@@ -12,7 +12,7 @@ use sqlx::SqliteExecutor;
 use crate::store::StoreNotifier;
 
 use super::{
-    AsClientId, Asset, DisplayName, EncryptableUserProfile, IndexedUserProfile, SignedUserProfile,
+    Asset, DisplayName, EncryptableUserProfile, IndexedUserProfile, SignedUserProfile, UserId,
 };
 
 pub(crate) struct NewUserProfile(SignedUserProfile);
@@ -22,7 +22,7 @@ impl NewUserProfile {
     /// the database.
     pub(crate) fn new(
         signing_key: &PreliminaryClientSigningKey,
-        client_id: AsClientId,
+        client_id: UserId,
         decryption_key_index: UserProfileKeyIndex,
         display_name: DisplayName,
         profile_picture: Option<Asset>,

@@ -15,7 +15,7 @@ use crate::{
         kdf::{KDF_KEY_SIZE, KdfDerivable, KdfKey},
         secrets::Secret,
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
 };
 use serde::{Deserialize, Serialize};
 use tls_codec::{TlsSerialize, TlsSize};
@@ -219,7 +219,7 @@ impl<KT> EarKey for IndexedAeadKey<KT> {}
 pub struct UserProfileKeyType;
 
 impl IndexedKeyType for UserProfileKeyType {
-    type DerivationContext<'a> = &'a AsClientId;
+    type DerivationContext<'a> = &'a UserId;
 
     const LABEL: &'static str = "user_profile_key";
 }
@@ -233,7 +233,7 @@ pub type UserProfileBaseSecret = BaseSecret<UserProfileKeyType>;
 pub type UserProfileKey = IndexedAeadKey<UserProfileKeyType>;
 
 impl UserProfileKey {
-    pub fn random(client_id: &AsClientId) -> Result<Self, RandomnessError> {
+    pub fn random(client_id: &UserId) -> Result<Self, RandomnessError> {
         let base_secret = BaseSecret::random()?;
         Self::from_base_secret(base_secret, client_id).map_err(|e| {
             error!(error = %e, "Key derivation error");
@@ -244,7 +244,7 @@ impl UserProfileKey {
     pub fn encrypt(
         &self,
         wrapper_key: &IdentityLinkWrapperKey,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> Result<EncryptedUserProfileKey, EncryptionError> {
         self.base_secret.encrypt_with_aad(wrapper_key, client_id)
     }
@@ -252,7 +252,7 @@ impl UserProfileKey {
     pub fn decrypt(
         wrapper_key: &IdentityLinkWrapperKey,
         encrypted_key: &EncryptedUserProfileKey,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> Result<Self, DecryptionError> {
         let base_secret = BaseSecret::decrypt_with_aad(wrapper_key, encrypted_key, client_id)?;
         Self::from_base_secret(base_secret, client_id).map_err(|e| {

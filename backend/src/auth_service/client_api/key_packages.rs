@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    identifiers::AsClientId,
+    identifiers::UserId,
     messages::{client_as::ConnectionPackage, client_as_out::ConnectionPackageIn},
 };
 
@@ -18,7 +18,7 @@ use crate::{
 impl AuthService {
     pub(crate) async fn as_publish_connection_packages(
         &self,
-        client_id: AsClientId,
+        client_id: UserId,
         connection_packages: Vec<ConnectionPackageIn>,
     ) -> Result<(), PublishConnectionPackageError> {
         let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)

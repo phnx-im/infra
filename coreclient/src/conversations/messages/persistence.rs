@@ -6,7 +6,7 @@ use anyhow::bail;
 use mimi_content::MimiContent;
 use phnxtypes::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -113,7 +113,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
         let message = match (sender_as_client_uuid, sender_as_domain) {
             // user message
             (Some(sender_as_client_uuid), Some(sender_as_domain)) => {
-                let sender = AsClientId::new(sender_as_client_uuid, sender_as_domain);
+                let sender = UserId::new(sender_as_client_uuid, sender_as_domain);
                 content
                     .into_inner()
                     .to_mimi_content()
@@ -405,7 +405,7 @@ pub(crate) mod tests {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
         let message = Message::Content(Box::new(ContentMessage {
-            sender: AsClientId::random("localhost".parse().unwrap()),
+            sender: UserId::random("localhost".parse().unwrap()),
             sent: false,
             content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
@@ -518,8 +518,8 @@ pub(crate) mod tests {
             timestamped_message: TimestampedMessage {
                 timestamp: Utc::now().into(),
                 message: Message::Event(EventMessage::System(SystemMessage::Add(
-                    AsClientId::random("localhost".parse()?),
-                    AsClientId::random("localhost".parse()?),
+                    UserId::random("localhost".parse()?),
+                    UserId::random("localhost".parse()?),
                 ))),
             },
         }

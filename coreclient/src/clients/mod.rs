@@ -31,7 +31,7 @@ use phnxtypes::{
             signable::Signable,
         },
     },
-    identifiers::{AsClientId, ClientConfig, QsClientId, QsReference, QsUserId},
+    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
     messages::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
         client_as::ConnectionPackageTbs,
@@ -109,7 +109,7 @@ impl CoreUser {
     /// Create a new user with the given `client_id`. If a user with this name already exists, this
     /// will overwrite that user.
     pub async fn new(
-        client_id: AsClientId,
+        client_id: UserId,
         server_url: Url,
         grpc_port: u16,
         db_path: &str,
@@ -130,7 +130,7 @@ impl CoreUser {
     }
 
     async fn new_with_connections(
-        as_client_id: AsClientId,
+        as_client_id: UserId,
         server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
@@ -171,7 +171,7 @@ impl CoreUser {
     /// The same as [`Self::new()`], except that databases are ephemeral and are
     /// dropped together with this instance of [`CoreUser`].
     pub async fn new_ephemeral(
-        client_id: AsClientId,
+        client_id: UserId,
         server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
@@ -193,7 +193,7 @@ impl CoreUser {
     /// Load a user from the database. If a user creation process with a
     /// matching `AsClientId` was interrupted before, this will resume that
     /// process.
-    pub async fn load(as_client_id: AsClientId, db_path: &str) -> Result<CoreUser> {
+    pub async fn load(as_client_id: UserId, db_path: &str) -> Result<CoreUser> {
         let client_db = open_client_db(&as_client_id, db_path).await?;
 
         let user_creation_state = UserCreationState::load(&client_db, &as_client_id)
@@ -352,7 +352,7 @@ impl CoreUser {
     ///
     /// In case of an error, or if the user profile is not found, the client id is used as a
     /// fallback.
-    pub async fn user_profile(&self, client_id: &AsClientId) -> UserProfile {
+    pub async fn user_profile(&self, client_id: &UserId) -> UserProfile {
         IndexedUserProfile::load(self.pool(), client_id)
             .await
             .inspect_err(|error| {
@@ -422,11 +422,11 @@ impl CoreUser {
         Ok(contacts)
     }
 
-    pub async fn contact(&self, client_id: &AsClientId) -> Option<Contact> {
+    pub async fn contact(&self, client_id: &UserId) -> Option<Contact> {
         self.try_contact(client_id).await.ok().flatten()
     }
 
-    pub async fn try_contact(&self, client_id: &AsClientId) -> sqlx::Result<Option<Contact>> {
+    pub async fn try_contact(&self, client_id: &UserId) -> sqlx::Result<Option<Contact>> {
         Contact::load(self.pool(), client_id).await
     }
 
@@ -451,7 +451,7 @@ impl CoreUser {
     pub async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> Option<HashSet<AsClientId>> {
+    ) -> Option<HashSet<UserId>> {
         self.try_conversation_participants(conversation_id)
             .await
             .ok()?
@@ -460,7 +460,7 @@ impl CoreUser {
     pub(crate) async fn try_conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> Result<Option<HashSet<AsClientId>>> {
+    ) -> Result<Option<HashSet<UserId>>> {
         let mut connection = self.pool().acquire().await?;
         let Some(conversation) = Conversation::load(&mut connection, &conversation_id).await?
         else {
@@ -472,10 +472,7 @@ impl CoreUser {
         Ok(Some(group.members(&mut *connection).await))
     }
 
-    pub async fn pending_removes(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Option<Vec<AsClientId>> {
+    pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserId>> {
         let mut connection = self.pool().acquire().await.ok()?;
         let conversation = Conversation::load(&mut connection, &conversation_id)
             .await
@@ -594,7 +591,7 @@ impl CoreUser {
         Ok(())
     }
 
-    pub fn as_client_id(&self) -> &AsClientId {
+    pub fn as_client_id(&self) -> &UserId {
         self.inner.key_store.signing_key.credential().identity()
     }
 

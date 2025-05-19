@@ -5,7 +5,7 @@
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::signatures::signable::Signable,
-    identifiers::AsClientId,
+    identifiers::UserId,
     messages::{client_as::RegisterUserResponse, client_as_out::RegisterUserParamsIn},
     time::TimeStamp,
 };
@@ -103,10 +103,7 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_delete_user(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<(), DeleteUserError> {
+    pub(crate) async fn as_delete_user(&self, client_id: &UserId) -> Result<(), DeleteUserError> {
         UserRecord::delete(&self.db_pool, client_id).await?;
         Ok(())
     }

@@ -5,7 +5,7 @@
 use std::{collections::BTreeMap, mem, sync::Arc};
 
 use enumset::{EnumSet, EnumSetType};
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};
@@ -214,7 +214,7 @@ pub enum StoreOperation {
 // `AsClientId` is not copy and quite large.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::From)]
 pub enum StoreEntityId {
-    User(AsClientId),
+    User(UserId),
     Conversation(ConversationId),
     Message(ConversationMessageId),
 }
@@ -262,28 +262,28 @@ mod tests {
         let tx = StoreNotificationsSender::new();
 
         let ops_1: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
+            StoreEntityId::User(UserId::random("localhost".parse().unwrap())),
             StoreOperation::Add.into(),
         )]
         .into_iter()
         .collect();
 
         let ops_2: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
+            StoreEntityId::User(UserId::random("localhost".parse().unwrap())),
             StoreOperation::Update.into(),
         )]
         .into_iter()
         .collect();
 
         let ops_3: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
+            StoreEntityId::User(UserId::random("localhost".parse().unwrap())),
             StoreOperation::Remove.into(),
         )]
         .into_iter()
         .collect();
 
         let ops_4: BTreeMap<StoreEntityId, EnumSet<StoreOperation>> = [(
-            StoreEntityId::User(AsClientId::random("localhost".parse().unwrap())),
+            StoreEntityId::User(UserId::random("localhost".parse().unwrap())),
             StoreOperation::Add.into(),
         )]
         .into_iter()

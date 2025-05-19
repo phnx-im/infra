@@ -15,7 +15,7 @@ use phnxtypes::{
         indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
         signatures::signable::Signable,
     },
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
 };
 
 use crate::{
@@ -28,7 +28,7 @@ use super::{Asset, generate::NewUserProfile};
 #[test]
 fn backend_interaction() {
     // The user initially creates a user profile
-    let client_id = AsClientId::random("localhost".parse().unwrap());
+    let client_id = UserId::random("localhost".parse().unwrap());
     let user_profile_key = UserProfileKey::random(&client_id).unwrap();
     let display_name = DisplayName::from_str("Alice").unwrap();
     let profile_picture = Some(Asset::Value(vec![1, 2, 3]));

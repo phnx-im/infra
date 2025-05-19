@@ -16,9 +16,7 @@ use phnxcoreclient::{
     },
     open_client_db,
 };
-use phnxtypes::{
-    DEFAULT_PORT_GRPC, identifiers::AsClientId, messages::push_token::PushTokenOperator,
-};
+use phnxtypes::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
 use tracing::error;
 
 pub(crate) use phnxtypes::messages::push_token::PushToken;
@@ -72,7 +70,7 @@ impl User {
             .context("missing host in server url")?
             .to_owned()
             .into();
-        let client_id = AsClientId::new(Uuid::new_v4(), domain);
+        let client_id = UserId::new(Uuid::new_v4(), domain);
 
         let user = CoreUser::new(
             client_id,

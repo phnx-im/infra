@@ -19,7 +19,7 @@ use phnxcoreclient::{
 };
 use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 use png::Encoder;
 use tonic::transport::Channel;
 use tonic_health::pb::{
@@ -29,14 +29,14 @@ use tracing::info;
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
-static ALICE: LazyLock<AsClientId> =
-    LazyLock::new(|| AsClientId::new(Uuid::from_u128(1), "example.com".parse().unwrap()));
-static BOB: LazyLock<AsClientId> =
-    LazyLock::new(|| AsClientId::new(Uuid::from_u128(2), "example.com".parse().unwrap()));
-static CHARLIE: LazyLock<AsClientId> =
-    LazyLock::new(|| AsClientId::new(Uuid::from_u128(3), "example.com".parse().unwrap()));
-static DAVE: LazyLock<AsClientId> =
-    LazyLock::new(|| AsClientId::new(Uuid::from_u128(4), "example.com".parse().unwrap()));
+static ALICE: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(1), "example.com".parse().unwrap()));
+static BOB: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(2), "example.com".parse().unwrap()));
+static CHARLIE: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(3), "example.com".parse().unwrap()));
+static DAVE: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(4), "example.com".parse().unwrap()));
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Connect users test", skip_all)]

@@ -25,8 +25,8 @@ use super::v1::{
     EncryptedUserProfile, ExpirationData, MlsInfraVersion, QueueMessage, SignatureScheme,
 };
 
-impl From<identifiers::AsClientId> for AsClientId {
-    fn from(value: identifiers::AsClientId) -> Self {
+impl From<identifiers::UserId> for AsClientId {
+    fn from(value: identifiers::UserId) -> Self {
         let (client_id, domain) = value.into_parts();
         Self {
             client_id: Some(client_id.into()),
@@ -35,7 +35,7 @@ impl From<identifiers::AsClientId> for AsClientId {
     }
 }
 
-impl TryFrom<AsClientId> for identifiers::AsClientId {
+impl TryFrom<AsClientId> for identifiers::UserId {
     type Error = AsClientIdError;
 
     fn try_from(proto: AsClientId) -> Result<Self, Self::Error> {

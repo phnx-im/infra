@@ -15,7 +15,7 @@ use phnxtypes::{
         RatchetEncryptionKey, indexed_aead::keys::UserProfileKeyIndex, kdf::keys::RatchetSecret,
         signatures::signable::Signable,
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
     messages::{
         QueueMessage,
         client_as::{
@@ -91,7 +91,7 @@ impl ApiClient {
 
     pub async fn as_get_user_profile(
         &self,
-        client_id: AsClientId,
+        client_id: UserId,
         key_index: UserProfileKeyIndex,
     ) -> Result<GetUserProfileResponse, AsRequestError> {
         let request = GetUserProfileRequest {
@@ -121,7 +121,7 @@ impl ApiClient {
 
     pub async fn as_stage_user_profile(
         &self,
-        client_id: AsClientId,
+        client_id: UserId,
         signing_key: &ClientSigningKey,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<(), AsRequestError> {
@@ -139,7 +139,7 @@ impl ApiClient {
 
     pub async fn as_merge_user_profile(
         &self,
-        client_id: AsClientId,
+        client_id: UserId,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = MergeUserProfilePayload {
@@ -155,7 +155,7 @@ impl ApiClient {
 
     pub async fn as_delete_user(
         &self,
-        client_id: AsClientId,
+        client_id: UserId,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = DeleteUserPayload {
@@ -227,7 +227,7 @@ impl ApiClient {
 
     pub async fn as_publish_connection_packages(
         &self,
-        client_id: AsClientId,
+        client_id: UserId,
         connection_packages: Vec<ConnectionPackage>,
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
@@ -272,7 +272,7 @@ impl ApiClient {
 
     pub async fn as_enqueue_message(
         &self,
-        client_id: AsClientId,
+        client_id: UserId,
         connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
     ) -> Result<(), AsRequestError> {
         let request = EnqueueMessagesRequest {

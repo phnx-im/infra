@@ -11,7 +11,7 @@ use phnxtypes::{
     codec::PhnxCodec,
     credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
-    identifiers::{AsClientId, QualifiedGroupId},
+    identifiers::{QualifiedGroupId, UserId},
     messages::{
         QueueMessage,
         client_ds::{
@@ -325,7 +325,7 @@ impl CoreUser {
         &self,
         application_message: openmls::prelude::ApplicationMessage,
         ds_timestamp: TimeStamp,
-        sender_client_id: &AsClientId,
+        sender_client_id: &UserId,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
         let group_messages = vec![TimestampedMessage::from_application_message(
             application_message,

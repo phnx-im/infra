@@ -41,13 +41,13 @@ use super::*;
 // a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct BasicUserData {
-    pub(super) as_client_id: AsClientId,
+    pub(super) as_client_id: UserId,
     pub(super) server_url: String,
     pub(super) push_token: Option<PushToken>,
 }
 
 impl BasicUserData {
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         &self.as_client_id
     }
 
@@ -203,7 +203,7 @@ impl InitialUserState {
         Ok(post_registration_init_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         self.client_credential_payload.identity()
     }
 
@@ -295,7 +295,7 @@ impl PostAsRegistrationState {
         Ok(unfinalized_registration_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         self.client_credential.client_id()
     }
 
@@ -347,7 +347,7 @@ impl UnfinalizedRegistrationState {
         Ok(as_registered_user_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -402,7 +402,7 @@ impl AsRegisteredUserState {
         Ok(qs_registered_user_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -463,7 +463,7 @@ impl QsRegisteredUserState {
         Ok(state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -500,7 +500,7 @@ impl PersistedUserState {
         CoreUser { inner }
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn client_id(&self) -> &UserId {
         self.state.key_store.signing_key.credential().identity()
     }
 

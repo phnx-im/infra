@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    credentials::ClientCredential, crypto::RatchetEncryptionKey, identifiers::AsClientId,
+    credentials::ClientCredential, crypto::RatchetEncryptionKey, identifiers::UserId,
     messages::client_as::AsQueueRatchet, time::TimeStamp,
 };
 use sqlx::{Connection, PgConnection};
@@ -53,7 +53,7 @@ impl ClientRecord {
         &self.credential
     }
 
-    fn client_id(&self) -> &AsClientId {
+    fn client_id(&self) -> &UserId {
         self.credential.identity()
     }
 }
@@ -131,7 +131,7 @@ pub(crate) mod persistence {
 
         pub(in crate::auth_service) async fn load(
             connection: impl PgExecutor<'_>,
-            client_id: &AsClientId,
+            client_id: &UserId,
         ) -> Result<Option<ClientRecord>, StorageError> {
             query!(
                 r#"SELECT
@@ -163,7 +163,7 @@ pub(crate) mod persistence {
         #[allow(dead_code)]
         pub(in crate::auth_service) async fn delete(
             connection: impl PgExecutor<'_>,
-            client_id: &AsClientId,
+            client_id: &UserId,
         ) -> Result<(), StorageError> {
             query!(
                 "DELETE FROM as_client_records WHERE client_id = $1",
@@ -178,7 +178,7 @@ pub(crate) mod persistence {
         #[allow(dead_code)]
         pub(in crate::auth_service) async fn load_user_credentials(
             connection: impl PgExecutor<'_>,
-            client_id: &AsClientId,
+            client_id: &UserId,
         ) -> Result<Vec<ClientCredential>, StorageError> {
             let credentials = sqlx::query_scalar!(
                 r#"SELECT credential as "client_credential: FlatClientCredential"
@@ -213,14 +213,14 @@ pub(crate) mod persistence {
 
         pub(crate) async fn store_random_client_record(
             pool: &PgPool,
-            client_id: AsClientId,
+            client_id: UserId,
         ) -> anyhow::Result<ClientRecord> {
             let record = random_client_record(client_id)?;
             record.store(pool).await?;
             Ok(record)
         }
 
-        fn random_client_record(client_id: AsClientId) -> Result<ClientRecord, anyhow::Error> {
+        fn random_client_record(client_id: UserId) -> Result<ClientRecord, anyhow::Error> {
             let (csr, _) = ClientCredentialCsr::new(client_id, SignatureScheme::ED25519)?;
             let expiration_data = ExpirationData::new(Duration::days(90));
             let record = ClientRecord {

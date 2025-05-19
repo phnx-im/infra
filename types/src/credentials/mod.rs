@@ -28,7 +28,7 @@ use crate::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
     messages::MlsInfraVersion,
     time::ExpirationData,
 };
@@ -428,7 +428,7 @@ const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 )]
 pub struct ClientCredentialCsr {
     pub version: MlsInfraVersion,
-    pub client_id: AsClientId,
+    pub client_id: UserId,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: ClientVerifyingKey,
 }
@@ -441,7 +441,7 @@ impl ClientCredentialCsr {
     /// key can be turned into a [`keys::AsIntermediateSigningKey`] once the CSR is
     /// signed.
     pub fn new(
-        client_id: AsClientId,
+        client_id: UserId,
         signature_scheme: SignatureScheme,
     ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
@@ -506,7 +506,7 @@ impl Signable for ClientCredentialPayload {
 }
 
 impl ClientCredentialPayload {
-    pub fn identity(&self) -> &AsClientId {
+    pub fn identity(&self) -> &UserId {
         &self.csr.client_id
     }
 }
@@ -529,7 +529,7 @@ impl ClientCredential {
         (self.payload, self.signature)
     }
 
-    pub fn identity(&self) -> &AsClientId {
+    pub fn identity(&self) -> &UserId {
         self.payload.identity()
     }
 
@@ -630,7 +630,7 @@ impl VerifiableClientCredential {
         &self.payload.signer_fingerprint
     }
 
-    pub fn client_id(&self) -> &AsClientId {
+    pub fn client_id(&self) -> &UserId {
         &self.payload.csr.client_id
     }
 }
@@ -655,7 +655,7 @@ pub type EncryptedClientCredential = Ciphertext<EncryptedClientCredentialCtype>;
 
 pub mod persistence {
     use crate::{
-        codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::AsClientId,
+        codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::UserId,
         time::ExpirationData,
     };
 
@@ -688,7 +688,7 @@ pub mod persistence {
             }
         }
 
-        pub fn into_client_credential(self, client_id: AsClientId) -> ClientCredential {
+        pub fn into_client_credential(self, client_id: UserId) -> ClientCredential {
             let payload = ClientCredentialPayload {
                 csr: ClientCredentialCsr {
                     version: PhnxCodec::from_slice(&self.version).unwrap(),

@@ -32,7 +32,7 @@ impl OwnClientInfo {
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::identifiers::{AsClientId, QsClientId, QsUserId};
+    use phnxtypes::identifiers::{QsClientId, QsUserId, UserId};
     use sqlx::{Row, SqlitePool};
     use uuid::Uuid;
 
@@ -44,7 +44,7 @@ mod tests {
             server_url: "https://localhost".to_string(),
             qs_user_id: QsUserId::random(),
             qs_client_id: QsClientId::random(&mut rand::thread_rng()),
-            as_client_id: AsClientId::new(Uuid::new_v4(), "localhost".parse().unwrap()),
+            as_client_id: UserId::new(Uuid::new_v4(), "localhost".parse().unwrap()),
         };
 
         own_client_info.store(&pool).await?;
@@ -61,7 +61,7 @@ mod tests {
             server_url,
             qs_user_id,
             qs_client_id,
-            as_client_id: AsClientId::new(as_client_uuid, as_domain),
+            as_client_id: UserId::new(as_client_uuid, as_domain),
         };
 
         assert_eq!(loaded, own_client_info);

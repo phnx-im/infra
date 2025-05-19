@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::AsClientId,
+    crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::UserId,
     messages::client_as_out::EncryptedUserProfile,
 };
 use thiserror::Error;
@@ -20,13 +20,13 @@ pub enum UserProfileMergingError {
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct UserRecord {
-    client_id: AsClientId,
+    client_id: UserId,
     encrypted_user_profile: EncryptedUserProfile,
     staged_user_profile: Option<EncryptedUserProfile>,
 }
 
 impl UserRecord {
-    pub fn new(client_id: AsClientId, encrypted_user_profile: EncryptedUserProfile) -> Self {
+    pub fn new(client_id: UserId, encrypted_user_profile: EncryptedUserProfile) -> Self {
         Self {
             client_id,
             encrypted_user_profile,
@@ -35,13 +35,13 @@ impl UserRecord {
     }
 
     #[cfg(test)]
-    pub fn client_id(&self) -> &AsClientId {
+    pub fn client_id(&self) -> &UserId {
         &self.client_id
     }
 
     pub(super) async fn new_and_store(
         connection: impl sqlx::PgExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
         encrypted_user_profile: &EncryptedUserProfile,
     ) -> Result<Self, StorageError> {
         let user_record = Self::new(client_id.clone(), encrypted_user_profile.clone());
@@ -79,7 +79,7 @@ impl UserRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxtypes::{identifiers::AsClientId, messages::client_as_out::EncryptedUserProfile};
+    use phnxtypes::{identifiers::UserId, messages::client_as_out::EncryptedUserProfile};
     use sqlx::{PgExecutor, query, query_as};
 
     use crate::errors::StorageError;
@@ -91,7 +91,7 @@ pub(crate) mod persistence {
         /// exists for the given UserId.
         pub(in crate::auth_service) async fn load(
             connection: impl PgExecutor<'_>,
-            client_id: &AsClientId,
+            client_id: &UserId,
         ) -> Result<Option<UserRecord>, StorageError> {
             struct AsUserRecord {
                 encrypted_user_profile: EncryptedUserProfile,
@@ -165,7 +165,7 @@ pub(crate) mod persistence {
         ///  - All key packages for the respective clients
         pub(in crate::auth_service) async fn delete(
             connection: impl PgExecutor<'_>,
-            client_id: &AsClientId,
+            client_id: &UserId,
         ) -> Result<(), sqlx::Error> {
             // The database cascades the delete to the clients and their connection packages.
             query!(
@@ -187,7 +187,7 @@ pub(crate) mod persistence {
         use super::*;
 
         pub(crate) async fn store_random_user_record(pool: &PgPool) -> anyhow::Result<UserRecord> {
-            let client_id = AsClientId::random("example.com".parse()?);
+            let client_id = UserId::random("example.com".parse()?);
             let encrypted_user_profile = EncryptedUserProfile::dummy();
             let record = UserRecord {
                 client_id,

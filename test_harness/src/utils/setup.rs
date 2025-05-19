@@ -14,7 +14,7 @@ use phnxcoreclient::{
 use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use phnxtypes::{
     DEFAULT_PORT_HTTP,
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
 };
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
@@ -46,18 +46,14 @@ impl AsMut<CoreUser> for TestUser {
 }
 
 impl TestUser {
-    pub async fn new(
-        client_id: &AsClientId,
-        address_option: Option<String>,
-        grpc_port: u16,
-    ) -> Self {
+    pub async fn new(client_id: &UserId, address_option: Option<String>, grpc_port: u16) -> Self {
         Self::try_new(client_id, address_option, grpc_port)
             .await
             .unwrap()
     }
 
     pub async fn try_new(
-        client_id: &AsClientId,
+        client_id: &UserId,
         address_option: Option<String>,
         grpc_port: u16,
     ) -> anyhow::Result<Self> {
@@ -71,7 +67,7 @@ impl TestUser {
     }
 
     pub async fn new_persisted(
-        client_id: &AsClientId,
+        client_id: &UserId,
         address_option: Option<String>,
         grpc_port: u16,
         db_dir: &str,
@@ -101,8 +97,8 @@ enum TestKind {
 }
 
 pub struct TestBackend {
-    pub users: HashMap<AsClientId, TestUser>,
-    pub groups: HashMap<ConversationId, HashSet<AsClientId>>,
+    pub users: HashMap<UserId, TestUser>,
+    pub groups: HashMap<ConversationId, HashSet<UserId>>,
     // This is what we feed to the test clients.
     kind: TestKind,
     grpc_port: u16,
@@ -149,28 +145,28 @@ impl TestBackend {
         self.temp_dir.path()
     }
 
-    pub async fn add_persisted_user(&mut self, client_id: &AsClientId) {
+    pub async fn add_persisted_user(&mut self, client_id: &UserId) {
         let path = self.temp_dir.path().to_str().unwrap();
         info!(%path, ?client_id, "Creating persisted user");
         let user = TestUser::new_persisted(client_id, self.url(), self.grpc_port, path).await;
         self.users.insert(client_id.clone(), user);
     }
 
-    pub async fn add_user(&mut self, client_id: &AsClientId) {
+    pub async fn add_user(&mut self, client_id: &UserId) {
         info!(?client_id, "Creating user");
         let user = TestUser::new(client_id, self.url(), self.grpc_port).await;
         self.users.insert(client_id.clone(), user);
     }
 
-    pub fn get_user(&self, client_id: &AsClientId) -> &TestUser {
+    pub fn get_user(&self, client_id: &UserId) -> &TestUser {
         self.users.get(client_id).unwrap()
     }
 
-    pub fn take_user(&mut self, client_id: &AsClientId) -> TestUser {
+    pub fn take_user(&mut self, client_id: &UserId) -> TestUser {
         self.users.remove(client_id).unwrap()
     }
 
-    pub async fn delete_user(&mut self, client_id: &AsClientId) {
+    pub async fn delete_user(&mut self, client_id: &UserId) {
         let test_user = self.take_user(client_id);
         match test_user.db_dir {
             Some(db_dir) => test_user.user.delete(db_dir.as_str()).await.unwrap(),
@@ -183,7 +179,7 @@ impl TestBackend {
     pub async fn commit_to_proposals(
         &mut self,
         conversation_id: ConversationId,
-        updater_id: AsClientId,
+        updater_id: UserId,
     ) {
         info!(
             "{updater_id:?} performs an update in group {}",
@@ -206,7 +202,7 @@ impl TestBackend {
             .conversation_participants(conversation_id)
             .await
             .unwrap();
-        let difference: HashSet<AsClientId> = group_members_before
+        let difference: HashSet<UserId> = group_members_before
             .difference(&group_members_after)
             .map(|s| s.to_owned())
             .collect();
@@ -250,7 +246,7 @@ impl TestBackend {
                     .conversation_participants(conversation_id)
                     .await
                     .unwrap();
-                let difference: HashSet<AsClientId> = group_members_before
+                let difference: HashSet<UserId> = group_members_before
                     .difference(&group_members_after)
                     .cloned()
                     .collect();
@@ -259,7 +255,7 @@ impl TestBackend {
         }
     }
 
-    pub async fn update_group(&mut self, conversation_id: ConversationId, updater_id: &AsClientId) {
+    pub async fn update_group(&mut self, conversation_id: ConversationId, updater_id: &UserId) {
         info!(
             "{updater_id:?} performs an update in group {}",
             conversation_id.uuid()
@@ -299,11 +295,7 @@ impl TestBackend {
         }
     }
 
-    pub async fn connect_users(
-        &mut self,
-        user1_id: &AsClientId,
-        user2_id: &AsClientId,
-    ) -> ConversationId {
+    pub async fn connect_users(&mut self, user1_id: &UserId, user2_id: &UserId) -> ConversationId {
         info!("Connecting users {user1_id:?} and {user2_id:?}");
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
@@ -512,7 +504,7 @@ impl TestBackend {
         let user2_unread_messages = user2.unread_messages_count(user2_conversation_id).await;
         assert_eq!(user2_unread_messages, 0);
 
-        let member_set: HashSet<AsClientId> = [user1_id.clone(), user2_id.clone()].into();
+        let member_set: HashSet<UserId> = [user1_id.clone(), user2_id.clone()].into();
         assert_eq!(member_set.len(), 2);
         self.groups.insert(user1_conversation_id, member_set);
         user1_conversation_id
@@ -524,8 +516,8 @@ impl TestBackend {
     pub async fn send_message(
         &mut self,
         conversation_id: ConversationId,
-        sender_id: &AsClientId,
-        recipients: Vec<&AsClientId>,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
     ) -> ConversationMessageId {
         let recipient_strings = recipients
             .iter()
@@ -592,7 +584,7 @@ impl TestBackend {
         message.id()
     }
 
-    pub async fn create_group(&mut self, user_id: &AsClientId) -> ConversationId {
+    pub async fn create_group(&mut self, user_id: &UserId) -> ConversationId {
         let test_user = self.users.get_mut(user_id).unwrap();
         let user = &mut test_user.user;
         let user_conversations_before = user.conversations().await.unwrap();
@@ -623,7 +615,7 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        let member_set: HashSet<AsClientId> = [user_id.clone()].into();
+        let member_set: HashSet<UserId> = [user_id.clone()].into();
         assert_eq!(member_set.len(), 1);
         self.groups.insert(conversation_id, member_set);
 
@@ -635,8 +627,8 @@ impl TestBackend {
     pub async fn invite_to_group(
         &mut self,
         conversation_id: ConversationId,
-        inviter_id: &AsClientId,
-        invitees: Vec<&AsClientId>,
+        inviter_id: &UserId,
+        invitees: Vec<&UserId>,
     ) {
         let invitee_strings = invitees
             .iter()
@@ -810,8 +802,8 @@ impl TestBackend {
     pub async fn remove_from_group(
         &mut self,
         conversation_id: ConversationId,
-        remover_id: &AsClientId,
-        removed_ids: Vec<&AsClientId>,
+        remover_id: &UserId,
+        removed_ids: Vec<&UserId>,
     ) {
         let removed_strings = removed_ids
             .iter()
@@ -969,7 +961,7 @@ impl TestBackend {
     }
 
     /// Has the leaver leave the given group.
-    pub async fn leave_group(&mut self, conversation_id: ConversationId, leaver_id: &AsClientId) {
+    pub async fn leave_group(&mut self, conversation_id: ConversationId, leaver_id: &UserId) {
         info!(
             "{leaver_id:?} leaves the group with id {}",
             conversation_id.uuid()
@@ -1013,7 +1005,7 @@ impl TestBackend {
         group_members.remove(leaver_id);
     }
 
-    pub async fn delete_group(&mut self, conversation_id: ConversationId, deleter_id: &AsClientId) {
+    pub async fn delete_group(&mut self, conversation_id: ConversationId, deleter_id: &UserId) {
         info!(
             "{deleter_id:?} deletes the group with id {}",
             conversation_id.uuid()
@@ -1099,7 +1091,7 @@ impl TestBackend {
         self.groups.remove(&conversation_id);
     }
 
-    pub fn random_user(&self, rng: &mut impl RngCore) -> AsClientId {
+    pub fn random_user(&self, rng: &mut impl RngCore) -> UserId {
         self.users
             .keys()
             .choose(rng)

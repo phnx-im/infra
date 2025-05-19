@@ -8,7 +8,7 @@ use phnxtypes::{
         indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::ConnectionKey,
     },
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
     messages::FriendshipToken,
 };
 use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
@@ -43,7 +43,7 @@ impl From<SqlContact> for Contact {
         }: SqlContact,
     ) -> Self {
         Self {
-            client_id: AsClientId::new(as_client_uuid, as_domain),
+            client_id: UserId::new(as_client_uuid, as_domain),
             wai_ear_key,
             friendship_token,
             connection_key,
@@ -56,7 +56,7 @@ impl From<SqlContact> for Contact {
 impl Contact {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         let uuid = client_id.client_id();
         let domain = client_id.domain();
@@ -133,7 +133,7 @@ impl Contact {
 
     pub(crate) async fn update_user_profile_key_index(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
         key_index: &UserProfileKeyIndex,
     ) -> sqlx::Result<()> {
         let uuid = client_id.client_id();
@@ -168,7 +168,7 @@ impl From<SqlPartialContact> for PartialContact {
         }: SqlPartialContact,
     ) -> Self {
         Self {
-            client_id: AsClientId::new(as_client_uuid, as_domain),
+            client_id: UserId::new(as_client_uuid, as_domain),
             conversation_id,
             friendship_package_ear_key,
         }
@@ -178,7 +178,7 @@ impl From<SqlPartialContact> for PartialContact {
 impl PartialContact {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client: &AsClientId,
+        client: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         let uuid = client.client_id();
         let domain = client.domain();
@@ -302,7 +302,7 @@ mod tests {
     use super::*;
 
     fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
-        let client_id = AsClientId::random("localhost".parse().unwrap());
+        let client_id = UserId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&client_id).unwrap();
         let contact = Contact {
             client_id,
@@ -316,7 +316,7 @@ mod tests {
     }
 
     fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
-        let client_id = AsClientId::random("localhost".parse().unwrap());
+        let client_id = UserId::random("localhost".parse().unwrap());
         PartialContact {
             client_id,
             conversation_id,

@@ -38,7 +38,7 @@ use phnxtypes::{
         kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
-    identifiers::{AsClientId, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
+    identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, UserId},
     messages::{
         client_ds::{
             DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
@@ -698,7 +698,7 @@ impl Group {
     pub(super) async fn stage_remove(
         &mut self,
         connection: &mut sqlx::SqliteConnection,
-        members: Vec<AsClientId>,
+        members: Vec<UserId>,
     ) -> Result<GroupOperationParamsOut> {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
@@ -933,7 +933,7 @@ impl Group {
         &self,
         connection: &mut sqlx::SqliteConnection,
         index: LeafNodeIndex,
-    ) -> Option<AsClientId> {
+    ) -> Option<UserId> {
         GroupMembership::load(&mut *connection, self.group_id(), index)
             .await
             .ok()
@@ -946,7 +946,7 @@ impl Group {
     }
 
     /// Returns a set containing the [`AsClientId`] of the members of the group.
-    pub(crate) async fn members(&self, executor: impl SqliteExecutor<'_>) -> HashSet<AsClientId> {
+    pub(crate) async fn members(&self, executor: impl SqliteExecutor<'_>) -> HashSet<UserId> {
         match GroupMembership::group_members(executor, self.group_id()).await {
             // deduplicate by collecting into as set
             Ok(group_members) => group_members.into_iter().collect(),
@@ -1030,7 +1030,7 @@ impl Group {
     pub(crate) async fn pending_removes(
         &self,
         connection: &mut sqlx::SqliteConnection,
-    ) -> Vec<AsClientId> {
+    ) -> Vec<UserId> {
         let mut pending_removes = Vec::new();
         for proposal in self.mls_group().pending_proposals() {
             if let Proposal::Remove(rp) = proposal.proposal() {

@@ -40,10 +40,7 @@ impl GrpcAs {
         Self { inner }
     }
 
-    async fn verify_client_auth<R, P>(
-        &self,
-        request: R,
-    ) -> Result<(identifiers::AsClientId, P), Status>
+    async fn verify_client_auth<R, P>(&self, request: R) -> Result<(identifiers::UserId, P), Status>
     where
         R: WithAsClientId + Verifiable,
         P: VerifiedStruct<R>,
@@ -71,7 +68,7 @@ impl GrpcAs {
 
     async fn process_listen_requests_task(
         queues: Queues,
-        client_id: identifiers::AsClientId,
+        client_id: identifiers::UserId,
         mut requests: Streaming<ListenRequest>,
     ) {
         while let Some(request) = requests.next().await {
@@ -85,7 +82,7 @@ impl GrpcAs {
 
     async fn process_listen_request(
         queues: &Queues,
-        client_id: &identifiers::AsClientId,
+        client_id: &identifiers::UserId,
         request: Result<ListenRequest, Status>,
     ) -> Result<(), Status> {
         let request = request?;
@@ -138,7 +135,7 @@ impl auth_service_server::AuthService for GrpcAs {
         let (client_id, payload) = self
             .verify_client_auth::<_, DeleteUserPayload>(request)
             .await?;
-        let payload_client_id: identifiers::AsClientId = payload
+        let payload_client_id: identifiers::UserId = payload
             .client_id
             .ok_or_missing_field("client_id")?
             .try_into()?;
@@ -354,7 +351,7 @@ trait WithAsClientId {
     fn client_id_proto(&self) -> Option<AsClientId>;
 
     #[expect(clippy::result_large_err)]
-    fn client_id(&self) -> Result<identifiers::AsClientId, Status> {
+    fn client_id(&self) -> Result<identifiers::UserId, Status> {
         Ok(self
             .client_id_proto()
             .ok_or_missing_field("client_id")?

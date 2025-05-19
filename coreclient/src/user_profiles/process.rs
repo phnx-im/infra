@@ -5,7 +5,7 @@
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Verifiable as _},
-    identifiers::AsClientId,
+    identifiers::UserId,
 };
 
 use super::{
@@ -17,7 +17,7 @@ pub(crate) struct ExistingUserProfile(Option<IndexedUserProfile>);
 impl ExistingUserProfile {
     pub(crate) async fn load(
         executor: impl sqlx::SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<Self> {
         let existing_user_profile = IndexedUserProfile::load(executor, client_id).await?;
         Ok(Self(existing_user_profile))

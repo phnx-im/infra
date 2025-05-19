@@ -364,7 +364,7 @@ mod delete_conversation_flow {
 
     use anyhow::Context;
     use phnxtypes::{
-        identifiers::AsClientId, messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
+        identifiers::UserId, messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
     };
     use sqlx::{SqliteConnection, SqliteTransaction};
 
@@ -422,7 +422,7 @@ mod delete_conversation_flow {
 
     pub(super) struct LoadedSingleUserConversationData {
         conversation: Conversation,
-        member: AsClientId,
+        member: UserId,
     }
 
     impl LoadedSingleUserConversationData {
@@ -445,7 +445,7 @@ mod delete_conversation_flow {
     pub(super) struct LoadedConversationData<S> {
         conversation: Conversation,
         group: Group,
-        past_members: HashSet<AsClientId>,
+        past_members: HashSet<UserId>,
         state: S,
     }
 
@@ -523,7 +523,7 @@ mod delete_conversation_flow {
 
     pub(super) struct DeletedGroup {
         conversation: Conversation,
-        past_members: HashSet<AsClientId>,
+        past_members: HashSet<UserId>,
         messages: Vec<TimestampedMessage>,
     }
 

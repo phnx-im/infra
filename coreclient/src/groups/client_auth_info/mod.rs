@@ -15,7 +15,7 @@ use phnxtypes::{
         EarDecryptable,
         keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
 };
 use sqlx::{SqliteConnection, SqliteExecutor};
 
@@ -70,7 +70,7 @@ impl StorableClientCredential {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct GroupMembership {
-    client_id: AsClientId,
+    client_id: UserId,
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupId,
     identity_link_key: IdentityLinkKey,
@@ -79,7 +79,7 @@ pub(crate) struct GroupMembership {
 
 impl GroupMembership {
     pub(super) fn new(
-        client_id: AsClientId,
+        client_id: UserId,
         group_id: GroupId,
         leaf_index: LeafNodeIndex,
         identity_link_key: IdentityLinkKey,
@@ -123,7 +123,7 @@ impl GroupMembership {
         self.leaf_index = leaf_index;
     }
 
-    pub(crate) fn client_id(&self) -> &AsClientId {
+    pub(crate) fn client_id(&self) -> &UserId {
         &self.client_id
     }
 }

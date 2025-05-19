@@ -40,7 +40,7 @@ impl TimestampedMessage {
     pub(crate) fn from_application_message(
         application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> Self {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
@@ -128,7 +128,7 @@ impl ConversationMessage {
     }
 
     pub(crate) fn new_unsent_message(
-        sender: AsClientId,
+        sender: UserId,
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> ConversationMessage {
@@ -238,13 +238,13 @@ impl Message {
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
-    pub(super) sender: AsClientId,
+    pub(super) sender: UserId,
     pub(super) sent: bool,
     pub(super) content: MimiContent,
 }
 
 impl ContentMessage {
-    pub fn new(sender: AsClientId, sent: bool, content: MimiContent) -> Self {
+    pub fn new(sender: UserId, sent: bool, content: MimiContent) -> Self {
         Self {
             sender,
             sent,
@@ -252,11 +252,11 @@ impl ContentMessage {
         }
     }
 
-    pub fn into_parts(self) -> (AsClientId, bool, MimiContent) {
+    pub fn into_parts(self) -> (UserId, bool, MimiContent) {
         (self.sender, self.sent, self.content)
     }
 
-    pub fn sender(&self) -> &AsClientId {
+    pub fn sender(&self) -> &UserId {
         &self.sender
     }
 
@@ -282,8 +282,8 @@ pub enum EventMessage {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum SystemMessage {
     // The first UserName is the adder/remover the second is the added/removed.
-    Add(AsClientId, AsClientId),
-    Remove(AsClientId, AsClientId),
+    Add(UserId, UserId),
+    Remove(UserId, UserId),
 }
 
 impl SystemMessage {

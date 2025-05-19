@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::AsClientId};
+use phnxtypes::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::UserId};
 use sqlx::{SqliteExecutor, query, query_as};
 
 use crate::store::StoreNotifier;
@@ -80,7 +80,7 @@ struct SqlUser {
     profile_picture: Option<Asset>,
 }
 
-impl From<(AsClientId, SqlUser)> for IndexedUserProfile {
+impl From<(UserId, SqlUser)> for IndexedUserProfile {
     fn from(
         (
             client_id,
@@ -90,7 +90,7 @@ impl From<(AsClientId, SqlUser)> for IndexedUserProfile {
                 display_name,
                 profile_picture,
             },
-        ): (AsClientId, SqlUser),
+        ): (UserId, SqlUser),
     ) -> Self {
         Self {
             client_id,
@@ -105,7 +105,7 @@ impl From<(AsClientId, SqlUser)> for IndexedUserProfile {
 impl IndexedUserProfile {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         let uuid = client_id.client_id();
         let domain = client_id.domain();
@@ -130,7 +130,7 @@ impl IndexedUserProfile {
 impl UserProfile {
     pub async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         IndexedUserProfile::load(executor, client_id)
             .await
@@ -148,7 +148,7 @@ mod tests {
     use super::*;
 
     fn test_profile() -> (IndexedUserProfile, UserProfileKey) {
-        let client_id = AsClientId::random("localhost".parse().unwrap());
+        let client_id = UserId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&client_id).unwrap();
         let user_profile = IndexedUserProfile {
             client_id,

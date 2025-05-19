@@ -298,12 +298,12 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 mod tests {
     use mimi_content::MimiContent;
     use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
-    use phnxtypes::{identifiers::AsClientId, time::TimeStamp};
+    use phnxtypes::{identifiers::UserId, time::TimeStamp};
     use uuid::Uuid;
 
     use super::*;
 
-    fn new_test_message(sender: &AsClientId, timestamp_secs: i64) -> ConversationMessage {
+    fn new_test_message(sender: &UserId, timestamp_secs: i64) -> ConversationMessage {
         ConversationMessage::new_for_test(
             ConversationId::new(Uuid::from_u128(1)),
             ConversationMessageId::new(Uuid::from_u128(1)),
@@ -320,8 +320,8 @@ mod tests {
     fn test_rebuild_from_messages_flight_positions() {
         use UiFlightPosition::*;
 
-        let alice = AsClientId::random("localhost".parse().unwrap());
-        let bob = AsClientId::random("localhost".parse().unwrap());
+        let alice = UserId::random("localhost".parse().unwrap());
+        let bob = UserId::random("localhost".parse().unwrap());
 
         let messages = vec![
             new_test_message(&alice, 0),

@@ -13,20 +13,20 @@ use crate::{
         },
         signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
 };
 
 use super::*;
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfoPayload {
-    sender_client_id: AsClientId,
+    sender_client_id: UserId,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
 }
 
 impl WelcomeAttributionInfoPayload {
     pub fn new(
-        sender_client_id: AsClientId,
+        sender_client_id: UserId,
         identity_link_key_wrapper_key: IdentityLinkWrapperKey,
     ) -> Self {
         Self {
@@ -103,7 +103,7 @@ pub struct VerifiableWelcomeAttributionInfo {
 }
 
 impl VerifiableWelcomeAttributionInfo {
-    pub fn sender(&self) -> AsClientId {
+    pub fn sender(&self) -> UserId {
         self.payload.payload.sender_client_id.clone()
     }
 }

@@ -6,7 +6,7 @@ use std::{fmt::Display, fs, path::Path, time::Duration};
 
 use anyhow::{Result, bail};
 use openmls::group::GroupId;
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 use sqlx::{
     Database, Encode, Sqlite, SqlitePool, Type,
     encode::IsNull,
@@ -80,7 +80,7 @@ pub async fn delete_databases(client_db_path: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn delete_client_database(db_path: &str, as_client_id: &AsClientId) -> Result<()> {
+pub async fn delete_client_database(db_path: &str, as_client_id: &UserId) -> Result<()> {
     // Delete the client DB
     let client_db_name = client_db_name(as_client_id);
     let client_db_path = format!("{db_path}/{client_db_name}");
@@ -99,12 +99,12 @@ pub async fn delete_client_database(db_path: &str, as_client_id: &AsClientId) ->
     Ok(())
 }
 
-fn client_db_name(as_client_id: &AsClientId) -> String {
+fn client_db_name(as_client_id: &UserId) -> String {
     format!("{}@{}.db", as_client_id.client_id(), as_client_id.domain())
 }
 
 pub async fn open_client_db(
-    as_client_id: &AsClientId,
+    as_client_id: &UserId,
     client_db_path: &str,
 ) -> sqlx::Result<SqlitePool> {
     let client_db_name = client_db_name(as_client_id);

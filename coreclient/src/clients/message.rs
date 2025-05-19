@@ -6,7 +6,7 @@ use anyhow::{Context, bail};
 use mimi_content::MimiContent;
 use openmls::storage::OpenMlsProvider;
 use phnxtypes::{
-    identifiers::AsClientId, messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
+    identifiers::UserId, messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
 };
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -87,7 +87,7 @@ impl UnsentContent {
         self,
         txn: &mut sqlx::SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
-        sender: &AsClientId,
+        sender: &UserId,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
         let UnsentContent {
             conversation_id,

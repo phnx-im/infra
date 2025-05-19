@@ -5,7 +5,7 @@
 use chrono::{DateTime, Utc};
 use phnxtypes::{
     codec::PhnxCodec,
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{
@@ -63,7 +63,7 @@ impl<'r> Decode<'r, Sqlite> for UserCreationState {
 impl UserCreationState {
     pub(super) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         let uuid = client_id.client_id();
         let domain = client_id.domain();
@@ -138,7 +138,7 @@ struct SqlClientRecord {
 impl From<SqlClientRecord> for ClientRecord {
     fn from(value: SqlClientRecord) -> Self {
         Self {
-            client_id: AsClientId::new(value.as_client_uuid, value.as_domain),
+            client_id: UserId::new(value.as_client_uuid, value.as_domain),
             client_record_state: value.client_record_state,
             created_at: value.created_at,
             is_default: value.is_default,
@@ -171,7 +171,7 @@ impl ClientRecord {
 
     pub(super) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         let uuid = client_id.client_id();
         let domain = client_id.domain();
@@ -216,7 +216,7 @@ impl ClientRecord {
 
     pub async fn set_default(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<()> {
         let uuid = client_id.client_id();
         let domain = client_id.domain();
@@ -232,7 +232,7 @@ impl ClientRecord {
 
     pub(crate) async fn delete(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        client_id: &UserId,
     ) -> sqlx::Result<()> {
         let uuid = client_id.client_id();
         let domain = client_id.domain();
@@ -261,7 +261,7 @@ mod tests {
     use super::*;
 
     fn new_client_record(id: Uuid, created_at: DateTime<Utc>) -> ClientRecord {
-        let client_id = AsClientId::new(id, "localhost".parse().unwrap());
+        let client_id = UserId::new(id, "localhost".parse().unwrap());
         ClientRecord {
             client_id,
             client_record_state: ClientRecordState::Finished,
@@ -311,7 +311,7 @@ mod tests {
         let user_id = Uuid::from_u128(1);
 
         UserCreationState::BasicUserData(BasicUserData {
-            as_client_id: AsClientId::new(user_id, "localhost".parse().unwrap()),
+            as_client_id: UserId::new(user_id, "localhost".parse().unwrap()),
             server_url: "localhost".to_owned(),
             push_token: Some(PushToken::new(
                 PushTokenOperator::Google,

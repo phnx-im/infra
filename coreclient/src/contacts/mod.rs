@@ -12,7 +12,7 @@ use phnxtypes::{
         indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
     messages::FriendshipToken,
 };
 use sqlx::SqliteConnection;
@@ -29,7 +29,7 @@ pub(crate) mod persistence;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contact {
-    pub client_id: AsClientId,
+    pub client_id: UserId,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
@@ -48,7 +48,7 @@ pub(crate) struct ContactAddInfos {
 
 impl Contact {
     pub(crate) fn from_friendship_package(
-        client_id: AsClientId,
+        client_id: UserId,
         conversation_id: ConversationId,
         friendship_package: FriendshipPackage,
     ) -> Result<Self, LibraryError> {
@@ -125,7 +125,7 @@ impl Contact {
 /// Contact which has not yet accepted our connection request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartialContact {
-    pub client_id: AsClientId,
+    pub client_id: UserId,
     // ID of the connection conversation with this contact.
     pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
@@ -133,7 +133,7 @@ pub struct PartialContact {
 
 impl PartialContact {
     pub(crate) fn new(
-        client_id: AsClientId,
+        client_id: UserId,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Self {

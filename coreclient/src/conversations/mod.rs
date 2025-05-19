@@ -7,7 +7,7 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxtypes::{
-    identifiers::{AsClientId, Fqdn, QualifiedGroupId},
+    identifiers::{Fqdn, QualifiedGroupId, UserId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,7 @@ pub struct Conversation {
 impl Conversation {
     pub(crate) fn new_connection_conversation(
         group_id: GroupId,
-        client_id: AsClientId,
+        client_id: UserId,
         attributes: ConversationAttributes,
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
@@ -167,7 +167,7 @@ impl Conversation {
         &mut self,
         executor: &mut SqliteConnection,
         notifier: &mut StoreNotifier,
-        past_members: Vec<AsClientId>,
+        past_members: Vec<UserId>,
     ) -> sqlx::Result<()> {
         let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
         Self::update_status(executor, notifier, self.id, &new_status).await?;
@@ -200,19 +200,19 @@ pub enum ConversationStatus {
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct InactiveConversation {
-    pub past_members: Vec<AsClientId>,
+    pub past_members: Vec<UserId>,
 }
 
 impl InactiveConversation {
-    pub fn new(past_members: Vec<AsClientId>) -> Self {
+    pub fn new(past_members: Vec<UserId>) -> Self {
         Self { past_members }
     }
 
-    pub fn past_members(&self) -> &[AsClientId] {
+    pub fn past_members(&self) -> &[UserId] {
         &self.past_members
     }
 
-    pub fn past_members_mut(&mut self) -> &mut Vec<AsClientId> {
+    pub fn past_members_mut(&mut self) -> &mut Vec<UserId> {
         &mut self.past_members
     }
 }
@@ -220,10 +220,10 @@ impl InactiveConversation {
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum ConversationType {
     // A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(AsClientId),
+    UnconfirmedConnection(UserId),
     // A connection conversation that is confirmed by the other party and for
     // which we have received the necessary secrets.
-    Connection(AsClientId),
+    Connection(UserId),
     Group,
 }
 

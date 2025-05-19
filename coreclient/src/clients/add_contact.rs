@@ -10,7 +10,7 @@ use phnxtypes::{
         ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable,
         indexed_aead::keys::UserProfileKey, signatures::signable::Signable,
     },
-    identifiers::{AsClientId, Fqdn, QsReference},
+    identifiers::{Fqdn, QsReference, UserId},
     messages::{
         client_as::{ConnectionPackage, UserConnectionPackagesParams},
         client_as_out::UserConnectionPackagesResponseIn,
@@ -40,10 +40,7 @@ impl CoreUser {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    pub(crate) async fn add_contact(
-        &self,
-        client_id: AsClientId,
-    ) -> anyhow::Result<ConversationId> {
+    pub(crate) async fn add_contact(&self, client_id: UserId) -> anyhow::Result<ConversationId> {
         let mut connection = self.pool().acquire().await?;
 
         let connection_packages =
@@ -98,7 +95,7 @@ impl CoreUser {
 
 async fn fetch_user_connection_packages(
     api_clients: &ApiClients,
-    client_id: AsClientId,
+    client_id: UserId,
 ) -> anyhow::Result<FetchedUseConnectionPackage> {
     // Phase 1: Fetch connection key packages from the AS
     let domain = client_id.domain();
@@ -189,8 +186,8 @@ impl VerifiedConnectionPackagesWithGroupId {
         txn: &mut sqlx::SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
-        self_client_id: &AsClientId,
-        connection_client_id: &AsClientId,
+        self_client_id: &UserId,
+        connection_client_id: &UserId,
     ) -> anyhow::Result<LocalGroup> {
         let Self {
             verified_connection_packages,
@@ -248,8 +245,8 @@ impl LocalGroup {
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
         own_client_reference: QsReference,
-        own_client_id: &AsClientId,
-        contact_client_id: AsClientId,
+        own_client_id: &UserId,
+        contact_client_id: UserId,
     ) -> anyhow::Result<LocalPartialContact> {
         let Self {
             group,

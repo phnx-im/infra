@@ -5,7 +5,7 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use enumset::EnumSet;
-use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
+use phnxtypes::{codec::PhnxCodec, identifiers::UserId};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
@@ -20,7 +20,7 @@ use crate::{ConversationId, ConversationMessageId};
 use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 
 #[derive(Serialize, Deserialize)]
-struct StoredAsClientId<'a>(Cow<'a, AsClientId>);
+struct StoredAsClientId<'a>(Cow<'a, UserId>);
 
 impl Type<Sqlite> for StoreEntityId {
     fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
@@ -188,7 +188,7 @@ mod tests {
     async fn queue_dequeue_notification(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notification = StoreNotification::default();
         notification.ops.insert(
-            StoreEntityId::User(AsClientId::random("localhost".parse()?)),
+            StoreEntityId::User(UserId::random("localhost".parse()?)),
             StoreOperation::Add.into(),
         );
         notification.ops.insert(

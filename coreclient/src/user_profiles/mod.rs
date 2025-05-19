@@ -20,7 +20,7 @@ use phnxtypes::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
     messages::client_as_out::EncryptedUserProfileCtype,
 };
 use sealed::Seal;
@@ -103,12 +103,9 @@ pub(crate) struct VerifiableUserProfile {
 #[derive(Debug, Error)]
 pub enum UserProfileValidationError {
     #[error("User profile is outdated")]
-    OutdatedUserProfile { client_id: AsClientId, epoch: u64 },
+    OutdatedUserProfile { client_id: UserId, epoch: u64 },
     #[error("Mismatching client id")]
-    MismatchingClientId {
-        expected: AsClientId,
-        actual: AsClientId,
-    },
+    MismatchingClientId { expected: UserId, actual: UserId },
     #[error(transparent)]
     InvalidSignature(#[from] SignatureVerificationError),
     #[error(transparent)]
@@ -117,13 +114,13 @@ pub enum UserProfileValidationError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserProfile {
-    pub client_id: AsClientId,
+    pub client_id: UserId,
     pub display_name: DisplayName,
     pub profile_picture: Option<Asset>,
 }
 
 impl UserProfile {
-    pub fn from_client_id(client_id: &AsClientId) -> Self {
+    pub fn from_client_id(client_id: &UserId) -> Self {
         Self {
             client_id: client_id.clone(),
             display_name: DisplayName::from_client_id(client_id),
@@ -148,7 +145,7 @@ impl From<IndexedUserProfile> for UserProfile {
     Debug, Clone, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
 )]
 pub(crate) struct BaseIndexedUserProfile<const VALIDATED: bool> {
-    client_id: AsClientId,
+    client_id: UserId,
     epoch: u64,
     decryption_key_index: UserProfileKeyIndex,
     display_name: BaseDisplayName<VALIDATED>,

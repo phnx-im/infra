@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use phnxtypes::identifiers::{AsClientId, Fqdn};
+use phnxtypes::identifiers::{Fqdn, UserId};
 use sqlx::{Connection, SqliteConnection, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use tracing::info;
@@ -45,7 +45,7 @@ impl SqlConversation {
 
         let conversation_type = match (connection_as_client_uuid, connection_as_domain) {
             (Some(client_uuid), Some(domain)) => {
-                let connection_client_id = AsClientId::new(client_uuid, domain);
+                let connection_client_id = UserId::new(client_uuid, domain);
                 if is_confirmed_connection {
                     ConversationType::Connection(connection_client_id)
                 } else {
@@ -92,14 +92,14 @@ struct SqlPastMember {
     member_as_domain: Fqdn,
 }
 
-impl From<SqlPastMember> for AsClientId {
+impl From<SqlPastMember> for UserId {
     fn from(
         SqlPastMember {
             member_as_client_uuid,
             member_as_domain,
         }: SqlPastMember,
     ) -> Self {
-        AsClientId::new(member_as_client_uuid, member_as_domain)
+        UserId::new(member_as_client_uuid, member_as_domain)
     }
 }
 
@@ -718,8 +718,8 @@ pub mod tests {
             .await?;
 
         let mut past_members = vec![
-            AsClientId::random("localhost".parse().unwrap()),
-            AsClientId::random("localhost".parse().unwrap()),
+            UserId::random("localhost".parse().unwrap()),
+            UserId::random("localhost".parse().unwrap()),
         ];
         // implicit assumption: past members are sorted
         past_members.sort_unstable();

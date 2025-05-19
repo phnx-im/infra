@@ -221,18 +221,18 @@ impl FromStr for QualifiedGroupId {
     TlsSerialize,
     TlsDeserializeBytes,
 )]
-pub struct AsClientId {
+pub struct UserId {
     client_id: TlsUuid,
     domain: Fqdn,
 }
 
-impl fmt::Debug for AsClientId {
+impl fmt::Debug for UserId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}@{}", self.client_id.0, self.domain)
     }
 }
 
-impl AsClientId {
+impl UserId {
     pub fn new(client_id: Uuid, domain: Fqdn) -> Self {
         Self {
             client_id: TlsUuid(client_id),

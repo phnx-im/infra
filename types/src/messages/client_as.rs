@@ -29,7 +29,7 @@ use crate::{
         ratchet::QueueRatchet,
         signatures::signable::{Signable, Signature, SignedStruct, VerifiedStruct},
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
     time::ExpirationData,
 };
 
@@ -239,7 +239,7 @@ impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessage
 
 #[derive(Debug)]
 pub struct UserConnectionPackagesParams {
-    pub client_id: AsClientId,
+    pub client_id: UserId,
 }
 
 #[derive(Debug)]
@@ -249,7 +249,7 @@ pub struct UserConnectionPackagesResponse {
 
 #[derive(Debug)]
 pub struct EnqueueMessageParams {
-    pub client_id: AsClientId,
+    pub client_id: UserId,
     pub connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
 }
 
@@ -265,7 +265,7 @@ pub struct AsCredentialsResponse {
 
 #[derive(Debug)]
 pub struct IssueTokensParamsTbs {
-    pub client_id: AsClientId,
+    pub client_id: UserId,
     pub token_type: AsTokenType,
     pub token_request: AmortizedBatchTokenRequest<Ristretto255>,
 }

@@ -18,7 +18,7 @@ use phnxcoreclient::{
     InactiveConversation, Message, SystemMessage, UserProfile, store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 use uuid::Uuid;
 
 use super::markdown::MessageContent;
@@ -45,8 +45,8 @@ pub struct UiClientId {
     pub domain: String,
 }
 
-impl From<AsClientId> for UiClientId {
-    fn from(client_id: AsClientId) -> Self {
+impl From<UserId> for UiClientId {
+    fn from(client_id: UserId) -> Self {
         let (uuid, domain) = client_id.into_parts();
         Self {
             uuid,
@@ -55,9 +55,9 @@ impl From<AsClientId> for UiClientId {
     }
 }
 
-impl From<UiClientId> for AsClientId {
+impl From<UiClientId> for UserId {
     fn from(client_id: UiClientId) -> Self {
-        AsClientId::new(
+        UserId::new(
             client_id.uuid,
             client_id.domain.parse().expect("logic error: invalid data"),
         )
@@ -464,7 +464,7 @@ impl UiUserProfile {
         }
     }
 
-    pub(crate) fn from_client_id(client_id: AsClientId) -> Self {
+    pub(crate) fn from_client_id(client_id: UserId) -> Self {
         let display_name = DisplayName::from_client_id(&client_id);
         Self {
             client_id: client_id.into(),
