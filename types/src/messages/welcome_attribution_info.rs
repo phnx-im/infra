@@ -20,17 +20,17 @@ use super::*;
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfoPayload {
-    sender_client_id: UserId,
+    sender_user_id: UserId,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
 }
 
 impl WelcomeAttributionInfoPayload {
     pub fn new(
-        sender_client_id: UserId,
+        sender_user_id: UserId,
         identity_link_key_wrapper_key: IdentityLinkWrapperKey,
     ) -> Self {
         Self {
-            sender_client_id,
+            sender_user_id,
             identity_link_wrapper_key: identity_link_key_wrapper_key,
         }
     }
@@ -104,7 +104,7 @@ pub struct VerifiableWelcomeAttributionInfo {
 
 impl VerifiableWelcomeAttributionInfo {
     pub fn sender(&self) -> UserId {
-        self.payload.payload.sender_client_id.clone()
+        self.payload.payload.sender_user_id.clone()
     }
 }
 

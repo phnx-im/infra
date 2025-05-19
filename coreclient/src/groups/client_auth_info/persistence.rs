@@ -35,12 +35,12 @@ impl StorableClientCredential {
         .map(|res| res.map(StorableClientCredential::new))
     }
 
-    pub(crate) async fn load_by_client_id(
+    pub(crate) async fn load_by_user_id(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query_scalar!(
             r#"SELECT
                 client_credential AS "client_credential: _"
@@ -57,9 +57,9 @@ impl StorableClientCredential {
     /// Stores the client credential in the database if it does not already exist.
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let fingerprint = self.fingerprint();
-        let client_id = self.client_credential.identity();
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let user_id = self.client_credential.identity();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "INSERT OR IGNORE INTO client_credentials
                 (fingerprint, user_uuid, user_domain, client_credential) VALUES (?, ?, ?, ?)",
@@ -95,7 +95,7 @@ impl From<SqlGroupMembership> for GroupMembership {
         }: SqlGroupMembership,
     ) -> Self {
         Self {
-            client_id: UserId::new(user_uuid, user_domain),
+            user_id: UserId::new(user_uuid, user_domain),
             group_id,
             leaf_index: LeafNodeIndex::new(leaf_index),
             identity_link_key: IdentityLinkKey::from(identity_link_key),
@@ -123,7 +123,7 @@ impl GroupMembership {
 
         // Move modified information from 'staged_update' rows to their
         // 'merged' counterparts (i.e. rows with the same group_id and
-        // client_id).
+        // user_id).
         query!(
             "UPDATE group_membership AS merged
             SET client_credential_fingerprint = staged.client_credential_fingerprint,
@@ -161,8 +161,8 @@ impl GroupMembership {
     }
 
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
         let identity_link_key = self.identity_link_key.as_ref();
@@ -189,8 +189,8 @@ impl GroupMembership {
     }
 
     pub(super) async fn stage_update(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
         let identity_link_key = self.identity_link_key.as_ref();
@@ -217,8 +217,8 @@ impl GroupMembership {
     }
 
     pub(super) async fn stage_add(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let uuid = self.client_id.uuid();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
         let identity_link_key = self.identity_link_key.as_ref();
@@ -358,9 +358,9 @@ impl GroupMembership {
     pub(in crate::groups) async fn client_indices(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-        client_ids: &[UserId],
+        user_ids: &[UserId],
     ) -> sqlx::Result<Vec<LeafNodeIndex>> {
-        let placeholders = client_ids
+        let placeholders = user_ids
             .iter()
             .map(|_| "(?, ?)")
             .collect::<Vec<_>>()
@@ -372,8 +372,8 @@ impl GroupMembership {
         );
 
         let mut query = sqlx::query(&query_string).bind(GroupIdRefWrapper::from(group_id));
-        for client_id in client_ids {
-            query = query.bind(client_id.uuid()).bind(client_id.domain());
+        for user_id in user_ids {
+            query = query.bind(user_id.uuid()).bind(user_id.domain());
         }
 
         query
@@ -439,10 +439,10 @@ mod tests {
     use super::*;
 
     /// Returns test credential with a fixed identity but random payload.
-    fn test_client_credential(client_id: Uuid) -> StorableClientCredential {
-        let client_id = UserId::new(client_id, "localhost".parse().unwrap());
+    fn test_client_credential(user_uuid: Uuid) -> StorableClientCredential {
+        let user_id = UserId::new(user_uuid, "localhost".parse().unwrap());
         let (client_credential_csr, _) =
-            ClientCredentialCsr::new(client_id, SignatureScheme::ED25519).unwrap();
+            ClientCredentialCsr::new(user_id, SignatureScheme::ED25519).unwrap();
         let fingerprint = CredentialFingerprint::new_for_test(b"fingerprint".to_vec());
         let client_credential = ClientCredential::from_payload(
             ClientCredentialPayload::new(client_credential_csr, None, fingerprint),
@@ -473,7 +473,7 @@ mod tests {
         let credential = test_client_credential(Uuid::new_v4());
 
         credential.store(&pool).await?;
-        let loaded = StorableClientCredential::load_by_client_id(&pool, credential.identity())
+        let loaded = StorableClientCredential::load_by_user_id(&pool, credential.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -489,7 +489,7 @@ mod tests {
         let credential = test_client_credential(Uuid::new_v4());
 
         credential.store(&pool).await?;
-        let loaded = StorableClientCredential::load_by_client_id(&pool, credential.identity())
+        let loaded = StorableClientCredential::load_by_user_id(&pool, credential.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -567,7 +567,7 @@ mod tests {
         credential_1.store(&pool).await?;
         credential_2.store(&pool).await?;
 
-        let loaded = StorableClientCredential::load_by_client_id(&pool, credential_1.identity())
+        let loaded = StorableClientCredential::load_by_user_id(&pool, credential_1.identity())
             .await?
             .expect("missing credential");
         assert_eq!(

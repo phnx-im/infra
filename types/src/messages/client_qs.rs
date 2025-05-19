@@ -42,7 +42,7 @@ pub struct CreateUserRecordParams {
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub struct CreateUserRecordResponse {
     pub user_id: QsUserId,
-    pub client_id: QsClientId,
+    pub qs_client_id: QsClientId,
 }
 
 #[derive(Debug)]
@@ -70,7 +70,7 @@ pub struct CreateClientRecordParams {
 
 #[derive(Debug)]
 pub struct CreateClientRecordResponse {
-    pub client_id: QsClientId,
+    pub qs_client_id: QsClientId,
 }
 
 #[derive(Debug)]

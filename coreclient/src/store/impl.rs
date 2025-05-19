@@ -94,24 +94,24 @@ impl Store for CoreUser {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact(&self, client_id: UserId) -> StoreResult<ConversationId> {
-        self.add_contact(client_id).await
+    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId> {
+        self.add_contact(user_id).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
         Ok(self.contacts().await?)
     }
 
-    async fn contact(&self, client_id: &UserId) -> StoreResult<Option<Contact>> {
-        Ok(self.try_contact(client_id).await?)
+    async fn contact(&self, user_id: &UserId) -> StoreResult<Option<Contact>> {
+        Ok(self.try_contact(user_id).await?)
     }
 
     async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>> {
         Ok(self.partial_contacts().await?)
     }
 
-    async fn user_profile(&self, client_id: &UserId) -> UserProfile {
-        self.user_profile(client_id).await
+    async fn user_profile(&self, user_id: &UserId) -> UserProfile {
+        self.user_profile(user_id).await
     }
 
     async fn messages(

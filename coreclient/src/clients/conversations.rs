@@ -309,7 +309,7 @@ mod create_conversation_flow {
             let user_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
             let encrypted_user_profile_key = user_profile_key.encrypt(
                 group.identity_link_wrapper_key(),
-                group_membership.client_id(),
+                group_membership.user_id(),
             )?;
 
             group_membership.store(txn.as_mut()).await?;

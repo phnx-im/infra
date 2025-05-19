@@ -45,14 +45,14 @@ impl Qs {
             initial_ratchet_secret,
         };
 
-        let CreateClientRecordResponse { client_id } = self
+        let CreateClientRecordResponse { qs_client_id } = self
             .qs_create_client_record(create_client_params)
             .await
             .map_err(|_| QsCreateUserError::StorageError)?;
 
         let response = CreateUserRecordResponse {
             user_id: user_record.user_id,
-            client_id,
+            qs_client_id,
         };
 
         Ok(response)

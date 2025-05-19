@@ -380,7 +380,10 @@ impl AsRegisteredUserState {
             encrypted_push_token,
         } = self;
 
-        let CreateUserRecordResponse { user_id, client_id } = api_clients
+        let CreateUserRecordResponse {
+            user_id,
+            qs_client_id: client_id,
+        } = api_clients
             .default_client()?
             .qs_create_user(
                 key_store.friendship_token.clone(),

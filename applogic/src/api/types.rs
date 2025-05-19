@@ -462,10 +462,10 @@ impl UiUserProfile {
         }
     }
 
-    pub(crate) fn from_user_id(client_id: UserId) -> Self {
-        let display_name = DisplayName::from_user_id(&client_id);
+    pub(crate) fn from_user_id(user_id: UserId) -> Self {
+        let display_name = DisplayName::from_user_id(&user_id);
         Self {
-            user_id: client_id.into(),
+            user_id: user_id.into(),
             display_name: display_name.into_string(),
             profile_picture: None,
         }

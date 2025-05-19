@@ -56,10 +56,10 @@ impl From<SqlContact> for Contact {
 impl Contact {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query_as!(
             SqlContact,
             r#"SELECT
@@ -133,11 +133,11 @@ impl Contact {
 
     pub(crate) async fn update_user_profile_key_index(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
         key_index: &UserProfileKeyIndex,
     ) -> sqlx::Result<()> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "UPDATE contacts SET user_profile_key_index = ?
             WHERE user_uuid = ? AND user_domain = ?",
@@ -302,10 +302,10 @@ mod tests {
     use super::*;
 
     fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
-        let client_id = UserId::random("localhost".parse().unwrap());
-        let user_profile_key = UserProfileKey::random(&client_id).unwrap();
+        let user_id = UserId::random("localhost".parse().unwrap());
+        let user_profile_key = UserProfileKey::random(&user_id).unwrap();
         let contact = Contact {
-            user_id: client_id,
+            user_id,
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             friendship_token: FriendshipToken::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
@@ -316,9 +316,9 @@ mod tests {
     }
 
     fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
-        let client_id = UserId::random("localhost".parse().unwrap());
+        let user_id = UserId::random("localhost".parse().unwrap());
         PartialContact {
-            user_id: client_id,
+            user_id,
             conversation_id,
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
         }
@@ -394,7 +394,7 @@ mod tests {
             .await?;
 
         let partial = test_partial_contact(conversation.id());
-        let client_id = partial.user_id.clone();
+        let user_id = partial.user_id.clone();
 
         let user_profile_key = UserProfileKey::random(&partial.user_id)?;
         user_profile_key.store(&pool).await?;
@@ -421,10 +421,10 @@ mod tests {
 
         txn.commit().await?;
 
-        let loaded = PartialContact::load(&pool, &client_id).await?;
+        let loaded = PartialContact::load(&pool, &user_id).await?;
         assert!(loaded.is_none());
 
-        let loaded = Contact::load(&pool, &client_id).await?.unwrap();
+        let loaded = Contact::load(&pool, &user_id).await?.unwrap();
         assert_eq!(loaded, contact);
 
         Ok(())

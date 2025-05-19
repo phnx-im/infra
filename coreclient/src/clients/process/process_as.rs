@@ -255,18 +255,18 @@ impl CoreUser {
         group: &Group,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
     ) -> Result<(Conversation, Contact)> {
-        let sender_client_id = cep_tbs.sender_client_credential.identity();
+        let sender_user_id = cep_tbs.sender_client_credential.identity();
 
-        let display_name = self.user_profile(sender_client_id).await.display_name;
+        let display_name = self.user_profile(sender_user_id).await.display_name;
 
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
-            sender_client_id.clone(),
+            sender_user_id.clone(),
             // TODO: conversation title
             ConversationAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
-            sender_client_id.clone(),
+            sender_user_id.clone(),
             conversation.id(),
             cep_tbs.friendship_package.clone(),
         )?;

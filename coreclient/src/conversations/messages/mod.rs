@@ -40,11 +40,11 @@ impl TimestampedMessage {
     pub(crate) fn from_application_message(
         application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> Self {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
-                client_id.clone(),
+                user_id.clone(),
                 true,
                 content,
             ))),

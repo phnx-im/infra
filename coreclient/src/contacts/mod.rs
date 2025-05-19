@@ -96,7 +96,7 @@ impl Contact {
         )
         .await?;
         // Check that the client credential is the same as the one we have on file.
-        let Some(current_client_credential) = StorableClientCredential::load_by_client_id(
+        let Some(current_client_credential) = StorableClientCredential::load_by_user_id(
             &mut *connection,
             incoming_client_credential.identity(),
         )

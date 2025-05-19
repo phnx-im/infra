@@ -106,8 +106,9 @@ struct CoreUserInner {
 }
 
 impl CoreUser {
-    /// Create a new user with the given `client_id`. If a user with this name already exists, this
-    /// will overwrite that user.
+    /// Create a new user with the given `user_id`.
+    ///
+    /// If a user with this name already exists, this will overwrite that user.
     pub async fn new(
         user_id: UserId,
         server_url: Url,
@@ -217,9 +218,9 @@ impl CoreUser {
     ///
     /// The user database is also deleted. The client record is removed from the phnx database.
     pub async fn delete(self, db_path: &str) -> anyhow::Result<()> {
-        let as_client_id = self.user_id().clone();
+        let user_id = self.user_id().clone();
         self.delete_ephemeral().await?;
-        delete_client_database(db_path, &as_client_id).await?;
+        delete_client_database(db_path, &user_id).await?;
         Ok(())
     }
 
@@ -348,16 +349,16 @@ impl CoreUser {
     ///
     /// In case of an error, or if the user profile is not found, the client id is used as a
     /// fallback.
-    pub async fn user_profile(&self, client_id: &UserId) -> UserProfile {
-        IndexedUserProfile::load(self.pool(), client_id)
+    pub async fn user_profile(&self, user_id: &UserId) -> UserProfile {
+        IndexedUserProfile::load(self.pool(), user_id)
             .await
             .inspect_err(|error| {
-                error!(%error, "Error loading user profile; fallback to client_id");
+                error!(%error, "Error loading user profile; fallback to user_id");
             })
             .ok()
             .flatten()
             .map(UserProfile::from)
-            .unwrap_or_else(|| UserProfile::from_user_id(client_id))
+            .unwrap_or_else(|| UserProfile::from_user_id(user_id))
     }
 
     async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
@@ -418,12 +419,12 @@ impl CoreUser {
         Ok(contacts)
     }
 
-    pub async fn contact(&self, client_id: &UserId) -> Option<Contact> {
-        self.try_contact(client_id).await.ok().flatten()
+    pub async fn contact(&self, user_id: &UserId) -> Option<Contact> {
+        self.try_contact(user_id).await.ok().flatten()
     }
 
-    pub async fn try_contact(&self, client_id: &UserId) -> sqlx::Result<Option<Contact>> {
-        Contact::load(self.pool(), client_id).await
+    pub async fn try_contact(&self, user_id: &UserId) -> sqlx::Result<Option<Contact>> {
+        Contact::load(self.pool(), user_id).await
     }
 
     pub async fn partial_contacts(&self) -> sqlx::Result<Vec<PartialContact>> {

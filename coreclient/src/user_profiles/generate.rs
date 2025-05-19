@@ -22,13 +22,13 @@ impl NewUserProfile {
     /// the database.
     pub(crate) fn new(
         signing_key: &PreliminaryClientSigningKey,
-        client_id: UserId,
+        user_id: UserId,
         decryption_key_index: UserProfileKeyIndex,
         display_name: DisplayName,
         profile_picture: Option<Asset>,
     ) -> Result<Self, LibraryError> {
         let profile = IndexedUserProfile {
-            user_id: client_id,
+            user_id,
             epoch: 0,
             decryption_key_index,
             display_name,

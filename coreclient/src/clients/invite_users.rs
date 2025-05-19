@@ -111,7 +111,7 @@ mod invite_users_flow {
                 contact_wai_keys.push(contact.wai_ear_key().clone());
 
                 if let Some(client_credential) =
-                    StorableClientCredential::load_by_client_id(&mut *connection, invited_user)
+                    StorableClientCredential::load_by_user_id(&mut *connection, invited_user)
                         .await?
                 {
                     client_credentials.push(ClientCredential::from(client_credential));

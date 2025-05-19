@@ -353,9 +353,9 @@ impl Group {
             )?
             .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
-            let sender_client_id = verifiable_attribution_info.sender();
+            let sender_user_id = verifiable_attribution_info.sender();
             let sender_client_credential =
-                StorableClientCredential::load_by_client_id(txn.as_mut(), &sender_client_id)
+                StorableClientCredential::load_by_user_id(txn.as_mut(), &sender_user_id)
                     .await?
                     .ok_or_else(|| {
                         anyhow!("Could not find client credential of sender in database.")
@@ -938,7 +938,7 @@ impl Group {
             .await
             .ok()
             .flatten()
-            .map(|group_membership| group_membership.client_id().clone())
+            .map(|group_membership| group_membership.user_id().clone())
     }
 
     pub(crate) fn identity_link_wrapper_key(&self) -> &IdentityLinkWrapperKey {
@@ -1145,9 +1145,9 @@ impl TimestampedMessage {
             let client_auth_info = ClientAuthInfo::load(&mut *connection, group_id, *sender_index)
                 .await?
                 .ok_or_else(|| anyhow!("Could not find client credential of sender"))?;
-            let client_id = client_auth_info.client_credential().identity();
+            let user_id = client_auth_info.client_credential().identity();
             debug!(
-                ?client_id,
+                ?user_id,
                 %sender_index, "Client has updated their key material",
             );
         }

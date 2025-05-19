@@ -88,7 +88,7 @@ pub struct Conversation {
 impl Conversation {
     pub(crate) fn new_connection_conversation(
         group_id: GroupId,
-        client_id: UserId,
+        user_id: UserId,
         attributes: ConversationAttributes,
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that conversation ids are the
@@ -98,7 +98,7 @@ impl Conversation {
             group_id,
             last_read: Utc::now(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(client_id),
+            conversation_type: ConversationType::UnconfirmedConnection(user_id),
             attributes,
         };
         Ok(conversation)

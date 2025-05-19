@@ -57,7 +57,7 @@ impl Qs {
         })?;
 
         let response = CreateClientRecordResponse {
-            client_id: client_record.client_id,
+            qs_client_id: client_record.client_id,
         };
 
         Ok(response)

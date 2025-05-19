@@ -688,11 +688,11 @@ pub mod persistence {
             }
         }
 
-        pub fn into_client_credential(self, client_id: UserId) -> ClientCredential {
+        pub fn into_client_credential(self, user_id: UserId) -> ClientCredential {
             let payload = ClientCredentialPayload {
                 csr: ClientCredentialCsr {
                     version: PhnxCodec::from_slice(&self.version).unwrap(),
-                    user_id: client_id,
+                    user_id,
                     signature_scheme: PhnxCodec::from_slice(&self.signature_scheme).unwrap(),
                     verifying_key: self.verifying_key,
                 },

@@ -46,7 +46,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.9.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -28626811;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 193345651;
 
 // Section: executor
 
@@ -432,7 +432,7 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_create_c
             let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
             let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>>::sse_decode(&mut deserializer);
-let api_client_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
+let api_user_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
                     transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
                         let mut api_that_guard = None;
 let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
@@ -443,7 +443,7 @@ let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decod
             }
         }
         let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_list_cubit::ConversationListCubitBase::create_connection(&*api_that_guard, api_client_id).await?;   Ok(output_ok)
+ let output_ok = crate::api::conversation_list_cubit::ConversationListCubitBase::create_connection(&*api_that_guard, api_user_id).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -2403,54 +2403,6 @@ fn wire__crate__api__conversation_details_cubit__UiRoomState_can_kick_impl(
         },
     )
 }
-fn wire__crate__api__user_cubit__UiUser_client_id_impl(
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "UiUser_client_id",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>,
-            >>::sse_decode(&mut deserializer);
-            deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let mut api_that_guard = None;
-                let decode_indices_ =
-                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
-                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                            &api_that, 0, false,
-                        ),
-                    ]);
-                for i in decode_indices_ {
-                    match i {
-                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
-                        _ => unreachable!(),
-                    }
-                }
-                let api_that_guard = api_that_guard.unwrap();
-                let output_ok = Result::<_, ()>::Ok(crate::api::user_cubit::UiUser::client_id(
-                    &*api_that_guard,
-                ))?;
-                Ok(output_ok)
-            })())
-        },
-    )
-}
 fn wire__crate__api__user_cubit__UiUser_display_name_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -2547,6 +2499,53 @@ fn wire__crate__api__user_cubit__UiUser_profile_picture_impl(
         },
     )
 }
+fn wire__crate__api__user_cubit__UiUser_user_id_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "UiUser_user_id",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_that_guard = api_that_guard.unwrap();
+                let output_ok =
+                    Result::<_, ()>::Ok(crate::api::user_cubit::UiUser::user_id(&*api_that_guard))?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__user_cubit__UserCubitBase_add_user_to_conversation_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2574,7 +2573,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_add_user_to_conversation_impl(
             >>::sse_decode(&mut deserializer);
             let api_conversation_id =
                 <crate::api::types::ConversationId>::sse_decode(&mut deserializer);
-            let api_client_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
+            let api_user_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
@@ -2600,7 +2599,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_add_user_to_conversation_impl(
                             crate::api::user_cubit::UserCubitBase::add_user_to_conversation(
                                 &*api_that_guard,
                                 api_conversation_id,
-                                api_client_id,
+                                api_user_id,
                             )
                             .await?;
                         Ok(output_ok)
@@ -2854,7 +2853,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_remove_user_from_conversation_imp
             >>::sse_decode(&mut deserializer);
             let api_conversation_id =
                 <crate::api::types::ConversationId>::sse_decode(&mut deserializer);
-            let api_client_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
+            let api_user_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
@@ -2880,7 +2879,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_remove_user_from_conversation_imp
                             crate::api::user_cubit::UserCubitBase::remove_user_from_conversation(
                                 &*api_that_guard,
                                 api_conversation_id,
-                                api_client_id,
+                                api_user_id,
                             )
                             .await?;
                         Ok(output_ok)
@@ -3139,7 +3138,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_user_profile_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>,
             >>::sse_decode(&mut deserializer);
-            let api_client_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
+            let api_user_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, ()>(
@@ -3164,7 +3163,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_user_profile_impl(
                         let output_ok = Result::<_, ()>::Ok(
                             crate::api::user_cubit::UserCubitBase::user_profile(
                                 &*api_that_guard,
-                                api_client_id,
+                                api_user_id,
                             )
                             .await,
                         )?;
@@ -3699,13 +3698,13 @@ fn wire__crate__api__utils__delete_client_database_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_db_path = <String>::sse_decode(&mut deserializer);
-            let api_client_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
+            let api_user_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || async move {
                         let output_ok =
-                            crate::api::utils::delete_client_database(api_db_path, api_client_id)
+                            crate::api::utils::delete_client_database(api_db_path, api_user_id)
                                 .await?;
                         Ok(output_ok)
                     })()
@@ -5747,9 +5746,9 @@ fn pde_ffi_dispatcher_sync_impl(
 45 => wire__crate__api__navigation_cubit__NavigationCubitBase_pop_impl(ptr, rust_vec_len, data_len),
 46 => wire__crate__api__navigation_cubit__NavigationCubitBase_state_impl(ptr, rust_vec_len, data_len),
 48 => wire__crate__api__conversation_details_cubit__UiRoomState_can_kick_impl(ptr, rust_vec_len, data_len),
-49 => wire__crate__api__user_cubit__UiUser_client_id_impl(ptr, rust_vec_len, data_len),
-50 => wire__crate__api__user_cubit__UiUser_display_name_impl(ptr, rust_vec_len, data_len),
-51 => wire__crate__api__user_cubit__UiUser_profile_picture_impl(ptr, rust_vec_len, data_len),
+49 => wire__crate__api__user_cubit__UiUser_display_name_impl(ptr, rust_vec_len, data_len),
+50 => wire__crate__api__user_cubit__UiUser_profile_picture_impl(ptr, rust_vec_len, data_len),
+51 => wire__crate__api__user_cubit__UiUser_user_id_impl(ptr, rust_vec_len, data_len),
 55 => wire__crate__api__user_cubit__UserCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
 56 => wire__crate__api__user_cubit__UserCubitBase_new_impl(ptr, rust_vec_len, data_len),
 60 => wire__crate__api__user_cubit__UserCubitBase_state_impl(ptr, rust_vec_len, data_len),

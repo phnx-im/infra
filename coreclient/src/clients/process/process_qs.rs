@@ -325,12 +325,12 @@ impl CoreUser {
         &self,
         application_message: openmls::prelude::ApplicationMessage,
         ds_timestamp: TimeStamp,
-        sender_client_id: &UserId,
+        sender_user_id: &UserId,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
         let group_messages = vec![TimestampedMessage::from_application_message(
             application_message,
             ds_timestamp,
-            sender_client_id,
+            sender_user_id,
         )];
         Ok((group_messages, false))
     }
@@ -372,21 +372,18 @@ impl CoreUser {
 
         let mut notifier = self.store_notifier();
 
-        if let ConversationType::UnconfirmedConnection(client_id) = conversation.conversation_type()
-        {
+        if let ConversationType::UnconfirmedConnection(user_id) = conversation.conversation_type() {
             // Check if it was an external commit and if the user name matches
             if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_credential.identity() == client_id
+                && sender_client_credential.identity() == user_id
             {
                 // TODO: Handle the fact that an unexpected user joined the connection group.
             }
             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
             // friendship package
-            let partial_contact = PartialContact::load(txn.as_mut(), client_id)
+            let partial_contact = PartialContact::load(txn.as_mut(), user_id)
                 .await?
-                .with_context(|| {
-                    format!("No partial contact found with client_id: {client_id:?}")
-                })?;
+                .with_context(|| format!("No partial contact found with user_id: {user_id:?}"))?;
 
             // This is a bit annoying, since we already
             // de-serialized this in the group processing
@@ -408,7 +405,7 @@ impl CoreUser {
 
             let user_profile_key = UserProfileKey::from_base_secret(
                 friendship_package.user_profile_base_secret.clone(),
-                client_id,
+                user_id,
             )?;
 
             // UnconfirmedConnection Phase 2: Fetch the user profile.
@@ -467,7 +464,7 @@ impl CoreUser {
             .await
             .context("No sender found")?;
         let sender_credential =
-            StorableClientCredential::load_by_client_id(&mut *connection, &sender)
+            StorableClientCredential::load_by_user_id(&mut *connection, &sender)
                 .await?
                 .context("No sender credential found")?;
 

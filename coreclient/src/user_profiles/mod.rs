@@ -104,8 +104,8 @@ pub(crate) struct VerifiableUserProfile {
 pub enum UserProfileValidationError {
     #[error("User profile is outdated")]
     OutdatedUserProfile { user_id: UserId, epoch: u64 },
-    #[error("Mismatching client id")]
-    MismatchingClientId { expected: UserId, actual: UserId },
+    #[error("Mismatching user id")]
+    MismatchingUserId { expected: UserId, actual: UserId },
     #[error(transparent)]
     InvalidSignature(#[from] SignatureVerificationError),
     #[error(transparent)]

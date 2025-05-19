@@ -69,7 +69,7 @@ impl CoreUser {
             .await?;
 
         // Phase 4: Send a notification to all groups
-        let own_client_id = self.user_id();
+        let own_user_id = self.user_id();
         let mut connection = self.pool().acquire().await?;
         let groups_ids = Group::load_all_group_ids(&mut connection).await?;
         for group_id in groups_ids {
@@ -78,7 +78,7 @@ impl CoreUser {
                 .context("Failed to load group")?;
             let own_index = group.own_index();
             let user_profile_key =
-                user_profile_key.encrypt(group.identity_link_wrapper_key(), own_client_id)?;
+                user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
             let params = UserProfileKeyUpdateParams {
                 group_id,
                 sender_index: own_index,
@@ -111,16 +111,16 @@ impl CoreUser {
             user_profile_key,
             client_credential,
         } = profile_info.into();
-        let client_id = client_credential.identity();
+        let user_id = client_credential.identity();
 
         // Phase 1: Check if the profile in the DB is up to date.
-        let existing_user_profile = ExistingUserProfile::load(&mut *connection, client_id).await?;
+        let existing_user_profile = ExistingUserProfile::load(&mut *connection, user_id).await?;
         if existing_user_profile.matches_index(user_profile_key.index()) {
             return Ok(());
         }
 
         // Phase 2: Fetch the user profile from the server
-        let api_client = self.inner.api_clients.get(client_id.domain())?;
+        let api_client = self.inner.api_clients.get(user_id.domain())?;
 
         // TODO: Avoid network calls while in transaction
         let GetUserProfileResponse {
@@ -142,12 +142,8 @@ impl CoreUser {
         persistable_user_profile
             .persist(&mut *connection, notifier)
             .await?;
-        Contact::update_user_profile_key_index(
-            &mut *connection,
-            client_id,
-            user_profile_key.index(),
-        )
-        .await?;
+        Contact::update_user_profile_key_index(&mut *connection, user_id, user_profile_key.index())
+            .await?;
         if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
             // Delete the old user profile key
             UserProfileKey::delete(connection, old_user_profile_index).await?;

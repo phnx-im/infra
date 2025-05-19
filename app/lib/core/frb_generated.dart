@@ -78,7 +78,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.9.0';
 
   @override
-  int get rustContentHash => -28626811;
+  int get rustContentHash => 193345651;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -140,7 +140,7 @@ abstract class RustLibApi extends BaseApi {
   Future<ConversationId>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
-    required UiUserId clientId,
+    required UiUserId userId,
   });
 
   Future<ConversationId>
@@ -311,16 +311,16 @@ abstract class RustLibApi extends BaseApi {
     required int target,
   });
 
-  UiUserId crateApiUserCubitUiUserClientId({required UiUser that});
-
   String crateApiUserCubitUiUserDisplayName({required UiUser that});
 
   ImageData? crateApiUserCubitUiUserProfilePicture({required UiUser that});
 
+  UiUserId crateApiUserCubitUiUserUserId({required UiUser that});
+
   Future<void> crateApiUserCubitUserCubitBaseAddUserToConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required UiUserId clientId,
+    required UiUserId userId,
   });
 
   Future<void> crateApiUserCubitUserCubitBaseClose({
@@ -341,7 +341,7 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiUserCubitUserCubitBaseRemoveUserFromConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required UiUserId clientId,
+    required UiUserId userId,
   });
 
   Future<void> crateApiUserCubitUserCubitBaseSetAppState({
@@ -363,7 +363,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<UiUserProfile> crateApiUserCubitUserCubitBaseUserProfile({
     required UserCubitBase that,
-    required UiUserId clientId,
+    required UiUserId userId,
   });
 
   Future<int> crateApiUserUserGlobalUnreadMessagesCount({required User that});
@@ -408,7 +408,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUtilsDeleteClientDatabase({
     required String dbPath,
-    required UiUserId clientId,
+    required UiUserId userId,
   });
 
   Future<void> crateApiUtilsDeleteDatabases({required String dbPath});
@@ -907,7 +907,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<ConversationId>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
-    required UiUserId clientId,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -917,7 +917,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_ui_user_id(clientId, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -931,7 +931,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta,
-        argValues: [that, clientId],
+        argValues: [that, userId],
         apiImpl: this,
       ),
     );
@@ -941,7 +941,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta =>
       const TaskConstMeta(
         debugName: "ConversationListCubitBase_create_connection",
-        argNames: ["that", "clientId"],
+        argNames: ["that", "userId"],
       );
 
   @override
@@ -2323,32 +2323,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  UiUserId crateApiUserCubitUiUserClientId({required UiUser that}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 49)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_ui_user_id,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiUserCubitUiUserClientIdConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiUserCubitUiUserClientIdConstMeta =>
-      const TaskConstMeta(debugName: "UiUser_client_id", argNames: ["that"]);
-
-  @override
   String crateApiUserCubitUiUserDisplayName({required UiUser that}) {
     return handler.executeSync(
       SyncTask(
@@ -2358,7 +2332,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 50)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 49)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -2384,7 +2358,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 51)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 50)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_box_autoadd_image_data,
@@ -2404,10 +2378,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  UiUserId crateApiUserCubitUiUserUserId({required UiUser that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 51)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_user_id,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiUserCubitUiUserUserIdConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiUserCubitUiUserUserIdConstMeta =>
+      const TaskConstMeta(debugName: "UiUser_user_id", argNames: ["that"]);
+
+  @override
   Future<void> crateApiUserCubitUserCubitBaseAddUserToConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required UiUserId clientId,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2418,7 +2418,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-          sse_encode_box_autoadd_ui_user_id(clientId, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2432,7 +2432,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiUserCubitUserCubitBaseAddUserToConversationConstMeta,
-        argValues: [that, conversationId, clientId],
+        argValues: [that, conversationId, userId],
         apiImpl: this,
       ),
     );
@@ -2442,7 +2442,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiUserCubitUserCubitBaseAddUserToConversationConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_add_user_to_conversation",
-        argNames: ["that", "conversationId", "clientId"],
+        argNames: ["that", "conversationId", "userId"],
       );
 
   @override
@@ -2584,7 +2584,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<void> crateApiUserCubitUserCubitBaseRemoveUserFromConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required UiUserId clientId,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2595,7 +2595,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-          sse_encode_box_autoadd_ui_user_id(clientId, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2609,7 +2609,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiUserCubitUserCubitBaseRemoveUserFromConversationConstMeta,
-        argValues: [that, conversationId, clientId],
+        argValues: [that, conversationId, userId],
         apiImpl: this,
       ),
     );
@@ -2619,7 +2619,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiUserCubitUserCubitBaseRemoveUserFromConversationConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_remove_user_from_conversation",
-        argNames: ["that", "conversationId", "clientId"],
+        argNames: ["that", "conversationId", "userId"],
       );
 
   @override
@@ -2774,7 +2774,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<UiUserProfile> crateApiUserCubitUserCubitBaseUserProfile({
     required UserCubitBase that,
-    required UiUserId clientId,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2784,7 +2784,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_ui_user_id(clientId, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2797,7 +2797,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiUserCubitUserCubitBaseUserProfileConstMeta,
-        argValues: [that, clientId],
+        argValues: [that, userId],
         apiImpl: this,
       ),
     );
@@ -2806,7 +2806,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiUserCubitUserCubitBaseUserProfileConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_user_profile",
-        argNames: ["that", "clientId"],
+        argNames: ["that", "userId"],
       );
 
   @override
@@ -3204,14 +3204,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiUtilsDeleteClientDatabase({
     required String dbPath,
-    required UiUserId clientId,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(dbPath, serializer);
-          sse_encode_box_autoadd_ui_user_id(clientId, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -3224,7 +3224,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUtilsDeleteClientDatabaseConstMeta,
-        argValues: [dbPath, clientId],
+        argValues: [dbPath, userId],
         apiImpl: this,
       ),
     );
@@ -3233,7 +3233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiUtilsDeleteClientDatabaseConstMeta =>
       const TaskConstMeta(
         debugName: "delete_client_database",
-        argNames: ["dbPath", "clientId"],
+        argNames: ["dbPath", "userId"],
       );
 
   @override
@@ -8823,14 +8823,12 @@ class ConversationListCubitBaseImpl extends RustOpaque
       .crateApiConversationListCubitConversationListCubitBaseClose(that: this);
 
   /// Creates a new 1:1 connection with the given user.
-  ///
-  /// `client_id` is the unique client id of the contact.
-  Future<ConversationId> createConnection({
-    required UiUserId clientId,
-  }) => RustLib.instance.api
+  Future<ConversationId> createConnection({required UiUserId userId}) => RustLib
+      .instance
+      .api
       .crateApiConversationListCubitConversationListCubitBaseCreateConnection(
         that: this,
-        clientId: clientId,
+        userId: userId,
       );
 
   /// Creates a new group conversation with the given name.
@@ -9181,14 +9179,14 @@ class UiUserImpl extends RustOpaque implements UiUser {
         RustLib.instance.api.rust_arc_decrement_strong_count_UiUserPtr,
   );
 
-  UiUserId get clientId =>
-      RustLib.instance.api.crateApiUserCubitUiUserClientId(that: this);
-
   String get displayName =>
       RustLib.instance.api.crateApiUserCubitUiUserDisplayName(that: this);
 
   ImageData? get profilePicture =>
       RustLib.instance.api.crateApiUserCubitUiUserProfilePicture(that: this);
+
+  UiUserId get userId =>
+      RustLib.instance.api.crateApiUserCubitUiUserUserId(that: this);
 }
 
 @sealed
@@ -9212,11 +9210,11 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
 
   Future<void> addUserToConversation(
     ConversationId conversationId,
-    UiUserId clientId,
+    UiUserId userId,
   ) => RustLib.instance.api.crateApiUserCubitUserCubitBaseAddUserToConversation(
     that: this,
     conversationId: conversationId,
-    clientId: clientId,
+    userId: userId,
   );
 
   Future<void> close() =>
@@ -9230,12 +9228,12 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
 
   Future<void> removeUserFromConversation(
     ConversationId conversationId,
-    UiUserId clientId,
+    UiUserId userId,
   ) => RustLib.instance.api
       .crateApiUserCubitUserCubitBaseRemoveUserFromConversation(
         that: this,
         conversationId: conversationId,
-        clientId: clientId,
+        userId: userId,
       );
 
   Future<void> setAppState({required AppState appState}) =>
@@ -9259,11 +9257,8 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
       RustLib.instance.api.crateApiUserCubitUserCubitBaseStream(that: this);
 
   /// Get the user profile of the user with the given [`AsClientId`].
-  Future<UiUserProfile> userProfile(UiUserId clientId) =>
-      RustLib.instance.api.crateApiUserCubitUserCubitBaseUserProfile(
-        that: this,
-        clientId: clientId,
-      );
+  Future<UiUserProfile> userProfile(UiUserId userId) => RustLib.instance.api
+      .crateApiUserCubitUserCubitBaseUserProfile(that: this, userId: userId);
 }
 
 @sealed

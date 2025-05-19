@@ -17,9 +17,9 @@ pub(crate) struct ExistingUserProfile(Option<IndexedUserProfile>);
 impl ExistingUserProfile {
     pub(crate) async fn load(
         executor: impl sqlx::SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<Self> {
-        let existing_user_profile = IndexedUserProfile::load(executor, client_id).await?;
+        let existing_user_profile = IndexedUserProfile::load(executor, user_id).await?;
         Ok(Self(existing_user_profile))
     }
 
@@ -32,7 +32,7 @@ impl ExistingUserProfile {
             user_profile.verify(credential.verifying_key())?;
         if let Some(existing_user_profile) = &self.0 {
             if existing_user_profile.user_id != unvalidated_user_profile.user_id {
-                return Err(UserProfileValidationError::MismatchingClientId {
+                return Err(UserProfileValidationError::MismatchingUserId {
                     expected: existing_user_profile.user_id.clone(),
                     actual: unvalidated_user_profile.user_id,
                 });

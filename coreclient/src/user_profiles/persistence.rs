@@ -83,7 +83,7 @@ struct SqlUser {
 impl From<(UserId, SqlUser)> for IndexedUserProfile {
     fn from(
         (
-            client_id,
+            user_id,
             SqlUser {
                 epoch,
                 decryption_key_index,
@@ -93,7 +93,7 @@ impl From<(UserId, SqlUser)> for IndexedUserProfile {
         ): (UserId, SqlUser),
     ) -> Self {
         Self {
-            user_id: client_id,
+            user_id,
             epoch,
             decryption_key_index,
             display_name,
@@ -105,10 +105,10 @@ impl From<(UserId, SqlUser)> for IndexedUserProfile {
 impl IndexedUserProfile {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.uuid();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query_as!(
             SqlUser,
             r#"SELECT
@@ -123,16 +123,16 @@ impl IndexedUserProfile {
         )
         .fetch_optional(executor)
         .await
-        .map(|res| res.map(|user| (client_id.clone(), user).into()))
+        .map(|res| res.map(|user| (user_id.clone(), user).into()))
     }
 }
 
 impl UserProfile {
     pub async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &UserId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        IndexedUserProfile::load(executor, client_id)
+        IndexedUserProfile::load(executor, user_id)
             .await
             .map(|res| res.map(From::from))
     }
@@ -148,10 +148,10 @@ mod tests {
     use super::*;
 
     fn test_profile() -> (IndexedUserProfile, UserProfileKey) {
-        let client_id = UserId::random("localhost".parse().unwrap());
-        let user_profile_key = UserProfileKey::random(&client_id).unwrap();
+        let user_id = UserId::random("localhost".parse().unwrap());
+        let user_profile_key = UserProfileKey::random(&user_id).unwrap();
         let user_profile = IndexedUserProfile {
-            user_id: client_id,
+            user_id,
             epoch: 0,
             decryption_key_index: user_profile_key.index().clone(),
             display_name: "Alice".parse().unwrap(),
