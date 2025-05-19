@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                    client_credential_fingerprint AS \"client_credential_fingerprint: _\",\n                    group_id AS \"group_id: _\",\n                    user_uuid AS \"user_uuid: _\",\n                    user_domain AS \"user_domain: _\",\n                    leaf_index AS \"leaf_index: _\",\n                    identity_link_key AS \"identity_link_key: _\"\n                FROM group_membership\n                WHERE group_id = ? AND leaf_index = ?\n                AND status = 'merged'",
+  "describe": {
+    "columns": [
+      {
+        "name": "client_credential_fingerprint: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "group_id: _",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "user_uuid: _",
+        "ordinal": 2,
+        "type_info": "Blob"
+      },
+      {
+        "name": "user_domain: _",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "leaf_index: _",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "identity_link_key: _",
+        "ordinal": 5,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b5449947b3736c106704623ec9cc14ebd17dfe58d4697881d1b060916ac00577"
+}
