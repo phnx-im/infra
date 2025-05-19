@@ -78,7 +78,7 @@ class ConversationDetailsState with _$ConversationDetailsState {
   const ConversationDetailsState._();
   const factory ConversationDetailsState({
     UiConversationDetails? conversation,
-    required List<UiClientId> members,
+    required List<UiUserId> members,
     UiRoomState? roomState,
   }) = _ConversationDetailsState;
   static Future<ConversationDetailsState> default_() =>

@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent\n            FROM conversation_messages\n            WHERE conversation_id = ?\n                AND sender_user_uuid IS NOT NULL\n                AND sender_user_domain IS NOT NULL\n            ORDER BY timestamp DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "message_id: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "conversation_id: _",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "timestamp: _",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "sender_user_uuid: _",
+        "ordinal": 3,
+        "type_info": "Blob"
+      },
+      {
+        "name": "sender_user_domain: _",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "content: _",
+        "ordinal": 5,
+        "type_info": "Blob"
+      },
+      {
+        "name": "sent",
+        "ordinal": 6,
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "98ad5dc8f0a5f876fae18ef951b8a393c6a55f7e08cbf145791970136ef89a5a"
+}

@@ -27,15 +27,15 @@ pub(crate) enum UserCreationState {
 }
 
 impl UserCreationState {
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn user_id(&self) -> &UserId {
         match self {
-            Self::BasicUserData(state) => state.client_id(),
-            Self::InitialUserState(state) => state.client_id(),
-            Self::PostRegistrationInitState(state) => state.client_id(),
-            Self::UnfinalizedRegistrationState(state) => state.client_id(),
-            Self::AsRegisteredUserState(state) => state.client_id(),
-            Self::QsRegisteredUserState(state) => state.client_id(),
-            Self::FinalUserState(state) => state.client_id(),
+            Self::BasicUserData(state) => state.user_id(),
+            Self::InitialUserState(state) => state.user_id(),
+            Self::PostRegistrationInitState(state) => state.user_id(),
+            Self::UnfinalizedRegistrationState(state) => state.user_id(),
+            Self::AsRegisteredUserState(state) => state.user_id(),
+            Self::QsRegisteredUserState(state) => state.user_id(),
+            Self::FinalUserState(state) => state.user_id(),
         }
     }
 
@@ -54,15 +54,15 @@ impl UserCreationState {
     pub(super) async fn new(
         client_db: &SqlitePool,
         phnx_db: &SqlitePool,
-        as_client_id: AsClientId,
+        user_id: UserId,
         server_url: impl ToString,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let client_record = ClientRecord::new(as_client_id.clone());
+        let client_record = ClientRecord::new(user_id.clone());
         client_record.store(phnx_db).await?;
 
         let basic_user_data = BasicUserData {
-            as_client_id: as_client_id.clone(),
+            user_id: user_id.clone(),
             server_url: server_url.to_string(),
             push_token,
         };
@@ -118,7 +118,7 @@ impl UserCreationState {
         // If we just transitioned into the final state, we need to update the
         // client record.
         if let UserCreationState::FinalUserState(_) = new_state {
-            let mut client_record = ClientRecord::load(phnx_db, new_state.client_id())
+            let mut client_record = ClientRecord::load(phnx_db, new_state.user_id())
                 .await?
                 .ok_or(anyhow!("Client record not found"))?;
             client_record.finish();
@@ -176,16 +176,16 @@ impl ClientRecordState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRecord {
-    pub client_id: AsClientId,
+    pub user_id: UserId,
     pub client_record_state: ClientRecordState,
     pub created_at: DateTime<Utc>,
     pub is_default: bool,
 }
 
 impl ClientRecord {
-    pub(super) fn new(as_client_id: AsClientId) -> Self {
+    pub(super) fn new(user_id: UserId) -> Self {
         Self {
-            client_id: as_client_id,
+            user_id,
             client_record_state: ClientRecordState::InProgress,
             created_at: Utc::now(),
             is_default: false,

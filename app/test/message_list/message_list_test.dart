@@ -28,7 +28,7 @@ final messages = [
     timestamp: '2023-01-01T00:00:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 2.clientId(),
+        sender: 2.userId(),
         sent: true,
         content: UiMimiContent(
           plainBody: 'Hello Alice from Bob',
@@ -45,7 +45,7 @@ final messages = [
     timestamp: '2023-01-01T00:01:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 3.clientId(),
+        sender: 3.userId(),
         sent: true,
         content: UiMimiContent(
           plainBody:
@@ -65,7 +65,7 @@ final messages = [
     timestamp: '2023-01-01T00:02:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 1.clientId(),
+        sender: 1.userId(),
         sent: true,
         content: UiMimiContent(
           plainBody: 'Hello Bob and Eve',
@@ -82,7 +82,7 @@ final messages = [
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 1.clientId(),
+        sender: 1.userId(),
         sent: true,
         content: UiMimiContent(
           plainBody: 'How are you doing?',
@@ -99,7 +99,7 @@ final messages = [
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
-        sender: 1.clientId(),
+        sender: 1.userId(),
         sent: true,
         content: UiMimiContent(
           plainBody: '''Nice to see you both here! 👋
@@ -126,7 +126,7 @@ MessageCubit createMockMessageCubit({
 void main() {
   setUpAll(() {
     registerFallbackValue(0.conversationMessageId());
-    registerFallbackValue(0.clientId());
+    registerFallbackValue(0.userId());
   });
 
   group('MessageListView', () {

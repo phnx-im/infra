@@ -4,12 +4,12 @@
 
 //! Misc. functions
 
-use super::types::UiClientId;
+use super::types::UiUserId;
 
 pub async fn delete_databases(db_path: String) -> anyhow::Result<()> {
     phnxcoreclient::delete_databases(&db_path).await
 }
 
-pub async fn delete_client_database(db_path: String, client_id: UiClientId) -> anyhow::Result<()> {
-    phnxcoreclient::delete_client_database(&db_path, &client_id.into()).await
+pub async fn delete_client_database(db_path: String, user_id: UiUserId) -> anyhow::Result<()> {
+    phnxcoreclient::delete_client_database(&db_path, &user_id.into()).await
 }

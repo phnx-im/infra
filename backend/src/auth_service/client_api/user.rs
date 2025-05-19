@@ -5,7 +5,7 @@
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::signatures::signable::Signable,
-    identifiers::AsClientId,
+    identifiers::UserId,
     messages::{client_as::RegisterUserResponse, client_as_out::RegisterUserParamsIn},
     time::TimeStamp,
 };
@@ -67,10 +67,10 @@ impl AuthService {
             .sign(&signing_key)
             .map_err(|_| RegisterUserError::LibraryError)?;
 
-        let client_id = client_credential.identity();
+        let user_id = client_credential.identity();
 
         // Create the user entry with the information given in the request
-        UserRecord::new_and_store(&self.db_pool, client_id, &encrypted_user_profile)
+        UserRecord::new_and_store(&self.db_pool, user_id, &encrypted_user_profile)
             .await
             .map_err(|error| {
                 error!(%error, "Storage provider error");
@@ -103,11 +103,8 @@ impl AuthService {
         Ok(response)
     }
 
-    pub(crate) async fn as_delete_user(
-        &self,
-        client_id: &AsClientId,
-    ) -> Result<(), DeleteUserError> {
-        UserRecord::delete(&self.db_pool, client_id).await?;
+    pub(crate) async fn as_delete_user(&self, user_id: &UserId) -> Result<(), DeleteUserError> {
+        UserRecord::delete(&self.db_pool, user_id).await?;
         Ok(())
     }
 }

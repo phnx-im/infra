@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 use remove_users_flow::RemoveUsersData;
 
 use crate::{ConversationId, ConversationMessage};
@@ -19,7 +19,7 @@ impl CoreUser {
     pub(crate) async fn remove_users(
         &self,
         conversation_id: ConversationId,
-        target_users: Vec<AsClientId>,
+        target_users: Vec<UserId>,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load the group and conversation and prepare the commit.
         let remove = self
@@ -42,7 +42,7 @@ impl CoreUser {
 mod remove_users_flow {
     use anyhow::Context;
     use phnxtypes::{
-        identifiers::AsClientId, messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
+        identifiers::UserId, messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
     };
     use sqlx::SqliteTransaction;
 
@@ -63,7 +63,7 @@ mod remove_users_flow {
         pub(super) async fn stage_remove(
             txn: &mut SqliteTransaction<'_>,
             conversation_id: ConversationId,
-            target_users: Vec<AsClientId>,
+            target_users: Vec<UserId>,
         ) -> anyhow::Result<Self> {
             let conversation = Conversation::load(txn.as_mut(), &conversation_id)
                 .await?

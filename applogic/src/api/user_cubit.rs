@@ -32,7 +32,7 @@ use crate::{
 
 use super::{
     navigation_cubit::{NavigationCubitBase, NavigationState},
-    types::{ImageData, UiClientId},
+    types::{ImageData, UiUserId},
     user::User,
 };
 
@@ -81,8 +81,8 @@ impl UiUser {
     }
 
     #[frb(getter, sync)]
-    pub fn client_id(&self) -> UiClientId {
-        self.inner.profile.client_id.clone().into()
+    pub fn user_id(&self) -> UiUserId {
+        self.inner.profile.user_id.clone().into()
     }
 
     #[frb(getter, sync)]
@@ -133,8 +133,8 @@ impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
         let core_user = user.user.clone();
-        let state = Arc::new(RwLock::new(UiUser::new(UserProfile::from_client_id(
-            core_user.as_client_id(),
+        let state = Arc::new(RwLock::new(UiUser::new(UserProfile::from_user_id(
+            core_user.user_id(),
         ))));
 
         UiUser::spawn_load(state.clone(), core_user.clone());
@@ -229,10 +229,10 @@ impl UserCubitBase {
         Ok(())
     }
 
-    /// Get the user profile of the user with the given [`AsClientId`].
+    /// Get the user profile of the user with the given [`UiUserId`].
     #[frb(positional)]
-    pub async fn user_profile(&self, client_id: UiClientId) -> UiUserProfile {
-        let profile = self.core_user.user_profile(&client_id.into()).await;
+    pub async fn user_profile(&self, user_id: UiUserId) -> UiUserProfile {
+        let profile = self.core_user.user_profile(&user_id.into()).await;
         UiUserProfile::from_profile(profile)
     }
 
@@ -240,10 +240,10 @@ impl UserCubitBase {
     pub async fn add_user_to_conversation(
         &self,
         conversation_id: ConversationId,
-        client_id: UiClientId,
+        user_id: UiUserId,
     ) -> anyhow::Result<()> {
         self.core_user
-            .invite_users(conversation_id, &[client_id.into()])
+            .invite_users(conversation_id, &[user_id.into()])
             .await?;
         Ok(())
     }
@@ -252,10 +252,10 @@ impl UserCubitBase {
     pub async fn remove_user_from_conversation(
         &self,
         conversation_id: ConversationId,
-        client_id: UiClientId,
+        user_id: UiUserId,
     ) -> anyhow::Result<()> {
         self.core_user
-            .remove_users(conversation_id, vec![client_id.into()])
+            .remove_users(conversation_id, vec![user_id.into()])
             .await?;
         Ok(())
     }

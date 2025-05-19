@@ -8,7 +8,7 @@ use phnxtypes::{
         indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::ConnectionKey,
     },
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
     messages::FriendshipToken,
 };
 use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
@@ -21,8 +21,8 @@ use crate::{
 };
 
 struct SqlContact {
-    as_client_uuid: Uuid,
-    as_domain: Fqdn,
+    user_uuid: Uuid,
+    user_domain: Fqdn,
     conversation_id: ConversationId,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     friendship_token: FriendshipToken,
@@ -33,8 +33,8 @@ struct SqlContact {
 impl From<SqlContact> for Contact {
     fn from(
         SqlContact {
-            as_client_uuid,
-            as_domain,
+            user_uuid,
+            user_domain,
             wai_ear_key,
             friendship_token,
             conversation_id,
@@ -43,7 +43,7 @@ impl From<SqlContact> for Contact {
         }: SqlContact,
     ) -> Self {
         Self {
-            client_id: AsClientId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(user_uuid, user_domain),
             wai_ear_key,
             friendship_token,
             connection_key,
@@ -56,21 +56,21 @@ impl From<SqlContact> for Contact {
 impl Contact {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client_id.client_id();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query_as!(
             SqlContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 connection_key AS "connection_key: _",
                 user_profile_key_index AS "user_profile_key_index: _"
-            FROM contacts WHERE as_client_uuid = ? AND as_domain = ?"#,
+            FROM contacts WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain
         )
@@ -83,8 +83,8 @@ impl Contact {
         query_as!(
             SqlContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
@@ -103,12 +103,12 @@ impl Contact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         query!(
             "INSERT INTO contacts (
-                as_client_uuid,
-                as_domain,
+                user_uuid,
+                user_domain,
                 conversation_id,
                 wai_ear_key,
                 friendship_token,
@@ -126,21 +126,21 @@ impl Contact {
         .execute(executor)
         .await?;
         notifier
-            .add(self.client_id.clone())
+            .add(self.user_id.clone())
             .update(self.conversation_id);
         Ok(())
     }
 
     pub(crate) async fn update_user_profile_key_index(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        user_id: &UserId,
         key_index: &UserProfileKeyIndex,
     ) -> sqlx::Result<()> {
-        let uuid = client_id.client_id();
-        let domain = client_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "UPDATE contacts SET user_profile_key_index = ?
-            WHERE as_client_uuid = ? AND as_domain = ?",
+            WHERE user_uuid = ? AND user_domain = ?",
             key_index,
             uuid,
             domain,
@@ -152,8 +152,8 @@ impl Contact {
 }
 
 struct SqlPartialContact {
-    as_client_uuid: Uuid,
-    as_domain: Fqdn,
+    user_uuid: Uuid,
+    user_domain: Fqdn,
     conversation_id: ConversationId,
     friendship_package_ear_key: FriendshipPackageEarKey,
 }
@@ -161,14 +161,14 @@ struct SqlPartialContact {
 impl From<SqlPartialContact> for PartialContact {
     fn from(
         SqlPartialContact {
-            as_client_uuid,
-            as_domain,
+            user_uuid,
+            user_domain,
             conversation_id,
             friendship_package_ear_key,
         }: SqlPartialContact,
     ) -> Self {
         Self {
-            client_id: AsClientId::new(as_client_uuid, as_domain),
+            user_id: UserId::new(user_uuid, user_domain),
             conversation_id,
             friendship_package_ear_key,
         }
@@ -178,19 +178,19 @@ impl From<SqlPartialContact> for PartialContact {
 impl PartialContact {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        client: &AsClientId,
+        client: &UserId,
     ) -> sqlx::Result<Option<Self>> {
-        let uuid = client.client_id();
+        let uuid = client.uuid();
         let domain = client.domain();
         query_as!(
             SqlPartialContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _"
             FROM partial_contacts
-            WHERE as_client_uuid = ? AND as_domain = ?"#,
+            WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain,
         )
@@ -203,8 +203,8 @@ impl PartialContact {
         let contacts = query_as!(
             SqlPartialContact,
             r#"SELECT
-                as_client_uuid AS "as_client_uuid: _",
-                as_domain AS "as_domain: _",
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _"
             FROM partial_contacts"#
@@ -219,11 +219,11 @@ impl PartialContact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let domain = self.client_id.domain();
-        let uuid = self.client_id.client_id();
+        let domain = self.user_id.domain();
+        let uuid = self.user_id.uuid();
         query!(
             "INSERT INTO partial_contacts
-                (as_client_uuid, as_domain, conversation_id, friendship_package_ear_key)
+                (user_uuid, user_domain, conversation_id, friendship_package_ear_key)
                 VALUES (?, ?, ?, ?)",
             uuid,
             domain,
@@ -233,7 +233,7 @@ impl PartialContact {
         .execute(executor)
         .await?;
         notifier
-            .add(self.client_id.clone())
+            .add(self.user_id.clone())
             .update(self.conversation_id);
         Ok(())
     }
@@ -243,17 +243,17 @@ impl PartialContact {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
-        let uuid = self.client_id.client_id();
-        let domain = self.client_id.domain();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         query!(
             "DELETE FROM partial_contacts
-            WHERE as_client_uuid = ? AND as_domain = ?",
+            WHERE user_uuid = ? AND user_domain = ?",
             uuid,
             domain,
         )
         .execute(executor)
         .await?;
-        notifier.remove(self.client_id.clone());
+        notifier.remove(self.user_id.clone());
         Ok(())
     }
 
@@ -267,7 +267,7 @@ impl PartialContact {
         user_profile_key_index: UserProfileKeyIndex,
     ) -> anyhow::Result<Contact> {
         let contact = Contact {
-            client_id: self.client_id.clone(),
+            user_id: self.user_id.clone(),
             conversation_id: self.conversation_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
@@ -302,10 +302,10 @@ mod tests {
     use super::*;
 
     fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
-        let client_id = AsClientId::random("localhost".parse().unwrap());
-        let user_profile_key = UserProfileKey::random(&client_id).unwrap();
+        let user_id = UserId::random("localhost".parse().unwrap());
+        let user_profile_key = UserProfileKey::random(&user_id).unwrap();
         let contact = Contact {
-            client_id,
+            user_id,
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             friendship_token: FriendshipToken::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
@@ -316,9 +316,9 @@ mod tests {
     }
 
     fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
-        let client_id = AsClientId::random("localhost".parse().unwrap());
+        let user_id = UserId::random("localhost".parse().unwrap());
         PartialContact {
-            client_id,
+            user_id,
             conversation_id,
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
         }
@@ -337,7 +337,7 @@ mod tests {
         user_profile_key.store(&pool).await?;
         contact.store(&pool, &mut store_notifier).await?;
 
-        let loaded = Contact::load(&pool, &contact.client_id).await?.unwrap();
+        let loaded = Contact::load(&pool, &contact.user_id).await?.unwrap();
         assert_eq!(loaded, contact);
 
         Ok(())
@@ -355,7 +355,7 @@ mod tests {
         let contact = test_partial_contact(conversation.id());
         contact.store(&pool, &mut store_notifier).await?;
 
-        let loaded = PartialContact::load(&pool, &contact.client_id)
+        let loaded = PartialContact::load(&pool, &contact.user_id)
             .await?
             .unwrap();
         assert_eq!(loaded, contact);
@@ -394,9 +394,9 @@ mod tests {
             .await?;
 
         let partial = test_partial_contact(conversation.id());
-        let client_id = partial.client_id.clone();
+        let user_id = partial.user_id.clone();
 
-        let user_profile_key = UserProfileKey::random(&partial.client_id)?;
+        let user_profile_key = UserProfileKey::random(&partial.user_id)?;
         user_profile_key.store(&pool).await?;
 
         partial.store(&pool, &mut store_notifier).await?;
@@ -421,10 +421,10 @@ mod tests {
 
         txn.commit().await?;
 
-        let loaded = PartialContact::load(&pool, &client_id).await?;
+        let loaded = PartialContact::load(&pool, &user_id).await?;
         assert!(loaded.is_none());
 
-        let loaded = Contact::load(&pool, &client_id).await?.unwrap();
+        let loaded = Contact::load(&pool, &user_id).await?.unwrap();
         assert_eq!(loaded, contact);
 
         Ok(())

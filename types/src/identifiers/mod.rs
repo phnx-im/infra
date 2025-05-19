@@ -221,21 +221,21 @@ impl FromStr for QualifiedGroupId {
     TlsSerialize,
     TlsDeserializeBytes,
 )]
-pub struct AsClientId {
-    client_id: TlsUuid,
+pub struct UserId {
+    uuid: TlsUuid,
     domain: Fqdn,
 }
 
-impl fmt::Debug for AsClientId {
+impl fmt::Debug for UserId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}@{}", self.client_id.0, self.domain)
+        write!(f, "{}@{}", self.uuid.0, self.domain)
     }
 }
 
-impl AsClientId {
-    pub fn new(client_id: Uuid, domain: Fqdn) -> Self {
+impl UserId {
+    pub fn new(uuid: Uuid, domain: Fqdn) -> Self {
         Self {
-            client_id: TlsUuid(client_id),
+            uuid: TlsUuid(uuid),
             domain,
         }
     }
@@ -244,8 +244,8 @@ impl AsClientId {
         Self::new(Uuid::new_v4(), domain)
     }
 
-    pub fn client_id(&self) -> Uuid {
-        *self.client_id
+    pub fn uuid(&self) -> Uuid {
+        *self.uuid
     }
 
     pub fn domain(&self) -> &Fqdn {
@@ -253,7 +253,7 @@ impl AsClientId {
     }
 
     pub fn into_parts(self) -> (Uuid, Fqdn) {
-        (*self.client_id, self.domain)
+        (*self.uuid, self.domain)
     }
 }
 

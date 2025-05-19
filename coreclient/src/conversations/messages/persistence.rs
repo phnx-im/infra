@@ -6,7 +6,7 @@ use anyhow::bail;
 use mimi_content::MimiContent;
 use phnxtypes::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -78,8 +78,8 @@ struct SqlConversationMessage {
     message_id: ConversationMessageId,
     conversation_id: ConversationId,
     timestamp: TimeStamp,
-    sender_as_client_uuid: Option<Uuid>,
-    sender_as_domain: Option<Fqdn>,
+    sender_user_uuid: Option<Uuid>,
+    sender_user_domain: Option<Fqdn>,
     content: BlobDecoded<VersionedMessage>,
     sent: bool,
 }
@@ -104,16 +104,16 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             message_id,
             conversation_id,
             timestamp,
-            sender_as_client_uuid,
-            sender_as_domain,
+            sender_user_uuid,
+            sender_user_domain,
             content,
             sent,
         }: SqlConversationMessage,
     ) -> Result<Self, Self::Error> {
-        let message = match (sender_as_client_uuid, sender_as_domain) {
+        let message = match (sender_user_uuid, sender_user_domain) {
             // user message
-            (Some(sender_as_client_uuid), Some(sender_as_domain)) => {
-                let sender = AsClientId::new(sender_as_client_uuid, sender_as_domain);
+            (Some(sender_user_uuid), Some(sender_user_domain)) => {
+                let sender = UserId::new(sender_user_uuid, sender_user_domain);
                 content
                     .into_inner()
                     .to_mimi_content()
@@ -158,8 +158,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender_as_client_uuid AS "sender_as_client_uuid: _",
-                sender_as_domain AS "sender_as_domain: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
                 content As "content: _",
                 sent
             FROM conversation_messages WHERE message_id = ?"#,
@@ -186,8 +186,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender_as_client_uuid AS "sender_as_client_uuid: _",
-                sender_as_domain AS "sender_as_domain: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
@@ -222,7 +222,7 @@ impl ConversationMessage {
     ) -> anyhow::Result<()> {
         let (sender_uuid, sender_domain) = match &self.timestamped_message.message {
             Message::Content(content_message) => Some((
-                content_message.sender.client_id(),
+                content_message.sender.uuid(),
                 content_message.sender.domain(),
             ))
             .unzip(),
@@ -245,8 +245,8 @@ impl ConversationMessage {
                 message_id,
                 conversation_id,
                 timestamp,
-                sender_as_client_uuid,
-                sender_as_domain,
+                sender_user_uuid,
+                sender_user_domain,
                 content,
                 sent
             ) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -300,14 +300,14 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender_as_client_uuid AS "sender_as_client_uuid: _",
-                sender_as_domain AS "sender_as_domain: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
             WHERE conversation_id = ?
-                AND sender_as_client_uuid IS NOT NULL
-                AND sender_as_domain IS NOT NULL
+                AND sender_user_uuid IS NOT NULL
+                AND sender_user_domain IS NOT NULL
             ORDER BY timestamp DESC LIMIT 1"#,
             conversation_id,
         )
@@ -331,8 +331,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender_as_client_uuid AS "sender_as_client_uuid: _",
-                sender_as_domain AS "sender_as_domain: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
@@ -363,8 +363,8 @@ impl ConversationMessage {
                 message_id AS "message_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
-                sender_as_client_uuid AS "sender_as_client_uuid: _",
-                sender_as_domain AS "sender_as_domain: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent
             FROM conversation_messages
@@ -405,7 +405,7 @@ pub(crate) mod tests {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
         let message = Message::Content(Box::new(ContentMessage {
-            sender: AsClientId::random("localhost".parse().unwrap()),
+            sender: UserId::random("localhost".parse().unwrap()),
             sent: false,
             content: MimiContent::simple_markdown_message("Hello world!".to_string()),
         }));
@@ -518,8 +518,8 @@ pub(crate) mod tests {
             timestamped_message: TimestampedMessage {
                 timestamp: Utc::now().into(),
                 message: Message::Event(EventMessage::System(SystemMessage::Add(
-                    AsClientId::random("localhost".parse()?),
-                    AsClientId::random("localhost".parse()?),
+                    UserId::random("localhost".parse()?),
+                    UserId::random("localhost".parse()?),
                 ))),
             },
         }

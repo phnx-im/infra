@@ -26,8 +26,8 @@ class TextMessageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final clientId = context.select((UserCubit cubit) => cubit.state.clientId);
-    final isSender = contentMessage.sender == clientId;
+    final userId = context.select((UserCubit cubit) => cubit.state.userId);
+    final isSender = contentMessage.sender == userId;
 
     return Column(
       children: [
@@ -180,7 +180,7 @@ class _TextMessage extends StatelessWidget {
 class _Sender extends StatelessWidget {
   const _Sender({required this.sender, required this.isSender});
 
-  final UiClientId sender;
+  final UiUserId sender;
   final bool isSender;
 
   @override

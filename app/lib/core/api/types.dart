@@ -13,7 +13,7 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 part 'types.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_client_id`, `from_profile`, `load_from_conversation_type`, `timestamp`
+// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_user_id`, `load_from_conversation_type`, `timestamp`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiConversation`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 
@@ -83,42 +83,20 @@ class ImageData {
           hash == other.hash;
 }
 
-/// UI representation of an [`AsClientId`]
-class UiClientId {
-  final UuidValue uuid;
-  final String domain;
-
-  const UiClientId({required this.uuid, required this.domain});
-
-  @override
-  String toString() => '$uuid@$domain';
-
-  @override
-  int get hashCode => uuid.hashCode ^ domain.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiClientId &&
-          runtimeType == other.runtimeType &&
-          uuid == other.uuid &&
-          domain == other.domain;
-}
-
 /// Client record of a user
 ///
 /// Each user has a client record which identifies the users database.
 class UiClientRecord {
-  /// The unique identifier of the client
+  /// The unique identifier of the user
   ///
   /// Also used for identifying the client database path.
-  final UiClientId clientId;
+  final UiUserId userId;
   final DateTime createdAt;
   final UiUserProfile userProfile;
   final bool isFinished;
 
   const UiClientRecord({
-    required this.clientId,
+    required this.userId,
     required this.createdAt,
     required this.userProfile,
     required this.isFinished,
@@ -126,7 +104,7 @@ class UiClientRecord {
 
   @override
   int get hashCode =>
-      clientId.hashCode ^
+      userId.hashCode ^
       createdAt.hashCode ^
       userProfile.hashCode ^
       isFinished.hashCode;
@@ -136,7 +114,7 @@ class UiClientRecord {
       identical(this, other) ||
       other is UiClientRecord &&
           runtimeType == other.runtimeType &&
-          clientId == other.clientId &&
+          userId == other.userId &&
           createdAt == other.createdAt &&
           userProfile == other.userProfile &&
           isFinished == other.isFinished;
@@ -144,24 +122,24 @@ class UiClientRecord {
 
 /// Contact of the logged-in user
 class UiContact {
-  final UiClientId clientId;
+  final UiUserId userId;
 
-  const UiContact({required this.clientId});
+  const UiContact({required this.userId});
 
   @override
-  int get hashCode => clientId.hashCode;
+  int get hashCode => userId.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is UiContact &&
           runtimeType == other.runtimeType &&
-          clientId == other.clientId;
+          userId == other.userId;
 }
 
 /// Content of a message including the sender and whether it was sent
 class UiContentMessage {
-  final UiClientId sender;
+  final UiUserId sender;
   final bool sent;
   final UiMimiContent content;
 
@@ -362,7 +340,7 @@ enum UiFlightPosition {
 
 /// Inactive conversation with past members
 class UiInactiveConversation {
-  final List<UiClientId> pastMembers;
+  final List<UiUserId> pastMembers;
 
   const UiInactiveConversation({required this.pastMembers});
 
@@ -414,10 +392,32 @@ class UiSystemMessage {
           message == other.message;
 }
 
+/// UI representation of an [`UserId`]
+class UiUserId {
+  final UuidValue uuid;
+  final String domain;
+
+  const UiUserId({required this.uuid, required this.domain});
+
+  @override
+  String toString() => '$uuid@$domain';
+
+  @override
+  int get hashCode => uuid.hashCode ^ domain.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UiUserId &&
+          runtimeType == other.runtimeType &&
+          uuid == other.uuid &&
+          domain == other.domain;
+}
+
 /// Profile of a user
 class UiUserProfile {
-  /// Client ID of the user
-  final UiClientId clientId;
+  /// ID of the user
+  final UiUserId userId;
 
   /// Display name
   final String displayName;
@@ -426,21 +426,21 @@ class UiUserProfile {
   final ImageData? profilePicture;
 
   const UiUserProfile({
-    required this.clientId,
+    required this.userId,
     required this.displayName,
     this.profilePicture,
   });
 
   @override
   int get hashCode =>
-      clientId.hashCode ^ displayName.hashCode ^ profilePicture.hashCode;
+      userId.hashCode ^ displayName.hashCode ^ profilePicture.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is UiUserProfile &&
           runtimeType == other.runtimeType &&
-          clientId == other.clientId &&
+          userId == other.userId &&
           displayName == other.displayName &&
           profilePicture == other.profilePicture;
 }

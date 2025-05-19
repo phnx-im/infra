@@ -81,7 +81,7 @@ impl ApiClient {
                     error!(%error, "invalid user_id in response");
                     QsRequestError::UnexpectedResponse
                 })?,
-            client_id: response
+            qs_client_id: response
                 .client_id
                 .ok_or_missing_field("client_id")?
                 .try_into()
@@ -142,7 +142,7 @@ impl ApiClient {
             .await?
             .into_inner();
         Ok(CreateClientRecordResponse {
-            client_id: response
+            qs_client_id: response
                 .client_id
                 .ok_or_missing_field("client_id")?
                 .try_into()

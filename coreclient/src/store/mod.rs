@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -61,7 +61,7 @@ pub trait LocalStore {
     async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
-    ) -> StoreResult<Option<HashSet<AsClientId>>>;
+    ) -> StoreResult<Option<HashSet<UserId>>>;
 
     async fn mark_conversation_as_read(
         &self,
@@ -105,7 +105,7 @@ pub trait LocalStore {
     async fn remove_users(
         &self,
         conversation_id: ConversationId,
-        target_users: Vec<AsClientId>,
+        target_users: Vec<UserId>,
     ) -> StoreResult<Vec<ConversationMessage>>;
 
     /// Invite users to an existing conversation.
@@ -117,7 +117,7 @@ pub trait LocalStore {
     async fn invite_users(
         &self,
         conversation_id: ConversationId,
-        invited_users: &[AsClientId],
+        invited_users: &[UserId],
     ) -> StoreResult<Vec<ConversationMessage>>;
 
     async fn load_room_state(
@@ -131,15 +131,15 @@ pub trait LocalStore {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    async fn add_contact(&self, client_id: AsClientId) -> StoreResult<ConversationId>;
+    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
-    async fn contact(&self, client_id: &AsClientId) -> StoreResult<Option<Contact>>;
+    async fn contact(&self, user_id: &UserId) -> StoreResult<Option<Contact>>;
 
     async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>>;
 
-    async fn user_profile(&self, client_id: &AsClientId) -> UserProfile;
+    async fn user_profile(&self, user_id: &UserId) -> UserProfile;
 
     // messages
 

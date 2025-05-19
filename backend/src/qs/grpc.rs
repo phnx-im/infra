@@ -87,7 +87,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
             })?;
         let response = CreateUserResponse {
             user_id: Some(response.user_id.into()),
-            client_id: Some(response.client_id.into()),
+            client_id: Some(response.qs_client_id.into()),
         };
         Ok(Response::new(response))
     }
@@ -162,7 +162,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         };
         let response = self.qs.qs_create_client_record(params).await?;
         Ok(Response::new(CreateClientResponse {
-            client_id: Some(response.client_id.into()),
+            client_id: Some(response.qs_client_id.into()),
         }))
     }
 

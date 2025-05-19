@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use invite_users_flow::InviteUsersData;
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 
 use crate::{ConversationId, ConversationMessage, utils::connection_ext::ConnectionExt as _};
 
@@ -19,7 +19,7 @@ impl CoreUser {
     pub(crate) async fn invite_users(
         &self,
         conversation_id: ConversationId,
-        invited_users: &[AsClientId],
+        invited_users: &[UserId],
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         let mut connection = self.pool().acquire().await?;
 
@@ -65,7 +65,7 @@ mod invite_users_flow {
     use phnxtypes::{
         credentials::ClientCredential,
         crypto::ear::keys::WelcomeAttributionInfoEarKey,
-        identifiers::{AsClientId, Fqdn},
+        identifiers::{Fqdn, UserId},
         messages::client_ds_out::GroupOperationParamsOut,
         time::TimeStamp,
     };
@@ -93,7 +93,7 @@ mod invite_users_flow {
         pub(super) async fn load(
             connection: &mut SqliteConnection,
             conversation_id: ConversationId,
-            invited_users: &[AsClientId],
+            invited_users: &[UserId],
         ) -> anyhow::Result<InviteUsersData<Vec<Contact>>> {
             let conversation = Conversation::load(&mut *connection, &conversation_id)
                 .await?
@@ -111,7 +111,7 @@ mod invite_users_flow {
                 contact_wai_keys.push(contact.wai_ear_key().clone());
 
                 if let Some(client_credential) =
-                    StorableClientCredential::load_by_client_id(&mut *connection, invited_user)
+                    StorableClientCredential::load_by_user_id(&mut *connection, invited_user)
                         .await?
                 {
                     client_credentials.push(ClientCredential::from(client_credential));

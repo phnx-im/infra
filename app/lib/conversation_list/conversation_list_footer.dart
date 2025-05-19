@@ -31,7 +31,7 @@ class ConversationListFooter extends StatelessWidget {
             icon: const Icon(Icons.person, size: 20),
             onPressed: () async {
               // Currently, we only support connections to the same domain.
-              final domain = context.read<UserCubit>().state.clientId.domain;
+              final domain = context.read<UserCubit>().state.userId.domain;
 
               final conversationListCubit =
                   context.read<ConversationListCubit>();
@@ -53,13 +53,13 @@ class ConversationListFooter extends StatelessWidget {
                   connectionUuid,
                   ValidationMode.nonStrict,
                 );
-                final connectionId = UiClientId(
+                final connectionId = UiUserId(
                   uuid: clientUuid,
                   domain: domain,
                 );
                 try {
                   await conversationListCubit.createConnection(
-                    clientId: connectionId,
+                    userId: connectionId,
                   );
                 } catch (e) {
                   if (context.mounted) {

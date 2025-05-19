@@ -21,7 +21,7 @@ mixin _$HomeNavigationState {
   ConversationId? get conversationId => throw _privateConstructorUsedError;
   DeveloperSettingsScreenType? get developerSettingsScreen =>
       throw _privateConstructorUsedError;
-  UiClientId? get memberDetails => throw _privateConstructorUsedError;
+  UiUserId? get memberDetails => throw _privateConstructorUsedError;
   bool get userSettingsOpen => throw _privateConstructorUsedError;
   bool get conversationDetailsOpen => throw _privateConstructorUsedError;
   bool get addMembersOpen => throw _privateConstructorUsedError;
@@ -44,7 +44,7 @@ abstract class $HomeNavigationStateCopyWith<$Res> {
     bool conversationOpen,
     ConversationId? conversationId,
     DeveloperSettingsScreenType? developerSettingsScreen,
-    UiClientId? memberDetails,
+    UiUserId? memberDetails,
     bool userSettingsOpen,
     bool conversationDetailsOpen,
     bool addMembersOpen,
@@ -95,7 +95,7 @@ class _$HomeNavigationStateCopyWithImpl<$Res, $Val extends HomeNavigationState>
                 freezed == memberDetails
                     ? _value.memberDetails
                     : memberDetails // ignore: cast_nullable_to_non_nullable
-                        as UiClientId?,
+                        as UiUserId?,
             userSettingsOpen:
                 null == userSettingsOpen
                     ? _value.userSettingsOpen
@@ -130,7 +130,7 @@ abstract class _$$HomeNavigationStateImplCopyWith<$Res>
     bool conversationOpen,
     ConversationId? conversationId,
     DeveloperSettingsScreenType? developerSettingsScreen,
-    UiClientId? memberDetails,
+    UiUserId? memberDetails,
     bool userSettingsOpen,
     bool conversationDetailsOpen,
     bool addMembersOpen,
@@ -180,7 +180,7 @@ class __$$HomeNavigationStateImplCopyWithImpl<$Res>
             freezed == memberDetails
                 ? _value.memberDetails
                 : memberDetails // ignore: cast_nullable_to_non_nullable
-                    as UiClientId?,
+                    as UiUserId?,
         userSettingsOpen:
             null == userSettingsOpen
                 ? _value.userSettingsOpen
@@ -222,7 +222,7 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
   @override
   final DeveloperSettingsScreenType? developerSettingsScreen;
   @override
-  final UiClientId? memberDetails;
+  final UiUserId? memberDetails;
   @override
   @JsonKey()
   final bool userSettingsOpen;
@@ -294,7 +294,7 @@ abstract class _HomeNavigationState extends HomeNavigationState {
     final bool conversationOpen,
     final ConversationId? conversationId,
     final DeveloperSettingsScreenType? developerSettingsScreen,
-    final UiClientId? memberDetails,
+    final UiUserId? memberDetails,
     final bool userSettingsOpen,
     final bool conversationDetailsOpen,
     final bool addMembersOpen,
@@ -308,7 +308,7 @@ abstract class _HomeNavigationState extends HomeNavigationState {
   @override
   DeveloperSettingsScreenType? get developerSettingsScreen;
   @override
-  UiClientId? get memberDetails;
+  UiUserId? get memberDetails;
   @override
   bool get userSettingsOpen;
   @override

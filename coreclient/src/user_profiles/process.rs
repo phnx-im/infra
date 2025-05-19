@@ -5,7 +5,7 @@
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Verifiable as _},
-    identifiers::AsClientId,
+    identifiers::UserId,
 };
 
 use super::{
@@ -17,9 +17,9 @@ pub(crate) struct ExistingUserProfile(Option<IndexedUserProfile>);
 impl ExistingUserProfile {
     pub(crate) async fn load(
         executor: impl sqlx::SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        user_id: &UserId,
     ) -> sqlx::Result<Self> {
-        let existing_user_profile = IndexedUserProfile::load(executor, client_id).await?;
+        let existing_user_profile = IndexedUserProfile::load(executor, user_id).await?;
         Ok(Self(existing_user_profile))
     }
 
@@ -31,15 +31,15 @@ impl ExistingUserProfile {
         let unvalidated_user_profile: UnvalidatedUserProfile =
             user_profile.verify(credential.verifying_key())?;
         if let Some(existing_user_profile) = &self.0 {
-            if existing_user_profile.client_id != unvalidated_user_profile.client_id {
-                return Err(UserProfileValidationError::MismatchingClientId {
-                    expected: existing_user_profile.client_id.clone(),
-                    actual: unvalidated_user_profile.client_id,
+            if existing_user_profile.user_id != unvalidated_user_profile.user_id {
+                return Err(UserProfileValidationError::MismatchingUserId {
+                    expected: existing_user_profile.user_id.clone(),
+                    actual: unvalidated_user_profile.user_id,
                 });
             }
             if existing_user_profile.epoch >= unvalidated_user_profile.epoch {
                 return Err(UserProfileValidationError::OutdatedUserProfile {
-                    client_id: existing_user_profile.client_id.clone(),
+                    user_id: existing_user_profile.user_id.clone(),
                     epoch: unvalidated_user_profile.epoch,
                 });
             }

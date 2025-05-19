@@ -5,7 +5,7 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use enumset::EnumSet;
-use phnxtypes::{codec::PhnxCodec, identifiers::AsClientId};
+use phnxtypes::{codec::PhnxCodec, identifiers::UserId};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
@@ -20,7 +20,7 @@ use crate::{ConversationId, ConversationMessageId};
 use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 
 #[derive(Serialize, Deserialize)]
-struct StoredAsClientId<'a>(Cow<'a, AsClientId>);
+struct StoredUserId<'a>(Cow<'a, UserId>);
 
 impl Type<Sqlite> for StoreEntityId {
     fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
@@ -34,8 +34,8 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
         buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         match self {
-            StoreEntityId::User(as_client_id) => {
-                let bytes = PhnxCodec::to_vec(&StoredAsClientId(Cow::Borrowed(as_client_id)))?;
+            StoreEntityId::User(user_id) => {
+                let bytes = PhnxCodec::to_vec(&StoredUserId(Cow::Borrowed(user_id)))?;
                 Encode::<Sqlite>::encode(bytes, buf)
             }
             StoreEntityId::Conversation(conversation_id) => {
@@ -89,8 +89,8 @@ impl SqlStoreNotification {
         } = self;
         let entity_id = match kind {
             StoreEntityKind::User => {
-                let StoredAsClientId(as_client_id) = PhnxCodec::from_slice(&entity_id)?;
-                StoreEntityId::User(as_client_id.into_owned())
+                let StoredUserId(user_id) = PhnxCodec::from_slice(&entity_id)?;
+                StoreEntityId::User(user_id.into_owned())
             }
             StoreEntityKind::Conversation => {
                 StoreEntityId::Conversation(ConversationId::new(Uuid::from_slice(&entity_id)?))
@@ -188,7 +188,7 @@ mod tests {
     async fn queue_dequeue_notification(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notification = StoreNotification::default();
         notification.ops.insert(
-            StoreEntityId::User(AsClientId::random("localhost".parse()?)),
+            StoreEntityId::User(UserId::random("localhost".parse()?)),
             StoreOperation::Add.into(),
         );
         notification.ops.insert(

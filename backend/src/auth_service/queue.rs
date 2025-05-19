@@ -5,7 +5,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures_util::stream;
-use phnxtypes::{identifiers::AsClientId, messages::QueueMessage};
+use phnxtypes::{identifiers::UserId, messages::QueueMessage};
 use sqlx::{PgConnection, PgExecutor, PgPool, postgres::PgListener};
 use tokio::sync::Mutex;
 use tokio_stream::Stream;
@@ -25,7 +25,7 @@ const MAX_BUFFER_SIZE: usize = 32;
 pub(crate) struct Queues {
     pool: PgPool,
     // Ensures that we have only a stream per queue.
-    listeners: Arc<Mutex<HashMap<AsClientId, CancellationToken>>>,
+    listeners: Arc<Mutex<HashMap<UserId, CancellationToken>>>,
 }
 
 impl Queues {
@@ -50,7 +50,7 @@ impl Queues {
     /// is cancelled before this new stream is returned.
     pub(crate) async fn listen(
         &self,
-        queue_id: &AsClientId,
+        queue_id: &UserId,
         sequence_number_start: u64,
     ) -> Result<impl Stream<Item = Option<QueueMessage>> + Send + use<>, QueueError> {
         if !Queue::exists(&self.pool, queue_id).await? {
@@ -59,7 +59,7 @@ impl Queues {
 
         let mut pg_listener = PgListener::connect_with(&self.pool).await?;
         pg_listener
-            .listen(&format!("as_queue_{}", queue_id.client_id()))
+            .listen(&format!("as_queue_{}", queue_id.uuid()))
             .await?;
 
         let cancel = self.track_listener(queue_id.clone()).await;
@@ -89,13 +89,13 @@ impl Queues {
     /// in the queue, an error is returned.
     pub(crate) async fn enqueue(
         &self,
-        queue_id: &AsClientId,
+        queue_id: &UserId,
         message: &QueueMessage,
     ) -> Result<(), QueueError> {
         let mut transaction = self.pool.begin().await?;
 
         Queue::enqueue(&mut transaction, queue_id, message).await?;
-        let query = format!(r#"NOTIFY "as_queue_{}""#, queue_id.client_id());
+        let query = format!(r#"NOTIFY "as_queue_{}""#, queue_id.uuid());
         sqlx::query(&query).execute(&mut *transaction).await?;
 
         transaction.commit().await?;
@@ -109,7 +109,7 @@ impl Queues {
     /// Acknowledged messages are effectively removed from the queue.
     pub(crate) async fn ack(
         &self,
-        queue_id: &AsClientId,
+        queue_id: &UserId,
         up_to_sequence_number: u64,
     ) -> Result<(), QueueError> {
         if !Queue::exists(&self.pool, queue_id).await? {
@@ -119,7 +119,7 @@ impl Queues {
         Ok(())
     }
 
-    async fn track_listener(&self, queue_id: AsClientId) -> CancellationToken {
+    async fn track_listener(&self, queue_id: UserId) -> CancellationToken {
         let mut listeners = self.listeners.lock().await;
         listeners.retain(|_, cancel| !cancel.is_cancelled());
         let cancel = CancellationToken::new();
@@ -131,13 +131,13 @@ impl Queues {
 }
 
 pub(super) struct Queue<'a> {
-    queue_id: &'a AsClientId,
+    queue_id: &'a UserId,
     sequence_number: i64,
 }
 
 impl<'a> Queue<'a> {
     pub(super) async fn new_and_store(
-        queue_id: &'a AsClientId,
+        queue_id: &'a UserId,
         connection: impl PgExecutor<'_>,
     ) -> Result<Self, StorageError> {
         let queue_data = Self {
@@ -152,7 +152,7 @@ impl<'a> Queue<'a> {
 struct QueueStreamContext {
     pool: PgPool,
     pg_listener: PgListener,
-    queue_id: AsClientId,
+    queue_id: UserId,
     cancel: CancellationToken,
     next_sequence_number: u64,
     /// Buffer for already fetched messages
@@ -256,7 +256,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             query!(
                 "INSERT INTO as_queue_data (queue_id, sequence_number) VALUES ($1, $2)",
-                self.queue_id.client_id(),
+                self.queue_id.uuid(),
                 self.sequence_number
             )
             .execute(connection)
@@ -266,11 +266,11 @@ mod persistence {
 
         pub(super) async fn exists(
             connection: impl PgExecutor<'_>,
-            queue_id: &AsClientId,
+            queue_id: &UserId,
         ) -> sqlx::Result<bool> {
             query_scalar!(
                 "SELECT sequence_number FROM as_queue_data WHERE queue_id = $1",
-                queue_id.client_id()
+                queue_id.uuid()
             )
             .fetch_optional(connection)
             .await
@@ -279,7 +279,7 @@ mod persistence {
 
         pub(super) async fn enqueue(
             connection: &mut PgConnection,
-            client_id: &AsClientId,
+            user_id: &UserId,
             message: &QueueMessage,
         ) -> Result<(), QueueError> {
             // Begin the transaction
@@ -288,7 +288,7 @@ mod persistence {
             // Check if sequence numbers are consistent.
             let sequence_number = query_scalar!(
                 "SELECT sequence_number FROM as_queue_data WHERE queue_id = $1 FOR UPDATE",
-                client_id.client_id(),
+                user_id.uuid(),
             )
             .fetch_one(&mut *transaction)
             .await;
@@ -314,7 +314,7 @@ mod persistence {
                 "INSERT INTO as_queues (message_id, queue_id, sequence_number, message_bytes)
                 VALUES ($1, $2, $3, $4)",
                 message_id,
-                client_id.client_id(),
+                user_id.uuid(),
                 sequence_number,
                 BlobEncoded(&message) as _,
             )
@@ -325,7 +325,7 @@ mod persistence {
             // Increase the sequence number and store it.
             query!(
                 "UPDATE as_queue_data SET sequence_number = $2 WHERE queue_id = $1",
-                client_id.client_id(),
+                user_id.uuid(),
                 new_sequence_number
             )
             .execute(&mut *transaction)
@@ -341,7 +341,7 @@ mod persistence {
         /// `buffer` must be empty. The messages are fetched into the buffer in ascending order.
         pub(super) async fn fetch_into<'a>(
             executor: impl PgExecutor<'a> + 'a,
-            client_id: &AsClientId,
+            user_id: &UserId,
             sequence_number: u64,
             limit: usize,
             buffer: &mut Vec<QueueMessage>,
@@ -358,7 +358,7 @@ mod persistence {
                 ORDER BY sequence_number ASC
                 FOR UPDATE SKIP LOCKED
                 LIMIT $3"#,
-                client_id.client_id(),
+                user_id.uuid(),
                 sequence_number,
                 limit,
             )
@@ -372,7 +372,7 @@ mod persistence {
 
         pub(super) async fn delete(
             connection: impl PgExecutor<'_>,
-            client_id: &AsClientId,
+            user_id: &UserId,
             up_to_sequence_number: u64,
         ) -> Result<(), QueueError> {
             let up_to_sequence_number: i64 = up_to_sequence_number
@@ -383,7 +383,7 @@ mod persistence {
                 r#"DELETE FROM as_queues
                 WHERE queue_id = $1
                 AND sequence_number <= $2"#,
-                client_id.client_id(),
+                user_id.uuid(),
                 up_to_sequence_number,
             )
             .execute(connection)
@@ -408,10 +408,10 @@ mod persistence {
         #[sqlx::test]
         async fn enqueue_fetch_delete_and_requeue(pool: PgPool) -> anyhow::Result<()> {
             let user_record = store_random_user_record(&pool).await?;
-            let client_id = user_record.client_id();
-            store_random_client_record(&pool, client_id.clone()).await?;
+            let user_id = user_record.user_id();
+            store_random_client_record(&pool, user_id.clone()).await?;
 
-            let queue = Queue::new_and_store(client_id, &pool).await?;
+            let queue = Queue::new_and_store(user_id, &pool).await?;
 
             let n: u64 = queue.sequence_number.try_into()?;
             let mut messages = Vec::new();
@@ -423,33 +423,33 @@ mod persistence {
                 messages.push(message);
                 Queue::enqueue(
                     pool.acquire().await?.as_mut(),
-                    client_id,
+                    user_id,
                     messages.last().unwrap(),
                 )
                 .await?;
             }
 
             let mut buffer = Vec::new();
-            Queue::fetch_into(&pool, client_id, 0, 10, &mut buffer).await?;
+            Queue::fetch_into(&pool, user_id, 0, 10, &mut buffer).await?;
             assert_eq!(buffer.len(), 10);
             for i in 0..10 {
                 assert_eq!(buffer[i], messages[i]);
             }
 
             buffer.clear();
-            Queue::fetch_into(&pool, client_id, 10, 1, &mut buffer).await?;
+            Queue::fetch_into(&pool, user_id, 10, 1, &mut buffer).await?;
             assert!(buffer.is_empty());
 
-            Queue::delete(&pool, client_id, n + 4).await?;
+            Queue::delete(&pool, user_id, n + 4).await?;
 
-            Queue::fetch_into(&pool, client_id, 5, 10, &mut buffer).await?;
+            Queue::fetch_into(&pool, user_id, 5, 10, &mut buffer).await?;
             assert_eq!(buffer.len(), 5);
             for i in 0..5 {
                 assert_eq!(buffer[i], messages[i + 5]);
             }
 
             buffer.clear();
-            Queue::fetch_into(&pool, client_id, 10, 1, &mut buffer).await?;
+            Queue::fetch_into(&pool, user_id, 10, 1, &mut buffer).await?;
             assert!(buffer.is_empty());
 
             Ok(())
@@ -481,12 +481,12 @@ mod tests {
         }
     }
 
-    async fn new_queue(pool: &PgPool) -> anyhow::Result<AsClientId> {
+    async fn new_queue(pool: &PgPool) -> anyhow::Result<UserId> {
         let user_record = store_random_user_record(pool).await?;
-        let client_id = user_record.client_id().clone();
-        store_random_client_record(pool, client_id.clone()).await?;
-        Queue::new_and_store(&client_id, pool).await?;
-        Ok(client_id)
+        let user_id = user_record.user_id().clone();
+        store_random_client_record(pool, user_id.clone()).await?;
+        Queue::new_and_store(&user_id, pool).await?;
+        Ok(user_id)
     }
 
     #[sqlx::test]
@@ -715,7 +715,7 @@ mod tests {
     #[sqlx::test]
     async fn test_ack_non_existent_queue(pool: PgPool) {
         let queues = Queues::new(pool);
-        let queue_id = AsClientId::random("localhost".parse().unwrap());
+        let queue_id = UserId::random("localhost".parse().unwrap());
 
         let result = queues.ack(&queue_id, 0).await;
 
@@ -725,7 +725,7 @@ mod tests {
     #[sqlx::test]
     async fn test_enqueue_non_existent_queue(pool: PgPool) {
         let queues = Queues::new(pool);
-        let queue_id = AsClientId::random("localhost".parse().unwrap());
+        let queue_id = UserId::random("localhost".parse().unwrap());
 
         let msg = new_msg(0, "msg");
         let result = queues.enqueue(&queue_id, &msg).await;

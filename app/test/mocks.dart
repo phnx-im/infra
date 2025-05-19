@@ -27,16 +27,16 @@ class MockUiUser implements UiUser {
     required int id,
     required String displayName,
     Uint8List? profilePicture,
-  }) : _clientId = id.clientId(),
+  }) : _userId = id.userId(),
        _displayName = displayName,
        _profilePicture = profilePicture?.toImageData();
 
-  final UiClientId _clientId;
+  final UiUserId _userId;
   final String _displayName;
   final ImageData? _profilePicture;
 
   @override
-  UiClientId get clientId => _clientId;
+  UiUserId get userId => _userId;
 
   @override
   String get displayName => _displayName;

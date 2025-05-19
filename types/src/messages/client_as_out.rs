@@ -22,7 +22,7 @@ use crate::{
             signable::{Signature, Verifiable},
         },
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
     time::ExpirationData,
 };
 
@@ -124,7 +124,7 @@ pub struct RegisterUserParamsIn {
 }
 
 pub struct GetUserProfileParams {
-    pub client_id: AsClientId,
+    pub user_id: UserId,
     pub key_index: UserProfileKeyIndex,
 }
 
@@ -139,13 +139,13 @@ pub struct GetUserProfileResponse {
 
 #[derive(Debug)]
 pub struct UpdateUserProfileParamsTbs {
-    pub client_id: AsClientId,
+    pub user_id: UserId,
     pub user_profile: EncryptedUserProfile,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct StageUserProfileParamsTbs {
-    pub client_id: AsClientId,
+    pub user_id: UserId,
     pub user_profile: EncryptedUserProfile,
 }
 
@@ -157,7 +157,7 @@ pub struct StageUserProfileParams {
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct MergeUserProfileParamsTbs {
-    pub client_id: AsClientId,
+    pub user_id: UserId,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]

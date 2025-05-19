@@ -54,18 +54,18 @@ class UserCubit implements StateStreamableSource<UiUser> {
         profilePicture: profilePicture,
       );
 
-  Future<UiUserProfile?> userProfile(UiClientId clientId) =>
-      _impl.userProfile(clientId);
+  Future<UiUserProfile?> userProfile(UiUserId userId) =>
+      _impl.userProfile(userId);
 
   Future<void> addUserToConversation(
     ConversationId conversationId,
-    UiClientId clientId,
-  ) => _impl.addUserToConversation(conversationId, clientId);
+    UiUserId userId,
+  ) => _impl.addUserToConversation(conversationId, userId);
 
   Future<void> removeUserFromConversation(
     ConversationId conversationId,
-    UiClientId clientId,
-  ) => _impl.removeUserFromConversation(conversationId, clientId);
+    UiUserId userId,
+  ) => _impl.removeUserFromConversation(conversationId, userId);
 
   Future<List<UiContact>> get contacts => _impl.contacts;
 }

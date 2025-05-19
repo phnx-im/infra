@@ -18,12 +18,9 @@ impl AuthService {
         &self,
         params: GetUserProfileParams,
     ) -> Result<GetUserProfileResponse, GetUserProfileError> {
-        let GetUserProfileParams {
-            client_id,
-            key_index,
-        } = params;
+        let GetUserProfileParams { user_id, key_index } = params;
 
-        let user_record = UserRecord::load(&self.db_pool, &client_id)
+        let user_record = UserRecord::load(&self.db_pool, &user_id)
             .await?
             .ok_or(GetUserProfileError::UserNotFound)?;
 
@@ -43,11 +40,11 @@ impl AuthService {
         params: StageUserProfileParamsTbs,
     ) -> Result<(), StageUserProfileError> {
         let StageUserProfileParamsTbs {
-            client_id,
+            user_id,
             user_profile,
         } = params;
 
-        let mut user_record = UserRecord::load(&self.db_pool, &client_id)
+        let mut user_record = UserRecord::load(&self.db_pool, &user_id)
             .await?
             .ok_or(StageUserProfileError::UserNotFound)?;
 
@@ -65,9 +62,9 @@ impl AuthService {
         &self,
         params: MergeUserProfileParamsTbs,
     ) -> Result<(), MergeUserProfileError> {
-        let MergeUserProfileParamsTbs { client_id } = params;
+        let MergeUserProfileParamsTbs { user_id } = params;
 
-        let mut user_record = UserRecord::load(&self.db_pool, &client_id)
+        let mut user_record = UserRecord::load(&self.db_pool, &user_id)
             .await?
             .ok_or(MergeUserProfileError::UserNotFound)?;
 

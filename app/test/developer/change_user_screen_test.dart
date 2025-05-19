@@ -16,21 +16,21 @@ import '../mocks.dart';
 
 final clientRecords = [
   UiClientRecord(
-    clientId: 1.clientId(),
+    userId: 1.userId(),
     createdAt: DateTime.parse("2023-01-01T00:00:00.000Z"),
-    userProfile: UiUserProfile(clientId: 1.clientId(), displayName: "alice"),
+    userProfile: UiUserProfile(userId: 1.userId(), displayName: "alice"),
     isFinished: true,
   ),
   UiClientRecord(
-    clientId: 2.clientId(),
+    userId: 2.userId(),
     createdAt: DateTime.parse("2024-01-01T00:00:00.000Z"),
-    userProfile: UiUserProfile(clientId: 2.clientId(), displayName: "alice"),
+    userProfile: UiUserProfile(userId: 2.userId(), displayName: "alice"),
     isFinished: true,
   ),
   UiClientRecord(
-    clientId: 3.clientId(),
+    userId: 3.userId(),
     createdAt: DateTime.parse("2025-01-01T00:00:00.000Z"),
-    userProfile: UiUserProfile(clientId: 3.clientId(), displayName: "bob"),
+    userProfile: UiUserProfile(userId: 3.userId(), displayName: "bob"),
     isFinished: false,
   ),
 ];
@@ -44,7 +44,7 @@ void main() {
       user = MockUser();
       loadableUserCubit = MockLoadableUserCubit();
 
-      when(() => user.clientId).thenReturn(1.clientId());
+      when(() => user.userId).thenReturn(1.userId());
       when(() => loadableUserCubit.state).thenReturn(LoadableUser.loaded(user));
     });
 

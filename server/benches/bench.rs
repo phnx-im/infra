@@ -9,7 +9,7 @@ use std::{
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use phnxserver_test_harness::utils::setup::TestBackend;
-use phnxtypes::identifiers::{AsClientId, Fqdn};
+use phnxtypes::identifiers::{Fqdn, UserId};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -31,8 +31,8 @@ fn benchmarks(c: &mut Criterion) {
         seed
     };
 
-    let alice = AsClientId::new(Uuid::from_u128(1), "example.com".parse().unwrap());
-    let bob = AsClientId::new(Uuid::from_u128(2), "example.com".parse().unwrap());
+    let alice = UserId::new(Uuid::from_u128(1), "example.com".parse().unwrap());
+    let bob = UserId::new(Uuid::from_u128(2), "example.com".parse().unwrap());
 
     let conversation_alice_bob = runtime.block_on(async {
         let mut setup = setup.lock().await;
@@ -55,7 +55,7 @@ fn benchmarks(c: &mut Criterion) {
             async move {
                 let mut setup = setup.lock().await;
                 for i in 0..iter {
-                    let bob = AsClientId::new(Uuid::from_u128((offset + i).into()), domain.clone());
+                    let bob = UserId::new(Uuid::from_u128((offset + i).into()), domain.clone());
                     let time = Instant::now();
                     setup.add_user(&bob).await;
                     elapsed += time.elapsed();
@@ -75,7 +75,7 @@ fn benchmarks(c: &mut Criterion) {
             async move {
                 let mut setup = setup.lock().await;
                 for i in 0..iter {
-                    let bob = AsClientId::new(Uuid::from_u128((offset + i).into()), domain.clone());
+                    let bob = UserId::new(Uuid::from_u128((offset + i).into()), domain.clone());
                     setup.add_user(&bob).await;
                     let time = Instant::now();
                     setup.connect_users(&alice, &bob).await;
@@ -112,8 +112,8 @@ fn benchmarks(c: &mut Criterion) {
     const NUM_USERS: usize = 10;
     let offset = rng();
     let domain: Fqdn = "example.com".parse().unwrap();
-    let bobs: Vec<AsClientId> = (0..NUM_USERS as u64)
-        .map(|i| AsClientId::new(Uuid::from_u128((offset + i).into()), domain.clone()))
+    let bobs: Vec<UserId> = (0..NUM_USERS as u64)
+        .map(|i| UserId::new(Uuid::from_u128((offset + i).into()), domain.clone()))
         .collect();
     runtime.block_on(async {
         let mut setup = setup.lock().await;
