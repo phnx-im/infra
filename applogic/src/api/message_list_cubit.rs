@@ -298,18 +298,18 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 mod tests {
     use mimi_content::MimiContent;
     use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
-    use phnxtypes::time::TimeStamp;
+    use phnxtypes::{identifiers::UserId, time::TimeStamp};
     use uuid::Uuid;
 
     use super::*;
 
-    fn new_test_message(sender: &str, timestamp_secs: i64) -> ConversationMessage {
+    fn new_test_message(sender: &UserId, timestamp_secs: i64) -> ConversationMessage {
         ConversationMessage::new_for_test(
             ConversationId::new(Uuid::from_u128(1)),
             ConversationMessageId::new(Uuid::from_u128(1)),
             TimeStamp::from(timestamp_secs * 1_000_000_000),
             Message::with_content(ContentMessage::new(
-                sender.into(),
+                sender.clone(),
                 true,
                 MimiContent::simple_markdown_message("some content".into()),
             )),
@@ -320,19 +320,22 @@ mod tests {
     fn test_rebuild_from_messages_flight_positions() {
         use UiFlightPosition::*;
 
+        let alice = UserId::random("localhost".parse().unwrap());
+        let bob = UserId::random("localhost".parse().unwrap());
+
         let messages = vec![
-            new_test_message("alice", 0),
-            new_test_message("alice", 1),
-            new_test_message("alice", 2),
+            new_test_message(&alice, 0),
+            new_test_message(&alice, 1),
+            new_test_message(&alice, 2),
             // -- break due to sender
-            new_test_message("bob", 3),
-            new_test_message("bob", 4),
-            new_test_message("bob", 5),
+            new_test_message(&bob, 3),
+            new_test_message(&bob, 4),
+            new_test_message(&bob, 5),
             // -- break due to time
-            new_test_message("bob", 65),
+            new_test_message(&bob, 65),
             // -- break due to sender and time
-            new_test_message("alice", 125),
-            new_test_message("alice", 126),
+            new_test_message(&alice, 125),
+            new_test_message(&alice, 126),
         ];
 
         let mut state = MessageListState::default();

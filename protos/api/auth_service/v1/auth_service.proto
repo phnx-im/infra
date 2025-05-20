@@ -23,15 +23,15 @@ service AuthService {
 
   rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
 
+  rpc Listen(stream ListenRequest) returns (stream ListenResponse);
   rpc EnqueueMessages(EnqueueMessagesRequest) returns (EnqueueMessagesResponse);
-  rpc DequeueMessages(DequeueMessagesRequest) returns (DequeueMessagesResponse);
 }
 
 // common
 
-message AsClientId {
-  common.v1.QualifiedUserName user_name = 1;
-  common.v1.Uuid client_id = 2;
+message UserId {
+  common.v1.Uuid uuid = 1;
+  common.v1.Fqdn domain = 2;
 }
 
 message MlsInfraVersion {
@@ -76,7 +76,7 @@ message ClientCredentialPayload {
 
 message ClientCredentialCsr {
   uint32 msl_version = 1;
-  AsClientId client_id = 2;
+  UserId user_id = 2;
   SignatureScheme signature_scheme = 3;
   ClientVerifyingKey verifying_key = 4;
 }
@@ -119,8 +119,7 @@ message DeleteUserRequest {
 }
 
 message DeleteUserPayload {
-  common.v1.QualifiedUserName user_name = 1;
-  AsClientId client_id = 2;
+  UserId user_id = 2;
 }
 
 message DeleteUserResponse {}
@@ -133,7 +132,7 @@ message PublishConnectionPackagesRequest {
 }
 
 message PublishConnectionPackagesPayload {
-  AsClientId client_id = 1;
+  UserId user_id = 1;
   repeated ConnectionPackage connection_packages = 2;
 }
 
@@ -142,7 +141,7 @@ message PublishConnectionPackagesResponse {}
 // get user connection packages
 
 message GetUserConnectionPackagesRequest {
-  common.v1.QualifiedUserName user_name = 1;
+  UserId user_id = 1;
 }
 
 message GetUserConnectionPackagesResponse {
@@ -157,7 +156,7 @@ message StageUserProfileRequest {
 }
 
 message StageUserProfilePayload {
-  AsClientId client_id = 1;
+  UserId user_id = 1;
   EncryptedUserProfile encrypted_user_profile = 2;
 }
 
@@ -171,7 +170,7 @@ message MergeUserProfileRequest {
 }
 
 message MergeUserProfilePayload {
-  AsClientId client_id = 1;
+  UserId user_id = 1;
 }
 
 message MergeUserProfileResponse {}
@@ -179,7 +178,7 @@ message MergeUserProfileResponse {}
 // get user profile
 
 message GetUserProfileRequest {
-  AsClientId client_id = 1;
+  UserId user_id = 1;
   bytes key_index = 2;
 }
 
@@ -193,7 +192,7 @@ message GetConnectionPackageRequest {
 }
 
 message GetConnectionPackagePayload {
-  AsClientId as_client_id = 1;
+  UserId user_id = 1;
 }
 
 message GetConnectionPackageResponse {
@@ -203,7 +202,8 @@ message GetConnectionPackageResponse {
 // user connection package
 
 message GetConnectionPackagesRequest {
-  common.v1.QualifiedUserName user_name = 1;
+  // TODO: can we remove this field?
+  UserId user_id = 1;
 }
 
 message GetConnectionPackagesResponse {
@@ -227,7 +227,7 @@ message AsCredential {
 
 message AsCredentialBody {
   MlsInfraVersion version = 1;
-  common.v1.Fqdn as_domain = 2;
+  common.v1.Fqdn user_domain = 2;
   ExpirationData expiration_data = 3;
   SignatureScheme signature_scheme = 4;
   AsVerifyingKey verifying_key = 5;
@@ -255,7 +255,7 @@ message AsIntermediateCredentialPayload {
 
 message AsIntermediateCredentialCsr {
   MlsInfraVersion version = 1;
-  common.v1.Fqdn as_domain = 2;
+  common.v1.Fqdn user_domain = 2;
   SignatureScheme signature_scheme = 3;
   AsIntermediateVerifyingKey verifying_key = 4;
 }
@@ -272,7 +272,7 @@ message IssueTokensRequest {
 }
 
 message IssueTokensRequestTbs {
-  AsClientId client_id = 1;
+  UserId user_id = 1;
   AsTokenType token_type = 2;
   TokenRequest token_request = 3;
 }
@@ -310,7 +310,7 @@ message TokenResponse {
 // enqueue messages
 
 message EnqueueMessagesRequest {
-  AsClientId client_id = 1;
+  UserId user_id = 1;
   EncryptedConnectionEstablishmentPackage connection_establishment_package = 2;
 }
 
@@ -320,22 +320,34 @@ message EncryptedConnectionEstablishmentPackage {
 
 message EnqueueMessagesResponse {}
 
-// dequeue messages
+// listen
 
-message DequeueMessagesRequest {
-  DequeueMessagesPayload payload = 1;
+message ListenRequest {
+  oneof request {
+    InitListenRequest init = 1;
+    AckListenRequest ack = 2;
+  }
+}
+
+message InitListenRequest {
+  InitListenPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message DequeueMessagesPayload {
-  AsClientId sender = 1;
+message InitListenPayload {
+  UserId user_id = 1;
   uint64 sequence_number_start = 2;
-  uint64 max_message_number = 3;
 }
 
-message DequeueMessagesResponse {
-  repeated QueueMessage messages = 1;
-  uint64 remaining_messages_number = 2;
+message AckListenRequest {
+  uint64 up_to_sequence_number = 1;
+}
+
+message ListenResponse {
+  // Optional message
+  //
+  // When not present, there are currently no messages in the queue.
+  QueueMessage message = 1;
 }
 
 message QueueMessage {

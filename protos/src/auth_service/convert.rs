@@ -11,55 +11,52 @@ use phnxtypes::{
 use tonic::Status;
 
 use crate::{
-    common::convert::{InvalidIndexedCiphertext, InvalidNonceLen, QualifiedUserNameError},
-    convert::{RefInto, TryRefInto},
+    common::convert::{InvalidIndexedCiphertext, InvalidNonceLen},
+    convert::TryRefInto,
     validation::{MissingFieldError, MissingFieldExt},
 };
 
 use super::v1::{
-    AsClientId, AsCredential, AsCredentialBody, AsIntermediateCredential,
-    AsIntermediateCredentialBody, AsIntermediateCredentialCsr, AsIntermediateCredentialPayload,
-    AsIntermediateVerifyingKey, AsVerifyingKey, ClientCredential, ClientCredentialCsr,
-    ClientCredentialPayload, ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage,
-    ConnectionPackagePayload, CredentialFingerprint, EncryptedConnectionEstablishmentPackage,
-    EncryptedUserProfile, ExpirationData, MlsInfraVersion, QueueMessage, SignatureScheme,
+    AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
+    AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
+    AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
+    CredentialFingerprint, EncryptedConnectionEstablishmentPackage, EncryptedUserProfile,
+    ExpirationData, MlsInfraVersion, QueueMessage, SignatureScheme, UserId,
 };
 
-impl From<identifiers::AsClientId> for AsClientId {
-    fn from(value: identifiers::AsClientId) -> Self {
-        let (user_name, client_id) = value.into_parts();
+impl From<identifiers::UserId> for UserId {
+    fn from(value: identifiers::UserId) -> Self {
+        let (uuid, domain) = value.into_parts();
         Self {
-            user_name: Some(user_name.into()),
-            client_id: Some(client_id.into()),
+            uuid: Some(uuid.into()),
+            domain: Some(domain.into()),
         }
     }
 }
 
-impl TryFrom<AsClientId> for identifiers::AsClientId {
-    type Error = AsClientIdError;
+impl TryFrom<UserId> for identifiers::UserId {
+    type Error = UserIdError;
 
-    fn try_from(proto: AsClientId) -> Result<Self, Self::Error> {
+    fn try_from(proto: UserId) -> Result<Self, Self::Error> {
         Ok(Self::new(
-            proto
-                .user_name
-                .ok_or_missing_field("user_name")?
-                .try_into()?,
-            proto.client_id.ok_or_missing_field("client_id")?.into(),
+            proto.uuid.ok_or_missing_field("user_id")?.into(),
+            proto.domain.ok_or_missing_field("domain")?.try_ref_into()?,
         ))
     }
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum AsClientIdError {
+pub enum UserIdError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError<&'static str>),
     #[error(transparent)]
-    QualifiedUserName(#[from] QualifiedUserNameError),
+    Fqdn(#[from] identifiers::FqdnError),
 }
 
-impl From<AsClientIdError> for Status {
-    fn from(e: AsClientIdError) -> Self {
-        Status::invalid_argument(format!("invalid AS client id: {e}"))
+impl From<UserIdError> for Status {
+    fn from(e: UserIdError) -> Self {
+        Status::invalid_argument(format!("invalid user id: {e}"))
     }
 }
 
@@ -67,7 +64,7 @@ impl From<credentials::ClientCredentialCsr> for ClientCredentialCsr {
     fn from(value: credentials::ClientCredentialCsr) -> Self {
         Self {
             msl_version: value.version as u32,
-            client_id: Some(value.client_id.into()),
+            user_id: Some(value.user_id.into()),
             signature_scheme: value.signature_scheme as i32,
             verifying_key: Some(value.verifying_key.into()),
         }
@@ -88,10 +85,7 @@ impl TryFrom<ClientCredentialCsr> for credentials::ClientCredentialCsr {
 
         Ok(Self {
             version,
-            client_id: proto
-                .client_id
-                .ok_or_missing_field("client_id")?
-                .try_into()?,
+            user_id: proto.user_id.ok_or_missing_field("user_id")?.try_into()?,
             signature_scheme,
             verifying_key: proto
                 .verifying_key
@@ -110,7 +104,7 @@ pub enum ClientCredentialCsrError {
     #[error(transparent)]
     Signature(#[from] UnsupportedSignatureScheme),
     #[error(transparent)]
-    ClientId(#[from] AsClientIdError),
+    ClientId(#[from] UserIdError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -439,7 +433,7 @@ impl From<credentials::AsCredentialBody> for AsCredentialBody {
         let signature_scheme: SignatureScheme = value.signature_scheme.into();
         Self {
             version: Some(value.version.into()),
-            as_domain: Some(value.as_domain.ref_into()),
+            user_domain: Some(value.user_domain.into()),
             expiration_data: Some(value.expiration_data.into()),
             signature_scheme: signature_scheme.into(),
             verifying_key: Some(value.verifying_key.into()),
@@ -456,9 +450,9 @@ impl TryFrom<AsCredentialBody> for credentials::AsCredentialBody {
             .try_into()?;
         Ok(Self {
             version: proto.version.ok_or_missing_field("version")?.try_into()?,
-            as_domain: proto
-                .as_domain
-                .ok_or_missing_field("as_domain")?
+            user_domain: proto
+                .user_domain
+                .ok_or_missing_field("user_domain")?
                 .try_ref_into()?,
             expiration_data: proto
                 .expiration_data
@@ -596,7 +590,7 @@ impl From<credentials::AsIntermediateCredentialCsr> for AsIntermediateCredential
     fn from(value: credentials::AsIntermediateCredentialCsr) -> Self {
         Self {
             version: Some(value.version.into()),
-            as_domain: Some(value.as_domain.ref_into()),
+            user_domain: Some(value.user_domain.into()),
             signature_scheme: SignatureScheme::from(value.signature_scheme).into(),
             verifying_key: Some(value.verifying_key.into()),
         }
@@ -613,9 +607,9 @@ impl TryFrom<AsIntermediateCredentialCsr> for credentials::AsIntermediateCredent
             .try_into()?;
         Ok(Self {
             version,
-            as_domain: proto
-                .as_domain
-                .ok_or_missing_field("as_domain")?
+            user_domain: proto
+                .user_domain
+                .ok_or_missing_field("user_domain")?
                 .try_ref_into()?,
             signature_scheme,
             verifying_key: proto

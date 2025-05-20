@@ -29,10 +29,12 @@ image = "0.25.1"
 kamadak-exif = "0.6.1"
 derive_more = { workspace = true }
 mimi_content = { workspace = true }
+serde_json = "1.0.140"
 
 # Persistence
 serde = { version = "1", features = ["derive"] }
 sqlx = { workspace = true, features = ["chrono", "sqlite"] }
+mimi-room-policy = { workspace = true }
 
 # Workspace dependencies
 chrono = { workspace = true }
@@ -43,6 +45,7 @@ tokio-stream = { version = "0.1.17", features = ["sync"] }
 trait-variant = "0.1.2"
 enumset = "1.1.5"
 phnxprotos.workspace = true
+url = "2.5.4"
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

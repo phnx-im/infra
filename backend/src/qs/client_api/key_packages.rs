@@ -6,15 +6,16 @@ use mls_assist::{
     openmls::prelude::{KeyPackage, OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use phnxtypes::{
-    errors::qs::{QsEncryptionKeyError, QsKeyPackageError, QsPublishKeyPackagesError},
-    messages::client_qs::{
-        EncryptionKeyResponse, KeyPackageParams, KeyPackageResponse, PublishKeyPackagesParams,
-    },
+use phnxtypes::messages::client_qs::{
+    EncryptionKeyResponse, KeyPackageParams, KeyPackageResponse, PublishKeyPackagesParams,
 };
 
-use crate::qs::{
-    Qs, client_id_decryption_key::StorableClientIdDecryptionKey, key_package::StorableKeyPackage,
+use crate::{
+    errors::qs::{QsEncryptionKeyError, QsKeyPackageError, QsPublishKeyPackagesError},
+    qs::{
+        Qs, client_id_decryption_key::StorableClientIdDecryptionKey,
+        key_package::StorableKeyPackage,
+    },
 };
 
 impl Qs {

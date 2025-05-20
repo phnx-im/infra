@@ -14,8 +14,8 @@ use phnxtypes::{
     identifiers::Fqdn,
 };
 use sqlx::{
-    Database, Encode, Sqlite, SqliteExecutor, SqlitePool, Type, encode::IsNull, error::BoxDynError,
-    query, query_scalar,
+    Database, Encode, Sqlite, SqliteConnection, SqliteExecutor, Type, encode::IsNull,
+    error::BoxDynError, query, query_scalar,
 };
 use thiserror::Error;
 use tracing::info;
@@ -94,7 +94,7 @@ impl AsCredentials {
         let body = self.body();
         query!(
             "INSERT OR REPLACE INTO as_credentials
-                (fingerprint, domain, credential_type, credential) VALUES (?, ?, ?, ?)",
+                (fingerprint, user_domain, credential_type, credential) VALUES (?, ?, ?, ?)",
             fingerpint,
             domain,
             credential_type,
@@ -116,7 +116,7 @@ impl AsCredentials {
                     r#"SELECT
                     credential AS "credential: _"
                 FROM as_credentials
-                WHERE domain = ?
+                WHERE user_domain = ?
                     AND credential_type = 'as_intermediate_credential'
                     AND fingerprint = ?"#,
                     domain,
@@ -129,7 +129,7 @@ impl AsCredentials {
                     r#"SELECT
                     credential AS "credential: _"
                 FROM as_credentials
-                WHERE domain = ?
+                WHERE user_domain = ?
                     AND credential_type = 'as_intermediate_credential'"#,
                     domain
                 )
@@ -163,7 +163,7 @@ impl AsCredentials {
     /// Fetches the credentials of the AS with the given `domain` if they are
     /// not already present in the store.
     pub(crate) async fn get(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
         fingerprint: &CredentialFingerprint,
@@ -171,7 +171,7 @@ impl AsCredentials {
         info!("Loading AS credential from db");
         // Phase 1: Check if there is a credential in the database.
         let credential_option =
-            AsCredentials::load_intermediate(pool, Some(fingerprint), domain).await?;
+            AsCredentials::load_intermediate(&mut *connection, Some(fingerprint), domain).await?;
 
         // Phase 2: If there is no credential in the database, fetch it from the AS.
         let credential = if let Some(credential) = credential_option {
@@ -186,7 +186,7 @@ impl AsCredentials {
 
             // Phase 2b: Store it in the database.
             let credential_type = AsCredentials::AsIntermediateCredential(credential);
-            credential_type.store(pool).await?;
+            credential_type.store(&mut *connection).await?;
             let AsCredentials::AsIntermediateCredential(credential) = credential_type else {
                 unreachable!()
             };
@@ -217,12 +217,12 @@ impl AsCredentials {
     }
 
     pub async fn verify_client_credential(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
     ) -> Result<ClientCredential, AsCredentialStoreError> {
         let as_intermediate_credential = Self::get(
-            pool,
+            connection,
             api_clients,
             verifiable_client_credential.domain(),
             verifiable_client_credential.signer_fingerprint(),

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mimi_room_policy::{MimiProposal, RoleIndex};
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedWelcome, SerializedMlsMessage},
@@ -20,7 +21,6 @@ use phnxtypes::{
         ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
     },
-    errors::GroupOperationError,
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
     messages::{
         client_ds::{
@@ -32,9 +32,12 @@ use phnxtypes::{
     time::{Duration, TimeStamp},
 };
 use tls_codec::DeserializeBytes;
-use tracing::warn;
+use tracing::{error, warn};
 
-use crate::messages::intra_backend::{DsFanOutMessage, DsFanOutPayload};
+use crate::{
+    errors::GroupOperationError,
+    messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
+};
 
 use super::{group_state::MemberProfile, process::USER_EXPIRATION_DAYS};
 
@@ -140,6 +143,21 @@ impl DsGroupState {
             };
 
             let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
+
+            let mut slots = self.free_indices().await;
+            for _user in &add_users_state.added_users {
+                if let Err(e) = self.room_state.apply_regular_proposals(
+                    &sender_index.leaf_index().u32(),
+                    &[MimiProposal::ChangeRole {
+                        target: slots.next().unwrap().u32(),
+                        role: RoleIndex::Regular,
+                    }],
+                ) {
+                    error!(error = %e, "Failed to add new member to group state");
+                    return Err(GroupOperationError::InvalidMessage);
+                };
+            }
+
             Some(add_users_state)
         };
 
@@ -192,6 +210,23 @@ impl DsGroupState {
             .remove_proposals()
             .map(|remove_proposal| remove_proposal.remove_proposal().removed())
             .collect::<Vec<_>>();
+
+        for removed in &removed_clients {
+            if *removed == sender_index.leaf_index() {
+                return Err(GroupOperationError::InvalidMessage);
+            }
+
+            if let Err(e) = self.room_state.apply_regular_proposals(
+                &sender_index.leaf_index().u32(),
+                &[MimiProposal::ChangeRole {
+                    target: removed.u32(),
+                    role: RoleIndex::Outsider,
+                }],
+            ) {
+                error!("{e:?}");
+                return Err(GroupOperationError::InvalidMessage);
+            };
+        }
 
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
@@ -333,6 +368,7 @@ impl DsGroupState {
                 group_state_ear_key: group_state_ear_key.clone(),
                 encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
                 ratchet_tree: self.group().export_ratchet_tree(),
+                room_state: serde_json::to_vec(&self.room_state).unwrap(),
                 encrypted_user_profile_keys: self.encrypted_user_profile_keys(),
             }
             .encrypt(&encryption_key, info, aad);
@@ -418,7 +454,7 @@ fn validate_added_users(
         .zip(aad_payload.new_encrypted_user_profile_keys)
         .map(|((kp, eilk), eupk)| (kp, eilk, eupk))
         .zip(add_users_info.encrypted_welcome_attribution_infos)
-        .collect();
+        .collect::<Vec<_>>();
 
     Ok(AddUsersState {
         added_users,

@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use super::group_state::DsGroupState;
+use super::process::USER_EXPIRATION_DAYS;
+use crate::errors::ClientSelfRemovalError;
+use mimi_room_policy::{MimiProposal, RoleIndex};
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{errors::ClientSelfRemovalError, time::Duration};
-
-use super::process::USER_EXPIRATION_DAYS;
-
-use super::group_state::DsGroupState;
+use phnxtypes::time::Duration;
+use tracing::error;
 
 impl DsGroupState {
     pub(crate) fn self_remove_client(
@@ -58,6 +59,17 @@ impl DsGroupState {
 
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
+
+        if let Err(e) = self.room_state.apply_regular_proposals(
+            &sender_index.u32(),
+            &[MimiProposal::ChangeRole {
+                target: sender_index.u32(),
+                role: RoleIndex::Outsider,
+            }],
+        ) {
+            error!("{e:?}");
+            return Err(ClientSelfRemovalError::InvalidMessage);
+        }
 
         // We first accept the message into the group state ...
         self.group.accept_processed_message(

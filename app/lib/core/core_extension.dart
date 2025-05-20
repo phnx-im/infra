@@ -9,17 +9,19 @@ import 'package:prototype/util/platform.dart';
 import 'package:uuid/uuid.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {
-  /// Username of the conversation (for group it is the group title)
-  String get username => switch (conversationType) {
-    UiConversationType_UnconfirmedConnection(field0: final e) => e,
-    UiConversationType_Connection(field0: final e) => e,
-    UiConversationType_Group() => attributes.title,
+  /// ClientId of the conversation (for group it is null)
+  UiUserId? get userId => switch (conversationType) {
+    UiConversationType_UnconfirmedConnection(field0: final profile) =>
+      profile.userId,
+    UiConversationType_Connection(field0: final profile) => profile.userId,
+    UiConversationType_Group() => null,
   };
 
   /// Title of the conversation
   String get title => switch (conversationType) {
-    UiConversationType_UnconfirmedConnection(field0: final e) => "⏳ $e",
-    UiConversationType_Connection(field0: final e) => e,
+    UiConversationType_UnconfirmedConnection(field0: final profile) =>
+      "⏳ ${profile.displayName}",
+    UiConversationType_Connection(field0: final profile) => profile.displayName,
     UiConversationType_Group() => attributes.title,
   };
 }
@@ -43,11 +45,6 @@ extension UiFlightPositionExtension on UiFlightPosition {
     UiFlightPosition.start || UiFlightPosition.middle => false,
     UiFlightPosition.single || UiFlightPosition.end => true,
   };
-}
-
-extension UiUserNameExtension on UiUserName {
-  String displayName(String? displayName) =>
-      displayName != null && displayName.isNotEmpty ? displayName : userName;
 }
 
 extension DeviceTokenExtension on PlatformPushToken {

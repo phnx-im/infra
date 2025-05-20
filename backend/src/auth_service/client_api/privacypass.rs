@@ -2,25 +2,27 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::auth_service::IssueTokensError,
-    messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse},
-};
-use privacypass::batched_tokens_ristretto255::server::Server;
+use phnxtypes::messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse};
+use privacypass::amortized_tokens::server::Server;
+use tracing::error;
 
-use crate::auth_service::{
-    AuthService, client_record::ClientRecord, privacy_pass::AuthServiceBatchedKeyStoreProvider,
+use crate::{
+    auth_service::{
+        AuthService, client_record::ClientRecord, privacy_pass::AuthServiceBatchedKeyStoreProvider,
+    },
+    errors::auth_service::IssueTokensError,
 };
 
 const MAX_TOKENS_PER_REQUEST: i32 = 100;
 
 impl AuthService {
+    #[allow(dead_code)]
     pub(crate) async fn as_issue_tokens(
         &self,
         params: IssueTokensParamsTbs,
     ) -> Result<IssueTokensResponse, IssueTokensError> {
         let IssueTokensParamsTbs {
-            client_id,
+            user_id,
             // This will be used later when we use different token contexts and
             // different challenges for different endpoints.
             token_type: _,
@@ -36,10 +38,10 @@ impl AuthService {
             .map_err(|_| IssueTokensError::StorageError)?;
 
         // Load current token allowance from storage provider
-        let mut client_record = ClientRecord::load(&mut *transaction, &client_id)
+        let mut client_record = ClientRecord::load(&mut *transaction, &user_id)
             .await
-            .map_err(|e| {
-                tracing::error!("Error loading client record: {:?}", e);
+            .map_err(|error| {
+                error!(%error, "Error loading client record");
                 IssueTokensError::StorageError
             })?
             .ok_or(IssueTokensError::UnknownClient)?;
@@ -63,7 +65,7 @@ impl AuthService {
         // Reduce the token allowance by the number of tokens issued.
         client_record.token_allowance -= tokens_requested;
         client_record.update(&mut *transaction).await.map_err(|e| {
-            tracing::error!("Error updating client record: {:?}", e);
+            error!("Error updating client record: {:?}", e);
             IssueTokensError::StorageError
         })?;
 

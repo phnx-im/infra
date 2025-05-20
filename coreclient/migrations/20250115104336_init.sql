@@ -2,26 +2,37 @@
 --
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 CREATE TABLE IF NOT EXISTS client_record (
-    client_id BLOB NOT NULL PRIMARY KEY,
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
     record_state TEXT NOT NULL CHECK (record_state IN ('in_progress', 'finished')),
     created_at DATETIME NOT NULL,
-    is_default BOOLEAN NOT NULL DEFAULT FALSE
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (user_uuid, user_domain)
 );
 
-CREATE TABLE IF NOT EXISTS user_creation_state (client_id BLOB PRIMARY KEY, state BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS user_creation_state (
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
+    state BLOB NOT NULL,
+    PRIMARY KEY (user_uuid, user_domain)
+);
 
 CREATE TABLE IF NOT EXISTS own_client_info (
     server_url TEXT NOT NULL,
     qs_user_id BLOB NOT NULL,
     qs_client_id BLOB NOT NULL,
-    as_user_name TEXT NOT NULL,
-    as_client_uuid BLOB NOT NULL
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS users (
-    user_name TEXT NOT NULL PRIMARY KEY,
-    display_name TEXT,
-    profile_picture BLOB
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
+    epoch INTEGER NOT NULL,
+    decryption_key_index BLOB NOT NULL,
+    display_name TEXT NOT NULL,
+    profile_picture BLOB,
+    PRIMARY KEY (user_uuid, user_domain)
 );
 
 CREATE TABLE IF NOT EXISTS "groups" (
@@ -29,20 +40,24 @@ CREATE TABLE IF NOT EXISTS "groups" (
     leaf_signer BLOB NOT NULL,
     identity_link_wrapper_key BLOB NOT NULL,
     group_state_ear_key BLOB NOT NULL,
-    pending_diff BLOB
+    pending_diff BLOB,
+    room_state BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS client_credentials (
     fingerprint BLOB NOT NULL PRIMARY KEY,
-    client_id TEXT NOT NULL,
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
     client_credential BLOB NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS client_credentials_user_id ON client_credentials (user_uuid, user_domain);
 
 CREATE TABLE IF NOT EXISTS group_membership (
     client_credential_fingerprint BLOB NOT NULL,
     group_id BLOB NOT NULL,
-    client_uuid BLOB NOT NULL,
-    user_name TEXT NOT NULL,
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
     leaf_index INTEGER NOT NULL,
     identity_link_key BLOB NOT NULL,
     status TEXT DEFAULT 'staged_update' NOT NULL CHECK (
@@ -57,20 +72,37 @@ CREATE TABLE IF NOT EXISTS group_membership (
     PRIMARY KEY (group_id, leaf_index, status)
 );
 
+CREATE TABLE IF NOT EXISTS indexed_keys (
+    key_index BLOB NOT NULL PRIMARY KEY,
+    key_value BLOB NOT NULL,
+    base_secret BLOB NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS own_key_indices (
+    key_type TEXT CHECK (key_type IN ('user_profile_key')) PRIMARY KEY,
+    key_index BLOB NOT NULL,
+    FOREIGN KEY (key_index) REFERENCES indexed_keys (key_index) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS contacts (
-    user_name TEXT NOT NULL PRIMARY KEY,
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
     conversation_id BLOB NOT NULL,
-    clients TEXT NOT NULL,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
     connection_key BLOB NOT NULL,
-    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id)
+    user_profile_key_index BLOB NOT NULL,
+    PRIMARY KEY (user_uuid, user_domain),
+    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id),
+    FOREIGN KEY (user_profile_key_index) REFERENCES indexed_keys (key_index)
 );
 
 CREATE TABLE IF NOT EXISTS partial_contacts (
-    user_name TEXT NOT NULL PRIMARY KEY,
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
     conversation_id BLOB NOT NULL,
     friendship_package_ear_key BLOB NOT NULL,
+    PRIMARY KEY (user_uuid, user_domain),
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id)
 );
 
@@ -80,28 +112,36 @@ CREATE TABLE IF NOT EXISTS conversations (
     conversation_picture BLOB,
     group_id BLOB NOT NULL,
     last_read TEXT NOT NULL,
-    conversation_status TEXT NOT NULL CHECK (
-        conversation_status LIKE 'active'
-        OR conversation_status LIKE 'inactive:%'
-    ),
-    conversation_type TEXT NOT NULL CHECK (
-        conversation_type LIKE 'group'
-        OR conversation_type LIKE 'unconfirmed_connection:%'
-        OR conversation_type LIKE 'connection:%'
-    )
+    -- missing `connection_as_{client_uuid,domain}` fields means it is a group conversation
+    connection_user_uuid BLOB,
+    connection_user_domain TEXT,
+    is_confirmed_connection BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
+
+CREATE TABLE IF NOT EXISTS conversation_past_members (
+    conversation_id BLOB NOT NULL,
+    member_user_uuid BLOB NOT NULL,
+    member_user_domain TEXT NOT NULL,
+    PRIMARY KEY (
+        conversation_id,
+        member_user_uuid,
+        member_user_domain
+    ),
+    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS conversation_past_members_conversation_id_idx ON conversation_past_members (conversation_id);
 
 CREATE TABLE IF NOT EXISTS conversation_messages (
     message_id BLOB NOT NULL PRIMARY KEY,
     conversation_id BLOB NOT NULL,
     timestamp TEXT NOT NULL,
-    sender TEXT NOT NULL,
+    -- missing `sender_as_{client_uuid,domain}` fields means it is a system message
+    sender_user_uuid BLOB,
+    sender_user_domain TEXT,
     content BLOB NOT NULL,
     sent BOOLEAN NOT NULL,
-    CHECK (
-        sender LIKE 'user:%'
-        OR sender = 'system'
-    ),
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) DEFERRABLE INITIALLY DEFERRED
 );
 
@@ -168,7 +208,7 @@ CREATE TABLE IF NOT EXISTS proposals (
 CREATE TABLE IF NOT EXISTS psks (psk_id BLOB PRIMARY KEY, psk_bundle BLOB NOT NULL);
 
 CREATE TABLE IF NOT EXISTS qs_verifying_keys (
-    domain TEXT PRIMARY KEY,
+    user_domain TEXT PRIMARY KEY,
     verifying_key BLOB NOT NULL
 );
 
@@ -180,7 +220,7 @@ CREATE TABLE IF NOT EXISTS queue_ratchets (
 
 CREATE TABLE IF NOT EXISTS as_credentials (
     fingerprint TEXT PRIMARY KEY,
-    domain TEXT NOT NULL,
+    user_domain TEXT NOT NULL,
     credential_type TEXT NOT NULL CHECK (
         credential_type IN ('as_credential', 'as_intermediate_credential')
     ),
@@ -221,20 +261,23 @@ WHERE
         FROM
             own_client_info
         WHERE
-            as_client_uuid = OLD.client_uuid
+            user_uuid = OLD.user_uuid
+            AND user_domain = OLD.user_domain
     );
 
 -- Delete user profiles of users that are not in any group and that are not our own.
 DELETE FROM users
 WHERE
-    user_name = OLD.user_name
+    user_uuid = OLD.user_uuid
+    AND user_domain = OLD.user_domain
     AND NOT EXISTS (
         SELECT
             1
         FROM
             group_membership
         WHERE
-            user_name = OLD.user_name
+            user_uuid = OLD.user_uuid
+            AND user_domain = OLD.user_domain
     )
     AND NOT EXISTS (
         SELECT
@@ -242,7 +285,8 @@ WHERE
         FROM
             own_client_info
         WHERE
-            as_user_name = OLD.user_name
+            user_uuid = OLD.user_uuid
+            AND user_domain = OLD.user_domain
     );
 
 END;
@@ -256,10 +300,11 @@ SELECT
             FROM
                 partial_contacts
             WHERE
-                user_name = NEW.user_name
+                user_uuid = NEW.user_uuid
+                AND user_domain = NEW.user_domain
         ) THEN RAISE (
             FAIL,
-            'Can''t insert Contact: There already exists a partial contact with this user_name'
+            'Can''t insert Contact: There already exists a partial contact with this client_id and domain'
         )
     END;
 
@@ -275,10 +320,11 @@ SELECT
             FROM
                 partial_contacts
             WHERE
-                user_name = NEW.user_name
+                user_uuid = NEW.user_uuid
+                AND user_domain = NEW.user_domain
         ) THEN RAISE (
             FAIL,
-            'Can''t update Contact: There already exists a partial contact with this user_name'
+            'Can''t update Contact: There already exists a partial contact with this client_id and domain'
         )
     END;
 
@@ -293,10 +339,11 @@ SELECT
             FROM
                 contacts
             WHERE
-                user_name = NEW.user_name
+                user_uuid = NEW.user_uuid
+                AND user_domain = NEW.user_domain
         ) THEN RAISE (
             FAIL,
-            'Can''t insert PartialContact: There already exists a contact with this user_name'
+            'Can''t insert PartialContact: There already exists a contact with this client_id and domain'
         )
     END;
 
@@ -312,11 +359,22 @@ SELECT
             FROM
                 contacts
             WHERE
-                user_name = NEW.user_name
+                user_uuid = NEW.user_uuid
+                AND user_domain = NEW.user_domain
         ) THEN RAISE (
             FAIL,
-            'Can''t update PartialContact: There already exists a contact with this user_name'
+            'Can''t update PartialContact: There already exists a contact with this client_id and domain'
         )
     END;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON contacts FOR EACH ROW BEGIN
+-- Delete user profile keys if the corresponding contact is deleted. Since key
+-- indexes include the user id in their derivation, they are unique per user
+-- and we don't need to check if they are used by another user (or ourselves).
+DELETE FROM indexed_keys
+WHERE
+    fingerprint = OLD.user_profile_key_index;
 
 END;

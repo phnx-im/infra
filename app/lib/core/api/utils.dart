@@ -9,16 +9,15 @@ import 'package:convert/convert.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
+import 'types.dart';
 
 Future<void> deleteDatabases({required String dbPath}) =>
     RustLib.instance.api.crateApiUtilsDeleteDatabases(dbPath: dbPath);
 
 Future<void> deleteClientDatabase({
   required String dbPath,
-  required String userName,
-  required UuidValue clientId,
+  required UiUserId userId,
 }) => RustLib.instance.api.crateApiUtilsDeleteClientDatabase(
   dbPath: dbPath,
-  userName: userName,
-  clientId: clientId,
+  userId: userId,
 );

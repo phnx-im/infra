@@ -4,19 +4,12 @@
 
 //! Misc. functions
 
-use phnxtypes::identifiers::AsClientId;
-use uuid::Uuid;
+use super::types::UiUserId;
 
 pub async fn delete_databases(db_path: String) -> anyhow::Result<()> {
     phnxcoreclient::delete_databases(&db_path).await
 }
 
-pub async fn delete_client_database(
-    db_path: String,
-    user_name: String,
-    client_id: Uuid,
-) -> anyhow::Result<()> {
-    let user_name = user_name.parse()?;
-    let as_client_id = AsClientId::new(user_name, client_id);
-    phnxcoreclient::delete_client_database(&db_path, &as_client_id).await
+pub async fn delete_client_database(db_path: String, user_id: UiUserId) -> anyhow::Result<()> {
+    phnxcoreclient::delete_client_database(&db_path, &user_id.into()).await
 }

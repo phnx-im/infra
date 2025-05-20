@@ -24,7 +24,7 @@ use phnxtypes::{
 };
 use phnxtypes::{
     crypto::signatures::signable::VerifiedStruct,
-    errors, identifiers,
+    identifiers,
     messages::client_ds::{
         GroupOperationParams, JoinConnectionGroupParams, UserProfileKeyUpdateParams,
         WelcomeInfoParams,
@@ -245,12 +245,14 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .creator_client_reference
             .ok_or_missing_field("creator_client_reference")?
             .try_into()?;
+        let room_state = serde_json::from_slice(&payload.room_state).unwrap(); // TODO Handle error
         let group_state = DsGroupState::new(
             provider,
             group,
             encrypted_identity_link_key,
             encrypted_user_profile_key,
             creator_client_reference,
+            room_state,
         );
         let encrypted_group_state = group_state.encrypt(&ear_key)?;
 
@@ -357,6 +359,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
+            room_state: commit_info.room_state,
         }))
     }
 
@@ -399,6 +402,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
+            room_state: commit_info.room_state,
         }))
     }
 
@@ -426,7 +430,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .other_destination_clients(sender_index)
             .collect();
 
-        let group_message = group_state.update_client(commit).map_err(UpdateError)?;
+        let group_message = group_state.update_client(commit)?;
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
 
@@ -467,9 +471,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         };
 
         let destination_clients: Vec<_> = group_state.destination_clients().collect();
-        let group_message = group_state
-            .join_connection_group(params)
-            .map_err(JoinConnectionGroupError)?;
+        let group_message = group_state.join_connection_group(params)?;
 
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
@@ -507,9 +509,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .other_destination_clients(sender_index)
             .collect();
 
-        let group_message = group_state
-            .resync_client(external_commit, sender_index)
-            .map_err(ResyncError)?;
+        let group_message = group_state.resync_client(external_commit, sender_index)?;
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
 
@@ -546,9 +546,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .other_destination_clients(sender_index)
             .collect();
 
-        let group_message = group_state
-            .self_remove_client(remove_proposal)
-            .map_err(SelfRemoveError)?;
+        let group_message = group_state.self_remove_client(remove_proposal)?;
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
 
@@ -626,7 +624,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .other_destination_clients(sender_index)
             .collect();
 
-        let group_message = group_state.delete_group(commit).map_err(DeleteGroupError)?;
+        let group_message = group_state.delete_group(commit)?;
 
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
@@ -673,10 +671,8 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .other_destination_clients(sender_index)
             .collect();
 
-        let (group_message, welcome_bundles) = group_state
-            .group_operation(params, &ear_key)
-            .await
-            .map_err(GroupOperationError)?;
+        let (group_message, welcome_bundles) =
+            group_state.group_operation(params, &ear_key).await?;
 
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
@@ -743,9 +739,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .other_destination_clients(sender_index)
             .collect();
 
-        group_state
-            .update_user_profile_key(sender_index, params.user_profile_key)
-            .map_err(|_| UnknownSenderError(sender_index))?;
+        group_state.update_user_profile_key(sender_index, params.user_profile_key)?;
 
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
@@ -781,15 +775,6 @@ impl From<GroupNotFoundError> for Status {
     }
 }
 
-struct UnknownSenderError(LeafNodeIndex);
-
-impl From<UnknownSenderError> for Status {
-    fn from(e: UnknownSenderError) -> Self {
-        error!(index =% e.0, "could not find leaf");
-        Status::invalid_argument("unknown sender")
-    }
-}
-
 struct InvalidSignature(SignatureVerificationError);
 
 impl From<InvalidSignature> for Status {
@@ -801,8 +786,10 @@ impl From<InvalidSignature> for Status {
 
 /// Protobuf containing a qualified group id
 trait WithQualifiedGroupId {
+    #[expect(clippy::result_large_err)]
     fn qgid(&self) -> Result<QualifiedGroupId, Status>;
 
+    #[expect(clippy::result_large_err)]
     fn validated_qgid(&self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status> {
         let qgid = self.qgid()?;
         if qgid.owning_domain() == own_domain {
@@ -865,6 +852,7 @@ impl WithQualifiedGroupId for UpdateProfileKeyPayload {
 trait WithGroupStateEarKey {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
 
+    #[expect(clippy::result_large_err)]
     fn ear_key(&self) -> Result<GroupStateEarKey, Status> {
         self.ear_key_proto()
             .ok_or_missing_field("group_state_ear_key")?
@@ -927,44 +915,9 @@ impl WithGroupStateEarKey for UpdateProfileKeyRequest {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("group operation failed: {0}")]
-struct GroupOperationError(#[from] errors::GroupOperationError);
-
-impl From<GroupOperationError> for Status {
-    fn from(error: GroupOperationError) -> Self {
-        match error.0 {
-            errors::GroupOperationError::InvalidMessage
-            | errors::GroupOperationError::MissingQueueConfig
-            | errors::GroupOperationError::DuplicatedUserAddition => {
-                Status::invalid_argument(error.to_string())
-            }
-            errors::GroupOperationError::LibraryError
-            | errors::GroupOperationError::ProcessingError
-            | errors::GroupOperationError::FailedToObtainVerifyingKey
-            | errors::GroupOperationError::IncompleteWelcome => {
-                error!(error = %error.0, "group operation failed");
-                Status::internal(error.to_string())
-            }
-            errors::GroupOperationError::MergeCommitError(merge_commit_error) => {
-                error!(error = %merge_commit_error, "group operation failed");
-                Status::internal("group operation failed due to merge commit")
-            }
-        }
-    }
-}
-
-struct DeleteGroupError(errors::GroupDeletionError);
-
-impl From<DeleteGroupError> for Status {
-    fn from(error: DeleteGroupError) -> Self {
-        error!(error = %error.0, "failed to delete group");
-        Status::internal("failed to delete group")
-    }
-}
-
 /// Request containing an MLS message
 trait WithMessage {
+    #[expect(clippy::result_large_err)]
     fn message(&self) -> Result<AssistedMessageIn, Status>;
 }
 
@@ -1032,46 +985,10 @@ impl WithMessage for ResyncRequest {
     }
 }
 
-struct UpdateError(errors::ClientUpdateError);
-
-impl From<UpdateError> for Status {
-    fn from(e: UpdateError) -> Self {
-        error!(error =% e.0, "failed to update client");
-        Status::internal("failed to update client")
-    }
-}
-
-struct JoinConnectionGroupError(errors::JoinConnectionGroupError);
-
-impl From<JoinConnectionGroupError> for Status {
-    fn from(e: JoinConnectionGroupError) -> Self {
-        error!(error =% e.0, "failed to join connection group");
-        Status::internal("failed to join connection group")
-    }
-}
-
-struct SelfRemoveError(errors::ClientSelfRemovalError);
-
-impl From<SelfRemoveError> for Status {
-    fn from(e: SelfRemoveError) -> Self {
-        error!(error =% e.0, "failed to self remove");
-        Status::internal("failed to self remove")
-    }
-}
-
 struct NoWelcomeInfoFound;
 
 impl From<NoWelcomeInfoFound> for Status {
     fn from(_: NoWelcomeInfoFound) -> Self {
         Status::not_found("no welcome info found")
-    }
-}
-
-struct ResyncError(errors::ResyncClientError);
-
-impl From<ResyncError> for Status {
-    fn from(e: ResyncError) -> Self {
-        error!(error =% e.0, "failed to resync client");
-        Status::internal("failed to resync client")
     }
 }

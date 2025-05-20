@@ -41,14 +41,14 @@ use super::*;
 // a new version in `StorableUserCreationState` must be created.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct BasicUserData {
-    pub(super) as_client_id: AsClientId,
+    pub(super) user_id: UserId,
     pub(super) server_url: String,
     pub(super) push_token: Option<PushToken>,
 }
 
 impl BasicUserData {
-    pub(super) fn client_id(&self) -> &AsClientId {
-        &self.as_client_id
+    pub(super) fn user_id(&self) -> &UserId {
+        &self.user_id
     }
 
     pub(super) fn server_url(&self) -> &str {
@@ -61,9 +61,9 @@ impl BasicUserData {
         api_clients: &ApiClients,
     ) -> Result<InitialUserState> {
         // Prepare user account creation
-        debug!(client_id =% self.as_client_id, "Creating new client");
+        debug!(?self.user_id, "Creating new client");
         // Let's turn TLS off for now.
-        let domain = self.as_client_id.user_name().domain();
+        let domain = self.user_id.domain();
         // Fetch credentials from AS
         let as_intermediate_credential =
             AsCredentials::get_intermediate_credential(pool, api_clients, domain).await?;
@@ -80,7 +80,7 @@ impl BasicUserData {
 
         // Create CSR for AS to sign
         let (client_credential_csr, prelim_signing_key) =
-            ClientCredentialCsr::new(self.as_client_id.clone(), DEFAULT_SIGNATURE_SCHEME)?;
+            ClientCredentialCsr::new(self.user_id.clone(), DEFAULT_SIGNATURE_SCHEME)?;
 
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,
@@ -129,17 +129,16 @@ impl BasicUserData {
             None => None,
         };
 
-        let user_name = self.as_client_id.user_name();
-        let user_profile_key = UserProfileKey::random(user_name)?;
+        let user_profile_key = UserProfileKey::random(&self.user_id)?;
 
         let mut connection = pool.acquire().await?;
         user_profile_key.store_own(connection.as_mut()).await?;
 
         let encrypted_user_profile = NewUserProfile::new(
             &key_store.signing_key,
-            user_name.clone(),
+            self.user_id.clone(),
             user_profile_key.index().clone(),
-            DisplayName::from_user_name(user_name),
+            DisplayName::from_user_id(&self.user_id),
             None,
         )?
         .store(connection.as_mut(), &mut StoreNotifier::noop())
@@ -204,7 +203,7 @@ impl InitialUserState {
         Ok(post_registration_init_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.client_credential_payload.identity()
     }
 
@@ -296,8 +295,8 @@ impl PostAsRegistrationState {
         Ok(unfinalized_registration_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
-        self.client_credential.client_id()
+    pub(super) fn user_id(&self) -> &UserId {
+        self.client_credential.user_id()
     }
 
     pub(super) fn server_url(&self) -> &str {
@@ -348,7 +347,7 @@ impl UnfinalizedRegistrationState {
         Ok(as_registered_user_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -381,7 +380,10 @@ impl AsRegisteredUserState {
             encrypted_push_token,
         } = self;
 
-        let CreateUserRecordResponse { user_id, client_id } = api_clients
+        let CreateUserRecordResponse {
+            user_id,
+            qs_client_id: client_id,
+        } = api_clients
             .default_client()?
             .qs_create_user(
                 key_store.friendship_token.clone(),
@@ -403,7 +405,7 @@ impl AsRegisteredUserState {
         Ok(qs_registered_user_state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -464,7 +466,7 @@ impl QsRegisteredUserState {
         Ok(state)
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.key_store.signing_key.credential().identity()
     }
 
@@ -501,7 +503,7 @@ impl PersistedUserState {
         CoreUser { inner }
     }
 
-    pub(super) fn client_id(&self) -> &AsClientId {
+    pub(super) fn user_id(&self) -> &UserId {
         self.state.key_store.signing_key.credential().identity()
     }
 

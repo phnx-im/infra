@@ -90,7 +90,7 @@ class _ListTile extends StatelessWidget {
             UserAvatar(
               size: 48,
               image: conversation.attributes.picture,
-              username: conversation.username,
+              displayName: conversation.title,
             ),
             const SizedBox(width: Spacings.s),
             Expanded(
@@ -141,7 +141,9 @@ class _ListTileBottom extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName = context.select((UserCubit cubit) => cubit.state.userName);
+    final ownClientId = context.select(
+      (UserCubit cubit) => cubit.state.userId,
+    );
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -149,7 +151,10 @@ class _ListTileBottom extends StatelessWidget {
         Expanded(
           child: Align(
             alignment: Alignment.topLeft,
-            child: _LastMessage(conversation: conversation, userName: userName),
+            child: _LastMessage(
+              conversation: conversation,
+              ownClientId: ownClientId,
+            ),
           ),
         ),
         const SizedBox(width: 16),
@@ -205,10 +210,10 @@ class _UnreadBadge extends StatelessWidget {
 }
 
 class _LastMessage extends StatelessWidget {
-  const _LastMessage({required this.conversation, required this.userName});
+  const _LastMessage({required this.conversation, required this.ownClientId});
 
   final UiConversationDetails conversation;
-  final String userName;
+  final UiUserId ownClientId;
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +240,7 @@ class _LastMessage extends StatelessWidget {
 
     final (sender, displayedLastMessage) = switch (lastMessage?.message) {
       UiMessage_Content(field0: final content) => (
-        content.sender == userName ? 'You: ' : null,
+        content.sender == ownClientId ? 'You: ' : null,
         content.content.plainBody,
       ),
       UiMessage_Display() => (null, null),

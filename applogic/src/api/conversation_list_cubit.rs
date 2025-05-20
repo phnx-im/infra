@@ -22,7 +22,7 @@ use crate::StreamSink;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
-    types::{UiConversation, UiConversationDetails, UiConversationMessage},
+    types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserId},
     user_cubit::UserCubitBase,
 };
 
@@ -83,10 +83,8 @@ impl ConversationListCubitBase {
     // Cubit methods
 
     /// Creates a new 1:1 connection with the given user.
-    ///
-    /// `user_name` is the fully qualified user name of the contact.
-    pub async fn create_connection(&self, user_name: String) -> anyhow::Result<ConversationId> {
-        let id = self.context.store.add_contact(user_name.parse()?).await?;
+    pub async fn create_connection(&self, user_id: UiUserId) -> anyhow::Result<ConversationId> {
+        let id = self.context.store.add_contact(user_id.into()).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }
@@ -105,7 +103,7 @@ impl ConversationListCubitBase {
     }
 }
 
-/// Loads the intial state and listen to the changes
+/// Loads the initial state and listen to the changes
 #[frb(ignore)]
 #[derive(Clone)]
 struct ConversationListContext<S> {
@@ -211,13 +209,16 @@ pub(super) async fn converation_into_ui_details(
         .unwrap_or_default();
     // default is UNIX_EPOCH
 
-    let conversation = UiConversation::from(conversation);
+    let conversation_type =
+        UiConversationType::load_from_conversation_type(store, conversation.conversation_type)
+            .await;
+
     UiConversationDetails {
         id: conversation.id,
-        status: conversation.status,
-        conversation_type: conversation.conversation_type,
+        status: conversation.status.into(),
+        conversation_type,
         last_used,
-        attributes: conversation.attributes,
+        attributes: conversation.attributes.into(),
         messages_count,
         unread_messages,
         last_message,

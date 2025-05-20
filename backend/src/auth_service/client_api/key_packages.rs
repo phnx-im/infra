@@ -3,31 +3,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    errors::auth_service::PublishConnectionPackageError,
-    messages::{
-        client_as::ConnectionPackage, client_as_out::AsPublishConnectionPackagesParamsTbsIn,
-    },
+    identifiers::UserId,
+    messages::{client_as::ConnectionPackage, client_as_out::ConnectionPackageIn},
 };
+use tracing::error;
 
-use crate::auth_service::{
-    AuthService, connection_package::StorableConnectionPackage,
-    credentials::intermediate_signing_key::IntermediateCredential,
+use crate::{
+    auth_service::{
+        AuthService, connection_package::StorableConnectionPackage,
+        credentials::intermediate_signing_key::IntermediateCredential,
+    },
+    errors::auth_service::PublishConnectionPackageError,
 };
 
 impl AuthService {
     pub(crate) async fn as_publish_connection_packages(
         &self,
-        params: AsPublishConnectionPackagesParamsTbsIn,
+        user_id: UserId,
+        connection_packages: Vec<ConnectionPackageIn>,
     ) -> Result<(), PublishConnectionPackageError> {
-        let AsPublishConnectionPackagesParamsTbsIn {
-            client_id,
-            connection_packages,
-        } = params;
-
         let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
             .await
-            .map_err(|e| {
-                tracing::error!("Error loading intermediate credentials: {:?}", e);
+            .map_err(|error| {
+                error!(%error, "Error loading intermediate credentials");
                 PublishConnectionPackageError::StorageError
             })?;
 
@@ -44,7 +42,7 @@ impl AuthService {
             })
             .collect::<Result<Vec<ConnectionPackage>, PublishConnectionPackageError>>()?;
 
-        StorableConnectionPackage::store_multiple(&self.db_pool, &connection_packages, &client_id)
+        StorableConnectionPackage::store_multiple(&self.db_pool, &connection_packages, &user_id)
             .await
             .map_err(|_| PublishConnectionPackageError::StorageError)?;
         Ok(())

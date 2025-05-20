@@ -78,7 +78,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.9.0';
 
   @override
-  int get rustContentHash => 170936490;
+  int get rustContentHash => 193345651;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -95,11 +95,6 @@ abstract class RustLibApi extends BaseApi {
   });
 
   bool crateApiConversationDetailsCubitConversationDetailsCubitBaseIsClosed({
-    required ConversationDetailsCubitBase that,
-  });
-
-  Future<UiUserProfile?>
-  crateApiConversationDetailsCubitConversationDetailsCubitBaseLoadConversationUserProfile({
     required ConversationDetailsCubitBase that,
   });
 
@@ -145,7 +140,7 @@ abstract class RustLibApi extends BaseApi {
   Future<ConversationId>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
-    required String userName,
+    required UiUserId userId,
   });
 
   Future<ConversationId>
@@ -292,7 +287,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiNavigationCubitNavigationCubitBaseOpenMemberDetails({
     required NavigationCubitBase that,
-    required String member,
+    required UiUserId member,
   });
 
   Future<void> crateApiNavigationCubitNavigationCubitBaseOpenUserSettings({
@@ -311,16 +306,21 @@ abstract class RustLibApi extends BaseApi {
     required NavigationCubitBase that,
   });
 
+  bool crateApiConversationDetailsCubitUiRoomStateCanKick({
+    required UiRoomState that,
+    required int target,
+  });
+
   String crateApiUserCubitUiUserDisplayName({required UiUser that});
 
   ImageData? crateApiUserCubitUiUserProfilePicture({required UiUser that});
 
-  String crateApiUserCubitUiUserUserName({required UiUser that});
+  UiUserId crateApiUserCubitUiUserUserId({required UiUser that});
 
   Future<void> crateApiUserCubitUserCubitBaseAddUserToConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required String userName,
+    required UiUserId userId,
   });
 
   Future<void> crateApiUserCubitUserCubitBaseClose({
@@ -341,7 +341,7 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiUserCubitUserCubitBaseRemoveUserFromConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required String userName,
+    required UiUserId userId,
   });
 
   Future<void> crateApiUserCubitUserCubitBaseSetAppState({
@@ -361,19 +361,16 @@ abstract class RustLibApi extends BaseApi {
     required UserCubitBase that,
   });
 
-  Future<UiUserProfile?> crateApiUserCubitUserCubitBaseUserProfile({
+  Future<UiUserProfile> crateApiUserCubitUserCubitBaseUserProfile({
     required UserCubitBase that,
-    required String userName,
+    required UiUserId userId,
   });
-
-  UuidValue crateApiUserUserClientId({required User that});
 
   Future<int> crateApiUserUserGlobalUnreadMessagesCount({required User that});
 
   Future<User> crateApiUserUserLoad({
     required String dbPath,
-    required UiUserName userName,
-    required UuidValue clientId,
+    required UiUserId userId,
   });
 
   Future<List<UiClientRecord>> crateApiUserUserLoadClientRecords({
@@ -383,7 +380,6 @@ abstract class RustLibApi extends BaseApi {
   Future<User?> crateApiUserUserLoadDefault({required String path});
 
   Future<User> crateApiUserUserNew({
-    required String userName,
     required String address,
     required String path,
     PlatformPushToken? pushToken,
@@ -396,7 +392,7 @@ abstract class RustLibApi extends BaseApi {
     PlatformPushToken? pushToken,
   });
 
-  String crateApiUserUserUserName({required User that});
+  UiUserId crateApiUserUserUserId({required User that});
 
   Future<void> crateApiLoggingClearAppLogs();
 
@@ -412,8 +408,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUtilsDeleteClientDatabase({
     required String dbPath,
-    required String userName,
-    required UuidValue clientId,
+    required UiUserId userId,
   });
 
   Future<void> crateApiUtilsDeleteDatabases({required String dbPath});
@@ -513,6 +508,14 @@ abstract class RustLibApi extends BaseApi {
 
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_NavigationCubitBasePtr;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_UiRoomState;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_UiRoomState;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UiRoomStatePtr;
 
   RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_UiUser;
 
@@ -617,46 +620,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<UiUserProfile?>
-  crateApiConversationDetailsCubitConversationDetailsCubitBaseLoadConversationUserProfile({
-    required ConversationDetailsCubitBase that,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
-            that,
-            serializer,
-          );
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 3,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_ui_user_profile,
-          decodeErrorData: sse_decode_AnyhowException,
-        ),
-        constMeta:
-            kCrateApiConversationDetailsCubitConversationDetailsCubitBaseLoadConversationUserProfileConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta
-  get kCrateApiConversationDetailsCubitConversationDetailsCubitBaseLoadConversationUserProfileConstMeta =>
-      const TaskConstMeta(
-        debugName:
-            "ConversationDetailsCubitBase_load_conversation_user_profile",
-        argNames: ["that"],
-      );
-
-  @override
   Future<void>
   crateApiConversationDetailsCubitConversationDetailsCubitBaseMarkAsRead({
     required ConversationDetailsCubitBase that,
@@ -679,7 +642,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 3,
             port: port_,
           );
         },
@@ -717,7 +680,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -757,7 +720,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 5,
             port: port_,
           );
         },
@@ -798,7 +761,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 6,
             port: port_,
           );
         },
@@ -834,7 +797,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_conversation_details_state,
@@ -877,7 +840,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 9,
+              funcId: 8,
               port: port_,
             );
           },
@@ -917,7 +880,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 9,
             port: port_,
           );
         },
@@ -944,7 +907,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<ConversationId>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
-    required String userName,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -954,11 +917,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_String(userName, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 10,
             port: port_,
           );
         },
@@ -968,7 +931,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta,
-        argValues: [that, userName],
+        argValues: [that, userId],
         apiImpl: this,
       ),
     );
@@ -978,7 +941,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta =>
       const TaskConstMeta(
         debugName: "ConversationListCubitBase_create_connection",
-        argNames: ["that", "userName"],
+        argNames: ["that", "userId"],
       );
 
   @override
@@ -999,7 +962,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 11,
             port: port_,
           );
         },
@@ -1034,7 +997,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1068,7 +1031,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             userCubit,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -1103,7 +1066,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_conversation_list_state,
@@ -1143,7 +1106,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 16,
+              funcId: 15,
               port: port_,
             );
           },
@@ -1190,7 +1153,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             cancel,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -1227,7 +1190,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 17,
             port: port_,
           );
         },
@@ -1263,7 +1226,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 18,
             port: port_,
           );
         },
@@ -1296,7 +1259,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1329,7 +1292,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_message_state(initialState, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -1361,7 +1324,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_message_state,
@@ -1398,7 +1361,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 23,
+              funcId: 22,
               port: port_,
             );
           },
@@ -1436,7 +1399,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 23,
             port: port_,
           );
         },
@@ -1470,7 +1433,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 24)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1505,7 +1468,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -1537,7 +1500,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -1579,7 +1542,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 28,
+              funcId: 27,
               port: port_,
             );
           },
@@ -1613,7 +1576,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1644,7 +1607,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 29)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_CastedPrimitive_usize,
@@ -1679,7 +1642,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_CastedPrimitive_usize(index, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_box_autoadd_ui_conversation_message,
@@ -1713,7 +1676,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_conversation_message_id(messageId, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 32)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_CastedPrimitive_usize,
@@ -1749,7 +1712,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1785,7 +1748,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1820,7 +1783,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1852,7 +1815,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             notificationService,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 36)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -1887,7 +1850,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1927,7 +1890,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1966,7 +1929,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 38,
             port: port_,
           );
         },
@@ -2006,7 +1969,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 39,
             port: port_,
           );
         },
@@ -2044,7 +2007,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 40,
             port: port_,
           );
         },
@@ -2081,7 +2044,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 41,
             port: port_,
           );
         },
@@ -2120,7 +2083,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 42,
             port: port_,
           );
         },
@@ -2146,7 +2109,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiNavigationCubitNavigationCubitBaseOpenMemberDetails({
     required NavigationCubitBase that,
-    required String member,
+    required UiUserId member,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2156,11 +2119,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_String(member, serializer);
+          sse_encode_box_autoadd_ui_user_id(member, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 43,
             port: port_,
           );
         },
@@ -2198,7 +2161,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 44,
             port: port_,
           );
         },
@@ -2233,7 +2196,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 46)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 45)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -2264,7 +2227,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 47)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 46)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_navigation_state,
@@ -2301,7 +2264,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 48,
+              funcId: 47,
               port: port_,
             );
           },
@@ -2323,6 +2286,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "NavigationCubitBase_stream",
         argNames: ["that", "sink"],
+      );
+
+  @override
+  bool crateApiConversationDetailsCubitUiRoomStateCanKick({
+    required UiRoomState that,
+    required int target,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+            that,
+            serializer,
+          );
+          sse_encode_u_32(target, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 48)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiConversationDetailsCubitUiRoomStateCanKickConstMeta,
+        argValues: [that, target],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiConversationDetailsCubitUiRoomStateCanKickConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiRoomState_can_kick",
+        argNames: ["that", "target"],
       );
 
   @override
@@ -2381,7 +2378,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  String crateApiUserCubitUiUserUserName({required UiUser that}) {
+  UiUserId crateApiUserCubitUiUserUserId({required UiUser that}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
@@ -2393,24 +2390,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 51)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_ui_user_id,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiUserCubitUiUserUserNameConstMeta,
+        constMeta: kCrateApiUserCubitUiUserUserIdConstMeta,
         argValues: [that],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiUserCubitUiUserUserNameConstMeta =>
-      const TaskConstMeta(debugName: "UiUser_user_name", argNames: ["that"]);
+  TaskConstMeta get kCrateApiUserCubitUiUserUserIdConstMeta =>
+      const TaskConstMeta(debugName: "UiUser_user_id", argNames: ["that"]);
 
   @override
   Future<void> crateApiUserCubitUserCubitBaseAddUserToConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required String userName,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2421,7 +2418,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-          sse_encode_String(userName, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2435,7 +2432,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiUserCubitUserCubitBaseAddUserToConversationConstMeta,
-        argValues: [that, conversationId, userName],
+        argValues: [that, conversationId, userId],
         apiImpl: this,
       ),
     );
@@ -2445,7 +2442,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiUserCubitUserCubitBaseAddUserToConversationConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_add_user_to_conversation",
-        argNames: ["that", "conversationId", "userName"],
+        argNames: ["that", "conversationId", "userId"],
       );
 
   @override
@@ -2587,7 +2584,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<void> crateApiUserCubitUserCubitBaseRemoveUserFromConversation({
     required UserCubitBase that,
     required ConversationId conversationId,
-    required String userName,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2598,7 +2595,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_conversation_id(conversationId, serializer);
-          sse_encode_String(userName, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2612,7 +2609,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiUserCubitUserCubitBaseRemoveUserFromConversationConstMeta,
-        argValues: [that, conversationId, userName],
+        argValues: [that, conversationId, userId],
         apiImpl: this,
       ),
     );
@@ -2622,7 +2619,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiUserCubitUserCubitBaseRemoveUserFromConversationConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_remove_user_from_conversation",
-        argNames: ["that", "conversationId", "userName"],
+        argNames: ["that", "conversationId", "userId"],
       );
 
   @override
@@ -2775,9 +2772,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<UiUserProfile?> crateApiUserCubitUserCubitBaseUserProfile({
+  Future<UiUserProfile> crateApiUserCubitUserCubitBaseUserProfile({
     required UserCubitBase that,
-    required String userName,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2787,7 +2784,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_String(userName, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2796,11 +2793,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_ui_user_profile,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_ui_user_profile,
+          decodeErrorData: null,
         ),
         constMeta: kCrateApiUserCubitUserCubitBaseUserProfileConstMeta,
-        argValues: [that, userName],
+        argValues: [that, userId],
         apiImpl: this,
       ),
     );
@@ -2809,34 +2806,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiUserCubitUserCubitBaseUserProfileConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_user_profile",
-        argNames: ["that", "userName"],
+        argNames: ["that", "userId"],
       );
-
-  @override
-  UuidValue crateApiUserUserClientId({required User that}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 63)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_Uuid,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiUserUserClientIdConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiUserUserClientIdConstMeta =>
-      const TaskConstMeta(debugName: "User_client_id", argNames: ["that"]);
 
   @override
   Future<int> crateApiUserUserGlobalUnreadMessagesCount({required User that}) {
@@ -2851,7 +2822,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 64,
+            funcId: 63,
             port: port_,
           );
         },
@@ -2875,20 +2846,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<User> crateApiUserUserLoad({
     required String dbPath,
-    required UiUserName userName,
-    required UuidValue clientId,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(dbPath, serializer);
-          sse_encode_box_autoadd_ui_user_name(userName, serializer);
-          sse_encode_Uuid(clientId, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 65,
+            funcId: 64,
             port: port_,
           );
         },
@@ -2898,7 +2867,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUserUserLoadConstMeta,
-        argValues: [dbPath, userName, clientId],
+        argValues: [dbPath, userId],
         apiImpl: this,
       ),
     );
@@ -2906,7 +2875,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiUserUserLoadConstMeta => const TaskConstMeta(
     debugName: "User_load",
-    argNames: ["dbPath", "userName", "clientId"],
+    argNames: ["dbPath", "userId"],
   );
 
   @override
@@ -2921,7 +2890,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 66,
+            funcId: 65,
             port: port_,
           );
         },
@@ -2952,7 +2921,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 67,
+            funcId: 66,
             port: port_,
           );
         },
@@ -2973,7 +2942,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<User> crateApiUserUserNew({
-    required String userName,
     required String address,
     required String path,
     PlatformPushToken? pushToken,
@@ -2984,7 +2952,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(userName, serializer);
           sse_encode_String(address, serializer);
           sse_encode_String(path, serializer);
           sse_encode_opt_box_autoadd_platform_push_token(pushToken, serializer);
@@ -2993,7 +2960,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 68,
+            funcId: 67,
             port: port_,
           );
         },
@@ -3003,14 +2970,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUserUserNewConstMeta,
-        argValues: [
-          userName,
-          address,
-          path,
-          pushToken,
-          displayName,
-          profilePicture,
-        ],
+        argValues: [address, path, pushToken, displayName, profilePicture],
         apiImpl: this,
       ),
     );
@@ -3018,14 +2978,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiUserUserNewConstMeta => const TaskConstMeta(
     debugName: "User_new",
-    argNames: [
-      "userName",
-      "address",
-      "path",
-      "pushToken",
-      "displayName",
-      "profilePicture",
-    ],
+    argNames: ["address", "path", "pushToken", "displayName", "profilePicture"],
   );
 
   @override
@@ -3045,7 +2998,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 69,
+            funcId: 68,
             port: port_,
           );
         },
@@ -3067,7 +3020,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  String crateApiUserUserUserName({required User that}) {
+  UiUserId crateApiUserUserUserId({required User that}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
@@ -3076,21 +3029,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 70)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 69)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_ui_user_id,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiUserUserUserNameConstMeta,
+        constMeta: kCrateApiUserUserUserIdConstMeta,
         argValues: [that],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiUserUserUserNameConstMeta =>
-      const TaskConstMeta(debugName: "User_user_name", argNames: ["that"]);
+  TaskConstMeta get kCrateApiUserUserUserIdConstMeta =>
+      const TaskConstMeta(debugName: "User_user_id", argNames: ["that"]);
 
   @override
   Future<void> crateApiLoggingClearAppLogs() {
@@ -3101,7 +3054,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 71,
+            funcId: 70,
             port: port_,
           );
         },
@@ -3129,7 +3082,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 72,
+            funcId: 71,
             port: port_,
           );
         },
@@ -3160,7 +3113,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 73,
+            funcId: 72,
             port: port_,
           );
         },
@@ -3193,7 +3146,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 74,
+            funcId: 73,
             port: port_,
           );
         },
@@ -3228,7 +3181,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 75,
+              funcId: 74,
               port: port_,
             );
           },
@@ -3251,20 +3204,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiUtilsDeleteClientDatabase({
     required String dbPath,
-    required String userName,
-    required UuidValue clientId,
+    required UiUserId userId,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(dbPath, serializer);
-          sse_encode_String(userName, serializer);
-          sse_encode_Uuid(clientId, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 76,
+            funcId: 75,
             port: port_,
           );
         },
@@ -3273,7 +3224,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUtilsDeleteClientDatabaseConstMeta,
-        argValues: [dbPath, userName, clientId],
+        argValues: [dbPath, userId],
         apiImpl: this,
       ),
     );
@@ -3282,7 +3233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiUtilsDeleteClientDatabaseConstMeta =>
       const TaskConstMeta(
         debugName: "delete_client_database",
-        argNames: ["dbPath", "userName", "clientId"],
+        argNames: ["dbPath", "userId"],
       );
 
   @override
@@ -3295,7 +3246,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 77,
+            funcId: 76,
             port: port_,
           );
         },
@@ -3323,7 +3274,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 78,
+            funcId: 77,
             port: port_,
           );
         },
@@ -3352,7 +3303,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_prim_u_8_loose(bytes, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 79)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 78)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -3378,7 +3329,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(logFile, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 80)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 79)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -3410,7 +3361,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 81,
+            funcId: 80,
             port: port_,
           );
         },
@@ -3443,7 +3394,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 82,
+            funcId: 81,
             port: port_,
           );
         },
@@ -3473,7 +3424,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_prim_u_8_loose(string, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 83)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 82)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_message_content,
@@ -3501,7 +3452,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 84,
+            funcId: 83,
             port: port_,
           );
         },
@@ -3529,7 +3480,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 85,
+            funcId: 84,
             port: port_,
           );
         },
@@ -3560,7 +3511,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 86,
+            funcId: 85,
             port: port_,
           );
         },
@@ -3746,6 +3697,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
 
   RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_UiRoomState =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_UiRoomState =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState;
+
+  RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_UiUser =>
       wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser;
 
@@ -3849,6 +3808,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiRoomState
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiRoomStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -4015,6 +3983,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiRoomState
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiRoomStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   UiUser
   dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
     dynamic raw,
@@ -4167,6 +4144,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiRoomState
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiRoomStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   UiUser
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
     dynamic raw,
@@ -4313,6 +4299,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiRoomState
+  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+      raw,
+    );
+  }
+
+  @protected
   User
   dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     dynamic raw,
@@ -4413,9 +4410,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiUserName dco_decode_box_autoadd_ui_user_name(dynamic raw) {
+  UiUserId dco_decode_box_autoadd_ui_user_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_ui_user_name(raw);
+    return dco_decode_ui_user_id(raw);
   }
 
   @protected
@@ -4434,11 +4431,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ConversationDetailsState dco_decode_conversation_details_state(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return ConversationDetailsState(
       conversation: dco_decode_opt_box_autoadd_ui_conversation_details(arr[0]),
-      members: dco_decode_list_String(arr[1]),
+      members: dco_decode_list_ui_user_id(arr[1]),
+      roomState:
+          dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+            arr[2],
+          ),
     );
   }
 
@@ -4490,7 +4491,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[1]),
       developerSettingsScreen:
           dco_decode_opt_box_autoadd_developer_settings_screen_type(arr[2]),
-      memberDetails: dco_decode_opt_String(arr[3]),
+      memberDetails: dco_decode_opt_box_autoadd_ui_user_id(arr[3]),
       userSettingsOpen: dco_decode_bool(arr[4]),
       conversationDetailsOpen: dco_decode_bool(arr[5]),
       addMembersOpen: dco_decode_bool(arr[6]),
@@ -4569,12 +4570,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 dco_decode_isize(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dcoDecodeI64(raw);
-  }
-
-  @protected
-  List<String> dco_decode_list_String(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_String).toList();
   }
 
   @protected
@@ -4666,6 +4661,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return (raw as List<dynamic>)
         .map(dco_decode_ui_conversation_details)
         .toList();
+  }
+
+  @protected
+  List<UiUserId> dco_decode_list_ui_user_id(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_ui_user_id).toList();
   }
 
   @protected
@@ -4773,6 +4774,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiRoomState?
+  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+          raw,
+        );
+  }
+
+  @protected
   User?
   dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     dynamic raw,
@@ -4835,9 +4849,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiUserProfile? dco_decode_opt_box_autoadd_ui_user_profile(dynamic raw) {
+  UiUserId? dco_decode_opt_box_autoadd_ui_user_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_ui_user_profile(raw);
+    return raw == null ? null : dco_decode_box_autoadd_ui_user_id(raw);
   }
 
   @protected
@@ -4920,14 +4934,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiClientRecord dco_decode_ui_client_record(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return UiClientRecord(
-      clientId: dco_decode_Uuid(arr[0]),
-      userName: dco_decode_ui_user_name(arr[1]),
-      createdAt: dco_decode_Chrono_Utc(arr[2]),
-      userProfile: dco_decode_opt_box_autoadd_ui_user_profile(arr[3]),
-      isFinished: dco_decode_bool(arr[4]),
+      userId: dco_decode_ui_user_id(arr[0]),
+      createdAt: dco_decode_Chrono_Utc(arr[1]),
+      userProfile: dco_decode_ui_user_profile(arr[2]),
+      isFinished: dco_decode_bool(arr[3]),
     );
   }
 
@@ -4937,7 +4950,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return UiContact(userName: dco_decode_String(arr[0]));
+    return UiContact(userId: dco_decode_ui_user_id(arr[0]));
   }
 
   @protected
@@ -4947,7 +4960,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return UiContentMessage(
-      sender: dco_decode_String(arr[0]),
+      sender: dco_decode_ui_user_id(arr[0]),
       sent: dco_decode_bool(arr[1]),
       content: dco_decode_ui_mimi_content(arr[2]),
     );
@@ -5019,10 +5032,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     switch (raw[0]) {
       case 0:
         return UiConversationType_UnconfirmedConnection(
-          dco_decode_String(raw[1]),
+          dco_decode_box_autoadd_ui_user_profile(raw[1]),
         );
       case 1:
-        return UiConversationType_Connection(dco_decode_String(raw[1]));
+        return UiConversationType_Connection(
+          dco_decode_box_autoadd_ui_user_profile(raw[1]),
+        );
       case 2:
         return UiConversationType_Group();
       default:
@@ -5068,7 +5083,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return UiInactiveConversation(pastMembers: dco_decode_list_String(arr[0]));
+    return UiInactiveConversation(
+      pastMembers: dco_decode_list_ui_user_id(arr[0]),
+    );
   }
 
   @protected
@@ -5111,13 +5128,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiUserName dco_decode_ui_user_name(dynamic raw) {
+  UiUserId dco_decode_ui_user_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 2)
       throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return UiUserName(
-      userName: dco_decode_String(arr[0]),
+    return UiUserId(
+      uuid: dco_decode_Uuid(arr[0]),
       domain: dco_decode_String(arr[1]),
     );
   }
@@ -5129,7 +5146,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return UiUserProfile(
-      userName: dco_decode_String(arr[0]),
+      userId: dco_decode_ui_user_id(arr[0]),
       displayName: dco_decode_String(arr[1]),
       profilePicture: dco_decode_opt_box_autoadd_image_data(arr[2]),
     );
@@ -5245,6 +5262,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiRoomState
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiRoomStateImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -5455,6 +5484,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiRoomState
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiRoomStateImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   UiUser
   sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
     SseDeserializer deserializer,
@@ -5602,6 +5643,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiRoomState
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiRoomStateImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -5776,6 +5829,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiRoomState
+  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+      deserializer,
+    ));
+  }
+
+  @protected
   User
   sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     SseDeserializer deserializer,
@@ -5890,9 +5954,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiUserName sse_decode_box_autoadd_ui_user_name(SseDeserializer deserializer) {
+  UiUserId sse_decode_box_autoadd_ui_user_id(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_ui_user_name(deserializer));
+    return (sse_decode_ui_user_id(deserializer));
   }
 
   @protected
@@ -5919,10 +5983,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_conversation = sse_decode_opt_box_autoadd_ui_conversation_details(
       deserializer,
     );
-    var var_members = sse_decode_list_String(deserializer);
+    var var_members = sse_decode_list_ui_user_id(deserializer);
+    var var_roomState =
+        sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+          deserializer,
+        );
     return ConversationDetailsState(
       conversation: var_conversation,
       members: var_members,
+      roomState: var_roomState,
     );
   }
 
@@ -5973,7 +6042,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     );
     var var_developerSettingsScreen =
         sse_decode_opt_box_autoadd_developer_settings_screen_type(deserializer);
-    var var_memberDetails = sse_decode_opt_String(deserializer);
+    var var_memberDetails = sse_decode_opt_box_autoadd_ui_user_id(deserializer);
     var var_userSettingsOpen = sse_decode_bool(deserializer);
     var var_conversationDetailsOpen = sse_decode_bool(deserializer);
     var var_addMembersOpen = sse_decode_bool(deserializer);
@@ -6058,18 +6127,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 sse_decode_isize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getPlatformInt64();
-  }
-
-  @protected
-  List<String> sse_decode_list_String(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <String>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_String(deserializer));
-    }
-    return ans_;
   }
 
   @protected
@@ -6238,6 +6295,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<UiUserId> sse_decode_list_ui_user_id(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <UiUserId>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_ui_user_id(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   LogEntry sse_decode_log_entry(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_time = sse_decode_Chrono_Utc(deserializer);
@@ -6356,6 +6425,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiRoomState?
+  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+        deserializer,
+      ));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   User?
   sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     SseDeserializer deserializer,
@@ -6453,13 +6538,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiUserProfile? sse_decode_opt_box_autoadd_ui_user_profile(
+  UiUserId? sse_decode_opt_box_autoadd_ui_user_id(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_ui_user_profile(deserializer));
+      return (sse_decode_box_autoadd_ui_user_id(deserializer));
     } else {
       return null;
     }
@@ -6555,16 +6640,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   UiClientRecord sse_decode_ui_client_record(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_clientId = sse_decode_Uuid(deserializer);
-    var var_userName = sse_decode_ui_user_name(deserializer);
+    var var_userId = sse_decode_ui_user_id(deserializer);
     var var_createdAt = sse_decode_Chrono_Utc(deserializer);
-    var var_userProfile = sse_decode_opt_box_autoadd_ui_user_profile(
-      deserializer,
-    );
+    var var_userProfile = sse_decode_ui_user_profile(deserializer);
     var var_isFinished = sse_decode_bool(deserializer);
     return UiClientRecord(
-      clientId: var_clientId,
-      userName: var_userName,
+      userId: var_userId,
       createdAt: var_createdAt,
       userProfile: var_userProfile,
       isFinished: var_isFinished,
@@ -6574,14 +6655,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   UiContact sse_decode_ui_contact(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_userName = sse_decode_String(deserializer);
-    return UiContact(userName: var_userName);
+    var var_userId = sse_decode_ui_user_id(deserializer);
+    return UiContact(userId: var_userId);
   }
 
   @protected
   UiContentMessage sse_decode_ui_content_message(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_sender = sse_decode_String(deserializer);
+    var var_sender = sse_decode_ui_user_id(deserializer);
     var var_sent = sse_decode_bool(deserializer);
     var var_content = sse_decode_ui_mimi_content(deserializer);
     return UiContentMessage(
@@ -6676,10 +6757,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var tag_ = sse_decode_i_32(deserializer);
     switch (tag_) {
       case 0:
-        var var_field0 = sse_decode_String(deserializer);
+        var var_field0 = sse_decode_box_autoadd_ui_user_profile(deserializer);
         return UiConversationType_UnconfirmedConnection(var_field0);
       case 1:
-        var var_field0 = sse_decode_String(deserializer);
+        var var_field0 = sse_decode_box_autoadd_ui_user_profile(deserializer);
         return UiConversationType_Connection(var_field0);
       case 2:
         return UiConversationType_Group();
@@ -6724,7 +6805,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_pastMembers = sse_decode_list_String(deserializer);
+    var var_pastMembers = sse_decode_list_ui_user_id(deserializer);
     return UiInactiveConversation(pastMembers: var_pastMembers);
   }
 
@@ -6770,23 +6851,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  UiUserName sse_decode_ui_user_name(SseDeserializer deserializer) {
+  UiUserId sse_decode_ui_user_id(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_userName = sse_decode_String(deserializer);
+    var var_uuid = sse_decode_Uuid(deserializer);
     var var_domain = sse_decode_String(deserializer);
-    return UiUserName(userName: var_userName, domain: var_domain);
+    return UiUserId(uuid: var_uuid, domain: var_domain);
   }
 
   @protected
   UiUserProfile sse_decode_ui_user_profile(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_userName = sse_decode_String(deserializer);
+    var var_userId = sse_decode_ui_user_id(deserializer);
     var var_displayName = sse_decode_String(deserializer);
     var var_profilePicture = sse_decode_opt_box_autoadd_image_data(
       deserializer,
     );
     return UiUserProfile(
-      userName: var_userName,
+      userId: var_userId,
       displayName: var_displayName,
       profilePicture: var_profilePicture,
     );
@@ -6914,6 +6995,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    UiRoomState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiRoomStateImpl).frbInternalSseEncode(move: true),
       serializer,
     );
   }
@@ -7145,6 +7239,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    UiRoomState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiRoomStateImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser(
     UiUser self,
     SseSerializer serializer,
@@ -7359,6 +7466,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    UiRoomState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiRoomStateImpl).frbInternalSseEncode(move: null),
       serializer,
     );
   }
@@ -7586,6 +7706,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    UiRoomState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+      self,
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     User self,
     SseSerializer serializer,
@@ -7715,12 +7848,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_box_autoadd_ui_user_name(
-    UiUserName self,
+  void sse_encode_box_autoadd_ui_user_id(
+    UiUserId self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_user_name(self, serializer);
+    sse_encode_ui_user_id(self, serializer);
   }
 
   @protected
@@ -7751,7 +7884,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       self.conversation,
       serializer,
     );
-    sse_encode_list_String(self.members, serializer);
+    sse_encode_list_ui_user_id(self.members, serializer);
+    sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+      self.roomState,
+      serializer,
+    );
   }
 
   @protected
@@ -7802,7 +7939,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       self.developerSettingsScreen,
       serializer,
     );
-    sse_encode_opt_String(self.memberDetails, serializer);
+    sse_encode_opt_box_autoadd_ui_user_id(self.memberDetails, serializer);
     sse_encode_bool(self.userSettingsOpen, serializer);
     sse_encode_bool(self.conversationDetailsOpen, serializer);
     sse_encode_bool(self.addMembersOpen, serializer);
@@ -7875,15 +8012,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_isize(PlatformInt64 self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putPlatformInt64(self);
-  }
-
-  @protected
-  void sse_encode_list_String(List<String> self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_String(item, serializer);
-    }
   }
 
   @protected
@@ -8041,6 +8169,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_ui_user_id(
+    List<UiUserId> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_ui_user_id(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_log_entry(LogEntry self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_Chrono_Utc(self.time, serializer);
@@ -8145,6 +8285,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+    UiRoomState? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
+        self,
+        serializer,
+      );
+    }
+  }
+
+  @protected
+  void
   sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     User? self,
     SseSerializer serializer,
@@ -8239,15 +8396,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_box_autoadd_ui_user_profile(
-    UiUserProfile? self,
+  void sse_encode_opt_box_autoadd_ui_user_id(
+    UiUserId? self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     sse_encode_bool(self != null, serializer);
     if (self != null) {
-      sse_encode_box_autoadd_ui_user_profile(self, serializer);
+      sse_encode_box_autoadd_ui_user_id(self, serializer);
     }
   }
 
@@ -8337,17 +8494,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_Uuid(self.clientId, serializer);
-    sse_encode_ui_user_name(self.userName, serializer);
+    sse_encode_ui_user_id(self.userId, serializer);
     sse_encode_Chrono_Utc(self.createdAt, serializer);
-    sse_encode_opt_box_autoadd_ui_user_profile(self.userProfile, serializer);
+    sse_encode_ui_user_profile(self.userProfile, serializer);
     sse_encode_bool(self.isFinished, serializer);
   }
 
   @protected
   void sse_encode_ui_contact(UiContact self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.userName, serializer);
+    sse_encode_ui_user_id(self.userId, serializer);
   }
 
   @protected
@@ -8356,7 +8512,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.sender, serializer);
+    sse_encode_ui_user_id(self.sender, serializer);
     sse_encode_bool(self.sent, serializer);
     sse_encode_ui_mimi_content(self.content, serializer);
   }
@@ -8427,10 +8583,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     switch (self) {
       case UiConversationType_UnconfirmedConnection(field0: final field0):
         sse_encode_i_32(0, serializer);
-        sse_encode_String(field0, serializer);
+        sse_encode_box_autoadd_ui_user_profile(field0, serializer);
       case UiConversationType_Connection(field0: final field0):
         sse_encode_i_32(1, serializer);
-        sse_encode_String(field0, serializer);
+        sse_encode_box_autoadd_ui_user_profile(field0, serializer);
       case UiConversationType_Group():
         sse_encode_i_32(2, serializer);
     }
@@ -8476,7 +8632,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_String(self.pastMembers, serializer);
+    sse_encode_list_ui_user_id(self.pastMembers, serializer);
   }
 
   @protected
@@ -8515,9 +8671,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_ui_user_name(UiUserName self, SseSerializer serializer) {
+  void sse_encode_ui_user_id(UiUserId self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.userName, serializer);
+    sse_encode_Uuid(self.uuid, serializer);
     sse_encode_String(self.domain, serializer);
   }
 
@@ -8527,7 +8683,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.userName, serializer);
+    sse_encode_ui_user_id(self.userId, serializer);
     sse_encode_String(self.displayName, serializer);
     sse_encode_opt_box_autoadd_image_data(self.profilePicture, serializer);
   }
@@ -8582,12 +8738,6 @@ class ConversationDetailsCubitBaseImpl extends RustOpaque
 
   bool get isClosed => RustLib.instance.api
       .crateApiConversationDetailsCubitConversationDetailsCubitBaseIsClosed(
-        that: this,
-      );
-
-  /// Load user profile of the conversation (only for non-group conversations)
-  Future<UiUserProfile?> loadConversationUserProfile() => RustLib.instance.api
-      .crateApiConversationDetailsCubitConversationDetailsCubitBaseLoadConversationUserProfile(
         that: this,
       );
 
@@ -8673,14 +8823,12 @@ class ConversationListCubitBaseImpl extends RustOpaque
       .crateApiConversationListCubitConversationListCubitBaseClose(that: this);
 
   /// Creates a new 1:1 connection with the given user.
-  ///
-  /// `user_name` is the fully qualified user name of the contact.
-  Future<ConversationId> createConnection({required String userName}) => RustLib
+  Future<ConversationId> createConnection({required UiUserId userId}) => RustLib
       .instance
       .api
       .crateApiConversationListCubitConversationListCubitBaseCreateConnection(
         that: this,
-        userName: userName,
+        userId: userId,
       );
 
   /// Creates a new group conversation with the given name.
@@ -8965,7 +9113,7 @@ class NavigationCubitBaseImpl extends RustOpaque
         screen: screen,
       );
 
-  Future<void> openMemberDetails({required String member}) => RustLib
+  Future<void> openMemberDetails({required UiUserId member}) => RustLib
       .instance
       .api
       .crateApiNavigationCubitNavigationCubitBaseOpenMemberDetails(
@@ -8984,6 +9132,32 @@ class NavigationCubitBaseImpl extends RustOpaque
 
   Stream<NavigationState> stream() => RustLib.instance.api
       .crateApiNavigationCubitNavigationCubitBaseStream(that: this);
+}
+
+@sealed
+class UiRoomStateImpl extends RustOpaque implements UiRoomState {
+  // Not to be used by end users
+  UiRoomStateImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  UiRoomStateImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_UiRoomState,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_UiRoomState,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_UiRoomStatePtr,
+  );
+
+  bool canKick({required int target}) =>
+      RustLib.instance.api.crateApiConversationDetailsCubitUiRoomStateCanKick(
+        that: this,
+        target: target,
+      );
 }
 
 @sealed
@@ -9011,8 +9185,8 @@ class UiUserImpl extends RustOpaque implements UiUser {
   ImageData? get profilePicture =>
       RustLib.instance.api.crateApiUserCubitUiUserProfilePicture(that: this);
 
-  String get userName =>
-      RustLib.instance.api.crateApiUserCubitUiUserUserName(that: this);
+  UiUserId get userId =>
+      RustLib.instance.api.crateApiUserCubitUiUserUserId(that: this);
 }
 
 @sealed
@@ -9036,11 +9210,11 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
 
   Future<void> addUserToConversation(
     ConversationId conversationId,
-    String userName,
+    UiUserId userId,
   ) => RustLib.instance.api.crateApiUserCubitUserCubitBaseAddUserToConversation(
     that: this,
     conversationId: conversationId,
-    userName: userName,
+    userId: userId,
   );
 
   Future<void> close() =>
@@ -9054,12 +9228,12 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
 
   Future<void> removeUserFromConversation(
     ConversationId conversationId,
-    String userName,
+    UiUserId userId,
   ) => RustLib.instance.api
       .crateApiUserCubitUserCubitBaseRemoveUserFromConversation(
         that: this,
         conversationId: conversationId,
-        userName: userName,
+        userId: userId,
       );
 
   Future<void> setAppState({required AppState appState}) =>
@@ -9082,12 +9256,9 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
   Stream<UiUser> stream() =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseStream(that: this);
 
-  /// Get the user profile of the user with the given [`QualifiedUserName`].
-  Future<UiUserProfile?> userProfile(String userName) =>
-      RustLib.instance.api.crateApiUserCubitUserCubitBaseUserProfile(
-        that: this,
-        userName: userName,
-      );
+  /// Get the user profile of the user with the given [`UiUserId`].
+  Future<UiUserProfile> userProfile(UiUserId userId) => RustLib.instance.api
+      .crateApiUserCubitUserCubitBaseUserProfile(that: this, userId: userId);
 }
 
 @sealed
@@ -9109,10 +9280,6 @@ class UserImpl extends RustOpaque implements User {
         RustLib.instance.api.rust_arc_decrement_strong_count_UserPtr,
   );
 
-  /// The unique identifier of the logged in user
-  UuidValue get clientId =>
-      RustLib.instance.api.crateApiUserUserClientId(that: this);
-
   /// Total number of unread messages across all conversations
   Future<int> get globalUnreadMessagesCount => RustLib.instance.api
       .crateApiUserUserGlobalUnreadMessagesCount(that: this);
@@ -9123,7 +9290,7 @@ class UserImpl extends RustOpaque implements User {
       .api
       .crateApiUserUserUpdatePushToken(that: this, pushToken: pushToken);
 
-  /// The user name of the logged in user
-  String get userName =>
-      RustLib.instance.api.crateApiUserUserUserName(that: this);
+  /// The unique identifier of the logged in user
+  UiUserId get userId =>
+      RustLib.instance.api.crateApiUserUserUserId(that: this);
 }

@@ -2,56 +2,34 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::auth_service::{
-        AsCredentialsError, EnqueueMessageError, UserClientsError, UserConnectionPackagesError,
-    },
-    messages::client_as::{
-        AsCredentialsParams, AsCredentialsResponse, EnqueueMessageParams, UserClientsParams,
-        UserClientsResponse, UserConnectionPackagesParams, UserConnectionPackagesResponse,
-    },
+use phnxtypes::messages::client_as::{
+    AsCredentialsParams, AsCredentialsResponse, EnqueueMessageParams, UserConnectionPackagesParams,
+    UserConnectionPackagesResponse,
 };
 
-use crate::auth_service::{
-    AuthService,
-    client_record::ClientRecord,
-    connection_package::StorableConnectionPackage,
-    credentials::{intermediate_signing_key::IntermediateCredential, signing_key::Credential},
-    queue::Queue,
+use crate::{
+    auth_service::{
+        AuthService,
+        client_record::ClientRecord,
+        connection_package::StorableConnectionPackage,
+        credentials::{intermediate_signing_key::IntermediateCredential, signing_key::Credential},
+    },
+    errors::auth_service::{AsCredentialsError, EnqueueMessageError, UserConnectionPackagesError},
 };
 
 impl AuthService {
-    pub(crate) async fn as_user_clients(
-        &self,
-        params: UserClientsParams,
-    ) -> Result<UserClientsResponse, UserClientsError> {
-        let UserClientsParams { user_name } = params;
-
-        // Look up the user entry in the DB
-        let client_credentials = ClientRecord::load_user_credentials(&self.db_pool, &user_name)
-            .await
-            .map_err(|e| {
-                tracing::warn!("Failed to load client credentials: {:?}", e);
-                UserClientsError::StorageError
-            })?;
-
-        let response = UserClientsResponse { client_credentials };
-
-        Ok(response)
-    }
-
-    pub async fn as_user_connection_packages(
+    pub(crate) async fn as_user_connection_packages(
         &self,
         params: UserConnectionPackagesParams,
     ) -> Result<UserConnectionPackagesResponse, UserConnectionPackagesError> {
-        let UserConnectionPackagesParams { user_name } = params;
+        let UserConnectionPackagesParams { user_id } = params;
 
         let mut connection = self.db_pool.acquire().await.map_err(|e| {
             tracing::warn!("Failed to acquire connection from pool: {:?}", e);
             UserConnectionPackagesError::StorageError
         })?;
         let connection_packages =
-            StorableConnectionPackage::user_connection_packages(&mut connection, &user_name)
+            StorableConnectionPackage::user_connection_packages(&mut connection, &user_id)
                 .await
                 .map_err(|e| {
                     tracing::warn!(
@@ -78,12 +56,12 @@ impl AuthService {
         params: EnqueueMessageParams,
     ) -> Result<(), EnqueueMessageError> {
         let EnqueueMessageParams {
-            client_id,
+            user_id,
             connection_establishment_ctxt,
         } = params;
 
         // Fetch the client record.
-        let mut client_record = ClientRecord::load(&self.db_pool, &client_id)
+        let mut client_record = ClientRecord::load(&self.db_pool, &user_id)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to load client record: {:?}", e);
@@ -103,11 +81,8 @@ impl AuthService {
         // TODO: Future work: PCS
 
         tracing::trace!("Enqueueing message in storage provider");
-        let mut connection = self.db_pool.acquire().await.map_err(|e| {
-            tracing::warn!("Failed to acquire connection from pool: {:?}", e);
-            EnqueueMessageError::StorageError
-        })?;
-        Queue::enqueue(&mut connection, &client_id, &queue_message)
+        self.queues
+            .enqueue(&user_id, &queue_message)
             .await
             .map_err(|e| {
                 tracing::warn!("Failed to enqueue message: {:?}", e);

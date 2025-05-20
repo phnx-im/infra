@@ -15,7 +15,7 @@ use phnxtypes::{
         indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
         signatures::signable::Signable,
     },
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
 };
 
 use crate::{
@@ -28,19 +28,16 @@ use super::{Asset, generate::NewUserProfile};
 #[test]
 fn backend_interaction() {
     // The user initially creates a user profile
-    let user_name = "alice@localhost".parse().unwrap();
-    let user_profile_key = UserProfileKey::random(&user_name).unwrap();
+    let user_id = UserId::random("localhost".parse().unwrap());
+    let user_profile_key = UserProfileKey::random(&user_id).unwrap();
     let display_name = DisplayName::from_str("Alice").unwrap();
     let profile_picture = Some(Asset::Value(vec![1, 2, 3]));
-    let (credential_csr, signing_key) = ClientCredentialCsr::new(
-        AsClientId::random(user_name.clone()).unwrap(),
-        SignatureScheme::ED25519,
-    )
-    .unwrap();
+    let (credential_csr, signing_key) =
+        ClientCredentialCsr::new(user_id.clone(), SignatureScheme::ED25519).unwrap();
 
     let encrypted_user_profile = NewUserProfile::new(
         &signing_key,
-        user_name.clone(),
+        user_id.clone(),
         user_profile_key.index().clone(),
         display_name.clone(),
         profile_picture.clone(),
@@ -51,7 +48,7 @@ fn backend_interaction() {
     .unwrap();
 
     // The server then stores it as part of user creation
-    let mut user_record = UserRecord::new(user_name.clone(), encrypted_user_profile.clone());
+    let mut user_record = UserRecord::new(user_id.clone(), encrypted_user_profile.clone());
 
     // Other clients can now load the user profile based on the index of the user profile key
     assert!(
@@ -81,18 +78,18 @@ fn backend_interaction() {
     // Now the user wants to update their profile
     // (To simulate loading it from the DB, we just create a new one here)
     let current_profile = IndexedUserProfile {
-        user_name: user_name.clone(),
+        user_id: user_id.clone(),
         epoch: 0,
         decryption_key_index: user_profile_key.index().clone(),
         display_name,
         profile_picture: profile_picture.clone(),
     };
     let new_user_profile = UserProfile {
-        user_name: user_name.clone(),
+        user_id: user_id.clone(),
         display_name: "Alice Wonderland".parse().unwrap(),
         profile_picture: None,
     };
-    let new_user_profile_key = UserProfileKey::random(&user_name).unwrap();
+    let new_user_profile_key = UserProfileKey::random(&user_id).unwrap();
     let new_encrypted_user_profile = UserProfileUpdate::update_own_profile(
         current_profile,
         new_user_profile,

@@ -21,11 +21,12 @@ import '../mocks.dart';
 
 final conversation = conversations[2];
 
-final members = ["alice@localhost", "bob@localhost", "eve@localhost"];
+final members = [1.userId(), 2.userId(), 3.userId()];
 
 void main() {
   setUpAll(() {
     registerFallbackValue(0.conversationMessageId());
+    registerFallbackValue(0.userId());
   });
 
   group('ConversationScreenView', () {
@@ -42,7 +43,7 @@ void main() {
 
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(userName: "alice@localhost"));
+      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
       when(
         () => userCubit.userProfile(any()),
       ).thenAnswer((_) => Future.value(null));

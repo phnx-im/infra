@@ -19,7 +19,7 @@ use phnxcoreclient::{
 };
 use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
-use phnxtypes::identifiers::QualifiedUserName;
+use phnxtypes::identifiers::UserId;
 use png::Encoder;
 use tonic::transport::Channel;
 use tonic_health::pb::{
@@ -27,12 +27,16 @@ use tonic_health::pb::{
 };
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 
-static ALICE: LazyLock<QualifiedUserName> = LazyLock::new(|| "alice@example.com".parse().unwrap());
-static BOB: LazyLock<QualifiedUserName> = LazyLock::new(|| "bob@example.com".parse().unwrap());
-static CHARLIE: LazyLock<QualifiedUserName> =
-    LazyLock::new(|| "charlie@example.com".parse().unwrap());
-static DAVE: LazyLock<QualifiedUserName> = LazyLock::new(|| "dave@example.com".parse().unwrap());
+static ALICE: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(1), "example.com".parse().unwrap()));
+static BOB: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(2), "example.com".parse().unwrap()));
+static CHARLIE: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(3), "example.com".parse().unwrap()));
+static DAVE: LazyLock<UserId> =
+    LazyLock::new(|| UserId::new(Uuid::from_u128(4), "example.com".parse().unwrap()));
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Connect users test", skip_all)]
@@ -184,18 +188,18 @@ async fn remove_from_group() {
     // Check that Charlie has a user profile stored for BOB, even though
     // he hasn't connected with them.
     let charlie = setup.get_user(&CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap().unwrap();
-    assert!(charlie_user_profile_bob.user_name == *BOB);
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
+    assert!(charlie_user_profile_bob.user_id == *BOB);
 
     setup
-        .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE, &BOB])
+        .remove_from_group(conversation_id, &ALICE, vec![&BOB])
         .await;
 
     // Now that charlie is not in a group with Bob anymore, the user profile
-    // should be removed.
+    // should be the default one derived from the client id.
     let charlie = setup.get_user(&CHARLIE);
-    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await.unwrap();
-    assert!(charlie_user_profile_bob.is_none());
+    let charlie_user_profile_bob = charlie.user.user_profile(&BOB).await;
+    assert_eq!(charlie_user_profile_bob, UserProfile::from_user_id(&BOB));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -236,7 +240,7 @@ async fn leave_group() {
     setup
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    setup.leave_group(conversation_id, &ALICE).await;
+    setup.leave_group(conversation_id, &BOB).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -252,8 +256,7 @@ async fn delete_group() {
     setup
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    let bob = &BOB;
-    let delete_group = setup.delete_group(conversation_id, bob);
+    let delete_group = setup.delete_group(conversation_id, &ALICE);
     delete_group.await;
 }
 
@@ -298,7 +301,7 @@ async fn full_cycle() {
         .invite_to_group(conversation_id, &ALICE, vec![&CHARLIE])
         .await;
 
-    // Add dave, connect him with charlie and invite him to the group. Then have dave remove alice and bob.
+    // Add dave, connect him with charlie and invite him to the group. Then have alice remove dave and bob.
     setup.add_user(&DAVE).await;
     setup.connect_users(&CHARLIE, &DAVE).await;
 
@@ -311,12 +314,12 @@ async fn full_cycle() {
         .await;
 
     setup
-        .remove_from_group(conversation_id, &DAVE, vec![&ALICE, &BOB])
+        .remove_from_group(conversation_id, &ALICE, vec![&DAVE, &BOB])
         .await;
 
     setup.leave_group(conversation_id, &CHARLIE).await;
 
-    setup.delete_group(conversation_id, &DAVE).await
+    setup.delete_group(conversation_id, &ALICE).await
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -354,7 +357,7 @@ async fn exchange_user_profiles() {
     let alice_profile_picture = Asset::Value(png_bytes.clone());
 
     let alice_profile = UserProfile {
-        user_name: (*ALICE).clone(),
+        user_id: (*ALICE).clone(),
         display_name: alice_display_name.clone(),
         profile_picture: Some(alice_profile_picture.clone()),
     };
@@ -373,7 +376,7 @@ async fn exchange_user_profiles() {
     let bob_display_name: DisplayName = "B0b".parse().unwrap();
     let bob_profile_picture = Asset::Value(png_bytes.clone());
     let bob_user_profile = UserProfile {
-        user_name: (*BOB).clone(),
+        user_id: (*BOB).clone(),
         display_name: bob_display_name.clone(),
         profile_picture: Some(bob_profile_picture.clone()),
     };
@@ -391,9 +394,7 @@ async fn exchange_user_profiles() {
         .unwrap()
         .user
         .user_profile(&BOB)
-        .await
-        .unwrap()
-        .unwrap();
+        .await;
 
     let profile_picture = bob_user_profile
         .profile_picture
@@ -409,12 +410,12 @@ async fn exchange_user_profiles() {
 
     let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
 
-    let alice_user_profile = alice.user_profile(&ALICE).await.unwrap().unwrap();
+    let alice_user_profile = alice.user_profile(&ALICE).await;
 
     assert_eq!(alice_user_profile.display_name, alice_display_name);
 
     let new_user_profile = UserProfile {
-        user_name: (*ALICE).clone(),
+        user_id: (*ALICE).clone(),
         display_name: "New Alice".parse().unwrap(),
         profile_picture: None,
     };
@@ -427,7 +428,7 @@ async fn exchange_user_profiles() {
     let bob = &mut setup.users.get_mut(&BOB).unwrap().user;
     let qs_messages = bob.qs_fetch_messages().await.unwrap();
     bob.fully_process_qs_messages(qs_messages).await.unwrap();
-    let alice_user_profile = bob.user_profile(&ALICE).await.unwrap().unwrap();
+    let alice_user_profile = bob.user_profile(&ALICE).await;
 
     assert_eq!(alice_user_profile, new_user_profile);
 }
@@ -573,23 +574,23 @@ async fn client_persistence() {
     // Create and persist the user.
     let mut setup = TestBackend::single().await;
     setup.add_persisted_user(&ALICE).await;
-    let client_id = setup.users.get(&ALICE).unwrap().user.as_client_id();
+    let user_id = setup.users.get(&ALICE).unwrap().user.user_id().clone();
 
     let db_path = setup.temp_dir().to_owned();
 
     // Try to load the user from the database.
-    CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
+    CoreUser::load(user_id.clone(), db_path.to_str().unwrap())
         .await
         .unwrap();
 
-    let client_db_path = db_path.join(format!("{}.db", client_id));
+    let client_db_path = db_path.join(format!("{}@{}.db", user_id.uuid(), user_id.domain()));
     assert!(client_db_path.exists());
 
     setup.delete_user(&ALICE).await;
 
     assert!(!client_db_path.exists());
     assert!(
-        CoreUser::load(client_id.clone(), db_path.to_str().unwrap())
+        CoreUser::load(user_id.clone(), db_path.to_str().unwrap())
             .await
             .is_err()
     );
@@ -619,9 +620,9 @@ async fn delete_user() {
     let mut setup = TestBackend::single().await;
 
     setup.add_user(&ALICE).await;
-    // Adding another user with the same name should fail.
+    // Adding another user with the same id should fail.
     match TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port()).await {
-        Ok(_) => panic!("Should not be able to create a user with the same name"),
+        Ok(_) => panic!("Should not be able to create a user with the same id"),
         Err(e) => match e.downcast_ref::<AsRequestError>().unwrap() {
             AsRequestError::Tonic(status) => {
                 assert_eq!(status.code(), tonic::Code::AlreadyExists);
@@ -639,6 +640,104 @@ async fn delete_user() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Update user profile on group join test", skip_all)]
+async fn update_user_profile_on_group_join() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+
+    // Alice and Bob are connected.
+    let _alice_bob_conversation = setup.connect_users(&ALICE, &BOB).await;
+    // Bob and Charlie are connected.
+    let _bob_charlie_conversation = setup.connect_users(&BOB, &CHARLIE).await;
+
+    // Alice updates her profile.
+    let alice_display_name: DisplayName = "4l1c3".parse().unwrap();
+    let alice_profile = UserProfile {
+        user_id: (*ALICE).clone(),
+        display_name: alice_display_name.clone(),
+        profile_picture: None,
+    };
+    setup
+        .users
+        .get(&ALICE)
+        .unwrap()
+        .user
+        .set_own_user_profile(alice_profile)
+        .await
+        .unwrap();
+
+    // Bob doesn't fetch his queue, so he doesn't know about Alice's new profile.
+    // He creates a group and invites Charlie.
+    let conversation_id = setup.create_group(&BOB).await;
+
+    let bob = setup.users.get_mut(&BOB).unwrap();
+    bob.user
+        .invite_users(conversation_id, &[CHARLIE.clone()])
+        .await
+        .unwrap();
+
+    // Charlie accepts the invitation.
+    let charlie = setup.users.get_mut(&CHARLIE).unwrap();
+    let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
+    charlie
+        .user
+        .fully_process_qs_messages(charlie_qs_messages)
+        .await
+        .unwrap();
+
+    // Bob now invites Alice
+    let bob = setup.users.get_mut(&BOB).unwrap();
+    bob.user
+        .invite_users(conversation_id, &[ALICE.clone()])
+        .await
+        .unwrap();
+
+    // Charlie processes his messages again, this will fail, because he will
+    // unsuccessfully try to download Alice's old profile.
+    let charlie = setup.users.get_mut(&CHARLIE).unwrap();
+    let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
+    let result = charlie
+        .user
+        .fully_process_qs_messages(charlie_qs_messages)
+        .await
+        .unwrap();
+
+    assert!(result.changed_conversations.is_empty());
+    assert!(result.new_conversations.is_empty());
+    assert!(result.new_messages.is_empty());
+    let err = &result.errors[0];
+    let AsRequestError::Tonic(tonic_err) = err.downcast_ref().unwrap() else {
+        panic!("Unexpected error type");
+    };
+    assert_eq!(tonic_err.code(), tonic::Code::InvalidArgument);
+    assert_eq!(tonic_err.message(), "No ciphertext matching index");
+
+    // Alice accepts the invitation.
+    let alice = setup.users.get_mut(&ALICE).unwrap();
+    let alice_qs_messages = alice.user.qs_fetch_messages().await.unwrap();
+    alice
+        .user
+        .fully_process_qs_messages(alice_qs_messages)
+        .await
+        .unwrap();
+
+    // While processing her messages, Alice should have issued a profile update
+
+    // Charlie picks up his messages.
+    let charlie = setup.users.get_mut(&CHARLIE).unwrap();
+    let charlie_qs_messages = charlie.user.qs_fetch_messages().await.unwrap();
+    charlie
+        .user
+        .fully_process_qs_messages(charlie_qs_messages)
+        .await
+        .unwrap();
+    // Charlie should now have Alice's new profile.
+    let charlie_user_profile = charlie.user.user_profile(&ALICE).await;
+    assert_eq!(charlie_user_profile.display_name, alice_display_name);
+}
+
 #[tracing::instrument(name = "Health check test", skip_all)]
 async fn health_check() {
     let setup = TestBackend::single().await;

@@ -23,7 +23,9 @@ final conversations = [
   UiConversationDetails(
     id: 1.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: const UiConversationType_Connection('bob@localhost'),
+    conversationType: UiConversationType_Connection(
+      UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
+    ),
     unreadMessages: 10,
     messagesCount: 10,
     attributes: const UiConversationAttributes(title: 'Bob', picture: null),
@@ -34,7 +36,7 @@ final conversations = [
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: 'bob@localhost',
+          sender: 2.userId(),
           sent: true,
           content: UiMimiContent(
             plainBody: 'Hello Alice',
@@ -49,8 +51,8 @@ final conversations = [
   UiConversationDetails(
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: const UiConversationType_UnconfirmedConnection(
-      'eve@localhost',
+    conversationType: UiConversationType_UnconfirmedConnection(
+      UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
     ),
     unreadMessages: 0,
     messagesCount: 10,
@@ -62,7 +64,7 @@ final conversations = [
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: 'eve@localhost',
+          sender: 3.userId(),
           sent: true,
           content: UiMimiContent(
             plainBody:
@@ -91,7 +93,7 @@ final conversations = [
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
-          sender: 'somebody@localhost',
+          sender: 4.userId(),
           sent: true,
           content: UiMimiContent(
             plainBody: 'Hello All',
@@ -139,7 +141,7 @@ void main() {
       ).thenReturn(const NavigationState.home());
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(userName: 'alice@localhost'));
+      ).thenReturn(MockUiUser(id: 1, displayName: 'alice'));
     });
 
     Widget buildSubject() => MultiBlocProvider(

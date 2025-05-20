@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -62,16 +63,16 @@ class AddMembersScreenView extends StatelessWidget {
                         leading: FutureUserAvatar(
                           profile:
                               () => context.read<UserCubit>().userProfile(
-                                contact.userName,
+                                contact.userId,
                               ),
                         ),
                         title: Text(
-                          contact.userName,
+                          contact.userId.toString(), // TODO: display name
                           style: Theme.of(context).textTheme.labelMedium,
                           overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Checkbox(
-                          value: selectedContacts.contains(contact.userName),
+                          value: selectedContacts.contains(contact.userId),
                           checkColor: colorDMB,
                           fillColor: WidgetStateProperty.all(colorGreyLight),
                           focusColor: Colors.transparent,
@@ -119,14 +120,14 @@ class AddMembersScreenView extends StatelessWidget {
   void _addSelectedContacts(
     NavigationCubit navigation,
     UserCubit userCubit,
-    Set<String> selectedContacts,
+    Set<UiUserId> selectedContacts,
   ) async {
     final conversationId = navigation.state.conversationId;
     if (conversationId == null) {
       throw StateError("an active conversation is obligatory");
     }
-    for (final userName in selectedContacts) {
-      await userCubit.addUserToConversation(conversationId, userName);
+    for (final userId in selectedContacts) {
+      await userCubit.addUserToConversation(conversationId, userId);
     }
     navigation.pop();
   }

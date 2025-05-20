@@ -6,7 +6,7 @@ use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
     crypto::ear::keys::IdentityLinkKey,
-    identifiers::{AsClientId, QualifiedUserName},
+    identifiers::{Fqdn, UserId},
 };
 use sqlx::{Row, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
@@ -35,15 +35,19 @@ impl StorableClientCredential {
         .map(|res| res.map(StorableClientCredential::new))
     }
 
-    pub(crate) async fn load_by_client_id(
+    pub(crate) async fn load_by_user_id(
         executor: impl SqliteExecutor<'_>,
-        client_id: &AsClientId,
+        user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query_scalar!(
             r#"SELECT
                 client_credential AS "client_credential: _"
-            FROM client_credentials WHERE client_id = ?"#,
-            client_id
+            FROM client_credentials
+            WHERE user_uuid = ? AND user_domain = ?"#,
+            uuid,
+            domain,
         )
         .fetch_optional(executor)
         .await
@@ -53,12 +57,15 @@ impl StorableClientCredential {
     /// Stores the client credential in the database if it does not already exist.
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let fingerprint = self.fingerprint();
-        let identity = self.client_credential.identity();
+        let user_id = self.client_credential.identity();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "INSERT OR IGNORE INTO client_credentials
-                (fingerprint, client_id, client_credential) VALUES (?, ?, ?)",
+                (fingerprint, user_uuid, user_domain, client_credential) VALUES (?, ?, ?, ?)",
             fingerprint,
-            identity,
+            uuid,
+            domain,
             self.client_credential,
         )
         .execute(executor)
@@ -70,8 +77,8 @@ impl StorableClientCredential {
 struct SqlGroupMembership {
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupIdWrapper,
-    client_uuid: Uuid,
-    user_name: QualifiedUserName,
+    user_uuid: Uuid,
+    user_domain: Fqdn,
     leaf_index: u32,
     identity_link_key: IdentityLinkKey,
 }
@@ -81,14 +88,14 @@ impl From<SqlGroupMembership> for GroupMembership {
         SqlGroupMembership {
             client_credential_fingerprint,
             group_id: GroupIdWrapper(group_id),
-            client_uuid,
-            user_name,
+            user_uuid,
+            user_domain,
             leaf_index,
             identity_link_key,
         }: SqlGroupMembership,
     ) -> Self {
         Self {
-            client_id: AsClientId::new(user_name, client_uuid),
+            user_id: UserId::new(user_uuid, user_domain),
             group_id,
             leaf_index: LeafNodeIndex::new(leaf_index),
             identity_link_key: IdentityLinkKey::from(identity_link_key),
@@ -107,7 +114,8 @@ impl GroupMembership {
 
         // Delete all 'staged_removal' rows.
         query!(
-            "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_removal'",
+            "DELETE FROM group_membership
+            WHERE group_id = ? AND status = 'staged_removal'",
             group_id,
         )
         .execute(&mut *connection)
@@ -115,7 +123,7 @@ impl GroupMembership {
 
         // Move modified information from 'staged_update' rows to their
         // 'merged' counterparts (i.e. rows with the same group_id and
-        // client_id).
+        // user_id).
         query!(
             "UPDATE group_membership AS merged
             SET client_credential_fingerprint = staged.client_credential_fingerprint,
@@ -123,8 +131,8 @@ impl GroupMembership {
                 identity_link_key = staged.identity_link_key
             FROM group_membership AS staged
             WHERE merged.group_id = staged.group_id
-              AND merged.client_uuid = staged.client_uuid
-              AND merged.user_name = staged.user_name
+              AND merged.user_uuid = staged.user_uuid
+              AND merged.user_domain = staged.user_domain
               AND merged.status = 'merged'
               AND staged.status = 'staged_update'"
         )
@@ -133,7 +141,8 @@ impl GroupMembership {
 
         // Delete all (previously merged) 'staged_update' rows.
         query!(
-            "DELETE FROM group_membership WHERE group_id = ? AND status = 'staged_update'",
+            "DELETE FROM group_membership
+            WHERE group_id = ? AND status = 'staged_update'",
             group_id,
         )
         .execute(&mut *connection)
@@ -152,23 +161,23 @@ impl GroupMembership {
     }
 
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let client_id = self.client_id.client_id();
-        let user_name = self.client_id.user_name();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
         let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT OR IGNORE INTO group_membership (
-                client_uuid,
-                user_name,
+                user_uuid,
+                user_domain,
                 group_id,
                 leaf_index,
                 identity_link_key,
                 client_credential_fingerprint,
                 status
             ) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
-            client_id,
-            user_name,
+            uuid,
+            domain,
             sql_group_id,
             leaf_index,
             identity_link_key,
@@ -180,23 +189,23 @@ impl GroupMembership {
     }
 
     pub(super) async fn stage_update(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let client_id = self.client_id.client_id();
-        let user_name = self.client_id.user_name();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
         let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT INTO group_membership (
-                client_uuid,
-                user_name,
+                user_uuid,
+                user_domain,
                 group_id,
                 leaf_index,
                 identity_link_key,
                 client_credential_fingerprint,
                 status)
             VALUES (?, ?, ?, ?, ?, ?, 'staged_update')",
-            client_id,
-            user_name,
+            uuid,
+            domain,
             sql_group_id,
             leaf_index,
             identity_link_key,
@@ -208,22 +217,23 @@ impl GroupMembership {
     }
 
     pub(super) async fn stage_add(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
-        let client_id = self.client_id.client_id();
-        let user_name = self.client_id.user_name();
+        let uuid = self.user_id.uuid();
+        let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
         let identity_link_key = self.identity_link_key.as_ref();
         query!(
-            "INSERT INTO group_membership (client_uuid,
-                user_name,
+            "INSERT INTO group_membership (
+                user_uuid,
+                user_domain,
                 group_id,
                 leaf_index,
                 identity_link_key,
                 client_credential_fingerprint,
                 status)
             VALUES (?, ?, ?, ?, ?, ?, 'staged_add')",
-            client_id,
-            user_name,
+            uuid,
+            domain,
             sql_group_id,
             leaf_index,
             identity_link_key,
@@ -288,8 +298,8 @@ impl GroupMembership {
                 r#"SELECT
                     client_credential_fingerprint AS "client_credential_fingerprint: _",
                     group_id AS "group_id: _",
-                    client_uuid AS "client_uuid: _",
-                    user_name AS "user_name: _",
+                    user_uuid AS "user_uuid: _",
+                    user_domain AS "user_domain: _",
                     leaf_index AS "leaf_index: _",
                     identity_link_key AS "identity_link_key: _"
                 FROM group_membership
@@ -306,8 +316,8 @@ impl GroupMembership {
                 r#"SELECT
                     client_credential_fingerprint AS "client_credential_fingerprint: _",
                     group_id AS "group_id: _",
-                    client_uuid AS "client_uuid: _",
-                    user_name AS "user_name: _",
+                    user_uuid AS "user_uuid: _",
+                    user_domain AS "user_domain: _",
                     leaf_index AS "leaf_index: _",
                     identity_link_key AS "identity_link_key: _"
                 FROM group_membership
@@ -348,24 +358,22 @@ impl GroupMembership {
     pub(in crate::groups) async fn client_indices(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-        client_ids: &[AsClientId],
+        user_ids: &[UserId],
     ) -> sqlx::Result<Vec<LeafNodeIndex>> {
-        let placeholders = client_ids
+        let placeholders = user_ids
             .iter()
             .map(|_| "(?, ?)")
             .collect::<Vec<_>>()
             .join(",");
         let query_string = format!(
             "SELECT leaf_index FROM group_membership
-            WHERE group_id = ? AND (client_uuid, user_name) IN ({})",
+            WHERE group_id = ? AND (user_uuid, user_domain) IN ({})",
             placeholders
         );
 
         let mut query = sqlx::query(&query_string).bind(GroupIdRefWrapper::from(group_id));
-        for client_id in client_ids {
-            query = query
-                .bind(client_id.client_id())
-                .bind(client_id.user_name());
+        for user_id in user_ids {
+            query = query.bind(user_id.uuid()).bind(user_id.domain());
         }
 
         query
@@ -378,49 +386,31 @@ impl GroupMembership {
             .await
     }
 
-    pub(in crate::groups) async fn user_client_ids(
-        executor: impl SqliteExecutor<'_>,
-        group_id: &GroupId,
-        user_name: &QualifiedUserName,
-    ) -> sqlx::Result<Vec<AsClientId>> {
-        let group_id = GroupIdRefWrapper::from(group_id);
-        query_scalar!(
-            r#"SELECT client_uuid AS "client_uuid: _"
-            FROM group_membership WHERE group_id = ? AND user_name = ?"#,
-            group_id,
-            user_name
-        )
-        .fetch(executor)
-        .map(|res| res.map(|client_uuid| AsClientId::new(user_name.clone(), client_uuid)))
-        .collect()
-        .await
-    }
-
     pub(in crate::groups) async fn group_members(
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
-    ) -> sqlx::Result<Vec<AsClientId>> {
+    ) -> sqlx::Result<Vec<UserId>> {
         struct SqlGroupMember {
-            client_uuid: Uuid,
-            user_name: QualifiedUserName,
+            user_uuid: Uuid,
+            user_domain: Fqdn,
         }
 
         let group_id = GroupIdRefWrapper::from(group_id);
         query_as!(
             SqlGroupMember,
             r#"SELECT
-                client_uuid AS "client_uuid: _",
-                user_name AS "user_name: _"
+                user_uuid AS "user_uuid: _",
+                user_domain AS "user_domain: _"
             FROM group_membership WHERE group_id = ?"#,
             group_id
         )
         .fetch(executor)
         .map(|res| {
             let SqlGroupMember {
-                client_uuid,
-                user_name,
+                user_uuid,
+                user_domain,
             } = res?;
-            Ok(AsClientId::new(user_name, client_uuid))
+            Ok(UserId::new(user_uuid, user_domain))
         })
         .collect()
         .await
@@ -449,11 +439,10 @@ mod tests {
     use super::*;
 
     /// Returns test credential with a fixed identity but random payload.
-    fn test_client_credential(client_id: Uuid) -> StorableClientCredential {
-        let client_id =
-            AsClientId::new(format!("{client_id}@localhost").parse().unwrap(), client_id);
+    fn test_client_credential(user_uuid: Uuid) -> StorableClientCredential {
+        let user_id = UserId::new(user_uuid, "localhost".parse().unwrap());
         let (client_credential_csr, _) =
-            ClientCredentialCsr::new(client_id, SignatureScheme::ED25519).unwrap();
+            ClientCredentialCsr::new(user_id, SignatureScheme::ED25519).unwrap();
         let fingerprint = CredentialFingerprint::new_for_test(b"fingerprint".to_vec());
         let client_credential = ClientCredential::from_payload(
             ClientCredentialPayload::new(client_credential_csr, None, fingerprint),
@@ -484,7 +473,7 @@ mod tests {
         let credential = test_client_credential(Uuid::new_v4());
 
         credential.store(&pool).await?;
-        let loaded = StorableClientCredential::load_by_client_id(&pool, credential.identity())
+        let loaded = StorableClientCredential::load_by_user_id(&pool, credential.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -500,7 +489,7 @@ mod tests {
         let credential = test_client_credential(Uuid::new_v4());
 
         credential.store(&pool).await?;
-        let loaded = StorableClientCredential::load_by_client_id(&pool, credential.identity())
+        let loaded = StorableClientCredential::load_by_user_id(&pool, credential.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -578,7 +567,7 @@ mod tests {
         credential_1.store(&pool).await?;
         credential_2.store(&pool).await?;
 
-        let loaded = StorableClientCredential::load_by_client_id(&pool, credential_1.identity())
+        let loaded = StorableClientCredential::load_by_user_id(&pool, credential_1.identity())
             .await?
             .expect("missing credential");
         assert_eq!(
@@ -674,26 +663,6 @@ mod tests {
         )
         .await?;
         assert_eq!(indices, [index_b]);
-
-        Ok(())
-    }
-
-    #[sqlx::test]
-    async fn group_membership_user_client_ids(pool: SqlitePool) -> anyhow::Result<()> {
-        let credential = test_client_credential(Uuid::new_v4());
-        credential.store(&pool).await?;
-
-        let index = LeafNodeIndex::new(0);
-        let membership = test_group_membership(&credential, index);
-
-        membership.store(&pool).await?;
-        let client_ids = GroupMembership::user_client_ids(
-            &pool,
-            &membership.group_id,
-            membership.client_id.user_name(),
-        )
-        .await?;
-        assert_eq!(client_ids, [credential.identity().clone()]);
 
         Ok(())
     }

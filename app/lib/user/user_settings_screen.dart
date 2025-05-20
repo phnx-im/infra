@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/main.dart';
@@ -49,9 +50,9 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final (userName, displayName, profilePicture) = context.select(
+    final (userId, displayName, profilePicture) = context.select(
       (UserCubit cubit) => (
-        cubit.state.userName,
+        cubit.state.userId,
         cubit.state.displayName,
         cubit.state.profilePicture,
       ),
@@ -77,7 +78,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                 Column(
                   children: [
                     UserAvatar(
-                      username: userName,
+                      displayName: displayName,
                       size: 100,
                       image: newProfilePicture ?? profilePicture,
                       onPressed: () async {
@@ -96,8 +97,32 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                     ),
                     const SizedBox(height: 15),
                     Text(
-                      userName,
+                      displayName,
                       style: const TextStyle(color: colorDMB, fontSize: 12),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    const Text('User ID'),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Spacer(),
+                        SelectableText(
+                          userId.uuid.toString(),
+                          style: const TextStyle(color: colorDMB, fontSize: 12),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.copy),
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(text: userId.uuid.toString()),
+                            );
+                          },
+                        ),
+                        const Spacer(),
+                      ],
                     ),
                   ],
                 ),

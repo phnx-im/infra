@@ -14,7 +14,7 @@ use crate::{
     util::{Cubit, CubitCore},
 };
 
-use super::notifications::DartNotificationService;
+use super::{notifications::DartNotificationService, types::UiUserId};
 
 /// State of the global App navigation
 #[frb(dart_metadata = ("freezed"))]
@@ -37,7 +37,6 @@ pub enum NavigationState {
 pub enum IntroScreenType {
     Intro,
     ServerChoice,
-    Username,
     DisplayNamePicture,
     DeveloperSettings,
 }
@@ -62,7 +61,7 @@ pub struct HomeNavigationState {
     pub conversation_id: Option<ConversationId>,
     pub developer_settings_screen: Option<DeveloperSettingsScreenType>,
     /// User name of the member that details are currently open
-    pub member_details: Option<String>,
+    pub member_details: Option<UiUserId>,
     #[frb(default = false)]
     pub user_settings_open: bool,
     #[frb(default = false)]
@@ -194,7 +193,7 @@ impl NavigationCubitBase {
         });
     }
 
-    pub fn open_member_details(&self, member: String) {
+    pub fn open_member_details(&self, member: UiUserId) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => false,
             NavigationState::Home { home } => match home.member_details.as_mut() {

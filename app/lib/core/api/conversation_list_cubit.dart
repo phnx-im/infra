@@ -24,9 +24,7 @@ abstract class ConversationListCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
   /// Creates a new 1:1 connection with the given user.
-  ///
-  /// `user_name` is the fully qualified user name of the contact.
-  Future<ConversationId> createConnection({required String userName});
+  Future<ConversationId> createConnection({required UiUserId userId});
 
   /// Creates a new group conversation with the given name.
   ///

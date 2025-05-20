@@ -24,6 +24,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 phnxcoreclient = { path = "../coreclient" }
 phnxtypes = { path = "../types" }
 
+mimi-room-policy = { workspace = true }
+
 tracing = "0.1"
 tracing-subscriber = { workspace = true }
 parking_lot = "0.12"
@@ -33,7 +35,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.39", features = ["rt", "macros"] }
 flutter_rust_bridge = { version = "=2.9.0", features = ["chrono", "uuid"] }
-notify-rust = "4"
 chrono = { workspace = true }
 jni = "0.21"
 tokio-util = { workspace = true }
@@ -48,6 +49,10 @@ pulldown-cmark = "0.12.2"
 thiserror = "2.0.11"
 mimi_content = { workspace = true }
 derive_more = { workspace = true }
+url = "2.5.4"
+
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+notify-rust = "4"
 
 [dev-dependencies]
 quickcheck = "1.0.3"

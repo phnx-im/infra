@@ -15,9 +15,9 @@ use phnxtypes::{
         EarDecryptable,
         keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
     },
-    identifiers::AsClientId,
+    identifiers::UserId,
 };
-use sqlx::{SqliteExecutor, SqlitePool};
+use sqlx::{SqliteConnection, SqliteExecutor};
 
 use crate::{clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials};
 
@@ -54,12 +54,12 @@ impl StorableClientCredential {
     }
 
     pub(crate) async fn verify(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         verifiable_client_credential: VerifiableClientCredential,
     ) -> Result<Self> {
         let client_credential = AsCredentials::verify_client_credential(
-            pool,
+            connection,
             api_clients,
             verifiable_client_credential,
         )
@@ -70,7 +70,7 @@ impl StorableClientCredential {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct GroupMembership {
-    client_id: AsClientId,
+    user_id: UserId,
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupId,
     identity_link_key: IdentityLinkKey,
@@ -79,14 +79,14 @@ pub(crate) struct GroupMembership {
 
 impl GroupMembership {
     pub(super) fn new(
-        client_id: AsClientId,
+        user_id: UserId,
         group_id: GroupId,
         leaf_index: LeafNodeIndex,
         identity_link_key: IdentityLinkKey,
         client_credential_fingerprint: CredentialFingerprint,
     ) -> Self {
         Self {
-            client_id,
+            user_id,
             client_credential_fingerprint,
             group_id,
             leaf_index,
@@ -123,8 +123,8 @@ impl GroupMembership {
         self.leaf_index = leaf_index;
     }
 
-    pub(crate) fn client_id(&self) -> &AsClientId {
-        &self.client_id
+    pub(crate) fn user_id(&self) -> &UserId {
+        &self.user_id
     }
 }
 
@@ -148,7 +148,7 @@ impl ClientAuthInfo {
     /// verification of the signature over the [`PseudonymousCredential`], as
     /// well as the signature over the [`ClientCredential`].
     pub(super) async fn decrypt_and_verify_all(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
@@ -160,7 +160,7 @@ impl ClientAuthInfo {
         for ((leaf_index, credential), encrypted_identity_link_key) in encrypted_client_information
         {
             let client_auth_info = Self::decrypt_and_verify(
-                pool,
+                connection,
                 api_clients,
                 group_id,
                 wrapper_key,
@@ -176,7 +176,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given credential.
     pub(super) async fn decrypt_credential_and_verify(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         identity_link_key: IdentityLinkKey,
@@ -188,7 +188,7 @@ impl ClientAuthInfo {
         let credential_plaintext =
             pseudonymous_credential.decrypt_and_verify(&identity_link_key)?;
         let client_credential = StorableClientCredential::verify(
-            pool,
+            connection,
             api_clients,
             credential_plaintext.client_credential,
         )
@@ -209,7 +209,7 @@ impl ClientAuthInfo {
 
     /// Decrypt and verify the given identity link key and credential.
     pub(super) async fn decrypt_and_verify(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
@@ -220,7 +220,7 @@ impl ClientAuthInfo {
         let identity_link_key =
             IdentityLinkKey::decrypt(wrapper_key, &encrypted_identity_link_key)?;
         Self::decrypt_credential_and_verify(
-            pool,
+            connection,
             api_clients,
             group_id,
             identity_link_key,

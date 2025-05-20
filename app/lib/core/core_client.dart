@@ -10,7 +10,6 @@ import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/util/platform.dart';
-import 'package:uuid/uuid_value.dart';
 
 final _log = Logger('CoreClient');
 
@@ -48,7 +47,7 @@ class CoreClient {
   User get user => _user!;
 
   set user(User? user) {
-    _log.info("setting user: ${user?.userName}");
+    _log.info("setting user: ${user?.userId}");
     _userController.add(user);
     _user = user;
   }
@@ -66,11 +65,7 @@ class CoreClient {
 
   // used in dev settings
   Future<void> deleteUserDatabase() async {
-    await deleteClientDatabase(
-      dbPath: await dbPath(),
-      userName: user.userName,
-      clientId: user.clientId,
-    );
+    await deleteClientDatabase(dbPath: await dbPath(), userId: user.userId);
     _userController.add(null);
     _user = null;
   }
@@ -88,7 +83,6 @@ class CoreClient {
 
   // used in registration cubit
   Future<void> createUser(
-    String userName,
     String address,
     String displayName,
     Uint8List? profilePicture,
@@ -110,7 +104,6 @@ class CoreClient {
     }
 
     user = await User.newInstance(
-      userName: userName,
       address: address,
       path: await dbPath(),
       pushToken: pushToken,
@@ -118,17 +111,10 @@ class CoreClient {
       profilePicture: profilePicture,
     );
 
-    _log.info("User registered");
+    _log.info("User registered: ${user.userId}");
   }
 
-  Future<void> loadUser({
-    required UiUserName userName,
-    required UuidValue clientId,
-  }) async {
-    user = await User.load(
-      dbPath: await dbPath(),
-      userName: userName,
-      clientId: clientId,
-    );
+  Future<void> loadUser({required UiUserId userId}) async {
+    user = await User.load(dbPath: await dbPath(), userId: userId);
   }
 }

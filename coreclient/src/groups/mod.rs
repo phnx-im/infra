@@ -16,6 +16,7 @@ pub(crate) use error::*;
 
 use anyhow::{Result, anyhow, bail};
 use mimi_content::MimiContent;
+use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
 use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
@@ -37,7 +38,7 @@ use phnxtypes::{
         kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
-    identifiers::{AsClientId, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedUserName},
+    identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, UserId},
     messages::{
         client_ds::{
             DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
@@ -54,7 +55,7 @@ use phnxtypes::{
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{SqliteExecutor, SqlitePool};
+use sqlx::{SqliteConnection, SqliteExecutor, SqliteTransaction};
 use tracing::{debug, error};
 
 use crate::{
@@ -127,6 +128,7 @@ pub(crate) struct PartialCreateGroupParams {
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
     encrypted_identity_link_key: EncryptedIdentityLinkKey,
+    room_state: VerifiedRoomState,
 }
 
 impl PartialCreateGroupParams {
@@ -142,6 +144,7 @@ impl PartialCreateGroupParams {
             encrypted_user_profile_key,
             creator_client_reference: client_reference,
             group_info: self.group_info,
+            room_state: serde_json::to_vec(&self.room_state).unwrap(),
         }
     }
 }
@@ -183,11 +186,12 @@ pub(crate) struct Group {
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     mls_group: MlsGroup,
-    pending_diff: Option<StagedGroupDiff>,
+    pub room_state: VerifiedRoomState,
+    pending_diff: Option<StagedGroupDiff>, // Currently unused, but we're keeping it for later
 }
 
 impl Group {
-    fn mls_group(&self) -> &MlsGroup {
+    pub(crate) fn mls_group(&self) -> &MlsGroup {
         &self.mls_group
     }
 
@@ -240,12 +244,15 @@ impl Group {
             .build(provider, &leaf_signer, credential_with_key)
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
 
+        let room_state = VerifiedRoomState::new(&0, RoomPolicy::default_private()).unwrap();
+
         let encrypted_identity_link_key = identity_link_key.encrypt(&identity_link_wrapper_key)?;
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
             group_info: mls_group.export_group_info(provider, &leaf_signer, true)?,
             encrypted_identity_link_key,
+            room_state: room_state.clone(),
         };
 
         let group_membership = GroupMembership::new(
@@ -261,6 +268,7 @@ impl Group {
             leaf_signer,
             identity_link_wrapper_key,
             mls_group,
+            room_state,
             group_state_ear_key: group_state_ear_key.clone(),
             pending_diff: None,
         };
@@ -278,7 +286,7 @@ impl Group {
         // This is our own key that the sender uses to encrypt to us. We should
         // be able to retrieve it from the client's key store.
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
-        pool: &SqlitePool,
+        txn: &mut SqliteTransaction<'_>,
         api_clients: &ApiClients,
     ) -> Result<(Self, Vec<ProfileInfo>)> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
@@ -288,8 +296,7 @@ impl Group {
         // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
         // decrypt the encrypted credentials
         let (mls_group, joiner_info, welcome_attribution_info) = {
-            let mut transaction = pool.begin().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut transaction);
+            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             let key_package_bundle: KeyPackageBundle = welcome_bundle
                 .welcome
                 .welcome
@@ -325,16 +332,16 @@ impl Group {
             )?;
             // Check if there is already a group with the same ID.
             let group_id = processed_welcome.unverified_group_info().group_id().clone();
-            if let Some(group) = Self::load(&mut transaction, &group_id).await? {
+            if let Some(group) = Self::load(txn.as_mut(), &group_id).await? {
                 // If the group is active, we can't join it.
                 if group.mls_group().is_active() {
                     bail!("We can't join a group that is still active.");
                 }
                 // Otherwise, we delete the old group.
-                Self::delete_from_db(&mut transaction, &group_id).await?;
+                Self::delete_from_db(txn, &group_id).await?;
             }
 
-            let provider = PhnxOpenMlsProvider::new(&mut transaction);
+            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             let staged_welcome = processed_welcome.into_staged_welcome(&provider, None)?;
 
             let mls_group = staged_welcome.into_group(&provider)?;
@@ -346,14 +353,13 @@ impl Group {
             )?
             .into_verifiable(mls_group.group_id().clone(), serialized_welcome);
 
-            let sender_client_id = verifiable_attribution_info.sender();
+            let sender_user_id = verifiable_attribution_info.sender();
             let sender_client_credential =
-                StorableClientCredential::load_by_client_id(&mut *transaction, &sender_client_id)
+                StorableClientCredential::load_by_user_id(txn.as_mut(), &sender_user_id)
                     .await?
                     .ok_or_else(|| {
                         anyhow!("Could not find client credential of sender in database.")
                     })?;
-            transaction.commit().await?;
 
             let welcome_attribution_info: WelcomeAttributionInfoPayload =
                 verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
@@ -369,7 +375,7 @@ impl Group {
         // Phase 2: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
         let client_information = ClientAuthInfo::decrypt_and_verify_all(
-            pool,
+            txn,
             api_clients,
             mls_group.group_id(),
             welcome_attribution_info.identity_link_wrapper_key(),
@@ -384,17 +390,16 @@ impl Group {
 
         // Phase 3: Decrypt and verify the infra credentials.
         {
-            let mut connection = pool.acquire().await?;
             for client_auth_info in &client_information {
-                client_auth_info.store(&mut connection).await?;
+                client_auth_info.store(txn).await?;
             }
         }
 
-        let leaf_keys = LeafKeys::load(pool, verifying_key)
+        let leaf_keys = LeafKeys::load(txn.as_mut(), verifying_key)
             .await?
             .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
         // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
-        LeafKeys::delete(pool, verifying_key).await?;
+        LeafKeys::delete(txn.as_mut(), verifying_key).await?;
 
         let leaf_signer = leaf_keys.into_leaf_signer();
 
@@ -410,7 +415,7 @@ impl Group {
                 UserProfileKey::decrypt(
                     welcome_attribution_info.identity_link_wrapper_key(),
                     &eupk,
-                    ci.identity().user_name(),
+                    ci.identity(),
                 )
                 .map(|user_profile_key| ProfileInfo {
                     user_profile_key,
@@ -426,6 +431,7 @@ impl Group {
             identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             pending_diff: None,
+            room_state: serde_json::from_slice(&joiner_info.room_state).unwrap(),
         };
 
         Ok((group, member_profile_info))
@@ -434,7 +440,7 @@ impl Group {
     /// Join a group using an external commit.
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn join_group_externally(
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
         leaf_signer: PseudonymousCredentialSigningKey,
@@ -457,13 +463,13 @@ impl Group {
             ratchet_tree_in,
             encrypted_identity_link_keys,
             encrypted_user_profile_keys,
+            room_state,
         } = external_commit_info;
 
         // Let's create the group first so that we can access the GroupId.
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info_option) = {
-            let mut connection = pool.acquire().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut connection);
+            let provider = PhnxOpenMlsProvider::new(&mut *connection);
             let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
                 &provider,
                 &leaf_signer,
@@ -489,7 +495,7 @@ impl Group {
 
         // Phase 2: Decrypt and verify the client credentials.
         let mut client_information = ClientAuthInfo::decrypt_and_verify_all(
-            pool,
+            &mut *connection,
             api_clients,
             group_id,
             &identity_link_wrapper_key,
@@ -506,15 +512,12 @@ impl Group {
                     .map(|client_auth_info| client_auth_info.client_credential()),
             )
             .map(|(eupk, ci)| {
-                UserProfileKey::decrypt(
-                    &identity_link_wrapper_key,
-                    &eupk,
-                    ci.identity().user_name(),
+                UserProfileKey::decrypt(&identity_link_wrapper_key, &eupk, ci.identity()).map(
+                    |user_profile_key| ProfileInfo {
+                        user_profile_key,
+                        client_credential: ci.clone().into(),
+                    },
                 )
-                .map(|user_profile_key| ProfileInfo {
-                    user_profile_key,
-                    client_credential: ci.clone().into(),
-                })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -534,10 +537,9 @@ impl Group {
 
         // Phase 3: Verify and store the infra credentials.
         {
-            let mut connection = pool.acquire().await?;
             for client_auth_info in client_information.iter() {
                 // Store client auth info.
-                client_auth_info.store(&mut connection).await?;
+                client_auth_info.store(&mut *connection).await?;
             }
         }
 
@@ -548,6 +550,7 @@ impl Group {
             identity_link_wrapper_key,
             group_state_ear_key,
             pending_diff: None,
+            room_state: serde_json::from_slice(&room_state).unwrap(),
         };
 
         Ok((group, commit, group_info.into(), member_profile_info))
@@ -556,9 +559,9 @@ impl Group {
     /// Invite the given list of contacts to join the group.
     ///
     /// Returns the [`AddUserParamsOut`] as input for the API client.
-    pub(super) async fn invite(
+    pub(super) async fn stage_invite(
         &mut self,
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         signer: &ClientSigningKey,
         // The following three vectors have to be in sync, i.e. of the same length
         // and refer to the same contacts in order.
@@ -590,7 +593,7 @@ impl Group {
             .map(|(upk, client_credential)| {
                 upk.encrypt(
                     &self.identity_link_wrapper_key,
-                    client_credential.identity().user_name(),
+                    client_credential.identity(),
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -605,8 +608,7 @@ impl Group {
 
         // Set Aad to contain the encrypted client credentials.
         let (mls_commit, welcome, group_info_option) = {
-            let mut connection = pool.acquire().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut connection);
+            let provider = PhnxOpenMlsProvider::new(&mut *connection);
             self.mls_group
                 .set_aad(aad_message.tls_serialize_detached()?);
             self.mls_group
@@ -639,13 +641,13 @@ impl Group {
 
         // Stage removals
         for remove in self
-            .mls_group()
+            .mls_group
             .pending_commit()
             .ok_or(anyhow!("No pending commit after commit operation"))?
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                pool,
+                &mut *connection,
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )
@@ -653,12 +655,21 @@ impl Group {
         }
 
         // Stage the adds in the DB.
-        let free_indices = GroupMembership::free_indices(pool, self.group_id()).await?;
+        let free_indices = GroupMembership::free_indices(&mut *connection, self.group_id()).await?;
         for (leaf_index, (client_credential, identity_link_key)) in free_indices.zip(
             client_credentials
                 .into_iter()
                 .zip(identity_link_keys.into_iter()),
         ) {
+            // Room policy check
+            self.room_state.apply_regular_proposals(
+                &self.mls_group.own_leaf_index().u32(),
+                &[MimiProposal::ChangeRole {
+                    target: leaf_index.u32(),
+                    role: RoleIndex::Regular,
+                }],
+            )?;
+
             let fingerprint = client_credential.fingerprint();
             let group_membership = GroupMembership::new(
                 client_credential.identity().clone(),
@@ -668,9 +679,7 @@ impl Group {
                 fingerprint,
             );
             let client_auth_info = ClientAuthInfo::new(client_credential, group_membership);
-            client_auth_info
-                .stage_add(pool.acquire().await?.as_mut())
-                .await?;
+            client_auth_info.stage_add(&mut *connection).await?;
         }
 
         let add_users_info = AddUsersInfoOut {
@@ -686,13 +695,25 @@ impl Group {
         Ok(params)
     }
 
-    pub(super) async fn remove(
+    pub(super) async fn stage_remove(
         &mut self,
         connection: &mut sqlx::SqliteConnection,
-        members: Vec<AsClientId>,
+        members: Vec<UserId>,
     ) -> Result<GroupOperationParamsOut> {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
+
+        // Room policy checks
+        for client in &remove_indices {
+            self.room_state.apply_regular_proposals(
+                &self.mls_group.own_leaf_index().u32(),
+                &[MimiProposal::ChangeRole {
+                    target: client.u32(),
+                    role: RoleIndex::Outsider,
+                }],
+            )?;
+        }
+
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],
             new_encrypted_identity_link_keys: vec![],
@@ -700,7 +721,7 @@ impl Group {
         });
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
-        let provider = PhnxOpenMlsProvider::new(connection);
+        let provider = PhnxOpenMlsProvider::new(&mut *connection);
         let (mls_message, _welcome_option, group_info_option) = self.mls_group.remove_members(
             &provider,
             &self.leaf_signer,
@@ -732,11 +753,11 @@ impl Group {
         Ok(params)
     }
 
-    pub(super) async fn delete(
+    pub(super) async fn stage_delete(
         &mut self,
         connection: &mut sqlx::SqliteConnection,
     ) -> anyhow::Result<DeleteGroupParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
+        let provider = &PhnxOpenMlsProvider::new(&mut *connection);
         let remove_indices = self
             .mls_group()
             .members()
@@ -844,7 +865,7 @@ impl Group {
             }
         }
 
-        GroupMembership::merge_for_group(connection, self.group_id()).await?;
+        GroupMembership::merge_for_group(&mut *connection, self.group_id()).await?;
         self.pending_diff = None;
         // Debug sanity checks after merging.
         #[cfg(debug_assertions)]
@@ -861,9 +882,12 @@ impl Group {
                 tracing::info!(?infra_group_members, "Group members according to Infra");
                 panic!("Group members don't match up");
             }
-            let infra_indices =
-                GroupMembership::client_indices(connection, self.group_id(), &infra_group_members)
-                    .await?;
+            let infra_indices = GroupMembership::client_indices(
+                &mut *connection,
+                self.group_id(),
+                &infra_group_members,
+            )
+            .await?;
             self.mls_group.members().for_each(|m| {
                 let index = m.index;
                 debug_assert!(infra_indices.contains(&index));
@@ -892,6 +916,10 @@ impl Group {
         Ok(send_message_params)
     }
 
+    pub(super) fn own_leaf_index(&self) -> u32 {
+        self.mls_group.own_leaf_index().u32()
+    }
+
     /// Get a reference to the group's group id.
     pub(crate) fn group_id(&self) -> &GroupId {
         self.mls_group().group_id()
@@ -901,55 +929,38 @@ impl Group {
         &self.group_state_ear_key
     }
 
-    /// Returns the [`AsClientId`] of the clients owned by the given user.
-    pub(crate) async fn user_client_ids(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-        user_name: &QualifiedUserName,
-    ) -> Vec<AsClientId> {
-        match GroupMembership::user_client_ids(executor, self.group_id(), user_name).await {
-            Ok(user_client_ids) => user_client_ids,
-            Err(error) => {
-                error!(%error, "Could not retrieve user client IDs");
-                Vec::new()
-            }
-        }
-    }
-
     pub async fn client_by_index(
         &self,
         connection: &mut sqlx::SqliteConnection,
         index: LeafNodeIndex,
-    ) -> Option<AsClientId> {
-        GroupMembership::load(connection, self.group_id(), index)
+    ) -> Option<UserId> {
+        GroupMembership::load(&mut *connection, self.group_id(), index)
             .await
             .ok()
             .flatten()
-            .map(|group_membership| group_membership.client_id().clone())
+            .map(|group_membership| group_membership.user_id().clone())
     }
 
     pub(crate) fn identity_link_wrapper_key(&self) -> &IdentityLinkWrapperKey {
         &self.identity_link_wrapper_key
     }
 
-    /// Returns a set containing the [`UserName`] of the members of the group.
-    pub(crate) async fn members(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-    ) -> HashSet<QualifiedUserName> {
-        let Ok(group_members) = GroupMembership::group_members(executor, self.group_id()).await
-        else {
-            error!("Could not retrieve group members");
-            return HashSet::new();
-        };
-        group_members
-            .into_iter()
-            .map(|client_id| client_id.user_name().clone())
-            // Collecting to a HashSet first to deduplicate.
-            .collect()
+    /// Returns a set containing the [`UserId`] of the members of the group.
+    pub(crate) async fn members(&self, executor: impl SqliteExecutor<'_>) -> HashSet<UserId> {
+        match GroupMembership::group_members(executor, self.group_id()).await {
+            // deduplicate by collecting into as set
+            Ok(group_members) => group_members.into_iter().collect(),
+            Err(error) => {
+                error!(%error, "Could not retrieve group members");
+                HashSet::new()
+            }
+        }
     }
 
-    pub(super) async fn update(&mut self, pool: &SqlitePool) -> Result<UpdateParamsOut> {
+    pub(super) async fn update(
+        &mut self,
+        txn: &mut SqliteTransaction<'_>,
+    ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
         let aad_payload = UpdateParamsAad {
             option_encrypted_identity_link_key: None,
@@ -958,8 +969,7 @@ impl Group {
             InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
-            let mut connection = pool.acquire().await?;
-            let provider = PhnxOpenMlsProvider::new(&mut connection);
+            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             let (mls_message, _welcome_option, group_info) = self
                 .mls_group
                 .self_update(&provider, &self.leaf_signer, LeafNodeParameters::default())
@@ -978,7 +988,7 @@ impl Group {
             .remove_proposals()
         {
             GroupMembership::stage_removal(
-                pool,
+                txn.as_mut(),
                 self.group_id(),
                 remove.remove_proposal().removed(),
             )
@@ -988,7 +998,7 @@ impl Group {
         Ok(UpdateParamsOut { commit })
     }
 
-    pub(super) fn leave_group(
+    pub(super) fn stage_leave_group(
         &mut self,
         connection: &mut sqlx::SqliteConnection,
     ) -> Result<SelfRemoveParamsOut> {
@@ -1020,12 +1030,12 @@ impl Group {
     pub(crate) async fn pending_removes(
         &self,
         connection: &mut sqlx::SqliteConnection,
-    ) -> Vec<QualifiedUserName> {
+    ) -> Vec<UserId> {
         let mut pending_removes = Vec::new();
         for proposal in self.mls_group().pending_proposals() {
             if let Proposal::Remove(rp) = proposal.proposal() {
                 if let Some(client) = self.client_by_index(connection, rp.removed()).await {
-                    pending_removes.push(client.user_name().clone());
+                    pending_removes.push(client);
                 }
             }
         }
@@ -1074,7 +1084,6 @@ impl TimestampedMessage {
             }
             .client_credential()
             .identity()
-            .user_name()
             .clone();
             let removed_index = remove_proposal.remove_proposal().removed();
             let removed = ClientAuthInfo::load_staged(connection, group_id, removed_index)
@@ -1082,7 +1091,6 @@ impl TimestampedMessage {
                 .ok_or_else(|| anyhow!("Could not find client credential of removed"))?
                 .client_credential()
                 .identity()
-                .user_name()
                 .clone();
             removed_set.insert((remover, removed));
         }
@@ -1106,7 +1114,6 @@ impl TimestampedMessage {
                 .ok_or_else(|| anyhow!("Could not find client credential of sender"))?
                 .client_credential()
                 .identity()
-                .user_name()
                 .clone();
             // Get the name of the added member from the diff containing
             // the new clients.
@@ -1120,7 +1127,6 @@ impl TimestampedMessage {
                 })?
                 .client_credential()
                 .identity()
-                .user_name()
                 .clone();
             adds_set.insert((sender_name, addee_name));
         }
@@ -1139,9 +1145,9 @@ impl TimestampedMessage {
             let client_auth_info = ClientAuthInfo::load(&mut *connection, group_id, *sender_index)
                 .await?
                 .ok_or_else(|| anyhow!("Could not find client credential of sender"))?;
-            let user_name = client_auth_info.client_credential().identity().user_name();
+            let user_id = client_auth_info.client_credential().identity();
             debug!(
-                %user_name,
+                ?user_id,
                 %sender_index, "Client has updated their key material",
             );
         }

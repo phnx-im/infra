@@ -23,14 +23,14 @@ abstract class UiUser implements RustOpaqueInterface {
 
   ImageData? get profilePicture;
 
-  String get userName;
+  UiUserId get userId;
 }
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>>
 abstract class UserCubitBase implements RustOpaqueInterface {
   Future<void> addUserToConversation(
     ConversationId conversationId,
-    String userName,
+    UiUserId userId,
   );
 
   Future<void> close();
@@ -49,7 +49,7 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   Future<void> removeUserFromConversation(
     ConversationId conversationId,
-    String userName,
+    UiUserId userId,
   );
 
   Future<void> setAppState({required AppState appState});
@@ -61,8 +61,8 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   Stream<UiUser> stream();
 
-  /// Get the user profile of the user with the given [`QualifiedUserName`].
-  Future<UiUserProfile?> userProfile(String userName);
+  /// Get the user profile of the user with the given [`UiUserId`].
+  Future<UiUserProfile> userProfile(UiUserId userId);
 }
 
 enum AppState { background, foreground }

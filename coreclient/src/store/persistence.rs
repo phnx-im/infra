@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use enumset::EnumSet;
+use phnxtypes::{codec::PhnxCodec, identifiers::UserId};
+use serde::{Deserialize, Serialize};
 use sqlx::{
     Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
     query, query_as,
@@ -16,6 +18,9 @@ use uuid::Uuid;
 use crate::{ConversationId, ConversationMessageId};
 
 use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
+
+#[derive(Serialize, Deserialize)]
+struct StoredUserId<'a>(Cow<'a, UserId>);
 
 impl Type<Sqlite> for StoreEntityId {
     fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
@@ -29,9 +34,9 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
         buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         match self {
-            StoreEntityId::User(qualified_user_name) => {
-                let s = qualified_user_name.to_string();
-                Encode::<Sqlite>::encode(s.into_bytes(), buf)
+            StoreEntityId::User(user_id) => {
+                let bytes = PhnxCodec::to_vec(&StoredUserId(Cow::Borrowed(user_id)))?;
+                Encode::<Sqlite>::encode(bytes, buf)
             }
             StoreEntityId::Conversation(conversation_id) => {
                 Encode::<Sqlite>::encode_by_ref(&conversation_id.uuid, buf)
@@ -83,7 +88,10 @@ impl SqlStoreNotification {
             removed,
         } = self;
         let entity_id = match kind {
-            StoreEntityKind::User => StoreEntityId::User(String::from_utf8(entity_id)?.parse()?),
+            StoreEntityKind::User => {
+                let StoredUserId(user_id) = PhnxCodec::from_slice(&entity_id)?;
+                StoreEntityId::User(user_id.into_owned())
+            }
             StoreEntityKind::Conversation => {
                 StoreEntityId::Conversation(ConversationId::new(Uuid::from_slice(&entity_id)?))
             }
@@ -180,7 +188,7 @@ mod tests {
     async fn queue_dequeue_notification(pool: SqlitePool) -> anyhow::Result<()> {
         let mut notification = StoreNotification::default();
         notification.ops.insert(
-            StoreEntityId::User("alice@localhost".parse()?),
+            StoreEntityId::User(UserId::random("localhost".parse()?)),
             StoreOperation::Add.into(),
         );
         notification.ops.insert(

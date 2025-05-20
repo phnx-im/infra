@@ -6,7 +6,7 @@ use std::{fmt::Display, fs, path::Path, time::Duration};
 
 use anyhow::{Result, bail};
 use openmls::group::GroupId;
-use phnxtypes::identifiers::AsClientId;
+use phnxtypes::identifiers::UserId;
 use sqlx::{
     Database, Encode, Sqlite, SqlitePool, Type,
     encode::IsNull,
@@ -67,7 +67,7 @@ pub async fn delete_databases(client_db_path: &str) -> Result<()> {
     let phnx_db_connection = open_phnx_db(client_db_path).await?;
     if let Ok(client_records) = ClientRecord::load_all(&phnx_db_connection).await {
         for client_record in client_records {
-            let client_db_name = client_db_name(&client_record.as_client_id);
+            let client_db_name = client_db_name(&client_record.user_id);
             let client_db_path = format!("{client_db_path}/{client_db_name}");
             if let Err(error) = fs::remove_file(&client_db_path) {
                 error!(%error, %client_db_path, "Failed to delete client DB")
@@ -80,9 +80,9 @@ pub async fn delete_databases(client_db_path: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn delete_client_database(db_path: &str, as_client_id: &AsClientId) -> Result<()> {
+pub async fn delete_client_database(db_path: &str, user_id: &UserId) -> Result<()> {
     // Delete the client DB
-    let client_db_name = client_db_name(as_client_id);
+    let client_db_name = client_db_name(user_id);
     let client_db_path = format!("{db_path}/{client_db_name}");
     if let Err(error) = fs::remove_file(&client_db_path) {
         error!(%error, %client_db_path, "Failed to delete client DB")
@@ -94,20 +94,17 @@ pub async fn delete_client_database(db_path: &str, as_client_id: &AsClientId) ->
         bail!("phnx.db does not exist")
     }
     let phnx_db = open_phnx_db(db_path).await?;
-    ClientRecord::delete(&phnx_db, as_client_id).await?;
+    ClientRecord::delete(&phnx_db, user_id).await?;
 
     Ok(())
 }
 
-fn client_db_name(as_client_id: &AsClientId) -> String {
-    format!("{}.db", as_client_id)
+fn client_db_name(user_id: &UserId) -> String {
+    format!("{}@{}.db", user_id.uuid(), user_id.domain())
 }
 
-pub async fn open_client_db(
-    as_client_id: &AsClientId,
-    client_db_path: &str,
-) -> sqlx::Result<SqlitePool> {
-    let client_db_name = client_db_name(as_client_id);
+pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Result<SqlitePool> {
+    let client_db_name = client_db_name(user_id);
     let db_url = format!("sqlite://{}/{}", client_db_path, client_db_name);
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts

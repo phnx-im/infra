@@ -6,7 +6,7 @@
 
 use std::cmp::Reverse;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     Asset, UserProfile,
@@ -16,17 +16,14 @@ use phnxcoreclient::{
     },
     open_client_db,
 };
-use phnxtypes::{
-    DEFAULT_PORT_GRPC,
-    identifiers::{AsClientId, QualifiedUserName},
-    messages::push_token::PushTokenOperator,
-};
+use phnxtypes::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
 use tracing::error;
 
 pub(crate) use phnxtypes::messages::push_token::PushToken;
+use url::Url;
 use uuid::Uuid;
 
-use super::types::{UiClientRecord, UiUserName, UiUserProfile};
+use super::types::{UiClientRecord, UiUserId, UiUserProfile};
 
 /// Platform specific push token
 pub enum PlatformPushToken {
@@ -59,22 +56,25 @@ impl User {
         Self { user: core_user }
     }
 
-    /// Creates a new user with the given `user_name`.
-    ///
-    /// If a user with this name already exists, this will overwrite that user.
+    /// Creates a new user with a generated `uuid` at the domain described by `address`.
     pub async fn new(
-        user_name: String,
         address: String,
         path: String,
         push_token: Option<PlatformPushToken>,
         display_name: String,
         profile_picture: Option<Vec<u8>>,
     ) -> Result<User> {
-        let user_name: QualifiedUserName = user_name.parse()?;
+        let server_url: Url = address.parse()?;
+        let domain = server_url
+            .host()
+            .context("missing host in server url")?
+            .to_owned()
+            .into();
+        let user_id = UserId::new(Uuid::new_v4(), domain);
 
         let user = CoreUser::new(
-            user_name.clone(),
-            address,
+            user_id,
+            server_url,
             DEFAULT_PORT_GRPC,
             &path,
             push_token.map(|p| p.into()),
@@ -82,7 +82,7 @@ impl User {
         .await?;
 
         let user_profile = UserProfile {
-            user_name: user_name.clone(),
+            user_id: user.user_id().clone(),
             display_name: display_name.parse()?,
             profile_picture: profile_picture.map(Asset::Value),
         };
@@ -104,7 +104,7 @@ impl User {
             match load_ui_record(&db_path, &record).await {
                 Ok(record) => ui_records.push(record),
                 Err(error) => {
-                    error!(%error, ?record.as_client_id, "failed to load client record");
+                    error!(%error, ?record.user_id, "failed to load client record");
                 }
             }
         }
@@ -112,14 +112,8 @@ impl User {
         Ok(ui_records)
     }
 
-    pub async fn load(
-        db_path: String,
-        user_name: UiUserName,
-        client_id: Uuid,
-    ) -> anyhow::Result<Self> {
-        let user_name = user_name.to_string().parse()?;
-        let as_client_id = AsClientId::new(user_name, client_id);
-        let user = CoreUser::load(as_client_id.clone(), &db_path).await?;
+    pub async fn load(db_path: String, user_id: UiUserId) -> anyhow::Result<Self> {
+        let user = CoreUser::load(user_id.into(), &db_path).await?;
         Ok(Self { user: user.clone() })
     }
 
@@ -138,13 +132,13 @@ impl User {
 
         let mut loaded_user = None;
         for client_record in records {
-            let as_client_id = client_record.as_client_id;
-            match CoreUser::load(as_client_id.clone(), &path).await {
+            let user_id = client_record.user_id;
+            match CoreUser::load(user_id.clone(), &path).await {
                 Ok(user) => {
                     loaded_user = Some(user);
                     break;
                 }
-                Err(error) => error!(%as_client_id, %error, "Failed to load user"),
+                Err(error) => error!(?user_id, %error, "Failed to load user"),
             };
         }
 
@@ -173,29 +167,22 @@ impl User {
             .unwrap_or_default()
     }
 
-    /// The user name of the logged in user
-    #[frb(getter, sync)]
-    pub fn user_name(&self) -> String {
-        self.user.user_name().to_string()
-    }
-
     /// The unique identifier of the logged in user
     #[frb(getter, sync)]
-    pub fn client_id(&self) -> Uuid {
-        self.user.as_client_id().client_id()
+    pub fn user_id(&self) -> UiUserId {
+        self.user.user_id().clone().into()
     }
 }
 
 async fn load_ui_record(db_path: &str, record: &ClientRecord) -> anyhow::Result<UiClientRecord> {
-    let pool = open_client_db(&record.as_client_id, db_path).await?;
-    let user_name = UiUserName::from_qualified_user_name(record.as_client_id.user_name());
-    let user_profile = UserProfile::load(&pool, record.as_client_id.user_name())
+    let pool = open_client_db(&record.user_id, db_path).await?;
+    let user_profile = UserProfile::load(&pool, &record.user_id)
         .await?
-        .map(|profile| UiUserProfile::from_profile(&profile));
+        .map(UiUserProfile::from_profile)
+        .unwrap_or_else(|| UiUserProfile::from_user_id(record.user_id.clone()));
     Ok(UiClientRecord {
-        client_id: record.as_client_id.client_id(),
+        user_id: record.user_id.clone().into(),
         created_at: record.created_at,
-        user_name,
         user_profile,
         is_finished: record.client_record_state == ClientRecordState::Finished,
     })

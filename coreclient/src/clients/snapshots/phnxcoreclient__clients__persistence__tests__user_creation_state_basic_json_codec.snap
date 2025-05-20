@@ -4,16 +4,13 @@ expression: "&*USER_CREATION_STATE_BASIC"
 ---
 {
   "BasicUserData": {
-    "as_client_id": {
-      "user_name": {
-        "user_name": "alice",
+    "user_id": {
+      "uuid": "00000000-0000-0000-0000-000000000001",
+      "domain": {
         "domain": {
-          "domain": {
-            "Domain": "localhost"
-          }
+          "Domain": "localhost"
         }
-      },
-      "client_id": "00000000-0000-0000-0000-000000000001"
+      }
     },
     "server_url": "localhost",
     "push_token": {

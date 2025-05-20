@@ -26,6 +26,7 @@ import 'mocks.dart';
 void main() {
   setUpAll(() {
     registerFallbackValue(0.conversationMessageId());
+    registerFallbackValue(0.userId());
   });
 
   group('HomeScreen', () {
@@ -44,13 +45,13 @@ void main() {
 
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(userName: "alice@localhost"));
+      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
       when(
         () => userCubit.userProfile(any()),
       ).thenAnswer((_) => Future.value(null));
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(userName: "alice@localhost"));
+      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
       when(() => conversationDetailsCubit.state).thenReturn(
         ConversationDetailsState(conversation: conversation, members: members),
       );

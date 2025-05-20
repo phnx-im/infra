@@ -28,7 +28,7 @@ use crate::{
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
-    identifiers::{AsClientId, Fqdn},
+    identifiers::{Fqdn, UserId},
     messages::MlsInfraVersion,
     time::ExpirationData,
 };
@@ -116,7 +116,7 @@ impl From<AsCredentialBody> for AsCredential {
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredentialBody {
     pub version: MlsInfraVersion,
-    pub as_domain: Fqdn,
+    pub user_domain: Fqdn,
     pub expiration_data: ExpirationData,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: AsVerifyingKey,
@@ -151,7 +151,7 @@ impl AsCredential {
     /// The default [`ExpirationData`] for an [`AsCredential`] is five years.
     pub fn new(
         signature_scheme: SignatureScheme,
-        as_domain: Fqdn,
+        user_domain: Fqdn,
         expiration_data_option: Option<ExpirationData>,
     ) -> Result<(Self, AsSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
@@ -162,7 +162,7 @@ impl AsCredential {
         let verifying_key = signing_key.verifying_key().clone();
         let body = AsCredentialBody {
             version,
-            as_domain,
+            user_domain,
             expiration_data,
             signature_scheme,
             verifying_key,
@@ -191,7 +191,7 @@ impl AsCredential {
     }
 
     pub fn domain(&self) -> &Fqdn {
-        &self.body.as_domain
+        &self.body.user_domain
     }
 
     pub fn body(&self) -> &AsCredentialBody {
@@ -204,7 +204,7 @@ const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
     pub version: MlsInfraVersion,
-    pub as_domain: Fqdn,
+    pub user_domain: Fqdn,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
 }
@@ -218,7 +218,7 @@ impl AsIntermediateCredentialCsr {
     /// signed.
     pub fn new(
         signature_scheme: SignatureScheme,
-        as_domain: Fqdn,
+        user_domain: Fqdn,
     ) -> Result<(Self, PreliminaryAsIntermediateSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
         let prelim_signing_key = PreliminaryAsIntermediateSigningKey::generate()?;
@@ -226,7 +226,7 @@ impl AsIntermediateCredentialCsr {
             version,
             signature_scheme,
             verifying_key: prelim_signing_key.verifying_key().clone().convert(),
-            as_domain,
+            user_domain,
         };
         Ok((credential, prelim_signing_key))
     }
@@ -354,7 +354,7 @@ impl AsIntermediateCredential {
     }
 
     pub fn domain(&self) -> &Fqdn {
-        &self.body.credential.csr.as_domain
+        &self.body.credential.csr.user_domain
     }
 
     pub fn body(&self) -> &AsIntermediateCredentialBody {
@@ -428,7 +428,7 @@ const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 )]
 pub struct ClientCredentialCsr {
     pub version: MlsInfraVersion,
-    pub client_id: AsClientId,
+    pub user_id: UserId,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: ClientVerifyingKey,
 }
@@ -441,7 +441,7 @@ impl ClientCredentialCsr {
     /// key can be turned into a [`keys::AsIntermediateSigningKey`] once the CSR is
     /// signed.
     pub fn new(
-        client_id: AsClientId,
+        user_id: UserId,
         signature_scheme: SignatureScheme,
     ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
         let version = MlsInfraVersion::default();
@@ -450,7 +450,7 @@ impl ClientCredentialCsr {
             version,
             signature_scheme,
             verifying_key: prelim_signing_key.verifying_key().clone().convert(),
-            client_id,
+            user_id,
         };
         Ok((credential, prelim_signing_key))
     }
@@ -506,8 +506,8 @@ impl Signable for ClientCredentialPayload {
 }
 
 impl ClientCredentialPayload {
-    pub fn identity(&self) -> &AsClientId {
-        &self.csr.client_id
+    pub fn identity(&self) -> &UserId {
+        &self.csr.user_id
     }
 }
 
@@ -529,7 +529,7 @@ impl ClientCredential {
         (self.payload, self.signature)
     }
 
-    pub fn identity(&self) -> &AsClientId {
+    pub fn identity(&self) -> &UserId {
         self.payload.identity()
     }
 
@@ -623,15 +623,15 @@ impl VerifiableClientCredential {
     }
 
     pub fn domain(&self) -> &Fqdn {
-        self.payload.csr.client_id.user_name().domain()
+        self.payload.csr.user_id.domain()
     }
 
     pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
         &self.payload.signer_fingerprint
     }
 
-    pub fn client_id(&self) -> &AsClientId {
-        &self.payload.csr.client_id
+    pub fn user_id(&self) -> &UserId {
+        &self.payload.csr.user_id
     }
 }
 
@@ -655,7 +655,7 @@ pub type EncryptedClientCredential = Ciphertext<EncryptedClientCredentialCtype>;
 
 pub mod persistence {
     use crate::{
-        codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::AsClientId,
+        codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::UserId,
         time::ExpirationData,
     };
 
@@ -668,7 +668,6 @@ pub mod persistence {
     #[sqlx(type_name = "client_credential")]
     pub struct FlatClientCredential {
         version: Vec<u8>,
-        client_id: AsClientId,
         signature_scheme: Vec<u8>,
         verifying_key: ClientVerifyingKey,
         expiration_data: ExpirationData,
@@ -676,11 +675,10 @@ pub mod persistence {
         signature: Signature,
     }
 
-    impl From<&ClientCredential> for FlatClientCredential {
-        fn from(credential: &ClientCredential) -> Self {
+    impl FlatClientCredential {
+        pub fn new(credential: &ClientCredential) -> Self {
             Self {
                 version: PhnxCodec::to_vec(&credential.payload.csr.version).unwrap(),
-                client_id: credential.payload.csr.client_id.clone(),
                 signature_scheme: PhnxCodec::to_vec(&credential.payload.csr.signature_scheme)
                     .unwrap(),
                 verifying_key: credential.payload.csr.verifying_key.clone(),
@@ -689,23 +687,20 @@ pub mod persistence {
                 signature: credential.signature.clone(),
             }
         }
-    }
 
-    impl From<FlatClientCredential> for ClientCredential {
-        fn from(flat_credential: FlatClientCredential) -> Self {
+        pub fn into_client_credential(self, user_id: UserId) -> ClientCredential {
             let payload = ClientCredentialPayload {
                 csr: ClientCredentialCsr {
-                    version: PhnxCodec::from_slice(&flat_credential.version).unwrap(),
-                    client_id: flat_credential.client_id,
-                    signature_scheme: PhnxCodec::from_slice(&flat_credential.signature_scheme)
-                        .unwrap(),
-                    verifying_key: flat_credential.verifying_key,
+                    version: PhnxCodec::from_slice(&self.version).unwrap(),
+                    user_id,
+                    signature_scheme: PhnxCodec::from_slice(&self.signature_scheme).unwrap(),
+                    verifying_key: self.verifying_key,
                 },
-                expiration_data: flat_credential.expiration_data,
-                signer_fingerprint: flat_credential.signer_fingerprint,
+                expiration_data: self.expiration_data,
+                signer_fingerprint: self.signer_fingerprint,
             };
-            let signature = flat_credential.signature;
-            Self { payload, signature }
+            let signature = self.signature;
+            ClientCredential { payload, signature }
         }
     }
 }

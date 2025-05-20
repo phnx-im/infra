@@ -10,10 +10,6 @@ use phnxprotos::{
 };
 
 use phnxtypes::{
-    errors::qs::{
-        QsClientKeyPackageError, QsCreateClientRecordError, QsDequeueError, QsEncryptionKeyError,
-        QsKeyPackageError, QsPublishKeyPackagesError, QsUpdateClientRecordError,
-    },
     identifiers,
     messages::client_qs::{
         CreateClientRecordParams, CreateUserRecordParams, DeleteClientRecordParams,
@@ -91,7 +87,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
             })?;
         let response = CreateUserResponse {
             user_id: Some(response.user_id.into()),
-            client_id: Some(response.client_id.into()),
+            client_id: Some(response.qs_client_id.into()),
         };
         Ok(Response::new(response))
     }
@@ -164,13 +160,9 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
                 .ok_or_missing_field("initial_ratched_secret")?
                 .try_into()?,
         };
-        let response = self
-            .qs
-            .qs_create_client_record(params)
-            .await
-            .map_err(CreateClientRecordError)?;
+        let response = self.qs.qs_create_client_record(params).await?;
         Ok(Response::new(CreateClientResponse {
-            client_id: Some(response.client_id.into()),
+            client_id: Some(response.qs_client_id.into()),
         }))
     }
 
@@ -194,10 +186,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
                 .map(|token| token.try_into())
                 .transpose()?,
         };
-        self.qs
-            .qs_update_client_record(params)
-            .await
-            .map_err(UpdateClientRecordError)?;
+        self.qs.qs_update_client_record(params).await?;
         Ok(Response::new(UpdateClientResponse {}))
     }
 
@@ -209,10 +198,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         let params = DeleteClientRecordParams {
             sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
         };
-        self.qs
-            .qs_delete_client_record(params)
-            .await
-            .map_err(UpdateClientRecordError)?;
+        self.qs.qs_delete_client_record(params).await?;
         Ok(Response::new(DeleteClientResponse {}))
     }
 
@@ -233,10 +219,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
                 .collect::<Result<Vec<_>, _>>()
                 .invalid_tls("key_packages")?,
         };
-        self.qs
-            .qs_publish_key_packages(params)
-            .await
-            .map_err(PublishKeyPackagesError)?;
+        self.qs.qs_publish_key_packages(params).await?;
         Ok(Response::new(PublishKeyPackagesResponse {}))
     }
 
@@ -248,11 +231,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         let params = KeyPackageParams {
             sender: request.sender.ok_or_missing_field("sender")?.into(),
         };
-        let response = self
-            .qs
-            .qs_key_package(params)
-            .await
-            .map_err(KeyPackageError)?;
+        let response = self.qs.qs_key_package(params).await?;
         Ok(Response::new(KeyPackageResponse {
             key_package: Some(response.key_package.try_into().tls_failed("key_package")?),
         }))
@@ -268,11 +247,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
             sequence_number_start: request.sequence_number_start,
             max_message_number: request.max_message_number,
         };
-        let response = self
-            .qs
-            .qs_dequeue_messages(params)
-            .await
-            .map_err(DequeueMessagesError)?;
+        let response = self.qs.qs_dequeue_messages(params).await?;
         Ok(Response::new(DequeueMessagesResponse {
             messages: response
                 .messages
@@ -287,11 +262,7 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         &self,
         _request: Request<QsEncryptionKeyRequest>,
     ) -> Result<Response<QsEncryptionKeyResponse>, Status> {
-        let response = self
-            .qs
-            .qs_encryption_key()
-            .await
-            .map_err(EncryptionKeyError)?;
+        let response = self.qs.qs_encryption_key().await?;
         Ok(Response::new(QsEncryptionKeyResponse {
             encryption_key: Some(response.encryption_key.into()),
         }))
@@ -316,102 +287,5 @@ impl<L: GrpcListen> QueueService for GrpcQs<L> {
         Ok(Response::new(Box::pin(
             UnboundedReceiverStream::new(rx).map(Ok),
         )))
-    }
-}
-
-struct CreateClientRecordError(QsCreateClientRecordError);
-
-impl From<CreateClientRecordError> for Status {
-    fn from(e: CreateClientRecordError) -> Self {
-        error!(error = %e.0, "failed to create client record");
-        match e.0 {
-            QsCreateClientRecordError::LibraryError | QsCreateClientRecordError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            QsCreateClientRecordError::InvalidKeyPackage => {
-                Status::invalid_argument(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct UpdateClientRecordError(QsUpdateClientRecordError);
-
-impl From<UpdateClientRecordError> for Status {
-    fn from(e: UpdateClientRecordError) -> Self {
-        error!(error = %e.0, "failed to update client record");
-        match e.0 {
-            QsUpdateClientRecordError::UnknownClient => Status::not_found(e.0.to_string()),
-            QsUpdateClientRecordError::StorageError => Status::internal(e.0.to_string()),
-        }
-    }
-}
-
-struct PublishKeyPackagesError(QsPublishKeyPackagesError);
-
-impl From<PublishKeyPackagesError> for Status {
-    fn from(e: PublishKeyPackagesError) -> Self {
-        error!(error = %e.0, "failed to publish key packages");
-        match e.0 {
-            QsPublishKeyPackagesError::StorageError | QsPublishKeyPackagesError::LibraryError => {
-                Status::internal(e.0.to_string())
-            }
-            QsPublishKeyPackagesError::InvalidKeyPackage => {
-                Status::invalid_argument(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct ClientKeyPackageError(QsClientKeyPackageError);
-
-impl From<ClientKeyPackageError> for Status {
-    fn from(e: ClientKeyPackageError) -> Self {
-        error!(error = %e.0, "failed to get client key package");
-        match e.0 {
-            QsClientKeyPackageError::StorageError => Status::internal(e.0.to_string()),
-            QsClientKeyPackageError::NoKeyPackages => Status::not_found(e.0.to_string()),
-        }
-    }
-}
-
-struct KeyPackageError(QsKeyPackageError);
-
-impl From<KeyPackageError> for Status {
-    fn from(e: KeyPackageError) -> Self {
-        error!(error = %e.0, "failed to get key package");
-        match e.0 {
-            QsKeyPackageError::LibraryError | QsKeyPackageError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-            QsKeyPackageError::DecryptionError | QsKeyPackageError::InvalidKeyPackage => {
-                Status::invalid_argument(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct EncryptionKeyError(QsEncryptionKeyError);
-
-impl From<EncryptionKeyError> for Status {
-    fn from(e: EncryptionKeyError) -> Self {
-        error!(error = %e.0, "failed to get encryption key");
-        match e.0 {
-            QsEncryptionKeyError::LibraryError | QsEncryptionKeyError::StorageError => {
-                Status::internal(e.0.to_string())
-            }
-        }
-    }
-}
-
-struct DequeueMessagesError(QsDequeueError);
-
-impl From<DequeueMessagesError> for Status {
-    fn from(e: DequeueMessagesError) -> Self {
-        error!(error = %e.0, "failed to dequeue messages");
-        match e.0 {
-            QsDequeueError::StorageError => Status::internal(e.0.to_string()),
-            QsDequeueError::QueueNotFound => Status::not_found(e.0.to_string()),
-        }
     }
 }

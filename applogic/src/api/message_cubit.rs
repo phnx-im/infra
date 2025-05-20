@@ -81,7 +81,7 @@ impl MessageCubitBase {
     }
 }
 
-/// Loads the intial state and listen to the changes
+/// Loads the initial state and listen to the changes
 #[frb(ignore)]
 #[derive(Clone)]
 struct MessageContext<S> {

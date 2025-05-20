@@ -6,7 +6,7 @@
 
 pub mod auth_service;
 pub mod ds;
-pub mod errors;
+pub(crate) mod errors;
 pub mod infra_service;
 pub mod messages;
 pub mod qs;

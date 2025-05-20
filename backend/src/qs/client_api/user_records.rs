@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    errors::qs::{QsCreateUserError, QsDeleteUserError, QsUpdateUserError},
-    messages::client_qs::{
-        CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
-        CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
-    },
+use phnxtypes::messages::client_qs::{
+    CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
+    CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
 };
 
-use crate::qs::{Qs, user_record::UserRecord};
+use crate::{
+    errors::qs::{QsCreateUserError, QsDeleteUserError, QsUpdateUserError},
+    qs::{Qs, user_record::UserRecord},
+};
 
 impl Qs {
     /// Update the info of a given queue. Requires a valid signature by the
@@ -45,14 +45,14 @@ impl Qs {
             initial_ratchet_secret,
         };
 
-        let CreateClientRecordResponse { client_id } = self
+        let CreateClientRecordResponse { qs_client_id } = self
             .qs_create_client_record(create_client_params)
             .await
             .map_err(|_| QsCreateUserError::StorageError)?;
 
         let response = CreateUserRecordResponse {
             user_id: user_record.user_id,
-            client_id,
+            qs_client_id,
         };
 
         Ok(response)

@@ -6,10 +6,7 @@ use std::{fmt, hash::Hash, str::FromStr};
 
 use mls_assist::{openmls::group::GroupId, openmls_traits::types::HpkeCiphertext};
 use rand::{CryptoRng, Rng, RngCore};
-use sqlx::{
-    Database, Decode, Encode, Postgres, Sqlite, Type, encode::IsNull, error::BoxDynError,
-    postgres::PgValueRef,
-};
+use sqlx::{Database, Decode, Encode, Type, encode::IsNull, error::BoxDynError};
 use tls_codec_impls::TlsUuid;
 use tracing::{debug, error};
 use url::Host;
@@ -17,7 +14,6 @@ use uuid::Uuid;
 
 use crate::crypto::{
     ear::keys::PushTokenEarKey,
-    errors::RandomnessError,
     hpke::{ClientIdKeyType, HpkeDecryptable, HpkeEncryptable},
 };
 
@@ -32,6 +28,22 @@ pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Fqdn {
     domain: Host<String>,
+}
+
+impl From<Host> for Fqdn {
+    fn from(value: Host) -> Self {
+        Self { domain: value }
+    }
+}
+
+impl From<Fqdn> for String {
+    fn from(value: Fqdn) -> Self {
+        match value.domain {
+            Host::Domain(domain) => domain,
+            Host::Ipv4(addr) => addr.to_string(),
+            Host::Ipv6(addr) => addr.to_string(),
+        }
+    }
 }
 
 impl<DB: Database> Type<DB> for Fqdn
@@ -55,9 +67,12 @@ where
     }
 }
 
-impl<'r> Decode<'r, Postgres> for Fqdn {
-    fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s: &str = Decode::<Postgres>::decode(value)?;
+impl<'r, DB: Database> Decode<'r, DB> for Fqdn
+where
+    &'r str: Decode<'r, DB>,
+{
+    fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let s: &str = Decode::<DB>::decode(value)?;
         let fqdn = s.parse().map_err(|error| {
             error!(%error, "Error parsing Fqdn from DB");
             sqlx::Error::Decode(Box::new(error))
@@ -89,9 +104,7 @@ impl FromStr for Fqdn {
             return Err(FqdnError::NotADomainName);
         }
         match Host::parse(s)? {
-            Host::Domain(_) => Ok(Self {
-                domain: Host::<String>::parse(s)?,
-            }),
+            domain @ Host::Domain(_) => Ok(Self { domain }),
             // Fqdns can't be IP addresses.
             Host::Ipv4(_) | Host::Ipv6(_) => Err(FqdnError::NotADomainName),
         }
@@ -197,249 +210,50 @@ impl FromStr for QualifiedGroupId {
 
 #[derive(
     Clone,
-    Debug,
-    TlsSerialize,
-    TlsSize,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
     Serialize,
     Deserialize,
-    sqlx::Type,
-)]
-#[sqlx(transparent)]
-pub struct UserName(TlsString);
-
-impl fmt::Display for UserName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum UserNameError {
-    #[error("The given string does not represent a valid user name")]
-    InvalidUserName,
-}
-
-impl TryFrom<String> for UserName {
-    type Error = UserNameError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.contains(['@', '.']) {
-            Err(UserNameError::InvalidUserName)
-        } else {
-            Ok(Self(TlsString(value)))
-        }
-    }
-}
-
-impl From<UserName> for String {
-    fn from(value: UserName) -> Self {
-        value.0.0
-    }
-}
-
-#[derive(
-    Clone,
-    Debug,
-    TlsSerialize,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Hash,
     TlsSize,
+    TlsSerialize,
     TlsDeserializeBytes,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-    sqlx::Type, // only for postgres
 )]
-#[sqlx(type_name = "qualified_user_name")]
-pub struct QualifiedUserName {
-    user_name: UserName,
+pub struct UserId {
+    uuid: TlsUuid,
     domain: Fqdn,
 }
 
-impl QualifiedUserName {
-    pub fn new(user_name: UserName, domain: Fqdn) -> Self {
-        Self { user_name, domain }
-    }
-
-    pub fn into_parts(self) -> (UserName, Fqdn) {
-        (self.user_name, self.domain)
+impl fmt::Debug for UserId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}@{}", self.uuid.0, self.domain)
     }
 }
 
-impl Type<Sqlite> for QualifiedUserName {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <String as Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for QualifiedUserName {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let value = self.to_string();
-        Encode::<Sqlite>::encode(value, buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for QualifiedUserName {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s: &str = Decode::<Sqlite>::decode(value)?;
-        Ok(s.parse()?)
-    }
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum QualifiedUserNameError {
-    #[error("Invalid string representation of qualified user name")]
-    InvalidString,
-    #[error(transparent)]
-    InvalidUserName(#[from] UserNameError),
-    #[error(transparent)]
-    InvalidFqdn(#[from] FqdnError),
-}
-
-impl FromStr for QualifiedUserName {
-    type Err = QualifiedUserNameError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut split_name = s.split('@');
-        let user_name_str = split_name
-            .next()
-            .ok_or(QualifiedUserNameError::InvalidString)?;
-        let user_name = UserName::try_from(user_name_str.to_string())?;
-        // UserNames MUST be qualified
-        let domain = split_name
-            .next()
-            .ok_or(QualifiedUserNameError::InvalidString)?;
-        if split_name.next().is_some() {
-            return Err(QualifiedUserNameError::InvalidString);
+impl UserId {
+    pub fn new(uuid: Uuid, domain: Fqdn) -> Self {
+        Self {
+            uuid: TlsUuid(uuid),
+            domain,
         }
-        let domain = domain.parse()?;
-        Ok(QualifiedUserName { user_name, domain })
     }
-}
 
-impl QualifiedUserName {
-    pub fn user_name(&self) -> &UserName {
-        &self.user_name
+    pub fn random(domain: Fqdn) -> Self {
+        Self::new(Uuid::new_v4(), domain)
+    }
+
+    pub fn uuid(&self) -> Uuid {
+        *self.uuid
     }
 
     pub fn domain(&self) -> &Fqdn {
         &self.domain
     }
-}
 
-impl fmt::Display for QualifiedUserName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}@{}", self.user_name, self.domain)
-    }
-}
-
-#[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Hash,
-    TlsSize,
-    TlsSerialize,
-    TlsDeserializeBytes,
-    sqlx::Type, // Only for Postgres
-)]
-#[sqlx(type_name = "as_client_id")]
-pub struct AsClientId {
-    user_name: QualifiedUserName,
-    client_id: TlsUuid,
-}
-
-impl fmt::Display for AsClientId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let client_id_str = self.client_id.to_string();
-        write!(f, "{}.{}", client_id_str, self.user_name)
-    }
-}
-
-impl AsClientId {
-    pub fn new(user_name: QualifiedUserName, client_id: Uuid) -> Self {
-        Self {
-            user_name,
-            client_id: TlsUuid(client_id),
-        }
-    }
-
-    pub fn random(user_name: QualifiedUserName) -> Result<Self, RandomnessError> {
-        Ok(Self::new(user_name, Uuid::new_v4()))
-    }
-
-    pub fn user_name(&self) -> &QualifiedUserName {
-        &self.user_name
-    }
-
-    pub fn client_id(&self) -> Uuid {
-        *self.client_id
-    }
-
-    pub fn into_parts(self) -> (QualifiedUserName, Uuid) {
-        (self.user_name, *self.client_id)
-    }
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum AsClientIdError {
-    #[error("The given string does not represent a valid client id")]
-    InvalidClientId,
-    #[error("The UUID of this client id is invalid: {0}")]
-    InvalidClientUuid(#[from] uuid::Error),
-    #[error("The user name of the client id is invalid: {0}")]
-    UserNameError(#[from] QualifiedUserNameError),
-}
-
-impl FromStr for AsClientId {
-    type Err = AsClientIdError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let Some((client_id_str, user_name_str)) = s.split_once('.') else {
-            return Err(AsClientIdError::InvalidClientId);
-        };
-        let client_id = TlsUuid(Uuid::parse_str(client_id_str)?);
-        let user_name = user_name_str.parse()?;
-        Ok(Self {
-            user_name,
-            client_id,
-        })
-    }
-}
-
-impl Type<Sqlite> for AsClientId {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <String as Type<Sqlite>>::type_info()
-    }
-}
-
-impl<'q> Encode<'q, Sqlite> for AsClientId {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let value = self.to_string();
-        Encode::<Sqlite>::encode(value, buf)
-    }
-}
-
-impl<'r> Decode<'r, Sqlite> for AsClientId {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s: &str = Decode::<Sqlite>::decode(value)?;
-        Ok(s.parse()?)
+    pub fn into_parts(self) -> (Uuid, Fqdn) {
+        (*self.uuid, self.domain)
     }
 }
 
@@ -598,20 +412,5 @@ mod tests {
         let fqdn_str = "192.168.0.1";
         let result = Fqdn::from_str(fqdn_str);
         assert!(matches!(result, Err(FqdnError::NotADomainName)));
-    }
-
-    #[test]
-    fn valid_user_name() {
-        let user_name = UserName::try_from("alice".to_string());
-        assert_eq!(user_name.unwrap().0.0, "alice");
-    }
-
-    #[test]
-    fn invalid_user_name() {
-        let user_name = UserName::try_from("alice@host".to_string());
-        assert!(matches!(user_name, Err(UserNameError::InvalidUserName)));
-
-        let user_name = UserName::try_from("alice.bob".to_string());
-        assert!(matches!(user_name, Err(UserNameError::InvalidUserName)));
     }
 }

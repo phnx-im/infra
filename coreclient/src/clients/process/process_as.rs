@@ -14,6 +14,8 @@ use phnxtypes::{
         client_ds_out::ExternalCommitInfoIn,
     },
 };
+use sqlx::SqliteConnection;
+use sqlx::SqliteTransaction;
 use tls_codec::DeserializeBytes;
 use tracing::error;
 
@@ -24,6 +26,7 @@ use crate::{
     groups::{Group, ProfileInfo},
     key_stores::{indexed_keys::StorableIndexedKey, leaf_keys::LeafKeys},
     store::StoreNotifier,
+    utils::connection_ext::ConnectionExt,
 };
 
 use super::{
@@ -38,10 +41,10 @@ impl CoreUser {
         &self,
         as_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedAsQueueMessagePayload> {
-        self.with_transaction(async |connection| {
-            let mut as_queue_ratchet = StorableAsQueueRatchet::load(&mut *connection).await?;
+        self.with_transaction(async |txn| {
+            let mut as_queue_ratchet = StorableAsQueueRatchet::load(txn.as_mut()).await?;
             let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-            as_queue_ratchet.update_ratchet(&mut *connection).await?;
+            as_queue_ratchet.update_ratchet(txn.as_mut()).await?;
             Ok(payload.extract()?)
         })
         .await
@@ -56,13 +59,15 @@ impl CoreUser {
     ) -> Result<ConversationId> {
         match as_message_plaintext {
             ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
+                let mut connection = self.pool().acquire().await?;
+
                 // Parse & verify connection establishment package
                 let cep_tbs = self
-                    .parse_and_verify_connection_establishment_package(ecep)
+                    .parse_and_verify_connection_establishment_package(&mut connection, ecep)
                     .await?;
 
                 // Prepare group
-                let own_user_profile_key = UserProfileKey::load_own(self.pool()).await?;
+                let own_user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
                 let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, &own_user_profile_key)?;
 
                 // Fetch external commit info
@@ -70,7 +75,7 @@ impl CoreUser {
 
                 // Join group
                 let (group, commit, group_info, mut member_profile_info) = self
-                    .join_group_externally(eci, &cep_tbs, leaf_keys, aad)
+                    .join_group_externally(&mut connection, eci, &cep_tbs, leaf_keys, aad)
                     .await?;
 
                 // There should be only one user profile
@@ -84,23 +89,37 @@ impl CoreUser {
                 );
 
                 // Fetch and store user profile
-                self.fetch_and_store_user_profile(contact_profile_info)
-                    .await?;
+
+                self.with_notifier(async |notifier| {
+                    self.fetch_and_store_user_profile(
+                        &mut connection,
+                        notifier,
+                        contact_profile_info,
+                    )
+                    .await
+                })
+                .await?;
 
                 // Create conversation
-                let (mut conversation, contact) =
-                    self.create_connection_conversation(&group, &cep_tbs)?;
+                let (mut conversation, contact) = self
+                    .create_connection_conversation(&group, &cep_tbs)
+                    .await?;
 
                 let mut notifier = self.store_notifier();
 
                 // Store group, conversation & contact
-                self.store_group_conversation_contact(
-                    &mut notifier,
-                    &group,
-                    &mut conversation,
-                    contact,
-                )
-                .await?;
+                connection
+                    .with_transaction(async |txn| {
+                        self.store_group_conversation_contact(
+                            txn,
+                            &mut notifier,
+                            &group,
+                            &mut conversation,
+                            contact,
+                        )
+                        .await
+                    })
+                    .await?;
 
                 // Send confirmation
                 self.send_confirmation_to_ds(commit, group_info, &cep_tbs, qgid)
@@ -117,6 +136,7 @@ impl CoreUser {
     /// Parse and verify the connection establishment package.
     async fn parse_and_verify_connection_establishment_package(
         &self,
+        connection: &mut SqliteConnection,
         ecep: EncryptedConnectionEstablishmentPackage,
     ) -> Result<ConnectionEstablishmentPackageTbs> {
         let cep_in = ConnectionEstablishmentPackageIn::decrypt(
@@ -132,7 +152,7 @@ impl CoreUser {
         // EncryptedConnectionEstablishmentPackage Phase 1: Load the
         // AS credential of the sender.
         let as_intermediate_credential = AsCredentials::get(
-            self.pool(),
+            connection,
             &self.inner.api_clients,
             sender_domain,
             cep_in.sender_credential().signer_fingerprint(),
@@ -166,7 +186,7 @@ impl CoreUser {
 
         let encrypted_user_profile_key = own_user_profile_key.encrypt(
             &cep_tbs.connection_group_identity_link_wrapper_key,
-            self.user_name(),
+            self.user_id(),
         )?;
 
         let encrypted_friendship_package = FriendshipPackage {
@@ -201,13 +221,14 @@ impl CoreUser {
             .get(qgid.owning_domain())?
             .ds_connection_group_info(
                 cep_tbs.connection_group_id.clone(),
-                &cep_tbs.connection_group_ear_key,
+                &cep_tbs.connection_group_ear_key, //
             )
             .await?)
     }
 
     async fn join_group_externally(
         &self,
+        connection: &mut SqliteConnection,
         eci: ExternalCommitInfoIn,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         leaf_keys: LeafKeys,
@@ -215,7 +236,7 @@ impl CoreUser {
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
         let (group, commit, group_info, member_profile_info) = Group::join_group_externally(
-            self.pool(),
+            &mut *connection,
             &self.inner.api_clients,
             eci,
             leaf_signer,
@@ -229,20 +250,23 @@ impl CoreUser {
         Ok((group, commit, group_info, member_profile_info))
     }
 
-    fn create_connection_conversation(
+    async fn create_connection_conversation(
         &self,
         group: &Group,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
     ) -> Result<(Conversation, Contact)> {
-        let sender_client_id = cep_tbs.sender_client_credential.identity();
+        let sender_user_id = cep_tbs.sender_client_credential.identity();
+
+        let display_name = self.user_profile(sender_user_id).await.display_name;
 
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
-            sender_client_id.user_name().clone(),
-            ConversationAttributes::new(sender_client_id.user_name().to_string(), None),
+            sender_user_id.clone(),
+            // TODO: conversation title
+            ConversationAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
-            sender_client_id.clone(),
+            sender_user_id.clone(),
             conversation.id(),
             cep_tbs.friendship_package.clone(),
         )?;
@@ -251,18 +275,19 @@ impl CoreUser {
 
     async fn store_group_conversation_contact(
         &self,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         group: &Group,
         conversation: &mut Conversation,
         contact: Contact,
     ) -> Result<()> {
-        let mut connection = self.pool().acquire().await?;
-        group.store(&mut *connection).await?;
-        conversation.store(&mut *connection, notifier).await?;
+        group.store(txn).await?;
+        conversation.store(txn.as_mut(), notifier).await?;
 
         // TODO: For now, we automatically confirm conversations.
-        conversation.confirm(&mut *connection, notifier).await?;
-        contact.store(&mut *connection, notifier).await?;
+        conversation.confirm(txn.as_mut(), notifier).await?;
+        contact.store(txn.as_mut(), notifier).await?;
+
         Ok(())
     }
 

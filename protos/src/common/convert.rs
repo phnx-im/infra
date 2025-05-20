@@ -17,13 +17,13 @@ use phnxtypes::{
 use tonic::Status;
 
 use crate::{
-    convert::{FromRef, RefInto, TryFromRef, TryRefInto},
+    convert::{FromRef, TryFromRef, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
 
 use super::v1::{
     Ciphertext, Fqdn, GroupId, HpkeCiphertext, IndexedCiphertext, QualifiedGroupId,
-    QualifiedUserName, RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, UserName, Uuid,
+    RatchetEncryptionKey, RatchetSecret, Signature, Timestamp, Uuid,
 };
 
 impl From<uuid::Uuid> for Uuid {
@@ -51,10 +51,10 @@ impl TryFromRef<'_, Fqdn> for identifiers::Fqdn {
     }
 }
 
-impl FromRef<'_, identifiers::Fqdn> for Fqdn {
-    fn from_ref(value: &identifiers::Fqdn) -> Self {
+impl From<identifiers::Fqdn> for Fqdn {
+    fn from(value: identifiers::Fqdn) -> Self {
         Fqdn {
-            value: value.to_string(),
+            value: value.into(),
         }
     }
 }
@@ -101,7 +101,7 @@ impl FromRef<'_, identifiers::QualifiedGroupId> for QualifiedGroupId {
     fn from_ref(value: &identifiers::QualifiedGroupId) -> QualifiedGroupId {
         QualifiedGroupId {
             group_uuid: Some(value.group_uuid().into()),
-            domain: Some(value.owning_domain().ref_into()),
+            domain: Some(value.owning_domain().clone().into()),
         }
     }
 }
@@ -303,58 +303,6 @@ impl From<crypto::kdf::keys::RatchetSecret> for RatchetSecret {
         Self {
             bytes: value.as_ref().secret().to_vec(),
         }
-    }
-}
-
-impl From<identifiers::UserName> for UserName {
-    fn from(value: identifiers::UserName) -> Self {
-        Self {
-            value: value.into(),
-        }
-    }
-}
-
-impl TryFrom<UserName> for identifiers::UserName {
-    type Error = identifiers::UserNameError;
-
-    fn try_from(proto: UserName) -> Result<Self, Self::Error> {
-        proto.value.try_into()
-    }
-}
-
-impl From<identifiers::QualifiedUserName> for QualifiedUserName {
-    fn from(value: identifiers::QualifiedUserName) -> Self {
-        let (user_name, domain) = value.into_parts();
-        Self {
-            name: Some(user_name.into()),
-            domain: Some(domain.ref_into()),
-        }
-    }
-}
-
-impl TryFrom<QualifiedUserName> for identifiers::QualifiedUserName {
-    type Error = QualifiedUserNameError;
-
-    fn try_from(proto: QualifiedUserName) -> Result<Self, Self::Error> {
-        let name = proto.name.ok_or_missing_field("name")?.try_into()?;
-        let domain = proto.domain.ok_or_missing_field("domain")?.try_ref_into()?;
-        Ok(Self::new(name, domain))
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum QualifiedUserNameError {
-    #[error(transparent)]
-    MissingField(#[from] MissingFieldError<&'static str>),
-    #[error(transparent)]
-    UserName(#[from] identifiers::UserNameError),
-    #[error(transparent)]
-    Fqdn(#[from] identifiers::FqdnError),
-}
-
-impl From<QualifiedUserNameError> for Status {
-    fn from(e: QualifiedUserNameError) -> Self {
-        Status::invalid_argument(format!("invalid qualified user name: {e}"))
     }
 }
 

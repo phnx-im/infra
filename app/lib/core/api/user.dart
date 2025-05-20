@@ -18,21 +18,14 @@ part 'user.freezed.dart';
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<User>>
 abstract class User implements RustOpaqueInterface {
-  /// The unique identifier of the logged in user
-  UuidValue get clientId;
-
   /// Total number of unread messages across all conversations
   Future<int> get globalUnreadMessagesCount;
 
   static Future<User> load({
     required String dbPath,
-    required UiUserName userName,
-    required UuidValue clientId,
-  }) => RustLib.instance.api.crateApiUserUserLoad(
-    dbPath: dbPath,
-    userName: userName,
-    clientId: clientId,
-  );
+    required UiUserId userId,
+  }) =>
+      RustLib.instance.api.crateApiUserUserLoad(dbPath: dbPath, userId: userId);
 
   /// Loads all client records from the phnx database
   ///
@@ -52,18 +45,14 @@ abstract class User implements RustOpaqueInterface {
       RustLib.instance.api.crateApiUserUserLoadDefault(path: path);
 
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
-  /// Creates a new user with the given `user_name`.
-  ///
-  /// If a user with this name already exists, this will overwrite that user.
+  /// Creates a new user with a generated `uuid` at the domain described by `address`.
   static Future<User> newInstance({
-    required String userName,
     required String address,
     required String path,
     PlatformPushToken? pushToken,
     required String displayName,
     Uint8List? profilePicture,
   }) => RustLib.instance.api.crateApiUserUserNew(
-    userName: userName,
     address: address,
     path: path,
     pushToken: pushToken,
@@ -74,8 +63,8 @@ abstract class User implements RustOpaqueInterface {
   /// Update the push token.
   Future<void> updatePushToken(PlatformPushToken? pushToken);
 
-  /// The user name of the logged in user
-  String get userName;
+  /// The unique identifier of the logged in user
+  UiUserId get userId;
 }
 
 @freezed

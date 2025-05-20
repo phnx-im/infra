@@ -12,10 +12,10 @@ use phnxtypes::{
         indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
-    identifiers::{AsClientId, QualifiedUserName},
+    identifiers::UserId,
     messages::FriendshipToken,
 };
-use sqlx::SqlitePool;
+use sqlx::SqliteConnection;
 
 use crate::{
     ConversationId,
@@ -29,8 +29,7 @@ pub(crate) mod persistence;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contact {
-    pub user_name: QualifiedUserName,
-    pub(crate) clients: Vec<AsClientId>,
+    pub user_id: UserId,
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
@@ -49,17 +48,16 @@ pub(crate) struct ContactAddInfos {
 
 impl Contact {
     pub(crate) fn from_friendship_package(
-        client_id: AsClientId,
+        user_id: UserId,
         conversation_id: ConversationId,
         friendship_package: FriendshipPackage,
     ) -> Result<Self, LibraryError> {
         let user_profile_key = UserProfileKey::from_base_secret(
             friendship_package.user_profile_base_secret,
-            client_id.user_name(),
+            &user_id,
         )?;
         let contact = Self {
-            user_name: client_id.user_name().clone(),
-            clients: vec![client_id],
+            user_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             connection_key: friendship_package.connection_key,
@@ -69,18 +67,12 @@ impl Contact {
         Ok(contact)
     }
 
-    /// Get the user name of this contact.
-    pub fn user_name(&self) -> &QualifiedUserName {
-        &self.user_name
-    }
-
     pub(crate) async fn fetch_add_infos(
         &self,
-        pool: &SqlitePool,
+        connection: &mut SqliteConnection,
         api_clients: &ApiClients,
     ) -> Result<ContactAddInfos> {
-        let invited_user = self.user_name.clone();
-        let invited_user_domain = invited_user.domain();
+        let invited_user_domain = self.user_id.domain();
 
         let key_package_response = api_clients
             .get(invited_user_domain)?
@@ -97,12 +89,15 @@ impl Contact {
         let (plaintext, identity_link_key) =
             pseudonymous_credential.derive_decrypt_and_verify(&self.connection_key)?;
         // Verify the client credential
-        let incoming_client_credential =
-            StorableClientCredential::verify(pool, api_clients, plaintext.client_credential)
-                .await?;
+        let incoming_client_credential = StorableClientCredential::verify(
+            &mut *connection,
+            api_clients,
+            plaintext.client_credential,
+        )
+        .await?;
         // Check that the client credential is the same as the one we have on file.
-        let Some(current_client_credential) = StorableClientCredential::load_by_client_id(
-            pool,
+        let Some(current_client_credential) = StorableClientCredential::load_by_user_id(
+            &mut *connection,
             incoming_client_credential.identity(),
         )
         .await?
@@ -112,17 +107,14 @@ impl Contact {
         if current_client_credential.fingerprint() != incoming_client_credential.fingerprint() {
             anyhow::bail!("Client credential does not match");
         }
-        let user_profile_key = UserProfileKey::load(pool, &self.user_profile_key_index).await?;
+        let user_profile_key =
+            UserProfileKey::load(&mut *connection, &self.user_profile_key_index).await?;
         let add_info = ContactAddInfos {
             key_package: verified_key_package,
             identity_link_key,
             user_profile_key,
         };
         Ok(add_info)
-    }
-
-    pub(crate) fn clients(&self) -> &[AsClientId] {
-        &self.clients
     }
 
     pub(crate) fn wai_ear_key(&self) -> &WelcomeAttributionInfoEarKey {
@@ -133,7 +125,7 @@ impl Contact {
 /// Contact which has not yet accepted our connection request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartialContact {
-    pub user_name: QualifiedUserName,
+    pub user_id: UserId,
     // ID of the connection conversation with this contact.
     pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
@@ -141,12 +133,12 @@ pub struct PartialContact {
 
 impl PartialContact {
     pub(crate) fn new(
-        user_name: QualifiedUserName,
+        user_id: UserId,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Self {
         Self {
-            user_name,
+            user_id,
             conversation_id,
             friendship_package_ear_key,
         }

@@ -94,15 +94,15 @@ class _ClientRecordsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.select((LoadableUserCubit cubit) => cubit.state.user);
+    final ownClientId = context.select(
+      (LoadableUserCubit cubit) => cubit.state.user?.userId,
+    );
 
     return Center(
       child: ListView(
         children:
             clientRecords.map((record) {
-              final isCurrentUser =
-                  user?.userName ==
-                  "${record.userName.userName}@${record.userName.domain}";
+              final isCurrentUser = record.userId == ownClientId;
               final currentUserSuffix = isCurrentUser ? " (current)" : "";
 
               final textColor =
@@ -123,18 +123,15 @@ class _ClientRecordsList extends StatelessWidget {
                 leading: Transform.translate(
                   offset: const Offset(0, Spacings.xxs),
                   child: UserAvatar(
-                    username: record.userName.userName,
-                    image: record.userProfile?.profilePicture,
+                    displayName: record.userProfile.displayName,
+                    image: record.userProfile.profilePicture,
                     size: Spacings.xl,
                   ),
                 ),
-                title: Text(
-                  record.userName.displayName(record.userProfile?.displayName) +
-                      currentUserSuffix,
-                ),
+                title: Text(record.userProfile.displayName + currentUserSuffix),
                 subtitle: Text(
-                  "Domain: ${record.userName.domain}\n"
-                  "ID: ${record.clientId}\n"
+                  "Domain: ${record.userId.domain}\n"
+                  "ID: ${record.userId.uuid.toString()}\n"
                   "Created: ${record.createdAt}\n"
                   "Fully registered: ${record.isFinished ? "yes" : "no"}",
                 ),
@@ -143,10 +140,7 @@ class _ClientRecordsList extends StatelessWidget {
                         ? () {
                           final coreClient = context.read<CoreClient>();
                           coreClient.logout();
-                          coreClient.loadUser(
-                            userName: record.userName,
-                            clientId: record.clientId,
-                          );
+                          coreClient.loadUser(userId: record.userId);
                         }
                         : null,
               );

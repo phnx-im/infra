@@ -10,11 +10,13 @@ use phnxtypes::{
     },
     messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
+use sqlx::SqliteConnection;
 
 use crate::{
     Contact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
+    store::StoreNotifier,
     user_profiles::{
         IndexedUserProfile, UserProfile, VerifiableUserProfile, process::ExistingUserProfile,
         update::UserProfileUpdate,
@@ -28,12 +30,12 @@ impl CoreUser {
         &self,
         user_profile_content: UserProfile,
     ) -> anyhow::Result<()> {
-        let user_profile_key = UserProfileKey::random(self.user_name())?;
+        let user_profile_key = UserProfileKey::random(self.user_id())?;
 
         // Phase 1: Store the new user profile key in the database
         let encryptable_user_profile = self
-            .with_transaction_and_notifier(async |transaction, notifier| {
-                let current_profile = IndexedUserProfile::load(&mut *transaction, self.user_name())
+            .with_transaction_and_notifier(async |txn, notifier| {
+                let current_profile = IndexedUserProfile::load(txn.as_mut(), self.user_id())
                     .await?
                     .context("Failed to load own user profile")?;
 
@@ -43,10 +45,10 @@ impl CoreUser {
                     user_profile_key.index().clone(),
                     &self.inner.key_store.signing_key,
                 )?
-                .store(&mut *transaction, notifier)
+                .store(txn.as_mut(), notifier)
                 .await?;
 
-                user_profile_key.store_own(&mut *transaction).await?;
+                user_profile_key.store_own(txn.as_mut()).await?;
                 Ok(user_profile)
             })
             .await?;
@@ -60,14 +62,14 @@ impl CoreUser {
 
         api_client
             .as_stage_user_profile(
-                self.as_client_id(),
+                self.user_id().clone(),
                 &self.inner.key_store.signing_key,
                 encrypted_user_profile,
             )
             .await?;
 
         // Phase 4: Send a notification to all groups
-        let own_user_name = self.user_name();
+        let own_user_id = self.user_id();
         let mut connection = self.pool().acquire().await?;
         let groups_ids = Group::load_all_group_ids(&mut connection).await?;
         for group_id in groups_ids {
@@ -76,7 +78,7 @@ impl CoreUser {
                 .context("Failed to load group")?;
             let own_index = group.own_index();
             let user_profile_key =
-                user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_name)?;
+                user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
             let params = UserProfileKeyUpdateParams {
                 group_id,
                 sender_index: own_index,
@@ -93,7 +95,7 @@ impl CoreUser {
 
         // Phase 5: Merge the user profile on the server
         api_client
-            .as_merge_user_profile(self.as_client_id(), &self.inner.key_store.signing_key)
+            .as_merge_user_profile(self.user_id().clone(), &self.inner.key_store.signing_key)
             .await?;
 
         Ok(())
@@ -101,23 +103,26 @@ impl CoreUser {
 
     pub(crate) async fn fetch_and_store_user_profile(
         &self,
+        connection: &mut SqliteConnection,
+        notifier: &mut StoreNotifier,
         profile_info: impl Into<ProfileInfo>,
     ) -> anyhow::Result<()> {
         let ProfileInfo {
             user_profile_key,
             client_credential,
         } = profile_info.into();
-        let user_name = client_credential.identity().user_name().clone();
+        let user_id = client_credential.identity();
 
         // Phase 1: Check if the profile in the DB is up to date.
-        let existing_user_profile = ExistingUserProfile::load(self.pool(), &user_name).await?;
+        let existing_user_profile = ExistingUserProfile::load(&mut *connection, user_id).await?;
         if existing_user_profile.matches_index(user_profile_key.index()) {
             return Ok(());
         }
 
         // Phase 2: Fetch the user profile from the server
-        let api_client = self.inner.api_clients.get(user_name.domain())?;
+        let api_client = self.inner.api_clients.get(user_id.domain())?;
 
+        // TODO: Avoid network calls while in transaction
         let GetUserProfileResponse {
             encrypted_user_profile,
         } = api_client
@@ -133,24 +138,16 @@ impl CoreUser {
             .process_decrypted_user_profile(verifiable_user_profile, &client_credential)?;
 
         // Phase 3: Store the user profile and key in the database
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            user_profile_key.store(&mut *connection).await?;
-            persistable_user_profile
-                .persist(&mut *connection, notifier)
-                .await?;
-            Contact::update_user_profile_key_index(
-                &mut *connection,
-                &user_name,
-                user_profile_key.index(),
-            )
+        user_profile_key.store(&mut *connection).await?;
+        persistable_user_profile
+            .persist(&mut *connection, notifier)
             .await?;
-            if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
-                // Delete the old user profile key
-                UserProfileKey::delete(connection, old_user_profile_index).await?;
-            }
-            Ok(())
-        })
-        .await?;
+        Contact::update_user_profile_key_index(&mut *connection, user_id, user_profile_key.index())
+            .await?;
+        if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
+            // Delete the old user profile key
+            UserProfileKey::delete(connection, old_user_profile_index).await?;
+        }
 
         Ok(())
     }

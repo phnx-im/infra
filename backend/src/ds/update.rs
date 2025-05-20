@@ -9,11 +9,12 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
 };
 use phnxtypes::{
-    errors::ClientUpdateError,
     messages::client_ds::{InfraAadMessage, InfraAadPayload},
     time::Duration,
 };
 use tls_codec::DeserializeBytes;
+
+use crate::errors::ClientUpdateError;
 
 use super::{group_state::DsGroupState, process::USER_EXPIRATION_DAYS};
 
@@ -51,7 +52,7 @@ impl DsGroupState {
                 return Err(ClientUpdateError::InvalidMessage);
             }
         } else {
-            tracing::warn!("Client update message was not acommit");
+            tracing::warn!("Client update message was not a commit");
             return Err(ClientUpdateError::InvalidMessage);
         };
 

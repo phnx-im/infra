@@ -13,6 +13,10 @@ extension IntTestExtension on int {
 
   ConversationMessageId conversationMessageId() =>
       ConversationMessageId(uuid: _intToUuidValue(this));
+
+  /// Convert an int to a [ClientId].
+  UiUserId userId({String domain = "localhost"}) =>
+      UiUserId(uuid: _intToUuidValue(this), domain: domain);
 }
 
 UuidValue _intToUuidValue(int value) {

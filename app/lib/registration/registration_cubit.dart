@@ -18,7 +18,6 @@ final _log = Logger('RegistrationCubit');
 final _domainRegex = RegExp(
   r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*$',
 );
-final _usernameRegex = RegExp(r'^[a-zA-Z0-9@.]+$');
 
 @freezed
 sealed class RegistrationState with _$RegistrationState {
@@ -27,10 +26,6 @@ sealed class RegistrationState with _$RegistrationState {
   const factory RegistrationState({
     // Domain choice screen data
     @Default('') String domain,
-
-    // Username screen data
-    @Default('') String username,
-    @Default(false) bool isUsernameValid,
 
     // Display name/avatar screen data
     ImageData? avatar,
@@ -52,19 +47,6 @@ class RegistrationCubit extends Cubit<RegistrationState> {
     emit(state.copyWith(domain: value));
   }
 
-  void setUsername(String value) {
-    var containsInvalidChars =
-        value.isNotEmpty && !_usernameRegex.hasMatch(value);
-    var hasRightLength = value.isNotEmpty && value.length <= 64;
-    emit(
-      state.copyWith(
-        isUsernameValid: hasRightLength && !containsInvalidChars,
-        username: value,
-        displayName: value,
-      ),
-    );
-  }
-
   void setAvatar(ImageData? bytes) {
     emit(state.copyWith(avatar: bytes));
   }
@@ -76,20 +58,14 @@ class RegistrationCubit extends Cubit<RegistrationState> {
   Future<SignUpError?> signUp() async {
     emit(state.copyWith(isSigningUp: true));
 
-    final fqun = "${state.username}@${state.domain}";
     final url =
         state.domain == "localhost"
             ? "http://${state.domain}"
             : "https://${state.domain}";
 
     try {
-      _log.info("Registering user ${state.username} ...");
-      await _coreClient.createUser(
-        fqun,
-        url,
-        state.displayName,
-        state.avatar?.data,
-      );
+      _log.info("Registering user...");
+      await _coreClient.createUser(url, state.displayName, state.avatar?.data);
     } catch (e) {
       final message = "Error when registering user: ${e.toString()}";
       _log.severe(message);
