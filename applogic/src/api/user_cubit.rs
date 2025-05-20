@@ -295,7 +295,7 @@ fn spawn_listen(
             .await;
 
             // stop handler on cancellation
-            if let Ok(true) = res {
+            if cancel.is_cancelled() {
                 return;
             }
 
@@ -325,7 +325,7 @@ async fn run_listen(
     notification_service: &NotificationService,
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<()> {
     let mut queue_stream = core_user.listen_queue().await?;
     info!("listening to the queue");
 
@@ -335,8 +335,8 @@ async fn run_listen(
 
         let event = tokio::select! {
             event = queue_stream.next() => event,
-            _ = in_background => return Ok(false),
-            _ = cancel.cancelled() => return Ok(true),
+            _ = in_background => return Ok(()),
+            _ = cancel.cancelled() => return Ok(()),
         };
 
         match event {
