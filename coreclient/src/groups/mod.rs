@@ -38,15 +38,16 @@ use phnxtypes::{
         kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
-    identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, UserId},
+    identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedGroupId, UserId},
     messages::{
         client_ds::{
-            DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
+            DsJoinerInformation, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
             UpdateParamsAad, WelcomeBundle,
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
             GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
+            WelcomeInfoIn,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -293,11 +294,10 @@ impl Group {
 
         let mls_group_config = Self::default_mls_group_join_config();
 
-        // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
-        // decrypt the encrypted credentials
-        let (mls_group, joiner_info, welcome_attribution_info) = {
+        let (processed_welcome, joiner_info, leaf_signer) = {
+            // Phase 1: Fetch the right KeyPackageBundle from storage
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());
-            let key_package_bundle: KeyPackageBundle = welcome_bundle
+            let kpb: KeyPackageBundle = welcome_bundle
                 .welcome
                 .welcome
                 .secrets()
@@ -311,14 +311,15 @@ impl Group {
                 })
                 .ok_or(GroupOperationError::MissingKeyPackage)?;
 
-            let private_key = key_package_bundle.init_private_key();
+            // Phase 2: Process the welcome message
+            let private_key = kpb.init_private_key();
             let info = &[];
             let aad = &[];
             let decryption_key = JoinerInfoDecryptionKey::from((
                 private_key.clone(),
-                key_package_bundle.key_package().hpke_init_key().clone(),
+                kpb.key_package().hpke_init_key().clone(),
             ));
-            let joiner_info = DsJoinerInformationIn::decrypt(
+            let joiner_info = DsJoinerInformation::decrypt(
                 welcome_bundle.encrypted_joiner_info,
                 &decryption_key,
                 info,
@@ -330,7 +331,18 @@ impl Group {
                 &mls_group_config,
                 welcome_bundle.welcome.welcome,
             )?;
-            // Check if there is already a group with the same ID.
+
+            let verifying_key = kpb.key_package().leaf_node().signature_key();
+
+            let leaf_keys = LeafKeys::load(txn.as_mut(), verifying_key)
+                .await?
+                .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
+            // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
+            LeafKeys::delete(txn.as_mut(), verifying_key).await?;
+
+            let leaf_signer = leaf_keys.into_leaf_signer();
+
+            // Phase 3: Check if there is already a group with the same ID.
             let group_id = processed_welcome.unverified_group_info().group_id().clone();
             if let Some(group) = Self::load(txn.as_mut(), &group_id).await? {
                 // If the group is active, we can't join it.
@@ -340,9 +352,34 @@ impl Group {
                 // Otherwise, we delete the old group.
                 Self::delete_from_db(txn, &group_id).await?;
             }
+            (processed_welcome, joiner_info, leaf_signer)
+        };
 
+        // Phase 4: Fetch the welcome info from the server
+        let group_id = processed_welcome.unverified_group_info().group_id();
+        let epoch = processed_welcome.unverified_group_info().epoch();
+        let qgid = QualifiedGroupId::try_from(group_id)?;
+        let welcome_info = api_clients
+            .get(qgid.owning_domain())?
+            .ds_welcome_info(
+                group_id.clone(),
+                epoch,
+                &joiner_info.group_state_ear_key,
+                &leaf_signer,
+            )
+            .await?;
+
+        let WelcomeInfoIn {
+            ratchet_tree,
+            encrypted_identity_link_keys,
+            encrypted_user_profile_keys,
+        } = welcome_info;
+
+        let (mls_group, joiner_info, welcome_attribution_info) = {
+            // Phase 5: Finish processing the welcome message
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());
-            let staged_welcome = processed_welcome.into_staged_welcome(&provider, None)?;
+            let staged_welcome =
+                processed_welcome.into_staged_welcome(&provider, Some(ratchet_tree))?;
 
             let mls_group = staged_welcome.into_group(&provider)?;
 
@@ -370,9 +407,9 @@ impl Group {
         let client_information = mls_group
             .members()
             .map(|m| (m.index, m.credential))
-            .zip(joiner_info.encrypted_identity_link_keys.into_iter());
+            .zip(encrypted_identity_link_keys.into_iter());
 
-        // Phase 2: Decrypt and verify the client credentials. This can involve
+        // Phase 6: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
         let client_information = ClientAuthInfo::decrypt_and_verify_all(
             txn,
@@ -383,28 +420,14 @@ impl Group {
         )
         .await?;
 
-        let verifying_key = mls_group
-            .own_leaf_node()
-            .ok_or(anyhow!("Group has no own leaf node"))?
-            .signature_key();
-
-        // Phase 3: Decrypt and verify the infra credentials.
+        // Phase 7: Decrypt and verify the infra credentials.
         {
             for client_auth_info in &client_information {
                 client_auth_info.store(txn).await?;
             }
         }
 
-        let leaf_keys = LeafKeys::load(txn.as_mut(), verifying_key)
-            .await?
-            .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
-        // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
-        LeafKeys::delete(txn.as_mut(), verifying_key).await?;
-
-        let leaf_signer = leaf_keys.into_leaf_signer();
-
-        let member_profile_info = joiner_info
-            .encrypted_user_profile_keys
+        let member_profile_info = encrypted_user_profile_keys
             .into_iter()
             .zip(
                 client_information
