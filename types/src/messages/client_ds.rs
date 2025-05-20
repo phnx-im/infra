@@ -321,7 +321,6 @@ pub struct UserProfileKeyUpdateParams {
 #[derive(TlsSerialize, TlsSize, Clone, TlsDeserializeBytes)]
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
-    pub room_state: Vec<u8>,
 }
 
 impl GenericSerializable for DsJoinerInformation {

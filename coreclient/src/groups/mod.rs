@@ -373,6 +373,7 @@ impl Group {
             ratchet_tree,
             encrypted_identity_link_keys,
             encrypted_user_profile_keys,
+            room_state,
         } = welcome_info;
 
         let (mls_group, joiner_info, welcome_attribution_info) = {
@@ -454,7 +455,7 @@ impl Group {
             identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             pending_diff: None,
-            room_state: serde_json::from_slice(&joiner_info.room_state).unwrap(),
+            room_state: serde_json::from_slice(&room_state).unwrap(),
         };
 
         Ok((group, member_profile_info))
