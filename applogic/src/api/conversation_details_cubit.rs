@@ -48,12 +48,13 @@ pub struct UiRoomState {
 
 impl UiRoomState {
     #[frb(sync)]
-    pub fn can_kick(&self, target: u32) -> bool {
+    pub fn can_kick(&self, _target: u32) -> bool {
         self.state
             .can_apply_regular_proposals(
                 &self.our_user,
                 &[MimiProposal::ChangeRole {
-                    target,
+                    target: self.our_user + 1,
+                    // TODO: Use target,
                     role: RoleIndex::Outsider,
                 }],
             )

@@ -193,7 +193,8 @@ async fn remove_from_group() {
 
     setup
         .remove_from_group(conversation_id, &ALICE, vec![&BOB])
-        .await;
+        .await
+        .unwrap();
 
     // Now that charlie is not in a group with Bob anymore, the user profile
     // should be the default one derived from the client id.
@@ -216,7 +217,8 @@ async fn re_add_client() {
     for _ in 0..10 {
         setup
             .remove_from_group(conversation_id, &ALICE, vec![&BOB])
-            .await;
+            .await
+            .unwrap();
         setup
             .invite_to_group(conversation_id, &ALICE, vec![&BOB])
             .await;
@@ -240,7 +242,7 @@ async fn leave_group() {
     setup
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    setup.leave_group(conversation_id, &BOB).await;
+    setup.leave_group(conversation_id, &BOB).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -285,6 +287,21 @@ async fn full_cycle() {
     setup
         .send_message(conversation_alice_bob, &BOB, vec![&ALICE])
         .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Room policy", skip_all)]
+async fn room_policy() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+
+    // Connect them
+    let _conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+    let _conversation_alice_charlie = setup.connect_users(&ALICE, &CHARLIE).await;
+    let _conversation_bob_charlie = setup.connect_users(&BOB, &CHARLIE).await;
 
     // Create an independent group and invite bob.
     let conversation_id = setup.create_group(&ALICE).await;
@@ -293,33 +310,32 @@ async fn full_cycle() {
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
 
-    // Create chalie, connect him with alice and invite him to the group.
-    setup.add_user(&CHARLIE).await;
-    setup.connect_users(&ALICE, &CHARLIE).await;
-
+    // Bob can invite charlie
     setup
-        .invite_to_group(conversation_id, &ALICE, vec![&CHARLIE])
+        .invite_to_group(conversation_id, &BOB, vec![&CHARLIE])
         .await;
 
-    // Add dave, connect him with charlie and invite him to the group. Then have alice remove dave and bob.
-    setup.add_user(&DAVE).await;
-    setup.connect_users(&CHARLIE, &DAVE).await;
-
+    // Bob cannot kick anyone
     setup
-        .invite_to_group(conversation_id, &CHARLIE, vec![&DAVE])
-        .await;
-
+        .remove_from_group(conversation_id, &BOB, vec![&ALICE])
+        .await
+        .unwrap_err();
     setup
-        .send_message(conversation_id, &ALICE, vec![&CHARLIE, &BOB, &DAVE])
-        .await;
+        .remove_from_group(conversation_id, &BOB, vec![&CHARLIE])
+        .await
+        .unwrap_err();
 
+    // Alice cannot leave if she does not appoint a new room admin
     setup
-        .remove_from_group(conversation_id, &ALICE, vec![&DAVE, &BOB])
-        .await;
+        .leave_group(conversation_id, &ALICE)
+        .await
+        .unwrap_err();
 
-    setup.leave_group(conversation_id, &CHARLIE).await;
-
-    setup.delete_group(conversation_id, &ALICE).await
+    // Alice can kick both
+    setup
+        .remove_from_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await
+        .unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
