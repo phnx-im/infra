@@ -105,14 +105,6 @@ pub struct EncryptedAsQueueMessageCtype;
 
 pub type EncryptedAsQueueMessage = Ciphertext<EncryptedAsQueueMessageCtype>;
 
-/* #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-#[repr(u8)]
-pub enum AsTokenType {
-    AsEnqueue,
-    DsGroupCreation,
-    DsGroupOperation,
-} */
-
 #[cfg(test)]
 mod test {
     use crate::{codec::PhnxCodec, crypto::ear::AeadCiphertext};
