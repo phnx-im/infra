@@ -366,10 +366,6 @@ impl DsGroupState {
                 key_package.hpke_init_key().clone().into();
             let encrypted_joiner_info = DsJoinerInformation {
                 group_state_ear_key: group_state_ear_key.clone(),
-                encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
-                ratchet_tree: self.group().export_ratchet_tree(),
-                room_state: serde_json::to_vec(&self.room_state).unwrap(),
-                encrypted_user_profile_keys: self.encrypted_user_profile_keys(),
             }
             .encrypt(&encryption_key, info, aad);
             let welcome_bundle = WelcomeBundle {
