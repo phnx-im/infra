@@ -345,14 +345,14 @@ mod tests {
         .unwrap();
         let cep_verified = cep_in
             .clone()
-            .verify(&as_sk.verifying_key(), recipient_user_id)
+            .verify(as_sk.verifying_key(), recipient_user_id)
             .unwrap();
         assert_eq!(cep_verified, cep_payload);
 
         // Try with a different recipient
         let recipient_user_id_2 = UserId::random("localhost".parse().unwrap());
         let err = cep_in
-            .verify(&as_sk.verifying_key(), recipient_user_id_2)
+            .verify(as_sk.verifying_key(), recipient_user_id_2)
             .unwrap_err();
         assert!(matches!(
             err,
