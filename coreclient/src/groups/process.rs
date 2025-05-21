@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{Group, openmls_provider::PhnxOpenMlsProvider};
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use mimi_room_policy::{MimiProposal, RoleIndex};
 use phnxtypes::{
     credentials::ClientCredential,
@@ -128,6 +128,15 @@ impl Group {
                         .into_payload();
                 match aad_payload {
                     InfraAadPayload::GroupOperation(group_operation_payload) => {
+                        let number_of_adds = staged_commit.add_proposals().count();
+                        let number_of_upks = group_operation_payload
+                            .new_encrypted_user_profile_keys
+                            .len();
+                        ensure!(
+                            number_of_adds == number_of_upks,
+                            "Number of add proposals and user profile keys don't match"
+                        );
+
                         // Process adds if there are any.
                         if !group_operation_payload
                             .new_encrypted_user_profile_keys
