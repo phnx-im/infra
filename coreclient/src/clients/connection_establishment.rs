@@ -71,6 +71,7 @@ pub(crate) mod payload {
     }
 
     #[derive(Debug, TlsSerialize, TlsSize, Clone)]
+    #[cfg_attr(test, derive(PartialEq))]
     pub(crate) struct ConnectionEstablishmentPackagePayload {
         pub(crate) sender_client_credential: ClientCredential,
         pub(crate) connection_group_id: GroupId,
@@ -89,6 +90,24 @@ pub(crate) mod payload {
             let tbs =
                 ConnectionEstablishmentPackageTbs::from_payload(self.clone(), recipient_user_id);
             tbs.sign(signing_key)
+        }
+
+        #[cfg(test)]
+        pub(super) fn dummy(client_credential: ClientCredential) -> Self {
+            Self {
+                sender_client_credential: client_credential,
+                connection_group_id: GroupId::from_slice(b"dummy_group_id"),
+                connection_group_ear_key: GroupStateEarKey::random().unwrap(),
+                connection_group_identity_link_wrapper_key: IdentityLinkWrapperKey::random()
+                    .unwrap(),
+                friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+                friendship_package: FriendshipPackage {
+                    friendship_token: FriendshipToken::random().unwrap(),
+                    connection_key: ConnectionKey::random().unwrap(),
+                    wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
+                    user_profile_base_secret: UserProfileBaseSecret::random().unwrap(),
+                },
+            }
         }
     }
 }
@@ -266,6 +285,7 @@ impl HpkeDecryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
 }
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub(crate) struct FriendshipPackage {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) connection_key: ConnectionKey,
@@ -296,4 +316,47 @@ impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
 impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
     for FriendshipPackage
 {
+}
+
+#[cfg(test)]
+mod tests {
+    use phnxtypes::{
+        credentials::test_utils::create_test_credentials,
+        crypto::signatures::private_keys::SignatureVerificationError, identifiers::UserId,
+    };
+    use tls_codec::{DeserializeBytes as _, Serialize};
+
+    use super::{ConnectionEstablishmentPackageIn, payload::ConnectionEstablishmentPackagePayload};
+
+    #[test]
+    fn signing_and_verifying() {
+        let sender_user_id = UserId::random("localhost".parse().unwrap());
+        let (as_sk, client_sk) = create_test_credentials(sender_user_id);
+        let cep_payload =
+            ConnectionEstablishmentPackagePayload::dummy(client_sk.credential().clone());
+        let recipient_user_id = UserId::random("localhost".parse().unwrap());
+        let cep = cep_payload
+            .clone()
+            .sign(&client_sk, recipient_user_id.clone())
+            .unwrap();
+        let cep_in = ConnectionEstablishmentPackageIn::tls_deserialize_exact_bytes(
+            &cep.tls_serialize_detached().unwrap(),
+        )
+        .unwrap();
+        let cep_verified = cep_in
+            .clone()
+            .verify(&as_sk.verifying_key(), recipient_user_id)
+            .unwrap();
+        assert_eq!(cep_verified, cep_payload);
+
+        // Try with a different recipient
+        let recipient_user_id_2 = UserId::random("localhost".parse().unwrap());
+        let err = cep_in
+            .verify(&as_sk.verifying_key(), recipient_user_id_2)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            SignatureVerificationError::VerificationFailure
+        ));
+    }
 }
