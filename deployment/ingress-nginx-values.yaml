@@ -24,7 +24,8 @@ controller:
                         }
                       ],
                       "properties": {
-                        "http2_enabled": false
+                        "http2_enabled": false,
+                        "timeout_client": 3600
                       }
                     },
                     {
@@ -44,7 +45,8 @@ controller:
                         }
                       ],
                       "properties": {
-                        "http2_enabled": true
+                        "http2_enabled": true,
+                        "timeout_client": 3600
                       }
                     }
                   ],
@@ -54,7 +56,8 @@ controller:
                       "properties": {
                         "outbound_proxy_protocol": "v2",
                         "http2_enabled": false,
-                        "tls_enabled": true
+                        "tls_enabled": true,
+                        "timeout_server": 3600
                       }
                     },
                     {
@@ -62,7 +65,8 @@ controller:
                       "properties": {
                         "outbound_proxy_protocol": "v2",
                         "http2_enabled": true,
-                        "tls_enabled": true
+                        "tls_enabled": true,
+                        "timeout_server": 3600
                       }
                     }
                   ]
