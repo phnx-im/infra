@@ -80,7 +80,6 @@ struct SqlGroupMembership {
     user_uuid: Uuid,
     user_domain: Fqdn,
     leaf_index: u32,
-    identity_link_key: IdentityLinkKey,
 }
 
 impl From<SqlGroupMembership> for GroupMembership {
@@ -91,14 +90,12 @@ impl From<SqlGroupMembership> for GroupMembership {
             user_uuid,
             user_domain,
             leaf_index,
-            identity_link_key,
         }: SqlGroupMembership,
     ) -> Self {
         Self {
             user_id: UserId::new(user_uuid, user_domain),
             group_id,
             leaf_index: LeafNodeIndex::new(leaf_index),
-            identity_link_key: IdentityLinkKey::from(identity_link_key),
             client_credential_fingerprint,
         }
     }
@@ -127,8 +124,7 @@ impl GroupMembership {
         query!(
             "UPDATE group_membership AS merged
             SET client_credential_fingerprint = staged.client_credential_fingerprint,
-                leaf_index = staged.leaf_index,
-                identity_link_key = staged.identity_link_key
+                leaf_index = staged.leaf_index
             FROM group_membership AS staged
             WHERE merged.group_id = staged.group_id
               AND merged.user_uuid = staged.user_uuid
@@ -165,22 +161,19 @@ impl GroupMembership {
         let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
-        let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT OR IGNORE INTO group_membership (
                 user_uuid,
                 user_domain,
                 group_id,
                 leaf_index,
-                identity_link_key,
                 client_credential_fingerprint,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, 'merged')",
+            ) VALUES (?, ?, ?, ?, ?, 'merged')",
             uuid,
             domain,
             sql_group_id,
             leaf_index,
-            identity_link_key,
             self.client_credential_fingerprint,
         )
         .execute(executor)
@@ -193,22 +186,19 @@ impl GroupMembership {
         let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
-        let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT INTO group_membership (
                 user_uuid,
                 user_domain,
                 group_id,
                 leaf_index,
-                identity_link_key,
                 client_credential_fingerprint,
                 status)
-            VALUES (?, ?, ?, ?, ?, ?, 'staged_update')",
+            VALUES (?, ?, ?, ?, ?, 'staged_update')",
             uuid,
             domain,
             sql_group_id,
             leaf_index,
-            identity_link_key,
             self.client_credential_fingerprint,
         )
         .execute(executor)
@@ -221,22 +211,19 @@ impl GroupMembership {
         let domain = self.user_id.domain();
         let sql_group_id = self.sql_group_id();
         let leaf_index = self.leaf_index.u32();
-        let identity_link_key = self.identity_link_key.as_ref();
         query!(
             "INSERT INTO group_membership (
                 user_uuid,
                 user_domain,
                 group_id,
                 leaf_index,
-                identity_link_key,
                 client_credential_fingerprint,
                 status)
-            VALUES (?, ?, ?, ?, ?, ?, 'staged_add')",
+            VALUES (?, ?, ?, ?, ?, 'staged_add')",
             uuid,
             domain,
             sql_group_id,
             leaf_index,
-            identity_link_key,
             self.client_credential_fingerprint,
         )
         .execute(executor)
@@ -300,8 +287,7 @@ impl GroupMembership {
                     group_id AS "group_id: _",
                     user_uuid AS "user_uuid: _",
                     user_domain AS "user_domain: _",
-                    leaf_index AS "leaf_index: _",
-                    identity_link_key AS "identity_link_key: _"
+                    leaf_index AS "leaf_index: _"
                 FROM group_membership
                 WHERE group_id = ? AND leaf_index = ?
                 AND status = 'merged'"#,
@@ -318,8 +304,7 @@ impl GroupMembership {
                     group_id AS "group_id: _",
                     user_uuid AS "user_uuid: _",
                     user_domain AS "user_domain: _",
-                    leaf_index AS "leaf_index: _",
-                    identity_link_key AS "identity_link_key: _"
+                    leaf_index AS "leaf_index: _"
                 FROM group_membership
                 WHERE group_id = ? AND leaf_index = ?
                 AND status LIKE 'staged_%'"#,
@@ -451,19 +436,17 @@ mod tests {
         StorableClientCredential { client_credential }
     }
 
-    /// Returns test group membership with a given parameters, fixed group id and random data.
+    /// Returns test group membership with a given parameter and fixed group id.
     fn test_group_membership(
         credential: &ClientCredential,
         index: LeafNodeIndex,
     ) -> GroupMembership {
         let group_id = GroupId::from_slice(&[0; 32]);
-        let secret: [u8; 32] = rand::thread_rng().r#gen();
 
         GroupMembership::new(
             credential.identity().clone(),
             group_id,
             index,
-            IdentityLinkKey::from(Secret::from(secret)),
             credential.fingerprint(),
         )
     }

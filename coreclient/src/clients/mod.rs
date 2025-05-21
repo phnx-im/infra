@@ -106,6 +106,10 @@ struct CoreUserInner {
 }
 
 impl CoreUser {
+    pub(crate) fn signing_key(&self) -> &ClientSigningKey {
+        &self.inner.key_store.signing_key
+    }
+
     /// Create a new user with the given `user_id`.
     ///
     /// If a user with this name already exists, this will overwrite that user.

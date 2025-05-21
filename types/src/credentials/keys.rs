@@ -27,12 +27,7 @@ use crate::{
     crypto::{RawKey, signatures::private_keys::Convertible},
 };
 
-use super::{
-    AsCredential, AsIntermediateCredential,
-    pseudonymous_credentials::{
-        IdentityLinkCtxt, PseudonymousCredential, PseudonymousCredentialTbs,
-    },
-};
+use super::{AsCredential, AsIntermediateCredential};
 
 use crate::crypto::{
     ear::{EarEncryptable, keys::IdentityLinkKey},
@@ -230,38 +225,38 @@ impl ClientSigningKey {
 
 pub type ClientVerifyingKey = VerifyingKey<ClientKeyType>;
 
-#[derive(Debug)]
-pub struct PseudonymousKeyType;
+// #[derive(Debug)]
+// pub struct PseudonymousKeyType;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PseudonymousCredentialSigningKey {
-    signing_key: SigningKey<PseudonymousKeyType>,
-    credential: PseudonymousCredential,
-}
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct PseudonymousCredentialSigningKey {
+//     signing_key: SigningKey<PseudonymousKeyType>,
+//     credential: PseudonymousCredential,
+// }
 
-impl Type<Sqlite> for PseudonymousCredentialSigningKey {
-    fn type_info() -> <Sqlite as Database>::TypeInfo {
-        <Vec<u8> as Type<Sqlite>>::type_info()
-    }
-}
+// impl Type<Sqlite> for PseudonymousCredentialSigningKey {
+//     fn type_info() -> <Sqlite as Database>::TypeInfo {
+//         <Vec<u8> as Type<Sqlite>>::type_info()
+//     }
+// }
 
-impl<'q> Encode<'q, Sqlite> for PseudonymousCredentialSigningKey {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-    ) -> Result<IsNull, BoxDynError> {
-        let bytes = PhnxCodec::to_vec(self)?;
-        Encode::<Sqlite>::encode(bytes, buf)
-    }
-}
+// impl<'q> Encode<'q, Sqlite> for PseudonymousCredentialSigningKey {
+//     fn encode_by_ref(
+//         &self,
+//         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+//     ) -> Result<IsNull, BoxDynError> {
+//         let bytes = PhnxCodec::to_vec(self)?;
+//         Encode::<Sqlite>::encode(bytes, buf)
+//     }
+// }
 
-impl<'r> Decode<'r, Sqlite> for PseudonymousCredentialSigningKey {
-    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        let value = PhnxCodec::from_slice(bytes)?;
-        Ok(value)
-    }
-}
+// impl<'r> Decode<'r, Sqlite> for PseudonymousCredentialSigningKey {
+//     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+//         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+//         let value = PhnxCodec::from_slice(bytes)?;
+//         Ok(value)
+//     }
+// }
 
 // 30 days lifetime in seconds
 pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
@@ -278,6 +273,7 @@ pub enum CredentialCreationError {
     EncryptionFailed(#[from] EncryptionError),
 }
 
+/*
 impl PseudonymousCredentialSigningKey {
     pub fn generate(
         client_signer: &ClientSigningKey,
@@ -338,6 +334,7 @@ impl Deref for PseudonymousCredentialSigningKey {
         &self.signing_key
     }
 }
+*/
 
 impl Signer for ClientSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {

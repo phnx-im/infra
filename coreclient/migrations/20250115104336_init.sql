@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS "groups" (
     group_id BLOB NOT NULL PRIMARY KEY,
-    leaf_signer BLOB NOT NULL,
     identity_link_wrapper_key BLOB NOT NULL,
     group_state_ear_key BLOB NOT NULL,
     pending_diff BLOB,
@@ -225,12 +224,6 @@ CREATE TABLE IF NOT EXISTS as_credentials (
         credential_type IN ('as_credential', 'as_intermediate_credential')
     ),
     credential BLOB NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS leaf_keys (
-    verifying_key BLOB NOT NULL PRIMARY KEY,
-    leaf_signing_key BLOB NOT NULL,
-    identity_link_key BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS store_notifications (

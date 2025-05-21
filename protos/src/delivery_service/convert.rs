@@ -19,9 +19,9 @@ use crate::{
 };
 
 use super::v1::{
-    AddUsersInfo, AssistedMessage, EncryptedIdentityLinkKey, EncryptedUserProfileKey,
-    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupInfo, GroupStateEarKey, LeafNodeIndex,
-    MlsMessage, QsReference, RatchetTree, SealedClientReference, SignaturePublicKey,
+    AddUsersInfo, AssistedMessage, EncryptedUserProfileKey, EncryptedWelcomeAttributionInfo,
+    GroupEpoch, GroupInfo, GroupStateEarKey, LeafNodeIndex, MlsMessage, QsReference, RatchetTree,
+    SealedClientReference, SignaturePublicKey,
 };
 
 impl From<identifiers::SealedClientReference> for SealedClientReference {
@@ -80,37 +80,6 @@ pub enum QsReferenceError {
 impl From<QsReferenceError> for Status {
     fn from(e: QsReferenceError) -> Self {
         Status::invalid_argument(format!("invalid QS reference: {e}"))
-    }
-}
-
-impl From<ear::keys::EncryptedIdentityLinkKey> for EncryptedIdentityLinkKey {
-    fn from(value: ear::keys::EncryptedIdentityLinkKey) -> Self {
-        Self {
-            ciphertext: Some(value.into()),
-        }
-    }
-}
-
-impl TryFrom<EncryptedIdentityLinkKey> for ear::keys::EncryptedIdentityLinkKey {
-    type Error = EncryptedIdentityLinkKeyError;
-
-    fn try_from(proto: EncryptedIdentityLinkKey) -> Result<Self, Self::Error> {
-        let ciphertext = proto.ciphertext.ok_or_missing_field(CiphertextField)?;
-        Ok(ciphertext.try_into()?)
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum EncryptedIdentityLinkKeyError {
-    #[error(transparent)]
-    Field(#[from] MissingFieldError<CiphertextField>),
-    #[error(transparent)]
-    Ciphertext(#[from] InvalidNonceLen),
-}
-
-impl From<EncryptedIdentityLinkKeyError> for Status {
-    fn from(e: EncryptedIdentityLinkKeyError) -> Self {
-        Status::invalid_argument(format!("invalid encrypted identity link key: {e}"))
     }
 }
 

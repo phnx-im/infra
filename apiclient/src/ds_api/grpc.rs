@@ -107,7 +107,6 @@ impl DsGrpcClient {
             qgid: Some(qgid.ref_into()),
             group_state_ear_key: Some(group_state_ear_key.ref_into()),
             ratchet_tree: Some(payload.ratchet_tree.try_ref_into()?),
-            encrypted_identity_link_key: Some(payload.encrypted_identity_link_key.into()),
             encrypted_user_profile_key: Some(payload.encrypted_user_profile_key.into()),
             creator_client_reference: Some(payload.creator_client_reference.into()),
             group_info: Some(payload.group_info.try_ref_into()?),
@@ -203,12 +202,6 @@ impl DsGrpcClient {
                 .ratchet_tree
                 .ok_or(DsRequestError::UnexpectedResponse)?
                 .try_ref_into()?,
-            encrypted_identity_link_keys: response
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| DsRequestError::UnexpectedResponse)?,
             encrypted_user_profile_keys: response
                 .encrypted_user_profile_keys
                 .into_iter()
@@ -309,12 +302,6 @@ impl DsGrpcClient {
                 .ratchet_tree
                 .ok_or(DsRequestError::UnexpectedResponse)?
                 .try_ref_into()?,
-            encrypted_identity_link_keys: response
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| DsRequestError::UnexpectedResponse)?,
             encrypted_user_profile_keys: response
                 .encrypted_user_profile_keys
                 .into_iter()
@@ -369,12 +356,6 @@ impl DsGrpcClient {
                 .ratchet_tree
                 .ok_or(DsRequestError::UnexpectedResponse)?
                 .try_ref_into()?,
-            encrypted_identity_link_keys: response
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| DsRequestError::UnexpectedResponse)?,
             encrypted_user_profile_keys: response
                 .encrypted_user_profile_keys
                 .into_iter()

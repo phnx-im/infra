@@ -7,7 +7,7 @@
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
 use crate::{
-    credentials::{ClientCredentialPayload, pseudonymous_credentials::PseudonymousCredentialTbs},
+    credentials::ClientCredentialPayload,
     crypto::{
         indexed_aead::keys::{Key, RandomlyGeneratable},
         kdf::{
@@ -77,14 +77,6 @@ pub struct IdentityLinkKeyType;
 pub type IdentityLinkKey = Key<IdentityLinkKeyType>;
 
 impl EarKey for IdentityLinkKey {}
-
-impl KdfDerivable<ConnectionKey, PseudonymousCredentialTbs, AEAD_KEY_SIZE> for IdentityLinkKey {
-    const LABEL: &'static str = "IdentityLinkKey";
-}
-
-impl KdfDerivable<ConnectionKey, ClientCredentialPayload, AEAD_KEY_SIZE> for IdentityLinkKey {
-    const LABEL: &'static str = "IdentityLinkKey";
-}
 
 // WelcomeAttributionInfo EAR key
 

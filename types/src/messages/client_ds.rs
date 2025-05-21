@@ -264,7 +264,6 @@ pub struct CredentialUpdate {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GroupOperationParamsAad {
-    pub new_encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub new_encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub credential_update_option: Option<CredentialUpdate>,
 }
@@ -275,9 +274,7 @@ pub struct UpdateParams {
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateParamsAad {
-    pub option_encrypted_identity_link_key: Option<EncryptedIdentityLinkKey>,
-}
+pub struct UpdateParamsAad {}
 
 #[derive(Debug)]
 pub struct JoinConnectionGroupParams {
@@ -287,7 +284,6 @@ pub struct JoinConnectionGroupParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct JoinConnectionGroupParamsAad {
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_friendship_package: EncryptedFriendshipPackage,
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
 }
@@ -324,7 +320,6 @@ pub struct UserProfileKeyUpdateParams {
 #[derive(TlsSerialize, TlsSize, Clone)]
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub ratchet_tree: RatchetTree,
     pub room_state: Vec<u8>,

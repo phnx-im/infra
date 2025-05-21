@@ -167,7 +167,7 @@ impl CoreUser {
                 // create a new one. We do leave the messages intact, though.
                 Conversation::delete(txn.as_mut(), notifier, conversation.id()).await?;
                 Group::delete_from_db(txn, &group_id).await?;
-                group.store(txn).await?;
+                group.store(txn.as_mut()).await?;
                 conversation.store(txn.as_mut(), notifier).await?;
 
                 Ok((
@@ -195,11 +195,7 @@ impl CoreUser {
                 user_profile_key: encrypted_profile_key,
             };
             api_client
-                .ds_user_profile_key_update(
-                    params,
-                    group.leaf_signer(),
-                    group.group_state_ear_key(),
-                )
+                .ds_user_profile_key_update(params, self.signing_key(), group.group_state_ear_key())
                 .await?;
         }
 

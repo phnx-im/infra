@@ -25,7 +25,7 @@ impl GroupDiff {
     pub(crate) fn stage(self) -> StagedGroupDiff {
         StagedGroupDiff {
             leaf_signer: self.leaf_signer,
-            identity_link_key: self.identity_link_key,
+            identity_link_wrapper_key: self.identity_link_key,
             group_state_ear_key: self.group_state_ear_key,
         }
     }
@@ -34,7 +34,7 @@ impl GroupDiff {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct StagedGroupDiff {
     pub(crate) leaf_signer: Option<ClientSigningKey>,
-    pub(crate) identity_link_key: Option<IdentityLinkWrapperKey>,
+    pub(crate) identity_link_wrapper_key: Option<IdentityLinkWrapperKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
 }
 

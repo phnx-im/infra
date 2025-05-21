@@ -6,6 +6,7 @@ use anyhow::ensure;
 use openmls::group::GroupId;
 use phnxtypes::{
     codec::PhnxCodec,
+    credentials::keys::ClientSigningKey,
     crypto::{
         ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable,
         indexed_aead::keys::UserProfileKey, signatures::signable::Signable,
@@ -84,7 +85,11 @@ impl CoreUser {
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages
         let conversation_id = local_partial_contact
-            .create_connection_group(&self.inner.api_clients, user_id.domain())
+            .create_connection_group(
+                &self.inner.api_clients,
+                user_id.domain(),
+                self.signing_key(),
+            )
             .await?;
 
         notifier.notify();
@@ -208,7 +213,7 @@ impl VerifiedConnectionPackagesWithGroupId {
             group_data,
         )?;
         group_membership.store(txn.as_mut()).await?;
-        group.store(txn).await?;
+        group.store(txn.as_mut()).await?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -312,6 +317,7 @@ impl LocalPartialContact {
         self,
         api_clients: &ApiClients,
         user_domain: &Fqdn,
+        signer: &ClientSigningKey,
     ) -> anyhow::Result<ConversationId> {
         let Self {
             group,
@@ -324,7 +330,7 @@ impl LocalPartialContact {
         info!("Creating connection group on DS");
         api_clients
             .default_client()?
-            .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())
+            .ds_create_group(params, signer, group.group_state_ear_key())
             .await?;
 
         // Encrypt the connection establishment package for each connection and send it off.

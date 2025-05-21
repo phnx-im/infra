@@ -10,9 +10,7 @@ use mls_assist::{
 
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
-use tls_codec::{
-    Serialize as TlsSerialize, TlsDeserialize, TlsDeserializeBytes, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use keys::{
     AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, CredentialCreationError,
@@ -43,7 +41,7 @@ mod private_mod {
 }
 
 pub mod keys;
-pub mod pseudonymous_credentials;
+//pub mod pseudonymous_credentials;
 
 use self::keys::ClientVerifyingKey;
 
@@ -533,17 +531,6 @@ impl ClientCredential {
 
     pub fn signature_scheme(&self) -> SignatureScheme {
         self.payload.csr.signature_scheme
-    }
-
-    pub fn derive_identity_link_key(
-        &self,
-        connection_key: &ConnectionKey,
-    ) -> Result<IdentityLinkKey, CredentialCreationError> {
-        // Derive the identity link key based on the TBS
-        IdentityLinkKey::derive(connection_key, &self.payload).map_err(|e| {
-            error!(%e, "Failed to derive identity link key");
-            CredentialCreationError::KeyDerivationFailed
-        })
     }
 
     pub fn into_parts(self) -> (ClientCredentialPayload, Signature) {

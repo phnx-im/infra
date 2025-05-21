@@ -7,10 +7,7 @@ use std::ops::Deref;
 use anyhow::{Result, anyhow};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
-    credentials::{
-        ClientCredential, CredentialFingerprint, VerifiableClientCredential,
-        pseudonymous_credentials::PseudonymousCredential,
-    },
+    credentials::{ClientCredential, CredentialFingerprint, VerifiableClientCredential},
     crypto::ear::{
         EarDecryptable,
         keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
@@ -73,7 +70,6 @@ pub(crate) struct GroupMembership {
     user_id: UserId,
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupId,
-    identity_link_key: IdentityLinkKey,
     leaf_index: LeafNodeIndex,
 }
 
@@ -82,7 +78,6 @@ impl GroupMembership {
         user_id: UserId,
         group_id: GroupId,
         leaf_index: LeafNodeIndex,
-        identity_link_key: IdentityLinkKey,
         client_credential_fingerprint: CredentialFingerprint,
     ) -> Self {
         Self {
@@ -90,7 +85,6 @@ impl GroupMembership {
             client_credential_fingerprint,
             group_id,
             leaf_index,
-            identity_link_key,
         }
     }
 
@@ -110,11 +104,6 @@ impl GroupMembership {
             .chain(highest_index.u32() + 1..)
             .map(LeafNodeIndex::new);
         Ok(free_indices)
-    }
-
-    /// Get the identity link key.
-    pub(super) fn identity_link_key(&self) -> &IdentityLinkKey {
-        &self.identity_link_key
     }
 
     /// Set the group member's leaf index. This can be required for resync
@@ -152,19 +141,15 @@ impl ClientAuthInfo {
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
-        encrypted_client_information: impl Iterator<
-            Item = ((LeafNodeIndex, Credential), EncryptedIdentityLinkKey),
-        >,
+        encrypted_client_information: impl Iterator<Item = (LeafNodeIndex, Credential)>,
     ) -> Result<Vec<Self>> {
         let mut client_information = Vec::new();
-        for ((leaf_index, credential), encrypted_identity_link_key) in encrypted_client_information
-        {
+        for (leaf_index, credential) in encrypted_client_information {
             let client_auth_info = Self::decrypt_and_verify(
                 connection,
                 api_clients,
                 group_id,
                 wrapper_key,
-                encrypted_identity_link_key,
                 leaf_index,
                 credential,
             )
@@ -179,14 +164,12 @@ impl ClientAuthInfo {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
-        identity_link_key: IdentityLinkKey,
         leaf_index: LeafNodeIndex,
         credential: Credential,
     ) -> Result<Self> {
-        let pseudonymous_credential = PseudonymousCredential::try_from(credential)?;
+        let pseudonymous_credential = ClientCredential::try_from(credential)?;
         // Verify the leaf credential
-        let credential_plaintext =
-            pseudonymous_credential.decrypt_and_verify(&identity_link_key)?;
+        let credential_plaintext = pseudonymous_credential.decrypt_and_verify()?;
         let client_credential = StorableClientCredential::verify(
             connection,
             api_clients,
@@ -197,7 +180,6 @@ impl ClientAuthInfo {
             client_credential.identity().clone(),
             group_id.clone(),
             leaf_index,
-            identity_link_key,
             client_credential.fingerprint(),
         );
         let client_auth_info = ClientAuthInfo {
@@ -213,17 +195,13 @@ impl ClientAuthInfo {
         api_clients: &ApiClients,
         group_id: &GroupId,
         wrapper_key: &IdentityLinkWrapperKey,
-        encrypted_identity_link_key: EncryptedIdentityLinkKey,
         leaf_index: LeafNodeIndex,
         credential: Credential,
     ) -> Result<Self> {
-        let identity_link_key =
-            IdentityLinkKey::decrypt(wrapper_key, &encrypted_identity_link_key)?;
         Self::decrypt_credential_and_verify(
             connection,
             api_clients,
             group_id,
-            identity_link_key,
             leaf_index,
             credential,
         )

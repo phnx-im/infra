@@ -5,6 +5,7 @@
 use anyhow::{Context, Result};
 use openmls::prelude::MlsMessageOut;
 use phnxtypes::{
+    credentials::keys::ClientSigningKey,
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::QualifiedGroupId,
     messages::{
@@ -24,7 +25,7 @@ use crate::{
         ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
     },
     groups::{Group, ProfileInfo},
-    key_stores::{indexed_keys::StorableIndexedKey, leaf_keys::LeafKeys},
+    key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
     utils::connection_ext::ConnectionExt,
 };
@@ -68,14 +69,14 @@ impl CoreUser {
 
                 // Prepare group
                 let own_user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
-                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, &own_user_profile_key)?;
+                let (aad, qgid) = self.prepare_group(&cep_tbs, &own_user_profile_key)?;
 
                 // Fetch external commit info
                 let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
 
                 // Join group
                 let (group, commit, group_info, mut member_profile_info) = self
-                    .join_group_externally(&mut connection, eci, &cep_tbs, leaf_keys, aad)
+                    .join_group_externally(&mut connection, eci, &cep_tbs, self.signing_key(), aad)
                     .await?;
 
                 // There should be only one user profile
@@ -170,19 +171,10 @@ impl CoreUser {
         &self,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
         own_user_profile_key: &UserProfileKey,
-    ) -> Result<(LeafKeys, InfraAadMessage, QualifiedGroupId)> {
+    ) -> Result<(InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
         // connection.
-
-        let leaf_keys = LeafKeys::generate(
-            &self.inner.key_store.signing_key,
-            &self.inner.key_store.connection_key,
-        )?;
-
-        let encrypted_identity_link_key = leaf_keys
-            .identity_link_key()
-            .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
 
         let encrypted_user_profile_key = own_user_profile_key.encrypt(
             &cep_tbs.connection_group_identity_link_wrapper_key,
@@ -200,14 +192,13 @@ impl CoreUser {
         let aad: InfraAadMessage =
             InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
                 encrypted_friendship_package,
-                encrypted_identity_link_key,
                 encrypted_user_profile_key,
             })
             .into();
         let qgid =
             QualifiedGroupId::tls_deserialize_exact_bytes(cep_tbs.connection_group_id.as_slice())?;
 
-        Ok((leaf_keys, aad, qgid))
+        Ok((aad, qgid))
     }
 
     async fn fetch_external_commit_info(
@@ -231,16 +222,14 @@ impl CoreUser {
         connection: &mut SqliteConnection,
         eci: ExternalCommitInfoIn,
         cep_tbs: &ConnectionEstablishmentPackageTbs,
-        leaf_keys: LeafKeys,
+        signer: &ClientSigningKey,
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
-        let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
         let (group, commit, group_info, member_profile_info) = Group::join_group_externally(
             &mut *connection,
             &self.inner.api_clients,
             eci,
-            leaf_signer,
-            identity_link_key,
+            signer,
             cep_tbs.connection_group_ear_key.clone(),
             cep_tbs.connection_group_identity_link_wrapper_key.clone(),
             aad,
@@ -281,7 +270,7 @@ impl CoreUser {
         conversation: &mut Conversation,
         contact: Contact,
     ) -> Result<()> {
-        group.store(txn).await?;
+        group.store(txn.as_mut()).await?;
         conversation.store(txn.as_mut(), notifier).await?;
 
         // TODO: For now, we automatically confirm conversations.

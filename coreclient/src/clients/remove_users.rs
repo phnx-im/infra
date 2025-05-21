@@ -24,12 +24,20 @@ impl CoreUser {
         // Phase 1: Load the group and conversation and prepare the commit.
         let remove = self
             .with_transaction(async |txn| {
-                RemoveUsersData::stage_remove(txn, conversation_id, target_users).await
+                RemoveUsersData::stage_remove(
+                    txn,
+                    self.signing_key(),
+                    conversation_id,
+                    target_users,
+                )
+                .await
             })
             .await?;
 
         // Phase 2: Send the commit to the DS
-        let removed = remove.ds_group_operation(&self.inner.api_clients).await?;
+        let removed = remove
+            .ds_group_operation(&self.inner.api_clients, self.signing_key())
+            .await?;
 
         // Phase 3: Merge the commit into the group
         self.with_transaction_and_notifier(async |txn, notifier| {
@@ -42,7 +50,8 @@ impl CoreUser {
 mod remove_users_flow {
     use anyhow::Context;
     use phnxtypes::{
-        identifiers::UserId, messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
+        credentials::keys::ClientSigningKey, identifiers::UserId,
+        messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
     };
     use sqlx::SqliteTransaction;
 
@@ -62,6 +71,7 @@ mod remove_users_flow {
     impl RemoveUsersData {
         pub(super) async fn stage_remove(
             txn: &mut SqliteTransaction<'_>,
+            signer: &ClientSigningKey,
             conversation_id: ConversationId,
             target_users: Vec<UserId>,
         ) -> anyhow::Result<Self> {
@@ -73,7 +83,9 @@ mod remove_users_flow {
                 .await?
                 .with_context(|| format!("No group found for group ID {group_id:?}"))?;
 
-            let params = group.stage_remove(txn.as_mut(), target_users).await?;
+            let params = group
+                .stage_remove(txn.as_mut(), signer, target_users)
+                .await?;
 
             Ok(Self {
                 conversation,
@@ -85,6 +97,7 @@ mod remove_users_flow {
         pub(super) async fn ds_group_operation(
             self,
             api_clients: &ApiClients,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<RemovedUsers> {
             let Self {
                 conversation,
@@ -94,7 +107,7 @@ mod remove_users_flow {
 
             let ds_timestamp = api_clients
                 .get(&conversation.owner_domain())?
-                .ds_group_operation(params, group.leaf_signer(), group.group_state_ear_key())
+                .ds_group_operation(params, signer, group.group_state_ear_key())
                 .await?;
             Ok(RemovedUsers {
                 group,

@@ -233,10 +233,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         })?;
 
         // encrypt and store group state
-        let encrypted_identity_link_key = payload
-            .encrypted_identity_link_key
-            .ok_or_missing_field("encrypted_identity_link_key")?
-            .try_into()?;
         let encrypted_user_profile_key = payload
             .encrypted_user_profile_key
             .ok_or_missing_field("encrypted_user_profile_key")?
@@ -249,7 +245,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         let group_state = DsGroupState::new(
             provider,
             group,
-            encrypted_identity_link_key,
             encrypted_user_profile_key,
             creator_client_reference,
             room_state,
@@ -307,11 +302,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .ok_or(NoWelcomeInfoFound)?;
         Ok(Response::new(WelcomeInfoResponse {
             ratchet_tree: Some(ratchet_tree.try_ref_into().invalid_tls("ratchet_tree")?),
-            encrypted_identity_link_keys: group_state
-                .encrypted_identity_link_keys()
-                .into_iter()
-                .map(From::from)
-                .collect(),
             encrypted_user_profile_keys: group_state
                 .encrypted_user_profile_keys()
                 .into_iter()
@@ -349,11 +339,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                     .try_ref_into()
                     .invalid_tls("ratchet_tree")?,
             ),
-            encrypted_identity_link_keys: commit_info
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(From::from)
-                .collect(),
             encrypted_user_profile_keys: commit_info
                 .encrypted_user_profile_keys
                 .into_iter()
@@ -392,11 +377,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         Ok(Response::new(ConnectionGroupInfoResponse {
             group_info: Some(group_info),
             ratchet_tree: Some(ratchet_tree),
-            encrypted_identity_link_keys: commit_info
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(From::from)
-                .collect(),
             encrypted_user_profile_keys: commit_info
                 .encrypted_user_profile_keys
                 .into_iter()

@@ -10,7 +10,7 @@ use mls_assist::{
 };
 use phnxtypes::{
     LibraryError,
-    credentials::keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
+    credentials::keys::ClientSigningKey,
     crypto::ear::keys::GroupStateEarKey,
     identifiers::QsReference,
     messages::{

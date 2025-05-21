@@ -109,7 +109,6 @@ impl DsGroupState {
 
         let member_profile = MemberProfile {
             leaf_index: sender,
-            encrypted_identity_link_key: aad_payload.encrypted_identity_link_key,
             client_queue_config: params.qs_client_reference,
             activity_time: TimeStamp::now(),
             activity_epoch: self.group().epoch(),
