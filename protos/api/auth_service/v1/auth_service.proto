@@ -395,7 +395,7 @@ message DeleteHandleRequest {
 }
 
 message DeleteHandlePayload {
-  UserHandle handle = 1;
+  UserHandleHash hash = 1;
 }
 
 message DeleteHandleResponse {}
@@ -408,7 +408,7 @@ message RefreshHandleRequest {
 }
 
 message RefreshHandlePayload {
-  UserHandle handle = 1;
+  UserHandleHash hash = 1;
 }
 
 message RefreshHandleResponse {}
