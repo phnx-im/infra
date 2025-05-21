@@ -59,8 +59,6 @@ impl DsGroupState {
             Duration::days(USER_EXPIRATION_DAYS),
         )?;
 
-        // We update the client profile only if the update has changed the sender's credential.
-
         Ok(processed_assisted_message_plus.serialized_mls_message)
     }
 }
