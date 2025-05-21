@@ -202,7 +202,7 @@ impl<Source> SigningKey<Source> {
 #[derive(Error, Debug)]
 pub enum SignatureVerificationError {
     /// Could not verify this signature with the given payload.
-    #[error("Could not verify this mac with the given payload.")]
+    #[error("Could not verify this signature with the given payload.")]
     VerificationFailure,
     /// Unrecoverable implementation error
     #[error(transparent)]

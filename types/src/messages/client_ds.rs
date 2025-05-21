@@ -9,11 +9,8 @@
 
 use mls_assist::{
     messages::{AssistedMessageIn, AssistedWelcome, SerializedMlsMessage},
-    openmls::{
-        prelude::{
-            GroupEpoch, GroupId, LeafNodeIndex, MlsMessageIn, RatchetTreeIn, SignaturePublicKey,
-        },
-        treesync::RatchetTree,
+    openmls::prelude::{
+        GroupEpoch, GroupId, LeafNodeIndex, MlsMessageIn, RatchetTreeIn, SignaturePublicKey,
     },
     openmls_traits::types::HpkeCiphertext,
 };
@@ -312,12 +309,9 @@ pub struct UserProfileKeyUpdateParams {
     pub user_profile_key: EncryptedUserProfileKey,
 }
 
-#[derive(TlsSerialize, TlsSize, Clone)]
+#[derive(TlsSerialize, TlsSize, Clone, TlsDeserializeBytes)]
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub ratchet_tree: RatchetTree,
-    pub room_state: Vec<u8>,
 }
 
 impl GenericSerializable for DsJoinerInformation {
@@ -346,18 +340,9 @@ impl From<HpkeCiphertext> for EncryptedDsJoinerInformation {
 }
 
 impl HpkeEncryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformation {}
+impl HpkeDecryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformation {}
 
-#[derive(TlsDeserializeBytes, TlsSize, Clone)]
-pub struct DsJoinerInformationIn {
-    pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub ratchet_tree: RatchetTreeIn,
-    pub room_state: Vec<u8>,
-}
-
-impl HpkeDecryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformationIn {}
-
-impl GenericDeserializable for DsJoinerInformationIn {
+impl GenericDeserializable for DsJoinerInformation {
     type Error = tls_codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {

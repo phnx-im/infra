@@ -124,6 +124,7 @@ message GroupEpoch {
 message WelcomeInfoResponse {
   RatchetTree ratchet_tree = 1;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 3;
+  bytes room_state = 4;
 }
 
 // external commit info

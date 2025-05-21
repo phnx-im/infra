@@ -34,15 +34,16 @@ use phnxtypes::{
         indexed_aead::keys::UserProfileKey,
         signatures::signable::{Signable, Verifiable},
     },
-    identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, UserId},
+    identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedGroupId, UserId},
     messages::{
         client_ds::{
-            DsJoinerInformationIn, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
+            DsJoinerInformation, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
             UpdateParamsAad, WelcomeBundle,
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
             GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
+            WelcomeInfoIn,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -70,7 +71,7 @@ use openmls::{
         ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, StagedCommit,
         UnknownExtension, tls_codec::Serialize as TlsSerializeTrait,
     },
-    treesync::{LeafNodeParameters, RatchetTree},
+    treesync::RatchetTree,
 };
 
 use self::{
@@ -190,10 +191,6 @@ impl Group {
 
     fn default_mls_group_join_config() -> MlsGroupJoinConfig {
         MlsGroupJoinConfig::builder()
-            // This is turned on for now, as it makes OpenMLS return GroupInfos
-            // with every commit. At some point, there should be a dedicated
-            // config flag for this.
-            .use_ratchet_tree_extension(true)
             .wire_format_policy(PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
             .build()
     }
@@ -226,11 +223,7 @@ impl Group {
 
         let mls_group = MlsGroup::builder()
             .with_group_id(group_id.clone())
-            // This is turned on for now, as it makes OpenMLS return GroupInfos
-            // with every commit. At some point, there should be a dedicated
-            // config flag for this.
             .with_capabilities(leaf_node_capabilities)
-            .use_ratchet_tree_extension(true)
             .with_group_context_extensions(gc_extensions)?
             .with_wire_format_policy(PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
             .build(provider, signer, credential_with_key)
@@ -276,16 +269,16 @@ impl Group {
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         txn: &mut SqliteTransaction<'_>,
         api_clients: &ApiClients,
+        signer: &ClientSigningKey,
     ) -> Result<(Self, Vec<ProfileInfo>)> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
         let mls_group_config = Self::default_mls_group_join_config();
 
-        // Phase 1: Fetch the right KeyPackageBundle from storage s.t. we can
-        // decrypt the encrypted credentials
-        let (mls_group, joiner_info, welcome_attribution_info) = {
+        let (processed_welcome, joiner_info) = {
+            // Phase 1: Fetch the right KeyPackageBundle from storage
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());
-            let key_package_bundle: KeyPackageBundle = welcome_bundle
+            let kpb: KeyPackageBundle = welcome_bundle
                 .welcome
                 .welcome
                 .secrets()
@@ -299,14 +292,15 @@ impl Group {
                 })
                 .ok_or(GroupOperationError::MissingKeyPackage)?;
 
-            let private_key = key_package_bundle.init_private_key();
+            // Phase 2: Process the welcome message
+            let private_key = kpb.init_private_key();
             let info = &[];
             let aad = &[];
             let decryption_key = JoinerInfoDecryptionKey::from((
                 private_key.clone(),
-                key_package_bundle.key_package().hpke_init_key().clone(),
+                kpb.key_package().hpke_init_key().clone(),
             ));
-            let joiner_info = DsJoinerInformationIn::decrypt(
+            let joiner_info = DsJoinerInformation::decrypt(
                 welcome_bundle.encrypted_joiner_info,
                 &decryption_key,
                 info,
@@ -318,7 +312,8 @@ impl Group {
                 &mls_group_config,
                 welcome_bundle.welcome.welcome,
             )?;
-            // Check if there is already a group with the same ID.
+
+            // Phase 3: Check if there is already a group with the same ID.
             let group_id = processed_welcome.unverified_group_info().group_id().clone();
             if let Some(group) = Self::load(txn.as_mut(), &group_id).await? {
                 // If the group is active, we can't join it.
@@ -328,9 +323,34 @@ impl Group {
                 // Otherwise, we delete the old group.
                 Self::delete_from_db(txn, &group_id).await?;
             }
+            (processed_welcome, joiner_info)
+        };
 
+        // Phase 4: Fetch the welcome info from the server
+        let group_id = processed_welcome.unverified_group_info().group_id();
+        let epoch = processed_welcome.unverified_group_info().epoch();
+        let qgid = QualifiedGroupId::try_from(group_id)?;
+        let welcome_info = api_clients
+            .get(qgid.owning_domain())?
+            .ds_welcome_info(
+                group_id.clone(),
+                epoch,
+                &joiner_info.group_state_ear_key,
+                signer,
+            )
+            .await?;
+
+        let WelcomeInfoIn {
+            ratchet_tree,
+            encrypted_user_profile_keys,
+            room_state,
+        } = welcome_info;
+
+        let (mls_group, joiner_info, welcome_attribution_info) = {
+            // Phase 5: Finish processing the welcome message
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());
-            let staged_welcome = processed_welcome.into_staged_welcome(&provider, None)?;
+            let staged_welcome =
+                processed_welcome.into_staged_welcome(&provider, Some(ratchet_tree))?;
 
             let mls_group = staged_welcome.into_group(&provider)?;
 
@@ -357,7 +377,7 @@ impl Group {
 
         let client_information = mls_group.members().map(|m| (m.index, m.credential));
 
-        // Phase 2: Decrypt and verify the client credentials. This can involve
+        // Phase 6: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
         let client_information = ClientAuthInfo::decrypt_and_verify_all(
             txn,
@@ -367,15 +387,14 @@ impl Group {
         )
         .await?;
 
-        // Phase 3: Decrypt and verify the infra credentials.
+        // Phase 7: Decrypt and verify the infra credentials.
         {
             for client_auth_info in &client_information {
                 client_auth_info.store(txn).await?;
             }
         }
 
-        let member_profile_info = joiner_info
-            .encrypted_user_profile_keys
+        let member_profile_info = encrypted_user_profile_keys
             .into_iter()
             .zip(
                 client_information
@@ -401,7 +420,7 @@ impl Group {
             identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             pending_diff: None,
-            room_state: serde_json::from_slice(&joiner_info.room_state).unwrap(),
+            room_state: serde_json::from_slice(&room_state).unwrap(),
         };
 
         Ok((group, member_profile_info))
@@ -436,9 +455,9 @@ impl Group {
 
         // Let's create the group first so that we can access the GroupId.
         // Phase 1: Create and store the group
-        let (mls_group, commit, group_info_option) = {
+        let (mls_group, commit, group_info) = {
             let provider = PhnxOpenMlsProvider::new(&mut *connection);
-            let (mut mls_group, commit, group_info_option) = MlsGroup::join_by_external_commit(
+            let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
                 &provider,
                 signer,
                 Some(ratchet_tree_in),
@@ -450,11 +469,11 @@ impl Group {
                 credential_with_key,
             )?;
             mls_group.merge_pending_commit(&provider)?;
-            (mls_group, commit, group_info_option)
+            let group_info = mls_group.export_group_info(&provider, signer, true)?;
+            (mls_group, commit, group_info)
         };
 
-        let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
-        let group_id = group_info.group_context().group_id();
+        let group_id = mls_group.group_id();
 
         let encrypted_client_information = mls_group.members().map(|m| (m.index, m.credential));
 
@@ -489,7 +508,7 @@ impl Group {
         let own_index = mls_group.own_leaf_index().usize();
         let own_group_membership = GroupMembership::new(
             own_client_credential.identity().clone(),
-            group_info.group_context().group_id().clone(),
+            mls_group.group_id().clone(),
             LeafNodeIndex::new(own_index as u32),
             own_client_credential.fingerprint(),
         );
@@ -515,7 +534,7 @@ impl Group {
             room_state: serde_json::from_slice(&room_state).unwrap(),
         };
 
-        Ok((group, commit, group_info.into(), member_profile_info))
+        Ok((group, commit, group_info, member_profile_info))
     }
 
     /// Invite the given list of contacts to join the group.
@@ -559,17 +578,26 @@ impl Group {
             .into();
 
         // Set Aad to contain the encrypted client credentials.
-        let (mls_commit, welcome, group_info_option) = {
+        let (mls_commit, welcome_option, group_info_option) = {
             let provider = PhnxOpenMlsProvider::new(&mut *connection);
             self.mls_group
                 .set_aad(aad_message.tls_serialize_detached()?);
             self.mls_group
-                .add_members(&provider, signer, key_packages.as_slice())?
+                .commit_builder()
+                .force_self_update(true)
+                .create_group_info(true)
+                .propose_adds(key_packages)
+                .load_psks(provider.storage())?
+                .build(provider.rand(), provider.crypto(), signer, |_| true)?
+                .stage_commit(&provider)?
+                .into_contents()
         };
 
-        // Groups should always have the flag set that makes them return groupinfos with every Commit.
-        // Or at least with Add commits for now.
         let group_info = group_info_option.ok_or(anyhow!("Commit didn't return a group info"))?;
+        let welcome = MlsMessageOut::from_welcome(
+            welcome_option.ok_or(anyhow!("Commit didn't return a welcome"))?,
+            ProtocolVersion::default(),
+        );
         let commit = AssistedMessageOut::new(mls_commit, Some(group_info.into()))?;
 
         let encrypted_welcome_attribution_infos = wai_keys
@@ -669,9 +697,18 @@ impl Group {
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let provider = PhnxOpenMlsProvider::new(&mut *connection);
-        let (mls_message, _welcome_option, group_info_option) =
-            self.mls_group
-                .remove_members(&provider, signer, remove_indices.as_slice())?;
+
+        let (mls_message, _welcome_option, group_info_option) = self
+            .mls_group
+            .commit_builder()
+            .force_self_update(true)
+            .create_group_info(true)
+            .propose_removals(remove_indices)
+            .load_psks(provider.storage())?
+            .build(provider.rand(), provider.crypto(), signer, |_| true)?
+            .stage_commit(&provider)?
+            .into_contents();
+
         // There shouldn't be a welcome
         debug_assert!(_welcome_option.is_none());
         let group_info = group_info_option.ok_or(anyhow!("No group info after commit"))?;
@@ -720,9 +757,18 @@ impl Group {
         let aad_payload = InfraAadPayload::DeleteGroup;
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
-        let (mls_message, _welcome_option, group_info_option) =
-            self.mls_group
-                .remove_members(provider, signer, remove_indices.as_slice())?;
+
+        let (mls_message, _welcome_option, group_info_option) = self
+            .mls_group
+            .commit_builder()
+            .force_self_update(true)
+            .create_group_info(true)
+            .propose_removals(remove_indices)
+            .load_psks(provider.storage())?
+            .build(provider.rand(), provider.crypto(), signer, |_| true)?
+            .stage_commit(provider)?
+            .into_contents();
+
         debug_assert!(_welcome_option.is_none());
         let group_info =
             group_info_option.ok_or(anyhow!("No group info after commit operation"))?;
@@ -912,14 +958,20 @@ impl Group {
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());
-            let (mls_message, _welcome_option, group_info) = self
+
+            let (mls_message, _welcome_option, group_info_option) = self
                 .mls_group
-                .self_update(&provider, signer, LeafNodeParameters::default())
-                .map_err(|e| anyhow!("Error performing group update: {:?}", e))?
-                .into_messages();
+                .commit_builder()
+                .force_self_update(true)
+                .create_group_info(true)
+                .load_psks(provider.storage())?
+                .build(provider.rand(), provider.crypto(), signer, |_| true)?
+                .stage_commit(&provider)?
+                .into_contents();
+
             (
                 mls_message,
-                group_info.ok_or_else(|| anyhow!("No group info after commit"))?,
+                group_info_option.ok_or_else(|| anyhow!("No group info after commit"))?,
             )
         };
 
@@ -936,7 +988,7 @@ impl Group {
             )
             .await?;
         }
-        let commit = AssistedMessageOut::new(mls_message, Some(group_info))?;
+        let commit = AssistedMessageOut::new(mls_message, Some(group_info.into()))?;
         Ok(UpdateParamsOut { commit })
     }
 

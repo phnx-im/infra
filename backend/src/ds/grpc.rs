@@ -307,6 +307,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
+            room_state: serde_json::to_vec(&group_state.room_state).unwrap(),
         }))
     }
 

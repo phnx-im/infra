@@ -125,6 +125,7 @@ impl CoreUser {
                     &self.inner.key_store.wai_ear_key,
                     txn,
                     &self.inner.api_clients,
+                    self.signing_key(),
                 )
                 .await?;
                 let group_id = group.group_id().clone();
