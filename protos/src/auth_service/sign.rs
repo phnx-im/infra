@@ -8,9 +8,10 @@ use phnxtypes::crypto::signatures::signable::{
 use prost::Message;
 
 use super::v1::{
-    DeleteUserPayload, DeleteUserRequest, InitListenPayload, InitListenRequest,
-    MergeUserProfilePayload, MergeUserProfileRequest, PublishConnectionPackagesPayload,
-    PublishConnectionPackagesRequest, StageUserProfilePayload, StageUserProfileRequest,
+    DeleteUserPayload, DeleteUserRequest, InitListenPayload, InitListenRequest, IssueTokensPayload,
+    IssueTokensRequest, MergeUserProfilePayload, MergeUserProfileRequest,
+    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest, StageUserProfilePayload,
+    StageUserProfileRequest,
 };
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
@@ -284,6 +285,58 @@ impl Verifiable for InitListenRequest {
 
     fn label(&self) -> &str {
         INIT_LISTEN_REQUEST_LABEL
+    }
+}
+
+const ISSUE_TOKENS_PAYLOAD_LABEL: &str = "IssueTokensPayload";
+
+impl SignedStruct<IssueTokensPayload> for IssueTokensRequest {
+    fn from_payload(payload: IssueTokensPayload, signature: signable::Signature) -> Self {
+        IssueTokensRequest {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for IssueTokensPayload {
+    type SignedOutput = IssueTokensRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        ISSUE_TOKENS_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<IssueTokensRequest> for IssueTokensPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: IssueTokensRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for IssueTokensRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        ISSUE_TOKENS_PAYLOAD_LABEL
     }
 }
 
