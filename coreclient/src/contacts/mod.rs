@@ -19,9 +19,10 @@ use sqlx::SqliteConnection;
 use crate::{
     ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
+    groups::client_auth_info::StorableClientCredential,
     key_stores::indexed_keys::StorableIndexedKey,
 };
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 
 pub(crate) mod persistence;
 
@@ -81,6 +82,25 @@ impl Contact {
         // Verify the KeyPackage
         let verified_key_package =
             key_package_in.validate(&RustCrypto::default(), ProtocolVersion::default())?;
+        let verifiable_client_credential = verified_key_package
+            .leaf_node()
+            .credential()
+            .clone()
+            .try_into()?;
+        // Verify the client credential
+        let incoming_client_credential =
+            StorableClientCredential::verify(connection, api_clients, verifiable_client_credential)
+                .await?;
+        // Check that the client credential is the same as the one we have on file.
+        let current_client_credential = StorableClientCredential::load_by_user_id(
+            &mut *connection,
+            incoming_client_credential.identity(),
+        )
+        .await?
+        .context("Client credential not found")?;
+        if current_client_credential.fingerprint() != incoming_client_credential.fingerprint() {
+            bail!("Client credential does not match");
+        }
 
         let user_profile_key =
             UserProfileKey::load(&mut *connection, &self.user_profile_key_index).await?;
