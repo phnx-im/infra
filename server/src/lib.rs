@@ -100,6 +100,7 @@ pub async fn run<
     let health_service = configure_health_service::<Qc, Np>().await;
 
     tonic::transport::Server::builder()
+        .http2_keepalive_interval(Some(Duration::from_secs(30)))
         .layer(InterceptorLayer::new(ConnectInfoInterceptor))
         .layer(
             TraceLayer::new_for_grpc()
