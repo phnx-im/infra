@@ -106,10 +106,6 @@ struct CoreUserInner {
 }
 
 impl CoreUser {
-    pub(crate) fn signing_key(&self) -> &ClientSigningKey {
-        &self.inner.key_store.signing_key
-    }
-
     /// Create a new user with the given `user_id`.
     ///
     /// If a user with this name already exists, this will overwrite that user.
@@ -243,6 +239,10 @@ impl CoreUser {
 
     pub(crate) fn pool(&self) -> &SqlitePool {
         &self.inner.pool
+    }
+
+    pub(crate) fn signing_key(&self) -> &ClientSigningKey {
+        &self.inner.key_store.signing_key
     }
 
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
