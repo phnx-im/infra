@@ -16,7 +16,7 @@ pub(crate) use error::*;
 
 use anyhow::{Result, anyhow, bail};
 use mimi_content::MimiContent;
-use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
+use mimi_room_policy::{RoomPolicy, VerifiedRoomState};
 use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
@@ -128,7 +128,7 @@ pub(crate) struct PartialCreateGroupParams {
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
     encrypted_identity_link_key: EncryptedIdentityLinkKey,
-    room_state: VerifiedRoomState,
+    pub room_state: VerifiedRoomState<UserId>,
 }
 
 impl PartialCreateGroupParams {
@@ -186,7 +186,7 @@ pub(crate) struct Group {
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     mls_group: MlsGroup,
-    pub room_state: VerifiedRoomState,
+    pub room_state: VerifiedRoomState<UserId>,
     pending_diff: Option<StagedGroupDiff>, // Currently unused, but we're keeping it for later
 }
 
@@ -244,7 +244,8 @@ impl Group {
             .build(provider, &leaf_signer, credential_with_key)
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
 
-        let room_state = VerifiedRoomState::new(&0, RoomPolicy::default_private()).unwrap();
+        let user_id = signer.credential().identity();
+        let room_state = VerifiedRoomState::new(user_id, RoomPolicy::default_private()).unwrap();
 
         let encrypted_identity_link_key = identity_link_key.encrypt(&identity_link_wrapper_key)?;
         let params = PartialCreateGroupParams {
@@ -256,7 +257,7 @@ impl Group {
         };
 
         let group_membership = GroupMembership::new(
-            signer.credential().identity().clone(),
+            user_id.clone(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
             identity_link_key,
@@ -661,15 +662,6 @@ impl Group {
                 .into_iter()
                 .zip(identity_link_keys.into_iter()),
         ) {
-            // Room policy check
-            self.room_state.apply_regular_proposals(
-                &self.mls_group.own_leaf_index().u32(),
-                &[MimiProposal::ChangeRole {
-                    target: leaf_index.u32(),
-                    role: RoleIndex::Regular,
-                }],
-            )?;
-
             let fingerprint = client_credential.fingerprint();
             let group_membership = GroupMembership::new(
                 client_credential.identity().clone(),
@@ -702,17 +694,6 @@ impl Group {
     ) -> Result<GroupOperationParamsOut> {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
-
-        // Room policy checks
-        for client in &remove_indices {
-            self.room_state.apply_regular_proposals(
-                &self.mls_group.own_leaf_index().u32(),
-                &[MimiProposal::ChangeRole {
-                    target: client.u32(),
-                    role: RoleIndex::Outsider,
-                }],
-            )?;
-        }
 
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],

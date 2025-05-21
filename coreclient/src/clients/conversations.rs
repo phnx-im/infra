@@ -7,6 +7,7 @@ use create_conversation_flow::IntitialConversationData;
 use delete_conversation_flow::DeleteConversationData;
 use leave_conversation_flow::LeaveConversationData;
 use mimi_room_policy::VerifiedRoomState;
+use phnxtypes::identifiers::UserId;
 
 use crate::{
     ConversationMessageId,
@@ -101,7 +102,7 @@ impl CoreUser {
                 // Phase 1: Load the conversation and the group
                 LeaveConversationData::load(txn, conversation_id)
                     .await?
-                    .stage_leave_group(txn)
+                    .stage_leave_group(self.user_id(), txn)
                     .await
             })
             .await?;
@@ -195,7 +196,7 @@ impl CoreUser {
     pub async fn load_room_state(
         &self,
         conversation_id: &ConversationId,
-    ) -> Result<(u32, VerifiedRoomState)> {
+    ) -> Result<(u32, VerifiedRoomState<UserId>)> {
         if let Some(conversation) = self.conversation(conversation_id).await {
             let mut connection = self.pool().acquire().await?;
             if let Some(group) = Group::load(&mut connection, conversation.group_id()).await? {
@@ -554,7 +555,7 @@ mod delete_conversation_flow {
 mod leave_conversation_flow {
     use anyhow::Context;
     use mimi_room_policy::{MimiProposal, RoleIndex};
-    use phnxtypes::messages::client_ds_out::SelfRemoveParamsOut;
+    use phnxtypes::{identifiers::UserId, messages::client_ds_out::SelfRemoveParamsOut};
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
 
     use crate::{Conversation, ConversationId, groups::Group};
@@ -586,6 +587,7 @@ mod leave_conversation_flow {
 
         pub(super) async fn stage_leave_group(
             self,
+            sender_id: &UserId,
             connection: &mut SqliteConnection,
         ) -> anyhow::Result<LeaveConversationData<SelfRemoveParamsOut>> {
             let Self {
@@ -595,9 +597,9 @@ mod leave_conversation_flow {
             } = self;
 
             group.room_state.apply_regular_proposals(
-                &group.own_leaf_index(),
+                &sender_id,
                 &[MimiProposal::ChangeRole {
-                    target: group.own_leaf_index(),
+                    target: sender_id.clone(),
                     role: RoleIndex::Outsider,
                 }],
             )?;

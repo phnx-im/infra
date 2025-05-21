@@ -24,7 +24,7 @@ use phnxtypes::{
         },
         errors::{DecryptionError, EncryptionError},
     },
-    identifiers::{QsReference, SealedClientReference},
+    identifiers::{QsReference, SealedClientReference, UserId},
     messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
 };
@@ -56,7 +56,7 @@ pub(super) struct MemberProfile {
 /// TODO: Past group states are now included in mls-assist. However, we might
 /// have to store client credentials externally.
 pub(crate) struct DsGroupState {
-    pub(super) room_state: VerifiedRoomState,
+    pub(super) room_state: VerifiedRoomState<UserId>,
     pub(super) group: Group,
     pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
@@ -87,7 +87,7 @@ impl DsGroupState {
         creator_encrypted_identity_link_key: EncryptedIdentityLinkKey,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
-        room_state: VerifiedRoomState,
+        room_state: VerifiedRoomState<UserId>,
     ) -> Self {
         let creator_client_profile = MemberProfile {
             encrypted_identity_link_key: creator_encrypted_identity_link_key,
@@ -266,7 +266,7 @@ impl StorableDsGroupData {
 pub(crate) struct SerializableDsGroupState {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
-    room_state: VerifiedRoomState,
+    room_state: VerifiedRoomState<UserId>,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 

@@ -144,12 +144,11 @@ impl DsGroupState {
 
             let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
 
-            let mut slots = self.free_indices().await;
-            for _user in &add_users_state.added_users {
+            for user in &add_users_state.added_users {
                 if let Err(e) = self.room_state.apply_regular_proposals(
                     &sender_index.leaf_index().u32(),
                     &[MimiProposal::ChangeRole {
-                        target: slots.next().unwrap().u32(),
+                        target: user.,
                         role: RoleIndex::Regular,
                     }],
                 ) {

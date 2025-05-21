@@ -24,7 +24,8 @@ impl CoreUser {
         // Phase 1: Load the group and conversation and prepare the commit.
         let remove = self
             .with_transaction(async |txn| {
-                RemoveUsersData::stage_remove(txn, conversation_id, target_users).await
+                RemoveUsersData::stage_remove(txn, conversation_id, self.user_id(), target_users)
+                    .await
             })
             .await?;
 
@@ -41,6 +42,7 @@ impl CoreUser {
 
 mod remove_users_flow {
     use anyhow::Context;
+    use mimi_room_policy::{MimiProposal, RoleIndex};
     use phnxtypes::{
         identifiers::UserId, messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
     };
@@ -63,6 +65,7 @@ mod remove_users_flow {
         pub(super) async fn stage_remove(
             txn: &mut SqliteTransaction<'_>,
             conversation_id: ConversationId,
+            sender_id: &UserId,
             target_users: Vec<UserId>,
         ) -> anyhow::Result<Self> {
             let conversation = Conversation::load(txn.as_mut(), &conversation_id)
@@ -72,6 +75,17 @@ mod remove_users_flow {
             let mut group = Group::load_clean(txn, group_id)
                 .await?
                 .with_context(|| format!("No group found for group ID {group_id:?}"))?;
+
+            // Room policy checks
+            for target in &target_users {
+                group.room_state.apply_regular_proposals(
+                    sender_id,
+                    &[MimiProposal::ChangeRole {
+                        target: target.clone(),
+                        role: RoleIndex::Outsider,
+                    }],
+                )?;
+            }
 
             let params = group.stage_remove(txn.as_mut(), target_users).await?;
 

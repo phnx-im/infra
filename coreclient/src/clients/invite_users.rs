@@ -35,7 +35,7 @@ impl CoreUser {
 
         // Phase 3: Load the group and create the commit to add the new members
         let invite = invite_prepared
-            .stage_invite(&mut connection, &self.inner.key_store)
+            .stage_invite(self.user_id(), &mut connection, &self.inner.key_store)
             .await?;
 
         // Phase 4: Send the commit to the DS
@@ -61,6 +61,7 @@ impl CoreUser {
 
 mod invite_users_flow {
     use anyhow::Context;
+    use mimi_room_policy::{MimiProposal, RoleIndex};
     use openmls::group::GroupId;
     use phnxtypes::{
         credentials::ClientCredential,
@@ -83,6 +84,7 @@ mod invite_users_flow {
 
     pub(super) struct InviteUsersData<S> {
         group_id: GroupId,
+        invited_users: Vec<UserId>,
         owner_domain: Fqdn,
         contact_wai_keys: Vec<WelcomeAttributionInfoEarKey>,
         client_credentials: Vec<ClientCredential>,
@@ -122,6 +124,7 @@ mod invite_users_flow {
 
             Ok(InviteUsersData {
                 group_id: conversation.group_id().clone(),
+                invited_users: invited_users.to_vec(),
                 owner_domain: conversation.owner_domain(),
                 contact_wai_keys,
                 client_credentials,
@@ -138,6 +141,7 @@ mod invite_users_flow {
         ) -> anyhow::Result<InviteUsersData<Vec<ContactAddInfos>>> {
             let Self {
                 group_id,
+                invited_users,
                 owner_domain,
                 contact_wai_keys,
                 client_credentials,
@@ -152,6 +156,7 @@ mod invite_users_flow {
 
             Ok(InviteUsersData {
                 group_id,
+                invited_users,
                 owner_domain,
                 contact_wai_keys,
                 client_credentials,
@@ -163,11 +168,13 @@ mod invite_users_flow {
     impl InviteUsersData<Vec<ContactAddInfos>> {
         pub(super) async fn stage_invite(
             self,
+            sender_id: &UserId,
             connection: &mut SqliteConnection,
             key_store: &MemoryUserKeyStore,
         ) -> anyhow::Result<InviteUsersParams> {
             let Self {
                 group_id,
+                invited_users,
                 owner_domain,
                 contact_wai_keys,
                 client_credentials,
@@ -179,6 +186,17 @@ mod invite_users_flow {
                     let mut group = Group::load_clean(txn, &group_id)
                         .await?
                         .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+
+                    // Room policy check
+                    for target in &invited_users {
+                        group.room_state.apply_regular_proposals(
+                            sender_id,
+                            &[MimiProposal::ChangeRole {
+                                target: target.clone(),
+                                role: RoleIndex::Regular,
+                            }],
+                        )?;
+                    }
 
                     // Adds new member and stages commit
                     let params = group
