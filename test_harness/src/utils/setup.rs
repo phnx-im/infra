@@ -705,7 +705,11 @@ impl TestBackend {
             let new_conversation_position = invitee_conversations_after
                 .iter()
                 .position(|c| c.id() == conversation_id)
-                .unwrap_or_else(|| panic!("{invitee_id:?} should have created a new conversation titles {conversation_uuid}"));
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{invitee_id:?} should have created a new conversation {conversation_uuid}"
+                    )
+                });
             let conversation = invitee_conversations_after.remove(new_conversation_position);
             assert!(conversation.id() == conversation_id);
             assert!(conversation.status() == &ConversationStatus::Active);
