@@ -163,11 +163,25 @@ mod tests {
                 loaded[0] = Some(pkg);
             } else if pkg == packages[1] {
                 loaded[1] = Some(pkg);
+            } else {
+                panic!("Unexpected key package loaded");
             }
         }
 
         assert_eq!(loaded[0].as_ref().unwrap(), &packages[0]);
         assert_eq!(loaded[1].as_ref().unwrap(), &packages[1]);
+
+        // There should be no more key packages left to load that are not marked as last resort.
+        for _ in 0..10 {
+            let pkg = DummyKeyPackage::load_user_key_package(
+                pool.acquire().await?.as_mut(),
+                &user_record.friendship_token,
+            )
+            .await?;
+            if pkg != packages[2] {
+                panic!("Unexpected key package loaded");
+            }
+        }
 
         Ok(())
     }
@@ -178,7 +192,9 @@ mod tests {
     ) -> anyhow::Result<Vec<DummyKeyPackage>> {
         let pkg_a = vec![1, 2, 3, 4];
         let pkg_b = vec![5, 6, 7, 8];
+        let pkg_last_resort = vec![9, 10, 11, 12];
         DummyKeyPackage::store_multiple(pool, client_id, &[pkg_a.clone(), pkg_b.clone()]).await?;
-        Ok(vec![pkg_a, pkg_b])
+        pkg_last_resort.store_last_resort(pool, client_id).await?;
+        Ok(vec![pkg_a, pkg_b, pkg_last_resort])
     }
 }
