@@ -21,10 +21,7 @@ use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
-    credentials::{
-        ClientCredential,
-        keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
-    },
+    credentials::{ClientCredential, keys::ClientSigningKey},
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable,
@@ -182,7 +179,7 @@ impl From<Vec<u8>> for GroupData {
 #[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
-    leaf_signer: PseudonymousCredentialSigningKey,
+    leaf_signer: ClientSigningKey,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     mls_group: MlsGroup,
@@ -443,7 +440,7 @@ impl Group {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
-        leaf_signer: PseudonymousCredentialSigningKey,
+        leaf_signer: ClientSigningKey,
         identity_link_key: IdentityLinkKey,
         group_state_ear_key: GroupStateEarKey,
         identity_link_wrapper_key: IdentityLinkWrapperKey,
@@ -456,7 +453,7 @@ impl Group {
         let mls_group_config = Self::default_mls_group_join_config();
         let credential_with_key = CredentialWithKey {
             credential: leaf_signer.credential().try_into()?,
-            signature_key: leaf_signer.credential().verifying_key().clone(),
+            signature_key: leaf_signer.credential().verifying_key().clone().into(),
         };
         let ExternalCommitInfoIn {
             verifiable_group_info,
@@ -1012,7 +1009,7 @@ impl Group {
         Ok(params)
     }
 
-    pub(crate) fn leaf_signer(&self) -> &PseudonymousCredentialSigningKey {
+    pub(crate) fn leaf_signer(&self) -> &ClientSigningKey {
         &self.leaf_signer
     }
 

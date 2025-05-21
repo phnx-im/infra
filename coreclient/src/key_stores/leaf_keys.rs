@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
-    credentials::keys::{CredentialCreationError, PseudonymousCredentialSigningKey},
-    crypto::ear::keys::IdentityLinkKey,
-};
+use phnxtypes::{credentials::keys::CredentialCreationError, crypto::ear::keys::IdentityLinkKey};
 use sqlx::{SqliteExecutor, query, query_as};
 
 use super::*;
@@ -13,7 +10,7 @@ use super::*;
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeafKeys {
     verifying_key: SignaturePublicKey,
-    leaf_signing_key: PseudonymousCredentialSigningKey,
+    leaf_signing_key: ClientSigningKey,
     identity_link_key: IdentityLinkKey,
 }
 
@@ -22,11 +19,15 @@ impl LeafKeys {
         signing_key: &ClientSigningKey,
         connection_key: &ConnectionKey,
     ) -> Result<Self, CredentialCreationError> {
-        let (leaf_signing_key, identity_link_key) =
-            PseudonymousCredentialSigningKey::generate(signing_key, connection_key)?;
+        let identity_link_key = signing_key
+            .credential()
+            .derive_identity_link_key(connection_key)?;
+
         let keys = Self {
-            verifying_key: leaf_signing_key.credential().verifying_key().clone(),
-            leaf_signing_key,
+            verifying_key: SignaturePublicKey::from(
+                signing_key.credential().verifying_key().clone(),
+            ),
+            leaf_signing_key: signing_key.clone(),
             identity_link_key,
         };
         Ok(keys)
@@ -44,11 +45,11 @@ impl LeafKeys {
         &self.identity_link_key
     }
 
-    pub(crate) fn into_leaf_signer(self) -> PseudonymousCredentialSigningKey {
+    pub(crate) fn into_leaf_signer(self) -> ClientSigningKey {
         self.leaf_signing_key
     }
 
-    pub(crate) fn into_parts(self) -> (PseudonymousCredentialSigningKey, IdentityLinkKey) {
+    pub(crate) fn into_parts(self) -> (ClientSigningKey, IdentityLinkKey) {
         (self.leaf_signing_key, self.identity_link_key)
     }
 }

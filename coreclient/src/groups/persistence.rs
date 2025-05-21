@@ -7,7 +7,7 @@ use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
     codec::{BlobDecoded, BlobEncoded},
-    credentials::keys::PseudonymousCredentialSigningKey,
+    credentials::keys::ClientSigningKey,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
 use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
@@ -18,7 +18,7 @@ use super::{Group, diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider}
 
 struct SqlGroup {
     group_id: GroupIdWrapper,
-    leaf_signer: PseudonymousCredentialSigningKey,
+    leaf_signer: ClientSigningKey,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     pending_diff: Option<BlobDecoded<StagedGroupDiff>>,

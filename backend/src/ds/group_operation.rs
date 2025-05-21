@@ -68,7 +68,7 @@ impl DsGroupState {
     ) -> Result<(SerializedMlsMessage, Vec<DsFanOutMessage>), GroupOperationError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
-            .group()
+            .group
             .process_assisted_message(self.provider.crypto(), params.commit)
             .map_err(|e| {
                 warn!(%e, "Error processing assisted message");

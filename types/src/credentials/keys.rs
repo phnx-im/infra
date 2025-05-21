@@ -5,7 +5,10 @@
 use std::ops::Deref;
 
 use mls_assist::{
-    openmls::prelude::{Lifetime, OpenMlsProvider, SignatureScheme},
+    openmls::prelude::{
+        BasicCredential, BasicCredentialError, Credential, Lifetime, OpenMlsProvider,
+        SignatureScheme,
+    },
     openmls_rust_crypto::OpenMlsRustCrypto,
     openmls_traits::{
         random::OpenMlsRand,
@@ -14,7 +17,9 @@ use mls_assist::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
-use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes as _, Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize,
+};
 use tracing::error;
 
 use crate::{
@@ -145,8 +150,52 @@ impl RawKey for ClientKeyType {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientSigningKey {
-    signing_key: SigningKey<ClientKeyType>,
-    credential: ClientCredential,
+    signing_key: SigningKey<ClientKeyType>, // private
+    credential: ClientCredential,           // known to other users and the server
+}
+
+impl TryFrom<&ClientCredential> for Credential {
+    type Error = tls_codec::Error;
+
+    fn try_from(value: &ClientCredential) -> Result<Self, Self::Error> {
+        let basic_credential = BasicCredential::new(value.tls_serialize_detached()?);
+        Ok(basic_credential.into())
+    }
+}
+
+impl TryFrom<Credential> for ClientCredential {
+    type Error = BasicCredentialError;
+
+    fn try_from(value: Credential) -> Result<Self, Self::Error> {
+        let basic_credential = BasicCredential::try_from(value)?;
+        let credential =
+            ClientCredential::tls_deserialize_exact_bytes(basic_credential.identity())?;
+        Ok(credential)
+    }
+}
+
+impl Type<Sqlite> for ClientSigningKey {
+    fn type_info() -> <Sqlite as Database>::TypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for ClientSigningKey {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self)?;
+        Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for ClientSigningKey {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+        let value = PhnxCodec::from_slice(bytes)?;
+        Ok(value)
+    }
 }
 
 impl Deref for ClientSigningKey {
@@ -290,7 +339,7 @@ impl Deref for PseudonymousCredentialSigningKey {
     }
 }
 
-impl Signer for PseudonymousCredentialSigningKey {
+impl Signer for ClientSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {
         self.signing_key
             .sign(payload)

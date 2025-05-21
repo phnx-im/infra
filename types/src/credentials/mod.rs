@@ -10,12 +10,15 @@ use mls_assist::{
 
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
-use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    Serialize as TlsSerialize, TlsDeserialize, TlsDeserializeBytes, TlsSerialize, TlsSize,
+};
 
 use keys::{
-    AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, PreliminaryAsIntermediateSigningKey,
-    PreliminaryClientSigningKey,
+    AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, CredentialCreationError,
+    PreliminaryAsIntermediateSigningKey, PreliminaryClientSigningKey,
 };
+use tracing::error;
 
 use crate::{
     LibraryError,
@@ -23,6 +26,7 @@ use crate::{
     crypto::{
         ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
         errors::KeyGenerationError,
+        kdf::{KdfDerivable as _, keys::ConnectionKey},
         signatures::{
             private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -514,7 +518,9 @@ impl ClientCredentialPayload {
 // WARNING: If this type is changed, a new variant of the
 // VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
 // implementations of `ClientCredential` must be updated accordingly.
-#[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+)]
 pub struct ClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
@@ -523,6 +529,21 @@ pub struct ClientCredential {
 impl ClientCredential {
     pub fn new(payload: ClientCredentialPayload, signature: Signature) -> Self {
         Self { payload, signature }
+    }
+
+    pub fn signature_scheme(&self) -> SignatureScheme {
+        self.payload.csr.signature_scheme
+    }
+
+    pub fn derive_identity_link_key(
+        &self,
+        connection_key: &ConnectionKey,
+    ) -> Result<IdentityLinkKey, CredentialCreationError> {
+        // Derive the identity link key based on the TBS
+        IdentityLinkKey::derive(connection_key, &self.payload).map_err(|e| {
+            error!(%e, "Failed to derive identity link key");
+            CredentialCreationError::KeyDerivationFailed
+        })
     }
 
     pub fn into_parts(self) -> (ClientCredentialPayload, Signature) {
