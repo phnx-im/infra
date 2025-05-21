@@ -205,7 +205,7 @@ impl Group {
                             .ok_or(anyhow!("Could not find sender leaf node"))?;
                         if new_sender_credential != &sender.credential {
                             // If so, then there has to be a new identity link key.
-                            let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                            let client_auth_info = ClientAuthInfo::verify_credential(
                                 &mut *connection,
                                 api_clients,
                                 &group_id,
@@ -232,7 +232,7 @@ impl Group {
                             bail!("Could not find sender leaf node in staged commit")
                         };
 
-                        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                        let client_auth_info = ClientAuthInfo::verify_credential(
                             &mut *connection,
                             api_clients,
                             &group_id,
@@ -270,7 +270,7 @@ impl Group {
                             .remove_proposal()
                             .removed();
 
-                        let mut client_auth_info = ClientAuthInfo::decrypt_credential_and_verify(
+                        let mut client_auth_info = ClientAuthInfo::verify_credential(
                             &mut *connection,
                             api_clients,
                             &group_id,
@@ -357,7 +357,7 @@ impl Group {
         }
 
         // AddUsers Phase 2: Decrypt and verify the client credentials.
-        let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
+        let client_auth_infos = ClientAuthInfo::verify_credentials(
             &mut *connection,
             api_clients,
             &self.group_id,
@@ -399,7 +399,7 @@ impl Group {
         let Some(_credential_update) = credential_update_option else {
             bail!("Invalid update client payload.")
         };
-        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+        let client_auth_info = ClientAuthInfo::verify_credential(
             &mut *connection,
             api_clients,
             &self.group_id,

@@ -129,27 +129,25 @@ impl ClientAuthInfo {
         }
     }
 
-    /// Decrypt and verify the given encrypted client auth info. This includes
-    /// verification of the signature over the [`PseudonymousCredential`], as
-    /// well as the signature over the [`ClientCredential`].
-    pub(super) async fn decrypt_and_verify_all(
+    /// Verify the given credentials
+    pub(super) async fn verify_credentials(
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
-        client_information: impl IntoIterator<Item = (LeafNodeIndex, Credential)>,
+        client_credentials: impl IntoIterator<Item = (LeafNodeIndex, Credential)>,
     ) -> Result<Vec<Self>> {
-        let mut res = Vec::new();
-        for (leaf_index, credential) in client_information {
+        let mut client_auth_infos = Vec::new();
+        for (leaf_index, credential) in client_credentials {
             let client_auth_info =
-                Self::decrypt_and_verify(connection, api_clients, group_id, leaf_index, credential)
+                Self::verify_credential(connection, api_clients, group_id, leaf_index, credential)
                     .await?;
-            res.push(client_auth_info);
+            client_auth_infos.push(client_auth_info);
         }
-        Ok(res)
+        Ok(client_auth_infos)
     }
 
-    /// Decrypt and verify the given credential.
-    pub(super) async fn decrypt_credential_and_verify(
+    /// Verify the given credential
+    pub(super) async fn verify_credential(
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
@@ -157,9 +155,9 @@ impl ClientAuthInfo {
         credential: Credential,
     ) -> Result<Self> {
         // Verify the leaf credential
-        let client_credential = VerifiableClientCredential::try_from(credential)?;
         let client_credential =
-            StorableClientCredential::verify(connection, api_clients, client_credential).await?;
+            StorableClientCredential::verify(connection, api_clients, credential.try_into()?)
+                .await?;
         let group_membership = GroupMembership::new(
             client_credential.identity().clone(),
             group_id.clone(),
@@ -171,24 +169,6 @@ impl ClientAuthInfo {
             group_membership,
         };
         Ok(client_auth_info)
-    }
-
-    /// Decrypt and verify the given identity link key and credential.
-    pub(super) async fn decrypt_and_verify(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
-        group_id: &GroupId,
-        leaf_index: LeafNodeIndex,
-        credential: Credential,
-    ) -> Result<Self> {
-        Self::decrypt_credential_and_verify(
-            connection,
-            api_clients,
-            group_id,
-            leaf_index,
-            credential,
-        )
-        .await
     }
 
     pub(super) async fn stage_update(

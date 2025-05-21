@@ -379,7 +379,7 @@ impl Group {
 
         // Phase 6: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
-        let client_information = ClientAuthInfo::decrypt_and_verify_all(
+        let client_information = ClientAuthInfo::verify_credentials(
             txn,
             api_clients,
             mls_group.group_id(),
@@ -475,14 +475,14 @@ impl Group {
 
         let group_id = mls_group.group_id();
 
-        let encrypted_client_information = mls_group.members().map(|m| (m.index, m.credential));
+        let client_credentials = mls_group.members().map(|m| (m.index, m.credential));
 
         // Phase 2: Decrypt and verify the client credentials.
-        let mut client_information = ClientAuthInfo::decrypt_and_verify_all(
+        let mut client_information = ClientAuthInfo::verify_credentials(
             &mut *connection,
             api_clients,
             group_id,
-            encrypted_client_information,
+            client_credentials,
         )
         .await?;
 
