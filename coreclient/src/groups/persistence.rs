@@ -7,10 +7,9 @@ use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
     codec::{BlobDecoded, BlobEncoded},
-    credentials::keys::ClientSigningKey,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
-use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
+use sqlx::{SqliteExecutor, query, query_as};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 

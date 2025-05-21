@@ -5,21 +5,12 @@
 use std::ops::Deref;
 
 use mls_assist::{
-    openmls::prelude::{
-        BasicCredential, BasicCredentialError, Credential, Lifetime, OpenMlsProvider,
-        SignatureScheme,
-    },
-    openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::{
-        random::OpenMlsRand,
-        signatures::{Signer, SignerError},
-    },
+    openmls::prelude::{BasicCredential, Credential, SignatureScheme},
+    openmls_traits::signatures::{Signer, SignerError},
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
-use tls_codec::{
-    DeserializeBytes as _, Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 
 use crate::{
@@ -29,16 +20,7 @@ use crate::{
 
 use super::{AsCredential, AsIntermediateCredential};
 
-use crate::crypto::{
-    ear::{EarEncryptable, keys::IdentityLinkKey},
-    errors::{EncryptionError, KeyGenerationError, RandomnessError},
-    kdf::{KdfDerivable, keys::ConnectionKey},
-    signatures::{
-        DEFAULT_SIGNATURE_SCHEME,
-        private_keys::{SigningKey, VerifyingKey},
-        signable::Signable,
-    },
-};
+use crate::crypto::signatures::private_keys::{SigningKey, VerifyingKey};
 
 use thiserror::Error;
 
@@ -158,17 +140,6 @@ impl TryFrom<&ClientCredential> for Credential {
     }
 }
 
-impl TryFrom<Credential> for ClientCredential {
-    type Error = BasicCredentialError;
-
-    fn try_from(value: Credential) -> Result<Self, Self::Error> {
-        let basic_credential = BasicCredential::try_from(value)?;
-        let credential =
-            ClientCredential::tls_deserialize_exact_bytes(basic_credential.identity())?;
-        Ok(credential)
-    }
-}
-
 impl Type<Sqlite> for ClientSigningKey {
     fn type_info() -> <Sqlite as Database>::TypeInfo {
         <Vec<u8> as Type<Sqlite>>::type_info()
@@ -224,117 +195,6 @@ impl ClientSigningKey {
 }
 
 pub type ClientVerifyingKey = VerifyingKey<ClientKeyType>;
-
-// #[derive(Debug)]
-// pub struct PseudonymousKeyType;
-
-// #[derive(Clone, Debug, Serialize, Deserialize)]
-// pub struct PseudonymousCredentialSigningKey {
-//     signing_key: SigningKey<PseudonymousKeyType>,
-//     credential: PseudonymousCredential,
-// }
-
-// impl Type<Sqlite> for PseudonymousCredentialSigningKey {
-//     fn type_info() -> <Sqlite as Database>::TypeInfo {
-//         <Vec<u8> as Type<Sqlite>>::type_info()
-//     }
-// }
-
-// impl<'q> Encode<'q, Sqlite> for PseudonymousCredentialSigningKey {
-//     fn encode_by_ref(
-//         &self,
-//         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
-//     ) -> Result<IsNull, BoxDynError> {
-//         let bytes = PhnxCodec::to_vec(self)?;
-//         Encode::<Sqlite>::encode(bytes, buf)
-//     }
-// }
-
-// impl<'r> Decode<'r, Sqlite> for PseudonymousCredentialSigningKey {
-//     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-//         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-//         let value = PhnxCodec::from_slice(bytes)?;
-//         Ok(value)
-//     }
-// }
-
-// 30 days lifetime in seconds
-pub(crate) const DEFAULT_INFRA_CREDENTIAL_LIFETIME: u64 = 30 * 24 * 60 * 60;
-
-#[derive(Debug, Error)]
-pub enum CredentialCreationError {
-    #[error(transparent)]
-    KeyGenerationError(#[from] KeyGenerationError),
-    #[error(transparent)]
-    RandomnessError(#[from] RandomnessError),
-    #[error("Failed to derive identity link key")]
-    KeyDerivationFailed,
-    #[error(transparent)]
-    EncryptionFailed(#[from] EncryptionError),
-}
-
-/*
-impl PseudonymousCredentialSigningKey {
-    pub fn generate(
-        client_signer: &ClientSigningKey,
-        connection_key: &ConnectionKey,
-    ) -> Result<(Self, IdentityLinkKey), CredentialCreationError> {
-        // Construct the TBS
-        let signing_key = SigningKey::generate()?;
-        let identity = OpenMlsRustCrypto::default()
-            .rand()
-            .random_vec(32)
-            .map_err(|_| RandomnessError::InsufficientRandomness)?;
-        let tbs = PseudonymousCredentialTbs {
-            identity,
-            expiration_data: Lifetime::new(DEFAULT_INFRA_CREDENTIAL_LIFETIME),
-            signature_scheme: DEFAULT_SIGNATURE_SCHEME,
-            verifying_key: signing_key.verifying_key().clone().into(),
-        };
-
-        // Derive the identity link key based on the TBS
-        let identity_link_key = IdentityLinkKey::derive(connection_key, &tbs).map_err(|e| {
-            error!(%e, "Failed to derive identity link key");
-            CredentialCreationError::KeyDerivationFailed
-        })?;
-
-        // Sign the TBS and encrypt the identity link
-        let signed_pseudonymous_credential = tbs.sign(client_signer).unwrap();
-        let encrypted_signature = signed_pseudonymous_credential
-            .signature
-            .encrypt(&identity_link_key)?;
-        let encrypted_client_credential = client_signer.credential().encrypt(&identity_link_key)?;
-        let identity_link_ctxt = IdentityLinkCtxt {
-            encrypted_signature,
-            encrypted_client_credential,
-        };
-        let credential = PseudonymousCredential::new(
-            signed_pseudonymous_credential.payload.identity,
-            signed_pseudonymous_credential.payload.expiration_data,
-            signed_pseudonymous_credential.payload.signature_scheme,
-            signed_pseudonymous_credential.payload.verifying_key,
-            identity_link_ctxt,
-        );
-        let credential = Self {
-            signing_key,
-            credential,
-        };
-        Ok((credential, identity_link_key))
-    }
-
-    pub fn credential(&self) -> &PseudonymousCredential {
-        &self.credential
-    }
-}
-
-impl Deref for PseudonymousCredentialSigningKey {
-    type Target = SigningKey<PseudonymousKeyType>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.signing_key
-    }
-}
-*/
 
 impl Signer for ClientSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {

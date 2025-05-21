@@ -35,7 +35,6 @@ impl CoreUser {
                     .create_group(
                         &PhnxOpenMlsProvider::new(&mut *connection),
                         &self.inner.key_store.signing_key,
-                        &self.inner.key_store.connection_key,
                     )?
                     .store_group(&mut *connection, notifier)
                     .await
@@ -221,10 +220,7 @@ mod create_conversation_flow {
     use phnxtypes::{
         codec::PhnxCodec,
         credentials::keys::ClientSigningKey,
-        crypto::{
-            ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey,
-            kdf::keys::ConnectionKey,
-        },
+        crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
         identifiers::QsReference,
     };
 
@@ -281,7 +277,6 @@ mod create_conversation_flow {
             self,
             provider: &impl OpenMlsProvider,
             signing_key: &ClientSigningKey,
-            connection_key: &ConnectionKey,
         ) -> Result<CreatedGroup> {
             let Self {
                 group_id,
@@ -290,7 +285,7 @@ mod create_conversation_flow {
             } = self;
 
             let (group, group_membership, partial_params) =
-                Group::create_group(provider, signing_key, connection_key, group_id, group_data)?;
+                Group::create_group(provider, signing_key, group_id, group_data)?;
 
             Ok(CreatedGroup {
                 group,

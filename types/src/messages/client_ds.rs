@@ -26,9 +26,7 @@ use crate::{
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
-            keys::{
-                EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey, RatchetKey,
-            },
+            keys::{EncryptedUserProfileKey, GroupStateEarKey, RatchetKey},
         },
         hpke::{HpkeDecryptable, HpkeEncryptable, JoinerInfoKeyType},
         ratchet::QueueRatchet,
@@ -220,7 +218,6 @@ impl DsEventMessage {
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_qs_reference: QsReference,
     pub group_info: MlsMessageIn,
@@ -258,9 +255,7 @@ pub struct GroupOperationParams {
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct CredentialUpdate {
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
-}
+pub struct CredentialUpdate {}
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GroupOperationParamsAad {
@@ -355,7 +350,6 @@ impl HpkeEncryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoin
 #[derive(TlsDeserializeBytes, TlsSize, Clone)]
 pub struct DsJoinerInformationIn {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub ratchet_tree: RatchetTreeIn,
     pub room_state: Vec<u8>,

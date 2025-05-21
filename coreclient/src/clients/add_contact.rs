@@ -208,7 +208,6 @@ impl VerifiedConnectionPackagesWithGroupId {
         let (group, group_membership, partial_params) = Group::create_group(
             &provider,
             &key_store.signing_key,
-            &key_store.connection_key,
             group_id.clone(),
             group_data,
         )?;

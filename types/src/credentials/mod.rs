@@ -4,19 +4,23 @@
 
 use chrono::Duration;
 use mls_assist::{
-    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
+    openmls::prelude::{
+        BasicCredential, BasicCredentialError, Credential, HashType, OpenMlsCrypto,
+        OpenMlsProvider, SignatureScheme,
+    },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
-use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes, Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize,
+};
 
 use keys::{
-    AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, CredentialCreationError,
-    PreliminaryAsIntermediateSigningKey, PreliminaryClientSigningKey,
+    AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, PreliminaryAsIntermediateSigningKey,
+    PreliminaryClientSigningKey,
 };
-use tracing::error;
 
 use crate::{
     LibraryError,
@@ -24,7 +28,6 @@ use crate::{
     crypto::{
         ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
         errors::KeyGenerationError,
-        kdf::{KdfDerivable as _, keys::ConnectionKey},
         signatures::{
             private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -41,7 +44,6 @@ mod private_mod {
 }
 
 pub mod keys;
-//pub mod pseudonymous_credentials;
 
 use self::keys::ClientVerifyingKey;
 
@@ -654,6 +656,17 @@ impl Verifiable for VerifiableClientCredential {
 
     fn label(&self) -> &str {
         CLIENT_CREDENTIAL_LABEL
+    }
+}
+
+impl TryFrom<Credential> for VerifiableClientCredential {
+    type Error = BasicCredentialError;
+
+    fn try_from(value: Credential) -> Result<Self, Self::Error> {
+        let basic_credential = BasicCredential::try_from(value)?;
+        let credential =
+            VerifiableClientCredential::tls_deserialize_exact_bytes(basic_credential.identity())?;
+        Ok(credential)
     }
 }
 

@@ -6,18 +6,12 @@
 //! throughout the backend. Keys can either provide their own constructors or
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
-use crate::{
-    credentials::ClientCredentialPayload,
-    crypto::{
-        indexed_aead::keys::{Key, RandomlyGeneratable},
-        kdf::{
-            KdfDerivable,
-            keys::{ConnectionKey, RatchetSecret},
-        },
-    },
+use crate::crypto::{
+    indexed_aead::keys::{Key, RandomlyGeneratable},
+    kdf::{KdfDerivable, keys::RatchetSecret},
 };
 
-use super::{AEAD_KEY_SIZE, Ciphertext, EarDecryptable, EarEncryptable, traits::EarKey};
+use super::{AEAD_KEY_SIZE, Ciphertext, traits::EarKey};
 
 // Group state EAR key
 
@@ -99,14 +93,6 @@ pub type FriendshipPackageEarKey = Key<FriendshipPackageEarKeyType>;
 impl RandomlyGeneratable for FriendshipPackageEarKeyType {}
 
 impl EarKey for FriendshipPackageEarKey {}
-
-impl EarEncryptable<IdentityLinkWrapperKey, EncryptedIdentityLinkKeyCtype> for IdentityLinkKey {}
-impl EarDecryptable<IdentityLinkWrapperKey, EncryptedIdentityLinkKeyCtype> for IdentityLinkKey {}
-
-#[derive(Debug)]
-pub struct EncryptedIdentityLinkKeyCtype;
-
-pub type EncryptedIdentityLinkKey = Ciphertext<EncryptedIdentityLinkKeyCtype>;
 
 // Identity link wrapper key
 

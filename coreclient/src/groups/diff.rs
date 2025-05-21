@@ -9,7 +9,7 @@ use super::*;
 /// underlying MLS group is merged.
 pub(crate) struct GroupDiff {
     pub(crate) leaf_signer: Option<ClientSigningKey>,
-    pub(crate) identity_link_key: Option<IdentityLinkWrapperKey>,
+    pub(crate) identity_link_wrapper_key: Option<IdentityLinkWrapperKey>,
     pub(crate) group_state_ear_key: Option<GroupStateEarKey>,
 }
 
@@ -17,7 +17,7 @@ impl GroupDiff {
     pub(crate) fn new() -> Self {
         Self {
             leaf_signer: None,
-            identity_link_key: None,
+            identity_link_wrapper_key: None,
             group_state_ear_key: None,
         }
     }
@@ -25,7 +25,7 @@ impl GroupDiff {
     pub(crate) fn stage(self) -> StagedGroupDiff {
         StagedGroupDiff {
             leaf_signer: self.leaf_signer,
-            identity_link_wrapper_key: self.identity_link_key,
+            identity_link_wrapper_key: self.identity_link_wrapper_key,
             group_state_ear_key: self.group_state_ear_key,
         }
     }
@@ -56,32 +56,30 @@ mod test {
                     "verifying_key": [4, 5, 6],
                 },
                 "credential": {
-                    "tbs": {
-                        "identity": [7, 8, 9],
-                        "expiration_data": {
-                            "not_before": 0,
-                            "not_after": 1,
-                        },
-                        "signature_scheme": "ED25519",
-                        "verifying_key": {
-                            "value": {
-                                "vec": [10, 11, 12],
+                    "payload": {
+                        "csr": {
+                            "version": "Alpha",
+                            "user_id": {
+                                "uuid": "4a24017d-30f6-40d8-8294-962bb4dcfb3c",
+                                "domain": {
+                                    "domain": {
+                                        "Domain": "localhost",
+                                    }
+                                },
                             },
+                            "signature_scheme": "ED25519",
+                            "verifying_key": [7, 8, 9],
                         },
-                    },
-                    "identity_link_ctxt": {
-                        "encrypted_signature": {
-                            "ciphertext": [13, 14, 15],
-                            "nonce": b"nonce_1_____",
+                        "expiration_data": {
+                            "not_before": "2025-05-21T00:00:00Z",
+                            "not_after": "2025-05-22T00:00:00Z",
                         },
-                        "encrypted_client_credential": {
-                            "ciphertext": [16, 17, 18],
-                            "nonce": b"nonce_2_____",
-                        }
+                        "signer_fingerprint": [10, 11, 12],
                     },
+                    "signature": [13, 14, 15],
                 },
             },
-            "identity_link_key": {
+            "identity_link_wrapper_key": {
                 "secret": b"identity_link_key_32_bytes______",
             },
             "group_state_ear_key": {

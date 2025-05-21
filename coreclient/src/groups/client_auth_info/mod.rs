@@ -8,10 +8,6 @@ use anyhow::{Result, anyhow};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::{ClientCredential, CredentialFingerprint, VerifiableClientCredential},
-    crypto::ear::{
-        EarDecryptable,
-        keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
-    },
     identifiers::UserId,
 };
 use sqlx::{SqliteConnection, SqliteExecutor};
@@ -140,23 +136,16 @@ impl ClientAuthInfo {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
-        wrapper_key: &IdentityLinkWrapperKey,
-        encrypted_client_information: impl Iterator<Item = (LeafNodeIndex, Credential)>,
+        client_information: impl IntoIterator<Item = (LeafNodeIndex, Credential)>,
     ) -> Result<Vec<Self>> {
-        let mut client_information = Vec::new();
-        for (leaf_index, credential) in encrypted_client_information {
-            let client_auth_info = Self::decrypt_and_verify(
-                connection,
-                api_clients,
-                group_id,
-                wrapper_key,
-                leaf_index,
-                credential,
-            )
-            .await?;
-            client_information.push(client_auth_info);
+        let mut res = Vec::new();
+        for (leaf_index, credential) in client_information {
+            let client_auth_info =
+                Self::decrypt_and_verify(connection, api_clients, group_id, leaf_index, credential)
+                    .await?;
+            res.push(client_auth_info);
         }
-        Ok(client_information)
+        Ok(res)
     }
 
     /// Decrypt and verify the given credential.
@@ -167,15 +156,10 @@ impl ClientAuthInfo {
         leaf_index: LeafNodeIndex,
         credential: Credential,
     ) -> Result<Self> {
-        let pseudonymous_credential = ClientCredential::try_from(credential)?;
         // Verify the leaf credential
-        let credential_plaintext = pseudonymous_credential.decrypt_and_verify()?;
-        let client_credential = StorableClientCredential::verify(
-            connection,
-            api_clients,
-            credential_plaintext.client_credential,
-        )
-        .await?;
+        let client_credential = VerifiableClientCredential::try_from(credential)?;
+        let client_credential =
+            StorableClientCredential::verify(connection, api_clients, client_credential).await?;
         let group_membership = GroupMembership::new(
             client_credential.identity().clone(),
             group_id.clone(),
@@ -194,7 +178,6 @@ impl ClientAuthInfo {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
-        wrapper_key: &IdentityLinkWrapperKey,
         leaf_index: LeafNodeIndex,
         credential: Credential,
     ) -> Result<Self> {

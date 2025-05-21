@@ -3,14 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use super::{Group, openmls_provider::PhnxOpenMlsProvider};
-use anyhow::{Context, Result, anyhow, bail, ensure};
+use anyhow::{Context, Result, anyhow, bail};
 use mimi_room_policy::{MimiProposal, RoleIndex};
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{
-        ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey},
-        indexed_aead::keys::UserProfileKey,
-    },
+    crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
     messages::client_ds::{CredentialUpdate, InfraAadMessage, InfraAadPayload},
 };
 use sqlx::SqliteConnection;
@@ -195,7 +192,7 @@ impl Group {
                             .await?;
                         }
                     }
-                    InfraAadPayload::Update(update_client_payload) => {
+                    InfraAadPayload::Update(_update_client_payload) => {
                         // Check if the client has updated its leaf credential.
                         let sender = self
                             .mls_group
@@ -212,7 +209,6 @@ impl Group {
                                 &mut *connection,
                                 api_clients,
                                 &group_id,
-                                self.identity_link_wrapper_key(),
                                 sender_index,
                                 new_sender_credential.clone(),
                             )
@@ -240,7 +236,6 @@ impl Group {
                             &mut *connection,
                             api_clients,
                             &group_id,
-                            &self.identity_link_wrapper_key,
                             sender_index,
                             sender_credential,
                         )
@@ -366,7 +361,6 @@ impl Group {
             &mut *connection,
             api_clients,
             &self.group_id,
-            self.identity_link_wrapper_key(),
             added_clients_with_indices.into_iter(),
         )
         .await?;
@@ -402,14 +396,13 @@ impl Group {
         sender_index: LeafNodeIndex,
     ) -> Result<()> {
         // If so, then there has to be a new identity link key.
-        let Some(credential_update) = credential_update_option else {
+        let Some(_credential_update) = credential_update_option else {
             bail!("Invalid update client payload.")
         };
         let client_auth_info = ClientAuthInfo::decrypt_and_verify(
             &mut *connection,
             api_clients,
             &self.group_id,
-            self.identity_link_wrapper_key(),
             sender_index,
             new_sender_credential,
         )

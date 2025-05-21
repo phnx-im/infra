@@ -58,7 +58,6 @@ CREATE TABLE IF NOT EXISTS group_membership (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
     leaf_index INTEGER NOT NULL,
-    identity_link_key BLOB NOT NULL,
     status TEXT DEFAULT 'staged_update' NOT NULL CHECK (
         status IN (
             'staged_update',

@@ -26,13 +26,12 @@ use phnxtypes::{
         ear::{
             EarDecryptable, EarEncryptable,
             keys::{
-                EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey,
-                IdentityLinkKey, IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
+                EncryptedUserProfileKey, GroupStateEarKey, IdentityLinkWrapperKey,
+                WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
         indexed_aead::keys::UserProfileKey,
-        kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, UserId},
@@ -203,7 +202,6 @@ impl Group {
     pub(super) fn create_group(
         provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
-        connection_key: &ConnectionKey,
         group_id: GroupId,
         group_data: GroupData,
     ) -> Result<(Self, GroupMembership, PartialCreateGroupParams)> {
@@ -365,7 +363,6 @@ impl Group {
             txn,
             api_clients,
             mls_group.group_id(),
-            welcome_attribution_info.identity_link_wrapper_key(),
             client_information,
         )
         .await?;
@@ -466,7 +463,6 @@ impl Group {
             &mut *connection,
             api_clients,
             group_id,
-            &identity_link_wrapper_key,
             encrypted_client_information,
         )
         .await?;

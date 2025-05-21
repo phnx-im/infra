@@ -5,7 +5,6 @@
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
     credentials::CredentialFingerprint,
-    crypto::ear::keys::IdentityLinkKey,
     identifiers::{Fqdn, UserId},
 };
 use sqlx::{Row, SqliteExecutor, query, query_as, query_scalar};
@@ -411,12 +410,8 @@ mod tests {
     use openmls::prelude::SignatureScheme;
     use phnxtypes::{
         credentials::{ClientCredential, ClientCredentialCsr, ClientCredentialPayload},
-        crypto::{
-            secrets::Secret,
-            signatures::signable::{Signature, SignedStruct},
-        },
+        crypto::signatures::signable::{Signature, SignedStruct},
     };
-    use rand::Rng;
     use sqlx::SqlitePool;
     use tls_codec::Serialize;
     use uuid::Uuid;
