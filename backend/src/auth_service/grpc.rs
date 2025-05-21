@@ -25,6 +25,8 @@ use phnxtypes::{
         },
     },
 };
+use privacypass::{amortized_tokens::AmortizedBatchTokenRequest, private_tokens::Ristretto255};
+use tls_codec::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming, async_trait};
 use tracing::error;
@@ -40,7 +42,7 @@ impl GrpcAs {
         Self { inner }
     }
 
-    async fn verify_client_auth<R, P>(&self, request: R) -> Result<(identifiers::UserId, P), Status>
+    async fn verify_user_auth<R, P>(&self, request: R) -> Result<(identifiers::UserId, P), Status>
     where
         R: WithUserId + Verifiable,
         P: VerifiedStruct<R>,
@@ -133,7 +135,7 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<DeleteUserResponse>, Status> {
         let request = request.into_inner();
         let (user_id, payload) = self
-            .verify_client_auth::<_, DeleteUserPayload>(request)
+            .verify_user_auth::<_, DeleteUserPayload>(request)
             .await?;
         let payload_user_id: identifiers::UserId =
             payload.user_id.ok_or_missing_field("user_id")?.try_into()?;
@@ -150,7 +152,7 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
         let (user_id, payload) = self
-            .verify_client_auth::<_, PublishConnectionPackagesPayload>(request)
+            .verify_user_auth::<_, PublishConnectionPackagesPayload>(request)
             .await?;
         let connection_packages = payload
             .connection_packages
@@ -210,7 +212,7 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<StageUserProfileResponse>, Status> {
         let request = request.into_inner();
         let (user_id, payload) = self
-            .verify_client_auth::<_, StageUserProfilePayload>(request)
+            .verify_user_auth::<_, StageUserProfilePayload>(request)
             .await?;
         let params = StageUserProfileParamsTbs {
             user_id,
@@ -229,7 +231,7 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<MergeUserProfileResponse>, Status> {
         let request = request.into_inner();
         let (user_id, _payload) = self
-            .verify_client_auth::<_, MergeUserProfilePayload>(request)
+            .verify_user_auth::<_, MergeUserProfilePayload>(request)
             .await?;
         let params = MergeUserProfileParamsTbs { user_id };
         self.inner.as_merge_user_profile(params).await?;
@@ -256,9 +258,25 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn issue_tokens(
         &self,
-        _request: Request<IssueTokensRequest>,
+        request: Request<IssueTokensRequest>,
     ) -> Result<Response<IssueTokensResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+        let (user_id, payload) = self
+            .verify_user_auth::<_, IssueTokensPayload>(request)
+            .await?;
+
+        let token_request: AmortizedBatchTokenRequest<Ristretto255> =
+            AmortizedBatchTokenRequest::tls_deserialize_exact(payload.token_request.as_slice())
+                .map_err(|_| Status::invalid_argument("invalid token request"))?;
+
+        let token_response = self
+            .inner
+            .as_issue_tokens(&user_id, token_request)
+            .await?
+            .tls_serialize_detached()
+            .map_err(|_| Status::internal("failed to serialize token response"))?;
+
+        Ok(Response::new(IssueTokensResponse { token_response }))
     }
 
     type ListenStream = BoxStream<'static, Result<ListenResponse, Status>>;
@@ -278,7 +296,7 @@ impl auth_service_server::AuthService for GrpcAs {
         };
 
         let (user_id, payload) = self
-            .verify_client_auth::<_, InitListenPayload>(init_request)
+            .verify_user_auth::<_, InitListenPayload>(init_request)
             .await?;
 
         let messages = self
@@ -370,6 +388,12 @@ impl WithUserId for MergeUserProfileRequest {
 }
 
 impl WithUserId for InitListenRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.user_id.clone()
+    }
+}
+
+impl WithUserId for IssueTokensRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
     }

@@ -267,11 +267,11 @@ message AsIntermediateVerifyingKey {
 // issue tokens
 
 message IssueTokensRequest {
-  IssueTokensRequestTbs payload = 1;
+  IssueTokensPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message IssueTokensRequestTbs {
+message IssueTokensPayload {
   UserId user_id = 1;
   bytes token_request = 2;
 }

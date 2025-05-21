@@ -138,12 +138,24 @@ pub(crate) enum IssueTokensError {
     /// Too many tokens
     #[error("Too many tokens")]
     TooManyTokens,
-    /// Unknown client
-    #[error("Unknown client")]
-    UnknownClient,
+    /// Unknown user
+    #[error("Unknown user")]
+    UnknownUser,
     /// PrivacyPass protocol error
     #[error("PrivacyPass protocol error")]
     PrivacyPassError,
+}
+
+impl From<IssueTokensError> for Status {
+    fn from(e: IssueTokensError) -> Self {
+        let msg = e.to_string();
+        match e {
+            IssueTokensError::StorageError => Status::internal(msg),
+            IssueTokensError::TooManyTokens => Status::resource_exhausted(msg),
+            IssueTokensError::UnknownUser => Status::internal(msg),
+            IssueTokensError::PrivacyPassError => Status::internal(msg),
+        }
+    }
 }
 
 #[derive(Error, Debug)]

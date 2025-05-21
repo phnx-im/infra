@@ -19,7 +19,6 @@ use crate::{
 const MAX_TOKENS_PER_REQUEST: i32 = 100;
 
 impl AuthService {
-    #[allow(dead_code)]
     pub(crate) async fn as_issue_tokens(
         &self,
         user_id: &UserId,
@@ -41,7 +40,7 @@ impl AuthService {
                 error!(%error, "Error loading client record");
                 IssueTokensError::StorageError
             })?
-            .ok_or(IssueTokensError::UnknownClient)?;
+            .ok_or(IssueTokensError::UnknownUser)?;
 
         let token_allowance = client_record.token_allowance;
         if tokens_requested > token_allowance || tokens_requested > MAX_TOKENS_PER_REQUEST {
