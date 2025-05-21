@@ -316,6 +316,7 @@ impl DsGrpcClient {
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
+            room_state: response.room_state,
         })
     }
 

@@ -37,6 +37,7 @@ pub struct WelcomeInfoIn {
     pub ratchet_tree: RatchetTreeIn,
     pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
+    pub room_state: Vec<u8>,
 }
 
 #[derive(Debug)]

@@ -378,9 +378,9 @@ checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "av1-grain"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6678909d8c5d46a42abcf571271e15fdbc0a225e3646cf23762cd415046c78bf"
+checksum = "4f3efb2ca85bc610acfa917b5aaa36f3fcbebed5b3182d7f877b02531c4b80c8"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -2021,18 +2021,18 @@ dependencies = [
 
 [[package]]
 name = "hmac-sha256"
-version = "1.1.8"
+version = "1.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a8575493d277c9092b988c780c94737fb9fd8651a1001e16bee3eccfc1baedb"
+checksum = "ad6880c8d4a9ebf39c6e8b77007ce223f646a4d21ce29d99f70cb16420545425"
 dependencies = [
  "digest",
 ]
 
 [[package]]
 name = "hmac-sha512"
-version = "1.1.6"
+version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0b3a0f572aa8389d325f5852b9e0a333a15b0f86ecccbb3fdb6e97cd86dc67c"
+checksum = "e89e8d20b3799fa526152a5301a771eaaad80857f83e01b23216ceaafb2d9280"
 dependencies = [
  "digest",
 ]
@@ -2186,9 +2186,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "497bbc33a26fdd4af9ed9c70d63f61cf56a938375fbb32df34db9b1cd6d643f2"
+checksum = "cf9f1e950e0d9d1d3c47184416723cf29c0d1f93bd8cccf37e4beb6b44f31710"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -2277,9 +2277,9 @@ checksum = "00210d6893afc98edb752b664b8890f0ef174c8adbb8d0be9710fa66fbbf72d3"
 
 [[package]]
 name = "icu_properties"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2549ca8c7241c82f59c80ba2a6f415d931c5b58d24fb8412caa1a1f02c49139a"
+checksum = "016c619c1eeb94efb86809b015c58f479963de65bdb6253345c1a1276f22e32b"
 dependencies = [
  "displaydoc",
  "icu_collections",
@@ -2293,9 +2293,9 @@ dependencies = [
 
 [[package]]
 name = "icu_properties_data"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8197e866e47b68f8f7d95249e172903bec06004b18b2937f1095d40a0c57de04"
+checksum = "298459143998310acd25ffe6810ed544932242d3f07083eee1084d83a71bd632"
 
 [[package]]
 name = "icu_provider"
@@ -3061,7 +3061,7 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 [[package]]
 name = "openmls"
 version = "0.6.1"
-source = "git+https://github.com/openmls/openmls#da3830ccc6ca63f577e7105ad1c2c3a863f7f8a4"
+source = "git+https://github.com/openmls/openmls#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
 dependencies = [
  "log",
  "openmls_traits",
@@ -3074,7 +3074,7 @@ dependencies = [
 [[package]]
 name = "openmls_memory_storage"
 version = "0.3.0"
-source = "git+https://github.com/openmls/openmls#da3830ccc6ca63f577e7105ad1c2c3a863f7f8a4"
+source = "git+https://github.com/openmls/openmls#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
 dependencies = [
  "log",
  "openmls_traits",
@@ -3086,7 +3086,7 @@ dependencies = [
 [[package]]
 name = "openmls_rust_crypto"
 version = "0.3.0"
-source = "git+https://github.com/openmls/openmls#da3830ccc6ca63f577e7105ad1c2c3a863f7f8a4"
+source = "git+https://github.com/openmls/openmls#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
 dependencies = [
  "aes-gcm",
  "chacha20poly1305",
@@ -3110,7 +3110,7 @@ dependencies = [
 [[package]]
 name = "openmls_traits"
 version = "0.4.0"
-source = "git+https://github.com/openmls/openmls#da3830ccc6ca63f577e7105ad1c2c3a863f7f8a4"
+source = "git+https://github.com/openmls/openmls#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
 dependencies = [
  "serde",
  "tls_codec",
@@ -4805,9 +4805,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3a85280daca669cfd3bcb68a337882a8bc57ec882f72c5d13a430613a738e"
+checksum = "1fefb893899429669dcdd979aff487bd78f4064e5e7907e4269081e0ef7d97dc"
 dependencies = [
  "sqlx-core",
  "sqlx-macros",
@@ -4818,9 +4818,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-core"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f743f2a3cea30a58cd479013f75550e879009e3a02f616f18ca699335aa248c3"
+checksum = "ee6798b1838b6a0f69c007c133b8df5866302197e404e8b6ee8ed3e3a5e68dc6"
 dependencies = [
  "base64 0.22.1",
  "bigdecimal",
@@ -4857,9 +4857,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-macros"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f4200e0fde19834956d4252347c12a083bdcb237d7a1a1446bffd8768417dce"
+checksum = "a2d452988ccaacfbf5e0bdbc348fb91d7c8af5bee192173ac3636b5fb6e6715d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4870,9 +4870,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-macros-core"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "882ceaa29cade31beca7129b6beeb05737f44f82dbe2a9806ecea5a7093d00b7"
+checksum = "19a9c1841124ac5a61741f96e1d9e2ec77424bf323962dd894bdb93f37d5219b"
 dependencies = [
  "dotenvy",
  "either",
@@ -4889,16 +4889,15 @@ dependencies = [
  "sqlx-postgres",
  "sqlx-sqlite",
  "syn",
- "tempfile",
  "tokio",
  "url",
 ]
 
 [[package]]
 name = "sqlx-mysql"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0afdd3aa7a629683c2d750c2df343025545087081ab5942593a5288855b1b7a7"
+checksum = "aa003f0038df784eb8fecbbac13affe3da23b45194bd57dba231c8f48199c526"
 dependencies = [
  "atoi",
  "base64 0.22.1",
@@ -4941,9 +4940,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-postgres"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0bedbe1bbb5e2615ef347a5e9d8cd7680fb63e77d9dafc0f29be15e53f1ebe6"
+checksum = "db58fcd5a53cf07c184b154801ff91347e4c30d17a3562a635ff028ad5deda46"
 dependencies = [
  "atoi",
  "base64 0.22.1",
@@ -4982,9 +4981,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-sqlite"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c26083e9a520e8eb87a06b12347679b142dc2ea29e6e409f805644a7a979a5bc"
+checksum = "c2d12fe70b2c1b4401038055f90f151b78208de1f9f89a7dbfd41587a10c3eea"
 dependencies = [
  "atoi",
  "chrono",
@@ -6030,15 +6029,15 @@ dependencies = [
 
 [[package]]
 name = "windows-core"
-version = "0.61.1"
+version = "0.61.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46ec44dc15085cea82cf9c78f85a9114c463a369786585ad2882d1ff0b0acf40"
+checksum = "c0fdd3ddb90610c7638aa2b3a3ab2904fb9e5cdbecc643ddb3647212781c4ae3"
 dependencies = [
  "windows-implement",
  "windows-interface",
  "windows-link",
  "windows-result",
- "windows-strings 0.4.1",
+ "windows-strings 0.4.2",
 ]
 
 [[package]]
@@ -6103,9 +6102,9 @@ dependencies = [
 
 [[package]]
 name = "windows-result"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b895b5356fc36103d0f64dd1e94dfa7ac5633f1c9dd6e80fe9ec4adef69e09d"
+checksum = "56f42bd332cc6c8eac5af113fc0c1fd6a8fd2aa08a0119358686e5160d0586c6"
 dependencies = [
  "windows-link",
 ]
@@ -6121,9 +6120,9 @@ dependencies = [
 
 [[package]]
 name = "windows-strings"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a7ab927b2637c19b3dbe0965e75d8f2d30bdd697a1516191cad2ec4df8fb28a"
+checksum = "56e6c93f3a0c3b36176cb1327a4958a0353d5d166c2a35cb268ace15e91d3b57"
 dependencies = [
  "windows-link",
 ]
@@ -6472,9 +6471,9 @@ dependencies = [
 
 [[package]]
 name = "yaml-rust2"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "818913695e83ece1f8d2a1c52d54484b7b46d0f9c06beeb2649b9da50d9b512d"
+checksum = "18b783b2c2789414f8bb84ca3318fc9c2d7e7be1c22907d37839a58dedb369d3"
 dependencies = [
  "arraydeque",
  "encoding_rs",
@@ -6507,9 +6506,9 @@ dependencies = [
 
 [[package]]
 name = "zbus"
-version = "5.7.0"
+version = "5.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88232b74ba057a0c85472ec1bae8a17569960be17da2d5e5ad30d5efe7ea6719"
+checksum = "d3a7c7cee313d044fca3f48fa782cb750c79e4ca76ba7bc7718cd4024cdf6f68"
 dependencies = [
  "async-broadcast",
  "async-executor",
@@ -6540,9 +6539,9 @@ dependencies = [
 
 [[package]]
 name = "zbus_macros"
-version = "5.7.0"
+version = "5.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6969c06899233334676e60da1675740539cf034ee472a6c5b5c54e50a0a554c9"
+checksum = "a17e7e5eec1550f747e71a058df81a9a83813ba0f6a95f39c4e218bdc7ba366a"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

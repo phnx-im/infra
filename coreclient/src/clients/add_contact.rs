@@ -8,7 +8,7 @@ use phnxtypes::{
     codec::PhnxCodec,
     crypto::{
         ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable,
-        indexed_aead::keys::UserProfileKey, signatures::signable::Signable,
+        indexed_aead::keys::UserProfileKey,
     },
     identifiers::{Fqdn, QsReference, UserId},
     messages::{
@@ -22,7 +22,7 @@ use tracing::info;
 
 use crate::{
     Conversation, ConversationAttributes, ConversationId, PartialContact,
-    clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
+    clients::connection_establishment::FriendshipPackage,
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
     key_stores::{
         MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
@@ -32,7 +32,11 @@ use crate::{
 };
 
 use super::{
-    CoreUser, api_clients::ApiClients, connection_establishment::ConnectionEstablishmentPackage,
+    CoreUser,
+    api_clients::ApiClients,
+    connection_establishment::{
+        ConnectionEstablishmentPackage, payload::ConnectionEstablishmentPackagePayload,
+    },
 };
 
 impl CoreUser {
@@ -275,7 +279,7 @@ impl LocalGroup {
         .await?;
 
         // Create a connection establishment package
-        let connection_establishment_package = ConnectionEstablishmentPackageTbs {
+        let connection_establishment_package = ConnectionEstablishmentPackagePayload {
             sender_client_credential: key_store.signing_key.credential().clone(),
             connection_group_id: group.group_id().clone(),
             connection_group_ear_key: group.group_state_ear_key().clone(),
@@ -283,7 +287,7 @@ impl LocalGroup {
             friendship_package_ear_key,
             friendship_package,
         }
-        .sign(&key_store.signing_key)?;
+        .sign(&key_store.signing_key, contact_user_id)?;
 
         let encrypted_user_profile_key =
             own_user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
