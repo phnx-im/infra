@@ -26,7 +26,7 @@ use crate::{
     LibraryError,
     codec::PhnxCodec,
     crypto::{
-        ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
+        ear::Ciphertext,
         errors::KeyGenerationError,
         signatures::{
             private_keys::SigningKey,
@@ -612,13 +612,6 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
     fn from_payload(payload: ClientCredentialPayload, signature: Signature) -> Self {
         Self { payload, signature }
     }
-}
-
-impl EarEncryptable<IdentityLinkKey, EncryptedClientCredentialCtype> for ClientCredential {}
-
-impl EarDecryptable<IdentityLinkKey, EncryptedClientCredentialCtype>
-    for VerifiableClientCredential
-{
 }
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]

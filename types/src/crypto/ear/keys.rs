@@ -63,15 +63,6 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
     const LABEL: &'static str = "RatchetKey";
 }
 
-// Identity link key
-
-#[derive(Debug)]
-pub struct IdentityLinkKeyType;
-
-pub type IdentityLinkKey = Key<IdentityLinkKeyType>;
-
-impl EarKey for IdentityLinkKey {}
-
 // WelcomeAttributionInfo EAR key
 
 #[derive(Debug)]
