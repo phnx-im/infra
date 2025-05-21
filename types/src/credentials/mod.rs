@@ -725,3 +725,35 @@ pub mod persistence {
         }
     }
 }
+
+#[cfg(feature = "test_utils")]
+pub mod test_utils {
+    use super::{
+        keys::{AsIntermediateSigningKey, ClientSigningKey},
+        *,
+    };
+
+    pub fn create_test_credentials(
+        user_id: UserId,
+    ) -> (AsIntermediateSigningKey, ClientSigningKey) {
+        let (credential_csr, signing_key) =
+            ClientCredentialCsr::new(user_id.clone(), SignatureScheme::ED25519).unwrap();
+        let domain = user_id.domain().clone();
+        let (_as_credential, ac_sk) =
+            AsCredential::new(SignatureScheme::ED25519, domain.clone(), None).unwrap();
+        let (as_intermediate_credential_csr, aic_sk) =
+            AsIntermediateCredentialCsr::new(SignatureScheme::ED25519, domain.clone()).unwrap();
+        let as_intermediate_credential = as_intermediate_credential_csr.sign(&ac_sk, None).unwrap();
+        let aic_sk =
+            AsIntermediateSigningKey::from_prelim_key(aic_sk, as_intermediate_credential).unwrap();
+        let client_credential = ClientCredentialPayload::new(
+            credential_csr,
+            None,
+            aic_sk.credential().fingerprint().clone(),
+        )
+        .sign(&aic_sk)
+        .unwrap();
+        let client_sk = ClientSigningKey::from_prelim_key(signing_key, client_credential).unwrap();
+        (aic_sk, client_sk)
+    }
+}
