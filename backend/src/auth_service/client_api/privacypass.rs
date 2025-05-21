@@ -2,8 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::messages::client_as::{IssueTokensParamsTbs, IssueTokensResponse};
-use privacypass::amortized_tokens::server::Server;
+use phnxtypes::identifiers::UserId;
+use privacypass::{
+    amortized_tokens::{AmortizedBatchTokenRequest, AmortizedBatchTokenResponse, server::Server},
+    private_tokens::Ristretto255,
+};
 use tracing::error;
 
 use crate::{
@@ -19,15 +22,9 @@ impl AuthService {
     #[allow(dead_code)]
     pub(crate) async fn as_issue_tokens(
         &self,
-        params: IssueTokensParamsTbs,
-    ) -> Result<IssueTokensResponse, IssueTokensError> {
-        let IssueTokensParamsTbs {
-            user_id,
-            // This will be used later when we use different token contexts and
-            // different challenges for different endpoints.
-            token_type: _,
-            token_request,
-        } = params;
+        user_id: &UserId,
+        token_request: AmortizedBatchTokenRequest<Ristretto255>,
+    ) -> Result<AmortizedBatchTokenResponse<Ristretto255>, IssueTokensError> {
         let tokens_requested = token_request.nr() as i32;
 
         // Start a transaction
@@ -38,7 +35,7 @@ impl AuthService {
             .map_err(|_| IssueTokensError::StorageError)?;
 
         // Load current token allowance from storage provider
-        let mut client_record = ClientRecord::load(&mut *transaction, &user_id)
+        let mut client_record = ClientRecord::load(&mut *transaction, user_id)
             .await
             .map_err(|error| {
                 error!(%error, "Error loading client record");
@@ -58,10 +55,6 @@ impl AuthService {
             .await
             .map_err(|_| IssueTokensError::PrivacyPassError)?;
 
-        let response = IssueTokensResponse {
-            tokens: token_response,
-        };
-
         // Reduce the token allowance by the number of tokens issued.
         client_record.token_allowance -= tokens_requested;
         client_record.update(&mut *transaction).await.map_err(|e| {
@@ -74,6 +67,6 @@ impl AuthService {
             .await
             .map_err(|_| IssueTokensError::StorageError)?;
 
-        Ok(response)
+        Ok(token_response)
     }
 }
