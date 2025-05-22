@@ -179,9 +179,8 @@ impl ClientAuthInfo {
         // If it's an update, ensure that the UserId in the new credential
         // matches the UserId in the old credential
         if let Some(old_credential) = old_credential {
-            let client_credential = VerifiableClientCredential::try_from(old_credential)?;
             ensure!(
-                client_credential.user_id() == client_credential.user_id(),
+                client_credential.identity() == old_credential.user_id(),
                 "UserId in new credential does not match UserId in old credential"
             );
         }

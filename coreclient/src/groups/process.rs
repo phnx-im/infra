@@ -465,9 +465,9 @@ impl Group {
         let client_auth_info = ClientAuthInfo::verify_credential(
             &self.group_id,
             sender_index,
-            new_sender_credential.try_into()?,
+            new_sender_credential,
             new_sender_leaf_key,
-            Some(old_sender_credential.try_into()?),
+            Some(old_sender_credential),
             as_credentials,
         )?;
         // Persist the updated client auth info.

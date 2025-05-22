@@ -1166,7 +1166,7 @@ fn member_information(
 > {
     members
         .into_iter()
-        .map(|m| extract_member_info(m))
+        .map(extract_member_info)
         .collect::<Result<Vec<_>, BasicCredentialError>>()
 }
 
