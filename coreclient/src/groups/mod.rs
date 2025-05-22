@@ -376,17 +376,7 @@ impl Group {
             (mls_group, joiner_info, welcome_attribution_info)
         };
 
-        let client_information = mls_group
-            .members()
-            .map(|m| {
-                let credential = VerifiableClientCredential::try_from(m.credential)?;
-                Ok((
-                    m.index,
-                    credential,
-                    SignaturePublicKey::from(m.signature_key),
-                ))
-            })
-            .collect::<Result<Vec<_>, BasicCredentialError>>()?;
+        let client_information = member_information(mls_group.members())?;
 
         // Phase 6: Fetch the AS credentials from the server
         let as_credentials = AsCredentials::fetch_for_verification(

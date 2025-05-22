@@ -192,11 +192,8 @@ impl Group {
 
                         // Process updates if there are any.
                         // Check if the client has updated its leaf credential.
-                        let (new_sender_credential, new_sender_leaf_key) = staged_commit
-                            .update_path_leaf_node()
-                            .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
-                            .ok_or(anyhow!("Could not find sender leaf node"))?;
-                        let new_sender_credential = new_sender_credential.try_into()?;
+                        let (new_sender_credential, new_sender_leaf_key) =
+                            update_path_leaf_node_info(staged_commit)?;
 
                         let as_credentials = AsCredentials::fetch_for_verification(
                             &mut *connection,
@@ -238,12 +235,8 @@ impl Group {
                             .find(|m| m.index == sender_index)
                             .ok_or(anyhow!("Could not find sender in group members"))?;
                         let old_sender_credential = sender.credential.clone().try_into()?;
-                        let (new_sender_credential, new_sender_leaf_key) = staged_commit
-                            .update_path_leaf_node()
-                            .map(|ln| (ln.credential(), ln.signature_key()))
-                            .ok_or(anyhow!("Could not find sender leaf node"))?;
-                        let new_sender_credential =
-                            VerifiableClientCredential::try_from(new_sender_credential.clone())?;
+                        let (new_sender_credential, new_sender_leaf_key) =
+                            update_path_leaf_node_info(staged_commit)?;
                         let as_credentials = AsCredentials::fetch_for_verification(
                             &mut *connection,
                             api_clients,
@@ -271,12 +264,8 @@ impl Group {
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
                         // client credential of the joiner
-                        let (sender_credential, sender_leaf_key) = staged_commit
-                            .update_path_leaf_node()
-                            .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
-                            .context("Could not find sender leaf node in staged commit")?;
-
-                        let sender_credential = sender_credential.try_into()?;
+                        let (sender_credential, sender_leaf_key) =
+                            update_path_leaf_node_info(staged_commit)?;
 
                         let as_credentials = AsCredentials::fetch_for_verification(
                             &mut *connection,
@@ -293,6 +282,7 @@ impl Group {
                             None, // Since the join is an external commit, we don't have an old credential.
                             &as_credentials,
                         )?;
+
                         // TODO: (More) validation:
                         // * Check that the user id is unique.
                         // * Check that the proposals fit the operation.
@@ -314,11 +304,8 @@ impl Group {
                             "Resync operation must be an external commit"
                         );
 
-                        let (sender_credential, sender_leaf_key) = staged_commit
-                            .update_path_leaf_node()
-                            .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
-                            .context("Could not find sender leaf node in staged commit")?;
-                        let verifiable_sender_credential = sender_credential.try_into()?;
+                        let (sender_credential, sender_leaf_key) =
+                            update_path_leaf_node_info(staged_commit)?;
 
                         let removed_index = staged_commit
                             .remove_proposals()
@@ -335,14 +322,14 @@ impl Group {
                         let as_credentials = AsCredentials::fetch_for_verification(
                             &mut *connection,
                             api_clients,
-                            iter::once(&verifiable_sender_credential),
+                            iter::once(&sender_credential),
                         )
                         .await?;
 
                         let mut client_auth_info = ClientAuthInfo::verify_credential(
                             &group_id,
                             removed_index,
-                            verifiable_sender_credential,
+                            sender_credential,
                             sender_leaf_key,
                             Some(old_credential.clone().try_into()?),
                             &as_credentials,
@@ -525,4 +512,15 @@ impl Group {
         client_auth_info.stage_update(connection).await?;
         Ok(())
     }
+}
+
+fn update_path_leaf_node_info(
+    staged_commit: &StagedCommit,
+) -> Result<(VerifiableClientCredential, SignaturePublicKey)> {
+    let leaf_node = staged_commit
+        .update_path_leaf_node()
+        .ok_or(anyhow!("Could not find sender leaf node"))?;
+    let credential = leaf_node.credential().clone().try_into()?;
+    let signature_key = leaf_node.signature_key().clone();
+    Ok((credential, signature_key))
 }
