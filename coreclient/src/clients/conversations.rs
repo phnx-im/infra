@@ -203,11 +203,11 @@ impl CoreUser {
     pub async fn load_room_state(
         &self,
         conversation_id: &ConversationId,
-    ) -> Result<(u32, VerifiedRoomState<UserId>)> {
+    ) -> Result<(UserId, VerifiedRoomState<UserId>)> {
         if let Some(conversation) = self.conversation(conversation_id).await {
             let mut connection = self.pool().acquire().await?;
             if let Some(group) = Group::load(&mut connection, conversation.group_id()).await? {
-                return Ok((group.own_leaf_index(), group.room_state));
+                return Ok((self.user_id().clone(), group.room_state));
             }
         }
         bail!("Room does not exist")

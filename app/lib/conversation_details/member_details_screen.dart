@@ -45,7 +45,8 @@ class MemberDetailsScreen extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final canKick = roomState.canKick(target: 1); // TODO: Use UUID
+    // final canKick = roomState.canKick(target: null); // TODO: Use UUID
+    const canKick = false;
 
     return Scaffold(
       appBar: AppBar(

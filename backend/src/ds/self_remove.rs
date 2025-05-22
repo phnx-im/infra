@@ -12,7 +12,7 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::time::Duration;
+use phnxtypes::{credentials::VerifiableClientCredential, time::Duration};
 use tracing::error;
 
 impl DsGroupState {
@@ -60,10 +60,15 @@ impl DsGroupState {
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
 
+        let sender = VerifiableClientCredential::try_from(
+            self.group.leaf(sender_index).unwrap().credential().clone(),
+        )
+        .unwrap();
+
         if let Err(e) = self.room_state.apply_regular_proposals(
-            &sender_index.u32(),
+            sender.user_id(),
             &[MimiProposal::ChangeRole {
-                target: sender_index.u32(),
+                target: sender.user_id().clone(),
                 role: RoleIndex::Outsider,
             }],
         ) {
