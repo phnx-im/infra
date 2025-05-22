@@ -72,7 +72,7 @@ impl SignedStruct<IndexedUserProfile, ClientKeyType> for SignedUserProfile {
     fn from_payload(payload: IndexedUserProfile, signature: Signature<ClientKeyType>) -> Self {
         Self {
             tbs: payload,
-            signature: signature,
+            signature,
         }
     }
 }
