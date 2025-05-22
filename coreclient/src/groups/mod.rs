@@ -21,28 +21,24 @@ use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
-    credentials::{
-        ClientCredential,
-        keys::{ClientSigningKey, PseudonymousCredentialSigningKey},
-    },
+    credentials::{ClientCredential, keys::ClientSigningKey},
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable,
             keys::{
-                EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey,
-                IdentityLinkKey, IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey,
+                EncryptedUserProfileKey, GroupStateEarKey, IdentityLinkWrapperKey,
+                WelcomeAttributionInfoEarKey,
             },
         },
         hpke::{HpkeDecryptable, JoinerInfoDecryptionKey},
         indexed_aead::keys::UserProfileKey,
-        kdf::keys::ConnectionKey,
         signatures::signable::{Signable, Verifiable},
     },
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedGroupId, UserId},
     messages::{
         client_ds::{
             DsJoinerInformation, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
-            UpdateParamsAad, WelcomeBundle,
+            WelcomeBundle,
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
@@ -61,7 +57,7 @@ use tracing::{debug, error};
 
 use crate::{
     SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage, key_stores::leaf_keys::LeafKeys,
+    conversations::messages::TimestampedMessage,
 };
 use std::collections::HashSet;
 
@@ -128,7 +124,6 @@ pub(crate) struct PartialCreateGroupParams {
     pub(crate) group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
-    encrypted_identity_link_key: EncryptedIdentityLinkKey,
     room_state: VerifiedRoomState,
 }
 
@@ -141,7 +136,6 @@ impl PartialCreateGroupParams {
         CreateGroupParamsOut {
             group_id: self.group_id,
             ratchet_tree: self.ratchet_tree,
-            encrypted_identity_link_key: self.encrypted_identity_link_key,
             encrypted_user_profile_key,
             creator_client_reference: client_reference,
             group_info: self.group_info,
@@ -183,7 +177,6 @@ impl From<Vec<u8>> for GroupData {
 #[derive(Debug)]
 pub(crate) struct Group {
     group_id: GroupId,
-    leaf_signer: PseudonymousCredentialSigningKey,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     mls_group: MlsGroup,
@@ -206,20 +199,16 @@ impl Group {
     pub(super) fn create_group(
         provider: &impl OpenMlsProvider,
         signer: &ClientSigningKey,
-        connection_key: &ConnectionKey,
         group_id: GroupId,
         group_data: GroupData,
     ) -> Result<(Self, GroupMembership, PartialCreateGroupParams)> {
         let group_state_ear_key = GroupStateEarKey::random()?;
         let identity_link_wrapper_key = IdentityLinkWrapperKey::random()?;
 
-        let leaf_keys = LeafKeys::generate(signer, connection_key)?;
-
         let required_capabilities =
             Extension::RequiredCapabilities(default_required_capabilities());
         let leaf_node_capabilities = default_capabilities();
 
-        let credential_with_key = leaf_keys.credential()?;
         let group_data_extension = Extension::Unknown(
             GROUP_DATA_EXTENSION_TYPE,
             UnknownExtension(group_data.bytes),
@@ -227,24 +216,25 @@ impl Group {
         let gc_extensions =
             Extensions::from_vec(vec![group_data_extension, required_capabilities])?;
 
-        let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
+        let credential_with_key = CredentialWithKey {
+            credential: signer.credential().try_into()?,
+            signature_key: signer.credential().verifying_key().clone().into(),
+        };
 
         let mls_group = MlsGroup::builder()
             .with_group_id(group_id.clone())
             .with_capabilities(leaf_node_capabilities)
             .with_group_context_extensions(gc_extensions)?
             .with_wire_format_policy(PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
-            .build(provider, &leaf_signer, credential_with_key)
+            .build(provider, signer, credential_with_key)
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
 
         let room_state = VerifiedRoomState::new(&0, RoomPolicy::default_private()).unwrap();
 
-        let encrypted_identity_link_key = identity_link_key.encrypt(&identity_link_wrapper_key)?;
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info(provider, &leaf_signer, true)?,
-            encrypted_identity_link_key,
+            group_info: mls_group.export_group_info(provider, signer, true)?,
             room_state: room_state.clone(),
         };
 
@@ -252,13 +242,11 @@ impl Group {
             signer.credential().identity().clone(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
-            identity_link_key,
             signer.credential().fingerprint(),
         );
 
         let group = Self {
             group_id,
-            leaf_signer,
             identity_link_wrapper_key,
             mls_group,
             room_state,
@@ -281,12 +269,13 @@ impl Group {
         welcome_attribution_info_ear_key: &WelcomeAttributionInfoEarKey,
         txn: &mut SqliteTransaction<'_>,
         api_clients: &ApiClients,
+        signer: &ClientSigningKey,
     ) -> Result<(Self, Vec<ProfileInfo>)> {
         let serialized_welcome = welcome_bundle.welcome.tls_serialize_detached()?;
 
         let mls_group_config = Self::default_mls_group_join_config();
 
-        let (processed_welcome, joiner_info, leaf_signer) = {
+        let (processed_welcome, joiner_info) = {
             // Phase 1: Fetch the right KeyPackageBundle from storage
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());
             let kpb: KeyPackageBundle = welcome_bundle
@@ -324,16 +313,6 @@ impl Group {
                 welcome_bundle.welcome.welcome,
             )?;
 
-            let verifying_key = kpb.key_package().leaf_node().signature_key();
-
-            let leaf_keys = LeafKeys::load(txn.as_mut(), verifying_key)
-                .await?
-                .ok_or(anyhow!("Couldn't find matching leaf keys."))?;
-            // Delete the leaf signer from the keys store as it now gets persisted as part of the group.
-            LeafKeys::delete(txn.as_mut(), verifying_key).await?;
-
-            let leaf_signer = leaf_keys.into_leaf_signer();
-
             // Phase 3: Check if there is already a group with the same ID.
             let group_id = processed_welcome.unverified_group_info().group_id().clone();
             if let Some(group) = Self::load(txn.as_mut(), &group_id).await? {
@@ -344,7 +323,7 @@ impl Group {
                 // Otherwise, we delete the old group.
                 Self::delete_from_db(txn, &group_id).await?;
             }
-            (processed_welcome, joiner_info, leaf_signer)
+            (processed_welcome, joiner_info)
         };
 
         // Phase 4: Fetch the welcome info from the server
@@ -357,13 +336,12 @@ impl Group {
                 group_id.clone(),
                 epoch,
                 &joiner_info.group_state_ear_key,
-                &leaf_signer,
+                signer,
             )
             .await?;
 
         let WelcomeInfoIn {
             ratchet_tree,
-            encrypted_identity_link_keys,
             encrypted_user_profile_keys,
             room_state,
         } = welcome_info;
@@ -397,18 +375,14 @@ impl Group {
             (mls_group, joiner_info, welcome_attribution_info)
         };
 
-        let client_information = mls_group
-            .members()
-            .map(|m| (m.index, m.credential))
-            .zip(encrypted_identity_link_keys.into_iter());
+        let client_information = mls_group.members().map(|m| (m.index, m.credential));
 
         // Phase 6: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
-        let client_information = ClientAuthInfo::decrypt_and_verify_all(
+        let client_information = ClientAuthInfo::verify_credentials(
             txn,
             api_clients,
             mls_group.group_id(),
-            welcome_attribution_info.identity_link_wrapper_key(),
             client_information,
         )
         .await?;
@@ -443,7 +417,6 @@ impl Group {
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,
-            leaf_signer,
             identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             pending_diff: None,
@@ -459,8 +432,7 @@ impl Group {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         external_commit_info: ExternalCommitInfoIn,
-        leaf_signer: PseudonymousCredentialSigningKey,
-        identity_link_key: IdentityLinkKey,
+        signer: &ClientSigningKey,
         group_state_ear_key: GroupStateEarKey,
         identity_link_wrapper_key: IdentityLinkWrapperKey,
         aad: InfraAadMessage,
@@ -471,13 +443,12 @@ impl Group {
         // future.
         let mls_group_config = Self::default_mls_group_join_config();
         let credential_with_key = CredentialWithKey {
-            credential: leaf_signer.credential().try_into()?,
-            signature_key: leaf_signer.credential().verifying_key().clone(),
+            credential: signer.credential().try_into()?,
+            signature_key: signer.credential().verifying_key().clone().into(),
         };
         let ExternalCommitInfoIn {
             verifiable_group_info,
             ratchet_tree_in,
-            encrypted_identity_link_keys,
             encrypted_user_profile_keys,
             room_state,
         } = external_commit_info;
@@ -488,7 +459,7 @@ impl Group {
             let provider = PhnxOpenMlsProvider::new(&mut *connection);
             let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
                 &provider,
-                &leaf_signer,
+                signer,
                 Some(ratchet_tree_in),
                 verifiable_group_info,
                 &mls_group_config,
@@ -498,24 +469,20 @@ impl Group {
                 credential_with_key,
             )?;
             mls_group.merge_pending_commit(&provider)?;
-            let group_info = mls_group.export_group_info(&provider, &leaf_signer, true)?;
+            let group_info = mls_group.export_group_info(&provider, signer, true)?;
             (mls_group, commit, group_info)
         };
 
         let group_id = mls_group.group_id();
 
-        let encrypted_client_information = mls_group
-            .members()
-            .map(|m| (m.index, m.credential))
-            .zip(encrypted_identity_link_keys.into_iter());
+        let client_credentials = mls_group.members().map(|m| (m.index, m.credential));
 
         // Phase 2: Decrypt and verify the client credentials.
-        let mut client_information = ClientAuthInfo::decrypt_and_verify_all(
+        let mut client_information = ClientAuthInfo::verify_credentials(
             &mut *connection,
             api_clients,
             group_id,
-            &identity_link_wrapper_key,
-            encrypted_client_information,
+            client_credentials,
         )
         .await?;
 
@@ -543,7 +510,6 @@ impl Group {
             own_client_credential.identity().clone(),
             mls_group.group_id().clone(),
             LeafNodeIndex::new(own_index as u32),
-            identity_link_key.clone(),
             own_client_credential.fingerprint(),
         );
 
@@ -562,7 +528,6 @@ impl Group {
         let group = Self {
             group_id: mls_group.group_id().clone(),
             mls_group,
-            leaf_signer,
             identity_link_wrapper_key,
             group_state_ear_key,
             pending_diff: None,
@@ -589,19 +554,10 @@ impl Group {
         debug_assert!(add_infos.len() == client_credentials.len());
         // Prepare KeyPackages
 
-        let (key_packages, keys): (Vec<KeyPackage>, Vec<(IdentityLinkKey, UserProfileKey)>) =
-            add_infos
-                .into_iter()
-                .map(|ai| (ai.key_package, (ai.identity_link_key, ai.user_profile_key)))
-                .unzip();
-
-        let (identity_link_keys, user_profile_keys): (Vec<IdentityLinkKey>, Vec<UserProfileKey>) =
-            keys.into_iter().unzip();
-
-        let new_encrypted_identity_link_keys = identity_link_keys
-            .iter()
-            .map(|ilk| ilk.encrypt(&self.identity_link_wrapper_key))
-            .collect::<Result<Vec<_>, _>>()?;
+        let (key_packages, user_profile_keys): (Vec<KeyPackage>, Vec<UserProfileKey>) = add_infos
+            .into_iter()
+            .map(|ai| (ai.key_package, ai.user_profile_key))
+            .unzip();
 
         let new_encrypted_user_profile_keys = user_profile_keys
             .iter()
@@ -616,9 +572,7 @@ impl Group {
 
         let aad_message: InfraAadMessage =
             InfraAadPayload::GroupOperation(GroupOperationParamsAad {
-                new_encrypted_identity_link_keys,
                 new_encrypted_user_profile_keys,
-                credential_update_option: None,
             })
             .into();
 
@@ -633,12 +587,7 @@ impl Group {
                 .create_group_info(true)
                 .propose_adds(key_packages)
                 .load_psks(provider.storage())?
-                .build(
-                    provider.rand(),
-                    provider.crypto(),
-                    &self.leaf_signer,
-                    |_| true,
-                )?
+                .build(provider.rand(), provider.crypto(), signer, |_| true)?
                 .stage_commit(&provider)?
                 .into_contents()
         };
@@ -686,11 +635,7 @@ impl Group {
 
         // Stage the adds in the DB.
         let free_indices = GroupMembership::free_indices(&mut *connection, self.group_id()).await?;
-        for (leaf_index, (client_credential, identity_link_key)) in free_indices.zip(
-            client_credentials
-                .into_iter()
-                .zip(identity_link_keys.into_iter()),
-        ) {
+        for (leaf_index, client_credential) in free_indices.zip(client_credentials) {
             // Room policy check
             self.room_state.apply_regular_proposals(
                 &self.mls_group.own_leaf_index().u32(),
@@ -705,7 +650,6 @@ impl Group {
                 client_credential.identity().clone(),
                 self.group_id.clone(),
                 leaf_index,
-                identity_link_key,
                 fingerprint,
             );
             let client_auth_info = ClientAuthInfo::new(client_credential, group_membership);
@@ -728,6 +672,7 @@ impl Group {
     pub(super) async fn stage_remove(
         &mut self,
         connection: &mut sqlx::SqliteConnection,
+        signer: &ClientSigningKey,
         members: Vec<UserId>,
     ) -> Result<GroupOperationParamsOut> {
         let remove_indices =
@@ -746,8 +691,6 @@ impl Group {
 
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],
-            new_encrypted_identity_link_keys: vec![],
-            credential_update_option: None,
         });
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
@@ -760,12 +703,7 @@ impl Group {
             .create_group_info(true)
             .propose_removals(remove_indices)
             .load_psks(provider.storage())?
-            .build(
-                provider.rand(),
-                provider.crypto(),
-                &self.leaf_signer,
-                |_| true,
-            )?
+            .build(provider.rand(), provider.crypto(), signer, |_| true)?
             .stage_commit(&provider)?
             .into_contents();
 
@@ -798,6 +736,7 @@ impl Group {
     pub(super) async fn stage_delete(
         &mut self,
         connection: &mut sqlx::SqliteConnection,
+        signer: &ClientSigningKey,
     ) -> anyhow::Result<DeleteGroupParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(&mut *connection);
         let remove_indices = self
@@ -824,12 +763,7 @@ impl Group {
             .create_group_info(true)
             .propose_removals(remove_indices)
             .load_psks(provider.storage())?
-            .build(
-                provider.rand(),
-                provider.crypto(),
-                &self.leaf_signer,
-                |_| true,
-            )?
+            .build(provider.rand(), provider.crypto(), signer, |_| true)?
             .stage_commit(provider)?
             .into_contents();
 
@@ -908,11 +842,8 @@ impl Group {
 
         // We now apply the diff (if present)
         if let Some(diff) = self.pending_diff.take() {
-            if let Some(leaf_signer) = diff.leaf_signer {
-                self.leaf_signer = leaf_signer;
-            }
-            if let Some(identity_link_key) = diff.identity_link_key {
-                self.identity_link_wrapper_key = identity_link_key;
+            if let Some(identity_link_wrapper_key) = diff.identity_link_wrapper_key {
+                self.identity_link_wrapper_key = identity_link_wrapper_key;
             }
             if let Some(group_state_ear_key) = diff.group_state_ear_key {
                 self.group_state_ear_key = group_state_ear_key;
@@ -954,11 +885,12 @@ impl Group {
     pub(super) fn create_message(
         &mut self,
         provider: &impl OpenMlsProvider,
+        signer: &ClientSigningKey,
         content: MimiContent,
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
-        let mls_message =
-            self.mls_group
-                .create_message(provider, &self.leaf_signer, &content.serialize())?;
+        let mls_message = self
+            .mls_group
+            .create_message(provider, signer, &content.serialize())?;
 
         let message = AssistedMessageOut::new(mls_message, None)?;
 
@@ -1014,13 +946,10 @@ impl Group {
     pub(super) async fn update(
         &mut self,
         txn: &mut SqliteTransaction<'_>,
+        signer: &ClientSigningKey,
     ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
-        let aad_payload = UpdateParamsAad {
-            option_encrypted_identity_link_key: None,
-        };
-        let aad =
-            InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
+        let aad = InfraAadMessage::from(InfraAadPayload::Update).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());
@@ -1031,12 +960,7 @@ impl Group {
                 .force_self_update(true)
                 .create_group_info(true)
                 .load_psks(provider.storage())?
-                .build(
-                    provider.rand(),
-                    provider.crypto(),
-                    &self.leaf_signer,
-                    |_| true,
-                )?
+                .build(provider.rand(), provider.crypto(), signer, |_| true)?
                 .stage_commit(&provider)?
                 .into_contents();
 
@@ -1066,19 +990,16 @@ impl Group {
     pub(super) fn stage_leave_group(
         &mut self,
         connection: &mut sqlx::SqliteConnection,
+        signer: &ClientSigningKey,
     ) -> Result<SelfRemoveParamsOut> {
         let provider = &PhnxOpenMlsProvider::new(connection);
-        let proposal = self.mls_group.leave_group(provider, &self.leaf_signer)?;
+        let proposal = self.mls_group.leave_group(provider, signer)?;
 
         let assisted_message = AssistedMessageOut::new(proposal, None)?;
         let params = SelfRemoveParamsOut {
             remove_proposal: assisted_message,
         };
         Ok(params)
-    }
-
-    pub(crate) fn leaf_signer(&self) -> &PseudonymousCredentialSigningKey {
-        &self.leaf_signer
     }
 
     pub(super) fn store_proposal(

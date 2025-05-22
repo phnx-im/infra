@@ -10,7 +10,7 @@ use mls_assist::{
 };
 use phnxtypes::{
     LibraryError,
-    credentials::keys::PseudonymousCredentialSigningKey,
+    credentials::keys::ClientSigningKey,
     crypto::ear::keys::GroupStateEarKey,
     identifiers::QsReference,
     messages::{
@@ -51,7 +51,7 @@ impl ApiClient {
     pub async fn ds_create_group(
         &self,
         payload: CreateGroupParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         self.ds_grpc_client
@@ -63,7 +63,7 @@ impl ApiClient {
     pub async fn ds_group_operation(
         &self,
         payload: GroupOperationParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.ds_grpc_client
@@ -77,7 +77,7 @@ impl ApiClient {
         group_id: GroupId,
         epoch: GroupEpoch,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
     ) -> Result<WelcomeInfoIn, DsRequestError> {
         self.ds_grpc_client
             .welcome_info(group_id, epoch, group_state_ear_key, signing_key)
@@ -110,7 +110,7 @@ impl ApiClient {
     pub async fn ds_update(
         &self,
         params: UpdateParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.ds_grpc_client
@@ -137,7 +137,7 @@ impl ApiClient {
     pub async fn ds_resync(
         &self,
         external_commit: AssistedMessageOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
         own_leaf_index: LeafNodeIndex,
     ) -> Result<TimeStamp, DsRequestError> {
@@ -155,7 +155,7 @@ impl ApiClient {
     pub async fn ds_self_remove(
         &self,
         params: SelfRemoveParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.ds_grpc_client
@@ -167,7 +167,7 @@ impl ApiClient {
     pub async fn ds_send_message(
         &self,
         params: SendMessageParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.ds_grpc_client
@@ -179,7 +179,7 @@ impl ApiClient {
     pub async fn ds_delete_group(
         &self,
         params: DeleteGroupParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         self.ds_grpc_client
@@ -191,7 +191,7 @@ impl ApiClient {
     pub async fn ds_user_profile_key_update(
         &self,
         params: UserProfileKeyUpdateParams,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         self.ds_grpc_client

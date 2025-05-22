@@ -241,6 +241,10 @@ impl CoreUser {
         &self.inner.pool
     }
 
+    pub(crate) fn signing_key(&self) -> &ClientSigningKey {
+        &self.inner.key_store.signing_key
+    }
+
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
         if !notification.is_empty() {
             self.inner.store_notifications_tx.notify(notification);

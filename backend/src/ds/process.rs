@@ -155,9 +155,7 @@ use tls_codec::{TlsSerialize, TlsSize};
 use uuid::Uuid;
 
 use phnxtypes::{
-    codec::PhnxCodec,
-    crypto::ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey},
-    identifiers::QualifiedGroupId,
+    codec::PhnxCodec, crypto::ear::keys::EncryptedUserProfileKey, identifiers::QualifiedGroupId,
 };
 
 use super::Ds;
@@ -180,7 +178,6 @@ impl Ds {
 pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub room_state: Vec<u8>,
 }

@@ -17,17 +17,13 @@ use mls_assist::{
     },
 };
 
-use crate::{
-    crypto::ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey},
-    identifiers::QsReference,
-};
+use crate::{crypto::ear::keys::EncryptedUserProfileKey, identifiers::QsReference};
 
 use super::welcome_attribution_info::EncryptedWelcomeAttributionInfo;
 
 pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub room_state: Vec<u8>,
 }
@@ -35,7 +31,6 @@ pub struct ExternalCommitInfoIn {
 #[derive(Debug)]
 pub struct WelcomeInfoIn {
     pub ratchet_tree: RatchetTreeIn,
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
     pub room_state: Vec<u8>,
 }
@@ -44,7 +39,6 @@ pub struct WelcomeInfoIn {
 pub struct CreateGroupParamsOut {
     pub group_id: GroupId,
     pub ratchet_tree: RatchetTree,
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_client_reference: QsReference,
     pub group_info: MlsMessageOut,

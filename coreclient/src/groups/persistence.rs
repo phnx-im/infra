@@ -7,10 +7,9 @@ use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
     codec::{BlobDecoded, BlobEncoded},
-    credentials::keys::PseudonymousCredentialSigningKey,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
-use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
+use sqlx::{SqliteExecutor, query, query_as};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 
@@ -18,7 +17,6 @@ use super::{Group, diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider}
 
 struct SqlGroup {
     group_id: GroupIdWrapper,
-    leaf_signer: PseudonymousCredentialSigningKey,
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     pending_diff: Option<BlobDecoded<StagedGroupDiff>>,
@@ -29,7 +27,6 @@ impl SqlGroup {
     fn into_group(self, mls_group: MlsGroup) -> Group {
         let Self {
             group_id: GroupIdWrapper(group_id),
-            leaf_signer,
             identity_link_wrapper_key,
             group_state_ear_key,
             pending_diff,
@@ -37,7 +34,6 @@ impl SqlGroup {
         } = self;
         Group {
             group_id,
-            leaf_signer,
             identity_link_wrapper_key,
             group_state_ear_key,
             mls_group,
@@ -48,7 +44,7 @@ impl SqlGroup {
 }
 
 impl Group {
-    pub(crate) async fn store(&self, txn: &mut SqliteTransaction<'_>) -> sqlx::Result<()> {
+    pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         let room_state = serde_json::to_vec(&self.room_state).unwrap();
         let pending_diff = self.pending_diff.as_ref().map(BlobEncoded);
@@ -56,21 +52,19 @@ impl Group {
         query!(
             "INSERT INTO groups (
                 group_id,
-                leaf_signer,
                 identity_link_wrapper_key,
                 group_state_ear_key,
                 pending_diff,
                 room_state
             )
-            VALUES (?, ?, ?, ?, ?, ?)",
+            VALUES (?, ?, ?, ?, ?)",
             group_id,
-            self.leaf_signer,
             self.identity_link_wrapper_key,
             self.group_state_ear_key,
             pending_diff,
             room_state,
         )
-        .execute(txn.as_mut())
+        .execute(executor)
         .await?;
         Ok(())
     }
@@ -105,7 +99,6 @@ impl Group {
             SqlGroup,
             r#"SELECT
                 group_id AS "group_id: _",
-                leaf_signer AS "leaf_signer: _",
                 identity_link_wrapper_key AS "identity_link_wrapper_key: _",
                 group_state_ear_key AS "group_state_ear_key: _",
                 pending_diff AS "pending_diff: _",
@@ -124,13 +117,11 @@ impl Group {
         let room_state = serde_json::to_vec(&self.room_state).unwrap();
         query!(
             "UPDATE groups SET
-                leaf_signer = ?,
                 identity_link_wrapper_key = ?,
                 group_state_ear_key = ?,
                 pending_diff = ?,
                 room_state = ?
             WHERE group_id = ?",
-            self.leaf_signer,
             self.identity_link_wrapper_key,
             self.group_state_ear_key,
             pending_diff,

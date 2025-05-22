@@ -5,7 +5,6 @@
 use std::{fmt, ops::Deref};
 
 use anyhow::Result;
-use leaf_keys::LeafKeys;
 use openmls::prelude::{
     CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
     UnknownExtension,
@@ -38,7 +37,6 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) mod as_credentials;
 pub(crate) mod indexed_keys;
-pub(crate) mod leaf_keys;
 pub(crate) mod queue_ratchets;
 
 // For now we persist the key store along with the user. Any key material that gets rotated in the future needs to be persisted separately.
@@ -88,9 +86,12 @@ impl MemoryUserKeyStore {
         qs_client_id: &QsClientId,
         last_resort: bool,
     ) -> Result<KeyPackage> {
-        let leaf_keys = LeafKeys::generate(&self.signing_key, &self.connection_key)?;
-        leaf_keys.store(pool).await?;
-        let credential_with_key = leaf_keys.credential()?;
+        let credential_with_key = CredentialWithKey {
+            credential: self.signing_key.credential().try_into()?,
+            signature_key: SignaturePublicKey::from(
+                self.signing_key.credential().verifying_key().clone(),
+            ),
+        };
         let capabilities = default_capabilities();
         let client_reference = self.create_own_client_reference(qs_client_id);
         let client_ref_extension = Extension::Unknown(
@@ -107,6 +108,7 @@ impl MemoryUserKeyStore {
 
         let mut connection = pool.acquire().await?;
         let provider = PhnxOpenMlsProvider::new(&mut connection);
+
         let kp = KeyPackage::builder()
             .key_package_extensions(key_package_extensions)
             .leaf_node_capabilities(capabilities)
@@ -114,9 +116,10 @@ impl MemoryUserKeyStore {
             .build(
                 CIPHERSUITE,
                 &provider,
-                &leaf_keys.into_leaf_signer(),
+                &self.signing_key,
                 credential_with_key,
             )?;
+
         Ok(kp.key_package().clone())
     }
 }
