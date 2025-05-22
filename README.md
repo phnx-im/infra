@@ -54,6 +54,8 @@ split across multiple crates:
   `coreclient` to a UI client.
 - `app`: A UI client that uses `applogic` to provide a simple messaging
   application. The GUI is built using Flutter.
+ - `common`: A shared library that contains the common code used by both the
+  client and server.
 - `test_harness`: Exclusively used for testing. The `test_harness` contains a
   test framework to conduct integration tests and can be compiled into a binary
   for [docker-based testing](#docker-based-federation-testing) of the protocol's
