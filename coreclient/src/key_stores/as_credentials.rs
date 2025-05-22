@@ -167,6 +167,10 @@ impl AsCredentials {
     ) -> Result<HashMap<CredentialFingerprint, AsIntermediateCredential>> {
         let mut as_credentials = HashMap::new();
         for verifiable_credential in verifiable_credentials {
+            if as_credentials.contains_key(verifiable_credential.signer_fingerprint()) {
+                continue;
+            }
+
             let as_credential = AsCredentials::get(
                 connection,
                 api_clients,
