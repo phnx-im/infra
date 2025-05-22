@@ -47,12 +47,12 @@ mod tests {
     #[test]
     fn diff1_always_passes() {
         let cfg = PoWConfig::new(1, 64, 1, 1);
-        assert!(verify_nonce(b"any", 42, b"salt", &cfg));
+        assert!(verify_nonce(b"any", 0, b"saltsalt", &cfg));
     }
 
     #[test]
     fn high_difficulty_rejects_easy_nonce() {
         let cfg = PoWConfig::new(u64::MAX, 64, 1, 1);
-        assert!(!verify_nonce(b"foo", 0, b"salt", &cfg));
+        assert!(!verify_nonce(b"foo", 42, b"saltsalt", &cfg));
     }
 }

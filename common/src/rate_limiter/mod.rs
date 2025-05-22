@@ -107,28 +107,35 @@ impl StorageProvider for InMemoryStorage {
     }
 }
 
-#[tokio::test]
-async fn test_rate_limiter() {
-    let config = Config {
-        max_requests: 5,
-        time_window: Duration::from_secs(1),
-    };
-    let storage = InMemoryStorage::new();
-    let mut rate_limiter = RateLimiter::new(config.clone(), storage);
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
 
-    let key = b"user1".to_vec();
+    use crate::rate_limiter::{Config, InMemoryStorage, RateLimiter};
 
-    // First 5 requests should succeed
-    for _ in 0..config.max_requests {
-        assert!(rate_limiter.allowed(key.clone()).await);
+    #[tokio::test]
+    async fn test_rate_limiter() {
+        let config = Config {
+            max_requests: 5,
+            time_window: Duration::from_secs(1),
+        };
+        let storage = InMemoryStorage::new();
+        let mut rate_limiter = RateLimiter::new(config.clone(), storage);
+
+        let key = b"user1".to_vec();
+
+        // First 5 requests should succeed
+        for _ in 0..config.max_requests {
+            assert!(rate_limiter.allowed(key.clone()).await);
+        }
+
+        // 6th request should fail
+        assert!(!rate_limiter.allowed(key.clone()).await);
+
+        // Wait for the time window to reset
+        std::thread::sleep(config.time_window);
+
+        // Now it should succeed again
+        assert!(rate_limiter.allowed(key).await);
     }
-
-    // 6th request should fail
-    assert!(!rate_limiter.allowed(key.clone()).await);
-
-    // Wait for the time window to reset
-    std::thread::sleep(config.time_window);
-
-    // Now it should succeed again
-    assert!(rate_limiter.allowed(key).await);
 }
