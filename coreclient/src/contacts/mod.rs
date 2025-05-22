@@ -6,9 +6,8 @@ use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
 use phnxtypes::{
     LibraryError,
-    credentials::pseudonymous_credentials::PseudonymousCredential,
     crypto::{
-        ear::keys::{FriendshipPackageEarKey, IdentityLinkKey, WelcomeAttributionInfoEarKey},
+        ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
         indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
@@ -23,7 +22,7 @@ use crate::{
     groups::client_auth_info::StorableClientCredential,
     key_stores::indexed_keys::StorableIndexedKey,
 };
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 
 pub(crate) mod persistence;
 
@@ -42,7 +41,6 @@ pub struct Contact {
 #[derive(Debug, Clone)]
 pub(crate) struct ContactAddInfos {
     pub key_package: KeyPackage,
-    pub identity_link_key: IdentityLinkKey,
     pub user_profile_key: UserProfileKey,
 }
 
@@ -78,40 +76,37 @@ impl Contact {
             .get(invited_user_domain)?
             .qs_key_package(self.friendship_token.clone())
             .await?;
+
         let key_package_in = key_package_response.key_package;
+
         // Verify the KeyPackage
         let verified_key_package =
             key_package_in.validate(&RustCrypto::default(), ProtocolVersion::default())?;
-        let pseudonymous_credential = PseudonymousCredential::try_from(
-            verified_key_package.leaf_node().credential().clone(),
-        )?;
-        // Verify the pseudonymous credential
-        let (plaintext, identity_link_key) =
-            pseudonymous_credential.derive_decrypt_and_verify(&self.connection_key)?;
+        let verifiable_client_credential = verified_key_package
+            .leaf_node()
+            .credential()
+            .clone()
+            .try_into()?;
         // Verify the client credential
-        let incoming_client_credential = StorableClientCredential::verify(
-            &mut *connection,
-            api_clients,
-            plaintext.client_credential,
-        )
-        .await?;
+        let incoming_client_credential =
+            StorableClientCredential::verify(connection, api_clients, verifiable_client_credential)
+                .await?;
         // Check that the client credential is the same as the one we have on file.
-        let Some(current_client_credential) = StorableClientCredential::load_by_user_id(
+        let current_client_credential = StorableClientCredential::load_by_user_id(
             &mut *connection,
             incoming_client_credential.identity(),
         )
         .await?
-        else {
-            anyhow::bail!("Client credential not found");
-        };
+        .context("Client credential not found")?;
         if current_client_credential.fingerprint() != incoming_client_credential.fingerprint() {
-            anyhow::bail!("Client credential does not match");
+            bail!("Client credential does not match");
         }
+
         let user_profile_key =
             UserProfileKey::load(&mut *connection, &self.user_profile_key_index).await?;
+
         let add_info = ContactAddInfos {
             key_package: verified_key_package,
-            identity_link_key,
             user_profile_key,
         };
         Ok(add_info)

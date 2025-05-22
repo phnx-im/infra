@@ -39,10 +39,7 @@ use std::vec;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{
-    LibraryError,
-    crypto::ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
-};
+use crate::{LibraryError, crypto::ear::Ciphertext};
 
 use super::private_keys::{SignatureVerificationError, SigningKey, VerifyingKeyBehaviour};
 
@@ -93,9 +90,6 @@ impl AsRef<[u8]> for Signature {
 #[derive(Debug)]
 pub struct EncryptedSignatureCtype;
 pub type EncryptedSignature = Ciphertext<EncryptedSignatureCtype>;
-
-impl EarEncryptable<IdentityLinkKey, EncryptedSignatureCtype> for Signature {}
-impl EarDecryptable<IdentityLinkKey, EncryptedSignatureCtype> for Signature {}
 
 /// This trait must be implemented by all structs that contain a self-signature.
 pub trait SignedStruct<T> {

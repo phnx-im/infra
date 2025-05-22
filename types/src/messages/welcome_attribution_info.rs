@@ -25,13 +25,10 @@ pub struct WelcomeAttributionInfoPayload {
 }
 
 impl WelcomeAttributionInfoPayload {
-    pub fn new(
-        sender_user_id: UserId,
-        identity_link_key_wrapper_key: IdentityLinkWrapperKey,
-    ) -> Self {
+    pub fn new(sender_user_id: UserId, identity_link_wrapper_key: IdentityLinkWrapperKey) -> Self {
         Self {
             sender_user_id,
-            identity_link_wrapper_key: identity_link_key_wrapper_key,
+            identity_link_wrapper_key,
         }
     }
 

@@ -17,74 +17,42 @@ expression: "&*STAGED_GROUP_DIFF"
       ]
     },
     "credential": {
-      "tbs": {
-        "identity": [
-          7,
-          8,
-          9
-        ],
+      "payload": {
+        "csr": {
+          "version": "Alpha",
+          "user_id": {
+            "uuid": "4a24017d-30f6-40d8-8294-962bb4dcfb3c",
+            "domain": {
+              "domain": {
+                "Domain": "localhost"
+              }
+            }
+          },
+          "signature_scheme": "ED25519",
+          "verifying_key": [
+            7,
+            8,
+            9
+          ]
+        },
         "expiration_data": {
-          "not_before": 0,
-          "not_after": 1
+          "not_before": "2025-05-21T00:00:00Z",
+          "not_after": "2025-05-22T00:00:00Z"
         },
-        "signature_scheme": "ED25519",
-        "verifying_key": {
-          "value": {
-            "vec": [
-              10,
-              11,
-              12
-            ]
-          }
-        }
+        "signer_fingerprint": [
+          10,
+          11,
+          12
+        ]
       },
-      "identity_link_ctxt": {
-        "encrypted_signature": {
-          "ciphertext": [
-            13,
-            14,
-            15
-          ],
-          "nonce": [
-            110,
-            111,
-            110,
-            99,
-            101,
-            95,
-            49,
-            95,
-            95,
-            95,
-            95,
-            95
-          ]
-        },
-        "encrypted_client_credential": {
-          "ciphertext": [
-            16,
-            17,
-            18
-          ],
-          "nonce": [
-            110,
-            111,
-            110,
-            99,
-            101,
-            95,
-            50,
-            95,
-            95,
-            95,
-            95,
-            95
-          ]
-        }
-      }
+      "signature": [
+        13,
+        14,
+        15
+      ]
     }
   },
-  "identity_link_key": {
+  "identity_link_wrapper_key": {
     "secret": [
       105,
       100,

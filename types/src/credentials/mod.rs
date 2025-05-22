@@ -4,13 +4,18 @@
 
 use chrono::Duration;
 use mls_assist::{
-    openmls::prelude::{HashType, OpenMlsCrypto, OpenMlsProvider, SignatureScheme},
+    openmls::prelude::{
+        BasicCredential, BasicCredentialError, Credential, HashType, OpenMlsCrypto,
+        OpenMlsProvider, SignatureScheme,
+    },
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
 
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
-use tls_codec::{Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    DeserializeBytes, Serialize as TlsSerialize, TlsDeserializeBytes, TlsSerialize, TlsSize,
+};
 
 use keys::{
     AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, PreliminaryAsIntermediateSigningKey,
@@ -21,7 +26,7 @@ use crate::{
     LibraryError,
     codec::PhnxCodec,
     crypto::{
-        ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::IdentityLinkKey},
+        ear::Ciphertext,
         errors::KeyGenerationError,
         signatures::{
             private_keys::SigningKey,
@@ -39,7 +44,6 @@ mod private_mod {
 }
 
 pub mod keys;
-pub mod pseudonymous_credentials;
 
 use self::keys::ClientVerifyingKey;
 
@@ -514,7 +518,9 @@ impl ClientCredentialPayload {
 // WARNING: If this type is changed, a new variant of the
 // VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
 // implementations of `ClientCredential` must be updated accordingly.
-#[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize,
+)]
 pub struct ClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,
@@ -523,6 +529,10 @@ pub struct ClientCredential {
 impl ClientCredential {
     pub fn new(payload: ClientCredentialPayload, signature: Signature) -> Self {
         Self { payload, signature }
+    }
+
+    pub fn signature_scheme(&self) -> SignatureScheme {
+        self.payload.csr.signature_scheme
     }
 
     pub fn into_parts(self) -> (ClientCredentialPayload, Signature) {
@@ -604,13 +614,6 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
     }
 }
 
-impl EarEncryptable<IdentityLinkKey, EncryptedClientCredentialCtype> for ClientCredential {}
-
-impl EarDecryptable<IdentityLinkKey, EncryptedClientCredentialCtype>
-    for VerifiableClientCredential
-{
-}
-
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct VerifiableClientCredential {
     payload: ClientCredentialPayload,
@@ -646,6 +649,17 @@ impl Verifiable for VerifiableClientCredential {
 
     fn label(&self) -> &str {
         CLIENT_CREDENTIAL_LABEL
+    }
+}
+
+impl TryFrom<Credential> for VerifiableClientCredential {
+    type Error = BasicCredentialError;
+
+    fn try_from(value: Credential) -> Result<Self, Self::Error> {
+        let basic_credential = BasicCredential::try_from(value)?;
+        let credential =
+            VerifiableClientCredential::tls_deserialize_exact_bytes(basic_credential.identity())?;
+        Ok(credential)
     }
 }
 

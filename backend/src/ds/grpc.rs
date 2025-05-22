@@ -5,17 +5,18 @@
 use mls_assist::{
     group::Group,
     messages::{AssistedMessageIn, SerializedMlsMessage},
-    openmls::prelude::{
-        LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender, signature,
-    },
+    openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
-use phnxtypes::crypto::signatures::{
-    keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+use phnxtypes::{
+    credentials::keys::ClientVerifyingKey,
+    crypto::signatures::{
+        keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+    },
 };
 use phnxtypes::{
     crypto::ear::keys::GroupStateEarKey,
@@ -233,10 +234,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         })?;
 
         // encrypt and store group state
-        let encrypted_identity_link_key = payload
-            .encrypted_identity_link_key
-            .ok_or_missing_field("encrypted_identity_link_key")?
-            .try_into()?;
         let encrypted_user_profile_key = payload
             .encrypted_user_profile_key
             .ok_or_missing_field("encrypted_user_profile_key")?
@@ -249,7 +246,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         let group_state = DsGroupState::new(
             provider,
             group,
-            encrypted_identity_link_key,
             encrypted_user_profile_key,
             creator_client_reference,
             room_state,
@@ -281,17 +277,15 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .as_ref()
             .ok_or_missing_field("signature")?;
 
-        let sender: signature::SignaturePublicKey = request
+        let sender: ClientVerifyingKey = request
             .payload
             .as_ref()
-            .ok_or_missing_field("sender")?
+            .ok_or_missing_field("payload")?
             .sender
             .clone()
-            .ok_or_missing_field("sender")?
+            .ok_or_missing_field("payload")?
             .into();
-        let verifying_key = LeafVerifyingKeyRef::from(&sender);
-        let payload: WelcomeInfoPayload =
-            request.verify(verifying_key).map_err(InvalidSignature)?;
+        let payload: WelcomeInfoPayload = request.verify(&sender).map_err(InvalidSignature)?;
 
         let qgid = payload.validated_qgid(&self.ds.own_domain)?;
         let ear_key = payload.ear_key()?;
@@ -307,11 +301,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .ok_or(NoWelcomeInfoFound)?;
         Ok(Response::new(WelcomeInfoResponse {
             ratchet_tree: Some(ratchet_tree.try_ref_into().invalid_tls("ratchet_tree")?),
-            encrypted_identity_link_keys: group_state
-                .encrypted_identity_link_keys()
-                .into_iter()
-                .map(From::from)
-                .collect(),
             encrypted_user_profile_keys: group_state
                 .encrypted_user_profile_keys()
                 .into_iter()
@@ -350,11 +339,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                     .try_ref_into()
                     .invalid_tls("ratchet_tree")?,
             ),
-            encrypted_identity_link_keys: commit_info
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(From::from)
-                .collect(),
             encrypted_user_profile_keys: commit_info
                 .encrypted_user_profile_keys
                 .into_iter()
@@ -393,11 +377,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         Ok(Response::new(ConnectionGroupInfoResponse {
             group_info: Some(group_info),
             ratchet_tree: Some(ratchet_tree),
-            encrypted_identity_link_keys: commit_info
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(From::from)
-                .collect(),
             encrypted_user_profile_keys: commit_info
                 .encrypted_user_profile_keys
                 .into_iter()

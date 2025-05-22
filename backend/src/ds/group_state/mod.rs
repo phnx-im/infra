@@ -20,7 +20,7 @@ use phnxtypes::{
     crypto::{
         ear::{
             Ciphertext, EarDecryptable, EarEncryptable,
-            keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
+            keys::{EncryptedUserProfileKey, GroupStateEarKey},
         },
         errors::{DecryptionError, EncryptionError},
     },
@@ -43,7 +43,6 @@ pub(super) mod persistence;
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct MemberProfile {
     pub(super) leaf_index: LeafNodeIndex,
-    pub(super) encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub(super) client_queue_config: QsReference,
     pub(super) activity_time: TimeStamp,
     pub(super) activity_epoch: GroupEpoch,
@@ -84,13 +83,11 @@ impl DsGroupState {
     pub(crate) fn new(
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
-        creator_encrypted_identity_link_key: EncryptedIdentityLinkKey,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
         room_state: VerifiedRoomState,
     ) -> Self {
         let creator_client_profile = MemberProfile {
-            encrypted_identity_link_key: creator_encrypted_identity_link_key,
             client_queue_config: creator_queue_config,
             activity_time: TimeStamp::now(),
             activity_epoch: 0u64.into(),
@@ -121,31 +118,22 @@ impl DsGroupState {
         &mut self,
         welcome_info_params: WelcomeInfoParams,
     ) -> Option<&RatchetTree> {
-        self.group_mut()
-            .past_group_state(&welcome_info_params.epoch, &welcome_info_params.sender)
+        self.group_mut().past_group_state(
+            &welcome_info_params.epoch,
+            &welcome_info_params.sender.into(),
+        )
     }
 
     pub(super) fn external_commit_info(&self) -> ExternalCommitInfo {
         let group_info = self.group().group_info().clone();
         let ratchet_tree = self.group().export_ratchet_tree();
-        let encrypted_identity_link_keys = self.encrypted_identity_link_keys();
         let encrypted_user_profile_keys = self.encrypted_user_profile_keys();
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
             room_state: serde_json::to_vec(&self.room_state).unwrap(),
-            encrypted_identity_link_keys,
             encrypted_user_profile_keys,
         }
-    }
-
-    /// Create a vector of encrypted identity link keys from the current list of
-    /// client records.
-    pub(super) fn encrypted_identity_link_keys(&self) -> Vec<EncryptedIdentityLinkKey> {
-        self.member_profiles
-            .values()
-            .map(|client_profile| client_profile.encrypted_identity_link_key.clone())
-            .collect()
     }
 
     /// Create a vector of encrypted user profile keys from the current list of
