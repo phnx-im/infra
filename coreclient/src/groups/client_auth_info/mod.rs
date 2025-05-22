@@ -2,22 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{collections::HashMap, ops::Deref};
 
-use anyhow::{Result, anyhow, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 use openmls::{
-    credentials::Credential,
     group::GroupId,
     prelude::{LeafNodeIndex, SignaturePublicKey},
 };
 use phnxtypes::{
-    credentials::{ClientCredential, CredentialFingerprint, VerifiableClientCredential},
-    crypto::signatures::private_keys::VerifyingKeyRef,
+    credentials::{
+        AsIntermediateCredential, ClientCredential, CredentialFingerprint,
+        VerifiableClientCredential,
+    },
+    crypto::signatures::{private_keys::VerifyingKeyRef, signable::Verifiable},
     identifiers::UserId,
 };
-use sqlx::{SqliteConnection, SqliteExecutor};
-
-use crate::{clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials};
+use sqlx::SqliteExecutor;
 
 pub(crate) mod persistence;
 
@@ -51,17 +51,15 @@ impl StorableClientCredential {
         Self { client_credential }
     }
 
-    pub(crate) async fn verify(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
+    pub(crate) fn verify(
         verifiable_client_credential: VerifiableClientCredential,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Self> {
-        let client_credential = AsCredentials::verify_client_credential(
-            connection,
-            api_clients,
-            verifiable_client_credential,
-        )
-        .await?;
+        let as_credential = as_credentials
+            .get(verifiable_client_credential.signer_fingerprint())
+            .context("Missing AS credential")?;
+        let client_credential =
+            verifiable_client_credential.verify(as_credential.verifying_key())?;
         Ok(Self { client_credential })
     }
 }
@@ -135,43 +133,43 @@ impl ClientAuthInfo {
     }
 
     /// Verify the given credentials
-    pub(super) async fn verify_new_credentials(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
+    pub(super) fn verify_new_credentials(
         group_id: &GroupId,
-        client_credentials: impl IntoIterator<Item = (LeafNodeIndex, Credential, SignaturePublicKey)>,
+        client_credentials: impl IntoIterator<
+            Item = (
+                LeafNodeIndex,
+                VerifiableClientCredential,
+                SignaturePublicKey,
+            ),
+        >,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Vec<Self>> {
         let mut client_auth_infos = Vec::new();
         for (leaf_index, credential, leaf_signature_key) in client_credentials {
             let client_auth_info = Self::verify_credential(
-                connection,
-                api_clients,
                 group_id,
                 leaf_index,
                 credential,
                 leaf_signature_key,
                 None,
-            )
-            .await?;
+                as_credentials,
+            )?;
             client_auth_infos.push(client_auth_info);
         }
         Ok(client_auth_infos)
     }
 
     /// Verify the given credential
-    pub(super) async fn verify_credential(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
+    pub(super) fn verify_credential(
         group_id: &GroupId,
         leaf_index: LeafNodeIndex,
-        credential: Credential,
+        credential: VerifiableClientCredential,
         leaf_signature_key: SignaturePublicKey,
-        old_credential: Option<Credential>,
+        old_credential: Option<VerifiableClientCredential>,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Self> {
         // Verify the leaf credential
-        let client_credential =
-            StorableClientCredential::verify(connection, api_clients, credential.try_into()?)
-                .await?;
+        let client_credential = StorableClientCredential::verify(credential, as_credentials)?;
         // Check if the client credential matches the given public key
         ensure!(
             client_credential.verifying_key().as_ref()

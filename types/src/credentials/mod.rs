@@ -614,7 +614,9 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
     }
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize, PartialEq,
+)]
 pub struct VerifiableClientCredential {
     payload: ClientCredentialPayload,
     signature: Signature,

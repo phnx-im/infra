@@ -8,7 +8,7 @@ use phnxapiclient::as_api::AsRequestError;
 use phnxtypes::{
     credentials::{
         AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
-        ClientCredential, CredentialFingerprint, VerifiableClientCredential,
+        CredentialFingerprint, VerifiableClientCredential,
     },
     crypto::signatures::{private_keys::SignatureVerificationError, signable::Verifiable},
     identifiers::Fqdn,
@@ -160,6 +160,28 @@ impl AsCredentials {
         Ok(as_inter_creds)
     }
 
+    pub(crate) async fn fetch_for_verification(
+        connection: &mut SqliteConnection,
+        api_clients: &ApiClients,
+        verifiable_credentials: impl Iterator<Item = &VerifiableClientCredential>,
+    ) -> Result<HashMap<CredentialFingerprint, AsIntermediateCredential>> {
+        let mut as_credentials = HashMap::new();
+        for verifiable_credential in verifiable_credentials {
+            let as_credential = AsCredentials::get(
+                connection,
+                api_clients,
+                verifiable_credential.domain(),
+                verifiable_credential.signer_fingerprint(),
+            )
+            .await?;
+            as_credentials.insert(
+                verifiable_credential.signer_fingerprint().clone(),
+                as_credential,
+            );
+        }
+        Ok(as_credentials)
+    }
+
     /// Fetches the credentials of the AS with the given `domain` if they are
     /// not already present in the store.
     pub(crate) async fn get(
@@ -214,23 +236,6 @@ impl AsCredentials {
                 Ok(credential)
             }
         }
-    }
-
-    pub async fn verify_client_credential(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
-        verifiable_client_credential: VerifiableClientCredential,
-    ) -> Result<ClientCredential, AsCredentialStoreError> {
-        let as_intermediate_credential = Self::get(
-            connection,
-            api_clients,
-            verifiable_client_credential.domain(),
-            verifiable_client_credential.signer_fingerprint(),
-        )
-        .await?;
-        let client_credential =
-            verifiable_client_credential.verify(as_intermediate_credential.verifying_key())?;
-        Ok(client_credential)
     }
 }
 

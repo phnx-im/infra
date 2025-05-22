@@ -21,7 +21,7 @@ use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
 use phnxtypes::{
-    credentials::{ClientCredential, keys::ClientSigningKey},
+    credentials::{ClientCredential, VerifiableClientCredential, keys::ClientSigningKey},
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable,
@@ -57,19 +57,20 @@ use tracing::{debug, error};
 
 use crate::{
     SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage,
+    conversations::messages::TimestampedMessage, key_stores::as_credentials::AsCredentials,
 };
 use std::collections::HashSet;
 
 use openmls::{
-    group::ProcessedWelcome,
+    group::{Member, ProcessedWelcome},
     key_packages::KeyPackageBundle,
     prelude::{
-        Capabilities, Ciphersuite, CredentialType, CredentialWithKey, Extension, ExtensionType,
-        Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig,
-        MlsMessageOut, OpenMlsProvider, PURE_PLAINTEXT_WIRE_FORMAT_POLICY, Proposal, ProposalType,
-        ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, SignaturePublicKey,
-        StagedCommit, UnknownExtension, tls_codec::Serialize as TlsSerializeTrait,
+        BasicCredentialError, Capabilities, Ciphersuite, CredentialType, CredentialWithKey,
+        Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup,
+        MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+        Proposal, ProposalType, ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension,
+        Sender, SignaturePublicKey, StagedCommit, UnknownExtension,
+        tls_codec::Serialize as TlsSerializeTrait,
     },
     treesync::RatchetTree,
 };
@@ -375,25 +376,37 @@ impl Group {
             (mls_group, joiner_info, welcome_attribution_info)
         };
 
-        let client_information = mls_group.members().map(|m| {
-            (
-                m.index,
-                m.credential,
-                SignaturePublicKey::from(m.signature_key),
-            )
-        });
+        let client_information = mls_group
+            .members()
+            .map(|m| {
+                let credential = VerifiableClientCredential::try_from(m.credential)?;
+                Ok((
+                    m.index,
+                    credential,
+                    SignaturePublicKey::from(m.signature_key),
+                ))
+            })
+            .collect::<Result<Vec<_>, BasicCredentialError>>()?;
 
-        // Phase 6: Decrypt and verify the client credentials. This can involve
-        // queries to the clients' AS.
-        let client_information = ClientAuthInfo::verify_new_credentials(
-            txn,
+        // Phase 6: Fetch the AS credentials from the server
+        let as_credentials = AsCredentials::fetch_for_verification(
+            txn.as_mut(),
             api_clients,
-            mls_group.group_id(),
-            client_information,
+            client_information
+                .iter()
+                .map(|(_, credential, _)| credential),
         )
         .await?;
 
-        // Phase 7: Decrypt and verify the infra credentials.
+        // Phase 7: Decrypt and verify the client credentials. This can involve
+        // queries to the clients' AS.
+        let client_information = ClientAuthInfo::verify_new_credentials(
+            mls_group.group_id(),
+            client_information,
+            &as_credentials,
+        )?;
+
+        // Phase 8: Decrypt and verify the infra credentials.
         {
             for client_auth_info in &client_information {
                 client_auth_info.store(txn).await?;
@@ -481,22 +494,19 @@ impl Group {
 
         let group_id = mls_group.group_id();
 
-        let client_credentials = mls_group.members().map(|m| {
-            (
-                m.index,
-                m.credential,
-                SignaturePublicKey::from(m.signature_key),
-            )
-        });
+        let member_info = member_information(mls_group.members())?;
 
-        // Phase 2: Decrypt and verify the client credentials.
-        let mut client_information = ClientAuthInfo::verify_new_credentials(
+        // Phase 2: Fetch the AS credentials from the server
+        let as_credentials = AsCredentials::fetch_for_verification(
             &mut *connection,
             api_clients,
-            group_id,
-            client_credentials,
+            member_info.iter().map(|(_, credential, _)| credential),
         )
         .await?;
+
+        // Phase 3: Decrypt and verify the client credentials.
+        let mut client_information =
+            ClientAuthInfo::verify_new_credentials(group_id, member_info, &as_credentials)?;
 
         // Compile a list of user profile keys for the members.
         let member_profile_info = encrypted_user_profile_keys
@@ -529,7 +539,7 @@ impl Group {
             ClientAuthInfo::new(own_client_credential.clone(), own_group_membership);
         client_information.push(own_auth_info);
 
-        // Phase 3: Verify and store the infra credentials.
+        // Phase 4: Store the infra credentials.
         {
             for client_auth_info in client_information.iter() {
                 // Store client auth info.
@@ -1152,4 +1162,35 @@ impl TimestampedMessage {
 
         Ok(event_messages)
     }
+}
+
+fn member_information(
+    members: impl IntoIterator<Item = Member>,
+) -> Result<
+    Vec<(
+        LeafNodeIndex,
+        VerifiableClientCredential,
+        SignaturePublicKey,
+    )>,
+    BasicCredentialError,
+> {
+    members
+        .into_iter()
+        .map(|m| extract_member_info(m))
+        .collect::<Result<Vec<_>, BasicCredentialError>>()
+}
+
+fn extract_member_info(
+    member: Member,
+) -> Result<
+    (
+        LeafNodeIndex,
+        VerifiableClientCredential,
+        SignaturePublicKey,
+    ),
+    BasicCredentialError,
+> {
+    let credential = VerifiableClientCredential::try_from(member.credential)?;
+    let signature_public_key = SignaturePublicKey::from(member.signature_key);
+    Ok((member.index, credential, signature_public_key))
 }

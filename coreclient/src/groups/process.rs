@@ -2,11 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::{collections::HashMap, iter};
+
 use super::{Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use mimi_room_policy::{MimiProposal, RoleIndex};
 use phnxtypes::{
-    credentials::ClientCredential,
+    credentials::{
+        AsIntermediateCredential, ClientCredential, CredentialFingerprint,
+        VerifiableClientCredential,
+    },
     crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
     messages::client_ds::{InfraAadMessage, InfraAadPayload},
 };
@@ -14,13 +19,13 @@ use sqlx::SqliteConnection;
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 use tracing::info;
 
-use crate::clients::api_clients::ApiClients;
+use crate::{clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials};
 
 use openmls::{
     group::QueuedAddProposal,
     prelude::{
-        Credential, LeafNodeIndex, ProcessedMessage, ProcessedMessageContent, ProtocolMessage,
-        Sender, SignaturePublicKey, StagedCommit,
+        BasicCredentialError, LeafNodeIndex, ProcessedMessage, ProcessedMessageContent,
+        ProtocolMessage, Sender, SignaturePublicKey, StagedCommit,
     },
 };
 
@@ -145,13 +150,31 @@ impl Group {
                             .new_encrypted_user_profile_keys
                             .is_empty()
                         {
+                            let verifiable_credentials = staged_commit
+                                .add_proposals()
+                                .map(|ap| {
+                                    let credential = ap
+                                        .add_proposal()
+                                        .key_package()
+                                        .leaf_node()
+                                        .credential()
+                                        .clone();
+                                    VerifiableClientCredential::try_from(credential)
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            let as_credentials = AsCredentials::fetch_for_verification(
+                                &mut *connection,
+                                api_clients,
+                                verifiable_credentials.iter(),
+                            )
+                            .await?;
                             let client_auth_infos = self
                                 .process_adds(
                                     sender_index,
                                     staged_commit,
-                                    api_clients,
                                     &mut *connection,
                                     staged_commit.add_proposals(),
+                                    &as_credentials,
                                 )
                                 .await?;
                             // Match up client credentials and new UserProfileKeys
@@ -173,15 +196,25 @@ impl Group {
                             .update_path_leaf_node()
                             .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
                             .ok_or(anyhow!("Could not find sender leaf node"))?;
+                        let new_sender_credential = new_sender_credential.try_into()?;
 
-                        if &new_sender_credential != processed_message.credential() {
+                        let as_credentials = AsCredentials::fetch_for_verification(
+                            &mut *connection,
+                            api_clients,
+                            iter::once(&new_sender_credential),
+                        )
+                        .await?;
+
+                        let old_credential = processed_message.credential().clone().try_into()?;
+
+                        if new_sender_credential != old_credential {
                             self.process_update(
-                                api_clients,
                                 &mut *connection,
-                                processed_message.credential().clone(),
+                                old_credential,
                                 new_sender_credential,
                                 sender_index,
                                 new_sender_leaf_key,
+                                &as_credentials,
                             )
                             .await?;
                         }
@@ -204,21 +237,28 @@ impl Group {
                             .members()
                             .find(|m| m.index == sender_index)
                             .ok_or(anyhow!("Could not find sender in group members"))?;
+                        let old_sender_credential = sender.credential.clone().try_into()?;
                         let (new_sender_credential, new_sender_leaf_key) = staged_commit
                             .update_path_leaf_node()
                             .map(|ln| (ln.credential(), ln.signature_key()))
                             .ok_or(anyhow!("Could not find sender leaf node"))?;
-                        if new_sender_credential != &sender.credential {
+                        let new_sender_credential =
+                            VerifiableClientCredential::try_from(new_sender_credential.clone())?;
+                        let as_credentials = AsCredentials::fetch_for_verification(
+                            &mut *connection,
+                            api_clients,
+                            iter::once(&new_sender_credential),
+                        )
+                        .await?;
+                        if new_sender_credential != old_sender_credential {
                             let client_auth_info = ClientAuthInfo::verify_credential(
-                                &mut *connection,
-                                api_clients,
                                 &group_id,
                                 sender_index,
                                 new_sender_credential.clone(),
                                 new_sender_leaf_key.clone(),
-                                Some(sender.credential),
-                            )
-                            .await?;
+                                Some(old_sender_credential),
+                                &as_credentials,
+                            )?;
 
                             // Persist the updated client auth info.
                             client_auth_info.stage_update(&mut *connection).await?;
@@ -236,16 +276,23 @@ impl Group {
                             .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
                             .context("Could not find sender leaf node in staged commit")?;
 
-                        let client_auth_info = ClientAuthInfo::verify_credential(
+                        let sender_credential = sender_credential.try_into()?;
+
+                        let as_credentials = AsCredentials::fetch_for_verification(
                             &mut *connection,
                             api_clients,
+                            iter::once(&sender_credential),
+                        )
+                        .await?;
+
+                        let client_auth_info = ClientAuthInfo::verify_credential(
                             &group_id,
                             sender_index,
                             sender_credential,
                             sender_leaf_key,
                             None, // Since the join is an external commit, we don't have an old credential.
-                        )
-                        .await?;
+                            &as_credentials,
+                        )?;
                         // TODO: (More) validation:
                         // * Check that the user id is unique.
                         // * Check that the proposals fit the operation.
@@ -260,14 +307,18 @@ impl Group {
                         ));
                     }
                     InfraAadPayload::Resync => {
-                        // TODO: Validation:
-                        // * Check that this commit contains exactly one remove proposal
-                        // * Check that the sender type is correct (external commit).
+                        // Check if it's an external commit. This implies that
+                        // there is only one remove proposal.
+                        ensure!(
+                            matches!(processed_message.sender(), Sender::NewMemberCommit),
+                            "Resync operation must be an external commit"
+                        );
 
                         let (sender_credential, sender_leaf_key) = staged_commit
                             .update_path_leaf_node()
                             .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
                             .context("Could not find sender leaf node in staged commit")?;
+                        let verifiable_sender_credential = sender_credential.try_into()?;
 
                         let removed_index = staged_commit
                             .remove_proposals()
@@ -281,16 +332,21 @@ impl Group {
                             .member(removed_index)
                             .ok_or(anyhow!("Could not find removed member in group"))?;
 
-                        let mut client_auth_info = ClientAuthInfo::verify_credential(
+                        let as_credentials = AsCredentials::fetch_for_verification(
                             &mut *connection,
                             api_clients,
-                            &group_id,
-                            removed_index,
-                            sender_credential,
-                            sender_leaf_key,
-                            Some(old_credential.clone()),
+                            iter::once(&verifiable_sender_credential),
                         )
                         .await?;
+
+                        let mut client_auth_info = ClientAuthInfo::verify_credential(
+                            &group_id,
+                            removed_index,
+                            verifiable_sender_credential,
+                            sender_leaf_key,
+                            Some(old_credential.clone().try_into()?),
+                            &as_credentials,
+                        )?;
 
                         // Set the client's new leaf index.
                         client_auth_info
@@ -343,19 +399,19 @@ impl Group {
         })
     }
 
-    async fn process_adds(
+    async fn process_adds<'a>(
         &mut self,
         sender_index: LeafNodeIndex,
         staged_commit: &StagedCommit,
-        api_clients: &ApiClients,
         connection: &mut SqliteConnection,
-        added_clients: impl Iterator<Item = QueuedAddProposal<'_>>,
+        added_clients: impl Iterator<Item = QueuedAddProposal<'a>>,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Vec<ClientAuthInfo>> {
         // AddUsers Phase 1: Compute the free indices
         let added_clients_with_indices =
             GroupMembership::free_indices(&mut *connection, &self.group_id)
                 .await?
-                .zip(added_clients.into_iter())
+                .zip(added_clients)
                 .collect::<Vec<_>>();
 
         // Room policy checks
@@ -369,23 +425,24 @@ impl Group {
             )?;
         }
 
-        let added_credentials = added_clients_with_indices.into_iter().map(|(i, proposal)| {
-            let leaf_node = proposal.add_proposal().key_package().leaf_node();
-            (
-                i,
-                leaf_node.credential().clone(),
-                leaf_node.signature_key().clone(),
-            )
-        });
+        let added_credentials = added_clients_with_indices
+            .into_iter()
+            .map(|(i, proposal)| {
+                let leaf_node = proposal.add_proposal().key_package().leaf_node();
+                Ok((
+                    i,
+                    leaf_node.credential().clone().try_into()?,
+                    leaf_node.signature_key().clone(),
+                ))
+            })
+            .collect::<Result<Vec<_>, BasicCredentialError>>()?;
 
         // AddUsers Phase 2: Decrypt and verify the client credentials.
         let client_auth_infos = ClientAuthInfo::verify_new_credentials(
-            &mut *connection,
-            api_clients,
             &self.group_id,
             added_credentials,
-        )
-        .await?;
+            as_credentials,
+        )?;
 
         // TODO: Validation:
         // * Check that this commit only contains (inline) add proposals
@@ -411,30 +468,24 @@ impl Group {
 
     async fn process_update(
         &self,
-        api_clients: &ApiClients,
         connection: &mut SqliteConnection,
-        old_sender_credential: Credential,
-        new_sender_credential: Credential,
+        old_sender_credential: VerifiableClientCredential,
+        new_sender_credential: VerifiableClientCredential,
         sender_index: LeafNodeIndex,
         new_sender_leaf_key: SignaturePublicKey,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<()> {
         let client_auth_info = ClientAuthInfo::verify_credential(
-            &mut *connection,
-            api_clients,
             &self.group_id,
             sender_index,
-            new_sender_credential,
+            new_sender_credential.try_into()?,
             new_sender_leaf_key,
-            Some(old_sender_credential),
-        )
-        .await?;
+            Some(old_sender_credential.try_into()?),
+            as_credentials,
+        )?;
         // Persist the updated client auth info.
         client_auth_info.stage_update(&mut *connection).await?;
 
-        // TODO: Validation:
-        // * Check that the client id is the same as before.
-
-        // Verify a potential new leaf credential.
         Ok(())
     }
 
