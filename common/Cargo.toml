@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[package]
+name = "phnxcommon"
+version = "0.1.0"
+authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
+edition = "2024"
+publish = false
+description = "Common code used in the server and client"
+
+[lib]
+name = "phnxcommon"
+
+[dependencies]
+async-trait = "0.1.0"
+argon2 = "0.5.3"
+rand = "0.9.1"
+
+
+[dev-dependencies]
+criterion = "0.6"
+tokio = { version = "1", features = ["macros", "rt", "time"] }
+
+[[bench]]
+name = "argon_pow"
+path = "benches/argon_pow.rs"
+harness = false
