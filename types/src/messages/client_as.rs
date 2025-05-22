@@ -14,6 +14,7 @@ use crate::{
     credentials::{
         AsCredential, AsIntermediateCredential, ClientCredential, ClientCredentialPayload,
         CredentialFingerprint,
+        keys::{ClientKeyType, ClientSignature},
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
@@ -23,7 +24,7 @@ use crate::{
         },
         kdf::keys::RatchetSecret,
         ratchet::QueueRatchet,
-        signatures::signable::{Signable, Signature, SignedStruct, VerifiedStruct},
+        signatures::signable::{Signable, SignedStruct, VerifiedStruct},
     },
     identifiers::UserId,
     time::ExpirationData,
@@ -66,15 +67,15 @@ impl ConnectionPackageTbs {
 #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackage {
     payload: ConnectionPackageTbs,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 impl ConnectionPackage {
-    pub fn new(payload: ConnectionPackageTbs, signature: Signature) -> Self {
+    pub fn new(payload: ConnectionPackageTbs, signature: ClientSignature) -> Self {
         Self { payload, signature }
     }
 
-    pub fn into_parts(self) -> (ConnectionPackageTbs, Signature) {
+    pub fn into_parts(self) -> (ConnectionPackageTbs, ClientSignature) {
         (self.payload, self.signature)
     }
 
@@ -91,7 +92,7 @@ impl ConnectionPackage {
     }
 
     #[cfg(feature = "test_utils")]
-    pub fn new_for_test(payload: ConnectionPackageTbs, signature: Signature) -> Self {
+    pub fn new_for_test(payload: ConnectionPackageTbs, signature: ClientSignature) -> Self {
         Self { payload, signature }
     }
 }
@@ -119,8 +120,8 @@ impl Signable for ConnectionPackageTbs {
     }
 }
 
-impl SignedStruct<ConnectionPackageTbs> for ConnectionPackage {
-    fn from_payload(payload: ConnectionPackageTbs, signature: Signature) -> Self {
+impl SignedStruct<ConnectionPackageTbs, ClientKeyType> for ConnectionPackage {
+    fn from_payload(payload: ConnectionPackageTbs, signature: ClientSignature) -> Self {
         Self { payload, signature }
     }
 }

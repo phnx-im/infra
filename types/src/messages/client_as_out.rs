@@ -8,7 +8,7 @@ use crate::{
     credentials::{
         AsCredential, ClientCredential, ClientCredentialPayload, CredentialFingerprint,
         VerifiableAsIntermediateCredential, VerifiableClientCredential,
-        keys::AsIntermediateVerifyingKey,
+        keys::{AsIntermediateVerifyingKey, ClientSignature},
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
@@ -17,10 +17,7 @@ use crate::{
             keys::{UserProfileKeyIndex, UserProfileKeyType},
         },
         kdf::keys::RatchetSecret,
-        signatures::{
-            private_keys::SignatureVerificationError,
-            signable::{Signature, Verifiable},
-        },
+        signatures::{private_keys::SignatureVerificationError, signable::Verifiable},
     },
     identifiers::UserId,
     time::ExpirationData,
@@ -61,11 +58,11 @@ pub struct ConnectionPackageTbsIn {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct ConnectionPackageIn {
     pub(super) payload: ConnectionPackageTbsIn,
-    pub(super) signature: Signature,
+    pub(super) signature: ClientSignature,
 }
 
 impl ConnectionPackageIn {
-    pub fn new(payload: ConnectionPackageTbsIn, signature: Signature) -> Self {
+    pub fn new(payload: ConnectionPackageTbsIn, signature: ClientSignature) -> Self {
         Self { payload, signature }
     }
 
@@ -98,7 +95,7 @@ impl ConnectionPackageIn {
 #[derive(Debug)]
 pub struct VerifiableConnectionPackage {
     pub(super) payload: ConnectionPackageTbs,
-    pub(super) signature: Signature,
+    pub(super) signature: ClientSignature,
 }
 
 impl Verifiable for VerifiableConnectionPackage {
@@ -152,7 +149,7 @@ pub struct StageUserProfileParamsTbs {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct StageUserProfileParams {
     payload: StageUserProfileParamsTbs,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
@@ -163,5 +160,5 @@ pub struct MergeUserProfileParamsTbs {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct MergeUserProfileParams {
     payload: MergeUserProfileParamsTbs,
-    signature: Signature,
+    signature: ClientSignature,
 }

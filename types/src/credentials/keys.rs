@@ -15,7 +15,10 @@ use tracing::error;
 
 use crate::{
     codec::PhnxCodec,
-    crypto::{RawKey, signatures::private_keys::Convertible},
+    crypto::{
+        RawKey,
+        signatures::{private_keys::Convertible, signable::Signature},
+    },
 };
 
 use super::{AsCredential, AsIntermediateCredential};
@@ -28,6 +31,8 @@ use super::ClientCredential;
 
 #[derive(Debug)]
 pub struct AsIntermediateKeyType;
+
+pub type AsIntermediateSignature = Signature<AsIntermediateKeyType>;
 
 impl RawKey for AsIntermediateKeyType {}
 
@@ -82,6 +87,8 @@ pub struct AsKeyType;
 
 impl RawKey for AsKeyType {}
 
+pub type AsSignature = Signature<AsKeyType>;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AsSigningKey {
     signing_key: SigningKey<AsKeyType>,
@@ -122,6 +129,8 @@ pub type AsIntermediateVerifyingKey = VerifyingKey<AsIntermediateKeyType>;
 
 #[derive(Debug)]
 pub struct ClientKeyType;
+
+pub type ClientSignature = Signature<ClientKeyType>;
 
 impl RawKey for ClientKeyType {}
 
