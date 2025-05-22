@@ -381,8 +381,10 @@ message CreateHandleRequest {
 }
 
 message CreateHandlePayload {
-  string plaintext_handle = 1;
-  HandleVerifyingKey verifying_key = 2;
+  HandleVerifyingKey verifying_key = 1;
+  string plaintext = 2;
+  // Hash of the plaintext handle
+  UserHandleHash hash = 3;
 }
 
 message HandleVerifyingKey {

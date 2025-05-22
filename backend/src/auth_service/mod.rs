@@ -23,6 +23,7 @@ mod credentials;
 pub mod grpc;
 mod privacy_pass;
 mod queue;
+mod user_handles;
 pub mod user_record;
 
 #[derive(Debug, Clone)]
