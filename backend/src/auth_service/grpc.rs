@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use displaydoc::Display;
 use futures_util::stream::BoxStream;
 use phnxprotos::{
     auth_service::v1::{auth_service_server, *},
@@ -27,6 +28,7 @@ use phnxtypes::{
 };
 use privacypass::{amortized_tokens::AmortizedBatchTokenRequest, private_tokens::Ristretto255};
 use tls_codec::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming, async_trait};
 use tracing::error;
@@ -370,7 +372,7 @@ impl auth_service_server::AuthService for GrpcAs {
     async fn create_handle(
         &self,
         request: Request<CreateHandleRequest>,
-    ) -> Result<Response<CreateHandleResponse>, tonic::Status> {
+    ) -> Result<Response<CreateHandleResponse>, Status> {
         let request = request.into_inner();
 
         let verifying_key = request
@@ -395,7 +397,7 @@ impl auth_service_server::AuthService for GrpcAs {
     async fn delete_handle(
         &self,
         request: Request<DeleteHandleRequest>,
-    ) -> Result<Response<DeleteHandleResponse>, tonic::Status> {
+    ) -> Result<Response<DeleteHandleResponse>, Status> {
         let request = request.into_inner();
 
         let (hash, _payload) = self
@@ -410,7 +412,7 @@ impl auth_service_server::AuthService for GrpcAs {
     async fn refresh_handle(
         &self,
         request: Request<RefreshHandleRequest>,
-    ) -> Result<Response<RefreshHandleResponse>, tonic::Status> {
+    ) -> Result<Response<RefreshHandleResponse>, Status> {
         let request = request.into_inner();
 
         let (hash, _payload) = self
@@ -422,23 +424,40 @@ impl auth_service_server::AuthService for GrpcAs {
         Ok(Response::new(RefreshHandleResponse {}))
     }
 
-    type ConnectHandleStream = BoxStream<'static, Result<ConnectResponse, tonic::Status>>;
+    type ConnectHandleStream = BoxStream<'static, Result<ConnectResponse, Status>>;
 
     async fn connect_handle(
         &self,
-        _request: Request<Streaming<ConnectRequest>>,
-    ) -> Result<Response<Self::ConnectHandleStream>, tonic::Status> {
-        todo!()
+        request: Request<Streaming<ConnectRequest>>,
+    ) -> Result<Response<Self::ConnectHandleStream>, Status> {
+        let incoming = request.into_inner();
+        let (outgoing_tx, outgoing_rx) = mpsc::channel(1);
+
+        // protocol
+        tokio::spawn(
+            self.inner
+                .clone()
+                .as_connect_handle_protocol(incoming, outgoing_tx),
+        );
+
+        let outgoing = tokio_stream::wrappers::ReceiverStream::new(outgoing_rx);
+        Ok(Response::new(Box::pin(outgoing)))
     }
 
-    type ListenHandleStream = BoxStream<'static, Result<ListenHandleResponse, tonic::Status>>;
+    type ListenHandleStream = BoxStream<'static, Result<ListenHandleResponse, Status>>;
 
     async fn listen_handle(
         &self,
         _request: Request<Streaming<ListenHandleRequest>>,
-    ) -> Result<Response<Self::ListenHandleStream>, tonic::Status> {
+    ) -> Result<Response<Self::ListenHandleStream>, Status> {
         todo!()
     }
+}
+
+#[derive(Debug, thiserror::Error, Display)]
+enum ConnectHandleProtocol {
+    /// Missing fetch request
+    MissingFetch,
 }
 
 #[derive(Debug, thiserror::Error)]

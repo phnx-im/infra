@@ -18,6 +18,7 @@ use super::AuthService;
 
 pub(crate) use persistence::UserHandleRecord;
 
+mod connect;
 mod persistence;
 
 impl AuthService {
