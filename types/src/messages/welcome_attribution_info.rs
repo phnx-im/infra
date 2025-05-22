@@ -6,12 +6,13 @@ use mls_assist::openmls::prelude::GroupId;
 use tls_codec::Serialize;
 
 use crate::{
+    credentials::keys::{ClientKeyType, ClientSignature},
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable,
             keys::{IdentityLinkWrapperKey, WelcomeAttributionInfoEarKey},
         },
-        signatures::signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+        signatures::signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
     },
     identifiers::UserId,
 };
@@ -56,8 +57,8 @@ impl Signable for WelcomeAttributionInfoTbs {
     }
 }
 
-impl SignedStruct<WelcomeAttributionInfoTbs> for WelcomeAttributionInfo {
-    fn from_payload(payload: WelcomeAttributionInfoTbs, signature: Signature) -> Self {
+impl SignedStruct<WelcomeAttributionInfoTbs, ClientKeyType> for WelcomeAttributionInfo {
+    fn from_payload(payload: WelcomeAttributionInfoTbs, signature: ClientSignature) -> Self {
         Self {
             payload: payload.payload,
             signature,
@@ -68,11 +69,11 @@ impl SignedStruct<WelcomeAttributionInfoTbs> for WelcomeAttributionInfo {
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Serialize, Deserialize)]
 pub struct WelcomeAttributionInfo {
     payload: WelcomeAttributionInfoPayload,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 impl WelcomeAttributionInfo {
-    pub fn new(payload: WelcomeAttributionInfoPayload, signature: Signature) -> Self {
+    pub fn new(payload: WelcomeAttributionInfoPayload, signature: ClientSignature) -> Self {
         Self { payload, signature }
     }
 
@@ -96,7 +97,7 @@ impl WelcomeAttributionInfo {
 #[derive(Debug)]
 pub struct VerifiableWelcomeAttributionInfo {
     payload: WelcomeAttributionInfoTbs,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 impl VerifiableWelcomeAttributionInfo {

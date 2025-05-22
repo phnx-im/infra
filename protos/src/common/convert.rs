@@ -4,6 +4,7 @@
 
 use chrono::DateTime;
 use phnxtypes::{
+    credentials::keys::{AsIntermediateSignature, AsSignature, ClientSignature},
     crypto::{
         self,
         ear::{self, AeadCiphertext},
@@ -245,15 +246,43 @@ impl From<Timestamp> for time::TimeStamp {
     }
 }
 
-impl From<signable::Signature> for Signature {
-    fn from(value: signable::Signature) -> Self {
+impl From<ClientSignature> for Signature {
+    fn from(value: ClientSignature) -> Self {
         Self {
             value: value.into_bytes(),
         }
     }
 }
 
-impl From<Signature> for signable::Signature {
+impl From<Signature> for ClientSignature {
+    fn from(value: Signature) -> Self {
+        signable::Signature::from_bytes(value.value)
+    }
+}
+
+impl From<AsIntermediateSignature> for Signature {
+    fn from(value: AsIntermediateSignature) -> Self {
+        Self {
+            value: value.into_bytes(),
+        }
+    }
+}
+
+impl From<Signature> for AsIntermediateSignature {
+    fn from(value: Signature) -> Self {
+        signable::Signature::from_bytes(value.value)
+    }
+}
+
+impl From<AsSignature> for Signature {
+    fn from(value: AsSignature) -> Self {
+        Self {
+            value: value.into_bytes(),
+        }
+    }
+}
+
+impl From<Signature> for AsSignature {
     fn from(value: Signature) -> Self {
         signable::Signature::from_bytes(value.value)
     }
