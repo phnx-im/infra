@@ -38,7 +38,7 @@ use phnxtypes::{
     messages::{
         client_ds::{
             DsJoinerInformation, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
-            UpdateParamsAad, WelcomeBundle,
+            WelcomeBundle,
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
@@ -949,10 +949,7 @@ impl Group {
         signer: &ClientSigningKey,
     ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
-        let aad_payload = UpdateParamsAad {}; // TODO: Do we still need this struct?
-
-        let aad =
-            InfraAadMessage::from(InfraAadPayload::Update(aad_payload)).tls_serialize_detached()?;
+        let aad = InfraAadMessage::from(InfraAadPayload::Update).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
             let provider = PhnxOpenMlsProvider::new(txn.as_mut());

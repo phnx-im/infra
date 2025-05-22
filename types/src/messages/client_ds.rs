@@ -172,7 +172,7 @@ impl InfraAadMessage {
 #[repr(u8)]
 pub enum InfraAadPayload {
     GroupOperation(GroupOperationParamsAad),
-    Update(UpdateParamsAad),
+    Update,
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
     Resync,
     DeleteGroup,
@@ -260,9 +260,6 @@ pub struct GroupOperationParamsAad {
 pub struct UpdateParams {
     pub commit: AssistedMessageIn,
 }
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateParamsAad {}
 
 #[derive(Debug)]
 pub struct JoinConnectionGroupParams {

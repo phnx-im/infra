@@ -200,7 +200,7 @@ impl Group {
                             .await?;
                         }
                     }
-                    InfraAadPayload::Update(_update_client_payload) => {
+                    InfraAadPayload::Update => {
                         // Check if the client has updated its leaf credential.
                         let sender = self
                             .mls_group
