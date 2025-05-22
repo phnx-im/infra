@@ -9,9 +9,7 @@
 
 use mls_assist::{
     messages::{AssistedMessageIn, AssistedWelcome, SerializedMlsMessage},
-    openmls::prelude::{
-        GroupEpoch, GroupId, LeafNodeIndex, MlsMessageIn, RatchetTreeIn, SignaturePublicKey,
-    },
+    openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageIn, RatchetTreeIn},
     openmls_traits::types::HpkeCiphertext,
 };
 use serde::{Deserialize, Serialize};
@@ -20,6 +18,7 @@ use tls_codec::{
 };
 
 use crate::{
+    credentials::keys::ClientVerifyingKey,
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
@@ -224,8 +223,7 @@ pub struct CreateGroupParams {
 #[derive(Debug)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
-    // The Public key from the sender's signing key
-    pub sender: SignaturePublicKey,
+    pub sender: ClientVerifyingKey,
     pub epoch: GroupEpoch,
 }
 

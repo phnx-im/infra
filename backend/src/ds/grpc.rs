@@ -5,9 +5,7 @@
 use mls_assist::{
     group::Group,
     messages::{AssistedMessageIn, SerializedMlsMessage},
-    openmls::prelude::{
-        LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender, SignaturePublicKey,
-    },
+    openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
 use phnxprotos::{
     convert::{RefInto, TryRefInto},
@@ -287,10 +285,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .clone()
             .ok_or_missing_field("payload")?
             .into();
-        let sender = SignaturePublicKey::from(sender);
-        let verifying_key = LeafVerifyingKeyRef::from(&sender);
-        let payload: WelcomeInfoPayload =
-            request.verify(verifying_key).map_err(InvalidSignature)?;
+        let payload: WelcomeInfoPayload = request.verify(&sender).map_err(InvalidSignature)?;
 
         let qgid = payload.validated_qgid(&self.ds.own_domain)?;
         let ear_key = payload.ear_key()?;
