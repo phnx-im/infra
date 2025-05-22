@@ -267,44 +267,17 @@ message AsIntermediateVerifyingKey {
 // issue tokens
 
 message IssueTokensRequest {
-  IssueTokensRequestTbs payload = 1;
+  IssueTokensPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message IssueTokensRequestTbs {
+message IssueTokensPayload {
   UserId user_id = 1;
-  AsTokenType token_type = 2;
-  TokenRequest token_request = 3;
-}
-
-enum AsTokenType {
-  AS_TOKEN_TYPE_UNSPECIFIED = 0;
-  AS_TOKEN_TYPE_AS_ENQEUEU = 1;
-  AS_TOKEN_TYPE_DS_GROUP_CREATION = 2;
-  AS_TOKEN_TYPE_DS_GROUP_OPERATION = 3;
-}
-
-enum TokenType {
-  TOKEN_TYPE_UNSPECIFIED = 0;
-  TOKEN_TYPE_PRIVATE_TOKEN = 1;
-  TOKEN_TYPE_PUBLIC_TOKEN = 2;
-  TOKEN_TYPE_BATCHED_TOKEN_RISTRETTO_255 = 0xF91A;
-  TOKEN_TYPE_BATCHED_TOKEN_P384 = 0xF901;
-}
-
-message TokenRequest {
-  TokenType token_type = 1;
-  uint32 truncated_token_id = 2;
-  repeated bytes blinded_elements = 3;
+  bytes token_request = 2;
 }
 
 message IssueTokensResponse {
-  repeated TokenResponse token_responses = 1;
-}
-
-message TokenResponse {
-  repeated bytes evaluated_elements = 1;
-  bytes evaulated_proof = 2;
+  bytes token_response = 1;
 }
 
 // enqueue messages
