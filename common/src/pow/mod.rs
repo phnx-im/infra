@@ -42,7 +42,7 @@ pub fn find_nonce(data: &[u8], salt: &[u8], cfg: &PoWConfig) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use crate::pow::{verify_nonce, PoWConfig};
+    use crate::pow::{PoWConfig, verify_nonce};
 
     #[test]
     fn diff1_always_passes() {
