@@ -12,6 +12,7 @@ pub(crate) mod openmls_provider;
 pub(crate) mod persistence;
 pub(crate) mod process;
 
+use client_auth_info::ClientVerificationInfo;
 pub(crate) use error::*;
 
 use anyhow::{Result, anyhow, bail};
@@ -382,9 +383,7 @@ impl Group {
         let as_credentials = AsCredentials::fetch_for_verification(
             txn.as_mut(),
             api_clients,
-            client_information
-                .iter()
-                .map(|(_, credential, _)| credential),
+            client_information.iter().map(|info| &info.credential),
         )
         .await?;
 
@@ -490,7 +489,7 @@ impl Group {
         let as_credentials = AsCredentials::fetch_for_verification(
             &mut *connection,
             api_clients,
-            member_info.iter().map(|(_, credential, _)| credential),
+            member_info.iter().map(|info| &info.credential),
         )
         .await?;
 
@@ -1156,31 +1155,20 @@ impl TimestampedMessage {
 
 fn member_information(
     members: impl IntoIterator<Item = Member>,
-) -> Result<
-    Vec<(
-        LeafNodeIndex,
-        VerifiableClientCredential,
-        SignaturePublicKey,
-    )>,
-    BasicCredentialError,
-> {
+) -> Result<Vec<ClientVerificationInfo>, BasicCredentialError> {
     members
         .into_iter()
         .map(extract_member_info)
         .collect::<Result<Vec<_>, BasicCredentialError>>()
 }
 
-fn extract_member_info(
-    member: Member,
-) -> Result<
-    (
-        LeafNodeIndex,
-        VerifiableClientCredential,
-        SignaturePublicKey,
-    ),
-    BasicCredentialError,
-> {
+fn extract_member_info(member: Member) -> Result<ClientVerificationInfo, BasicCredentialError> {
     let credential = VerifiableClientCredential::try_from(member.credential)?;
     let signature_public_key = SignaturePublicKey::from(member.signature_key);
-    Ok((member.index, credential, signature_public_key))
+    let info = ClientVerificationInfo {
+        leaf_index: member.index,
+        credential,
+        leaf_key: signature_public_key,
+    };
+    Ok(info)
 }

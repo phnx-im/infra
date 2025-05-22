@@ -121,6 +121,12 @@ pub(super) struct ClientAuthInfo {
     group_membership: GroupMembership,
 }
 
+pub(super) struct ClientVerificationInfo {
+    pub(super) leaf_index: LeafNodeIndex,
+    pub(super) credential: VerifiableClientCredential,
+    pub(super) leaf_key: SignaturePublicKey,
+}
+
 impl ClientAuthInfo {
     pub(super) fn new(
         client_credential: impl Into<StorableClientCredential>,
@@ -135,22 +141,21 @@ impl ClientAuthInfo {
     /// Verify the given credentials
     pub(super) fn verify_new_credentials(
         group_id: &GroupId,
-        client_credentials: impl IntoIterator<
-            Item = (
-                LeafNodeIndex,
-                VerifiableClientCredential,
-                SignaturePublicKey,
-            ),
-        >,
+        client_credentials: impl IntoIterator<Item = ClientVerificationInfo>,
         as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Vec<Self>> {
         let mut client_auth_infos = Vec::new();
-        for (leaf_index, credential, leaf_signature_key) in client_credentials {
+        for ClientVerificationInfo {
+            leaf_index,
+            credential,
+            leaf_key,
+        } in client_credentials
+        {
             let client_auth_info = Self::verify_credential(
                 group_id,
                 leaf_index,
                 credential,
-                leaf_signature_key,
+                leaf_key,
                 None,
                 as_credentials,
             )?;

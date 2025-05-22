@@ -4,7 +4,7 @@
 
 use std::{collections::HashMap, iter};
 
-use super::{Group, openmls_provider::PhnxOpenMlsProvider};
+use super::{ClientVerificationInfo, Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use mimi_room_policy::{MimiProposal, RoleIndex};
 use phnxtypes::{
@@ -416,11 +416,13 @@ impl Group {
             .into_iter()
             .map(|(i, proposal)| {
                 let leaf_node = proposal.add_proposal().key_package().leaf_node();
-                Ok((
-                    i,
-                    leaf_node.credential().clone().try_into()?,
-                    leaf_node.signature_key().clone(),
-                ))
+                Ok(ClientVerificationInfo {
+                    leaf_index: i,
+                    credential: VerifiableClientCredential::try_from(
+                        leaf_node.credential().clone(),
+                    )?,
+                    leaf_key: leaf_node.signature_key().clone(),
+                })
             })
             .collect::<Result<Vec<_>, BasicCredentialError>>()?;
 
@@ -519,7 +521,7 @@ fn update_path_leaf_node_info(
 ) -> Result<(VerifiableClientCredential, SignaturePublicKey)> {
     let leaf_node = staged_commit
         .update_path_leaf_node()
-        .ok_or(anyhow!("Could not find sender leaf node"))?;
+        .context("Could not find sender leaf node")?;
     let credential = leaf_node.credential().clone().try_into()?;
     let signature_key = leaf_node.signature_key().clone();
     Ok((credential, signature_key))
