@@ -383,7 +383,7 @@ message CreateHandleRequest {
 message CreateHandlePayload {
   HandleVerifyingKey verifying_key = 1;
   string plaintext = 2;
-  // Hash of the plaintext handle
+  // Hash of the plaintext
   UserHandleHash hash = 3;
 }
 
