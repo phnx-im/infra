@@ -57,7 +57,7 @@ impl UserHandleRecord {
         Ok(deleted)
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     async fn load_expiration_data(
         executor: impl PgExecutor<'_>,
         hash: UserHandleHash,
