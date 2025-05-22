@@ -335,6 +335,45 @@ impl auth_service_server::AuthService for GrpcAs {
         self.inner.as_enqueue_message(params).await?;
         Ok(Response::new(EnqueueMessagesResponse {}))
     }
+
+    async fn create_handle(
+        &self,
+        _request: Request<CreateHandleRequest>,
+    ) -> Result<Response<CreateHandleResponse>, tonic::Status> {
+        todo!()
+    }
+
+    async fn delete_handle(
+        &self,
+        _request: Request<DeleteHandleRequest>,
+    ) -> Result<Response<DeleteHandleResponse>, tonic::Status> {
+        todo!()
+    }
+
+    async fn refresh_handle(
+        &self,
+        _request: Request<RefreshHandleRequest>,
+    ) -> Result<Response<RefreshHandleResponse>, tonic::Status> {
+        todo!()
+    }
+
+    type ConnectHandleStream = BoxStream<'static, Result<ConnectResponse, tonic::Status>>;
+
+    async fn connect_handle(
+        &self,
+        _request: Request<Streaming<ConnectRequest>>,
+    ) -> Result<Response<Self::ConnectHandleStream>, tonic::Status> {
+        todo!()
+    }
+
+    type ListenHandleStream = BoxStream<'static, Result<ListenHandleResponse, tonic::Status>>;
+
+    async fn listen_handle(
+        &self,
+        _request: Request<Streaming<ListenHandleRequest>>,
+    ) -> Result<Response<Self::ListenHandleStream>, tonic::Status> {
+        todo!()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
