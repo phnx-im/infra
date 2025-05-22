@@ -369,11 +369,15 @@ message UserHandleHash {
   bytes bytes = 1;
 }
 
+message HandleSignature {
+  common.v1.Signature signature = 1;
+}
+
 // create handle
 
 message CreateHandleRequest {
   CreateHandlePayload payload = 1;
-  common.v1.Signature handle_signature = 2;
+  HandleSignature signature = 2;
 }
 
 message CreateHandlePayload {
@@ -391,7 +395,7 @@ message CreateHandleResponse {}
 
 message DeleteHandleRequest {
   DeleteHandlePayload payload = 1;
-  common.v1.Signature handle_signature = 2;
+  HandleSignature signature = 2;
 }
 
 message DeleteHandlePayload {
@@ -404,7 +408,7 @@ message DeleteHandleResponse {}
 
 message RefreshHandleRequest {
   RefreshHandlePayload payload = 1;
-  common.v1.Signature handle_signature = 2;
+  HandleSignature signature = 2;
 }
 
 message RefreshHandlePayload {
@@ -454,7 +458,7 @@ message ListenHandleRequest {
 
 message InitListenHandleRequest {
   InitListenHandlePayload payload = 1;
-  common.v1.Signature handle_signature = 2;
+  HandleSignature signature = 2;
 }
 
 message InitListenHandlePayload {
