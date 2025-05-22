@@ -196,6 +196,8 @@ impl ClientSigningKey {
 
 pub type ClientVerifyingKey = VerifyingKey<ClientKeyType>;
 
+impl RawKey for ClientVerifyingKey {}
+
 impl Signer for ClientSigningKey {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, SignerError> {
         self.signing_key

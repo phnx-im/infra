@@ -5,6 +5,7 @@
 use mls_assist::messages::AssistedWelcome;
 use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn, group_info};
 use phnxtypes::{
+    credentials::keys,
     crypto::{ear, secrets},
     identifiers,
     messages::{client_ds, client_ds_out::AddUsersInfoOut, welcome_attribution_info},
@@ -19,9 +20,9 @@ use crate::{
 };
 
 use super::v1::{
-    AddUsersInfo, AssistedMessage, EncryptedUserProfileKey, EncryptedWelcomeAttributionInfo,
-    GroupEpoch, GroupInfo, GroupStateEarKey, LeafNodeIndex, MlsMessage, QsReference, RatchetTree,
-    SealedClientReference, SignaturePublicKey,
+    AddUsersInfo, AssistedMessage, ClientVerifyingKey, EncryptedUserProfileKey,
+    EncryptedWelcomeAttributionInfo, GroupEpoch, GroupInfo, GroupStateEarKey, LeafNodeIndex,
+    MlsMessage, QsReference, RatchetTree, SealedClientReference,
 };
 
 impl From<identifiers::SealedClientReference> for SealedClientReference {
@@ -235,17 +236,17 @@ impl TryFromRef<'_, AssistedMessage> for mls_assist::messages::AssistedMessageIn
     }
 }
 
-impl FromRef<'_, openmls::prelude::SignaturePublicKey> for SignaturePublicKey {
-    fn from_ref(value: &openmls::prelude::SignaturePublicKey) -> Self {
+impl From<keys::ClientVerifyingKey> for ClientVerifyingKey {
+    fn from(value: keys::ClientVerifyingKey) -> Self {
         Self {
-            bytes: value.as_slice().to_vec(),
+            bytes: value.into_bytes(),
         }
     }
 }
 
-impl From<SignaturePublicKey> for openmls::prelude::SignaturePublicKey {
-    fn from(proto: SignaturePublicKey) -> Self {
-        proto.bytes.into()
+impl From<ClientVerifyingKey> for keys::ClientVerifyingKey {
+    fn from(proto: ClientVerifyingKey) -> Self {
+        Self::from_bytes(proto.bytes)
     }
 }
 

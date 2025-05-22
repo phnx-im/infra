@@ -109,11 +109,11 @@ message WelcomeInfoRequest {
 message WelcomeInfoPayload {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
-  SignaturePublicKey sender = 3;
+  ClientVerifyingKey sender = 3;
   GroupEpoch epoch = 4;
 }
 
-message SignaturePublicKey {
+message ClientVerifyingKey {
   bytes bytes = 1;
 }
 

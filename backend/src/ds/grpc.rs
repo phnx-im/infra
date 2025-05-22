@@ -6,7 +6,7 @@ use mls_assist::{
     group::Group,
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{
-        LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender, signature,
+        LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender, SignaturePublicKey,
     },
 };
 use phnxprotos::{
@@ -14,8 +14,11 @@ use phnxprotos::{
     delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
-use phnxtypes::crypto::signatures::{
-    keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+use phnxtypes::{
+    credentials::keys::ClientVerifyingKey,
+    crypto::signatures::{
+        keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+    },
 };
 use phnxtypes::{
     crypto::ear::keys::GroupStateEarKey,
@@ -276,14 +279,15 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .as_ref()
             .ok_or_missing_field("signature")?;
 
-        let sender: signature::SignaturePublicKey = request
+        let sender: ClientVerifyingKey = request
             .payload
             .as_ref()
-            .ok_or_missing_field("sender")?
+            .ok_or_missing_field("payload")?
             .sender
             .clone()
-            .ok_or_missing_field("sender")?
+            .ok_or_missing_field("payload")?
             .into();
+        let sender = SignaturePublicKey::from(sender);
         let verifying_key = LeafVerifyingKeyRef::from(&sender);
         let payload: WelcomeInfoPayload =
             request.verify(verifying_key).map_err(InvalidSignature)?;

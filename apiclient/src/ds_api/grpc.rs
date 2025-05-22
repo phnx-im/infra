@@ -6,7 +6,7 @@ use mls_assist::{
     messages::AssistedMessageOut,
     openmls::{
         group::GroupEpoch,
-        prelude::{GroupId, LeafNodeIndex, SignaturePublicKey},
+        prelude::{GroupId, LeafNodeIndex},
     },
 };
 use phnxprotos::{
@@ -280,13 +280,10 @@ impl DsGrpcClient {
     ) -> Result<WelcomeInfoIn, DsRequestError> {
         let qgid: QualifiedGroupId = group_id.try_into()?;
 
-        let signature_public_key =
-            SignaturePublicKey::from(signing_key.credential().verifying_key().clone());
-
         let payload = WelcomeInfoPayload {
             qgid: Some(qgid.ref_into()),
             group_state_ear_key: Some(group_state_ear_key.ref_into()),
-            sender: Some(signature_public_key.ref_into()),
+            sender: Some(signing_key.credential().verifying_key().clone().into()),
             epoch: Some(epoch.into()),
         };
 

@@ -224,7 +224,7 @@ pub struct CreateGroupParams {
 #[derive(Debug)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
-    // The Public key from the sender's PseudonymousCredential
+    // The Public key from the sender's signing key
     pub sender: SignaturePublicKey,
     pub epoch: GroupEpoch,
 }
