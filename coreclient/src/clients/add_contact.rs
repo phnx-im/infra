@@ -6,9 +6,10 @@ use anyhow::ensure;
 use openmls::group::GroupId;
 use phnxtypes::{
     codec::PhnxCodec,
+    credentials::keys::ClientSigningKey,
     crypto::{
         ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable,
-        indexed_aead::keys::UserProfileKey, signatures::signable::Signable,
+        indexed_aead::keys::UserProfileKey,
     },
     identifiers::{Fqdn, QsReference, UserId},
     messages::{
@@ -22,7 +23,7 @@ use tracing::info;
 
 use crate::{
     Conversation, ConversationAttributes, ConversationId, PartialContact,
-    clients::connection_establishment::{ConnectionEstablishmentPackageTbs, FriendshipPackage},
+    clients::connection_establishment::FriendshipPackage,
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
     key_stores::{
         MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
@@ -32,7 +33,11 @@ use crate::{
 };
 
 use super::{
-    CoreUser, api_clients::ApiClients, connection_establishment::ConnectionEstablishmentPackage,
+    CoreUser,
+    api_clients::ApiClients,
+    connection_establishment::{
+        ConnectionEstablishmentPackage, payload::ConnectionEstablishmentPackagePayload,
+    },
 };
 
 impl CoreUser {
@@ -84,7 +89,11 @@ impl CoreUser {
         // Phase 5: Create the connection group on the DS and send off the
         // connection establishment packages
         let conversation_id = local_partial_contact
-            .create_connection_group(&self.inner.api_clients, user_id.domain())
+            .create_connection_group(
+                &self.inner.api_clients,
+                user_id.domain(),
+                self.signing_key(),
+            )
             .await?;
 
         notifier.notify();
@@ -203,12 +212,11 @@ impl VerifiedConnectionPackagesWithGroupId {
         let (group, group_membership, partial_params) = Group::create_group(
             &provider,
             &key_store.signing_key,
-            &key_store.connection_key,
             group_id.clone(),
             group_data,
         )?;
         group_membership.store(txn.as_mut()).await?;
-        group.store(txn).await?;
+        group.store(txn.as_mut()).await?;
 
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
@@ -275,7 +283,7 @@ impl LocalGroup {
         .await?;
 
         // Create a connection establishment package
-        let connection_establishment_package = ConnectionEstablishmentPackageTbs {
+        let connection_establishment_package = ConnectionEstablishmentPackagePayload {
             sender_client_credential: key_store.signing_key.credential().clone(),
             connection_group_id: group.group_id().clone(),
             connection_group_ear_key: group.group_state_ear_key().clone(),
@@ -283,7 +291,7 @@ impl LocalGroup {
             friendship_package_ear_key,
             friendship_package,
         }
-        .sign(&key_store.signing_key)?;
+        .sign(&key_store.signing_key, contact_user_id)?;
 
         let encrypted_user_profile_key =
             own_user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
@@ -312,6 +320,7 @@ impl LocalPartialContact {
         self,
         api_clients: &ApiClients,
         user_domain: &Fqdn,
+        signer: &ClientSigningKey,
     ) -> anyhow::Result<ConversationId> {
         let Self {
             group,
@@ -324,7 +333,7 @@ impl LocalPartialContact {
         info!("Creating connection group on DS");
         api_clients
             .default_client()?
-            .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())
+            .ds_create_group(params, signer, group.group_state_ear_key())
             .await?;
 
         // Encrypt the connection establishment package for each connection and send it off.

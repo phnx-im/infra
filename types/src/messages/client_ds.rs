@@ -9,12 +9,7 @@
 
 use mls_assist::{
     messages::{AssistedMessageIn, AssistedWelcome, SerializedMlsMessage},
-    openmls::{
-        prelude::{
-            GroupEpoch, GroupId, LeafNodeIndex, MlsMessageIn, RatchetTreeIn, SignaturePublicKey,
-        },
-        treesync::RatchetTree,
-    },
+    openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageIn, RatchetTreeIn},
     openmls_traits::types::HpkeCiphertext,
 };
 use serde::{Deserialize, Serialize};
@@ -23,12 +18,11 @@ use tls_codec::{
 };
 
 use crate::{
+    credentials::keys::ClientVerifyingKey,
     crypto::{
         ear::{
             EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
-            keys::{
-                EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey, RatchetKey,
-            },
+            keys::{EncryptedUserProfileKey, GroupStateEarKey, RatchetKey},
         },
         hpke::{HpkeDecryptable, HpkeEncryptable, JoinerInfoKeyType},
         ratchet::QueueRatchet,
@@ -177,7 +171,7 @@ impl InfraAadMessage {
 #[repr(u8)]
 pub enum InfraAadPayload {
     GroupOperation(GroupOperationParamsAad),
-    Update(UpdateParamsAad),
+    Update,
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
     Resync,
     DeleteGroup,
@@ -220,7 +214,6 @@ impl DsEventMessage {
 pub struct CreateGroupParams {
     pub group_id: GroupId,
     pub leaf_node: RatchetTreeIn,
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_qs_reference: QsReference,
     pub group_info: MlsMessageIn,
@@ -230,8 +223,7 @@ pub struct CreateGroupParams {
 #[derive(Debug)]
 pub struct WelcomeInfoParams {
     pub group_id: GroupId,
-    // The Public key from the sender's PseudonymousCredential
-    pub sender: SignaturePublicKey,
+    pub sender: ClientVerifyingKey,
     pub epoch: GroupEpoch,
 }
 
@@ -258,25 +250,13 @@ pub struct GroupOperationParams {
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct CredentialUpdate {
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
-}
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GroupOperationParamsAad {
-    pub new_encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
     pub new_encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub credential_update_option: Option<CredentialUpdate>,
 }
 
 #[derive(Debug)]
 pub struct UpdateParams {
     pub commit: AssistedMessageIn,
-}
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct UpdateParamsAad {
-    pub option_encrypted_identity_link_key: Option<EncryptedIdentityLinkKey>,
 }
 
 #[derive(Debug)]
@@ -287,7 +267,6 @@ pub struct JoinConnectionGroupParams {
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct JoinConnectionGroupParamsAad {
-    pub encrypted_identity_link_key: EncryptedIdentityLinkKey,
     pub encrypted_friendship_package: EncryptedFriendshipPackage,
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
 }
@@ -321,13 +300,9 @@ pub struct UserProfileKeyUpdateParams {
     pub user_profile_key: EncryptedUserProfileKey,
 }
 
-#[derive(TlsSerialize, TlsSize, Clone)]
+#[derive(TlsSerialize, TlsSize, Clone, TlsDeserializeBytes)]
 pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
-    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub ratchet_tree: RatchetTree,
-    pub room_state: Vec<u8>,
 }
 
 impl GenericSerializable for DsJoinerInformation {
@@ -356,19 +331,9 @@ impl From<HpkeCiphertext> for EncryptedDsJoinerInformation {
 }
 
 impl HpkeEncryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformation {}
+impl HpkeDecryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformation {}
 
-#[derive(TlsDeserializeBytes, TlsSize, Clone)]
-pub struct DsJoinerInformationIn {
-    pub group_state_ear_key: GroupStateEarKey,
-    pub encrypted_identity_link_keys: Vec<EncryptedIdentityLinkKey>,
-    pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub ratchet_tree: RatchetTreeIn,
-    pub room_state: Vec<u8>,
-}
-
-impl HpkeDecryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformationIn {}
-
-impl GenericDeserializable for DsJoinerInformationIn {
+impl GenericDeserializable for DsJoinerInformation {
     type Error = tls_codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {

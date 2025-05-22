@@ -23,11 +23,15 @@ impl CoreUser {
         // Phase 1: Load the conversation and the group
         let mut connection = self.pool().acquire().await?;
         let update = connection
-            .with_transaction(async |txn| UpdateKeyData::lock(txn, conversation_id).await)
+            .with_transaction(async |txn| {
+                UpdateKeyData::lock(txn, conversation_id, self.signing_key()).await
+            })
             .await?;
 
         // Phase 2: Send the update to the DS
-        let updated = update.ds_update(&self.inner.api_clients).await?;
+        let updated = update
+            .ds_update(&self.inner.api_clients, self.signing_key())
+            .await?;
 
         // Phase 3: Merge the commit into the group
         self.with_notifier(async |notifier| {
@@ -45,7 +49,10 @@ impl CoreUser {
 
 mod update_key_flow {
     use anyhow::Context;
-    use phnxtypes::{messages::client_ds_out::UpdateParamsOut, time::TimeStamp};
+    use phnxtypes::{
+        credentials::keys::ClientSigningKey, messages::client_ds_out::UpdateParamsOut,
+        time::TimeStamp,
+    };
     use sqlx::SqliteTransaction;
 
     use crate::{
@@ -64,6 +71,7 @@ mod update_key_flow {
         pub(super) async fn lock(
             txn: &mut SqliteTransaction<'_>,
             conversation_id: ConversationId,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<Self> {
             let conversation = Conversation::load(txn.as_mut(), &conversation_id)
                 .await?
@@ -72,7 +80,7 @@ mod update_key_flow {
             let mut group = Group::load_clean(txn, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-            let params = group.update(txn).await?;
+            let params = group.update(txn, signer).await?;
             Ok(Self {
                 conversation,
                 group,
@@ -83,6 +91,7 @@ mod update_key_flow {
         pub(super) async fn ds_update(
             self,
             api_clients: &ApiClients,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<UpdatedKey> {
             let Self {
                 conversation,
@@ -92,7 +101,7 @@ mod update_key_flow {
             let owner_domain = conversation.owner_domain();
             let ds_timestamp = api_clients
                 .get(&owner_domain)?
-                .ds_update(params, group.leaf_signer(), group.group_state_ear_key())
+                .ds_update(params, signer, group.group_state_ear_key())
                 .await?;
             Ok(UpdatedKey {
                 group,

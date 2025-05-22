@@ -40,7 +40,9 @@ impl CoreUser {
 
         // Phase 4: Send the commit to the DS
         // The DS responds with the timestamp of the commit.
-        let invited = invite.ds_group_operation(&self.inner.api_clients).await?;
+        let invited = invite
+            .ds_group_operation(&self.inner.api_clients, self.signing_key())
+            .await?;
 
         // Phase 5: Merge the commit into the group
         // Now that we know the commit went through, we can merge the commit
@@ -64,7 +66,7 @@ mod invite_users_flow {
     use mimi_room_policy::{MimiProposal, RoleIndex};
     use openmls::group::GroupId;
     use phnxtypes::{
-        credentials::ClientCredential,
+        credentials::{ClientCredential, keys::ClientSigningKey},
         crypto::ear::keys::WelcomeAttributionInfoEarKey,
         identifiers::{Fqdn, UserId},
         messages::client_ds_out::GroupOperationParamsOut,
@@ -231,6 +233,7 @@ mod invite_users_flow {
         pub(super) async fn ds_group_operation(
             self,
             api_clients: &ApiClients,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<InvitedUsers> {
             let Self {
                 group,
@@ -240,7 +243,7 @@ mod invite_users_flow {
 
             let ds_timestamp = api_clients
                 .get(&owner_domain)?
-                .ds_group_operation(params, group.leaf_signer(), group.group_state_ear_key())
+                .ds_group_operation(params, signer, group.group_state_ear_key())
                 .await?;
 
             Ok(InvitedUsers {

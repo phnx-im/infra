@@ -7,12 +7,9 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use mimi_room_policy::{MimiProposal, RoleIndex};
 use phnxtypes::{
     credentials::ClientCredential,
-    crypto::{
-        ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey},
-        indexed_aead::keys::UserProfileKey,
-    },
+    crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
     identifiers::UserId,
-    messages::client_ds::{CredentialUpdate, InfraAadMessage, InfraAadPayload},
+    messages::client_ds::{InfraAadMessage, InfraAadPayload},
 };
 use sqlx::SqliteConnection;
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
@@ -141,41 +138,28 @@ impl Group {
                         .into_payload();
                 match aad_payload {
                     InfraAadPayload::GroupOperation(group_operation_payload) => {
+                        let number_of_adds = staged_commit.add_proposals().count();
+                        let number_of_upks = group_operation_payload
+                            .new_encrypted_user_profile_keys
+                            .len();
+                        ensure!(
+                            number_of_adds == number_of_upks,
+                            "Number of add proposals and user profile keys don't match"
+                        );
+
                         // Process adds if there are any.
                         if !group_operation_payload
-                            .new_encrypted_identity_link_keys
+                            .new_encrypted_user_profile_keys
                             .is_empty()
                         {
-                            let number_of_adds = staged_commit.add_proposals().count();
-                            let number_of_ilks = group_operation_payload
-                                .new_encrypted_identity_link_keys
-                                .len();
-                            let number_of_upks = group_operation_payload
-                                .new_encrypted_user_profile_keys
-                                .len();
-                            // Make sure the vector lengths match.
-                            let vector_lengths_match = number_of_adds == number_of_ilks
-                                && number_of_adds == number_of_upks;
-                            ensure!(
-                                vector_lengths_match,
-                                "Number of add proposals and new member keys doesn't match."
-                            );
                             // Prepare inputs for add processing
-                            let added_clients = staged_commit
-                                .add_proposals()
-                                .map(|p| {
-                                    p.add_proposal()
-                                        .key_package()
-                                        .leaf_node()
-                                        .credential()
-                                        .clone()
-                                })
-                                .zip(
-                                    group_operation_payload
-                                        .new_encrypted_identity_link_keys
-                                        .into_iter(),
-                                );
-
+                            let added_clients = staged_commit.add_proposals().map(|p| {
+                                p.add_proposal()
+                                    .key_package()
+                                    .leaf_node()
+                                    .credential()
+                                    .clone()
+                            });
                             let client_auth_infos = self
                                 .process_adds(
                                     &sender_id,
@@ -210,7 +194,6 @@ impl Group {
                                 api_clients,
                                 &mut *connection,
                                 new_sender_credential.clone(),
-                                group_operation_payload.credential_update_option,
                                 sender_index,
                             )
                             .await?;
@@ -227,7 +210,7 @@ impl Group {
                             .await?;
                         }
                     }
-                    InfraAadPayload::Update(update_client_payload) => {
+                    InfraAadPayload::Update => {
                         // Check if the client has updated its leaf credential.
                         let sender = self
                             .mls_group
@@ -240,17 +223,10 @@ impl Group {
                             .ok_or(anyhow!("Could not find sender leaf node"))?;
                         if new_sender_credential != &sender.credential {
                             // If so, then there has to be a new identity link key.
-                            let Some(encrypted_identity_link_key) =
-                                update_client_payload.option_encrypted_identity_link_key
-                            else {
-                                bail!("Invalid update client payload.")
-                            };
-                            let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                            let client_auth_info = ClientAuthInfo::verify_credential(
                                 &mut *connection,
                                 api_clients,
                                 &group_id,
-                                self.identity_link_wrapper_key(),
-                                encrypted_identity_link_key,
                                 sender_index,
                                 new_sender_credential.clone(),
                             )
@@ -274,12 +250,10 @@ impl Group {
                             bail!("Could not find sender leaf node in staged commit")
                         };
 
-                        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+                        let client_auth_info = ClientAuthInfo::verify_credential(
                             &mut *connection,
                             api_clients,
                             &group_id,
-                            &self.identity_link_wrapper_key,
-                            join_connection_group_payload.encrypted_identity_link_key,
                             sender_index,
                             sender_credential,
                         )
@@ -313,18 +287,11 @@ impl Group {
                             .context("Resync operation did not contain a remove proposal")?
                             .remove_proposal()
                             .removed();
-                        // Get the identity link key of the resyncing client
-                        let identity_link_key =
-                            GroupMembership::load(&mut *connection, &group_id, removed_index)
-                                .await?
-                                .context("Could not find group membership of resync sender")
-                                .map(|gm| gm.identity_link_key().clone())?;
 
-                        let mut client_auth_info = ClientAuthInfo::decrypt_credential_and_verify(
+                        let mut client_auth_info = ClientAuthInfo::verify_credential(
                             &mut *connection,
                             api_clients,
                             &group_id,
-                            identity_link_key,
                             removed_index,
                             sender_credential,
                         )
@@ -387,22 +354,20 @@ impl Group {
         staged_commit: &StagedCommit,
         api_clients: &ApiClients,
         connection: &mut SqliteConnection,
-        added_clients: impl Iterator<Item = (Credential, EncryptedIdentityLinkKey)>,
+        added_clients: impl Iterator<Item = Credential>,
     ) -> Result<Vec<ClientAuthInfo>> {
         // AddUsers Phase 1: Compute the free indices
         let added_clients_with_indices =
             GroupMembership::free_indices(&mut *connection, &self.group_id)
                 .await?
                 .zip(added_clients.into_iter())
-                .map(|(index, (credential, eilk))| ((index, credential), eilk))
                 .collect::<Vec<_>>();
 
         // AddUsers Phase 2: Decrypt and verify the client credentials.
-        let client_auth_infos = ClientAuthInfo::decrypt_and_verify_all(
+        let client_auth_infos = ClientAuthInfo::verify_credentials(
             &mut *connection,
             api_clients,
             &self.group_id,
-            self.identity_link_wrapper_key(),
             added_clients_with_indices.into_iter(),
         )
         .await?;
@@ -445,19 +410,12 @@ impl Group {
         api_clients: &ApiClients,
         connection: &mut SqliteConnection,
         new_sender_credential: Credential,
-        credential_update_option: Option<CredentialUpdate>,
         sender_index: LeafNodeIndex,
     ) -> Result<()> {
-        // If so, then there has to be a new identity link key.
-        let Some(credential_update) = credential_update_option else {
-            bail!("Invalid update client payload.")
-        };
-        let client_auth_info = ClientAuthInfo::decrypt_and_verify(
+        let client_auth_info = ClientAuthInfo::verify_credential(
             &mut *connection,
             api_clients,
             &self.group_id,
-            self.identity_link_wrapper_key(),
-            credential_update.encrypted_identity_link_key,
             sender_index,
             new_sender_credential,
         )

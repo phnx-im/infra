@@ -143,9 +143,6 @@ pub(crate) enum ClientUpdateError {
     /// Error processing message.
     #[error("Error processing message.")]
     ProcessingError,
-    /// Unknown sender.
-    #[error("Unknown sender.")]
-    UnknownSender,
     #[error("Error merging commit: {0}")]
     MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
 }
@@ -154,9 +151,7 @@ impl From<ClientUpdateError> for Status {
     fn from(e: ClientUpdateError) -> Self {
         let msg = e.to_string();
         match e {
-            ClientUpdateError::InvalidMessage | ClientUpdateError::UnknownSender => {
-                Status::invalid_argument(msg)
-            }
+            ClientUpdateError::InvalidMessage => Status::invalid_argument(msg),
             ClientUpdateError::ProcessingError => Status::internal(msg),
             ClientUpdateError::MergeCommitError(merge_commit_error) => {
                 error!(%merge_commit_error, "failed merging commit");

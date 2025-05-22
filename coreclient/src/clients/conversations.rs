@@ -36,7 +36,6 @@ impl CoreUser {
                     .create_group(
                         &PhnxOpenMlsProvider::new(&mut *connection),
                         &self.inner.key_store.signing_key,
-                        &self.inner.key_store.connection_key,
                     )?
                     .store_group(&mut *connection, notifier)
                     .await
@@ -44,7 +43,11 @@ impl CoreUser {
             .await?;
 
         created_group
-            .create_group_on_ds(&self.inner.api_clients, self.create_own_client_reference())
+            .create_group_on_ds(
+                &self.inner.api_clients,
+                self.signing_key(),
+                self.create_own_client_reference(),
+            )
             .await
     }
 
@@ -76,11 +79,15 @@ impl CoreUser {
             }
             DeleteConversationData::MultiMember(data) => {
                 // Phase 2: Create the delete commit
-                let delete = data.stage_delete_commit(&mut txn).await?;
+                let delete = data
+                    .stage_delete_commit(&mut txn, self.signing_key())
+                    .await?;
                 txn.commit().await?;
 
                 // Phase 3: Send the delete to the DS
-                let deleted = delete.send_delete_commit(&self.inner.api_clients).await?;
+                let deleted = delete
+                    .send_delete_commit(&self.inner.api_clients, self.signing_key())
+                    .await?;
                 // TODO: Retry send until we get a response
                 self.with_transaction_and_notifier(async |connection, notifier| {
                     deleted
@@ -102,14 +109,14 @@ impl CoreUser {
                 // Phase 1: Load the conversation and the group
                 LeaveConversationData::load(txn, conversation_id)
                     .await?
-                    .stage_leave_group(self.user_id(), txn)
+                    .stage_leave_group(self.user_id(), txn, self.signing_key())
                     .await
             })
             .await?;
 
         // Phase 2: Send the leave to the DS
         leave
-            .ds_self_remove(&self.inner.api_clients)
+            .ds_self_remove(&self.inner.api_clients, self.signing_key())
             .await?
             // Phase 3: Merge the commit into the group
             .store_update(self.pool())
@@ -214,10 +221,7 @@ mod create_conversation_flow {
     use phnxtypes::{
         codec::PhnxCodec,
         credentials::keys::ClientSigningKey,
-        crypto::{
-            ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey,
-            kdf::keys::ConnectionKey,
-        },
+        crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
         identifiers::QsReference,
     };
 
@@ -274,7 +278,6 @@ mod create_conversation_flow {
             self,
             provider: &impl OpenMlsProvider,
             signing_key: &ClientSigningKey,
-            connection_key: &ConnectionKey,
         ) -> Result<CreatedGroup> {
             let Self {
                 group_id,
@@ -283,7 +286,7 @@ mod create_conversation_flow {
             } = self;
 
             let (group, group_membership, partial_params) =
-                Group::create_group(provider, signing_key, connection_key, group_id, group_data)?;
+                Group::create_group(provider, signing_key, group_id, group_data)?;
 
             Ok(CreatedGroup {
                 group,
@@ -314,7 +317,7 @@ mod create_conversation_flow {
             )?;
 
             group_membership.store(txn.as_mut()).await?;
-            group.store(txn).await?;
+            group.store(txn.as_mut()).await?;
 
             let conversation =
                 Conversation::new_group_conversation(partial_params.group_id.clone(), attributes);
@@ -340,6 +343,7 @@ mod create_conversation_flow {
         pub(super) async fn create_group_on_ds(
             self,
             api_clients: &ApiClients,
+            signer: &ClientSigningKey,
             client_reference: QsReference,
         ) -> Result<ConversationId> {
             let Self {
@@ -352,7 +356,7 @@ mod create_conversation_flow {
             let params = partial_params.into_params(client_reference, encrypted_user_profile_key);
             api_clients
                 .default_client()?
-                .ds_create_group(params, group.leaf_signer(), group.group_state_ear_key())
+                .ds_create_group(params, signer, group.group_state_ear_key())
                 .await?;
 
             Ok(conversation_id)
@@ -365,7 +369,8 @@ mod delete_conversation_flow {
 
     use anyhow::Context;
     use phnxtypes::{
-        identifiers::UserId, messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
+        credentials::keys::ClientSigningKey, identifiers::UserId,
+        messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
     };
     use sqlx::{SqliteConnection, SqliteTransaction};
 
@@ -454,6 +459,7 @@ mod delete_conversation_flow {
         pub(super) async fn stage_delete_commit(
             self,
             connection: &mut SqliteConnection,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<LoadedConversationData<DeleteGroupParamsOut>> {
             let Self {
                 conversation,
@@ -461,7 +467,7 @@ mod delete_conversation_flow {
                 past_members,
                 state: _,
             } = self;
-            let params = group.stage_delete(connection).await?;
+            let params = group.stage_delete(connection, signer).await?;
             Ok(LoadedConversationData {
                 conversation,
                 group,
@@ -475,6 +481,7 @@ mod delete_conversation_flow {
         pub(super) async fn send_delete_commit(
             self,
             api_clients: &ApiClients,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<LoadedConversationData<DeletedGroupOnDs>> {
             let Self {
                 conversation,
@@ -485,7 +492,7 @@ mod delete_conversation_flow {
             let owner_domain = conversation.owner_domain();
             let ds_timestamp = api_clients
                 .get(&owner_domain)?
-                .ds_delete_group(params, group.leaf_signer(), group.group_state_ear_key())
+                .ds_delete_group(params, signer, group.group_state_ear_key())
                 .await?;
             Ok(LoadedConversationData {
                 conversation,
@@ -555,7 +562,10 @@ mod delete_conversation_flow {
 mod leave_conversation_flow {
     use anyhow::Context;
     use mimi_room_policy::{MimiProposal, RoleIndex};
-    use phnxtypes::{identifiers::UserId, messages::client_ds_out::SelfRemoveParamsOut};
+    use phnxtypes::{
+        credentials::keys::ClientSigningKey, identifiers::UserId,
+        messages::client_ds_out::SelfRemoveParamsOut,
+    };
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
 
     use crate::{Conversation, ConversationId, groups::Group};
@@ -589,6 +599,7 @@ mod leave_conversation_flow {
             self,
             sender_id: &UserId,
             connection: &mut SqliteConnection,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<LeaveConversationData<SelfRemoveParamsOut>> {
             let Self {
                 conversation,
@@ -604,7 +615,7 @@ mod leave_conversation_flow {
                 }],
             )?;
 
-            let params = group.stage_leave_group(connection)?;
+            let params = group.stage_leave_group(connection, signer)?;
 
             Ok(LeaveConversationData {
                 conversation,
@@ -618,6 +629,7 @@ mod leave_conversation_flow {
         pub(super) async fn ds_self_remove(
             self,
             api_clients: &crate::clients::api_clients::ApiClients,
+            signer: &ClientSigningKey,
         ) -> anyhow::Result<DsSelfRemoved> {
             let Self {
                 conversation,
@@ -629,7 +641,7 @@ mod leave_conversation_flow {
 
             api_clients
                 .get(&owner_domain)?
-                .ds_self_remove(params, group.leaf_signer(), group.group_state_ear_key())
+                .ds_self_remove(params, signer, group.group_state_ear_key())
                 .await?;
 
             Ok(DsSelfRemoved(group))

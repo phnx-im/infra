@@ -80,15 +80,10 @@ message CreateGroupPayload {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
   RatchetTree ratchet_tree = 3;
-  EncryptedIdentityLinkKey encrypted_identity_link_key = 4;
   EncryptedUserProfileKey encrypted_user_profile_key = 5;
   QsReference creator_client_reference = 6;
   MlsMessage group_info = 7;
   bytes room_state = 8;
-}
-
-message EncryptedIdentityLinkKey {
-  common.v1.Ciphertext ciphertext = 1;
 }
 
 message EncryptedUserProfileKey {
@@ -114,11 +109,11 @@ message WelcomeInfoRequest {
 message WelcomeInfoPayload {
   common.v1.QualifiedGroupId qgid = 1;
   GroupStateEarKey group_state_ear_key = 2;
-  SignaturePublicKey sender = 3;
+  ClientVerifyingKey sender = 3;
   GroupEpoch epoch = 4;
 }
 
-message SignaturePublicKey {
+message ClientVerifyingKey {
   bytes bytes = 1;
 }
 
@@ -128,8 +123,8 @@ message GroupEpoch {
 
 message WelcomeInfoResponse {
   RatchetTree ratchet_tree = 1;
-  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 2;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 3;
+  bytes room_state = 4;
 }
 
 // external commit info
@@ -142,7 +137,6 @@ message ExternalCommitInfoRequest {
 message ExternalCommitInfoResponse {
   GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
-  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
   bytes room_state = 5;
 }
@@ -161,7 +155,6 @@ message ConnectionGroupInfoRequest {
 message ConnectionGroupInfoResponse {
   GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
-  repeated EncryptedIdentityLinkKey encrypted_identity_link_keys = 3;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
   bytes room_state = 5;
 }

@@ -85,11 +85,7 @@ impl CoreUser {
                 user_profile_key: user_profile_key.clone(),
             };
             api_client
-                .ds_user_profile_key_update(
-                    params,
-                    group.leaf_signer(),
-                    group.group_state_ear_key(),
-                )
+                .ds_user_profile_key_update(params, self.signing_key(), group.group_state_ear_key())
                 .await?;
         }
 

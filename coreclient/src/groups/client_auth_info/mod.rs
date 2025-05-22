@@ -7,14 +7,7 @@ use std::ops::Deref;
 use anyhow::{Result, anyhow};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
 use phnxtypes::{
-    credentials::{
-        ClientCredential, CredentialFingerprint, VerifiableClientCredential,
-        pseudonymous_credentials::PseudonymousCredential,
-    },
-    crypto::ear::{
-        EarDecryptable,
-        keys::{EncryptedIdentityLinkKey, IdentityLinkKey, IdentityLinkWrapperKey},
-    },
+    credentials::{ClientCredential, CredentialFingerprint, VerifiableClientCredential},
     identifiers::UserId,
 };
 use sqlx::{SqliteConnection, SqliteExecutor};
@@ -73,7 +66,6 @@ pub(crate) struct GroupMembership {
     user_id: UserId,
     client_credential_fingerprint: CredentialFingerprint,
     group_id: GroupId,
-    identity_link_key: IdentityLinkKey,
     leaf_index: LeafNodeIndex,
 }
 
@@ -82,7 +74,6 @@ impl GroupMembership {
         user_id: UserId,
         group_id: GroupId,
         leaf_index: LeafNodeIndex,
-        identity_link_key: IdentityLinkKey,
         client_credential_fingerprint: CredentialFingerprint,
     ) -> Self {
         Self {
@@ -90,7 +81,6 @@ impl GroupMembership {
             client_credential_fingerprint,
             group_id,
             leaf_index,
-            identity_link_key,
         }
     }
 
@@ -110,11 +100,6 @@ impl GroupMembership {
             .chain(highest_index.u32() + 1..)
             .map(LeafNodeIndex::new);
         Ok(free_indices)
-    }
-
-    /// Get the identity link key.
-    pub(super) fn identity_link_key(&self) -> &IdentityLinkKey {
-        &self.identity_link_key
     }
 
     /// Set the group member's leaf index. This can be required for resync
@@ -144,60 +129,39 @@ impl ClientAuthInfo {
         }
     }
 
-    /// Decrypt and verify the given encrypted client auth info. This includes
-    /// verification of the signature over the [`PseudonymousCredential`], as
-    /// well as the signature over the [`ClientCredential`].
-    pub(super) async fn decrypt_and_verify_all(
+    /// Verify the given credentials
+    pub(super) async fn verify_credentials(
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
-        wrapper_key: &IdentityLinkWrapperKey,
-        encrypted_client_information: impl Iterator<
-            Item = ((LeafNodeIndex, Credential), EncryptedIdentityLinkKey),
-        >,
+        client_credentials: impl IntoIterator<Item = (LeafNodeIndex, Credential)>,
     ) -> Result<Vec<Self>> {
-        let mut client_information = Vec::new();
-        for ((leaf_index, credential), encrypted_identity_link_key) in encrypted_client_information
-        {
-            let client_auth_info = Self::decrypt_and_verify(
-                connection,
-                api_clients,
-                group_id,
-                wrapper_key,
-                encrypted_identity_link_key,
-                leaf_index,
-                credential,
-            )
-            .await?;
-            client_information.push(client_auth_info);
+        let mut client_auth_infos = Vec::new();
+        for (leaf_index, credential) in client_credentials {
+            let client_auth_info =
+                Self::verify_credential(connection, api_clients, group_id, leaf_index, credential)
+                    .await?;
+            client_auth_infos.push(client_auth_info);
         }
-        Ok(client_information)
+        Ok(client_auth_infos)
     }
 
-    /// Decrypt and verify the given credential.
-    pub(super) async fn decrypt_credential_and_verify(
+    /// Verify the given credential
+    pub(super) async fn verify_credential(
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         group_id: &GroupId,
-        identity_link_key: IdentityLinkKey,
         leaf_index: LeafNodeIndex,
         credential: Credential,
     ) -> Result<Self> {
-        let pseudonymous_credential = PseudonymousCredential::try_from(credential)?;
         // Verify the leaf credential
-        let credential_plaintext =
-            pseudonymous_credential.decrypt_and_verify(&identity_link_key)?;
-        let client_credential = StorableClientCredential::verify(
-            connection,
-            api_clients,
-            credential_plaintext.client_credential,
-        )
-        .await?;
+        let client_credential =
+            StorableClientCredential::verify(connection, api_clients, credential.try_into()?)
+                .await?;
         let group_membership = GroupMembership::new(
             client_credential.identity().clone(),
             group_id.clone(),
             leaf_index,
-            identity_link_key,
             client_credential.fingerprint(),
         );
         let client_auth_info = ClientAuthInfo {
@@ -205,29 +169,6 @@ impl ClientAuthInfo {
             group_membership,
         };
         Ok(client_auth_info)
-    }
-
-    /// Decrypt and verify the given identity link key and credential.
-    pub(super) async fn decrypt_and_verify(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
-        group_id: &GroupId,
-        wrapper_key: &IdentityLinkWrapperKey,
-        encrypted_identity_link_key: EncryptedIdentityLinkKey,
-        leaf_index: LeafNodeIndex,
-        credential: Credential,
-    ) -> Result<Self> {
-        let identity_link_key =
-            IdentityLinkKey::decrypt(wrapper_key, &encrypted_identity_link_key)?;
-        Self::decrypt_credential_and_verify(
-            connection,
-            api_clients,
-            group_id,
-            identity_link_key,
-            leaf_index,
-            credential,
-        )
-        .await
     }
 
     pub(super) async fn stage_update(

@@ -21,7 +21,7 @@ use phnxprotos::{
     validation::MissingFieldExt,
 };
 use phnxtypes::{
-    credentials::keys::PseudonymousCredentialSigningKey,
+    credentials::keys::ClientSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::{QsReference, QualifiedGroupId},
     messages::{
@@ -73,7 +73,7 @@ impl DsGrpcClient {
     pub(crate) async fn send_message(
         &self,
         params: SendMessageParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         let payload = SendMessagePayload {
@@ -99,7 +99,7 @@ impl DsGrpcClient {
     pub(crate) async fn create_group(
         &self,
         payload: CreateGroupParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         let qgid: QualifiedGroupId = payload.group_id.try_into()?;
@@ -107,7 +107,6 @@ impl DsGrpcClient {
             qgid: Some(qgid.ref_into()),
             group_state_ear_key: Some(group_state_ear_key.ref_into()),
             ratchet_tree: Some(payload.ratchet_tree.try_ref_into()?),
-            encrypted_identity_link_key: Some(payload.encrypted_identity_link_key.into()),
             encrypted_user_profile_key: Some(payload.encrypted_user_profile_key.into()),
             creator_client_reference: Some(payload.creator_client_reference.into()),
             group_info: Some(payload.group_info.try_ref_into()?),
@@ -121,7 +120,7 @@ impl DsGrpcClient {
     pub(crate) async fn delete_group(
         &self,
         params: DeleteGroupParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         let payload = DeleteGroupPayload {
@@ -144,7 +143,7 @@ impl DsGrpcClient {
     pub(crate) async fn group_operation(
         &self,
         payload: GroupOperationParamsOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         let add_users_info = payload
@@ -203,12 +202,6 @@ impl DsGrpcClient {
                 .ratchet_tree
                 .ok_or(DsRequestError::UnexpectedResponse)?
                 .try_ref_into()?,
-            encrypted_identity_link_keys: response
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| DsRequestError::UnexpectedResponse)?,
             encrypted_user_profile_keys: response
                 .encrypted_user_profile_keys
                 .into_iter()
@@ -222,7 +215,7 @@ impl DsGrpcClient {
     pub(crate) async fn update(
         &self,
         commit: AssistedMessageOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         let payload = UpdatePayload {
@@ -263,7 +256,7 @@ impl DsGrpcClient {
     pub(crate) async fn self_remove(
         &self,
         remove_proposal: AssistedMessageOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
         let payload = SelfRemovePayload {
@@ -283,15 +276,17 @@ impl DsGrpcClient {
         group_id: GroupId,
         epoch: GroupEpoch,
         group_state_ear_key: &GroupStateEarKey,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
     ) -> Result<WelcomeInfoIn, DsRequestError> {
         let qgid: QualifiedGroupId = group_id.try_into()?;
+
         let payload = WelcomeInfoPayload {
             qgid: Some(qgid.ref_into()),
             group_state_ear_key: Some(group_state_ear_key.ref_into()),
-            sender: Some(signing_key.credential().verifying_key().ref_into()),
+            sender: Some(signing_key.credential().verifying_key().clone().into()),
             epoch: Some(epoch.into()),
         };
+
         let request = payload.sign(signing_key)?;
         let response = self
             .client
@@ -304,25 +299,20 @@ impl DsGrpcClient {
                 .ratchet_tree
                 .ok_or(DsRequestError::UnexpectedResponse)?
                 .try_ref_into()?,
-            encrypted_identity_link_keys: response
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| DsRequestError::UnexpectedResponse)?,
             encrypted_user_profile_keys: response
                 .encrypted_user_profile_keys
                 .into_iter()
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
+            room_state: response.room_state,
         })
     }
 
     pub(crate) async fn resync(
         &self,
         external_commit: AssistedMessageOut,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         own_leaf_index: LeafNodeIndex,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
@@ -364,12 +354,6 @@ impl DsGrpcClient {
                 .ratchet_tree
                 .ok_or(DsRequestError::UnexpectedResponse)?
                 .try_ref_into()?,
-            encrypted_identity_link_keys: response
-                .encrypted_identity_link_keys
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| DsRequestError::UnexpectedResponse)?,
             encrypted_user_profile_keys: response
                 .encrypted_user_profile_keys
                 .into_iter()
@@ -383,7 +367,7 @@ impl DsGrpcClient {
     pub(crate) async fn user_profile_key_update(
         &self,
         params: UserProfileKeyUpdateParams,
-        signing_key: &PseudonymousCredentialSigningKey,
+        signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<(), DsRequestError> {
         let qgid: QualifiedGroupId = params.group_id.try_into()?;

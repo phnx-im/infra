@@ -18,7 +18,7 @@ use mls_assist::{
 
 use phnxtypes::{
     crypto::{
-        ear::keys::{EncryptedIdentityLinkKey, EncryptedUserProfileKey, GroupStateEarKey},
+        ear::keys::{EncryptedUserProfileKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
     },
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
@@ -68,7 +68,7 @@ impl DsGroupState {
     ) -> Result<(SerializedMlsMessage, Vec<DsFanOutMessage>), GroupOperationError> {
         // Process message (but don't apply it yet). This performs mls-assist-level validations.
         let processed_assisted_message_plus = self
-            .group()
+            .group
             .process_assisted_message(self.provider.crypto(), params.commit)
             .map_err(|e| {
                 warn!(%e, "Error processing assisted message");
@@ -148,7 +148,7 @@ impl DsGroupState {
                 if let Err(e) = self.room_state.apply_regular_proposals(
                     &sender_index.leaf_index().u32(),
                     &[MimiProposal::ChangeRole {
-                        target: user.,
+                        target: user,
                         role: RoleIndex::Regular,
                     }],
                 ) {
@@ -175,8 +175,6 @@ impl DsGroupState {
                     .member_profiles
                     .get(&original_index)
                     .ok_or(GroupOperationError::InvalidMessage)?;
-                let encrypted_identity_link_key =
-                    sender_profile.encrypted_identity_link_key.clone();
                 let encrypted_user_profile_key = sender_profile.encrypted_user_profile_key.clone();
                 // Get the queue config from the leaf node extensions.
                 let client_queue_config = staged_commit
@@ -196,11 +194,7 @@ impl DsGroupState {
                         _ => None,
                     })
                     .ok_or(GroupOperationError::InvalidMessage)??;
-                Some((
-                    encrypted_identity_link_key,
-                    encrypted_user_profile_key,
-                    client_queue_config,
-                ))
+                Some((encrypted_user_profile_key, client_queue_config))
             }
             _ => None,
         };
@@ -260,17 +254,12 @@ impl DsGroupState {
         }
 
         // Process resync operations
-        if let Some((
-            encrypted_identity_link_key,
-            encrypted_user_profile_key,
-            client_queue_config,
-        )) = external_sender_information
+        if let Some((encrypted_user_profile_key, client_queue_config)) = external_sender_information
         {
             // The original client profile was already removed. We just have to
             // add the new one.
             let client_profile = MemberProfile {
                 leaf_index: sender_index.leaf_index(),
-                encrypted_identity_link_key,
                 client_queue_config,
                 activity_time: TimeStamp::now(),
                 activity_epoch: self.group().epoch(),
@@ -293,9 +282,7 @@ impl DsGroupState {
         added_users: &[(AddedUserInfo, EncryptedWelcomeAttributionInfo)],
     ) -> Result<(), GroupOperationError> {
         let mut client_profiles = vec![];
-        for ((key_package, encrypted_identity_link_key, encrypted_user_profile_key), _) in
-            added_users.iter()
-        {
+        for ((key_package, encrypted_user_profile_key), _) in added_users.iter() {
             let member = self
                 .group()
                 .members()
@@ -319,7 +306,6 @@ impl DsGroupState {
             .map_err(|_| GroupOperationError::MissingQueueConfig)?;
             let client_profile = MemberProfile {
                 leaf_index,
-                encrypted_identity_link_key: encrypted_identity_link_key.clone(),
                 encrypted_user_profile_key: encrypted_user_profile_key.clone(),
                 client_queue_config: client_queue_config.clone(),
                 activity_time: TimeStamp::now(),
@@ -343,7 +329,7 @@ impl DsGroupState {
         welcome: &AssistedWelcome,
     ) -> Result<Vec<DsFanOutMessage>, GroupOperationError> {
         let mut fan_out_messages = vec![];
-        for ((key_package, _, _), attribution_info) in added_users.into_iter() {
+        for ((key_package, _), attribution_info) in added_users.into_iter() {
             let client_queue_config = QsReference::tls_deserialize_exact_bytes(
                 key_package
                     .leaf_node()
@@ -365,10 +351,6 @@ impl DsGroupState {
                 key_package.hpke_init_key().clone().into();
             let encrypted_joiner_info = DsJoinerInformation {
                 group_state_ear_key: group_state_ear_key.clone(),
-                encrypted_identity_link_keys: self.encrypted_identity_link_keys(),
-                ratchet_tree: self.group().export_ratchet_tree(),
-                room_state: serde_json::to_vec(&self.room_state).unwrap(),
-                encrypted_user_profile_keys: self.encrypted_user_profile_keys(),
             }
             .encrypt(&encryption_key, info, aad);
             let welcome_bundle = WelcomeBundle {
@@ -399,11 +381,7 @@ impl DsGroupState {
     }
 }
 
-type AddedUserInfo = (
-    KeyPackage,
-    EncryptedIdentityLinkKey,
-    EncryptedUserProfileKey,
-);
+type AddedUserInfo = (KeyPackage, EncryptedUserProfileKey);
 
 struct AddUsersState {
     added_users: Vec<(AddedUserInfo, EncryptedWelcomeAttributionInfo)>,
@@ -417,9 +395,7 @@ fn validate_added_users(
 ) -> Result<AddUsersState, GroupOperationError> {
     let number_of_added_users = staged_commit.add_proposals().count();
     // Check that the lengths of the various vectors match.
-    if aad_payload.new_encrypted_identity_link_keys.len() != number_of_added_users
-        || add_users_info.encrypted_welcome_attribution_infos.len() != number_of_added_users
-    {
+    if add_users_info.encrypted_welcome_attribution_infos.len() != number_of_added_users {
         return Err(GroupOperationError::InvalidMessage);
     }
 
@@ -449,9 +425,7 @@ fn validate_added_users(
     let added_users = staged_commit
         .add_proposals()
         .map(|ap| ap.add_proposal().key_package().clone())
-        .zip(aad_payload.new_encrypted_identity_link_keys)
         .zip(aad_payload.new_encrypted_user_profile_keys)
-        .map(|((kp, eilk), eupk)| (kp, eilk, eupk))
         .zip(add_users_info.encrypted_welcome_attribution_infos)
         .collect::<Vec<_>>();
 

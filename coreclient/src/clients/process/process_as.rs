@@ -5,6 +5,7 @@
 use anyhow::{Context, Result};
 use openmls::prelude::MlsMessageOut;
 use phnxtypes::{
+    credentials::keys::ClientSigningKey,
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::QualifiedGroupId,
     messages::{
@@ -21,10 +22,10 @@ use tracing::error;
 
 use crate::{
     clients::connection_establishment::{
-        ConnectionEstablishmentPackageIn, ConnectionEstablishmentPackageTbs,
+        ConnectionEstablishmentPackageIn, payload::ConnectionEstablishmentPackagePayload,
     },
     groups::{Group, ProfileInfo},
-    key_stores::{indexed_keys::StorableIndexedKey, leaf_keys::LeafKeys},
+    key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
     utils::connection_ext::ConnectionExt,
 };
@@ -62,20 +63,26 @@ impl CoreUser {
                 let mut connection = self.pool().acquire().await?;
 
                 // Parse & verify connection establishment package
-                let cep_tbs = self
+                let cep_payload = self
                     .parse_and_verify_connection_establishment_package(&mut connection, ecep)
                     .await?;
 
                 // Prepare group
                 let own_user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
-                let (leaf_keys, aad, qgid) = self.prepare_group(&cep_tbs, &own_user_profile_key)?;
+                let (aad, qgid) = self.prepare_group(&cep_payload, &own_user_profile_key)?;
 
                 // Fetch external commit info
-                let eci = self.fetch_external_commit_info(&cep_tbs, &qgid).await?;
+                let eci = self.fetch_external_commit_info(&cep_payload, &qgid).await?;
 
                 // Join group
                 let (group, commit, group_info, mut member_profile_info) = self
-                    .join_group_externally(&mut connection, eci, &cep_tbs, leaf_keys, aad)
+                    .join_group_externally(
+                        &mut connection,
+                        eci,
+                        &cep_payload,
+                        self.signing_key(),
+                        aad,
+                    )
                     .await?;
 
                 // There should be only one user profile
@@ -102,7 +109,7 @@ impl CoreUser {
 
                 // Create conversation
                 let (mut conversation, contact) = self
-                    .create_connection_conversation(&group, &cep_tbs)
+                    .create_connection_conversation(&group, &cep_payload)
                     .await?;
 
                 let mut notifier = self.store_notifier();
@@ -122,7 +129,7 @@ impl CoreUser {
                     .await?;
 
                 // Send confirmation
-                self.send_confirmation_to_ds(commit, group_info, &cep_tbs, qgid)
+                self.send_confirmation_to_ds(commit, group_info, &cep_payload, qgid)
                     .await?;
 
                 notifier.notify();
@@ -138,7 +145,7 @@ impl CoreUser {
         &self,
         connection: &mut SqliteConnection,
         ecep: EncryptedConnectionEstablishmentPackage,
-    ) -> Result<ConnectionEstablishmentPackageTbs> {
+    ) -> Result<ConnectionEstablishmentPackagePayload> {
         let cep_in = ConnectionEstablishmentPackageIn::decrypt(
             ecep,
             &self.inner.key_store.connection_decryption_key,
@@ -147,7 +154,7 @@ impl CoreUser {
         )?;
         // Fetch authentication AS credentials of the sender if we
         // don't have them already.
-        let sender_domain = cep_in.sender_credential().domain();
+        let sender_domain = cep_in.sender_domain();
 
         // EncryptedConnectionEstablishmentPackage Phase 1: Load the
         // AS credential of the sender.
@@ -155,11 +162,14 @@ impl CoreUser {
             connection,
             &self.inner.api_clients,
             sender_domain,
-            cep_in.sender_credential().signer_fingerprint(),
+            cep_in.signer_fingerprint(),
         )
         .await?;
         cep_in
-            .verify(as_intermediate_credential.verifying_key())
+            .verify(
+                as_intermediate_credential.verifying_key(),
+                self.user_id().clone(),
+            )
             .map_err(|error| {
                 error!(%error, "Error verifying connection establishment package");
                 anyhow!("Error verifying connection establishment package")
@@ -168,24 +178,15 @@ impl CoreUser {
 
     fn prepare_group(
         &self,
-        cep_tbs: &ConnectionEstablishmentPackageTbs,
+        cep_payload: &ConnectionEstablishmentPackagePayload,
         own_user_profile_key: &UserProfileKey,
-    ) -> Result<(LeafKeys, InfraAadMessage, QualifiedGroupId)> {
+    ) -> Result<(InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
         // connection.
 
-        let leaf_keys = LeafKeys::generate(
-            &self.inner.key_store.signing_key,
-            &self.inner.key_store.connection_key,
-        )?;
-
-        let encrypted_identity_link_key = leaf_keys
-            .identity_link_key()
-            .encrypt(&cep_tbs.connection_group_identity_link_wrapper_key)?;
-
         let encrypted_user_profile_key = own_user_profile_key.encrypt(
-            &cep_tbs.connection_group_identity_link_wrapper_key,
+            &cep_payload.connection_group_identity_link_wrapper_key,
             self.user_id(),
         )?;
 
@@ -195,24 +196,24 @@ impl CoreUser {
             wai_ear_key: self.inner.key_store.wai_ear_key.clone(),
             user_profile_base_secret: own_user_profile_key.base_secret().clone(),
         }
-        .encrypt(&cep_tbs.friendship_package_ear_key)?;
+        .encrypt(&cep_payload.friendship_package_ear_key)?;
 
         let aad: InfraAadMessage =
             InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
                 encrypted_friendship_package,
-                encrypted_identity_link_key,
                 encrypted_user_profile_key,
             })
             .into();
-        let qgid =
-            QualifiedGroupId::tls_deserialize_exact_bytes(cep_tbs.connection_group_id.as_slice())?;
+        let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(
+            cep_payload.connection_group_id.as_slice(),
+        )?;
 
-        Ok((leaf_keys, aad, qgid))
+        Ok((aad, qgid))
     }
 
     async fn fetch_external_commit_info(
         &self,
-        cep_tbs: &ConnectionEstablishmentPackageTbs,
+        cep_payload: &ConnectionEstablishmentPackagePayload,
         qgid: &QualifiedGroupId,
     ) -> Result<ExternalCommitInfoIn> {
         Ok(self
@@ -220,8 +221,8 @@ impl CoreUser {
             .api_clients
             .get(qgid.owning_domain())?
             .ds_connection_group_info(
-                cep_tbs.connection_group_id.clone(),
-                &cep_tbs.connection_group_ear_key, //
+                cep_payload.connection_group_id.clone(),
+                &cep_payload.connection_group_ear_key, //
             )
             .await?)
     }
@@ -230,19 +231,19 @@ impl CoreUser {
         &self,
         connection: &mut SqliteConnection,
         eci: ExternalCommitInfoIn,
-        cep_tbs: &ConnectionEstablishmentPackageTbs,
-        leaf_keys: LeafKeys,
+        cep_payload: &ConnectionEstablishmentPackagePayload,
+        leaf_signer: &ClientSigningKey,
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
-        let (leaf_signer, identity_link_key) = leaf_keys.into_parts();
         let (group, commit, group_info, member_profile_info) = Group::join_group_externally(
             &mut *connection,
             &self.inner.api_clients,
             eci,
             leaf_signer,
-            identity_link_key,
-            cep_tbs.connection_group_ear_key.clone(),
-            cep_tbs.connection_group_identity_link_wrapper_key.clone(),
+            cep_payload.connection_group_ear_key.clone(),
+            cep_payload
+                .connection_group_identity_link_wrapper_key
+                .clone(),
             aad,
             self.inner.key_store.signing_key.credential(),
         )
@@ -253,9 +254,9 @@ impl CoreUser {
     async fn create_connection_conversation(
         &self,
         group: &Group,
-        cep_tbs: &ConnectionEstablishmentPackageTbs,
+        cep_payload: &ConnectionEstablishmentPackagePayload,
     ) -> Result<(Conversation, Contact)> {
-        let sender_user_id = cep_tbs.sender_client_credential.identity();
+        let sender_user_id = cep_payload.sender_client_credential.identity();
 
         let display_name = self.user_profile(sender_user_id).await.display_name;
 
@@ -268,7 +269,7 @@ impl CoreUser {
         let contact = Contact::from_friendship_package(
             sender_user_id.clone(),
             conversation.id(),
-            cep_tbs.friendship_package.clone(),
+            cep_payload.friendship_package.clone(),
         )?;
         Ok((conversation, contact))
     }
@@ -281,7 +282,7 @@ impl CoreUser {
         conversation: &mut Conversation,
         contact: Contact,
     ) -> Result<()> {
-        group.store(txn).await?;
+        group.store(txn.as_mut()).await?;
         conversation.store(txn.as_mut(), notifier).await?;
 
         // TODO: For now, we automatically confirm conversations.
@@ -295,7 +296,7 @@ impl CoreUser {
         &self,
         commit: MlsMessageOut,
         group_info: MlsMessageOut,
-        cep_tbs: &ConnectionEstablishmentPackageTbs,
+        cep_payload: &ConnectionEstablishmentPackagePayload,
         qgid: QualifiedGroupId,
     ) -> Result<()> {
         let qs_client_reference = self.create_own_client_reference();
@@ -306,7 +307,7 @@ impl CoreUser {
                 commit,
                 group_info,
                 qs_client_reference,
-                &cep_tbs.connection_group_ear_key,
+                &cep_payload.connection_group_ear_key,
             )
             .await?;
         Ok(())

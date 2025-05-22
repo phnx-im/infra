@@ -6,7 +6,8 @@ use anyhow::{Context, bail};
 use mimi_content::MimiContent;
 use openmls::storage::OpenMlsProvider;
 use phnxtypes::{
-    identifiers::UserId, messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
+    credentials::keys::ClientSigningKey, identifiers::UserId,
+    messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
 };
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -33,14 +34,14 @@ impl CoreUser {
                 }
                 .store_unsent_message(connection, notifier, self.user_id())
                 .await?
-                .create_group_message(&PhnxOpenMlsProvider::new(connection))?
+                .create_group_message(&PhnxOpenMlsProvider::new(connection), self.signing_key())?
                 .store_group_update(connection, notifier)
                 .await
             })
             .await?;
 
         let sent_message = unsent_group_message
-            .send_message_to_ds(&self.inner.api_clients)
+            .send_message_to_ds(&self.inner.api_clients, self.signing_key())
             .await?;
 
         self.with_transaction_and_notifier(async |connection, notifier| {
@@ -58,12 +59,12 @@ impl CoreUser {
                 LocalMessage { local_message_id }
                     .load_for_resend(txn)
                     .await?
-                    .create_group_message(&PhnxOpenMlsProvider::new(txn))
+                    .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())
             })
             .await?;
 
         let sent_message = unsent_group_message
-            .send_message_to_ds(&self.inner.api_clients)
+            .send_message_to_ds(&self.inner.api_clients, self.signing_key())
             .await?;
 
         self.with_transaction_and_notifier(async |connection, notifier| {
@@ -189,6 +190,7 @@ impl<GroupUpdate> UnsentMessage<WithContent, GroupUpdate> {
     fn create_group_message(
         self,
         provider: &impl OpenMlsProvider,
+        signer: &ClientSigningKey,
     ) -> anyhow::Result<UnsentMessage<WithParams, GroupUpdate>> {
         let Self {
             conversation,
@@ -198,7 +200,7 @@ impl<GroupUpdate> UnsentMessage<WithContent, GroupUpdate> {
             group_update,
         } = self;
 
-        let params = group.create_message(provider, content)?;
+        let params = group.create_message(provider, signer, content)?;
 
         Ok(UnsentMessage {
             conversation,
@@ -247,7 +249,11 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
 }
 
 impl UnsentMessage<WithParams, GroupUpdated> {
-    async fn send_message_to_ds(self, api_clients: &ApiClients) -> anyhow::Result<SentMessage> {
+    async fn send_message_to_ds(
+        self,
+        api_clients: &ApiClients,
+        signer: &ClientSigningKey,
+    ) -> anyhow::Result<SentMessage> {
         let Self {
             conversation,
             conversation_message,
@@ -258,7 +264,7 @@ impl UnsentMessage<WithParams, GroupUpdated> {
 
         let ds_timestamp = api_clients
             .get(&conversation.owner_domain())?
-            .ds_send_message(params, group.leaf_signer(), group.group_state_ear_key())
+            .ds_send_message(params, signer, group.group_state_ear_key())
             .await?;
 
         Ok(SentMessage {

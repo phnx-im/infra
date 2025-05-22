@@ -6,18 +6,12 @@
 //! throughout the backend. Keys can either provide their own constructors or
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
-use crate::{
-    credentials::pseudonymous_credentials::PseudonymousCredentialTbs,
-    crypto::{
-        indexed_aead::keys::{Key, RandomlyGeneratable},
-        kdf::{
-            KdfDerivable,
-            keys::{ConnectionKey, RatchetSecret},
-        },
-    },
+use crate::crypto::{
+    indexed_aead::keys::{Key, RandomlyGeneratable},
+    kdf::{KdfDerivable, keys::RatchetSecret},
 };
 
-use super::{AEAD_KEY_SIZE, Ciphertext, EarDecryptable, EarEncryptable, traits::EarKey};
+use super::{AEAD_KEY_SIZE, Ciphertext, traits::EarKey};
 
 // Group state EAR key
 
@@ -69,19 +63,6 @@ impl KdfDerivable<RatchetSecret, Vec<u8>, AEAD_KEY_SIZE> for RatchetKey {
     const LABEL: &'static str = "RatchetKey";
 }
 
-// Identity link key
-
-#[derive(Debug)]
-pub struct IdentityLinkKeyType;
-
-pub type IdentityLinkKey = Key<IdentityLinkKeyType>;
-
-impl EarKey for IdentityLinkKey {}
-
-impl KdfDerivable<ConnectionKey, PseudonymousCredentialTbs, AEAD_KEY_SIZE> for IdentityLinkKey {
-    const LABEL: &'static str = "IdentityLinkKey";
-}
-
 // WelcomeAttributionInfo EAR key
 
 #[derive(Debug)]
@@ -103,14 +84,6 @@ pub type FriendshipPackageEarKey = Key<FriendshipPackageEarKeyType>;
 impl RandomlyGeneratable for FriendshipPackageEarKeyType {}
 
 impl EarKey for FriendshipPackageEarKey {}
-
-impl EarEncryptable<IdentityLinkWrapperKey, EncryptedIdentityLinkKeyCtype> for IdentityLinkKey {}
-impl EarDecryptable<IdentityLinkWrapperKey, EncryptedIdentityLinkKeyCtype> for IdentityLinkKey {}
-
-#[derive(Debug)]
-pub struct EncryptedIdentityLinkKeyCtype;
-
-pub type EncryptedIdentityLinkKey = Ciphertext<EncryptedIdentityLinkKeyCtype>;
 
 // Identity link wrapper key
 

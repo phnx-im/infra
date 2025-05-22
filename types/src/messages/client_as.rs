@@ -4,10 +4,6 @@
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
 
-use privacypass::{
-    amortized_tokens::{AmortizedBatchTokenRequest, AmortizedBatchTokenResponse},
-    private_tokens::Ristretto255,
-};
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
@@ -34,7 +30,7 @@ use crate::{
 };
 
 use super::{
-    AsTokenType, EncryptedAsQueueMessageCtype, MlsInfraVersion,
+    EncryptedAsQueueMessageCtype, MlsInfraVersion,
     client_as_out::{EncryptedUserProfile, VerifiableConnectionPackage},
 };
 
@@ -261,16 +257,4 @@ pub struct AsCredentialsResponse {
     pub as_credentials: Vec<AsCredential>,
     pub as_intermediate_credentials: Vec<AsIntermediateCredential>,
     pub revoked_credentials: Vec<CredentialFingerprint>,
-}
-
-#[derive(Debug)]
-pub struct IssueTokensParamsTbs {
-    pub user_id: UserId,
-    pub token_type: AsTokenType,
-    pub token_request: AmortizedBatchTokenRequest<Ristretto255>,
-}
-
-#[derive(Debug)]
-pub struct IssueTokensResponse {
-    pub tokens: AmortizedBatchTokenResponse<Ristretto255>,
 }
