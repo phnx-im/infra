@@ -7,11 +7,6 @@ use mls_assist::{
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
-use phnxprotos::{
-    convert::{RefInto, TryRefInto},
-    delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
-    validation::{InvalidTlsExt, MissingFieldExt},
-};
 use phnxcommon::{
     credentials::keys::ClientVerifyingKey,
     crypto::signatures::{
@@ -31,6 +26,11 @@ use phnxcommon::{
         WelcomeInfoParams,
     },
     time::TimeStamp,
+};
+use phnxprotos::{
+    convert::{RefInto, TryRefInto},
+    delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
+    validation::{InvalidTlsExt, MissingFieldExt},
 };
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;

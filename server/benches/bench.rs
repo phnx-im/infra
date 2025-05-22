@@ -8,8 +8,8 @@ use std::{
 };
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use phnxserver_test_harness::utils::setup::TestBackend;
 use phnxcommon::identifiers::{Fqdn, UserId};
+use phnxserver_test_harness::utils::setup::TestBackend;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
