@@ -68,8 +68,8 @@ use openmls::{
         Capabilities, Ciphersuite, CredentialType, CredentialWithKey, Extension, ExtensionType,
         Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup, MlsGroupJoinConfig,
         MlsMessageOut, OpenMlsProvider, PURE_PLAINTEXT_WIRE_FORMAT_POLICY, Proposal, ProposalType,
-        ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, StagedCommit,
-        UnknownExtension, tls_codec::Serialize as TlsSerializeTrait,
+        ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, SignaturePublicKey,
+        StagedCommit, UnknownExtension, tls_codec::Serialize as TlsSerializeTrait,
     },
     treesync::RatchetTree,
 };
@@ -375,11 +375,17 @@ impl Group {
             (mls_group, joiner_info, welcome_attribution_info)
         };
 
-        let client_information = mls_group.members().map(|m| (m.index, m.credential));
+        let client_information = mls_group.members().map(|m| {
+            (
+                m.index,
+                m.credential,
+                SignaturePublicKey::from(m.signature_key),
+            )
+        });
 
         // Phase 6: Decrypt and verify the client credentials. This can involve
         // queries to the clients' AS.
-        let client_information = ClientAuthInfo::verify_credentials(
+        let client_information = ClientAuthInfo::verify_new_credentials(
             txn,
             api_clients,
             mls_group.group_id(),
@@ -475,10 +481,16 @@ impl Group {
 
         let group_id = mls_group.group_id();
 
-        let client_credentials = mls_group.members().map(|m| (m.index, m.credential));
+        let client_credentials = mls_group.members().map(|m| {
+            (
+                m.index,
+                m.credential,
+                SignaturePublicKey::from(m.signature_key),
+            )
+        });
 
         // Phase 2: Decrypt and verify the client credentials.
-        let mut client_information = ClientAuthInfo::verify_credentials(
+        let mut client_information = ClientAuthInfo::verify_new_credentials(
             &mut *connection,
             api_clients,
             group_id,

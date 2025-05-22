@@ -16,9 +16,12 @@ use tracing::info;
 
 use crate::clients::api_clients::ApiClients;
 
-use openmls::prelude::{
-    Credential, LeafNodeIndex, ProcessedMessage, ProcessedMessageContent, ProtocolMessage, Sender,
-    StagedCommit,
+use openmls::{
+    group::QueuedAddProposal,
+    prelude::{
+        Credential, LeafNodeIndex, ProcessedMessage, ProcessedMessageContent, ProtocolMessage,
+        Sender, SignaturePublicKey, StagedCommit,
+    },
 };
 
 use super::client_auth_info::{ClientAuthInfo, GroupMembership};
@@ -142,21 +145,13 @@ impl Group {
                             .new_encrypted_user_profile_keys
                             .is_empty()
                         {
-                            // Prepare inputs for add processing
-                            let added_clients = staged_commit.add_proposals().map(|p| {
-                                p.add_proposal()
-                                    .key_package()
-                                    .leaf_node()
-                                    .credential()
-                                    .clone()
-                            });
                             let client_auth_infos = self
                                 .process_adds(
                                     sender_index,
                                     staged_commit,
                                     api_clients,
                                     &mut *connection,
-                                    added_clients,
+                                    staged_commit.add_proposals(),
                                 )
                                 .await?;
                             // Match up client credentials and new UserProfileKeys
@@ -174,17 +169,19 @@ impl Group {
 
                         // Process updates if there are any.
                         // Check if the client has updated its leaf credential.
-                        let new_sender_credential = staged_commit
+                        let (new_sender_credential, new_sender_leaf_key) = staged_commit
                             .update_path_leaf_node()
-                            .ok_or(anyhow!("Could not find sender leaf node"))?
-                            .credential();
+                            .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
+                            .ok_or(anyhow!("Could not find sender leaf node"))?;
 
-                        if new_sender_credential != processed_message.credential() {
+                        if &new_sender_credential != processed_message.credential() {
                             self.process_update(
                                 api_clients,
                                 &mut *connection,
-                                new_sender_credential.clone(),
+                                processed_message.credential().clone(),
+                                new_sender_credential,
                                 sender_index,
+                                new_sender_leaf_key,
                             )
                             .await?;
                         }
@@ -207,18 +204,19 @@ impl Group {
                             .members()
                             .find(|m| m.index == sender_index)
                             .ok_or(anyhow!("Could not find sender in group members"))?;
-                        let new_sender_credential = staged_commit
+                        let (new_sender_credential, new_sender_leaf_key) = staged_commit
                             .update_path_leaf_node()
-                            .map(|ln| ln.credential())
+                            .map(|ln| (ln.credential(), ln.signature_key()))
                             .ok_or(anyhow!("Could not find sender leaf node"))?;
                         if new_sender_credential != &sender.credential {
-                            // If so, then there has to be a new identity link key.
                             let client_auth_info = ClientAuthInfo::verify_credential(
                                 &mut *connection,
                                 api_clients,
                                 &group_id,
                                 sender_index,
                                 new_sender_credential.clone(),
+                                new_sender_leaf_key.clone(),
+                                Some(sender.credential),
                             )
                             .await?;
 
@@ -233,12 +231,10 @@ impl Group {
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
                         // client credential of the joiner
-                        let Some(sender_credential) = staged_commit
+                        let (sender_credential, sender_leaf_key) = staged_commit
                             .update_path_leaf_node()
-                            .map(|ln| ln.credential().clone())
-                        else {
-                            bail!("Could not find sender leaf node in staged commit")
-                        };
+                            .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
+                            .context("Could not find sender leaf node in staged commit")?;
 
                         let client_auth_info = ClientAuthInfo::verify_credential(
                             &mut *connection,
@@ -246,6 +242,8 @@ impl Group {
                             &group_id,
                             sender_index,
                             sender_credential,
+                            sender_leaf_key,
+                            None, // Since the join is an external commit, we don't have an old credential.
                         )
                         .await?;
                         // TODO: (More) validation:
@@ -266,9 +264,9 @@ impl Group {
                         // * Check that this commit contains exactly one remove proposal
                         // * Check that the sender type is correct (external commit).
 
-                        let sender_credential = staged_commit
+                        let (sender_credential, sender_leaf_key) = staged_commit
                             .update_path_leaf_node()
-                            .map(|ln| ln.credential().clone())
+                            .map(|ln| (ln.credential().clone(), ln.signature_key().clone()))
                             .context("Could not find sender leaf node in staged commit")?;
 
                         let removed_index = staged_commit
@@ -278,12 +276,19 @@ impl Group {
                             .remove_proposal()
                             .removed();
 
+                        let old_credential = self
+                            .mls_group
+                            .member(removed_index)
+                            .ok_or(anyhow!("Could not find removed member in group"))?;
+
                         let mut client_auth_info = ClientAuthInfo::verify_credential(
                             &mut *connection,
                             api_clients,
                             &group_id,
                             removed_index,
                             sender_credential,
+                            sender_leaf_key,
+                            Some(old_credential.clone()),
                         )
                         .await?;
 
@@ -344,7 +349,7 @@ impl Group {
         staged_commit: &StagedCommit,
         api_clients: &ApiClients,
         connection: &mut SqliteConnection,
-        added_clients: impl Iterator<Item = Credential>,
+        added_clients: impl Iterator<Item = QueuedAddProposal<'_>>,
     ) -> Result<Vec<ClientAuthInfo>> {
         // AddUsers Phase 1: Compute the free indices
         let added_clients_with_indices =
@@ -364,12 +369,21 @@ impl Group {
             )?;
         }
 
+        let added_credentials = added_clients_with_indices.into_iter().map(|(i, proposal)| {
+            let leaf_node = proposal.add_proposal().key_package().leaf_node();
+            (
+                i,
+                leaf_node.credential().clone(),
+                leaf_node.signature_key().clone(),
+            )
+        });
+
         // AddUsers Phase 2: Decrypt and verify the client credentials.
-        let client_auth_infos = ClientAuthInfo::verify_credentials(
+        let client_auth_infos = ClientAuthInfo::verify_new_credentials(
             &mut *connection,
             api_clients,
             &self.group_id,
-            added_clients_with_indices.into_iter(),
+            added_credentials,
         )
         .await?;
 
@@ -399,8 +413,10 @@ impl Group {
         &self,
         api_clients: &ApiClients,
         connection: &mut SqliteConnection,
+        old_sender_credential: Credential,
         new_sender_credential: Credential,
         sender_index: LeafNodeIndex,
+        new_sender_leaf_key: SignaturePublicKey,
     ) -> Result<()> {
         let client_auth_info = ClientAuthInfo::verify_credential(
             &mut *connection,
@@ -408,6 +424,8 @@ impl Group {
             &self.group_id,
             sender_index,
             new_sender_credential,
+            new_sender_leaf_key,
+            Some(old_sender_credential),
         )
         .await?;
         // Persist the updated client auth info.

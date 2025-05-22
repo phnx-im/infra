@@ -124,6 +124,19 @@ impl<KT> VerifyingKey<KT> {
     pub fn as_slice(&self) -> &[u8] {
         &self.key
     }
+
+    pub fn as_ref(&self) -> VerifyingKeyRef<'_, KT> {
+        VerifyingKeyRef {
+            key: &self.key,
+            _type: PhantomData,
+        }
+    }
+}
+
+impl<KT> PartialEq for VerifyingKeyRef<'_, KT> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
 }
 
 /// This is the key that is used to sign messages. It also contains the public
