@@ -133,7 +133,7 @@ mod tests {
         assert!(!rate_limiter.allowed(key.clone()).await);
 
         // Wait for the time window to reset
-        std::thread::sleep(config.time_window);
+        tokio::time::sleep(config.time_window).await;
 
         // Now it should succeed again
         assert!(rate_limiter.allowed(key).await);
