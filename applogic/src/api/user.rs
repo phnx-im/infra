@@ -16,10 +16,10 @@ use phnxcoreclient::{
     },
     open_client_db,
 };
-use phnxtypes::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
+use phnxcommon::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
 use tracing::error;
 
-pub(crate) use phnxtypes::messages::push_token::PushToken;
+pub(crate) use phnxcommon::messages::push_token::PushToken;
 use url::Url;
 use uuid::Uuid;
 

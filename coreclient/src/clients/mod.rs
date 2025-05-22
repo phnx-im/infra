@@ -13,7 +13,7 @@ use phnxapiclient::{ApiClient, ApiClientInitError};
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
-use phnxtypes::{
+use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,

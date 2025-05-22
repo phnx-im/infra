@@ -4,7 +4,7 @@
 
 use anyhow::{Context, Result};
 use openmls::prelude::MlsMessageOut;
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::QualifiedGroupId,

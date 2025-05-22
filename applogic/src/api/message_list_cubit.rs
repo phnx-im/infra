@@ -298,7 +298,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 mod tests {
     use mimi_content::MimiContent;
     use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
-    use phnxtypes::{identifiers::UserId, time::TimeStamp};
+    use phnxcommon::{identifiers::UserId, time::TimeStamp};
     use uuid::Uuid;
 
     use super::*;

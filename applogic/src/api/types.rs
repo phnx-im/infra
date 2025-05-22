@@ -18,7 +18,7 @@ use phnxcoreclient::{
     InactiveConversation, Message, SystemMessage, UserProfile, store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 use uuid::Uuid;
 
 use super::markdown::MessageContent;

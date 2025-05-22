@@ -12,7 +12,7 @@ use phnxprotos::{
     },
     validation::{MissingFieldError, MissingFieldExt},
 };
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         RatchetEncryptionKey,
         kdf::keys::RatchetSecret,

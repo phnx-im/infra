@@ -15,7 +15,7 @@ use phnxserver::{
     run,
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::identifiers::Fqdn;
+use phnxcommon::identifiers::Fqdn;
 use tracing::info;
 
 // TODO: start actix rt?

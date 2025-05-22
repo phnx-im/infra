@@ -20,7 +20,7 @@ use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
 use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
-use phnxtypes::{
+use phnxcommon::{
     credentials::{ClientCredential, keys::ClientSigningKey},
     crypto::{
         ear::{

@@ -12,7 +12,7 @@ use super::v1::{
     WelcomeInfoRequest,
 };
 
-use phnxtypes::crypto::signatures::signable::{
+use phnxcommon::crypto::signatures::signable::{
     self, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
 };
 

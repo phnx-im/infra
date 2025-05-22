@@ -4,7 +4,7 @@
 
 use std::{ops::DerefMut, str::FromStr};
 
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         kdf::keys::RatchetSecret,
         ratchet::{QueueRatchet, RatchetPayload},

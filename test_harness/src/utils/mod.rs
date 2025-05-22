@@ -15,7 +15,7 @@ use phnxserver::{
     network_provider::MockNetworkProvider,
     push_notification_provider::ProductionPushNotificationProvider, run,
 };
-use phnxtypes::identifiers::Fqdn;
+use phnxcommon::identifiers::Fqdn;
 use tokio::net::TcpListener;
 use uuid::Uuid;
 

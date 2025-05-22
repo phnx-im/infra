@@ -19,7 +19,7 @@ use phnxcoreclient::{
 };
 use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 use png::Encoder;
 use tonic::transport::Channel;
 use tonic_health::pb::{

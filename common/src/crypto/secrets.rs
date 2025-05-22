@@ -8,7 +8,7 @@
 //! and the type checker happy.
 use std::{fmt::Display, ops::Deref};
 
-use rand::{RngCore, SeedableRng};
+use rand_chacha::rand_core::{RngCore as _, SeedableRng as _};
 use secrecy::{
     CloneableSecret, SerializableSecret,
     zeroize::{Zeroize, ZeroizeOnDrop},

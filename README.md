@@ -26,9 +26,6 @@ be found [here](https://docs.phnx.im).
 The implementation spans client, server and test-specific components. It is
 split across multiple crates:
 
-- `types`: Structs, Enums and utilities used by multiple other crates in this
-  repository. This crate allows us to compile client and server components
-  separately.
 - `backend`: Implements both the local and the federation part of the protocol
   logic on the server side. Inspired by the type-based verification design of
   the OpenMLS crate (on which both `coreclient` and `backend` are built),
@@ -49,7 +46,7 @@ split across multiple crates:
   can be used to instantiate and persist (via Sqlite) multiple clients
   parallely.
 - `apiclient`: A shallow layer that the `coreclient` calls to interact with the
-  `backend` via the `server` using HTTP(s).
+  `backend` via the `server` using gRPC.
 - `applogic`: A layer using cubits to expose the functionality of the
   `coreclient` to a UI client.
 - `app`: A UI client that uses `applogic` to provide a simple messaging

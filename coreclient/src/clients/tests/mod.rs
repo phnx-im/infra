@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxserver_test_harness::utils::setup::TestBackend;
-use phnxtypes::{codec::PhnxCodec, identifiers::UserId};
+use phnxcommon::{codec::PhnxCodec, identifiers::UserId};
 
 use crate::{
     clients::store::{ClientRecord, ClientRecordState, UserCreationState},

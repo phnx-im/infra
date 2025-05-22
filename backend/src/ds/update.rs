@@ -8,7 +8,7 @@ use mls_assist::{
     openmls::prelude::ProcessedMessageContent,
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::time::Duration;
+use phnxcommon::time::Duration;
 
 use crate::errors::ClientUpdateError;
 

@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use anyhow::{Result, anyhow};
 use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
-use phnxtypes::{
+use phnxcommon::{
     credentials::{ClientCredential, CredentialFingerprint, VerifiableClientCredential},
     identifiers::UserId,
 };

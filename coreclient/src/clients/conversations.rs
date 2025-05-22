@@ -217,7 +217,7 @@ mod create_conversation_flow {
     use anyhow::Result;
     use openmls::group::GroupId;
     use openmls_traits::OpenMlsProvider;
-    use phnxtypes::{
+    use phnxcommon::{
         codec::PhnxCodec,
         credentials::keys::ClientSigningKey,
         crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
@@ -367,7 +367,7 @@ mod delete_conversation_flow {
     use std::collections::HashSet;
 
     use anyhow::Context;
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
     };
@@ -560,7 +560,7 @@ mod delete_conversation_flow {
 
 mod leave_conversation_flow {
     use anyhow::Context;
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::keys::ClientSigningKey, messages::client_ds_out::SelfRemoveParamsOut,
     };
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};

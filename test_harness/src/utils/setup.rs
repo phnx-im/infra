@@ -12,7 +12,7 @@ use phnxcoreclient::{
     ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
 };
 use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
-use phnxtypes::{
+use phnxcommon::{
     DEFAULT_PORT_HTTP,
     identifiers::{Fqdn, UserId},
 };

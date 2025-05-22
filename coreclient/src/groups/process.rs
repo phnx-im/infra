@@ -5,7 +5,7 @@
 use super::{Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use mimi_room_policy::{MimiProposal, RoleIndex};
-use phnxtypes::{
+use phnxcommon::{
     credentials::ClientCredential,
     crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
     messages::client_ds::{InfraAadMessage, InfraAadPayload},
