@@ -8,7 +8,7 @@ use mimi_room_policy::{MimiProposal, RoleIndex};
 use phnxtypes::{
     credentials::ClientCredential,
     crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
-    messages::client_ds::{CredentialUpdate, InfraAadMessage, InfraAadPayload},
+    messages::client_ds::{InfraAadMessage, InfraAadPayload},
 };
 use sqlx::SqliteConnection;
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
@@ -184,7 +184,6 @@ impl Group {
                                 api_clients,
                                 &mut *connection,
                                 new_sender_credential.clone(),
-                                group_operation_payload.credential_update_option,
                                 sender_index,
                             )
                             .await?;
@@ -401,13 +400,8 @@ impl Group {
         api_clients: &ApiClients,
         connection: &mut SqliteConnection,
         new_sender_credential: Credential,
-        credential_update_option: Option<CredentialUpdate>,
         sender_index: LeafNodeIndex,
     ) -> Result<()> {
-        // If so, then there has to be a new identity link key.
-        let Some(_credential_update) = credential_update_option else {
-            bail!("Invalid update client payload.")
-        };
         let client_auth_info = ClientAuthInfo::verify_credential(
             &mut *connection,
             api_clients,

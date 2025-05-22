@@ -252,12 +252,8 @@ pub struct GroupOperationParams {
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct CredentialUpdate {}
-
-#[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct GroupOperationParamsAad {
     pub new_encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub credential_update_option: Option<CredentialUpdate>,
 }
 
 #[derive(Debug)]

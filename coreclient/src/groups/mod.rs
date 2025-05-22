@@ -573,7 +573,6 @@ impl Group {
         let aad_message: InfraAadMessage =
             InfraAadPayload::GroupOperation(GroupOperationParamsAad {
                 new_encrypted_user_profile_keys,
-                credential_update_option: None,
             })
             .into();
 
@@ -692,7 +691,6 @@ impl Group {
 
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],
-            credential_update_option: None,
         });
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
