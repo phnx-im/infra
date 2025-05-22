@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::crypto::signatures::signable::{
-    self, Signable, SignedStruct, Verifiable, VerifiedStruct,
+use phnxcommon::{
+    credentials::keys::{ClientKeyType, ClientSignature},
+    crypto::signatures::signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
 };
 use prost::Message;
 
@@ -16,8 +17,8 @@ use super::v1::{
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
 
-impl SignedStruct<DeleteUserPayload> for DeleteUserRequest {
-    fn from_payload(payload: DeleteUserPayload, signature: signable::Signature) -> Self {
+impl SignedStruct<DeleteUserPayload, ClientKeyType> for DeleteUserRequest {
+    fn from_payload(payload: DeleteUserPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -68,11 +69,10 @@ impl Verifiable for DeleteUserRequest {
 
 const PUBLISH_CONNECTION_PACKAGES_PAYLOAD_LABEL: &str = "PublishConnectionPackagesPayload";
 
-impl SignedStruct<PublishConnectionPackagesPayload> for PublishConnectionPackagesRequest {
-    fn from_payload(
-        payload: PublishConnectionPackagesPayload,
-        signature: signable::Signature,
-    ) -> Self {
+impl SignedStruct<PublishConnectionPackagesPayload, ClientKeyType>
+    for PublishConnectionPackagesRequest
+{
+    fn from_payload(payload: PublishConnectionPackagesPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -134,8 +134,8 @@ impl From<MissingPayloadError> for tls_codec::Error {
 
 const STAGE_USER_PROFILE_PAYLOAD_LABEL: &str = "StageUserProfilePayload";
 
-impl SignedStruct<StageUserProfilePayload> for StageUserProfileRequest {
-    fn from_payload(payload: StageUserProfilePayload, signature: signable::Signature) -> Self {
+impl SignedStruct<StageUserProfilePayload, ClientKeyType> for StageUserProfileRequest {
+    fn from_payload(payload: StageUserProfilePayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -186,8 +186,8 @@ impl Verifiable for StageUserProfileRequest {
 
 const MERGE_USER_PROFILE_PAYLOAD_LABEL: &str = "MergeUserProfilePayload";
 
-impl SignedStruct<MergeUserProfilePayload> for MergeUserProfileRequest {
-    fn from_payload(payload: MergeUserProfilePayload, signature: signable::Signature) -> Self {
+impl SignedStruct<MergeUserProfilePayload, ClientKeyType> for MergeUserProfileRequest {
+    fn from_payload(payload: MergeUserProfilePayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -238,8 +238,8 @@ impl Verifiable for MergeUserProfileRequest {
 
 const INIT_LISTEN_REQUEST_LABEL: &str = "InitListenRequest";
 
-impl SignedStruct<InitListenPayload> for InitListenRequest {
-    fn from_payload(payload: InitListenPayload, signature: signable::Signature) -> Self {
+impl SignedStruct<InitListenPayload, ClientKeyType> for InitListenRequest {
+    fn from_payload(payload: InitListenPayload, signature: ClientSignature) -> Self {
         InitListenRequest {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -290,8 +290,8 @@ impl Verifiable for InitListenRequest {
 
 const ISSUE_TOKENS_PAYLOAD_LABEL: &str = "IssueTokensPayload";
 
-impl SignedStruct<IssueTokensPayload> for IssueTokensRequest {
-    fn from_payload(payload: IssueTokensPayload, signature: signable::Signature) -> Self {
+impl SignedStruct<IssueTokensPayload, ClientKeyType> for IssueTokensRequest {
+    fn from_payload(payload: IssueTokensPayload, signature: ClientSignature) -> Self {
         IssueTokensRequest {
             payload: Some(payload),
             signature: Some(signature.into()),
