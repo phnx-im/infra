@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use displaydoc::Display;
 use futures_util::stream::BoxStream;
 use phnxprotos::{
     auth_service::v1::{auth_service_server, *},
@@ -10,6 +9,7 @@ use phnxprotos::{
 };
 
 use phnxtypes::{
+    credentials::keys,
     crypto::{
         indexed_aead::keys::UserProfileKeyIndex,
         signatures::{
@@ -34,7 +34,10 @@ use tonic::{Request, Response, Status, Streaming, async_trait};
 use tracing::error;
 
 use super::{
-    AuthService, client_record::ClientRecord, queue::Queues, user_handles::UserHandleRecord,
+    AuthService,
+    client_record::ClientRecord,
+    queue::Queues,
+    user_handles::{ConnectHandleProtocol, UserHandleRecord},
 };
 
 pub struct GrpcAs {
@@ -52,15 +55,23 @@ impl GrpcAs {
         P: VerifiedStruct<R>,
     {
         let user_id = request.user_id()?;
-        let client_record = ClientRecord::load(&self.inner.db_pool, &user_id)
+        let client_verifying_key = self.load_client_verifying_key(&user_id).await?;
+        let payload = self.verify_request(request, &client_verifying_key)?;
+        Ok((user_id, payload))
+    }
+
+    async fn load_client_verifying_key(
+        &self,
+        user_id: &identifiers::UserId,
+    ) -> Result<keys::ClientVerifyingKey, Status> {
+        let client_record = ClientRecord::load(&self.inner.db_pool, user_id)
             .await
             .map_err(|error| {
                 error!(%error, ?user_id, "failed to load client");
                 Status::internal("database error")
             })?
             .ok_or_else(|| Status::not_found("unknown client"))?;
-        let payload = self.verify_request(request, client_record.credential.verifying_key())?;
-        Ok((user_id, payload))
+        Ok(client_record.credential.verifying_key().clone())
     }
 
     async fn verify_handle_auth<R, P>(
@@ -72,15 +83,22 @@ impl GrpcAs {
         P: VerifiedStruct<R>,
     {
         let hash = request.user_handle_hash()?;
-        let verifying_key = UserHandleRecord::load_verifying_key(&self.inner.db_pool, &hash)
+        let verifying_key = self.load_handle_verifying_key(hash).await?;
+        let payload = self.verify_request(request, &verifying_key)?;
+        Ok((hash, payload))
+    }
+
+    async fn load_handle_verifying_key(
+        &self,
+        hash: identifiers::UserHandleHash,
+    ) -> Result<keys::HandleVerifyingKey, Status> {
+        UserHandleRecord::load_verifying_key(&self.inner.db_pool, &hash)
             .await
             .map_err(|error| {
                 error!(%error, "failed to load verifying key");
                 Status::internal("database error")
             })?
-            .ok_or_else(|| Status::not_found("unknown handle"))?;
-        let payload = self.verify_request(request, &verifying_key)?;
-        Ok((hash, payload))
+            .ok_or_else(|| Status::not_found("unknown handle"))
     }
 
     #[expect(clippy::result_large_err)]
@@ -184,17 +202,51 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<PublishConnectionPackagesRequest>,
     ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
-        let (user_id, payload) = self
-            .verify_user_auth::<_, PublishConnectionPackagesPayload>(request)
-            .await?;
-        let connection_packages = payload
-            .connection_packages
-            .into_iter()
-            .map(|package| package.try_into())
-            .collect::<Result<Vec<_>, _>>()?;
-        self.inner
-            .as_publish_connection_packages(user_id, connection_packages)
-            .await?;
+
+        match request
+            .payload
+            .as_ref()
+            .ok_or_missing_field("payload")?
+            .owner
+            .clone()
+            .ok_or_missing_field("owner")?
+        {
+            // publishing connection packages for a user
+            publish_connection_packages_payload::Owner::UserId(user_id) => {
+                let user_id: identifiers::UserId = user_id.try_into()?;
+                let client_verifying_key = self.load_client_verifying_key(&user_id).await?;
+                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
+                    request,
+                    &client_verifying_key,
+                )?;
+                let connection_packages = payload
+                    .connection_packages
+                    .into_iter()
+                    .map(|package| package.try_into())
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.inner
+                    .as_publish_connection_packages(user_id, connection_packages)
+                    .await?;
+            }
+            // publishing connection packages for a user handle
+            publish_connection_packages_payload::Owner::Hash(hash) => {
+                let hash: identifiers::UserHandleHash = hash.try_into()?;
+                let handle_verifying_key = self.load_handle_verifying_key(hash).await?;
+                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
+                    request,
+                    &handle_verifying_key,
+                )?;
+                let connection_packages = payload
+                    .connection_packages
+                    .into_iter()
+                    .map(|package| package.try_into())
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.inner
+                    .as_publish_connection_packages_for_handle(&hash, connection_packages)
+                    .await?;
+            }
+        };
+
         Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
 
@@ -437,7 +489,7 @@ impl auth_service_server::AuthService for GrpcAs {
         tokio::spawn(
             self.inner
                 .clone()
-                .as_connect_handle_protocol(incoming, outgoing_tx),
+                .connect_handle_protocol(incoming, outgoing_tx),
         );
 
         let outgoing = tokio_stream::wrappers::ReceiverStream::new(outgoing_rx);
@@ -452,12 +504,6 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<Self::ListenHandleStream>, Status> {
         todo!()
     }
-}
-
-#[derive(Debug, thiserror::Error, Display)]
-enum ConnectHandleProtocol {
-    /// Missing fetch request
-    MissingFetch,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -487,12 +533,6 @@ trait WithUserId {
 }
 
 impl WithUserId for DeleteUserRequest {
-    fn user_id_proto(&self) -> Option<UserId> {
-        self.payload.as_ref()?.user_id.clone()
-    }
-}
-
-impl WithUserId for PublishConnectionPackagesRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
     }
