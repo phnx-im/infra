@@ -16,8 +16,10 @@ use tracing::{error, warn};
 
 use super::AuthService;
 
+pub(crate) use connect::ConnectHandleProtocol;
 pub(crate) use persistence::UserHandleRecord;
 
+mod connect;
 mod persistence;
 
 impl AuthService {
