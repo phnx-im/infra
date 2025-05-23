@@ -9,6 +9,7 @@ use display_name::BaseDisplayName;
 pub use display_name::{DisplayName, DisplayNameError};
 use phnxtypes::{
     LibraryError,
+    credentials::keys::{ClientKeyType, ClientSignature, PreliminaryClientKeyType},
     crypto::{
         ear::{EarDecryptable, EarEncryptable},
         indexed_aead::{
@@ -52,8 +53,23 @@ impl Signable for IndexedUserProfile {
     }
 }
 
-impl SignedStruct<IndexedUserProfile> for SignedUserProfile {
-    fn from_payload(payload: IndexedUserProfile, signature: Signature) -> Self {
+// User profiles need to be signable by both the client credential and the
+// preliminary client credential.
+
+impl SignedStruct<IndexedUserProfile, PreliminaryClientKeyType> for SignedUserProfile {
+    fn from_payload(
+        payload: IndexedUserProfile,
+        signature: Signature<PreliminaryClientKeyType>,
+    ) -> Self {
+        Self {
+            tbs: payload,
+            signature: signature.convert(),
+        }
+    }
+}
+
+impl SignedStruct<IndexedUserProfile, ClientKeyType> for SignedUserProfile {
+    fn from_payload(payload: IndexedUserProfile, signature: Signature<ClientKeyType>) -> Self {
         Self {
             tbs: payload,
             signature,
@@ -64,7 +80,7 @@ impl SignedStruct<IndexedUserProfile> for SignedUserProfile {
 #[derive(Debug, Serialize)]
 pub(crate) struct SignedUserProfile {
     tbs: IndexedUserProfile,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 impl Verifiable for VerifiableUserProfile {
@@ -97,7 +113,7 @@ impl VerifiedStruct<VerifiableUserProfile> for UnvalidatedUserProfile {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct VerifiableUserProfile {
     tbs: UnvalidatedUserProfile,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 #[derive(Debug, Error)]

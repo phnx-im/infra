@@ -176,7 +176,7 @@ impl<KT> SigningKey<KT> {
     }
 
     /// Sign the given payload with this signing key.
-    pub(crate) fn sign(&self, payload: &[u8]) -> Result<Signature, LibraryError> {
+    pub(crate) fn sign(&self, payload: &[u8]) -> Result<Signature<KT>, LibraryError> {
         let rust_crypto = OpenMlsRustCrypto::default();
         rust_crypto
             .crypto()

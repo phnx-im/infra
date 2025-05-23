@@ -7,7 +7,7 @@ use payload::{ConnectionEstablishmentPackagePayload, ConnectionEstablishmentPack
 use phnxtypes::{
     credentials::{
         ClientCredential, CredentialFingerprint, VerifiableClientCredential,
-        keys::AsIntermediateVerifyingKey,
+        keys::{AsIntermediateVerifyingKey, ClientSignature},
     },
     crypto::{
         ear::{
@@ -22,7 +22,7 @@ use phnxtypes::{
         kdf::keys::{ConnectionKey, ConnectionKeyType},
         signatures::{
             private_keys::SignatureVerificationError,
-            signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
+            signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
     identifiers::{Fqdn, UserId},
@@ -114,7 +114,10 @@ pub(crate) mod payload {
 
 mod tbs {
     use super::*;
-    use phnxtypes::identifiers::UserId;
+    use phnxtypes::{
+        credentials::keys::{ClientKeyType, ClientSignature},
+        identifiers::UserId,
+    };
 
     use super::payload::ConnectionEstablishmentPackagePayload;
 
@@ -148,8 +151,13 @@ mod tbs {
         }
     }
 
-    impl SignedStruct<ConnectionEstablishmentPackageTbs> for ConnectionEstablishmentPackage {
-        fn from_payload(tbs: ConnectionEstablishmentPackageTbs, signature: Signature) -> Self {
+    impl SignedStruct<ConnectionEstablishmentPackageTbs, ClientKeyType>
+        for ConnectionEstablishmentPackage
+    {
+        fn from_payload(
+            tbs: ConnectionEstablishmentPackageTbs,
+            signature: ClientSignature,
+        ) -> Self {
             Self {
                 payload: tbs.payload,
                 signature,
@@ -165,14 +173,14 @@ mod tbs {
     #[derive(Debug)]
     pub(super) struct VerifiableConnectionEstablishmentPackage {
         tbs: ConnectionEstablishmentPackageTbs,
-        signature: Signature,
+        signature: ClientSignature,
     }
 
     impl VerifiableConnectionEstablishmentPackage {
         pub(super) fn from_verified_payload(
             verified_payload: ConnectionEstablishmentPackagePayload,
             recipient_user_id: UserId,
-            signature: Signature,
+            signature: ClientSignature,
         ) -> Self {
             let tbs = ConnectionEstablishmentPackageTbs::from_payload(
                 verified_payload,
@@ -225,7 +233,7 @@ mod tbs {
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
 pub(crate) struct ConnectionEstablishmentPackage {
     payload: ConnectionEstablishmentPackagePayload,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 impl GenericSerializable for ConnectionEstablishmentPackage {
@@ -244,7 +252,7 @@ impl HpkeEncryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
 #[derive(Debug, TlsDeserializeBytes, TlsSize, Clone)]
 pub(super) struct ConnectionEstablishmentPackageIn {
     payload: ConnectionEstablishmentPackagePayloadIn,
-    signature: Signature,
+    signature: ClientSignature,
 }
 
 impl GenericDeserializable for ConnectionEstablishmentPackageIn {
