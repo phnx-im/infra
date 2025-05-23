@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use openmls::{
     group::QueuedProposal,
     prelude::{MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage, Sender},
@@ -370,12 +370,17 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         if let ConversationType::UnconfirmedConnection(user_id) = conversation.conversation_type() {
-            // Check if it was an external commit and if the user name matches
-            if !matches!(sender, Sender::NewMemberCommit)
-                && sender_client_credential.identity() == user_id
-            {
-                // TODO: Handle the fact that an unexpected user joined the connection group.
-            }
+            // Check if it was an external commit
+            ensure!(
+                matches!(sender, Sender::NewMemberCommit),
+                "Incoming commit to ConnectionGroup was not an external commit"
+            );
+            // Check if the user id matches the one we expect
+            ensure!(
+                sender_client_credential.identity() == user_id,
+                "Incoming commit to ConnectionGroup was not from the expected user"
+            );
+
             // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
             // friendship package
             let partial_contact = PartialContact::load(txn.as_mut(), user_id)
