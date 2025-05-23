@@ -1,5 +1,6 @@
 ---
-source: types/src/messages/mod.rs
+source: common/src/messages/mod.rs
+assertion_line: 120
 expression: "PhnxCodec::to_vec(&message).unwrap()"
 extension: cbor
 snapshot_kind: binary
