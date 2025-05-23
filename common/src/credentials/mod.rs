@@ -615,7 +615,9 @@ impl SignedStruct<ClientCredentialPayload, AsIntermediateKeyType> for ClientCred
     }
 }
 
-#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize, PartialEq,
+)]
 pub struct VerifiableClientCredential {
     payload: ClientCredentialPayload,
     signature: AsIntermediateSignature,

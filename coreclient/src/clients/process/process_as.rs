@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use openmls::prelude::MlsMessageOut;
 use phnxcommon::{
     credentials::keys::ClientSigningKey,
@@ -84,6 +84,23 @@ impl CoreUser {
                         aad,
                     )
                     .await?;
+
+                // Verify that the group has only one other member and that it's
+                // the sender of the CEP.
+                let members = group.members(&mut *connection).await;
+
+                ensure!(
+                    members.len() == 2,
+                    "Connection group has more than two members: {:?}",
+                    members
+                );
+
+                ensure!(
+                    members.contains(self.user_id())
+                        && members.contains(cep_payload.sender_client_credential.identity()),
+                    "Connection group has unexpected members: {:?}",
+                    members
+                );
 
                 // There should be only one user profile
                 let contact_profile_info = member_profile_info

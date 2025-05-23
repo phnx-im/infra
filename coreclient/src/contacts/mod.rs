@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::iter;
+
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
 use phnxcommon::{
@@ -20,7 +22,7 @@ use crate::{
     ConversationId,
     clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
-    key_stores::indexed_keys::StorableIndexedKey,
+    key_stores::{as_credentials::AsCredentials, indexed_keys::StorableIndexedKey},
 };
 use anyhow::{Context, Result, bail};
 
@@ -87,10 +89,18 @@ impl Contact {
             .credential()
             .clone()
             .try_into()?;
+
+        let as_credential = AsCredentials::fetch_for_verification(
+            connection,
+            api_clients,
+            iter::once(&verifiable_client_credential),
+        )
+        .await?;
+
         // Verify the client credential
         let incoming_client_credential =
-            StorableClientCredential::verify(connection, api_clients, verifiable_client_credential)
-                .await?;
+            StorableClientCredential::verify(verifiable_client_credential, &as_credential)?;
+
         // Check that the client credential is the same as the one we have on file.
         let current_client_credential = StorableClientCredential::load_by_user_id(
             &mut *connection,
