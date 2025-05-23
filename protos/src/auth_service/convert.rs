@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::prelude::HpkeCiphertext;
-use phnxtypes::{
+use phnxcommon::{
     credentials, crypto, identifiers,
     messages::{self, client_as},
     time,

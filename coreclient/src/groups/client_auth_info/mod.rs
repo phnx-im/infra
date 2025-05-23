@@ -9,7 +9,7 @@ use openmls::{
     group::GroupId,
     prelude::{LeafNodeIndex, SignaturePublicKey},
 };
-use phnxtypes::{
+use phnxcommon::{
     credentials::{
         AsIntermediateCredential, ClientCredential, CredentialFingerprint,
         VerifiableClientCredential,

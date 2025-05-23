@@ -6,7 +6,7 @@ use std::iter;
 
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
-use phnxtypes::{
+use phnxcommon::{
     LibraryError,
     crypto::{
         ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},

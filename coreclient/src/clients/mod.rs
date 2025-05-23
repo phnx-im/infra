@@ -10,10 +10,7 @@ use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError};
-pub use phnxprotos::queue_service::v1::{
-    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
-};
-use phnxtypes::{
+use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
@@ -37,6 +34,9 @@ use phnxtypes::{
         client_as::ConnectionPackageTbs,
         push_token::{EncryptedPushToken, PushToken},
     },
+};
+pub use phnxprotos::queue_service::v1::{
+    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;

@@ -7,7 +7,7 @@ use openmls::{
     group::QueuedProposal,
     prelude::{MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage, Sender},
 };
-use phnxtypes::{
+use phnxcommon::{
     codec::PhnxCodec,
     credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},

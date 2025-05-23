@@ -11,15 +11,14 @@ members = [
     "apiclient",
     "coreclient",
     "test_harness",
-    "types",
+    "common",
     "applogic",
     "protos",
-    "common",
 ]
 
 [workspace.dependencies]
 # internal dependencies
-phnxtypes = { path = "./types" }
+phnxcommon = { path = "./common" }
 phnxprotos = { path = "./protos" }
 
 uuid = "1.16.0"

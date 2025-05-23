@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::DateTime;
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys::{AsIntermediateSignature, AsSignature, ClientSignature},
     crypto::{
         self,

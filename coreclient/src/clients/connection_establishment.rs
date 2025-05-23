@@ -4,7 +4,7 @@
 
 use openmls::group::GroupId;
 use payload::{ConnectionEstablishmentPackagePayload, ConnectionEstablishmentPackagePayloadIn};
-use phnxtypes::{
+use phnxcommon::{
     credentials::{
         ClientCredential, CredentialFingerprint, VerifiableClientCredential,
         keys::{AsIntermediateVerifyingKey, ClientSignature},
@@ -37,7 +37,7 @@ use tls_codec::{
 };
 
 pub(crate) mod payload {
-    use phnxtypes::{LibraryError, credentials::keys::ClientSigningKey};
+    use phnxcommon::{LibraryError, credentials::keys::ClientSigningKey};
 
     use super::*;
 
@@ -114,7 +114,7 @@ pub(crate) mod payload {
 
 mod tbs {
     use super::*;
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::keys::{ClientKeyType, ClientSignature},
         identifiers::UserId,
     };
@@ -328,7 +328,7 @@ impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::test_utils::create_test_credentials,
         crypto::signatures::private_keys::SignatureVerificationError, identifiers::UserId,
     };

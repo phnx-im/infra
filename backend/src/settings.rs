@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::DEFAULT_PORT_GRPC;
+use phnxcommon::DEFAULT_PORT_GRPC;
 use serde::Deserialize;
 
 /// Configuration for the server.

@@ -9,7 +9,7 @@ use phnxprotos::{
     convert::RefInto,
     queue_service::v1::{QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event},
 };
-use phnxtypes::{identifiers::QsClientId, messages::client_ds::DsEventMessage};
+use phnxcommon::{identifiers::QsClientId, messages::client_ds::DsEventMessage};
 use tokio::sync::mpsc;
 use tracing::info;
 

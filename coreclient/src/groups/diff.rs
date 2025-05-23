@@ -42,7 +42,7 @@ pub(crate) struct StagedGroupDiff {
 mod test {
     use std::sync::LazyLock;
 
-    use phnxtypes::codec::PhnxCodec;
+    use phnxcommon::codec::PhnxCodec;
 
     use super::*;
 

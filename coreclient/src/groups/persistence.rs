@@ -5,7 +5,7 @@
 use anyhow::ensure;
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
-use phnxtypes::{
+use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
