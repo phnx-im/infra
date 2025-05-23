@@ -18,7 +18,8 @@ use tls_codec::{
 };
 
 use keys::{
-    AsIntermediateVerifyingKey, AsSigningKey, AsVerifyingKey, PreliminaryAsIntermediateSigningKey,
+    AsIntermediateKeyType, AsIntermediateSignature, AsIntermediateVerifyingKey, AsKeyType,
+    AsSignature, AsSigningKey, AsVerifyingKey, PreliminaryAsIntermediateSigningKey,
     PreliminaryClientSigningKey,
 };
 
@@ -283,7 +284,7 @@ impl Signable for AsIntermediateCredentialPayload {
 #[derive(Debug, Clone, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialBody {
     credential: AsIntermediateCredentialPayload,
-    signature: Signature,
+    signature: Signature<AsKeyType>,
 }
 
 impl Type<Sqlite> for AsIntermediateCredentialBody {
@@ -310,7 +311,7 @@ impl Decode<'_, Sqlite> for AsIntermediateCredentialBody {
 }
 
 impl AsIntermediateCredentialBody {
-    pub fn into_parts(self) -> (AsIntermediateCredentialPayload, Signature) {
+    pub fn into_parts(self) -> (AsIntermediateCredentialPayload, Signature<AsKeyType>) {
         (self.credential, self.signature)
     }
 
@@ -366,8 +367,8 @@ impl AsIntermediateCredential {
     }
 }
 
-impl SignedStruct<AsIntermediateCredentialPayload> for AsIntermediateCredential {
-    fn from_payload(payload: AsIntermediateCredentialPayload, signature: Signature) -> Self {
+impl SignedStruct<AsIntermediateCredentialPayload, AsKeyType> for AsIntermediateCredential {
+    fn from_payload(payload: AsIntermediateCredentialPayload, signature: AsSignature) -> Self {
         let body = AsIntermediateCredentialBody {
             credential: payload,
             signature,
@@ -380,11 +381,11 @@ impl SignedStruct<AsIntermediateCredentialPayload> for AsIntermediateCredential 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct VerifiableAsIntermediateCredential {
     credential: AsIntermediateCredentialPayload,
-    signature: Signature,
+    signature: AsSignature,
 }
 
 impl VerifiableAsIntermediateCredential {
-    pub fn from_parts(credential: AsIntermediateCredentialPayload, signature: Signature) -> Self {
+    pub fn from_parts(credential: AsIntermediateCredentialPayload, signature: AsSignature) -> Self {
         Self {
             credential,
             signature,
@@ -523,11 +524,11 @@ impl ClientCredentialPayload {
 )]
 pub struct ClientCredential {
     payload: ClientCredentialPayload,
-    signature: Signature,
+    signature: AsIntermediateSignature,
 }
 
 impl ClientCredential {
-    pub fn new(payload: ClientCredentialPayload, signature: Signature) -> Self {
+    pub fn new(payload: ClientCredentialPayload, signature: AsIntermediateSignature) -> Self {
         Self { payload, signature }
     }
 
@@ -535,7 +536,7 @@ impl ClientCredential {
         self.payload.csr.signature_scheme
     }
 
-    pub fn into_parts(self) -> (ClientCredentialPayload, Signature) {
+    pub fn into_parts(self) -> (ClientCredentialPayload, AsIntermediateSignature) {
         (self.payload, self.signature)
     }
 
@@ -608,8 +609,8 @@ impl VerifiedStruct<VerifiableClientCredential> for ClientCredential {
     }
 }
 
-impl SignedStruct<ClientCredentialPayload> for ClientCredential {
-    fn from_payload(payload: ClientCredentialPayload, signature: Signature) -> Self {
+impl SignedStruct<ClientCredentialPayload, AsIntermediateKeyType> for ClientCredential {
+    fn from_payload(payload: ClientCredentialPayload, signature: AsIntermediateSignature) -> Self {
         Self { payload, signature }
     }
 }
@@ -617,11 +618,11 @@ impl SignedStruct<ClientCredentialPayload> for ClientCredential {
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct VerifiableClientCredential {
     payload: ClientCredentialPayload,
-    signature: Signature,
+    signature: AsIntermediateSignature,
 }
 
 impl VerifiableClientCredential {
-    pub fn new(payload: ClientCredentialPayload, signature: Signature) -> Self {
+    pub fn new(payload: ClientCredentialPayload, signature: AsIntermediateSignature) -> Self {
         Self { payload, signature }
     }
 
@@ -668,14 +669,11 @@ pub struct EncryptedClientCredentialCtype;
 pub type EncryptedClientCredential = Ciphertext<EncryptedClientCredentialCtype>;
 
 pub mod persistence {
-    use crate::{
-        codec::PhnxCodec, crypto::signatures::signable::Signature, identifiers::UserId,
-        time::ExpirationData,
-    };
+    use crate::{codec::PhnxCodec, identifiers::UserId, time::ExpirationData};
 
     use super::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint,
-        keys::ClientVerifyingKey,
+        keys::{AsIntermediateSignature, ClientVerifyingKey},
     };
 
     #[derive(Debug, sqlx::Type)]
@@ -686,7 +684,7 @@ pub mod persistence {
         verifying_key: ClientVerifyingKey,
         expiration_data: ExpirationData,
         signer_fingerprint: CredentialFingerprint,
-        signature: Signature,
+        signature: AsIntermediateSignature,
     }
 
     impl FlatClientCredential {

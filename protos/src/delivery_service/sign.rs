@@ -12,14 +12,15 @@ use super::v1::{
     WelcomeInfoRequest,
 };
 
-use phnxtypes::crypto::signatures::signable::{
-    self, Signable, Signature, SignedStruct, Verifiable, VerifiedStruct,
+use phnxtypes::{
+    credentials::keys::{ClientKeyType, ClientSignature},
+    crypto::signatures::signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
 };
 
 const SEND_MESSAGE_PAYLOAD_LABEL: &str = "SendMessagePayload";
 
-impl SignedStruct<SendMessagePayload> for SendMessageRequest {
-    fn from_payload(payload: SendMessagePayload, signature: signable::Signature) -> Self {
+impl SignedStruct<SendMessagePayload, ClientKeyType> for SendMessageRequest {
+    fn from_payload(payload: SendMessagePayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -70,8 +71,8 @@ impl Verifiable for SendMessageRequest {
 
 const WELCOME_INFO_PAYLOAD_LABEL: &str = "WelcomeInfoPayload";
 
-impl SignedStruct<WelcomeInfoPayload> for WelcomeInfoRequest {
-    fn from_payload(payload: WelcomeInfoPayload, signature: Signature) -> Self {
+impl SignedStruct<WelcomeInfoPayload, ClientKeyType> for WelcomeInfoRequest {
+    fn from_payload(payload: WelcomeInfoPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -122,8 +123,8 @@ impl VerifiedStruct<WelcomeInfoRequest> for WelcomeInfoPayload {
     }
 }
 
-impl SignedStruct<CreateGroupPayload> for CreateGroupRequest {
-    fn from_payload(payload: CreateGroupPayload, signature: Signature) -> Self {
+impl SignedStruct<CreateGroupPayload, ClientKeyType> for CreateGroupRequest {
+    fn from_payload(payload: CreateGroupPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -174,8 +175,8 @@ impl Verifiable for CreateGroupRequest {
 
 const DELETE_GROUP_PAYLOAD_LABEL: &str = "DeleteGroupPayload";
 
-impl SignedStruct<DeleteGroupPayload> for DeleteGroupRequest {
-    fn from_payload(payload: DeleteGroupPayload, signature: Signature) -> Self {
+impl SignedStruct<DeleteGroupPayload, ClientKeyType> for DeleteGroupRequest {
+    fn from_payload(payload: DeleteGroupPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -226,8 +227,8 @@ impl Verifiable for DeleteGroupRequest {
 
 const GROUP_OPERATION_PAYLOAD_LABEL: &str = "GroupOperationPayload";
 
-impl SignedStruct<GroupOperationPayload> for GroupOperationRequest {
-    fn from_payload(payload: GroupOperationPayload, signature: Signature) -> Self {
+impl SignedStruct<GroupOperationPayload, ClientKeyType> for GroupOperationRequest {
+    fn from_payload(payload: GroupOperationPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -278,8 +279,8 @@ impl Verifiable for GroupOperationRequest {
 
 const UPDATE_PAYLOAD_LABEL: &str = "UpdatePayload";
 
-impl SignedStruct<UpdatePayload> for UpdateRequest {
-    fn from_payload(payload: UpdatePayload, signature: Signature) -> Self {
+impl SignedStruct<UpdatePayload, ClientKeyType> for UpdateRequest {
+    fn from_payload(payload: UpdatePayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -330,8 +331,8 @@ impl Verifiable for UpdateRequest {
 
 const SELF_REMOVE_PAYLOAD_LABEL: &str = "SelfRemovePayload";
 
-impl SignedStruct<SelfRemovePayload> for SelfRemoveRequest {
-    fn from_payload(payload: SelfRemovePayload, signature: Signature) -> Self {
+impl SignedStruct<SelfRemovePayload, ClientKeyType> for SelfRemoveRequest {
+    fn from_payload(payload: SelfRemovePayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -382,8 +383,8 @@ impl Verifiable for SelfRemoveRequest {
 
 const RESYNC_PAYLOAD_LABEL: &str = "ResyncPayload";
 
-impl SignedStruct<ResyncPayload> for ResyncRequest {
-    fn from_payload(payload: ResyncPayload, signature: Signature) -> Self {
+impl SignedStruct<ResyncPayload, ClientKeyType> for ResyncRequest {
+    fn from_payload(payload: ResyncPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -434,8 +435,8 @@ impl Verifiable for ResyncRequest {
 
 const UPDATE_PROFILE_KEY_PAYLOAD_LABEL: &str = "UpdateProfileKeyPayload";
 
-impl SignedStruct<UpdateProfileKeyPayload> for UpdateProfileKeyRequest {
-    fn from_payload(payload: UpdateProfileKeyPayload, signature: Signature) -> Self {
+impl SignedStruct<UpdateProfileKeyPayload, ClientKeyType> for UpdateProfileKeyRequest {
+    fn from_payload(payload: UpdateProfileKeyPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
