@@ -31,6 +31,8 @@ chrono = { version = "0.4", features = ["serde"] }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "postgres"] }
+argon2 = { version = "0.5.3", features = ["std"] }
+displaydoc = "0.2.5"
 
 [dev-dependencies]
 insta = { workspace = true }

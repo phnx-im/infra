@@ -34,6 +34,7 @@ tonic = { workspace = true }
 rand = "0.8.0"
 tokio-util.workspace = true
 futures-util = "0.3.31"
+displaydoc = "0.2.5"
 
 [dev-dependencies]
 phnxtypes = { path = "../types", features = ["test_utils"] }

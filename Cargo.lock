@@ -3431,6 +3431,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "displaydoc",
  "futures-util",
  "insta",
  "mimi-room-policy",
@@ -3506,6 +3507,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "derive_more 0.99.20",
+ "displaydoc",
  "mls-assist",
  "openmls",
  "phnxtypes",
@@ -3581,8 +3583,10 @@ name = "phnxtypes"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "argon2",
  "chrono",
  "ciborium",
+ "displaydoc",
  "ed25519",
  "hex",
  "hkdf",
