@@ -6,7 +6,7 @@ use credentials::{
     CredentialGenerationError, intermediate_signing_key::IntermediateSigningKey,
     signing_key::StorableSigningKey,
 };
-use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
+use phnxcommon::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
 use queue::Queues;
 use sqlx::PgPool;
 use thiserror::Error;

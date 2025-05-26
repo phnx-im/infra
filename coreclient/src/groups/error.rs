@@ -4,7 +4,7 @@
 
 use mls_assist::messages::AssistedMessageError;
 use openmls::group::{CreateMessageError, MlsGroupStateError, ProcessMessageError};
-use phnxtypes::crypto::errors::DecryptionError;
+use phnxcommon::crypto::errors::DecryptionError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

@@ -2,13 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxprotos::auth_service::v1::{
-    AckListenRequest, AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
-    GetUserConnectionPackagesRequest, GetUserProfileRequest, InitListenPayload, ListenRequest,
-    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
-    StageUserProfilePayload, listen_request, publish_connection_packages_payload,
-};
-use phnxtypes::{
+use phnxcommon::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{
@@ -27,6 +21,12 @@ use phnxtypes::{
             RegisterUserResponseIn, UserConnectionPackagesResponseIn,
         },
     },
+};
+use phnxprotos::auth_service::v1::{
+    AckListenRequest, AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
+    GetUserConnectionPackagesRequest, GetUserProfileRequest, InitListenPayload, ListenRequest,
+    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
+    StageUserProfilePayload, listen_request, publish_connection_packages_payload,
 };
 use thiserror::Error;
 use tokio::sync::mpsc;

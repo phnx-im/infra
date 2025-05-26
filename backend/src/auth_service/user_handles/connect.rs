@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use displaydoc::Display;
+use phnxcommon::{identifiers::UserHandleHash, messages::client_as::ConnectionPackage};
 use phnxprotos::{
     auth_service::v1::{
         ConnectRequest, ConnectResponse, EncryptedConnectionEstablishmentPackage,
@@ -10,7 +11,6 @@ use phnxprotos::{
     },
     validation::MissingFieldExt,
 };
-use phnxtypes::{identifiers::UserHandleHash, messages::client_as::ConnectionPackage};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;

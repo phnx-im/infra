@@ -9,7 +9,7 @@ use openmls::prelude::{
     CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
     UnknownExtension,
 };
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         hpke::{ClientIdEncryptionKey, HpkeEncryptable},
         kdf::keys::ConnectionKey,
@@ -24,7 +24,7 @@ use crate::{
     groups::{default_capabilities, openmls_provider::PhnxOpenMlsProvider},
 };
 
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,

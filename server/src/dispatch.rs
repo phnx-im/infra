@@ -5,11 +5,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use phnxbackend::qs::{Notification, Notifier, NotifierError, grpc::GrpcListen};
+use phnxcommon::{identifiers::QsClientId, messages::client_ds::DsEventMessage};
 use phnxprotos::{
     convert::RefInto,
     queue_service::v1::{QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event},
 };
-use phnxtypes::{identifiers::QsClientId, messages::client_ds::DsEventMessage};
 use tokio::{
     self,
     sync::{Mutex, mpsc},

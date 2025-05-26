@@ -8,7 +8,7 @@ use phnxprotos::{
     validation::MissingFieldExt,
 };
 
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys,
     crypto::{
         indexed_aead::keys::UserProfileKeyIndex,

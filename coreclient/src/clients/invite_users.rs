@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use invite_users_flow::InviteUsersData;
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 
 use crate::{ConversationId, ConversationMessage, utils::connection_ext::ConnectionExt as _};
 
@@ -64,7 +64,7 @@ impl CoreUser {
 mod invite_users_flow {
     use anyhow::Context;
     use openmls::group::GroupId;
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::{ClientCredential, keys::ClientSigningKey},
         crypto::ear::keys::WelcomeAttributionInfoEarKey,
         identifiers::{Fqdn, UserId},

@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use openmls::prelude::SignatureScheme;
 use phnxbackend::auth_service::user_record::UserRecord;
-use phnxtypes::{
+use phnxcommon::{
     credentials::{
         AsCredential, AsIntermediateCredentialCsr, ClientCredentialCsr, ClientCredentialPayload,
         keys::ClientSigningKey,

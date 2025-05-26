@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO as_user_handles (\n                hash,\n                verifying_key,\n                expiration_data\n            ) VALUES ($1, $2, $3)\n            ON CONFLICT (hash) DO UPDATE\n                SET expiration_data = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        {
+          "Custom": {
+            "name": "expiration",
+            "kind": {
+              "Composite": [
+                [
+                  "not_before",
+                  "Timestamptz"
+                ],
+                [
+                  "not_after",
+                  "Timestamptz"
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "03b3d59ba50a668bf602f23f219b14cacc5169a870b53b7cd7c07ed4c982e4d7"
+}

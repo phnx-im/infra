@@ -11,7 +11,7 @@ description = "HTTP and GRPC client for the server API"
 
 [dependencies]
 phnxprotos.workspace = true
-phnxtypes.workspace = true
+phnxcommon.workspace = true
 
 thiserror = { workspace = true }
 tracing = "0.1.41"

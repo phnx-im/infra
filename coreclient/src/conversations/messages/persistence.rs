@@ -4,7 +4,7 @@
 
 use anyhow::bail;
 use mimi_content::MimiContent;
-use phnxtypes::{
+use phnxcommon::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
     identifiers::{Fqdn, UserId},
     time::TimeStamp,
@@ -55,7 +55,7 @@ impl VersionedMessage {
 
     fn from_event_message(
         event: &EventMessage,
-    ) -> Result<VersionedMessage, phnxtypes::codec::Error> {
+    ) -> Result<VersionedMessage, phnxcommon::codec::Error> {
         Ok(VersionedMessage {
             version: CURRENT_MESSAGE_VERSION,
             content: PhnxCodec::to_vec(&event)?,
@@ -64,7 +64,7 @@ impl VersionedMessage {
 
     fn from_mimi_content(
         content: &MimiContent,
-    ) -> Result<VersionedMessage, phnxtypes::codec::Error> {
+    ) -> Result<VersionedMessage, phnxcommon::codec::Error> {
         Ok(VersionedMessage {
             version: CURRENT_MESSAGE_VERSION,
             content: PhnxCodec::to_vec(&content)?,

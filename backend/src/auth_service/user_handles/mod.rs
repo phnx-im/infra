@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 use displaydoc::Display;
-use phnxtypes::{
+use persistence::UpdateExpirationDataResult;
+use phnxcommon::{
     credentials::keys::HandleVerifyingKey,
     identifiers::{
         USER_HANDLE_VALIDITY_PERIOD, UserHandle, UserHandleHash, UserHandleHashError,
@@ -67,12 +68,11 @@ impl AuthService {
         hash: UserHandleHash,
     ) -> Result<(), RefreshHandleError> {
         let expiration_data = ExpirationData::new(USER_HANDLE_VALIDITY_PERIOD);
-        let updated =
-            UserHandleRecord::update_expiration_data(&self.db_pool, hash, expiration_data).await?;
-        if updated {
-            Ok(())
-        } else {
-            Err(RefreshHandleError::UserHandleNotFound)
+        match UserHandleRecord::update_expiration_data(&self.db_pool, hash, expiration_data).await?
+        {
+            UpdateExpirationDataResult::Updated => Ok(()),
+            UpdateExpirationDataResult::Deleted => Err(RefreshHandleError::HandleAlreadyExpired),
+            UpdateExpirationDataResult::NotFound => Err(RefreshHandleError::HandleNotFound),
         }
     }
 }
@@ -140,7 +140,9 @@ pub(crate) enum RefreshHandleError {
     /// Storage provider error
     StorageError(#[from] sqlx::Error),
     /// User handle not found
-    UserHandleNotFound,
+    HandleNotFound,
+    /// User handle is already expired
+    HandleAlreadyExpired,
 }
 
 impl From<RefreshHandleError> for Status {
@@ -151,7 +153,8 @@ impl From<RefreshHandleError> for Status {
                 error!(%error, "Error refreshing user handle");
                 Status::internal(msg)
             }
-            RefreshHandleError::UserHandleNotFound => Status::not_found(msg),
+            RefreshHandleError::HandleNotFound => Status::not_found(msg),
+            RefreshHandleError::HandleAlreadyExpired => Status::failed_precondition(msg),
         }
     }
 }

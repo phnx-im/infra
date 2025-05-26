@@ -2,17 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::ops::Deref;
+use std::{collections::HashMap, ops::Deref};
 
-use anyhow::{Result, anyhow};
-use openmls::{credentials::Credential, group::GroupId, prelude::LeafNodeIndex};
-use phnxtypes::{
-    credentials::{ClientCredential, CredentialFingerprint, VerifiableClientCredential},
+use anyhow::{Context, Result, anyhow, ensure};
+use openmls::{
+    group::GroupId,
+    prelude::{LeafNodeIndex, SignaturePublicKey},
+};
+use phnxcommon::{
+    credentials::{
+        AsIntermediateCredential, ClientCredential, CredentialFingerprint,
+        VerifiableClientCredential,
+    },
+    crypto::signatures::{private_keys::VerifyingKeyRef, signable::Verifiable},
     identifiers::UserId,
 };
-use sqlx::{SqliteConnection, SqliteExecutor};
-
-use crate::{clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials};
+use sqlx::SqliteExecutor;
 
 pub(crate) mod persistence;
 
@@ -46,17 +51,15 @@ impl StorableClientCredential {
         Self { client_credential }
     }
 
-    pub(crate) async fn verify(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
+    pub(crate) fn verify(
         verifiable_client_credential: VerifiableClientCredential,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Self> {
-        let client_credential = AsCredentials::verify_client_credential(
-            connection,
-            api_clients,
-            verifiable_client_credential,
-        )
-        .await?;
+        let as_credential = as_credentials
+            .get(verifiable_client_credential.signer_fingerprint())
+            .context("Missing AS credential")?;
+        let client_credential =
+            verifiable_client_credential.verify(as_credential.verifying_key())?;
         Ok(Self { client_credential })
     }
 }
@@ -118,6 +121,12 @@ pub(super) struct ClientAuthInfo {
     group_membership: GroupMembership,
 }
 
+pub(super) struct ClientVerificationInfo {
+    pub(super) leaf_index: LeafNodeIndex,
+    pub(super) credential: VerifiableClientCredential,
+    pub(super) leaf_key: SignaturePublicKey,
+}
+
 impl ClientAuthInfo {
     pub(super) fn new(
         client_credential: impl Into<StorableClientCredential>,
@@ -130,34 +139,57 @@ impl ClientAuthInfo {
     }
 
     /// Verify the given credentials
-    pub(super) async fn verify_credentials(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
+    pub(super) fn verify_new_credentials(
         group_id: &GroupId,
-        client_credentials: impl IntoIterator<Item = (LeafNodeIndex, Credential)>,
+        client_credentials: impl IntoIterator<Item = ClientVerificationInfo>,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Vec<Self>> {
         let mut client_auth_infos = Vec::new();
-        for (leaf_index, credential) in client_credentials {
-            let client_auth_info =
-                Self::verify_credential(connection, api_clients, group_id, leaf_index, credential)
-                    .await?;
+        for ClientVerificationInfo {
+            leaf_index,
+            credential,
+            leaf_key,
+        } in client_credentials
+        {
+            let client_auth_info = Self::verify_credential(
+                group_id,
+                leaf_index,
+                credential,
+                leaf_key,
+                None,
+                as_credentials,
+            )?;
             client_auth_infos.push(client_auth_info);
         }
         Ok(client_auth_infos)
     }
 
     /// Verify the given credential
-    pub(super) async fn verify_credential(
-        connection: &mut SqliteConnection,
-        api_clients: &ApiClients,
+    pub(super) fn verify_credential(
         group_id: &GroupId,
         leaf_index: LeafNodeIndex,
-        credential: Credential,
+        credential: VerifiableClientCredential,
+        leaf_signature_key: SignaturePublicKey,
+        old_credential: Option<VerifiableClientCredential>,
+        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
     ) -> Result<Self> {
         // Verify the leaf credential
-        let client_credential =
-            StorableClientCredential::verify(connection, api_clients, credential.try_into()?)
-                .await?;
+        let client_credential = StorableClientCredential::verify(credential, as_credentials)?;
+        // Check if the client credential matches the given public key
+        ensure!(
+            client_credential.verifying_key().as_ref()
+                == VerifyingKeyRef::from(&leaf_signature_key),
+            "Client credential does not match leaf public key"
+        );
+        // If it's an update, ensure that the UserId in the new credential
+        // matches the UserId in the old credential
+        if let Some(old_credential) = old_credential {
+            ensure!(
+                client_credential.identity() == old_credential.user_id(),
+                "UserId in new credential does not match UserId in old credential"
+            );
+        }
+
         let group_membership = GroupMembership::new(
             client_credential.identity().clone(),
             group_id.clone(),
