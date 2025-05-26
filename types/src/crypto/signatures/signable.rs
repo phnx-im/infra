@@ -34,45 +34,53 @@
 //! Similarly, only the [`Verifiable`] struct should implement the
 //! [`tls_codec::Deserialize`] trait.
 
-use std::vec;
+use std::{marker::PhantomData, vec};
 
 use serde::{Deserialize, Serialize};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{LibraryError, crypto::ear::Ciphertext};
+use crate::LibraryError;
 
-use super::private_keys::{SignatureVerificationError, SigningKey, VerifyingKeyBehaviour};
+use super::private_keys::{
+    Convertible, SignatureVerificationError, SigningKey, VerifyingKeyBehaviour,
+};
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    TlsDeserializeBytes,
-    TlsSerialize,
-    TlsSize,
-    Serialize,
-    Deserialize,
-    sqlx::Type,
-)]
-#[sqlx(transparent)]
-pub struct Signature(Vec<u8>);
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Signature<KT> {
+    bytes: Vec<u8>,
+    _phantom: PhantomData<KT>,
+}
 
-impl Signature {
+impl<KT> Signature<KT> {
     pub fn empty() -> Self {
-        Self(vec![])
+        Self::from_bytes(vec![])
     }
 
     pub(crate) fn as_slice(&self) -> &[u8] {
-        &self.0
+        &self.bytes
     }
 
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
-        Self(bytes)
+        Self {
+            bytes,
+            _phantom: PhantomData,
+        }
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
-        self.0
+        self.bytes
+    }
+
+    /// Convert the signature of one key type to that of another.
+    pub fn convert<TargetKT>(self) -> Signature<TargetKT>
+    where
+        KT: Convertible<TargetKT>,
+    {
+        Signature {
+            bytes: self.bytes,
+            _phantom: PhantomData,
+        }
     }
 
     #[cfg(any(feature = "test_utils", test))]
@@ -81,20 +89,16 @@ impl Signature {
     }
 }
 
-impl AsRef<[u8]> for Signature {
+impl<KT> AsRef<[u8]> for Signature<KT> {
     fn as_ref(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
-#[derive(Debug)]
-pub struct EncryptedSignatureCtype;
-pub type EncryptedSignature = Ciphertext<EncryptedSignatureCtype>;
-
 /// This trait must be implemented by all structs that contain a self-signature.
-pub trait SignedStruct<T> {
+pub trait SignedStruct<T, KT> {
     /// Build a signed struct version from the payload struct.
-    fn from_payload(payload: T, signature: Signature) -> Self;
+    fn from_payload(payload: T, signature: Signature<KT>) -> Self;
 }
 
 /// Labeled signature content.
@@ -164,7 +168,7 @@ pub trait Signable: Sized + std::fmt::Debug {
     /// Returns a `Signature`.
     fn sign<KT>(self, signing_key: &SigningKey<KT>) -> Result<Self::SignedOutput, LibraryError>
     where
-        Self::SignedOutput: SignedStruct<Self>,
+        Self::SignedOutput: SignedStruct<Self, KT>,
     {
         let payload = self
             .unsigned_payload()
@@ -219,5 +223,90 @@ pub trait Verifiable: Sized + std::fmt::Debug {
             .map_err(LibraryError::missing_bound_check)?;
         signature_public_key.verify(&serialized_sign_content, self.signature().as_ref())?;
         Ok(T::from_verifiable(self, T::SealingType::default()))
+    }
+}
+
+mod trait_impls {
+    use sqlx::{Database, Decode, Encode, Type};
+
+    use super::*;
+
+    impl<KT, DB: Database> Type<DB> for Signature<KT>
+    where
+        Vec<u8>: Type<DB>,
+    {
+        fn type_info() -> DB::TypeInfo {
+            <Vec<u8> as Type<DB>>::type_info()
+        }
+    }
+
+    impl<'r, KT, DB: Database> Decode<'r, DB> for Signature<KT>
+    where
+        &'r [u8]: Decode<'r, DB>,
+    {
+        fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+            let bytes: &'r [u8] = Decode::<DB>::decode(value)?;
+            Ok(Signature {
+                bytes: bytes.to_vec(),
+                _phantom: PhantomData,
+            })
+        }
+    }
+
+    impl<'q, KT, DB: Database> Encode<'q, DB> for Signature<KT>
+    where
+        Vec<u8>: Encode<'q, DB>,
+    {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <DB as Database>::ArgumentBuffer<'q>,
+        ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+            self.bytes.encode_by_ref(buf)
+        }
+    }
+
+    impl<KT> Clone for Signature<KT> {
+        fn clone(&self) -> Self {
+            Self {
+                bytes: self.bytes.clone(),
+                _phantom: PhantomData,
+            }
+        }
+    }
+
+    impl<KT> PartialEq for Signature<KT> {
+        fn eq(&self, other: &Self) -> bool {
+            self.bytes == other.bytes
+        }
+    }
+
+    impl<KT> Eq for Signature<KT> {}
+
+    impl<KT> tls_codec::Size for Signature<KT> {
+        fn tls_serialized_len(&self) -> usize {
+            self.bytes.tls_serialized_len()
+        }
+    }
+
+    impl<KT> tls_codec::Serialize for Signature<KT> {
+        fn tls_serialize<W: std::io::Write>(
+            &self,
+            writer: &mut W,
+        ) -> Result<usize, tls_codec::Error> {
+            self.bytes.tls_serialize(writer)
+        }
+    }
+
+    impl<KT> tls_codec::DeserializeBytes for Signature<KT> {
+        fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+            let (bytes, remaining) = Vec::<u8>::tls_deserialize_bytes(bytes)?;
+            Ok((
+                Signature {
+                    bytes,
+                    _phantom: PhantomData,
+                },
+                remaining,
+            ))
+        }
     }
 }
