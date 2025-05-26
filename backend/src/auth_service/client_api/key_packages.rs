@@ -29,7 +29,7 @@ impl AuthService {
                 PublishConnectionPackageError::StorageError
             })?;
 
-        // TODO: Last resort connection package
+        // TODO(#496): Last resort connection package
         let connection_packages = connection_packages
             .into_iter()
             .map(|cp| {
@@ -60,7 +60,7 @@ impl AuthService {
                 PublishConnectionPackageError::StorageError
             })?;
 
-        // TODO: Last resort connection package
+        // TODO(#496): Last resort connection package
         let connection_packages = connection_packages
             .into_iter()
             .map(|cp| {
