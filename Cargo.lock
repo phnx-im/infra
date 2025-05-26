@@ -3431,6 +3431,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "displaydoc",
  "futures-util",
  "insta",
  "mimi-room-policy",
@@ -3462,6 +3463,7 @@ dependencies = [
  "chrono",
  "ciborium",
  "criterion 0.6.0",
+ "displaydoc",
  "ed25519",
  "hex",
  "hkdf",
@@ -3525,6 +3527,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "derive_more 0.99.20",
+ "displaydoc",
  "mls-assist",
  "openmls",
  "phnxcommon",

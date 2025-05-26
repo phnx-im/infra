@@ -28,8 +28,26 @@ service AuthService {
 
   // User Handles API
 
+  // Creates a new handle
+  //
+  // A new handle will be created with the provided verifying key and hash. The
+  // provided plaintext is never stored and is only used for validation and hash
+  // verification. An expiration time will be set for the handle.
+  //
+  // If a handle with the same hash already exists, and is not expired, the
+  // request will be rejected with `ALREADY_EXISTS`.
   rpc CreateHandle(CreateHandleRequest) returns (CreateHandleResponse);
+
+  // Deletes an existing handle
+  //
+  // The payload must be signed by the handle's verifying key.
   rpc DeleteHandle(DeleteHandleRequest) returns (DeleteHandleResponse);
+
+  // Refreshes an existing handle
+  //
+  // The payload must be signed by the handle's verifying key. The handle's
+  // expiration time will be updated. If the handle is expired or does not exist,
+  // the request will be rejected with `NOT_FOUND`.
   rpc RefreshHandle(RefreshHandleRequest) returns (RefreshHandleResponse);
 
   // User Connection API
@@ -381,8 +399,10 @@ message CreateHandleRequest {
 }
 
 message CreateHandlePayload {
-  string plaintext_handle = 1;
-  HandleVerifyingKey verifying_key = 2;
+  HandleVerifyingKey verifying_key = 1;
+  string plaintext = 2;
+  // Hash of the plaintext
+  UserHandleHash hash = 3;
 }
 
 message HandleVerifyingKey {

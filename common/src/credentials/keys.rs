@@ -229,3 +229,12 @@ pub struct PreliminaryAsKeyType;
 pub type PreliminaryAsIntermediateSigningKey = SigningKey<PreliminaryAsKeyType>;
 
 pub type PreliminaryAsIntermediateVerifyingKey = VerifyingKey<PreliminaryAsKeyType>;
+
+#[derive(Debug)]
+pub struct HandleKeyType;
+
+impl RawKey for HandleKeyType {}
+
+pub type HandleVerifyingKey = VerifyingKey<HandleKeyType>;
+
+pub type HandleSignature = Signature<HandleKeyType>;

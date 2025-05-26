@@ -21,7 +21,13 @@ use super::*;
 
 mod tls_codec_impls;
 
+pub use user_handle::{
+    USER_HANDLE_VALIDITY_PERIOD, UserHandle, UserHandleHash, UserHandleHashError,
+    UserHandleValidationError,
+};
+
 pub use tls_codec_impls::{TlsStr, TlsString};
+mod user_handle;
 
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;
 
