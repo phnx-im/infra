@@ -3460,7 +3460,6 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "argon2",
- "async-trait",
  "chrono",
  "ciborium",
  "criterion 0.6.0",

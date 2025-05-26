@@ -26,7 +26,6 @@ hex = { version = "0.4" }
 tracing = { version = "0.1.35", features = ["log"] }
 thiserror = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
-async-trait = "0.1.0"
 argon2 = "0.5.3"
 
 # Workspace dependencies
