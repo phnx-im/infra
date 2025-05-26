@@ -4,7 +4,7 @@
 
 use mls_assist::messages::AssistedWelcome;
 use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn, group_info};
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys,
     crypto::{ear, secrets},
     identifiers,

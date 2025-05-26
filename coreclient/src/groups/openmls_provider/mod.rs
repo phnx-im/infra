@@ -7,8 +7,10 @@ use openmls_traits::{
     random::OpenMlsRand,
     storage::{CURRENT_VERSION, Entity, Key},
 };
-use rand::{RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
+use rand_chacha::{
+    ChaCha20Rng,
+    rand_core::{RngCore, SeedableRng},
+};
 use storage_provider::SqliteStorageProvider;
 use thiserror::Error;
 

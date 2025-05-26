@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Context;
-use phnxtypes::{
+use phnxcommon::{
     crypto::indexed_aead::{
         ciphertexts::{IndexDecryptable, IndexEncryptable},
         keys::UserProfileKey,

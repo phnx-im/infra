@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
         indexed_aead::keys::UserProfileKeyIndex,
@@ -284,7 +284,7 @@ impl PartialContact {
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::{
+    use phnxcommon::{
         crypto::{
             ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
             indexed_aead::keys::UserProfileKey,

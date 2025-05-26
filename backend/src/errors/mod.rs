@@ -9,7 +9,7 @@ use thiserror::Error;
 use tonic::Status;
 use tracing::error;
 
-use phnxtypes::codec::PhnxCodec;
+use phnxcommon::codec::PhnxCodec;
 
 pub(crate) mod auth_service;
 pub(crate) mod qs;
@@ -21,7 +21,7 @@ pub enum StorageError {
     #[error(transparent)]
     Database(#[from] DatabaseError),
     #[error("Error deserializing column: {0}")]
-    Serde(#[from] phnxtypes::codec::Error),
+    Serde(#[from] phnxcommon::codec::Error),
 }
 
 impl From<sqlx::Error> for StorageError {
@@ -74,8 +74,8 @@ impl From<sqlx::Error> for QueueError {
     }
 }
 
-impl From<phnxtypes::codec::Error> for QueueError {
-    fn from(e: phnxtypes::codec::Error) -> Self {
+impl From<phnxcommon::codec::Error> for QueueError {
+    fn from(e: phnxcommon::codec::Error) -> Self {
         Self::Storage(e.into())
     }
 }

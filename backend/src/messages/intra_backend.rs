@@ -5,7 +5,7 @@
 //! This module contains structs and enums that represent messages that are
 //! passed internally within the backend.
 
-use phnxtypes::{
+use phnxcommon::{
     identifiers::QsReference,
     messages::client_ds::{DsEventMessage, QsQueueMessagePayload},
 };

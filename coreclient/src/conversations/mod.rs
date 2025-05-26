@@ -6,7 +6,7 @@ use std::fmt::Display;
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use phnxtypes::{
+use phnxcommon::{
     identifiers::{Fqdn, QualifiedGroupId, UserId},
     time::TimeStamp,
 };

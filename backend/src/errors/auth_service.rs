@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::time::TimeStamp;
+use phnxcommon::time::TimeStamp;
 use thiserror::Error;
 use tonic::Status;
 use tracing::error;

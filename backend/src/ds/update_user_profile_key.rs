@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::LeafNodeIndex;
-use phnxtypes::{crypto::ear::keys::EncryptedUserProfileKey, time::TimeStamp};
+use phnxcommon::{crypto::ear::keys::EncryptedUserProfileKey, time::TimeStamp};
 use tonic::Status;
 
 use super::group_state::DsGroupState;

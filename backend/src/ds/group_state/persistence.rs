@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
+use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::{QualifiedGroupId, SealedClientReference},
 };
@@ -97,7 +97,7 @@ impl StorableDsGroupData {
 
 #[cfg(test)]
 mod test {
-    use phnxtypes::{crypto::ear::Ciphertext, identifiers::QualifiedGroupId, time::TimeStamp};
+    use phnxcommon::{crypto::ear::Ciphertext, identifiers::QualifiedGroupId, time::TimeStamp};
     use sqlx::PgPool;
     use uuid::Uuid;
 

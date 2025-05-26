@@ -5,7 +5,7 @@
 use anyhow::{Context, bail};
 use mimi_content::MimiContent;
 use openmls::storage::OpenMlsProvider;
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys::ClientSigningKey, identifiers::UserId,
     messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
 };

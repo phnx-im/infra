@@ -3,16 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mls_assist::openmls::prelude::KeyPackage;
-use phnxprotos::queue_service::v1::QueueEvent;
-use phnxprotos::{
-    queue_service::v1::{
-        CreateClientRequest, CreateUserRequest, DeleteClientRequest, DeleteUserRequest,
-        DequeueMessagesRequest, KeyPackageRequest, ListenRequest, PublishKeyPackagesRequest,
-        QsEncryptionKeyRequest, UpdateClientRequest, UpdateUserRequest,
-    },
-    validation::{MissingFieldError, MissingFieldExt},
-};
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         RatchetEncryptionKey,
         kdf::keys::RatchetSecret,
@@ -27,6 +18,15 @@ use phnxtypes::{
         },
         push_token::EncryptedPushToken,
     },
+};
+use phnxprotos::queue_service::v1::QueueEvent;
+use phnxprotos::{
+    queue_service::v1::{
+        CreateClientRequest, CreateUserRequest, DeleteClientRequest, DeleteUserRequest,
+        DequeueMessagesRequest, KeyPackageRequest, ListenRequest, PublishKeyPackagesRequest,
+        QsEncryptionKeyRequest, UpdateClientRequest, UpdateUserRequest,
+    },
+    validation::{MissingFieldError, MissingFieldExt},
 };
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};

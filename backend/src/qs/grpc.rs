@@ -9,7 +9,7 @@ use phnxprotos::{
     validation::{InvalidTlsExt, MissingFieldExt},
 };
 
-use phnxtypes::{
+use phnxcommon::{
     identifiers,
     messages::client_qs::{
         CreateClientRecordParams, CreateUserRecordParams, DeleteClientRecordParams,

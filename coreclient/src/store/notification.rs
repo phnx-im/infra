@@ -5,7 +5,7 @@
 use std::{collections::BTreeMap, mem, sync::Arc};
 
 use enumset::{EnumSet, EnumSetType};
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};

@@ -5,7 +5,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 use tokio_stream::Stream;
 use uuid::Uuid;
 

@@ -4,7 +4,7 @@
 
 use anyhow::ensure;
 use openmls::group::GroupId;
-use phnxtypes::{
+use phnxcommon::{
     codec::PhnxCodec,
     credentials::keys::ClientSigningKey,
     crypto::{

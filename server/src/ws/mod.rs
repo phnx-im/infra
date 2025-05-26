@@ -9,7 +9,7 @@ use std::sync::Arc;
 use dispatch::*;
 use phnxbackend::qs::{Notification, Notifier, NotifierError, grpc::GrpcListen};
 use phnxprotos::queue_service::v1::QueueEvent;
-use phnxtypes::identifiers::QsClientId;
+use phnxcommon::identifiers::QsClientId;
 use tokio::{
     self,
     sync::{Mutex, mpsc},

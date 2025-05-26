@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::key_packages;
-use phnxtypes::{
+use phnxcommon::{
     crypto::{self, ear::AEAD_KEY_SIZE, signatures},
     identifiers,
     messages::{self, push_token},

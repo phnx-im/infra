@@ -49,7 +49,7 @@ impl CoreUser {
 
 mod update_key_flow {
     use anyhow::Context;
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::keys::ClientSigningKey, messages::client_ds_out::UpdateParamsOut,
         time::TimeStamp,
     };

@@ -8,7 +8,7 @@ use mls_assist::{
     messages::AssistedMessageOut,
     openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut},
 };
-use phnxtypes::{
+use phnxcommon::{
     LibraryError,
     credentials::keys::ClientSigningKey,
     crypto::ear::keys::GroupStateEarKey,

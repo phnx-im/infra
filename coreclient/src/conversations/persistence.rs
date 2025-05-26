@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use phnxtypes::identifiers::{Fqdn, UserId};
+use phnxcommon::identifiers::{Fqdn, UserId};
 use sqlx::{Connection, SqliteConnection, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use tracing::info;

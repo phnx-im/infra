@@ -7,7 +7,7 @@ use std::{
     sync::Mutex,
 };
 
-use phnxtypes::identifiers::Fqdn;
+use phnxcommon::identifiers::Fqdn;
 
 use super::*;
 

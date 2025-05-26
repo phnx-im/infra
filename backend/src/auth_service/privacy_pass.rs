@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use async_trait::async_trait;
-use phnxtypes::codec::{BlobDecoded, BlobEncoded};
+use phnxcommon::codec::{BlobDecoded, BlobEncoded};
 use privacypass::{
     TruncatedTokenKeyId,
     common::store::PrivateKeyStore,
@@ -76,7 +76,7 @@ impl PrivateKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
 mod tests {
     use std::sync::LazyLock;
 
-    use phnxtypes::codec::PhnxCodec;
+    use phnxcommon::codec::PhnxCodec;
     use rand::{SeedableRng, rngs::StdRng};
     use sqlx::PgPool;
 

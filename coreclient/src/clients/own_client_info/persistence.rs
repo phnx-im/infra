@@ -32,7 +32,7 @@ impl OwnClientInfo {
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::identifiers::{QsClientId, QsUserId, UserId};
+    use phnxcommon::identifiers::{QsClientId, QsUserId, UserId};
     use sqlx::{Row, SqlitePool};
     use uuid::Uuid;
 

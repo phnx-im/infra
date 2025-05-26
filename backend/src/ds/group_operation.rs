@@ -16,7 +16,7 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
 };
 
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         ear::keys::{EncryptedUserProfileKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},

@@ -5,7 +5,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures_util::stream;
-use phnxtypes::{identifiers::UserId, messages::QueueMessage};
+use phnxcommon::{identifiers::UserId, messages::QueueMessage};
 use sqlx::{PgConnection, PgExecutor, PgPool, postgres::PgListener};
 use tokio::sync::Mutex;
 use tokio_stream::Stream;
@@ -237,7 +237,7 @@ impl QueueStreamContext {
 }
 
 mod persistence {
-    use phnxtypes::{
+    use phnxcommon::{
         codec::{BlobDecoded, BlobEncoded},
         messages::QueueMessage,
     };
@@ -395,7 +395,7 @@ mod persistence {
 
     #[cfg(test)]
     mod tests {
-        use phnxtypes::crypto::ear::AeadCiphertext;
+        use phnxcommon::crypto::ear::AeadCiphertext;
         use sqlx::PgPool;
 
         use crate::auth_service::{
@@ -461,7 +461,7 @@ mod persistence {
 mod tests {
     use std::pin::pin;
 
-    use phnxtypes::crypto::ear::AeadCiphertext;
+    use phnxcommon::crypto::ear::AeadCiphertext;
     use tokio::time::{Duration, timeout};
     use tokio_stream::StreamExt;
 

@@ -62,7 +62,7 @@
 //! messages.
 
 use client_id_decryption_key::StorableClientIdDecryptionKey;
-use phnxtypes::{
+use phnxcommon::{
     identifiers::{Fqdn, QsClientId},
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };

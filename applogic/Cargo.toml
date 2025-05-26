@@ -22,7 +22,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 
 [dependencies]
 phnxcoreclient = { path = "../coreclient" }
-phnxtypes = { path = "../types" }
+phnxcommon = { path = "../common" }
 
 mimi-room-policy = { workspace = true }
 

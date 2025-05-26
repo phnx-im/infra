@@ -6,7 +6,7 @@ use std::{fmt::Display, fs, path::Path, time::Duration};
 
 use anyhow::{Result, bail};
 use openmls::group::GroupId;
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 use sqlx::{
     Database, Encode, Sqlite, SqlitePool, Type,
     encode::IsNull,

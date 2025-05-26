@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
+use phnxcommon::{
     credentials::ClientCredential,
     crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Verifiable as _},
     identifiers::UserId,

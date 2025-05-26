@@ -5,6 +5,7 @@
 use std::time::Duration;
 
 use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
+use phnxcommon::identifiers::Fqdn;
 use phnxserver::{
     RateLimitsConfig, ServerRunParams,
     configurations::*,
@@ -15,7 +16,6 @@ use phnxserver::{
     run,
     telemetry::{get_subscriber, init_subscriber},
 };
-use phnxtypes::identifiers::Fqdn;
 use tracing::info;
 
 // TODO: start actix rt?

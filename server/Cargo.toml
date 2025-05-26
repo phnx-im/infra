@@ -25,7 +25,7 @@ harness = false
 
 [dependencies]
 phnxbackend = { path = "../backend" }
-phnxtypes = { path = "../types" }
+phnxcommon = { path = "../common" }
 phnxprotos = { path = "../protos" }
 
 serde = "1"
@@ -62,5 +62,5 @@ criterion = { version = "0.5.1", features = [
     "async",
     "async_tokio",
 ] }
-rand = "0.8.0"
+rand = "0.8"
 uuid.workspace = true
