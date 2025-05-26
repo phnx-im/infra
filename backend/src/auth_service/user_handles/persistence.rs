@@ -13,34 +13,15 @@ pub(crate) struct UserHandleRecord {
 }
 
 impl UserHandleRecord {
-    async fn load(
-        executor: impl PgExecutor<'_>,
-        hash: UserHandleHash,
-    ) -> sqlx::Result<Option<Self>> {
-        let record = query!(
-            r#"SELECT
-                verifying_key AS "verifying_key: HandleVerifyingKey",
-                expiration_data AS "expiration_data: ExpirationData"
-            FROM as_user_handles
-            WHERE hash = $1"#,
-            hash.as_bytes(),
-        )
-        .fetch_optional(executor)
-        .await?
-        .map(|record| Self {
-            user_handle_hash: hash,
-            verifying_key: record.verifying_key,
-            expiration_data: record.expiration_data,
-        });
-        Ok(record)
-    }
-
     pub(crate) async fn store(&self, pool: &PgPool) -> sqlx::Result<bool> {
         let mut txn = pool.begin().await?;
 
-        if let Some(record) = Self::load(txn.as_mut(), self.user_handle_hash).await? {
-            if record.verifying_key != self.verifying_key {
-                // The record already exists, but does not belong to the user
+        if let Some(record) =
+            Self::load_expiration_data(txn.as_mut(), self.user_handle_hash).await?
+        {
+            if record.validate() {
+                // A record already exists and is not expired
+                // => it can't be reclaimed yet
                 return Ok(false);
             }
         }
@@ -52,7 +33,7 @@ impl UserHandleRecord {
                 expiration_data
             ) VALUES ($1, $2, $3)
             ON CONFLICT (hash) DO UPDATE
-                SET expiration_data = $3",
+                SET verifying_key = $2, expiration_data = $3",
             self.user_handle_hash.as_bytes(),
             self.verifying_key as _,
             self.expiration_data as _,
@@ -154,8 +135,8 @@ mod test {
     #[sqlx::test]
     async fn test_store_and_load_user_handle_record(pool: PgPool) -> anyhow::Result<()> {
         let user_handle_hash = UserHandleHash::new([1; 32]);
-        let verifying_key = HandleVerifyingKey::from_bytes(vec![1, 2, 3, 4, 5]);
-        let expiration_data = ExpirationData::new(Duration::days(1));
+        let verifying_key = HandleVerifyingKey::from_bytes(vec![1]);
+        let expiration_data = ExpirationData::new(Duration::milliseconds(1));
 
         let record = UserHandleRecord {
             user_handle_hash,
@@ -163,51 +144,85 @@ mod test {
             expiration_data: expiration_data.clone(),
         };
 
-        // Test storing a new record
+        // Test storing a new record (which expires immediately)
         let inserted = record.store(&pool).await?;
         assert!(inserted, "Record should be inserted successfully");
-
-        // Test loading the record
-        let loaded_record = UserHandleRecord::load(&pool, user_handle_hash).await?;
-        assert_eq!(
-            loaded_record.as_ref(),
-            Some(&record),
-            "Loaded record should match"
-        );
 
         // Test loading the verifying key
         let loaded_verifying_key =
             UserHandleRecord::load_verifying_key(&pool, &user_handle_hash).await?;
         assert_eq!(
-            loaded_verifying_key,
-            Some(verifying_key.clone()),
+            loaded_verifying_key.as_ref(),
+            Some(&verifying_key),
             "Loaded verifying key should match"
         );
-
-        // Test storing the same record again
-        let inserted_again = record.store(&pool).await?;
-        assert!(
-            inserted_again,
-            "Duplicate record with same verifying key should be updated"
+        // Test loading the expiration data
+        let loaded_expiration_data =
+            UserHandleRecord::load_expiration_data(&pool, user_handle_hash).await?;
+        assert_eq!(
+            loaded_expiration_data.as_ref(),
+            Some(&expiration_data),
+            "Loaded expiration data should match"
         );
 
-        // Test storing a different record
-        let different_record = UserHandleRecord {
+        // Test storing the same hash (previous record is expired now)
+        let different_verifying_key = HandleVerifyingKey::from_bytes(vec![2]);
+        assert_ne!(verifying_key, different_verifying_key);
+        let record = UserHandleRecord {
             user_handle_hash,
-            verifying_key: HandleVerifyingKey::from_bytes(vec![2, 3, 4, 5, 6]),
+            verifying_key: different_verifying_key,
             expiration_data: ExpirationData::new(Duration::days(1)),
         };
-        assert_ne!(verifying_key, different_record.verifying_key);
+        let inserted_again = record.store(&pool).await?;
+        assert!(inserted_again, "Expired hash is reclaimed");
+        let loaded_verifying_key =
+            UserHandleRecord::load_verifying_key(&pool, &user_handle_hash).await?;
+        assert_eq!(
+            loaded_verifying_key.as_ref(),
+            Some(&record.verifying_key),
+            "Loaded verifying key should match"
+        );
+        let loaded_expiration_data =
+            UserHandleRecord::load_expiration_data(&pool, user_handle_hash).await?;
+        assert_eq!(
+            loaded_expiration_data.as_ref(),
+            Some(&record.expiration_data),
+            "Loaded expiration data should match"
+        );
+
+        // Test storing a different hash (previous record is not expired)
+        let different_verifying_key = HandleVerifyingKey::from_bytes(vec![3]);
+        assert_ne!(verifying_key, different_verifying_key);
+        let different_record = UserHandleRecord {
+            user_handle_hash,
+            verifying_key: different_verifying_key,
+            expiration_data: ExpirationData::new(Duration::days(1)),
+        };
         let inserted_again = different_record.store(&pool).await?;
-        assert!(
-            !inserted_again,
-            "Different record with same verifying key should be rejected"
+        assert!(!inserted_again, "Non-expired hash is not reclaimed");
+        assert_eq!(
+            loaded_verifying_key.as_ref(),
+            Some(&record.verifying_key),
+            "Verifying key should not change"
+        );
+        let loaded_expiration_data =
+            UserHandleRecord::load_expiration_data(&pool, user_handle_hash).await?;
+        assert_eq!(
+            loaded_expiration_data.as_ref(),
+            Some(&record.expiration_data),
+            "Expiration data should not change"
         );
 
         // Test loading a non-existent key
         let non_existent_hash = UserHandleHash::new([2; 32]);
         let loaded_non_existent =
             UserHandleRecord::load_verifying_key(&pool, &non_existent_hash).await?;
+        assert_eq!(
+            loaded_non_existent, None,
+            "Loading non-existent key should return None"
+        );
+        let loaded_non_existent =
+            UserHandleRecord::load_expiration_data(&pool, non_existent_hash).await?;
         assert_eq!(
             loaded_non_existent, None,
             "Loading non-existent key should return None"
