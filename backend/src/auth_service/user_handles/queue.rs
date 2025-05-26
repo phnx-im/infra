@@ -358,15 +358,52 @@ mod persistence {
 
 #[cfg(test)]
 mod test {
+    use std::{pin::pin, time};
+
     use phnxcommon::{
         credentials::keys::HandleVerifyingKey,
         time::{Duration, ExpirationData},
     };
-    use phnxprotos::auth_service::v1::EncryptedConnectionEstablishmentPackage;
+    use phnxprotos::{
+        auth_service::v1::{
+            EncryptedConnectionEstablishmentPackage, handle_queue_message::Payload,
+        },
+        common::v1::HpkeCiphertext,
+    };
+    use tokio::time::timeout;
+    use tokio_stream::StreamExt;
 
     use crate::auth_service::user_handles::UserHandleRecord;
 
     use super::*;
+
+    const STREAM_NEXT_TIMEOUT: time::Duration = time::Duration::from_secs(1);
+
+    fn new_payload(payload_str: &str) -> Payload {
+        Payload::ConnectionEstablishmentPackage(EncryptedConnectionEstablishmentPackage {
+            ciphertext: Some(HpkeCiphertext {
+                kem_output: b"kem_output".to_vec(),
+                ciphertext: payload_str.as_bytes().to_vec(),
+            }),
+        })
+    }
+
+    fn msg(id: Uuid, payload: Payload) -> HandleQueueMessage {
+        HandleQueueMessage {
+            message_id: Some(id.into()),
+            payload: Some(payload),
+        }
+    }
+
+    async fn store_handle(pool: &PgPool, hash: UserHandleHash) -> anyhow::Result<()> {
+        let hash_record = UserHandleRecord {
+            user_handle_hash: hash,
+            verifying_key: HandleVerifyingKey::from_bytes(vec![1]),
+            expiration_data: ExpirationData::new(Duration::seconds(1)),
+        };
+        hash_record.store(pool).await?;
+        Ok(())
+    }
 
     #[test]
     fn pg_queue_label() {
@@ -385,28 +422,15 @@ mod test {
     #[sqlx::test]
     async fn enqueue_fetch_delete_messages(pool: PgPool) -> anyhow::Result<()> {
         let hash = UserHandleHash::new([1; 32]);
-        let hash_record = UserHandleRecord {
-            user_handle_hash: hash,
-            verifying_key: HandleVerifyingKey::from_bytes(vec![1]),
-            expiration_data: ExpirationData::new(Duration::seconds(1)),
-        };
-        hash_record.store(&pool).await?;
+        store_handle(&pool, hash).await?;
 
-        let payload = handle_queue_message::Payload::ConnectionEstablishmentPackage(
-            EncryptedConnectionEstablishmentPackage { ciphertext: None },
-        );
+        let payload = new_payload("hello");
 
         let message_a_id = Uuid::new_v4();
         let message_b_id = Uuid::new_v4();
 
-        let message_a = HandleQueueMessage {
-            message_id: Some(message_a_id.into()),
-            payload: Some(payload.clone()),
-        };
-        let message_b = HandleQueueMessage {
-            message_id: Some(message_b_id.into()),
-            payload: Some(payload.clone()),
-        };
+        let message_a = msg(message_a_id, payload.clone());
+        let message_b = msg(message_b_id, payload.clone());
 
         HandleQueue::enqueue(&pool, &hash, message_a_id, message_a.clone()).await?;
         HandleQueue::enqueue(&pool, &hash, message_b_id, message_b.clone()).await?;
@@ -441,5 +465,222 @@ mod test {
         assert_eq!(buffer.len(), 0, "No messages to fetch");
 
         Ok(())
+    }
+
+    #[sqlx::test]
+    async fn enqueue_and_listen_single_message(pool: PgPool) {
+        let hash = UserHandleHash::new([1; 32]);
+        store_handle(&pool, hash).await.unwrap();
+        let queues = UserHandleQueues::new(pool);
+
+        let payload = new_payload("hello");
+        let msg1_id = queues.enqueue(&hash, payload.clone()).await.unwrap();
+
+        let mut stream = pin!(queues.listen(hash).await.unwrap());
+
+        let received_msg = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .expect("Timeout waiting for message")
+            .expect("Stream ended prematurely")
+            .expect("Expected Some(QueueMessage), got None");
+
+        assert_eq!(received_msg, msg(msg1_id, payload));
+
+        // Check if queue is empty now for the listener (emits None)
+        let next_item = timeout(STREAM_NEXT_TIMEOUT, stream.next()).await.unwrap();
+        assert_eq!(
+            next_item,
+            Some(None),
+            "Stream should yield Some(None) when queue is empty for the listener"
+        );
+    }
+
+    #[sqlx::test]
+    async fn listen_again_refetches_messages(pool: PgPool) {
+        let hash = UserHandleHash::new([1; 32]);
+        store_handle(&pool, hash).await.unwrap();
+        let queues = UserHandleQueues::new(pool);
+
+        let payload1 = new_payload("msg1");
+        let payload2 = new_payload("msg2");
+        let payload3 = new_payload("msg3");
+
+        let msg1_id = queues.enqueue(&hash, payload1.clone()).await.unwrap();
+        let msg2_id = queues.enqueue(&hash, payload2.clone()).await.unwrap();
+        let msg3_id = queues.enqueue(&hash, payload3.clone()).await.unwrap();
+
+        let mut stream = pin!(queues.listen(hash).await.unwrap());
+
+        let received_msg1 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg1, msg(msg1_id, payload1.clone()));
+
+        let received_msg2 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg2, msg(msg2_id, payload2));
+
+        let received_msg3 = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg3, msg(msg3_id, payload3));
+
+        // Listen again
+        let mut stream = pin!(queues.listen(hash).await.unwrap());
+        let first_after_relisten = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            first_after_relisten,
+            msg(msg1_id, payload1),
+            "Msg1 should be refetched again"
+        );
+    }
+
+    #[sqlx::test]
+    async fn ack_removes_messages(pool: PgPool) {
+        let hash = UserHandleHash::new([1; 32]);
+        store_handle(&pool, hash).await.unwrap();
+        let queues = UserHandleQueues::new(pool);
+
+        let payload1 = new_payload("msg1");
+        let payload2 = new_payload("msg2");
+        let payload3 = new_payload("msg3");
+
+        let msg1_id = queues.enqueue(&hash, payload1.clone()).await.unwrap();
+        let msg2_id = queues.enqueue(&hash, payload2.clone()).await.unwrap();
+        let msg3_id = queues.enqueue(&hash, payload3.clone()).await.unwrap();
+
+        queues.ack(msg2_id).await.unwrap(); // Ack msg2
+
+        let mut stream = pin!(queues.listen(hash).await.unwrap());
+
+        // Should only receive msg1 and msg3
+        let received_msg = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg, msg(msg1_id, payload1));
+
+        let received_msg = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg, msg(msg3_id, payload3));
+
+        // No more messages
+        let next_item = timeout(STREAM_NEXT_TIMEOUT, stream.next()).await.unwrap();
+
+        assert_eq!(next_item, Some(None));
+    }
+
+    #[sqlx::test]
+    async fn new_listener_cancels_previous_one(pool: PgPool) {
+        let hash = UserHandleHash::new([1; 32]);
+        store_handle(&pool, hash).await.unwrap();
+        let queues = UserHandleQueues::new(pool);
+
+        let payload1 = new_payload("msg1");
+
+        let msg1_id = queues.enqueue(&hash, payload1.clone()).await.unwrap();
+
+        let mut stream1 = pin!(queues.listen(hash).await.unwrap());
+
+        // First listener gets the first message
+        let received_msg1_listener1 = timeout(STREAM_NEXT_TIMEOUT, stream1.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(received_msg1_listener1, msg(msg1_id, payload1));
+
+        // Start a new listener for the same queue
+        let _stream2 = queues.listen(hash).await.unwrap();
+
+        // Try to get another message from stream1.
+        // It should be cancelled, so it should yield None and then end.
+        let cancellation_signal = timeout(STREAM_NEXT_TIMEOUT, stream1.next()).await;
+
+        match cancellation_signal {
+            Ok(None) => { /* Expected cancellation signal */ }
+            Ok(Some(m)) => {
+                panic!("Stream1 should have been cancelled, but received message: {m:?}")
+            }
+            Err(_) => panic!("Timeout waiting for stream1 to be cancelled"),
+        }
+    }
+
+    #[sqlx::test]
+    async fn listen_emits_none_when_empty_and_waits(pool: PgPool) {
+        let hash = UserHandleHash::new([1; 32]);
+        store_handle(&pool, hash).await.unwrap();
+        let queues = UserHandleQueues::new(pool);
+
+        let mut stream = pin!(queues.listen(hash).await.unwrap());
+
+        // Initially empty, should yield None
+        let item = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .expect("Timeout waiting for initial None")
+            .expect("Stream should not end immediately");
+        assert_eq!(
+            item, None,
+            "Stream should yield None when queue is initially empty"
+        );
+
+        // Enqueue a message
+        let payload1 = new_payload("msg1");
+        let msg1_id = queues.enqueue(&hash, payload1.clone()).await.unwrap();
+
+        // Should receive the new message
+        let received_msg = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .expect("Timeout waiting for new message")
+            .expect("Stream ended prematurely after enqueue")
+            .expect("Expected Some(QueueMessage) after enqueue, got None");
+        assert_eq!(received_msg, msg(msg1_id, payload1));
+
+        // Queue is empty again for the listener
+        let next_item = timeout(STREAM_NEXT_TIMEOUT, stream.next())
+            .await
+            .expect("Timeout waiting for new message")
+            .expect("Stream ended prematurely after enqueue");
+        assert_eq!(
+            next_item, None,
+            "Stream should yield None after consuming the message"
+        );
+
+        // Stream waits for the next message again
+        timeout(time::Duration::from_millis(50), stream.next())
+            .await
+            .expect_err("Stream should wait for the next message");
+    }
+
+    #[sqlx::test]
+    async fn ack_non_existent_message(pool: PgPool) {
+        let queues = UserHandleQueues::new(pool);
+        let result = queues.ack(Uuid::new_v4()).await;
+        assert!(result.is_ok());
+    }
+
+    #[sqlx::test]
+    async fn enqueue_non_existent_queue(pool: PgPool) {
+        let queues = UserHandleQueues::new(pool);
+        let hash = UserHandleHash::new([1; 32]);
+
+        let payload = new_payload("msg");
+        let result = queues.enqueue(&hash, payload).await;
+        assert!(result.is_err());
     }
 }
