@@ -39,10 +39,7 @@ pub(crate) trait ConnectHandleProtocol {
     ) where
         Self: Sized,
     {
-        if let Err(error) = protocol_impl(&self, incoming, &outgoing).await {
-            error!(%error, "error in connect handle protocol");
-            let _ignore_closed_channel = outgoing.send(Err(error.into())).await;
-        }
+        run_protocol(&self, incoming, &outgoing).await
     }
 
     async fn load_user_handle_expiration_data(
@@ -61,7 +58,18 @@ pub(crate) trait ConnectHandleProtocol {
     ) -> Result<(), EnqueueConnectionPackageError>;
 }
 
-async fn protocol_impl(
+async fn run_protocol(
+    protocol: &impl ConnectHandleProtocol,
+    incoming: impl Stream<Item = Result<ConnectRequest, Status>> + Unpin,
+    outgoing: &mpsc::Sender<Result<ConnectResponse, Status>>,
+) {
+    if let Err(error) = run_protocol_impl(protocol, incoming, outgoing).await {
+        error!(%error, "error in connect handle protocol");
+        let _ignore_closed_channel = outgoing.send(Err(error.into())).await;
+    }
+}
+
+async fn run_protocol_impl(
     protocol: &impl ConnectHandleProtocol,
     mut incoming: impl Stream<Item = Result<ConnectRequest, Status>> + Unpin,
     outgoing: &mpsc::Sender<Result<ConnectResponse, Status>>,
@@ -250,10 +258,12 @@ impl From<EnqueueConnectionPackageError> for Status {
 
 #[cfg(test)]
 mod tests {
+    use std::time;
+
     use mockall::predicate::*;
     use phnxcommon::{identifiers::UserId, time::Duration};
     use phnxprotos::auth_service::v1::{self, EnqueuePackageStep, FetchConnectionPackageStep};
-    use tokio::sync::mpsc;
+    use tokio::{sync::mpsc, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
 
     use crate::auth_service::{
@@ -269,6 +279,8 @@ mod tests {
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .try_init();
     }
+
+    const PROTOCOL_TIMEOUT: time::Duration = time::Duration::from_secs(1);
 
     #[tokio::test]
     async fn connect_handle_protocol_success() -> anyhow::Result<()> {
@@ -305,9 +317,9 @@ mod tests {
 
         // run the protocol
         let run_handle = tokio::spawn(async move {
-            tokio::time::timeout(
-                std::time::Duration::from_secs(1),
-                protocol_impl(
+            timeout(
+                PROTOCOL_TIMEOUT,
+                run_protocol(
                     &mock_protocol,
                     ReceiverStream::new(requests_rx),
                     &responses_tx,
@@ -315,8 +327,6 @@ mod tests {
             )
             .await
             .expect("protocol handler timed out")
-            .expect("protocol handler failed");
-            drop(responses_tx); // make sure we signal the end of sending responses
         });
 
         let request_fetch = ConnectRequest {
@@ -359,5 +369,87 @@ mod tests {
         Ok(())
     }
 
-    // Add more tests for other error conditions (database errors, etc.)
+    #[tokio::test]
+    async fn connect_handle_protocol_handle_not_found() -> anyhow::Result<()> {
+        init_test_tracing();
+
+        let hash = UserHandleHash::new([1; 32]);
+
+        let mut mock_protocol = MockConnectHandleProtocol::new();
+
+        mock_protocol
+            .expect_load_user_handle_expiration_data()
+            .with(eq(hash))
+            .returning(|_| Ok(None));
+
+        let (requests_tx, requests_rx) = mpsc::channel(10);
+        let (responses_tx, mut responses_rx) = mpsc::channel(10);
+
+        let run_handle = tokio::spawn(async move {
+            timeout(
+                PROTOCOL_TIMEOUT,
+                run_protocol(
+                    &mock_protocol,
+                    ReceiverStream::new(requests_rx),
+                    &responses_tx,
+                ),
+            )
+            .await
+            .expect("protocol handler timed out")
+        });
+
+        let request_fetch = ConnectRequest {
+            step: Some(connect_request::Step::Fetch(FetchConnectionPackageStep {
+                hash: Some(hash.into()),
+            })),
+        };
+
+        requests_tx.send(Ok(request_fetch)).await.unwrap();
+
+        let response = responses_rx.recv().await.unwrap();
+        assert!(response.is_err());
+        assert_eq!(response.err().unwrap().code(), tonic::Code::NotFound);
+
+        run_handle.await.expect("protocol panicked");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn connect_handle_protocol_protocol_violation() -> anyhow::Result<()> {
+        init_test_tracing();
+
+        let (requests_tx, requests_rx) = mpsc::channel(10);
+        let (responses_tx, mut responses_rx) = mpsc::channel(10);
+
+        let mock_protocol = MockConnectHandleProtocol::new();
+
+        let run_handle = tokio::spawn(async move {
+            timeout(
+                PROTOCOL_TIMEOUT,
+                run_protocol(
+                    &mock_protocol,
+                    ReceiverStream::new(requests_rx),
+                    &responses_tx,
+                ),
+            )
+            .await
+            .expect("protocol handler timed out")
+        });
+
+        requests_tx
+            .send(Ok(ConnectRequest { step: None }))
+            .await
+            .unwrap();
+        let response = responses_rx.recv().await.unwrap();
+        assert!(response.is_err());
+        assert_eq!(
+            response.err().unwrap().code(),
+            tonic::Code::FailedPrecondition
+        );
+
+        run_handle.await.expect("protocol panicked");
+
+        Ok(())
+    }
 }
