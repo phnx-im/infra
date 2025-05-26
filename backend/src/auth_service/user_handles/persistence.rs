@@ -75,17 +75,39 @@ impl UserHandleRecord {
         db_pool: &PgPool,
         hash: UserHandleHash,
         expiration_data: ExpirationData,
-    ) -> sqlx::Result<bool> {
-        let res = query!(
-            "UPDATE as_user_handles SET expiration_data = $1 WHERE hash = $2",
-            expiration_data as _,
-            hash.as_bytes(),
-        )
-        .execute(db_pool)
-        .await?;
-        let updated = res.rows_affected() > 0;
-        Ok(updated)
+    ) -> sqlx::Result<UpdateExpirationDataResult> {
+        let mut txn = db_pool.begin().await?;
+
+        let Some(stored_expiration_data) = Self::load_expiration_data(&mut *txn, hash).await?
+        else {
+            return Ok(UpdateExpirationDataResult::NotFound);
+        };
+
+        let res = if !stored_expiration_data.validate() {
+            // Delete the record if the expiration date has passed
+            Self::delete(&mut *txn, hash).await?;
+            UpdateExpirationDataResult::Deleted
+        } else {
+            query!(
+                "UPDATE as_user_handles SET expiration_data = $1 WHERE hash = $2",
+                expiration_data as _,
+                hash.as_bytes(),
+            )
+            .execute(db_pool)
+            .await?;
+            UpdateExpirationDataResult::Updated
+        };
+
+        txn.commit().await?;
+
+        Ok(res)
     }
+}
+
+pub(super) enum UpdateExpirationDataResult {
+    Updated,
+    Deleted,
+    NotFound,
 }
 
 #[cfg(test)]
@@ -190,13 +212,16 @@ mod test {
         // Store the record first
         record.store(&pool).await?;
 
-        let updated = UserHandleRecord::update_expiration_data(
+        let res = UserHandleRecord::update_expiration_data(
             &pool,
             user_handle_hash,
             updated_expiration_data.clone(),
         )
         .await?;
-        assert!(updated, "Expiration data should be updated successfully");
+        assert!(
+            matches!(res, UpdateExpirationDataResult::Updated),
+            "Expiration data should be updated successfully"
+        );
 
         // Verify the expiration data has been updated
         let loaded_expiration_data =
@@ -216,16 +241,41 @@ mod test {
             "Verifying key should remain unchanged"
         );
 
+        // Test updating an expired record
+        let res = UserHandleRecord::update_expiration_data(
+            &pool,
+            user_handle_hash,
+            ExpirationData::new(Duration::milliseconds(1)),
+        )
+        .await?;
+        assert!(
+            matches!(res, UpdateExpirationDataResult::Updated),
+            "Updating expired record should return false"
+        );
+
+        let res = UserHandleRecord::update_expiration_data(
+            &pool,
+            user_handle_hash,
+            ExpirationData::new(Duration::days(1)),
+        )
+        .await?;
+        assert!(
+            matches!(res, UpdateExpirationDataResult::Deleted),
+            "Updating expired should delete the record"
+        );
+        let res = UserHandleRecord::load_expiration_data(&pool, user_handle_hash).await?;
+        assert!(res.is_none(), "Expired record should be deleted");
+
         // Test updating a non-existent record
         let non_existent_hash = UserHandleHash::new([2; 32]);
-        let updated_non_existent = UserHandleRecord::update_expiration_data(
+        let res = UserHandleRecord::update_expiration_data(
             &pool,
             non_existent_hash,
             ExpirationData::new(Duration::days(1)),
         )
         .await?;
         assert!(
-            !updated_non_existent,
+            matches!(res, UpdateExpirationDataResult::NotFound),
             "Updating non-existent record should return false"
         );
 
