@@ -263,7 +263,7 @@ mod tests {
     use mockall::predicate::*;
     use phnxcommon::{identifiers::UserId, time::Duration};
     use phnxprotos::auth_service::v1::{self, EnqueuePackageStep, FetchConnectionPackageStep};
-    use tokio::{sync::mpsc, time::timeout};
+    use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
 
     use crate::auth_service::{
@@ -281,6 +281,33 @@ mod tests {
     }
 
     const PROTOCOL_TIMEOUT: time::Duration = time::Duration::from_secs(1);
+
+    fn run_test_protocol(
+        mock_protocol: MockConnectHandleProtocol,
+    ) -> (
+        mpsc::Sender<Result<ConnectRequest, Status>>,
+        mpsc::Receiver<Result<ConnectResponse, Status>>,
+        JoinHandle<()>,
+    ) {
+        let (requests_tx, requests_rx) = mpsc::channel(10);
+        let (responses_tx, responses_rx) = mpsc::channel(10);
+
+        // run the protocol
+        let run_handle = tokio::spawn(async move {
+            timeout(
+                PROTOCOL_TIMEOUT,
+                run_protocol(
+                    &mock_protocol,
+                    ReceiverStream::new(requests_rx),
+                    &responses_tx,
+                ),
+            )
+            .await
+            .expect("protocol handler timed out")
+        });
+
+        (requests_tx, responses_rx, run_handle)
+    }
 
     #[tokio::test]
     async fn connect_handle_protocol_success() -> anyhow::Result<()> {
@@ -312,22 +339,7 @@ mod tests {
             .with(eq(connection_establishment_package.clone()))
             .returning(|_| Ok(()));
 
-        let (requests_tx, requests_rx) = mpsc::channel(10);
-        let (responses_tx, mut responses_rx) = mpsc::channel(10);
-
-        // run the protocol
-        let run_handle = tokio::spawn(async move {
-            timeout(
-                PROTOCOL_TIMEOUT,
-                run_protocol(
-                    &mock_protocol,
-                    ReceiverStream::new(requests_rx),
-                    &responses_tx,
-                ),
-            )
-            .await
-            .expect("protocol handler timed out")
-        });
+        let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
 
         let request_fetch = ConnectRequest {
             step: Some(connect_request::Step::Fetch(FetchConnectionPackageStep {
@@ -336,8 +348,8 @@ mod tests {
         };
 
         // step 1
-        requests_tx.send(Ok(request_fetch)).await.unwrap();
-        match responses_rx.recv().await.unwrap() {
+        requests.send(Ok(request_fetch)).await.unwrap();
+        match responses.recv().await.unwrap() {
             Ok(ConnectResponse {
                 step:
                     Some(connect_response::Step::FetchResponse(FetchConnectionPackageResponse {
@@ -356,8 +368,8 @@ mod tests {
                 connection_establishment_package: Some(connection_establishment_package.clone()),
             })),
         };
-        requests_tx.send(Ok(request_enqueue)).await.unwrap();
-        match responses_rx.recv().await.unwrap() {
+        requests.send(Ok(request_enqueue)).await.unwrap();
+        match responses.recv().await.unwrap() {
             Ok(ConnectResponse {
                 step: Some(connect_response::Step::EnqueueResponse(EnqueuePackageResponse {})),
             }) => {}
@@ -382,21 +394,7 @@ mod tests {
             .with(eq(hash))
             .returning(|_| Ok(None));
 
-        let (requests_tx, requests_rx) = mpsc::channel(10);
-        let (responses_tx, mut responses_rx) = mpsc::channel(10);
-
-        let run_handle = tokio::spawn(async move {
-            timeout(
-                PROTOCOL_TIMEOUT,
-                run_protocol(
-                    &mock_protocol,
-                    ReceiverStream::new(requests_rx),
-                    &responses_tx,
-                ),
-            )
-            .await
-            .expect("protocol handler timed out")
-        });
+        let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
 
         let request_fetch = ConnectRequest {
             step: Some(connect_request::Step::Fetch(FetchConnectionPackageStep {
@@ -404,11 +402,41 @@ mod tests {
             })),
         };
 
-        requests_tx.send(Ok(request_fetch)).await.unwrap();
+        requests.send(Ok(request_fetch)).await.unwrap();
 
-        let response = responses_rx.recv().await.unwrap();
-        assert!(response.is_err());
-        assert_eq!(response.err().unwrap().code(), tonic::Code::NotFound);
+        let response = responses.recv().await.unwrap();
+        assert_eq!(response.unwrap_err().code(), tonic::Code::NotFound);
+
+        run_handle.await.expect("protocol panicked");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn connect_handle_protocol_handle_expired() -> anyhow::Result<()> {
+        init_test_tracing();
+
+        let hash = UserHandleHash::new([1; 32]);
+
+        let mut mock_protocol = MockConnectHandleProtocol::new();
+
+        mock_protocol
+            .expect_load_user_handle_expiration_data()
+            .with(eq(hash))
+            .returning(|_| Ok(Some(ExpirationData::new(Duration::milliseconds(1)))));
+
+        let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
+
+        let request_fetch = ConnectRequest {
+            step: Some(connect_request::Step::Fetch(FetchConnectionPackageStep {
+                hash: Some(hash.into()),
+            })),
+        };
+
+        requests.send(Ok(request_fetch)).await.unwrap();
+
+        let response = responses.recv().await.unwrap();
+        assert_eq!(response.unwrap_err().code(), tonic::Code::NotFound);
 
         run_handle.await.expect("protocol panicked");
 
@@ -419,32 +447,90 @@ mod tests {
     async fn connect_handle_protocol_protocol_violation() -> anyhow::Result<()> {
         init_test_tracing();
 
-        let (requests_tx, requests_rx) = mpsc::channel(10);
-        let (responses_tx, mut responses_rx) = mpsc::channel(10);
-
         let mock_protocol = MockConnectHandleProtocol::new();
+        let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
 
-        let run_handle = tokio::spawn(async move {
-            timeout(
-                PROTOCOL_TIMEOUT,
-                run_protocol(
-                    &mock_protocol,
-                    ReceiverStream::new(requests_rx),
-                    &responses_tx,
-                ),
-            )
-            .await
-            .expect("protocol handler timed out")
-        });
+        // empty requests in step 1
 
-        requests_tx
+        requests
             .send(Ok(ConnectRequest { step: None }))
             .await
             .unwrap();
-        let response = responses_rx.recv().await.unwrap();
-        assert!(response.is_err());
+        let response = responses.recv().await.unwrap();
         assert_eq!(
-            response.err().unwrap().code(),
+            response.unwrap_err().code(),
+            tonic::Code::FailedPrecondition
+        );
+
+        run_handle.await.expect("protocol panicked");
+
+        let mock_protocol = MockConnectHandleProtocol::new();
+        let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
+
+        // enqueue in step 1
+
+        requests
+            .send(Ok(ConnectRequest {
+                step: Some(connect_request::Step::Enqueue(EnqueuePackageStep {
+                    connection_establishment_package: None,
+                })),
+            }))
+            .await
+            .unwrap();
+        let response = responses.recv().await.unwrap();
+        assert_eq!(
+            response.unwrap_err().code(),
+            tonic::Code::FailedPrecondition
+        );
+
+        run_handle.await.expect("protocol panicked");
+
+        // fetch in step 2
+
+        let user_id = UserId::random("example.com".parse()?);
+        let client_credential = random_client_record(user_id)?.credential().clone();
+
+        let hash = UserHandleHash::new([1; 32]);
+        let expiration_data = ExpirationData::new(Duration::days(1));
+        let connection_package = random_connection_package(client_credential);
+
+        let mut mock_protocol = MockConnectHandleProtocol::new();
+
+        mock_protocol
+            .expect_load_user_handle_expiration_data()
+            .with(eq(hash))
+            .returning(move |_| Ok(Some(expiration_data.clone())));
+
+        let inner_connection_package = connection_package.clone();
+        mock_protocol
+            .expect_get_connection_package_for_handle()
+            .with(eq(hash))
+            .returning(move |_| Ok(inner_connection_package.clone()));
+
+        let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
+
+        requests
+            .send(Ok(ConnectRequest {
+                step: Some(connect_request::Step::Fetch(FetchConnectionPackageStep {
+                    hash: Some(hash.into()),
+                })),
+            }))
+            .await
+            .unwrap();
+        let response = responses.recv().await.unwrap();
+        assert!(response.is_ok());
+
+        requests
+            .send(Ok(ConnectRequest {
+                step: Some(connect_request::Step::Fetch(FetchConnectionPackageStep {
+                    hash: Some(hash.into()),
+                })),
+            }))
+            .await
+            .unwrap();
+        let response = responses.recv().await.unwrap();
+        assert_eq!(
+            response.unwrap_err().code(),
             tonic::Code::FailedPrecondition
         );
 
