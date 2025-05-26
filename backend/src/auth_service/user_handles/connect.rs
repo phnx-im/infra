@@ -7,11 +7,15 @@ use phnxcommon::{
     identifiers::UserHandleHash, messages::client_as::ConnectionPackage, time::ExpirationData,
 };
 use phnxprotos::{
-    auth_service::v1::{
-        ConnectRequest, ConnectResponse, EncryptedConnectionEstablishmentPackage,
-        EnqueuePackageResponse, FetchConnectionPackageResponse, connect_request, connect_response,
+    auth_service::{
+        convert::UserHandleHashError,
+        v1::{
+            ConnectRequest, ConnectResponse, EncryptedConnectionEstablishmentPackage,
+            EnqueuePackageResponse, FetchConnectionPackageResponse, connect_request,
+            connect_response,
+        },
     },
-    validation::MissingFieldExt,
+    validation::{MissingFieldError, MissingFieldExt},
 };
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -35,7 +39,7 @@ pub(crate) trait ConnectHandleProtocol {
     {
         if let Err(error) = protocol_impl(&self, incoming, &outgoing).await {
             error!(%error, "error in connect handle protocol");
-            let _ignore_closed_channel = outgoing.send(Err(error)).await;
+            let _ignore_closed_channel = outgoing.send(Err(error.into())).await;
         }
     }
 
@@ -59,7 +63,7 @@ async fn protocol_impl(
     protocol: &impl ConnectHandleProtocol,
     mut incoming: Streaming<ConnectRequest>,
     outgoing: &mpsc::Sender<Result<ConnectResponse, Status>>,
-) -> Result<(), Status> {
+) -> Result<(), ConnectProtocolError> {
     // step 1: fetch connetion package for a handle hash
     let step = incoming.next().await;
     let fetch_connection_package = match step {
@@ -67,9 +71,7 @@ async fn protocol_impl(
             step: Some(connect_request::Step::Fetch(fetch)),
         })) => fetch,
         Some(Ok(_)) => {
-            return Err(Status::failed_precondition(
-                "protocol violation: expected fetch",
-            ));
+            return Err(ConnectProtocolError::ProtocolViolation("expected fetch"));
         }
         Some(Err(error)) => {
             error!(%error, "error in connect handle protocol");
@@ -84,10 +86,10 @@ async fn protocol_impl(
         .try_into()?;
 
     let Some(expiration_data) = protocol.load_user_handle_expiration_data(&hash).await? else {
-        return Err(Status::not_found("handle not found"));
+        return Err(ConnectProtocolError::HandleNotFound);
     };
     if !expiration_data.validate() {
-        return Err(Status::failed_precondition("handle expired"));
+        return Err(ConnectProtocolError::HandleNotFound);
     }
 
     let connection_package = protocol.get_connection_package_for_handle(hash).await?;
@@ -112,9 +114,7 @@ async fn protocol_impl(
             step: Some(connect_request::Step::Enqueue(enqueue_package)),
         })) => enqueue_package,
         Some(Ok(_)) => {
-            return Err(Status::failed_precondition(
-                "protocol violation: expected enqueue",
-            ));
+            return Err(ConnectProtocolError::ProtocolViolation("expected enqueue"));
         }
         Some(Err(error)) => {
             error!(%error, "error in connect handle protocol");
@@ -145,6 +145,46 @@ async fn protocol_impl(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Error, Display)]
+pub(crate) enum ConnectProtocolError {
+    /// Protocol violation: $0
+    ProtocolViolation(&'static str),
+    /// Database provider error
+    Database(#[from] sqlx::Error),
+    /// Handle not found
+    HandleNotFound,
+    /// Invalid hash: $0
+    InvalidHash(#[from] UserHandleHashError),
+    /// Missing required field in request
+    MissingField(#[from] MissingFieldError<&'static str>),
+    /// Failed to enqueue connection package
+    Enqueue(#[from] EnqueueConnectionPackageError),
+    /// Failed to get connection package for handle
+    ConnectionPackage(#[from] GetConnectionPackageForHandleError),
+}
+
+impl From<ConnectProtocolError> for Status {
+    fn from(error: ConnectProtocolError) -> Self {
+        let msg = error.to_string();
+        match error {
+            ConnectProtocolError::ProtocolViolation(_) => Status::failed_precondition(msg),
+            ConnectProtocolError::Database(error) => {
+                error!(%error, "database error");
+                Status::internal(msg)
+            }
+            ConnectProtocolError::HandleNotFound => Status::not_found(msg),
+            ConnectProtocolError::Enqueue(_) => Status::internal(msg),
+            ConnectProtocolError::MissingField(_) | ConnectProtocolError::InvalidHash(_) => {
+                Status::invalid_argument(msg)
+            }
+            ConnectProtocolError::ConnectionPackage(error) => {
+                error!(%error, "failed to get connection package for handle");
+                Status::internal(msg)
+            }
+        }
+    }
 }
 
 impl ConnectHandleProtocol for AuthService {
@@ -190,7 +230,7 @@ impl From<GetConnectionPackageForHandleError> for Status {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Error, Clone)]
 pub(crate) enum EnqueueConnectionPackageError {}
 
 impl From<EnqueueConnectionPackageError> for Status {
