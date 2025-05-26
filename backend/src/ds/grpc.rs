@@ -252,7 +252,11 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         let user_id = credential.identity().uuid();
 
         // Configure the rate-limiting
-        let rl_key = RLKey::new("ds", "reserve_group_id", &["user_id", &user_id.to_string()]);
+        let rl_key = RLKey::new(
+            b"ds",
+            b"reserve_group_id",
+            &[b"user_uuid", user_id.as_bytes()],
+        );
         let config = RLConfig {
             max_requests: 100,
             time_window: TimeDelta::hours(1),

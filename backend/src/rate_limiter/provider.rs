@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use async_trait::async_trait;
 use sqlx::PgPool;
 
 use super::{Allowance, RLKey, StorageProvider};
@@ -17,15 +16,14 @@ impl RLPostgresStorage {
     }
 }
 
-#[async_trait]
 impl StorageProvider for RLPostgresStorage {
     async fn get(&self, key: &RLKey) -> Option<Allowance> {
         Allowance::load(&self.pool, key).await.ok().flatten()
     }
 
     async fn set(&self, key: RLKey, allowance: Allowance) {
-        if let Err(e) = allowance.store(&self.pool, &key).await {
-            tracing::error!(%e, "Failed to store allowance in Postgres");
+        if let Err(error) = allowance.store(&self.pool, &key).await {
+            tracing::error!(%error, "Failed to store allowance in Postgres");
         }
     }
 }
@@ -88,7 +86,7 @@ pub(crate) mod persistence {
                     VALUES ($1, $2, $3)",
                 key.serialize(),
                 self.remaining as i64,
-                trunc_to_micros(DateTime::<Utc>::from(self.valid_until)),
+                trunc_to_micros(self.valid_until),
             )
             .execute(connection)
             .await?;
@@ -139,7 +137,7 @@ pub(crate) mod persistence {
 
         #[sqlx::test]
         async fn load_allowance(pool: PgPool) -> anyhow::Result<()> {
-            let key = RLKey::new("test_service", "test_rpc", &[]);
+            let key = RLKey::new(b"test_service", b"test_rpc", &[]);
             let allowance = store_random_allowance(&pool, &key).await?;
 
             let loaded = Allowance::load(&pool, &key)
@@ -153,7 +151,7 @@ pub(crate) mod persistence {
         #[sqlx::test]
         async fn delete_expired_allowances(pool: PgPool) -> anyhow::Result<()> {
             // First, store an allowance that is valid
-            let key = RLKey::new("test_service", "test_rpc", &[]);
+            let key = RLKey::new(b"test_service", b"test_rpc", &[]);
             let allowance = store_random_allowance(&pool, &key).await?;
 
             // Then, delete expired allowances (should not delete the valid one)
@@ -166,7 +164,7 @@ pub(crate) mod persistence {
             assert_eq!(loaded, allowance);
 
             // Now, store an expired allowance
-            let expired_key = RLKey::new("expired_service", "expired_rpc", &[]);
+            let expired_key = RLKey::new(b"expired_service", b"expired_rpc", &[]);
             let expired_allowance = Allowance {
                 remaining: 0,
                 valid_until: Utc::now() - TimeDelta::weeks(1), // already expired

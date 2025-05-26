@@ -4,7 +4,6 @@
 
 //! Rate Limiter
 
-use async_trait::async_trait;
 use chrono::TimeDelta;
 use sha2::{Digest, Sha256};
 use sqlx::types::chrono::{DateTime, Utc};
@@ -19,24 +18,24 @@ pub(crate) struct RLConfig {
 
 #[derive(Debug, Clone)]
 pub(crate) struct RLKey {
-    key: Vec<u8>,
+    key: [u8; 32],
 }
 
 impl RLKey {
-    pub(crate) fn new(service_name: &str, rpc_name: &str, custom: &[&str]) -> Self {
-        // Generate a key based on the service name
-        let mut inputs = Vec::new();
-        inputs.push(service_name);
-        inputs.push(rpc_name);
-        inputs.extend_from_slice(custom);
+    pub(crate) fn new(service_name: &[u8], rpc_name: &[u8], custom: &[&[u8]]) -> Self {
+        let key = {
+            let mut hasher = Sha256::new();
 
-        let mut vec = Vec::new();
-        for part in inputs {
-            vec.extend_from_slice(&part.len().to_be_bytes());
-            vec.extend_from_slice(part.as_bytes());
-        }
+            for part in [service_name, rpc_name]
+                .into_iter()
+                .chain(custom.iter().copied())
+            {
+                hasher.update((part.len() as u32).to_be_bytes());
+                hasher.update(part);
+            }
 
-        let key = Sha256::digest(&vec).to_vec();
+            hasher.finalize().into()
+        };
 
         RLKey { key }
     }
@@ -80,7 +79,7 @@ impl Allowance {
     }
 }
 
-#[async_trait]
+//#[async_trait]
 pub(crate) trait StorageProvider {
     async fn get(&self, key: &RLKey) -> Option<Allowance>;
     async fn set(&self, key: RLKey, allowance: Allowance);
@@ -118,7 +117,6 @@ mod tests {
 
     use chrono::TimeDelta;
     use tokio::sync::Mutex;
-    use tonic::async_trait;
 
     use crate::rate_limiter::{RLConfig, RateLimiter};
 
@@ -137,7 +135,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl StorageProvider for InMemoryStorage {
         async fn get(&self, key: &RLKey) -> Option<Allowance> {
             self.data.lock().await.get(key.serialize()).cloned()
@@ -155,12 +152,12 @@ mod tests {
     async fn test_rate_limiter() {
         let config = RLConfig {
             max_requests: 5,
-            time_window: TimeDelta::seconds(1),
+            time_window: TimeDelta::milliseconds(1),
         };
         let storage = InMemoryStorage::new();
         let rate_limiter = RateLimiter::new(config.clone(), storage);
 
-        let key = RLKey::new("test_service", "test_rpc", &[]);
+        let key = RLKey::new(b"test_service", b"test_rpc", &[]);
 
         // First 5 requests should succeed
         for _ in 0..config.max_requests {
