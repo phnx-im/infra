@@ -79,7 +79,6 @@ impl Allowance {
     }
 }
 
-//#[async_trait]
 pub(crate) trait StorageProvider {
     async fn get(&self, key: &RLKey) -> Option<Allowance>;
     async fn set(&self, key: RLKey, allowance: Allowance);
