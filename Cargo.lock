@@ -3431,6 +3431,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "chrono",
  "futures-util",
  "insta",
  "mimi-room-policy",
@@ -3441,6 +3442,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "thiserror 2.0.12",
  "tls_codec",
