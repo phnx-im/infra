@@ -5,7 +5,7 @@
 use phnxcommon::messages::client_as::ConnectionPackage;
 use serde::{Deserialize, Serialize};
 
-mod persistence;
+pub(crate) mod persistence;
 
 #[derive(Deserialize)]
 pub(in crate::auth_service) enum StorableConnectionPackage {

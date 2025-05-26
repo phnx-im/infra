@@ -175,7 +175,7 @@ impl StorableConnectionPackage {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use phnxcommon::{
         credentials::{ClientCredential, keys},
         crypto::{ConnectionDecryptionKey, signatures::signable::Signature},
@@ -218,7 +218,9 @@ mod tests {
         Ok(pkgs)
     }
 
-    fn random_connection_package(client_credential: ClientCredential) -> ConnectionPackage {
+    pub(crate) fn random_connection_package(
+        client_credential: ClientCredential,
+    ) -> ConnectionPackage {
         ConnectionPackage::new_for_test(
             ConnectionPackageTbs::new(
                 MlsInfraVersion::default(),

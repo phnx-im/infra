@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use displaydoc::Display;
+use futures_util::Stream;
 use phnxcommon::{
     identifiers::UserHandleHash, messages::client_as::ConnectionPackage, time::ExpirationData,
 };
@@ -21,13 +22,14 @@ use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tonic::{Status, Streaming};
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::auth_service::{AuthService, connection_package::StorableConnectionPackage};
 
 use super::UserHandleRecord;
 
 /// The protocol for a user connecting to another user via their handle
+#[cfg_attr(test, mockall::automock)]
 pub(crate) trait ConnectHandleProtocol {
     /// Implements the Connect Handle protocol
     async fn connect_handle_protocol(
@@ -61,10 +63,11 @@ pub(crate) trait ConnectHandleProtocol {
 
 async fn protocol_impl(
     protocol: &impl ConnectHandleProtocol,
-    mut incoming: Streaming<ConnectRequest>,
+    mut incoming: impl Stream<Item = Result<ConnectRequest, Status>> + Unpin,
     outgoing: &mpsc::Sender<Result<ConnectResponse, Status>>,
 ) -> Result<(), ConnectProtocolError> {
     // step 1: fetch connetion package for a handle hash
+    debug!("step 1: waiting for fetch connection package step");
     let step = incoming.next().await;
     let fetch_connection_package = match step {
         Some(Ok(ConnectRequest {
@@ -85,6 +88,7 @@ async fn protocol_impl(
         .ok_or_missing_field("hash")?
         .try_into()?;
 
+    debug!("load user handle expiration data");
     let Some(expiration_data) = protocol.load_user_handle_expiration_data(&hash).await? else {
         return Err(ConnectProtocolError::HandleNotFound);
     };
@@ -92,6 +96,7 @@ async fn protocol_impl(
         return Err(ConnectProtocolError::HandleNotFound);
     }
 
+    debug!("get connection package for handle");
     let connection_package = protocol.get_connection_package_for_handle(hash).await?;
     if outgoing
         .send(Ok(ConnectResponse {
@@ -108,6 +113,7 @@ async fn protocol_impl(
     }
 
     // step 2: enqueue encrypted connection establishment package
+    debug!("step 2: waiting for enqueue package step");
     let step = incoming.next().await;
     let enqueue_package = match step {
         Some(Ok(ConnectRequest {
@@ -127,11 +133,13 @@ async fn protocol_impl(
         .connection_establishment_package
         .ok_or_missing_field("connection_establishment_package")?;
 
+    debug!("enqueue connection package");
     protocol
         .enqueue_connection_package(connection_establishment_package)
         .await?;
 
     // acknowledge
+    debug!("acknowledge protocol finished");
     if outgoing
         .send(Ok(ConnectResponse {
             step: Some(connect_response::Step::EnqueueResponse(
@@ -144,6 +152,7 @@ async fn protocol_impl(
         return Ok(()); // protocol aborted
     }
 
+    debug!("protocol finished");
     Ok(())
 }
 
@@ -237,4 +246,118 @@ impl From<EnqueueConnectionPackageError> for Status {
     fn from(error: EnqueueConnectionPackageError) -> Self {
         match error {}
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use mockall::predicate::*;
+    use phnxcommon::{identifiers::UserId, time::Duration};
+    use phnxprotos::auth_service::v1::{self, EnqueuePackageStep, FetchConnectionPackageStep};
+    use tokio::sync::mpsc;
+    use tokio_stream::wrappers::ReceiverStream;
+
+    use crate::auth_service::{
+        client_record::persistence::tests::random_client_record,
+        connection_package::persistence::tests::random_connection_package,
+    };
+
+    use super::*;
+
+    fn init_test_tracing() {
+        let _ = tracing_subscriber::fmt::fmt()
+            .with_test_writer()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .try_init();
+    }
+
+    #[tokio::test]
+    async fn connect_handle_protocol_success() -> anyhow::Result<()> {
+        init_test_tracing();
+
+        let user_id = UserId::random("example.com".parse()?);
+        let client_credential = random_client_record(user_id)?.credential().clone();
+
+        let hash = UserHandleHash::new([1; 32]);
+        let expiration_data = ExpirationData::new(Duration::days(1));
+        let connection_package = random_connection_package(client_credential);
+        let connection_establishment_package = EncryptedConnectionEstablishmentPackage::default();
+
+        let mut mock_protocol = MockConnectHandleProtocol::new();
+
+        mock_protocol
+            .expect_load_user_handle_expiration_data()
+            .with(eq(hash))
+            .returning(move |_| Ok(Some(expiration_data.clone())));
+
+        let inner_connection_package = connection_package.clone();
+        mock_protocol
+            .expect_get_connection_package_for_handle()
+            .with(eq(hash))
+            .returning(move |_| Ok(inner_connection_package.clone()));
+
+        mock_protocol
+            .expect_enqueue_connection_package()
+            .with(eq(connection_establishment_package.clone()))
+            .returning(|_| Ok(()));
+
+        let (requests_tx, requests_rx) = mpsc::channel(10);
+        let (responses_tx, mut responses_rx) = mpsc::channel(10);
+
+        // run the protocol
+        let run_handle = tokio::spawn(async move {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(1),
+                protocol_impl(
+                    &mock_protocol,
+                    ReceiverStream::new(requests_rx),
+                    &responses_tx,
+                ),
+            )
+            .await
+            .expect("protocol handler timed out")
+            .expect("protocol handler failed");
+            drop(responses_tx); // make sure we signal the end of sending responses
+        });
+
+        let request_fetch = ConnectRequest {
+            step: Some(connect_request::Step::Fetch(FetchConnectionPackageStep {
+                hash: Some(hash.into()),
+            })),
+        };
+
+        // step 1
+        requests_tx.send(Ok(request_fetch)).await.unwrap();
+        match responses_rx.recv().await.unwrap() {
+            Ok(ConnectResponse {
+                step:
+                    Some(connect_response::Step::FetchResponse(FetchConnectionPackageResponse {
+                        connection_package: Some(received_connection_package),
+                    })),
+            }) => {
+                let connection_package_proto: v1::ConnectionPackage = connection_package.into();
+                assert_eq!(connection_package_proto, received_connection_package);
+            }
+            _ => panic!("unexpected response type"),
+        }
+
+        // step 2
+        let request_enqueue = ConnectRequest {
+            step: Some(connect_request::Step::Enqueue(EnqueuePackageStep {
+                connection_establishment_package: Some(connection_establishment_package.clone()),
+            })),
+        };
+        requests_tx.send(Ok(request_enqueue)).await.unwrap();
+        match responses_rx.recv().await.unwrap() {
+            Ok(ConnectResponse {
+                step: Some(connect_response::Step::EnqueueResponse(EnqueuePackageResponse {})),
+            }) => {}
+            _ => panic!("unexpected response type"),
+        }
+
+        run_handle.await.expect("protocol panicked");
+
+        Ok(())
+    }
+
+    // Add more tests for other error conditions (database errors, etc.)
 }
