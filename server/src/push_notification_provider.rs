@@ -7,7 +7,7 @@ use phnxbackend::{
     qs::{PushNotificationError, PushNotificationProvider},
     settings::{ApnsSettings, FcmSettings},
 };
-use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
+use phnxcommon::messages::push_token::{PushToken, PushTokenOperator};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;

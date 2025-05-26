@@ -5,7 +5,7 @@
 use crate::errors::StorageError;
 
 use super::network_provider::NetworkProvider;
-use phnxtypes::crypto::errors::{DecryptionError, KeyGenerationError};
+use phnxcommon::crypto::errors::{DecryptionError, KeyGenerationError};
 use thiserror::Error;
 
 // === DS API errors ===

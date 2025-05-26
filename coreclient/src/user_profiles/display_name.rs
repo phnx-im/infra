@@ -4,7 +4,7 @@
 
 use std::{fmt::Display, str::FromStr};
 
-use phnxtypes::identifiers::{TlsStr, TlsString};
+use phnxcommon::identifiers::{TlsStr, TlsString};
 use thiserror::Error;
 use uuid::Uuid;
 

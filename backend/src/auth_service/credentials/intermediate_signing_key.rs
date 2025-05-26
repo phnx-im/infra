@@ -5,7 +5,7 @@
 use std::{fmt, ops::Deref};
 
 use mls_assist::openmls::prelude::SignatureScheme;
-use phnxtypes::{
+use phnxcommon::{
     credentials::{
         AsIntermediateCredential, AsIntermediateCredentialCsr, CredentialFingerprint,
         keys::{AsIntermediateSigningKey, AsSigningKey},
@@ -114,7 +114,7 @@ impl IntermediateSigningKey {
 }
 
 mod persistence {
-    use phnxtypes::{
+    use phnxcommon::{
         codec::{BlobDecoded, BlobEncoded},
         credentials::{AsIntermediateCredential, keys::AsIntermediateSigningKey},
     };
@@ -205,7 +205,7 @@ mod persistence {
         use std::collections::HashSet;
 
         use mls_assist::openmls::prelude::SignatureScheme;
-        use phnxtypes::{
+        use phnxcommon::{
             credentials::AsCredential,
             time::{Duration, ExpirationData},
         };

@@ -4,7 +4,7 @@
 
 use displaydoc::Display;
 use openmls::prelude::HpkeCiphertext;
-use phnxtypes::{
+use phnxcommon::{
     credentials::{self, keys},
     crypto, identifiers,
     messages::{self, client_as},

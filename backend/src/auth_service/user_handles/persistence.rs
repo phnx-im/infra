@@ -146,7 +146,7 @@ pub(super) enum UpdateExpirationDataResult {
 
 #[cfg(test)]
 mod test {
-    use phnxtypes::time::Duration;
+    use phnxcommon::time::Duration;
     use sqlx::PgPool;
 
     use super::*;

@@ -4,7 +4,7 @@
 
 use mls_assist::openmls::prelude::KeyPackage;
 
-use phnxtypes::{
+use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::QsClientId,
     messages::FriendshipToken,

@@ -5,7 +5,7 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use enumset::EnumSet;
-use phnxtypes::{codec::PhnxCodec, identifiers::UserId};
+use phnxcommon::{codec::PhnxCodec, identifiers::UserId};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,

@@ -1,0 +1,10 @@
+---
+source: common/src/crypto/mod.rs
+assertion_line: 74
+expression: key
+---
+[
+  1,
+  2,
+  3
+]

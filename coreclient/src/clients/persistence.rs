@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::{DateTime, Utc};
-use phnxtypes::{
+use phnxcommon::{
     codec::PhnxCodec,
     identifiers::{Fqdn, UserId},
 };
@@ -252,7 +252,7 @@ mod tests {
     use std::sync::LazyLock;
 
     use chrono::{DateTime, Utc};
-    use phnxtypes::messages::push_token::{PushToken, PushTokenOperator};
+    use phnxcommon::messages::push_token::{PushToken, PushTokenOperator};
     use sqlx::SqlitePool;
     use uuid::Uuid;
 

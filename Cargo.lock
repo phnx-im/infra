@@ -3375,8 +3375,8 @@ name = "phnxapiclient"
 version = "0.1.0"
 dependencies = [
  "mls-assist",
+ "phnxcommon",
  "phnxprotos",
- "phnxtypes",
  "thiserror 2.0.12",
  "tls_codec",
  "tokio",
@@ -3405,8 +3405,8 @@ dependencies = [
  "mimi_content",
  "notify-rust",
  "parking_lot",
+ "phnxcommon",
  "phnxcoreclient",
- "phnxtypes",
  "pulldown-cmark",
  "quickcheck",
  "quickcheck_macros",
@@ -3436,8 +3436,8 @@ dependencies = [
  "insta",
  "mimi-room-policy",
  "mls-assist",
+ "phnxcommon",
  "phnxprotos",
- "phnxtypes",
  "privacypass",
  "rand 0.8.5",
  "serde",
@@ -3457,11 +3457,31 @@ dependencies = [
 name = "phnxcommon"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "argon2",
  "async-trait",
+ "chrono",
+ "ciborium",
  "criterion 0.6.0",
- "rand 0.9.1",
+ "displaydoc",
+ "ed25519",
+ "hex",
+ "hkdf",
+ "insta",
+ "mls-assist",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "thiserror 2.0.12",
+ "tls_codec",
  "tokio",
+ "tracing",
+ "url",
+ "uuid",
 ]
 
 [[package]]
@@ -3483,9 +3503,9 @@ dependencies = [
  "openmls_traits",
  "phnxapiclient",
  "phnxbackend",
+ "phnxcommon",
  "phnxprotos",
  "phnxserver_test_harness",
- "phnxtypes",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
@@ -3510,7 +3530,7 @@ dependencies = [
  "displaydoc",
  "mls-assist",
  "openmls",
- "phnxtypes",
+ "phnxcommon",
  "prost",
  "protoc-bin-vendored",
  "thiserror 2.0.12",
@@ -3533,10 +3553,10 @@ dependencies = [
  "once_cell",
  "phnxapiclient",
  "phnxbackend",
+ "phnxcommon",
  "phnxcoreclient",
  "phnxprotos",
  "phnxserver_test_harness",
- "phnxtypes",
  "png",
  "rand 0.8.5",
  "reqwest",
@@ -3566,43 +3586,15 @@ dependencies = [
  "anyhow",
  "mimi_content",
  "phnxbackend",
+ "phnxcommon",
  "phnxcoreclient",
  "phnxserver",
- "phnxtypes",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
-name = "phnxtypes"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "argon2",
- "chrono",
- "ciborium",
- "displaydoc",
- "ed25519",
- "hex",
- "hkdf",
- "insta",
- "mls-assist",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "secrecy",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "thiserror 2.0.12",
- "tls_codec",
- "tracing",
- "url",
  "uuid",
 ]
 
@@ -4571,9 +4563,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.20"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
+checksum = "8a0d197bd2c9dc6e53b84da9556a69ba4cdfab8619eb41a8bd1cc2027a0f6b1d"
 
 [[package]]
 name = "ryu"
