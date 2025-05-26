@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxtypes::{
-    credentials::keys::{ClientKeyType, ClientSignature},
+    credentials::keys::{self, ClientKeyType, ClientSignature},
     crypto::signatures::signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
 };
 use prost::Message;
@@ -343,8 +343,8 @@ impl Verifiable for IssueTokensRequest {
 
 const CREATE_HANDLE_PAYLOAD_LABEL: &str = "CreateHandlePayload";
 
-impl SignedStruct<CreateHandlePayload> for CreateHandleRequest {
-    fn from_payload(payload: CreateHandlePayload, signature: signable::Signature) -> Self {
+impl SignedStruct<CreateHandlePayload, keys::HandleKeyType> for CreateHandleRequest {
+    fn from_payload(payload: CreateHandlePayload, signature: keys::HandleSignature) -> Self {
         CreateHandleRequest {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -396,8 +396,8 @@ impl Verifiable for CreateHandleRequest {
 
 const DELETE_HANDLE_PAYLOAD_LABEL: &str = "DeleteHandlePayload";
 
-impl SignedStruct<DeleteHandlePayload> for DeleteHandleRequest {
-    fn from_payload(payload: DeleteHandlePayload, signature: signable::Signature) -> Self {
+impl SignedStruct<DeleteHandlePayload, keys::HandleKeyType> for DeleteHandleRequest {
+    fn from_payload(payload: DeleteHandlePayload, signature: keys::HandleSignature) -> Self {
         DeleteHandleRequest {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -449,8 +449,8 @@ impl Verifiable for DeleteHandleRequest {
 
 const REFRESH_HANDLE_PAYLOAD_LABEL: &str = "RefreshHandlePayload";
 
-impl SignedStruct<RefreshHandlePayload> for RefreshHandleRequest {
-    fn from_payload(payload: RefreshHandlePayload, signature: signable::Signature) -> Self {
+impl SignedStruct<RefreshHandlePayload, keys::HandleKeyType> for RefreshHandleRequest {
+    fn from_payload(payload: RefreshHandlePayload, signature: keys::HandleSignature) -> Self {
         RefreshHandleRequest {
             payload: Some(payload),
             signature: Some(signature.into()),

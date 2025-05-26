@@ -5,6 +5,7 @@ use sqlx::{PgExecutor, PgPool, query, query_scalar};
 
 use super::*;
 
+#[cfg_attr(test, derive(Debug, PartialEq, Eq, Clone))]
 pub(crate) struct UserHandleRecord {
     pub(crate) user_handle_hash: UserHandleHash,
     pub(crate) verifying_key: HandleVerifyingKey,
@@ -12,22 +13,56 @@ pub(crate) struct UserHandleRecord {
 }
 
 impl UserHandleRecord {
-    pub(crate) async fn store(&self, executor: impl PgExecutor<'_>) -> sqlx::Result<bool> {
-        let res = query!(
+    async fn load(
+        executor: impl PgExecutor<'_>,
+        hash: UserHandleHash,
+    ) -> sqlx::Result<Option<Self>> {
+        let record = query!(
+            r#"SELECT
+                verifying_key AS "verifying_key: HandleVerifyingKey",
+                expiration_data AS "expiration_data: ExpirationData"
+            FROM as_user_handles
+            WHERE hash = $1"#,
+            hash.as_bytes(),
+        )
+        .fetch_optional(executor)
+        .await?
+        .map(|record| Self {
+            user_handle_hash: hash,
+            verifying_key: record.verifying_key,
+            expiration_data: record.expiration_data,
+        });
+        Ok(record)
+    }
+
+    pub(crate) async fn store(&self, pool: &PgPool) -> sqlx::Result<bool> {
+        let mut txn = pool.begin().await?;
+
+        if let Some(record) = Self::load(txn.as_mut(), self.user_handle_hash).await? {
+            if record.verifying_key != self.verifying_key {
+                // The record already exists, but does not belong to the user
+                return Ok(false);
+            }
+        }
+
+        query!(
             "INSERT INTO as_user_handles (
                 hash,
                 verifying_key,
                 expiration_data
             ) VALUES ($1, $2, $3)
-            ON CONFLICT DO NOTHING",
+            ON CONFLICT (hash) DO UPDATE
+                SET expiration_data = $3",
             self.user_handle_hash.as_bytes(),
             self.verifying_key as _,
             self.expiration_data as _,
         )
-        .execute(executor)
+        .execute(txn.as_mut())
         .await?;
-        let inserted = res.rows_affected() > 0;
-        Ok(inserted)
+
+        txn.commit().await?;
+
+        Ok(true)
     }
 
     pub(crate) async fn load_verifying_key(
@@ -57,7 +92,6 @@ impl UserHandleRecord {
         Ok(deleted)
     }
 
-    #[allow(dead_code)]
     async fn load_expiration_data(
         executor: impl PgExecutor<'_>,
         hash: UserHandleHash,
@@ -133,6 +167,14 @@ mod test {
         let inserted = record.store(&pool).await?;
         assert!(inserted, "Record should be inserted successfully");
 
+        // Test loading the record
+        let loaded_record = UserHandleRecord::load(&pool, user_handle_hash).await?;
+        assert_eq!(
+            loaded_record.as_ref(),
+            Some(&record),
+            "Loaded record should match"
+        );
+
         // Test loading the verifying key
         let loaded_verifying_key =
             UserHandleRecord::load_verifying_key(&pool, &user_handle_hash).await?;
@@ -142,9 +184,25 @@ mod test {
             "Loaded verifying key should match"
         );
 
-        // Test storing the same record again (ON CONFLICT DO NOTHING)
+        // Test storing the same record again
         let inserted_again = record.store(&pool).await?;
-        assert!(!inserted_again, "Duplicate record should not be inserted");
+        assert!(
+            inserted_again,
+            "Duplicate record with same verifying key should be updated"
+        );
+
+        // Test storing a different record
+        let different_record = UserHandleRecord {
+            user_handle_hash,
+            verifying_key: HandleVerifyingKey::from_bytes(vec![2, 3, 4, 5, 6]),
+            expiration_data: ExpirationData::new(Duration::days(1)),
+        };
+        assert_ne!(verifying_key, different_record.verifying_key);
+        let inserted_again = different_record.store(&pool).await?;
+        assert!(
+            !inserted_again,
+            "Different record with same verifying key should be rejected"
+        );
 
         // Test loading a non-existent key
         let non_existent_hash = UserHandleHash::new([2; 32]);

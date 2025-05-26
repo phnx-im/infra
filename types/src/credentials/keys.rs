@@ -236,3 +236,5 @@ pub struct HandleKeyType;
 impl RawKey for HandleKeyType {}
 
 pub type HandleVerifyingKey = VerifyingKey<HandleKeyType>;
+
+pub type HandleSignature = Signature<HandleKeyType>;

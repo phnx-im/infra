@@ -6,8 +6,7 @@ use displaydoc::Display;
 use openmls::prelude::HpkeCiphertext;
 use phnxtypes::{
     credentials::{self, keys},
-    crypto::{self, signatures::signable},
-    identifiers,
+    crypto, identifiers,
     messages::{self, client_as},
     time,
 };
@@ -15,7 +14,10 @@ use thiserror::Error;
 use tonic::Status;
 
 use crate::{
-    common::convert::{InvalidIndexedCiphertext, InvalidNonceLen},
+    common::{
+        convert::{InvalidIndexedCiphertext, InvalidNonceLen},
+        v1::Signature,
+    },
     convert::TryRefInto,
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -742,10 +744,18 @@ impl From<UserHandleHashError> for Status {
     }
 }
 
-impl From<signable::Signature> for HandleSignature {
-    fn from(value: signable::Signature) -> Self {
+impl From<keys::HandleSignature> for HandleSignature {
+    fn from(value: keys::HandleSignature) -> Self {
         Self {
-            signature: Some(value.into()),
+            signature: Some(Signature {
+                value: value.into_bytes(),
+            }),
         }
+    }
+}
+
+impl From<HandleSignature> for keys::HandleSignature {
+    fn from(proto: HandleSignature) -> Self {
+        keys::HandleSignature::from_bytes(proto.signature.unwrap_or_default().value)
     }
 }
