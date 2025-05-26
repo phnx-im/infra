@@ -13,6 +13,11 @@ pub(crate) struct UserHandleRecord {
 }
 
 impl UserHandleRecord {
+    /// Upserts a user handle record in the database.
+    ///
+    /// Upsert is only done when the record is expired.
+    ///
+    /// Returns `true` if the record was upserrted, otherwise `false`.
     pub(crate) async fn store(&self, pool: &PgPool) -> sqlx::Result<bool> {
         let mut txn = pool.begin().await?;
 
@@ -59,6 +64,9 @@ impl UserHandleRecord {
         .await
     }
 
+    /// Deletes a user handle record from the database.
+    ///
+    /// Returns `true` if the record was deleted, otherwise `false`.
     pub(super) async fn delete(
         executor: impl PgExecutor<'_>,
         hash: UserHandleHash,
@@ -136,7 +144,7 @@ mod test {
     async fn test_store_and_load_user_handle_record(pool: PgPool) -> anyhow::Result<()> {
         let user_handle_hash = UserHandleHash::new([1; 32]);
         let verifying_key = HandleVerifyingKey::from_bytes(vec![1]);
-        let expiration_data = ExpirationData::new(Duration::milliseconds(1));
+        let expiration_data = ExpirationData::new(Duration::zero());
 
         let record = UserHandleRecord {
             user_handle_hash,
@@ -318,7 +326,7 @@ mod test {
         let res = UserHandleRecord::update_expiration_data(
             &pool,
             user_handle_hash,
-            ExpirationData::new(Duration::milliseconds(1)),
+            ExpirationData::new(Duration::zero()),
         )
         .await?;
         assert!(

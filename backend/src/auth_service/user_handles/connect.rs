@@ -282,6 +282,7 @@ mod tests {
 
     const PROTOCOL_TIMEOUT: time::Duration = time::Duration::from_secs(1);
 
+    #[expect(clippy::type_complexity, reason = "usage in tests is straightforward")]
     fn run_test_protocol(
         mock_protocol: MockConnectHandleProtocol,
     ) -> (
