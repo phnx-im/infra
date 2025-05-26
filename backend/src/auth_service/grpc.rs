@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use displaydoc::Display;
 use futures_util::stream::BoxStream;
 use phnxprotos::{
     auth_service::v1::{auth_service_server, *},
@@ -37,7 +38,7 @@ use super::{
     AuthService,
     client_record::ClientRecord,
     queue::Queues,
-    user_handles::{ConnectHandleProtocol, UserHandleRecord},
+    user_handles::{ConnectHandleProtocol, UserHandleQueues, UserHandleRecord},
 };
 
 pub struct GrpcAs {
@@ -145,6 +146,34 @@ impl GrpcAs {
         queues
             .ack(user_id, ack_request.up_to_sequence_number)
             .await?;
+        Ok(())
+    }
+
+    async fn process_listen_handle_requests_task(
+        queues: UserHandleQueues,
+        mut requests: Streaming<ListenHandleRequest>,
+    ) {
+        while let Some(request) = requests.next().await {
+            if let Err(error) = Self::process_listen_handle_request(&queues, request).await {
+                // We report the error, but don't stop processing requests.
+                // TODO(#466): Send this to the client.
+                error!(%error, "error processing listen request");
+            }
+        }
+    }
+
+    async fn process_listen_handle_request(
+        queues: &UserHandleQueues,
+        request: Result<ListenHandleRequest, Status>,
+    ) -> Result<(), Status> {
+        let request = request?;
+        let Some(listen_handle_request::Request::Ack(ack_request)) = request.request else {
+            return Err(ListenHandleProtocolViolation::OnlyAckRequestAllowed.into());
+        };
+        let Some(message_id) = ack_request.message_id else {
+            return Err(ListenHandleProtocolViolation::MissingMessageId.into());
+        };
+        queues.ack(message_id.into()).await?;
         Ok(())
     }
 }
@@ -500,9 +529,32 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn listen_handle(
         &self,
-        _request: Request<Streaming<ListenHandleRequest>>,
+        request: Request<Streaming<ListenHandleRequest>>,
     ) -> Result<Response<Self::ListenHandleStream>, Status> {
-        todo!()
+        let mut requests = request.into_inner();
+
+        let request = requests
+            .next()
+            .await
+            .ok_or(ListenProtocolViolation::MissingInitRequest)??;
+        let Some(listen_handle_request::Request::Init(init_request)) = request.request else {
+            return Err(ListenHandleProtocolViolation::MissingInitRequest.into());
+        };
+
+        let (hash, _payload) = self
+            .verify_handle_auth::<_, InitListenHandlePayload>(init_request)
+            .await?;
+
+        let messages = self.inner.handle_queues.listen(hash).await?;
+
+        tokio::spawn(Self::process_listen_handle_requests_task(
+            self.inner.handle_queues.clone(),
+            requests,
+        ));
+
+        let responses = Box::pin(messages.map(|message| Ok(ListenHandleResponse { message })));
+
+        Ok(Response::new(responses))
     }
 }
 
@@ -516,6 +568,22 @@ enum ListenProtocolViolation {
 
 impl From<ListenProtocolViolation> for Status {
     fn from(error: ListenProtocolViolation) -> Self {
+        Status::failed_precondition(error.to_string())
+    }
+}
+
+#[derive(Debug, thiserror::Error, Display)]
+enum ListenHandleProtocolViolation {
+    /// Missing initial request
+    MissingInitRequest,
+    /// Only ack request allowed
+    OnlyAckRequestAllowed,
+    /// Missing message id in ack request
+    MissingMessageId,
+}
+
+impl From<ListenHandleProtocolViolation> for Status {
+    fn from(error: ListenHandleProtocolViolation) -> Self {
         Status::failed_precondition(error.to_string())
     }
 }
@@ -587,6 +655,12 @@ impl WithUserHandleHash for DeleteHandleRequest {
 }
 
 impl WithUserHandleHash for RefreshHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
+    }
+}
+
+impl WithUserHandleHash for InitListenHandleRequest {
     fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
         self.payload.as_ref()?.hash.clone()
     }

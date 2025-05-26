@@ -24,7 +24,7 @@ const MAX_BUFFER_SIZE: usize = 32;
 #[derive(Debug, Clone)]
 pub(crate) struct Queues {
     pool: PgPool,
-    // Ensures that we have only a stream per queue.
+    // Ensures that we have only a single stream per queue.
     listeners: Arc<Mutex<HashMap<UserId, CancellationToken>>>,
 }
 

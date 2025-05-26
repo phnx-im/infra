@@ -19,9 +19,11 @@ use super::AuthService;
 
 pub(crate) use connect::ConnectHandleProtocol;
 pub(crate) use persistence::UserHandleRecord;
+pub(crate) use queue::UserHandleQueues;
 
 mod connect;
 mod persistence;
+mod queue;
 
 impl AuthService {
     pub(crate) async fn as_create_handle(

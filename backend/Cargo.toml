@@ -35,6 +35,8 @@ rand = "0.8"
 tokio-util.workspace = true
 futures-util = "0.3.31"
 displaydoc = "0.2.5"
+hex = "0.4.3"
+prost.workspace = true
 
 [dev-dependencies]
 phnxcommon = { path = "../common", features = ["test_utils"] }
