@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use displaydoc::Display;
-use phnxcommon::{identifiers::UserHandleHash, messages::client_as::ConnectionPackage};
+use phnxcommon::{
+    identifiers::UserHandleHash, messages::client_as::ConnectionPackage, time::ExpirationData,
+};
 use phnxprotos::{
     auth_service::v1::{
         ConnectRequest, ConnectResponse, EncryptedConnectionEstablishmentPackage,
@@ -18,6 +20,8 @@ use tonic::{Status, Streaming};
 use tracing::error;
 
 use crate::auth_service::{AuthService, connection_package::StorableConnectionPackage};
+
+use super::UserHandleRecord;
 
 /// The protocol for a user connecting to another user via their handle
 pub(crate) trait ConnectHandleProtocol {
@@ -34,6 +38,11 @@ pub(crate) trait ConnectHandleProtocol {
             let _ignore_closed_channel = outgoing.send(Err(error)).await;
         }
     }
+
+    async fn load_user_handle_expiration_data(
+        &self,
+        hash: &UserHandleHash,
+    ) -> sqlx::Result<Option<ExpirationData>>;
 
     async fn get_connection_package_for_handle(
         &self,
@@ -73,6 +82,13 @@ async fn protocol_impl(
         .hash
         .ok_or_missing_field("hash")?
         .try_into()?;
+
+    let Some(expiration_data) = protocol.load_user_handle_expiration_data(&hash).await? else {
+        return Err(Status::not_found("handle not found"));
+    };
+    if !expiration_data.validate() {
+        return Err(Status::failed_precondition("handle expired"));
+    }
 
     let connection_package = protocol.get_connection_package_for_handle(hash).await?;
     if outgoing
@@ -132,6 +148,13 @@ async fn protocol_impl(
 }
 
 impl ConnectHandleProtocol for AuthService {
+    async fn load_user_handle_expiration_data(
+        &self,
+        hash: &UserHandleHash,
+    ) -> sqlx::Result<Option<ExpirationData>> {
+        UserHandleRecord::load_expiration_data(&self.db_pool, *hash).await
+    }
+
     async fn get_connection_package_for_handle(
         &self,
         hash: UserHandleHash,

@@ -92,7 +92,7 @@ impl UserHandleRecord {
         Ok(deleted)
     }
 
-    async fn load_expiration_data(
+    pub(crate) async fn load_expiration_data(
         executor: impl PgExecutor<'_>,
         hash: UserHandleHash,
     ) -> sqlx::Result<Option<ExpirationData>> {
