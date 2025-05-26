@@ -239,17 +239,13 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         // Extract user id
         let members = group.members().collect::<Vec<_>>();
 
-        if members.len() > 1 {
+        let &[own_leaf] = &members.as_slice() else {
             error!(members = %members.len(), "group must have exactly one member");
             return Err(Status::invalid_argument(
                 "group must have exactly one member",
             ));
-        }
+        };
 
-        let own_leaf = members.first().ok_or_else(|| {
-            error!("group must have exactly one member");
-            Status::invalid_argument("group must have exactly one member")
-        })?;
         let credential =
             ClientCredential::tls_deserialize_exact_bytes(own_leaf.credential.serialized_content())
                 .map_err(|_| Status::invalid_argument("invalid credential"))?;
