@@ -81,8 +81,8 @@ Future<String> getDatabaseDirectoryMobile() async {
 }
 
 Future<void> setBadgeCount(int count) async {
-  // Make sure we are on iOS
-  if (!Platform.isIOS) {
+  // Make sure we are on iOS or macOS
+  if (!Platform.isIOS && !Platform.isMacOS) {
     return;
   }
   try {
