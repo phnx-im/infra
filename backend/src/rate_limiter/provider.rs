@@ -30,7 +30,7 @@ impl StorageProvider for RLPostgresStorage {
 
 pub(crate) mod persistence {
 
-    use chrono::{SubsecRound, Timelike};
+    use chrono::Timelike;
     use sqlx::{
         PgExecutor, query, query_as,
         types::chrono::{DateTime, Utc},
