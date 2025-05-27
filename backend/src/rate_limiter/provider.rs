@@ -4,7 +4,7 @@
 
 use sqlx::PgPool;
 
-use super::{Allowance, RLKey, StorageProvider};
+use super::{Allowance, RlKey, StorageProvider};
 
 pub(crate) struct RLPostgresStorage {
     pool: PgPool,
@@ -17,11 +17,11 @@ impl RLPostgresStorage {
 }
 
 impl StorageProvider for RLPostgresStorage {
-    async fn get(&self, key: &RLKey) -> Option<Allowance> {
+    async fn get(&self, key: &RlKey) -> Option<Allowance> {
         Allowance::load(&self.pool, key).await.ok().flatten()
     }
 
-    async fn set(&self, key: RLKey, allowance: Allowance) {
+    async fn set(&self, key: RlKey, allowance: Allowance) {
         if let Err(error) = allowance.store(&self.pool, &key).await {
             tracing::error!(%error, "Failed to store allowance in Postgres");
         }
@@ -30,13 +30,13 @@ impl StorageProvider for RLPostgresStorage {
 
 pub(crate) mod persistence {
 
-    use chrono::Timelike;
+    use chrono::{SubsecRound, Timelike};
     use sqlx::{
         PgExecutor, query, query_as,
         types::chrono::{DateTime, Utc},
     };
 
-    use crate::{errors::StorageError, rate_limiter::RLKey};
+    use crate::{errors::StorageError, rate_limiter::RlKey};
 
     use super::Allowance;
 
@@ -50,7 +50,7 @@ pub(crate) mod persistence {
         /// Load an Allowance from the database by its key.
         pub(in crate::rate_limiter) async fn load(
             connection: impl PgExecutor<'_>,
-            key: &RLKey,
+            key: &RlKey,
         ) -> Result<Option<Allowance>, StorageError> {
             struct AllowanceRecord {
                 remaining: i64,
@@ -78,7 +78,7 @@ pub(crate) mod persistence {
         pub(in crate::rate_limiter) async fn store(
             &self,
             connection: impl PgExecutor<'_>,
-            key: &RLKey,
+            key: &RlKey,
         ) -> Result<(), StorageError> {
             query!(
                 "INSERT INTO allowance_records
@@ -125,7 +125,7 @@ pub(crate) mod persistence {
 
         pub async fn store_random_allowance(
             pool: &PgPool,
-            key: &RLKey,
+            key: &RlKey,
         ) -> anyhow::Result<Allowance> {
             let allowance = Allowance {
                 remaining: 10,
@@ -137,7 +137,7 @@ pub(crate) mod persistence {
 
         #[sqlx::test]
         async fn load_allowance(pool: PgPool) -> anyhow::Result<()> {
-            let key = RLKey::new(b"test_service", b"test_rpc", &[]);
+            let key = RlKey::new(b"test_service", b"test_rpc", &[]);
             let allowance = store_random_allowance(&pool, &key).await?;
 
             let loaded = Allowance::load(&pool, &key)
@@ -151,7 +151,7 @@ pub(crate) mod persistence {
         #[sqlx::test]
         async fn delete_expired_allowances(pool: PgPool) -> anyhow::Result<()> {
             // First, store an allowance that is valid
-            let key = RLKey::new(b"test_service", b"test_rpc", &[]);
+            let key = RlKey::new(b"test_service", b"test_rpc", &[]);
             let allowance = store_random_allowance(&pool, &key).await?;
 
             // Then, delete expired allowances (should not delete the valid one)
@@ -164,7 +164,7 @@ pub(crate) mod persistence {
             assert_eq!(loaded, allowance);
 
             // Now, store an expired allowance
-            let expired_key = RLKey::new(b"expired_service", b"expired_rpc", &[]);
+            let expired_key = RlKey::new(b"expired_service", b"expired_rpc", &[]);
             let expired_allowance = Allowance {
                 remaining: 0,
                 valid_until: Utc::now() - TimeDelta::weeks(1), // already expired

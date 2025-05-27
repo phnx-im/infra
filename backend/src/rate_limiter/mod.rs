@@ -11,17 +11,17 @@ use sqlx::types::chrono::{DateTime, Utc};
 pub(crate) mod provider;
 
 #[derive(Debug, Clone)]
-pub(crate) struct RLConfig {
+pub(crate) struct RlConfig {
     pub(crate) max_requests: u64,
     pub(crate) time_window: TimeDelta,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct RLKey {
+pub(crate) struct RlKey {
     key: [u8; 32],
 }
 
-impl RLKey {
+impl RlKey {
     pub(crate) fn new(service_name: &[u8], rpc_name: &[u8], custom: &[&[u8]]) -> Self {
         let key = {
             let mut hasher = Sha256::new();
@@ -37,7 +37,7 @@ impl RLKey {
             hasher.finalize().into()
         };
 
-        RLKey { key }
+        RlKey { key }
     }
 
     pub(crate) fn serialize(&self) -> &[u8] {
@@ -52,19 +52,19 @@ pub struct Allowance {
 }
 
 impl Allowance {
-    pub(crate) fn new(config: &RLConfig) -> Self {
+    pub(crate) fn new(config: &RlConfig) -> Self {
         Allowance {
             remaining: config.max_requests,
             valid_until: Utc::now() + config.time_window,
         }
     }
 
-    fn reset(&mut self, config: &RLConfig) {
+    fn reset(&mut self, config: &RlConfig) {
         self.remaining = config.max_requests;
         self.valid_until = Utc::now() + config.time_window;
     }
 
-    fn allowed(&mut self, config: &RLConfig) -> bool {
+    fn allowed(&mut self, config: &RlConfig) -> bool {
         // Check if the time window has passed
         if self.valid_until < Utc::now() {
             self.reset(config);
@@ -80,21 +80,21 @@ impl Allowance {
 }
 
 pub(crate) trait StorageProvider {
-    async fn get(&self, key: &RLKey) -> Option<Allowance>;
-    async fn set(&self, key: RLKey, allowance: Allowance);
+    async fn get(&self, key: &RlKey) -> Option<Allowance>;
+    async fn set(&self, key: RlKey, allowance: Allowance);
 }
 
 pub(crate) struct RateLimiter<S: StorageProvider> {
-    config: RLConfig,
+    config: RlConfig,
     storage: S,
 }
 
 impl<S: StorageProvider> RateLimiter<S> {
-    pub(crate) fn new(config: RLConfig, storage: S) -> Self {
+    pub(crate) fn new(config: RlConfig, storage: S) -> Self {
         RateLimiter { config, storage }
     }
 
-    pub(crate) async fn allowed(&self, key: RLKey) -> bool {
+    pub(crate) async fn allowed(&self, key: RlKey) -> bool {
         let mut allowance = self
             .storage
             .get(&key)
@@ -117,9 +117,9 @@ mod tests {
     use chrono::TimeDelta;
     use tokio::sync::Mutex;
 
-    use crate::rate_limiter::{RLConfig, RateLimiter};
+    use crate::rate_limiter::{RateLimiter, RlConfig};
 
-    use super::{Allowance, RLKey, StorageProvider};
+    use super::{Allowance, RlKey, StorageProvider};
 
     #[derive(Default)]
     pub struct InMemoryStorage {
@@ -135,11 +135,11 @@ mod tests {
     }
 
     impl StorageProvider for InMemoryStorage {
-        async fn get(&self, key: &RLKey) -> Option<Allowance> {
+        async fn get(&self, key: &RlKey) -> Option<Allowance> {
             self.data.lock().await.get(key.serialize()).cloned()
         }
 
-        async fn set(&self, key: RLKey, allowance: Allowance) {
+        async fn set(&self, key: RlKey, allowance: Allowance) {
             self.data
                 .lock()
                 .await
@@ -149,14 +149,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_rate_limiter() {
-        let config = RLConfig {
+        let config = RlConfig {
             max_requests: 5,
             time_window: TimeDelta::milliseconds(1),
         };
         let storage = InMemoryStorage::new();
         let rate_limiter = RateLimiter::new(config.clone(), storage);
 
-        let key = RLKey::new(b"test_service", b"test_rpc", &[]);
+        let key = RlKey::new(b"test_service", b"test_rpc", &[]);
 
         // First 5 requests should succeed
         for _ in 0..config.max_requests {

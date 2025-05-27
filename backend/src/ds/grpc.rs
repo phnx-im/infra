@@ -41,7 +41,7 @@ use crate::{
     ds::process::Provider,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
-    rate_limiter::{RLConfig, RLKey, RateLimiter, provider::RLPostgresStorage},
+    rate_limiter::{RateLimiter, RlConfig, RlKey, provider::RLPostgresStorage},
 };
 
 use super::{
@@ -252,12 +252,12 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         let user_id = credential.identity().uuid();
 
         // Configure the rate-limiting
-        let rl_key = RLKey::new(
+        let rl_key = RlKey::new(
             b"ds",
             b"reserve_group_id",
             &[b"user_uuid", user_id.as_bytes()],
         );
-        let config = RLConfig {
+        let config = RlConfig {
             max_requests: 100,
             time_window: TimeDelta::hours(1),
         };
