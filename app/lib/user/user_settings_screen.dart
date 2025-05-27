@@ -140,7 +140,7 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
                             hintText: 'DISPLAY NAME',
                           ),
                           initialValue: displayName,
-                          style: inputTextStyle,
+                          style: inputTextStyle(context),
                           onChanged: (value) {
                             setState(() {
                               newDisplayName = value;
