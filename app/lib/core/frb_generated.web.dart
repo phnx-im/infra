@@ -472,10 +472,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiSystemMessage dco_decode_box_autoadd_ui_system_message(dynamic raw);
 
   @protected
+  UiUserHandle dco_decode_box_autoadd_ui_user_handle(dynamic raw);
+
+  @protected
   UiUserId dco_decode_box_autoadd_ui_user_id(dynamic raw);
 
   @protected
   UiUserProfile dco_decode_box_autoadd_ui_user_profile(dynamic raw);
+
+  @protected
+  UserSettingsScreenType dco_decode_box_autoadd_user_settings_screen_type(
+    dynamic raw,
+  );
 
   @protected
   UiContentMessage dco_decode_box_ui_content_message(dynamic raw);
@@ -563,6 +571,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<UiUserHandle> dco_decode_list_ui_user_handle(dynamic raw);
+
+  @protected
   List<UiUserId> dco_decode_list_ui_user_id(dynamic raw);
 
   @protected
@@ -636,6 +647,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiUserId? dco_decode_opt_box_autoadd_ui_user_id(dynamic raw);
 
   @protected
+  UserSettingsScreenType? dco_decode_opt_box_autoadd_user_settings_screen_type(
+    dynamic raw,
+  );
+
+  @protected
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
@@ -705,6 +721,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiSystemMessage dco_decode_ui_system_message(dynamic raw);
 
   @protected
+  UiUserHandle dco_decode_ui_user_handle(dynamic raw);
+
+  @protected
   UiUserId dco_decode_ui_user_id(dynamic raw);
 
   @protected
@@ -712,6 +731,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void dco_decode_unit(dynamic raw);
+
+  @protected
+  UserSettingsScreenType dco_decode_user_settings_screen_type(dynamic raw);
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
@@ -1111,10 +1133,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiUserHandle sse_decode_box_autoadd_ui_user_handle(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   UiUserId sse_decode_box_autoadd_ui_user_id(SseDeserializer deserializer);
 
   @protected
   UiUserProfile sse_decode_box_autoadd_ui_user_profile(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UserSettingsScreenType sse_decode_box_autoadd_user_settings_screen_type(
     SseDeserializer deserializer,
   );
 
@@ -1228,6 +1260,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<UiUserHandle> sse_decode_list_ui_user_handle(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<UiUserId> sse_decode_list_ui_user_id(SseDeserializer deserializer);
 
   @protected
@@ -1309,6 +1346,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiUserId? sse_decode_opt_box_autoadd_ui_user_id(SseDeserializer deserializer);
+
+  @protected
+  UserSettingsScreenType? sse_decode_opt_box_autoadd_user_settings_screen_type(
+    SseDeserializer deserializer,
+  );
 
   @protected
   Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
@@ -1398,6 +1440,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiSystemMessage sse_decode_ui_system_message(SseDeserializer deserializer);
 
   @protected
+  UiUserHandle sse_decode_ui_user_handle(SseDeserializer deserializer);
+
+  @protected
   UiUserId sse_decode_ui_user_id(SseDeserializer deserializer);
 
   @protected
@@ -1405,6 +1450,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  UserSettingsScreenType sse_decode_user_settings_screen_type(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
@@ -1891,6 +1941,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_ui_user_handle(
+    UiUserHandle self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_ui_user_id(
     UiUserId self,
     SseSerializer serializer,
@@ -1899,6 +1955,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_ui_user_profile(
     UiUserProfile self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_user_settings_screen_type(
+    UserSettingsScreenType self,
     SseSerializer serializer,
   );
 
@@ -2041,6 +2103,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_ui_user_handle(
+    List<UiUserHandle> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_ui_user_id(
     List<UiUserId> self,
     SseSerializer serializer,
@@ -2147,6 +2215,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_ui_user_id(
     UiUserId? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_user_settings_screen_type(
+    UserSettingsScreenType? self,
     SseSerializer serializer,
   );
 
@@ -2271,6 +2345,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_ui_user_handle(UiUserHandle self, SseSerializer serializer);
+
+  @protected
   void sse_encode_ui_user_id(UiUserId self, SseSerializer serializer);
 
   @protected
@@ -2278,6 +2355,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_user_settings_screen_type(
+    UserSettingsScreenType self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);

@@ -15,7 +15,7 @@ const USER_HANDLE_CHARSET: &[u8] = b"_0123456789abcdefghijklmnopqrstuvwxyz";
 pub const USER_HANDLE_VALIDITY_PERIOD: Duration = Duration::days(30);
 
 /// Validated plaintext user handle
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct UserHandle {
     plaintext: String,
 }
@@ -60,6 +60,10 @@ impl UserHandle {
         let mut hash = [0u8; 32];
         argon2.hash_password_into(self.plaintext.as_bytes(), const_salt, &mut hash)?;
         Ok(UserHandleHash { hash })
+    }
+
+    pub fn into_plaintext(self) -> String {
+        self.plaintext
     }
 }
 
