@@ -90,7 +90,7 @@ impl Store for CoreUser {
     async fn load_room_state(
         &self,
         conversation_id: ConversationId,
-    ) -> StoreResult<(UserId, VerifiedRoomState<UserId>)> {
+    ) -> StoreResult<(UserId, VerifiedRoomState)> {
         self.load_room_state(&conversation_id).await
     }
 

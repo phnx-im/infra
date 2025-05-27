@@ -124,7 +124,7 @@ pub(crate) struct PartialCreateGroupParams {
     pub(crate) group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
-    room_state: VerifiedRoomState<UserId>,
+    room_state: VerifiedRoomState,
 }
 
 impl PartialCreateGroupParams {
@@ -180,7 +180,7 @@ pub(crate) struct Group {
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     mls_group: MlsGroup,
-    pub room_state: VerifiedRoomState<UserId>,
+    pub room_state: VerifiedRoomState,
     pending_diff: Option<StagedGroupDiff>, // Currently unused, but we're keeping it for later
 }
 

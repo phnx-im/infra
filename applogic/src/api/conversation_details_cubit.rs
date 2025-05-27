@@ -44,18 +44,17 @@ pub struct ConversationDetailsState {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiRoomState {
     our_user: UserId,
-    state: VerifiedRoomState<UserId>,
+    state: VerifiedRoomState,
 }
 
 impl UiRoomState {
     #[frb(sync)]
-    pub fn can_kick(&self, _target: &UiUserId) -> bool {
+    pub fn can_kick(&self, target: &UiUserId) -> bool {
         self.state
             .can_apply_regular_proposals(
                 &self.our_user,
                 &[MimiProposal::ChangeRole {
-                    target: self.our_user.clone(), // TODO
-                    // TODO: Use target,
+                    target: UserId::from(target.clone()),
                     role: RoleIndex::Outsider,
                 }],
             )

@@ -55,7 +55,7 @@ pub(super) struct MemberProfile {
 /// TODO: Past group states are now included in mls-assist. However, we might
 /// have to store client credentials externally.
 pub(crate) struct DsGroupState {
-    pub(super) room_state: VerifiedRoomState<UserId>,
+    pub(super) room_state: VerifiedRoomState,
     pub(super) group: Group,
     pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
@@ -85,7 +85,7 @@ impl DsGroupState {
         group: Group,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
-        room_state: VerifiedRoomState<UserId>,
+        room_state: VerifiedRoomState,
     ) -> Self {
         let creator_client_profile = MemberProfile {
             client_queue_config: creator_queue_config,
@@ -254,7 +254,7 @@ impl StorableDsGroupData {
 pub(crate) struct SerializableDsGroupState {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
-    room_state: VerifiedRoomState<UserId>,
+    room_state: VerifiedRoomState,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 

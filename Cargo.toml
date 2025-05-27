@@ -33,7 +33,7 @@ sqlx = { version = "0.8.5", default-features = false, features = [
     "runtime-tokio",
 ] }
 
-mimi-room-policy = { git = "https://github.com/phnx-im/mimi-room-policy", rev = "0abd9f9f1b425da3deb1b33d399a5b0b6816466a" }
+mimi-room-policy = { git = "https://github.com/phnx-im/mimi-room-policy", rev = "4b78fab2b3ffba3268f22bd0c964f672a794ddf9" }
 
 tls_codec = { version = "0.4.1", features = ["derive", "serde", "mls"] }
 

@@ -123,7 +123,7 @@ pub trait LocalStore {
     async fn load_room_state(
         &self,
         conversation_id: ConversationId,
-    ) -> StoreResult<(UserId, VerifiedRoomState<UserId>)>;
+    ) -> StoreResult<(UserId, VerifiedRoomState)>;
 
     // contacts
 

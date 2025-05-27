@@ -203,7 +203,7 @@ impl CoreUser {
     pub async fn load_room_state(
         &self,
         conversation_id: &ConversationId,
-    ) -> Result<(UserId, VerifiedRoomState<UserId>)> {
+    ) -> Result<(UserId, VerifiedRoomState)> {
         if let Some(conversation) = self.conversation(conversation_id).await {
             let mut connection = self.pool().acquire().await?;
             if let Some(group) = Group::load(&mut connection, conversation.group_id()).await? {
@@ -608,7 +608,7 @@ mod leave_conversation_flow {
             } = self;
 
             group.room_state.apply_regular_proposals(
-                &sender_id,
+                sender_id,
                 &[MimiProposal::ChangeRole {
                     target: sender_id.clone(),
                     role: RoleIndex::Outsider,

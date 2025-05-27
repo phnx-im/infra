@@ -19,7 +19,7 @@ class MemberDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (conversationId, memberClientId) = context.select(
+    final (conversationId, memberUserId) = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Intro(:final screens) =>
           throw StateError("No member details for intro screen"),
@@ -37,16 +37,15 @@ class MemberDetailsScreen extends StatelessWidget {
       (ConversationDetailsCubit cubit) => cubit.state.roomState,
     );
 
-    final ownClientId = context.select((UserCubit cubit) => cubit.state.userId);
+    final ownUserId = context.select((UserCubit cubit) => cubit.state.userId);
 
-    final isSelf = memberClientId == ownClientId;
+    final isSelf = memberUserId == ownUserId;
 
-    if (conversationId == null || memberClientId == null || roomState == null) {
+    if (conversationId == null || memberUserId == null || roomState == null) {
       return const SizedBox.shrink();
     }
 
-    // final canKick = roomState.canKick(target: null); // TODO: Use UUID
-    const canKick = false;
+    final canKick = roomState.canKick(target: memberUserId);
 
     return Scaffold(
       appBar: AppBar(
@@ -67,12 +66,11 @@ class MemberDetailsScreen extends StatelessWidget {
                 FutureUserAvatar(
                   size: 64,
                   profile:
-                      () =>
-                          context.read<UserCubit>().userProfile(memberClientId),
+                      () => context.read<UserCubit>().userProfile(memberUserId),
                 ),
                 const SizedBox(height: _padding),
                 Text(
-                  memberClientId.uuid.toString(), // TODO: display name
+                  memberUserId.uuid.toString(), // TODO: display name
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
                 const SizedBox(height: _padding),
@@ -106,7 +104,7 @@ class MemberDetailsScreen extends StatelessWidget {
                                       .read<UserCubit>()
                                       .removeUserFromConversation(
                                         conversationId,
-                                        memberClientId,
+                                        memberUserId,
                                       );
                                   if (context.mounted) {
                                     Navigator.of(context).pop(true);
