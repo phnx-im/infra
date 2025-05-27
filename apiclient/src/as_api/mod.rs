@@ -12,10 +12,7 @@ use phnxcommon::{
     identifiers::UserId,
     messages::{
         QueueMessage,
-        client_as::{
-            ConnectionPackage, EncryptedConnectionEstablishmentPackage,
-            UserConnectionPackagesParams,
-        },
+        client_as::{ConnectionPackage, EncryptedConnectionOffer, UserConnectionPackagesParams},
         client_as_out::{
             AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
             RegisterUserResponseIn, UserConnectionPackagesResponseIn,
@@ -273,11 +270,11 @@ impl ApiClient {
     pub async fn as_enqueue_message(
         &self,
         user_id: UserId,
-        connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
+        connection_offer: EncryptedConnectionOffer,
     ) -> Result<(), AsRequestError> {
         let request = EnqueueMessagesRequest {
             user_id: Some(user_id.into()),
-            connection_establishment_package: Some(connection_establishment_ctxt.into()),
+            connection_offer: Some(connection_offer.into()),
         };
         self.as_grpc_client
             .client()
