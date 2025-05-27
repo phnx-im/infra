@@ -3,16 +3,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxcommon::{
-    credentials::keys::{ClientKeyType, ClientSignature},
+    credentials::keys::{self, ClientKeyType, ClientSignature},
     crypto::signatures::signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
 };
 use prost::Message;
 
 use super::v1::{
+    CreateHandlePayload, CreateHandleRequest, DeleteHandlePayload, DeleteHandleRequest,
     DeleteUserPayload, DeleteUserRequest, InitListenPayload, InitListenRequest, IssueTokensPayload,
     IssueTokensRequest, MergeUserProfilePayload, MergeUserProfileRequest,
-    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest, StageUserProfilePayload,
-    StageUserProfileRequest,
+    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest, RefreshHandlePayload,
+    RefreshHandleRequest, StageUserProfilePayload, StageUserProfileRequest,
 };
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
@@ -337,6 +338,165 @@ impl Verifiable for IssueTokensRequest {
 
     fn label(&self) -> &str {
         ISSUE_TOKENS_PAYLOAD_LABEL
+    }
+}
+
+const CREATE_HANDLE_PAYLOAD_LABEL: &str = "CreateHandlePayload";
+
+impl SignedStruct<CreateHandlePayload, keys::HandleKeyType> for CreateHandleRequest {
+    fn from_payload(payload: CreateHandlePayload, signature: keys::HandleSignature) -> Self {
+        CreateHandleRequest {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for CreateHandlePayload {
+    type SignedOutput = CreateHandleRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        CREATE_HANDLE_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<CreateHandleRequest> for CreateHandlePayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: CreateHandleRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for CreateHandleRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .and_then(|s| s.signature.as_ref())
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        CREATE_HANDLE_PAYLOAD_LABEL
+    }
+}
+
+const DELETE_HANDLE_PAYLOAD_LABEL: &str = "DeleteHandlePayload";
+
+impl SignedStruct<DeleteHandlePayload, keys::HandleKeyType> for DeleteHandleRequest {
+    fn from_payload(payload: DeleteHandlePayload, signature: keys::HandleSignature) -> Self {
+        DeleteHandleRequest {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for DeleteHandlePayload {
+    type SignedOutput = DeleteHandleRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        DELETE_HANDLE_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<DeleteHandleRequest> for DeleteHandlePayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: DeleteHandleRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for DeleteHandleRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .and_then(|s| s.signature.as_ref())
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        DELETE_HANDLE_PAYLOAD_LABEL
+    }
+}
+
+const REFRESH_HANDLE_PAYLOAD_LABEL: &str = "RefreshHandlePayload";
+
+impl SignedStruct<RefreshHandlePayload, keys::HandleKeyType> for RefreshHandleRequest {
+    fn from_payload(payload: RefreshHandlePayload, signature: keys::HandleSignature) -> Self {
+        RefreshHandleRequest {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for RefreshHandlePayload {
+    type SignedOutput = RefreshHandleRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        REFRESH_HANDLE_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<RefreshHandleRequest> for RefreshHandlePayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: RefreshHandleRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for RefreshHandleRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .and_then(|s| s.signature.as_ref())
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        REFRESH_HANDLE_PAYLOAD_LABEL
     }
 }
 
