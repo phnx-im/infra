@@ -12,11 +12,10 @@ import 'package:provider/provider.dart';
 
 import 'message_renderer.dart';
 
-const double cornerRadius = Spacings.s;
-const double messageTopPadding = Spacings.xxs;
-const double messageBottomPadding = Spacings.xxs;
-const double messageLeftPadding = Spacings.s;
-const double messageRightPadding = Spacings.s;
+const double largeCornerRadius = Spacings.s;
+const double smallCornerRadius = Spacings.xxxs;
+const double messageHorizontalPadding = Spacings.xs;
+const double messageVerticalPadding = Spacings.xxs;
 
 class TextMessageTile extends StatelessWidget {
   const TextMessageTile({
@@ -87,6 +86,7 @@ class _MessageView extends StatelessWidget {
                 _TextMessage(
                   blockElements: contentMessage.content.content.content,
                   isSender: isSender,
+                  flightPosition: flightPosition,
                 ),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 2),
@@ -110,7 +110,7 @@ class _Timestamp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: cornerRadius),
+      padding: const EdgeInsets.symmetric(horizontal: largeCornerRadius),
       child: SelectionContainer.disabled(
         child: Text(
           _calcTimeString(timestamp),
@@ -140,10 +140,20 @@ String _calcTimeString(String time) {
 }
 
 class _TextMessage extends StatelessWidget {
-  const _TextMessage({required this.blockElements, required this.isSender});
+  const _TextMessage({
+    required this.blockElements,
+    required this.isSender,
+    required this.flightPosition,
+  });
 
   final List<RangedBlockElement> blockElements;
   final bool isSender;
+  final UiFlightPosition flightPosition;
+
+  // Calculate radii
+  Radius _r(bool b) {
+    return Radius.circular(b ? largeCornerRadius : smallCornerRadius);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -155,14 +165,17 @@ class _TextMessage extends StatelessWidget {
                 ? AlignmentDirectional.topEnd
                 : AlignmentDirectional.topStart,
         child: Container(
-          padding: const EdgeInsets.only(
-            top: messageTopPadding,
-            right: messageRightPadding,
-            left: messageLeftPadding,
-            bottom: messageBottomPadding,
+          padding: const EdgeInsets.symmetric(
+            horizontal: messageHorizontalPadding,
+            vertical: messageVerticalPadding,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(cornerRadius),
+            borderRadius: BorderRadius.only(
+              topLeft: _r(isSender || flightPosition.isFirst),
+              topRight: _r(!isSender || flightPosition.isFirst),
+              bottomLeft: _r(isSender || flightPosition.isLast),
+              bottomRight: _r(!isSender || flightPosition.isLast),
+            ),
             color: isSender ? colorDMB : colorDMBSuperLight,
           ),
           child: DefaultTextStyle.merge(
