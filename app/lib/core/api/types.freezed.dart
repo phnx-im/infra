@@ -1116,3 +1116,140 @@ abstract class _UiMimiContent implements UiMimiContent {
   _$$UiMimiContentImplCopyWith<_$UiMimiContentImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
+
+/// @nodoc
+mixin _$UiUserHandle {
+  String get plaintext => throw _privateConstructorUsedError;
+
+  /// Create a copy of UiUserHandle
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $UiUserHandleCopyWith<UiUserHandle> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $UiUserHandleCopyWith<$Res> {
+  factory $UiUserHandleCopyWith(
+    UiUserHandle value,
+    $Res Function(UiUserHandle) then,
+  ) = _$UiUserHandleCopyWithImpl<$Res, UiUserHandle>;
+  @useResult
+  $Res call({String plaintext});
+}
+
+/// @nodoc
+class _$UiUserHandleCopyWithImpl<$Res, $Val extends UiUserHandle>
+    implements $UiUserHandleCopyWith<$Res> {
+  _$UiUserHandleCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of UiUserHandle
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? plaintext = null}) {
+    return _then(
+      _value.copyWith(
+            plaintext:
+                null == plaintext
+                    ? _value.plaintext
+                    : plaintext // ignore: cast_nullable_to_non_nullable
+                        as String,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$UiUserHandleImplCopyWith<$Res>
+    implements $UiUserHandleCopyWith<$Res> {
+  factory _$$UiUserHandleImplCopyWith(
+    _$UiUserHandleImpl value,
+    $Res Function(_$UiUserHandleImpl) then,
+  ) = __$$UiUserHandleImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String plaintext});
+}
+
+/// @nodoc
+class __$$UiUserHandleImplCopyWithImpl<$Res>
+    extends _$UiUserHandleCopyWithImpl<$Res, _$UiUserHandleImpl>
+    implements _$$UiUserHandleImplCopyWith<$Res> {
+  __$$UiUserHandleImplCopyWithImpl(
+    _$UiUserHandleImpl _value,
+    $Res Function(_$UiUserHandleImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of UiUserHandle
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? plaintext = null}) {
+    return _then(
+      _$UiUserHandleImpl(
+        plaintext:
+            null == plaintext
+                ? _value.plaintext
+                : plaintext // ignore: cast_nullable_to_non_nullable
+                    as String,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UiUserHandleImpl extends _UiUserHandle {
+  const _$UiUserHandleImpl({required this.plaintext}) : super._();
+
+  @override
+  final String plaintext;
+
+  @override
+  String toString() {
+    return 'UiUserHandle(plaintext: $plaintext)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiUserHandleImpl &&
+            (identical(other.plaintext, plaintext) ||
+                other.plaintext == plaintext));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, plaintext);
+
+  /// Create a copy of UiUserHandle
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UiUserHandleImplCopyWith<_$UiUserHandleImpl> get copyWith =>
+      __$$UiUserHandleImplCopyWithImpl<_$UiUserHandleImpl>(this, _$identity);
+}
+
+abstract class _UiUserHandle extends UiUserHandle {
+  const factory _UiUserHandle({required final String plaintext}) =
+      _$UiUserHandleImpl;
+  const _UiUserHandle._() : super._();
+
+  @override
+  String get plaintext;
+
+  /// Create a copy of UiUserHandle
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UiUserHandleImplCopyWith<_$UiUserHandleImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}

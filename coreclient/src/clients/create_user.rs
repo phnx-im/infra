@@ -13,7 +13,7 @@ use crate::{
     },
     user_profiles::generate::NewUserProfile,
 };
-use phnxtypes::{
+use phnxcommon::{
     credentials::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },

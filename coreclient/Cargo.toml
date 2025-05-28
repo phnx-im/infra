@@ -19,10 +19,10 @@ openmls_rust_crypto = { workspace = true }
 tracing = "0.1.41"
 uuid = { version = "1", features = ["v4", "serde"] }
 phnxapiclient = { path = "../apiclient" }
-phnxtypes = { path = "../types" }
+phnxcommon = { path = "../common" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 # TODO: Replace this with a CSPRNG
-rand = "0.8.4"
+rand = "0.8"
 rand_chacha = "0.3.1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 image = "0.25.1"
@@ -49,7 +49,7 @@ url = "2.5.4"
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }
-phnxtypes = { path = "../types", features = ["test_utils"] }
+phnxcommon = { path = "../common", features = ["test_utils"] }
 serde_json = "1.0.140"
 insta = { workspace = true, features = ["json"] }
 phnxbackend = { path = "../backend" }

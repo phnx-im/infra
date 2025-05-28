@@ -2,9 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::messages::client_as::{
-    AsCredentialsParams, AsCredentialsResponse, EnqueueMessageParams, UserConnectionPackagesParams,
-    UserConnectionPackagesResponse,
+use phnxcommon::{
+    identifiers::UserId,
+    messages::client_as::{
+        AsCredentialsParams, AsCredentialsResponse, EncryptedConnectionOffer,
+        UserConnectionPackagesParams, UserConnectionPackagesResponse,
+    },
 };
 
 use crate::{
@@ -53,13 +56,9 @@ impl AuthService {
 
     pub(crate) async fn as_enqueue_message(
         &self,
-        params: EnqueueMessageParams,
+        user_id: UserId,
+        connection_offer: EncryptedConnectionOffer,
     ) -> Result<(), EnqueueMessageError> {
-        let EnqueueMessageParams {
-            user_id,
-            connection_establishment_ctxt,
-        } = params;
-
         // Fetch the client record.
         let mut client_record = ClientRecord::load(&self.db_pool, &user_id)
             .await
@@ -69,7 +68,7 @@ impl AuthService {
             })?
             .ok_or(EnqueueMessageError::ClientNotFound)?;
 
-        let payload = connection_establishment_ctxt
+        let payload = connection_offer
             .try_into()
             .map_err(|_| EnqueueMessageError::LibraryError)?;
 

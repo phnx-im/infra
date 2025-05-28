@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
+use phnxcommon::{
     crypto::hpke::HpkeDecryptable, identifiers::ClientConfig, messages::MlsInfraVersion,
 };
 use tls_codec::Serialize;

@@ -6,10 +6,11 @@ use credentials::{
     CredentialGenerationError, intermediate_signing_key::IntermediateSigningKey,
     signing_key::StorableSigningKey,
 };
-use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
+use phnxcommon::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
 use queue::Queues;
 use sqlx::PgPool;
 use thiserror::Error;
+use user_handles::UserHandleQueues;
 
 use crate::{
     errors::StorageError,
@@ -23,12 +24,14 @@ mod credentials;
 pub mod grpc;
 mod privacy_pass;
 mod queue;
+mod user_handles;
 pub mod user_record;
 
 #[derive(Debug, Clone)]
 pub struct AuthService {
     db_pool: PgPool,
     pub(crate) queues: Queues,
+    pub(crate) handle_queues: UserHandleQueues,
 }
 
 #[derive(Debug, Error)]
@@ -48,7 +51,12 @@ impl<T: Into<sqlx::Error>> From<T> for AuthServiceCreationError {
 impl InfraService for AuthService {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         let queues = Queues::new(db_pool.clone());
-        let auth_service = Self { db_pool, queues };
+        let handle_queues = UserHandleQueues::new(db_pool.clone());
+        let auth_service = Self {
+            db_pool,
+            queues,
+            handle_queues,
+        };
 
         // Check if there is an active AS signing key
         let mut transaction = auth_service.db_pool.begin().await?;

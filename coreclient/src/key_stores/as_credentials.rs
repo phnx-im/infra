@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use phnxapiclient::as_api::AsRequestError;
-use phnxtypes::{
+use phnxcommon::{
     credentials::{
         AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
         CredentialFingerprint, VerifiableClientCredential,

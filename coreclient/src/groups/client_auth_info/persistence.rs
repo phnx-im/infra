@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::{group::GroupId, prelude::LeafNodeIndex};
-use phnxtypes::{
+use phnxcommon::{
     credentials::CredentialFingerprint,
     identifiers::{Fqdn, UserId},
 };
@@ -408,7 +408,7 @@ impl GroupMembership {
 #[cfg(test)]
 mod tests {
     use openmls::prelude::SignatureScheme;
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::{ClientCredential, ClientCredentialCsr, ClientCredentialPayload},
         crypto::signatures::signable::{Signature, SignedStruct},
     };

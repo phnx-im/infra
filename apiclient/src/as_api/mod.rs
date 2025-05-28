@@ -2,13 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxprotos::auth_service::v1::{
-    AckListenRequest, AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
-    GetUserConnectionPackagesRequest, GetUserProfileRequest, InitListenPayload, ListenRequest,
-    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
-    StageUserProfilePayload, listen_request,
-};
-use phnxtypes::{
+use phnxcommon::{
     LibraryError,
     credentials::{ClientCredentialPayload, keys::ClientSigningKey},
     crypto::{
@@ -18,15 +12,18 @@ use phnxtypes::{
     identifiers::UserId,
     messages::{
         QueueMessage,
-        client_as::{
-            ConnectionPackage, EncryptedConnectionEstablishmentPackage,
-            UserConnectionPackagesParams,
-        },
+        client_as::{ConnectionPackage, EncryptedConnectionOffer, UserConnectionPackagesParams},
         client_as_out::{
             AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
             RegisterUserResponseIn, UserConnectionPackagesResponseIn,
         },
     },
+};
+use phnxprotos::auth_service::v1::{
+    AckListenRequest, AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
+    GetUserConnectionPackagesRequest, GetUserProfileRequest, InitListenPayload, ListenRequest,
+    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
+    StageUserProfilePayload, listen_request, publish_connection_packages_payload,
 };
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -232,7 +229,9 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = PublishConnectionPackagesPayload {
-            user_id: Some(user_id.into()),
+            owner: Some(publish_connection_packages_payload::Owner::UserId(
+                user_id.into(),
+            )),
             connection_packages: connection_packages.into_iter().map(From::from).collect(),
         };
         let request = payload.sign(signing_key)?;
@@ -273,11 +272,11 @@ impl ApiClient {
     pub async fn as_enqueue_message(
         &self,
         user_id: UserId,
-        connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
+        connection_offer: EncryptedConnectionOffer,
     ) -> Result<(), AsRequestError> {
         let request = EnqueueMessagesRequest {
             user_id: Some(user_id.into()),
-            connection_establishment_package: Some(connection_establishment_ctxt.into()),
+            connection_offer: Some(connection_offer.into()),
         };
         self.as_grpc_client
             .client()

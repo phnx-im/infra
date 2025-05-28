@@ -7,7 +7,7 @@ use std::time::Duration;
 use argon2::{Algorithm, Argon2, Params, Version};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use phnxcommon::pow::{PoWConfig, find_nonce};
-use rand::{TryRngCore, rngs::OsRng}; // adjust path if your crate is named differently
+use rand::{RngCore, rngs::OsRng};
 
 const DATA: &[u8] = b"benchmark data";
 const MEM_COST: u32 = 47104;

@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use phnxtypes::crypto::{errors::KeyGenerationError, hpke::ClientIdDecryptionKey};
+use phnxcommon::crypto::{errors::KeyGenerationError, hpke::ClientIdDecryptionKey};
 
 use super::errors::GenerateAndStoreError;
 
@@ -65,7 +65,7 @@ mod persistence {
 
     #[cfg(test)]
     mod tests {
-        use phnxtypes::crypto::hpke::ClientIdDecryptionKey;
+        use phnxcommon::crypto::hpke::ClientIdDecryptionKey;
         use sqlx::PgPool;
 
         use super::*;

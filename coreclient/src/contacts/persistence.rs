@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
         indexed_aead::keys::UserProfileKeyIndex,
@@ -16,7 +16,7 @@ use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 use crate::{
-    Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
+    Contact, ConversationId, PartialContact, clients::connection_offer::FriendshipPackage,
     store::StoreNotifier,
 };
 
@@ -284,7 +284,7 @@ impl PartialContact {
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::{
+    use phnxcommon::{
         crypto::{
             ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
             indexed_aead::keys::UserProfileKey,

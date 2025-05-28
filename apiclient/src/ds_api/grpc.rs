@@ -9,18 +9,7 @@ use mls_assist::{
         prelude::{GroupId, LeafNodeIndex},
     },
 };
-use phnxprotos::{
-    convert::{RefInto, TryRefInto},
-    delivery_service::v1::{
-        AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
-        ExternalCommitInfoRequest, GroupOperationPayload, JoinConnectionGroupRequest,
-        RequestGroupIdRequest, ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
-        UpdateProfileKeyPayload, WelcomeInfoPayload,
-        delivery_service_client::DeliveryServiceClient,
-    },
-    validation::MissingFieldExt,
-};
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::{QsReference, QualifiedGroupId},
@@ -32,6 +21,17 @@ use phnxtypes::{
         },
     },
     time::TimeStamp,
+};
+use phnxprotos::{
+    convert::{RefInto, TryRefInto},
+    delivery_service::v1::{
+        AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
+        ExternalCommitInfoRequest, GroupOperationPayload, JoinConnectionGroupRequest,
+        RequestGroupIdRequest, ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
+        UpdateProfileKeyPayload, WelcomeInfoPayload,
+        delivery_service_client::DeliveryServiceClient,
+    },
+    validation::MissingFieldExt,
 };
 use tonic::transport::Channel;
 use tracing::error;

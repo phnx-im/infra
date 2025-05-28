@@ -6,7 +6,7 @@ use std::iter;
 
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
-use phnxtypes::{
+use phnxcommon::{
     LibraryError,
     crypto::{
         ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
@@ -20,7 +20,7 @@ use sqlx::SqliteConnection;
 
 use crate::{
     ConversationId,
-    clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
+    clients::{api_clients::ApiClients, connection_offer::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
     key_stores::{as_credentials::AsCredentials, indexed_keys::StorableIndexedKey},
 };

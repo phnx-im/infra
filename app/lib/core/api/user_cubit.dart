@@ -23,11 +23,15 @@ abstract class UiUser implements RustOpaqueInterface {
 
   ImageData? get profilePicture;
 
+  List<UiUserHandle> get userHandles;
+
   UiUserId get userId;
 }
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>>
 abstract class UserCubitBase implements RustOpaqueInterface {
+  Future<void> addUserHandle({required UiUserHandle userHandle});
+
   Future<void> addUserToConversation(
     ConversationId conversationId,
     UiUserId userId,
@@ -51,6 +55,8 @@ abstract class UserCubitBase implements RustOpaqueInterface {
     ConversationId conversationId,
     UiUserId userId,
   );
+
+  Future<void> removeUserHandle({required UiUserHandle userHandle});
 
   Future<void> setAppState({required AppState appState});
 

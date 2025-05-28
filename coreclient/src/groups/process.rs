@@ -7,7 +7,7 @@ use std::{collections::HashMap, iter};
 use super::{ClientVerificationInfo, Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use mimi_room_policy::{MimiProposal, RoleIndex};
-use phnxtypes::{
+use phnxcommon::{
     credentials::{
         AsIntermediateCredential, ClientCredential, CredentialFingerprint,
         VerifiableClientCredential,

@@ -2,23 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use displaydoc::Display;
 use futures_util::stream::BoxStream;
 use phnxprotos::{
     auth_service::v1::{auth_service_server, *},
     validation::MissingFieldExt,
 };
 
-use phnxtypes::{
+use phnxcommon::{
+    credentials::keys,
     crypto::{
         indexed_aead::keys::UserProfileKeyIndex,
         signatures::{
-            private_keys::SignatureVerificationError,
+            private_keys::{SignatureVerificationError, VerifyingKeyBehaviour},
             signable::{Verifiable, VerifiedStruct},
         },
     },
     identifiers,
     messages::{
-        client_as::{AsCredentialsParams, EnqueueMessageParams, UserConnectionPackagesParams},
+        client_as::{AsCredentialsParams, UserConnectionPackagesParams},
         client_as_out::{
             GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
             StageUserProfileParamsTbs,
@@ -27,11 +29,17 @@ use phnxtypes::{
 };
 use privacypass::{amortized_tokens::AmortizedBatchTokenRequest, private_tokens::Ristretto255};
 use tls_codec::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming, async_trait};
 use tracing::error;
 
-use super::{AuthService, client_record::ClientRecord, queue::Queues};
+use super::{
+    AuthService,
+    client_record::ClientRecord,
+    queue::Queues,
+    user_handles::{ConnectHandleProtocol, UserHandleQueues, UserHandleRecord},
+};
 
 pub struct GrpcAs {
     inner: AuthService,
@@ -48,24 +56,68 @@ impl GrpcAs {
         P: VerifiedStruct<R>,
     {
         let user_id = request.user_id()?;
-        let client_record = ClientRecord::load(&self.inner.db_pool, &user_id)
+        let client_verifying_key = self.load_client_verifying_key(&user_id).await?;
+        let payload = self.verify_request(request, &client_verifying_key)?;
+        Ok((user_id, payload))
+    }
+
+    async fn load_client_verifying_key(
+        &self,
+        user_id: &identifiers::UserId,
+    ) -> Result<keys::ClientVerifyingKey, Status> {
+        let client_record = ClientRecord::load(&self.inner.db_pool, user_id)
             .await
             .map_err(|error| {
                 error!(%error, ?user_id, "failed to load client");
                 Status::internal("database error")
             })?
             .ok_or_else(|| Status::not_found("unknown client"))?;
-        let payload = request
-            .verify(client_record.credential.verifying_key())
-            .map_err(|error| match error {
-                SignatureVerificationError::VerificationFailure => {
-                    Status::unauthenticated("invalid signature")
-                }
-                SignatureVerificationError::LibraryError(_) => {
-                    Status::internal("unrecoverable error")
-                }
-            })?;
-        Ok((user_id, payload))
+        Ok(client_record.credential.verifying_key().clone())
+    }
+
+    async fn verify_handle_auth<R, P>(
+        &self,
+        request: R,
+    ) -> Result<(identifiers::UserHandleHash, P), Status>
+    where
+        R: WithUserHandleHash + Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        let hash = request.user_handle_hash()?;
+        let verifying_key = self.load_handle_verifying_key(hash).await?;
+        let payload = self.verify_request(request, &verifying_key)?;
+        Ok((hash, payload))
+    }
+
+    async fn load_handle_verifying_key(
+        &self,
+        hash: identifiers::UserHandleHash,
+    ) -> Result<keys::HandleVerifyingKey, Status> {
+        UserHandleRecord::load_verifying_key(&self.inner.db_pool, &hash)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to load verifying key");
+                Status::internal("database error")
+            })?
+            .ok_or_else(|| Status::not_found("unknown handle"))
+    }
+
+    #[expect(clippy::result_large_err)]
+    fn verify_request<R, P>(
+        &self,
+        request: R,
+        verifying_key: impl VerifyingKeyBehaviour,
+    ) -> Result<P, Status>
+    where
+        R: Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        request.verify(verifying_key).map_err(|error| match error {
+            SignatureVerificationError::VerificationFailure => {
+                Status::unauthenticated("invalid signature")
+            }
+            SignatureVerificationError::LibraryError(_) => Status::internal("unrecoverable error"),
+        })
     }
 
     async fn process_listen_requests_task(
@@ -94,6 +146,34 @@ impl GrpcAs {
         queues
             .ack(user_id, ack_request.up_to_sequence_number)
             .await?;
+        Ok(())
+    }
+
+    async fn process_listen_handle_requests_task(
+        queues: UserHandleQueues,
+        mut requests: Streaming<ListenHandleRequest>,
+    ) {
+        while let Some(request) = requests.next().await {
+            if let Err(error) = Self::process_listen_handle_request(&queues, request).await {
+                // We report the error, but don't stop processing requests.
+                // TODO(#466): Send this to the client.
+                error!(%error, "error processing listen request");
+            }
+        }
+    }
+
+    async fn process_listen_handle_request(
+        queues: &UserHandleQueues,
+        request: Result<ListenHandleRequest, Status>,
+    ) -> Result<(), Status> {
+        let request = request?;
+        let Some(listen_handle_request::Request::Ack(ack_request)) = request.request else {
+            return Err(ListenHandleProtocolViolation::OnlyAckRequestAllowed.into());
+        };
+        let Some(message_id) = ack_request.message_id else {
+            return Err(ListenHandleProtocolViolation::MissingMessageId.into());
+        };
+        queues.ack(message_id.into()).await?;
         Ok(())
     }
 }
@@ -151,17 +231,51 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<PublishConnectionPackagesRequest>,
     ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
-        let (user_id, payload) = self
-            .verify_user_auth::<_, PublishConnectionPackagesPayload>(request)
-            .await?;
-        let connection_packages = payload
-            .connection_packages
-            .into_iter()
-            .map(|package| package.try_into())
-            .collect::<Result<Vec<_>, _>>()?;
-        self.inner
-            .as_publish_connection_packages(user_id, connection_packages)
-            .await?;
+
+        match request
+            .payload
+            .as_ref()
+            .ok_or_missing_field("payload")?
+            .owner
+            .clone()
+            .ok_or_missing_field("owner")?
+        {
+            // publishing connection packages for a user
+            publish_connection_packages_payload::Owner::UserId(user_id) => {
+                let user_id: identifiers::UserId = user_id.try_into()?;
+                let client_verifying_key = self.load_client_verifying_key(&user_id).await?;
+                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
+                    request,
+                    &client_verifying_key,
+                )?;
+                let connection_packages = payload
+                    .connection_packages
+                    .into_iter()
+                    .map(|package| package.try_into())
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.inner
+                    .as_publish_connection_packages(user_id, connection_packages)
+                    .await?;
+            }
+            // publishing connection packages for a user handle
+            publish_connection_packages_payload::Owner::Hash(hash) => {
+                let hash: identifiers::UserHandleHash = hash.try_into()?;
+                let handle_verifying_key = self.load_handle_verifying_key(hash).await?;
+                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
+                    request,
+                    &handle_verifying_key,
+                )?;
+                let connection_packages = payload
+                    .connection_packages
+                    .into_iter()
+                    .map(|package| package.try_into())
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.inner
+                    .as_publish_connection_packages_for_handle(&hash, connection_packages)
+                    .await?;
+            }
+        };
+
         Ok(Response::new(PublishConnectionPackagesResponse {}))
     }
 
@@ -325,54 +439,122 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<EnqueueMessagesRequest>,
     ) -> Result<Response<EnqueueMessagesResponse>, Status> {
         let request = request.into_inner();
-        let params = EnqueueMessageParams {
-            user_id: request.user_id.ok_or_missing_field("user_id")?.try_into()?,
-            connection_establishment_ctxt: request
-                .connection_establishment_package
-                .ok_or_missing_field("connection_establishment_package")?
-                .try_into()?,
-        };
-        self.inner.as_enqueue_message(params).await?;
+        let user_id = request.user_id.ok_or_missing_field("user_id")?.try_into()?;
+        let connection_offer = request
+            .connection_offer
+            .ok_or_missing_field("connection_offer")?
+            .try_into()?;
+        self.inner
+            .as_enqueue_message(user_id, connection_offer)
+            .await?;
         Ok(Response::new(EnqueueMessagesResponse {}))
     }
 
     async fn create_handle(
         &self,
-        _request: Request<CreateHandleRequest>,
-    ) -> Result<Response<CreateHandleResponse>, tonic::Status> {
-        todo!()
+        request: Request<CreateHandleRequest>,
+    ) -> Result<Response<CreateHandleResponse>, Status> {
+        let request = request.into_inner();
+
+        let verifying_key = request
+            .payload
+            .as_ref()
+            .ok_or_missing_field("payload")?
+            .verifying_key
+            .clone()
+            .ok_or_missing_field("verifying_key")?
+            .into();
+        let payload = self.verify_request::<_, CreateHandlePayload>(request, &verifying_key)?;
+
+        let hash = payload.hash.ok_or_missing_field("hash")?.try_into()?;
+
+        self.inner
+            .as_create_handle(verifying_key, payload.plaintext, hash)
+            .await?;
+
+        Ok(Response::new(CreateHandleResponse {}))
     }
 
     async fn delete_handle(
         &self,
-        _request: Request<DeleteHandleRequest>,
-    ) -> Result<Response<DeleteHandleResponse>, tonic::Status> {
-        todo!()
+        request: Request<DeleteHandleRequest>,
+    ) -> Result<Response<DeleteHandleResponse>, Status> {
+        let request = request.into_inner();
+
+        let (hash, _payload) = self
+            .verify_handle_auth::<_, DeleteHandlePayload>(request)
+            .await?;
+
+        self.inner.as_delete_handle(hash).await?;
+
+        Ok(Response::new(DeleteHandleResponse {}))
     }
 
     async fn refresh_handle(
         &self,
-        _request: Request<RefreshHandleRequest>,
-    ) -> Result<Response<RefreshHandleResponse>, tonic::Status> {
-        todo!()
+        request: Request<RefreshHandleRequest>,
+    ) -> Result<Response<RefreshHandleResponse>, Status> {
+        let request = request.into_inner();
+
+        let (hash, _payload) = self
+            .verify_handle_auth::<_, RefreshHandlePayload>(request)
+            .await?;
+
+        self.inner.as_refresh_handle(hash).await?;
+
+        Ok(Response::new(RefreshHandleResponse {}))
     }
 
-    type ConnectHandleStream = BoxStream<'static, Result<ConnectResponse, tonic::Status>>;
+    type ConnectHandleStream = BoxStream<'static, Result<ConnectResponse, Status>>;
 
     async fn connect_handle(
         &self,
-        _request: Request<Streaming<ConnectRequest>>,
-    ) -> Result<Response<Self::ConnectHandleStream>, tonic::Status> {
-        todo!()
+        request: Request<Streaming<ConnectRequest>>,
+    ) -> Result<Response<Self::ConnectHandleStream>, Status> {
+        let incoming = request.into_inner();
+        let (outgoing_tx, outgoing_rx) = mpsc::channel(1);
+
+        // protocol
+        tokio::spawn(
+            self.inner
+                .clone()
+                .connect_handle_protocol(incoming, outgoing_tx),
+        );
+
+        let outgoing = tokio_stream::wrappers::ReceiverStream::new(outgoing_rx);
+        Ok(Response::new(Box::pin(outgoing)))
     }
 
-    type ListenHandleStream = BoxStream<'static, Result<ListenHandleResponse, tonic::Status>>;
+    type ListenHandleStream = BoxStream<'static, Result<ListenHandleResponse, Status>>;
 
     async fn listen_handle(
         &self,
-        _request: Request<Streaming<ListenHandleRequest>>,
-    ) -> Result<Response<Self::ListenHandleStream>, tonic::Status> {
-        todo!()
+        request: Request<Streaming<ListenHandleRequest>>,
+    ) -> Result<Response<Self::ListenHandleStream>, Status> {
+        let mut requests = request.into_inner();
+
+        let request = requests
+            .next()
+            .await
+            .ok_or(ListenProtocolViolation::MissingInitRequest)??;
+        let Some(listen_handle_request::Request::Init(init_request)) = request.request else {
+            return Err(ListenHandleProtocolViolation::MissingInitRequest.into());
+        };
+
+        let (hash, _payload) = self
+            .verify_handle_auth::<_, InitListenHandlePayload>(init_request)
+            .await?;
+
+        let messages = self.inner.handle_queues.listen(hash).await?;
+
+        tokio::spawn(Self::process_listen_handle_requests_task(
+            self.inner.handle_queues.clone(),
+            requests,
+        ));
+
+        let responses = Box::pin(messages.map(|message| Ok(ListenHandleResponse { message })));
+
+        Ok(Response::new(responses))
     }
 }
 
@@ -390,6 +572,22 @@ impl From<ListenProtocolViolation> for Status {
     }
 }
 
+#[derive(Debug, thiserror::Error, Display)]
+enum ListenHandleProtocolViolation {
+    /// Missing initial request
+    MissingInitRequest,
+    /// Only ack request allowed
+    OnlyAckRequestAllowed,
+    /// Missing message id in ack request
+    MissingMessageId,
+}
+
+impl From<ListenHandleProtocolViolation> for Status {
+    fn from(error: ListenHandleProtocolViolation) -> Self {
+        Status::failed_precondition(error.to_string())
+    }
+}
+
 trait WithUserId {
     fn user_id_proto(&self) -> Option<UserId>;
 
@@ -403,12 +601,6 @@ trait WithUserId {
 }
 
 impl WithUserId for DeleteUserRequest {
-    fn user_id_proto(&self) -> Option<UserId> {
-        self.payload.as_ref()?.user_id.clone()
-    }
-}
-
-impl WithUserId for PublishConnectionPackagesRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
     }
@@ -435,5 +627,41 @@ impl WithUserId for InitListenRequest {
 impl WithUserId for IssueTokensRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
+    }
+}
+
+trait WithUserHandleHash {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash>;
+
+    #[expect(clippy::result_large_err)]
+    fn user_handle_hash(&self) -> Result<identifiers::UserHandleHash, Status> {
+        Ok(self
+            .user_handle_hash_proto()
+            .ok_or_missing_field("user_handle_hash")?
+            .try_into()?)
+    }
+}
+
+impl WithUserHandleHash for CreateHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
+    }
+}
+
+impl WithUserHandleHash for DeleteHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
+    }
+}
+
+impl WithUserHandleHash for RefreshHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
+    }
+}
+
+impl WithUserHandleHash for InitListenHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
     }
 }

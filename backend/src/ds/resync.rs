@@ -10,7 +10,7 @@ use mls_assist::{
     messages::AssistedMessageIn,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent},
 };
-use phnxtypes::time::Duration;
+use phnxcommon::time::Duration;
 
 use crate::errors::ResyncClientError;
 

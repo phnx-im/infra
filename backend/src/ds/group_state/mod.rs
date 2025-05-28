@@ -15,7 +15,7 @@ use mls_assist::{
     },
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{
+use phnxcommon::{
     codec::PhnxCodec,
     crypto::{
         ear::{
@@ -23,7 +23,6 @@ use phnxtypes::{
             keys::{EncryptedUserProfileKey, GroupStateEarKey},
         },
         errors::{DecryptionError, EncryptionError},
-        indexed_aead::ciphertexts::{IndexDecryptable, IndexEncryptable},
     },
     identifiers::{QsReference, SealedClientReference},
     messages::client_ds::WelcomeInfoParams,
@@ -193,7 +192,7 @@ pub(super) enum DsGroupStateEncryptionError {
     #[error("Error decrypting group state: {0}")]
     EncryptionError(#[from] EncryptionError),
     #[error("Error deserializing group state: {0}")]
-    DeserializationError(#[from] phnxtypes::codec::Error),
+    DeserializationError(#[from] phnxcommon::codec::Error),
 }
 
 impl From<DsGroupStateEncryptionError> for tonic::Status {
@@ -208,7 +207,7 @@ pub(super) enum DsGroupStateDecryptionError {
     #[error("Error decrypting group state: {0}")]
     DecryptionError(#[from] DecryptionError),
     #[error("Error deserializing group state: {0}")]
-    DeserializationError(#[from] phnxtypes::codec::Error),
+    DeserializationError(#[from] phnxcommon::codec::Error),
 }
 
 impl From<DsGroupStateDecryptionError> for tonic::Status {
@@ -263,7 +262,7 @@ pub(crate) struct SerializableDsGroupState {
 impl SerializableDsGroupState {
     pub(super) fn from_group_state(
         group_state: DsGroupState,
-    ) -> Result<Self, phnxtypes::codec::Error> {
+    ) -> Result<Self, phnxcommon::codec::Error> {
         let group_id = group_state
             .group()
             .group_info()
@@ -280,7 +279,7 @@ impl SerializableDsGroupState {
         })
     }
 
-    pub(super) fn into_group_state(self) -> Result<DsGroupState, phnxtypes::codec::Error> {
+    pub(super) fn into_group_state(self) -> Result<DsGroupState, phnxcommon::codec::Error> {
         let storage = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
         // We unwrap here, because the constructor ensures that `self` always stores a group
         let group = Group::load(&storage, &self.group_id)?.unwrap();

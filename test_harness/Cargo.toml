@@ -8,7 +8,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-phnxtypes = { workspace = true }
+phnxcommon = { workspace = true }
 phnxserver = { path = "../server" }
 phnxcoreclient = { path = "../coreclient" }
 phnxbackend = { path = "../backend", features = ["test_utils"] }

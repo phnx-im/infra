@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
+use phnxcommon::{
     credentials::ClientCredential, crypto::RatchetEncryptionKey, identifiers::UserId,
     messages::client_as::AsQueueRatchet, time::TimeStamp,
 };
@@ -59,7 +59,7 @@ impl ClientRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxtypes::{
+    use phnxcommon::{
         codec::{BlobDecoded, BlobEncoded},
         credentials::persistence::FlatClientCredential,
     };
@@ -200,7 +200,7 @@ pub(crate) mod persistence {
     #[cfg(test)]
     pub(crate) mod tests {
         use mls_assist::openmls::prelude::SignatureScheme;
-        use phnxtypes::{
+        use phnxcommon::{
             credentials::{ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint},
             crypto::{ratchet::QueueRatchet, signatures::signable::Signature},
             time::{Duration, ExpirationData},
@@ -220,7 +220,7 @@ pub(crate) mod persistence {
             Ok(record)
         }
 
-        fn random_client_record(user_id: UserId) -> Result<ClientRecord, anyhow::Error> {
+        pub(crate) fn random_client_record(user_id: UserId) -> Result<ClientRecord, anyhow::Error> {
             let (csr, _) = ClientCredentialCsr::new(user_id, SignatureScheme::ED25519)?;
             let expiration_data = ExpirationData::new(Duration::days(90));
             let record = ClientRecord {

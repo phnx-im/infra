@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use chrono::Duration;
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         ear::keys::GroupStateEarKeyType,
         errors::RandomnessError,
@@ -95,7 +95,7 @@ pub enum ManagedCiphertextError {
     #[error("Failed to decrypt")]
     DecryptionFailure(#[from] IndexDecryptionError),
     #[error("Library error")]
-    LibraryError(#[from] phnxtypes::LibraryError),
+    LibraryError(#[from] phnxcommon::LibraryError),
 }
 
 #[derive(Debug)]

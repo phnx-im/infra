@@ -7,7 +7,7 @@
 
 use display_name::BaseDisplayName;
 pub use display_name::{DisplayName, DisplayNameError};
-use phnxtypes::{
+use phnxcommon::{
     LibraryError,
     credentials::keys::{ClientKeyType, ClientSignature, PreliminaryClientKeyType},
     crypto::{

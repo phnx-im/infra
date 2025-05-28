@@ -13,13 +13,13 @@ use phnxprotos::{
 };
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
+use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
     store::Store,
 };
 use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
-use phnxtypes::identifiers::UserId;
 use png::Encoder;
 use tonic::transport::Channel;
 use tonic_health::pb::{

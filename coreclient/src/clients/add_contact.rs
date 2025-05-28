@@ -4,7 +4,7 @@
 
 use anyhow::ensure;
 use openmls::group::GroupId;
-use phnxtypes::{
+use phnxcommon::{
     codec::PhnxCodec,
     credentials::keys::ClientSigningKey,
     crypto::{
@@ -23,7 +23,7 @@ use tracing::info;
 
 use crate::{
     Conversation, ConversationAttributes, ConversationId, PartialContact,
-    clients::connection_establishment::FriendshipPackage,
+    clients::connection_offer::FriendshipPackage,
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
     key_stores::{
         MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
@@ -35,9 +35,7 @@ use crate::{
 use super::{
     CoreUser,
     api_clients::ApiClients,
-    connection_establishment::{
-        ConnectionEstablishmentPackage, payload::ConnectionEstablishmentPackagePayload,
-    },
+    connection_offer::{ConnectionOffer, payload::ConnectionOfferPayload},
 };
 
 impl CoreUser {
@@ -86,8 +84,7 @@ impl CoreUser {
             )
             .await?;
 
-        // Phase 5: Create the connection group on the DS and send off the
-        // connection establishment packages
+        // Phase 5: Create the connection group on the DS and send off the connection offer
         let conversation_id = local_partial_contact
             .create_connection_group(
                 &self.inner.api_clients,
@@ -282,8 +279,8 @@ impl LocalGroup {
         .store(&mut *connection, notifier)
         .await?;
 
-        // Create a connection establishment package
-        let connection_establishment_package = ConnectionEstablishmentPackagePayload {
+        // Create a connection offer
+        let connection_offer = ConnectionOfferPayload {
             sender_client_credential: key_store.signing_key.credential().clone(),
             connection_group_id: group.group_id().clone(),
             connection_group_ear_key: group.group_state_ear_key().clone(),
@@ -299,7 +296,7 @@ impl LocalGroup {
 
         Ok(LocalPartialContact {
             group,
-            connection_establishment_package,
+            connection_offer,
             params,
             conversation_id,
             verified_connection_packages,
@@ -309,7 +306,7 @@ impl LocalGroup {
 
 struct LocalPartialContact {
     group: Group,
-    connection_establishment_package: ConnectionEstablishmentPackage,
+    connection_offer: ConnectionOffer,
     params: CreateGroupParamsOut,
     conversation_id: ConversationId,
     verified_connection_packages: Vec<ConnectionPackage>,
@@ -324,7 +321,7 @@ impl LocalPartialContact {
     ) -> anyhow::Result<ConversationId> {
         let Self {
             group,
-            connection_establishment_package,
+            connection_offer,
             params,
             conversation_id,
             verified_connection_packages,
@@ -336,13 +333,10 @@ impl LocalPartialContact {
             .ds_create_group(params, signer, group.group_state_ear_key())
             .await?;
 
-        // Encrypt the connection establishment package for each connection and send it off.
+        // Encrypt the connection offer for each connection and send it off.
         for connection_package in verified_connection_packages {
-            let ciphertext = connection_establishment_package.encrypt(
-                connection_package.encryption_key(),
-                &[],
-                &[],
-            );
+            let ciphertext =
+                connection_offer.encrypt(connection_package.encryption_key(), &[], &[]);
             let user_id = connection_package.client_credential().identity();
 
             api_clients

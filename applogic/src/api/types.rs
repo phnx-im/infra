@@ -12,18 +12,19 @@ use std::fmt;
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
 use mimi_content::MimiContent;
+pub use phnxcommon::identifiers::UserHandle;
+use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
     InactiveConversation, Message, SystemMessage, UserProfile, store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
-use phnxtypes::identifiers::UserId;
 use uuid::Uuid;
 
 use super::markdown::MessageContent;
 
-/// Mirror of the [`ConversationId`] types
+/// Mirror of the [`ConversationId`] type
 #[doc(hidden)]
 #[frb(mirror(ConversationId))]
 #[frb(dart_code = "
@@ -522,4 +523,31 @@ pub struct UiClientRecord {
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) user_profile: UiUserProfile,
     pub(crate) is_finished: bool,
+}
+
+#[derive(Debug)]
+#[frb(dart_metadata = ("freezed"))]
+pub struct UiUserHandle {
+    pub(crate) plaintext: String,
+}
+
+impl UiUserHandle {
+    /// Returns `None` if the handle is valid, otherwise returns an error message why it is
+    /// invalid.
+    #[frb(sync)]
+    pub fn validation_error(&self) -> Option<String> {
+        if let Err(error) = UserHandle::new(self.plaintext.clone()) {
+            Some(error.to_string())
+        } else {
+            None
+        }
+    }
+}
+
+impl From<UserHandle> for UiUserHandle {
+    fn from(user_handle: UserHandle) -> Self {
+        Self {
+            plaintext: user_handle.into_plaintext(),
+        }
+    }
 }

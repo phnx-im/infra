@@ -10,10 +10,7 @@ use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError};
-pub use phnxprotos::queue_service::v1::{
-    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
-};
-use phnxtypes::{
+use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
@@ -38,6 +35,9 @@ use phnxtypes::{
         push_token::{EncryptedPushToken, PushToken},
     },
 };
+pub use phnxprotos::queue_service::v1::{
+    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use store::ClientRecord;
@@ -50,7 +50,7 @@ use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
-    clients::connection_establishment::FriendshipPackage,
+    clients::connection_offer::FriendshipPackage,
     contacts::{Contact, PartialContact},
     conversations::{
         Conversation, ConversationAttributes,
@@ -68,7 +68,7 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 
 mod add_contact;
 pub(crate) mod api_clients;
-pub(crate) mod connection_establishment;
+pub(crate) mod connection_offer;
 pub mod conversations;
 mod create_user;
 mod invite_users;

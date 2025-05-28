@@ -10,7 +10,7 @@ use openmls_traits::storage::{
         self, ProposalRef as ProposalRefTrait, SignaturePublicKey as SignaturePublicKeyTrait,
     },
 };
-use phnxtypes::codec::PhnxCodec;
+use phnxcommon::codec::PhnxCodec;
 use sqlx::{
     Database, Decode, Encode, Row, Sqlite, SqliteConnection, SqliteExecutor, Type, encode::IsNull,
     error::BoxDynError, query, sqlite::SqliteTypeInfo,

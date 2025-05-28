@@ -61,7 +61,7 @@ class _CreateConversationViewState extends State<CreateConversationView> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints.tight(const Size(350, 80)),
                   child: TextFormField(
-                    style: inputTextStyle,
+                    style: inputTextStyle(context),
                     autofocus: true,
                     controller: _controller,
                     decoration: InputDecoration(hintText: widget.hint),

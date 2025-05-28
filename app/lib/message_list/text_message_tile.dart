@@ -12,6 +12,11 @@ import 'package:provider/provider.dart';
 
 import 'message_renderer.dart';
 
+const double largeCornerRadius = Spacings.s;
+const double smallCornerRadius = Spacings.xxxs;
+const double messageHorizontalPadding = Spacings.xs;
+const double messageVerticalPadding = Spacings.xxs;
+
 class TextMessageTile extends StatelessWidget {
   const TextMessageTile({
     required this.contentMessage,
@@ -81,9 +86,10 @@ class _MessageView extends StatelessWidget {
                 _TextMessage(
                   blockElements: contentMessage.content.content.content,
                   isSender: isSender,
+                  flightPosition: flightPosition,
                 ),
                 if (flightPosition.isLast) ...[
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   _Timestamp(timestamp),
                 ],
               ],
@@ -104,13 +110,13 @@ class _Timestamp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 7.0),
+      padding: const EdgeInsets.symmetric(horizontal: largeCornerRadius),
       child: SelectionContainer.disabled(
         child: Text(
           _calcTimeString(timestamp),
           style: TextStyle(
             color: colorGreyDark,
-            fontSize: isLargeScreen(context) ? 10 : 11,
+            fontSize: isLargeScreen(context) ? 10 : 12,
             letterSpacing: -0.1,
           ).merge(VariableFontWeight.medium),
         ),
@@ -134,29 +140,42 @@ String _calcTimeString(String time) {
 }
 
 class _TextMessage extends StatelessWidget {
-  const _TextMessage({required this.blockElements, required this.isSender});
+  const _TextMessage({
+    required this.blockElements,
+    required this.isSender,
+    required this.flightPosition,
+  });
 
   final List<RangedBlockElement> blockElements;
   final bool isSender;
+  final UiFlightPosition flightPosition;
+
+  // Calculate radii
+  Radius _r(bool b) {
+    return Radius.circular(b ? largeCornerRadius : smallCornerRadius);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 1.0),
+      padding: const EdgeInsets.only(bottom: 1.5),
       child: Container(
         alignment:
             isSender
                 ? AlignmentDirectional.topEnd
                 : AlignmentDirectional.topStart,
         child: Container(
-          padding: EdgeInsets.only(
-            top: isLargeScreen(context) ? 1 : 4,
-            right: isLargeScreen(context) ? 10 : 11,
-            left: isLargeScreen(context) ? 10 : 11,
-            bottom: isLargeScreen(context) ? 5 : 6,
+          padding: const EdgeInsets.symmetric(
+            horizontal: messageHorizontalPadding,
+            vertical: messageVerticalPadding,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.only(
+              topLeft: _r(isSender || flightPosition.isFirst),
+              topRight: _r(!isSender || flightPosition.isFirst),
+              bottomLeft: _r(isSender || flightPosition.isLast),
+              bottomRight: _r(!isSender || flightPosition.isLast),
+            ),
             color: isSender ? colorDMB : colorDMBSuperLight,
           ),
           child: DefaultTextStyle.merge(

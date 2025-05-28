@@ -8,6 +8,7 @@ use std::cmp::Reverse;
 
 use anyhow::{Context, Result};
 use flutter_rust_bridge::frb;
+use phnxcommon::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
 use phnxcoreclient::{
     Asset, UserProfile,
     clients::{
@@ -16,10 +17,9 @@ use phnxcoreclient::{
     },
     open_client_db,
 };
-use phnxtypes::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
 use tracing::error;
 
-pub(crate) use phnxtypes::messages::push_token::PushToken;
+pub(crate) use phnxcommon::messages::push_token::PushToken;
 use url::Url;
 use uuid::Uuid;
 
