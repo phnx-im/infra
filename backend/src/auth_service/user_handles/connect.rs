@@ -234,7 +234,7 @@ impl AuthService {
     async fn load_user_handle_expiration_data_impl(
         pool: &PgPool,
         hash: &UserHandleHash,
-    ) -> Result<Option<ExpirationData>, sqlx::Error> {
+    ) -> sqlx::Result<Option<ExpirationData>> {
         let expiration_data = UserHandleRecord::load_expiration_data(pool, hash).await?;
         let Some(expiration_data) = expiration_data else {
             return Ok(None);
