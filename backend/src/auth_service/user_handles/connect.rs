@@ -18,6 +18,7 @@ use phnxprotos::{
     },
     validation::{MissingFieldError, MissingFieldExt},
 };
+use sqlx::PgPool;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
@@ -207,7 +208,7 @@ impl ConnectHandleProtocol for AuthService {
         &self,
         hash: &UserHandleHash,
     ) -> sqlx::Result<Option<ExpirationData>> {
-        UserHandleRecord::load_expiration_data(&self.db_pool, *hash).await
+        Self::load_user_handle_expiration_data_impl(&self.db_pool, hash).await
     }
 
     async fn get_connection_package_for_handle(
@@ -230,12 +231,32 @@ impl ConnectHandleProtocol for AuthService {
     }
 }
 
+impl AuthService {
+    async fn load_user_handle_expiration_data_impl(
+        pool: &PgPool,
+        hash: &UserHandleHash,
+    ) -> sqlx::Result<Option<ExpirationData>> {
+        let expiration_data = UserHandleRecord::load_expiration_data(pool, hash).await?;
+        let Some(expiration_data) = expiration_data else {
+            return Ok(None);
+        };
+
+        // Delete the handle if the expiration date has passed
+        if !expiration_data.validate() {
+            UserHandleRecord::delete(pool, hash).await?;
+            return Ok(None);
+        }
+
+        Ok(Some(expiration_data))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time;
 
     use mockall::predicate::*;
-    use phnxcommon::{identifiers::UserId, time::Duration};
+    use phnxcommon::{credentials::keys::HandleVerifyingKey, identifiers::UserId, time::Duration};
     use phnxprotos::auth_service::v1::{self, EnqueuePackageStep, FetchConnectionPackageStep};
     use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
@@ -510,6 +531,54 @@ mod tests {
         );
 
         run_handle.await.expect("protocol panicked");
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn load_user_handle_expiration_data_loads(pool: PgPool) -> anyhow::Result<()> {
+        let hash = UserHandleHash::new([1; 32]);
+        let expiration_data = ExpirationData::new(Duration::days(1));
+
+        let record = UserHandleRecord {
+            user_handle_hash: hash,
+            verifying_key: HandleVerifyingKey::from_bytes(vec![1, 2, 3, 4, 5]),
+            expiration_data: expiration_data.clone(),
+        };
+        record.store(&pool).await?;
+
+        let expiration_data =
+            AuthService::load_user_handle_expiration_data_impl(&pool, &hash).await?;
+        assert_eq!(expiration_data.as_ref(), Some(&record.expiration_data));
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn load_user_handle_expiration_data_deletes_expired_handle(
+        pool: PgPool,
+    ) -> anyhow::Result<()> {
+        let hash = UserHandleHash::new([1; 32]);
+        let expiration_data = ExpirationData::new(Duration::zero());
+
+        let record = UserHandleRecord {
+            user_handle_hash: hash,
+            verifying_key: HandleVerifyingKey::from_bytes(vec![1, 2, 3, 4, 5]),
+            expiration_data: expiration_data.clone(),
+        };
+        record.store(&pool).await?;
+
+        UserHandleRecord::load_verifying_key(&pool, &hash)
+            .await?
+            .expect("handle should exist");
+
+        let expiration_data =
+            AuthService::load_user_handle_expiration_data_impl(&pool, &hash).await?;
+        assert_eq!(expiration_data, None);
+
+        // Check that the record is deleted
+        let loaded = UserHandleRecord::load_verifying_key(&pool, &hash).await?;
+        assert_eq!(loaded, None);
 
         Ok(())
     }

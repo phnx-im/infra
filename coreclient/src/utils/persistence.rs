@@ -14,7 +14,7 @@ use sqlx::{
     migrate,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
-use tracing::error;
+use tracing::{error, info};
 
 use crate::clients::store::ClientRecord;
 
@@ -55,28 +55,39 @@ pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
 
 /// Delete both the phnx.db and all client dbs from this device.
 ///
-/// WARNING: This will delete all APP-data from this device! Also, this function
-/// may panic.
+/// If the phnx.db exists, but cannot be opened, only the phnx.db is deleted.
+///
+/// WARNING: This will delete all APP-data from this device!
 pub async fn delete_databases(client_db_path: &str) -> Result<()> {
     let full_phnx_db_path = format!("{client_db_path}/{PHNX_DB_NAME}");
     if !Path::new(&full_phnx_db_path).exists() {
-        bail!("phnx.db does not exist")
+        bail!("{full_phnx_db_path} does not exist")
     }
 
-    // First delete all client DBs.
+    // First try to delete all client DBs
+    if let Err(error) = delete_client_databases(client_db_path).await {
+        error!(%error, "Failed to delete client DBs")
+    }
+
+    // Finally, delete the phnx.db
+    info!(path =% full_phnx_db_path, "removing PHNX DB");
+    fs::remove_file(full_phnx_db_path)?;
+
+    Ok(())
+}
+
+async fn delete_client_databases(client_db_path: &str) -> anyhow::Result<()> {
     let phnx_db_connection = open_phnx_db(client_db_path).await?;
     if let Ok(client_records) = ClientRecord::load_all(&phnx_db_connection).await {
         for client_record in client_records {
             let client_db_name = client_db_name(&client_record.user_id);
             let client_db_path = format!("{client_db_path}/{client_db_name}");
+            info!(path =% client_db_path, "removing client DB");
             if let Err(error) = fs::remove_file(&client_db_path) {
                 error!(%error, %client_db_path, "Failed to delete client DB")
             }
         }
     }
-
-    // Finally, delete the phnx.db.
-    fs::remove_file(full_phnx_db_path)?;
     Ok(())
 }
 
