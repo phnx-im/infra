@@ -131,7 +131,7 @@ impl DsGroupState {
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
-            room_state: serde_json::to_vec(&self.room_state).unwrap(),
+            room_state: self.room_state.clone(),
             encrypted_user_profile_keys,
         }
     }

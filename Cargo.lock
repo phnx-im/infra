@@ -2796,7 +2796,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mimi-room-policy"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-room-policy?rev=4b78fab2b3ffba3268f22bd0c964f672a794ddf9#4b78fab2b3ffba3268f22bd0c964f672a794ddf9"
+source = "git+https://github.com/phnx-im/mimi-room-policy?rev=6c551a0000a6c3d6940c0b5cf65dbc718e8f8982#6c551a0000a6c3d6940c0b5cf65dbc718e8f8982"
 dependencies = [
  "ciborium",
  "serde",
@@ -3375,6 +3375,7 @@ dependencies = [
 name = "phnxapiclient"
 version = "0.1.0"
 dependencies = [
+ "mimi-room-policy",
  "mls-assist",
  "phnxprotos",
  "phnxtypes",
@@ -3507,6 +3508,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "derive_more 0.99.20",
+ "mimi-room-policy",
  "mls-assist",
  "openmls",
  "phnxtypes",
@@ -3588,6 +3590,7 @@ dependencies = [
  "hex",
  "hkdf",
  "insta",
+ "mimi-room-policy",
  "mls-assist",
  "rand 0.8.5",
  "rand_chacha 0.3.1",

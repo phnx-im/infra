@@ -22,7 +22,7 @@ use crate::{
 use super::v1::{
     AddUsersInfo, AssistedMessage, ClientVerifyingKey, EncryptedUserProfileKey,
     EncryptedWelcomeAttributionInfo, GroupEpoch, GroupInfo, GroupStateEarKey, LeafNodeIndex,
-    MlsMessage, QsReference, RatchetTree, SealedClientReference,
+    MlsMessage, QsReference, RatchetTree, RoomState, SealedClientReference,
 };
 
 impl From<identifiers::SealedClientReference> for SealedClientReference {
@@ -136,6 +136,24 @@ impl TryFromRef<'_, MlsMessage> for openmls::framing::MlsMessageIn {
     type Error = tls_codec::Error;
 
     fn try_from_ref(proto: &MlsMessage) -> Result<Self, Self::Error> {
+        DeserializeBytes::tls_deserialize_exact_bytes(&proto.tls)
+    }
+}
+
+impl TryFromRef<'_, mimi_room_policy::RoomState> for RoomState {
+    type Error = tls_codec::Error;
+
+    fn try_from_ref(value: &mimi_room_policy::RoomState) -> Result<Self, Self::Error> {
+        Ok(Self {
+            tls: value.tls_serialize_detached()?,
+        })
+    }
+}
+
+impl TryFromRef<'_, RoomState> for mimi_room_policy::RoomState {
+    type Error = tls_codec::Error;
+
+    fn try_from_ref(proto: &RoomState) -> Result<Self, Self::Error> {
         DeserializeBytes::tls_deserialize_exact_bytes(&proto.tls)
     }
 }

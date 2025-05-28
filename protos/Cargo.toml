@@ -21,6 +21,7 @@ tls_codec.workspace = true
 openmls.workspace = true
 derive_more.workspace = true
 mls-assist.workspace = true
+mimi-room-policy.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

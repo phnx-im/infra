@@ -130,16 +130,16 @@ pub(crate) struct PartialCreateGroupParams {
 impl PartialCreateGroupParams {
     pub(crate) fn into_params(
         self,
-        client_reference: QsReference,
+        creator_client_reference: QsReference,
         encrypted_user_profile_key: EncryptedUserProfileKey,
     ) -> CreateGroupParamsOut {
         CreateGroupParamsOut {
             group_id: self.group_id,
             ratchet_tree: self.ratchet_tree,
             encrypted_user_profile_key,
-            creator_client_reference: client_reference,
+            creator_client_reference,
             group_info: self.group_info,
-            room_state: serde_json::to_vec(&self.room_state).unwrap(),
+            room_state: self.room_state,
         }
     }
 }
@@ -421,7 +421,7 @@ impl Group {
             identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             pending_diff: None,
-            room_state: serde_json::from_slice(&room_state).unwrap(),
+            room_state,
         };
 
         Ok((group, member_profile_info))
@@ -532,7 +532,7 @@ impl Group {
             identity_link_wrapper_key,
             group_state_ear_key,
             pending_diff: None,
-            room_state: serde_json::from_slice(&room_state).unwrap(),
+            room_state,
         };
 
         Ok((group, commit, group_info, member_profile_info))

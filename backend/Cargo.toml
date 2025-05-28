@@ -24,7 +24,6 @@ tracing = { version = "0.1.35", features = ["log"] }
 sqlx = { workspace = true, features = ["postgres", "tls-rustls"] }
 mimi-room-policy = { workspace = true }
 tokio = "1"
-serde_json = "1.0.140"
 
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
@@ -39,6 +38,7 @@ futures-util = "0.3.31"
 phnxtypes = { path = "../types", features = ["test_utils"] }
 anyhow = "1.0.97"
 insta = { workspace = true }
+serde_json = "1.0.140"
 
 [features]
 test_utils = ["phnxtypes/test_utils"]

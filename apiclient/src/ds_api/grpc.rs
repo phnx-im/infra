@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     messages::AssistedMessageOut,
     openmls::{
@@ -110,7 +111,7 @@ impl DsGrpcClient {
             encrypted_user_profile_key: Some(payload.encrypted_user_profile_key.into()),
             creator_client_reference: Some(payload.creator_client_reference.into()),
             group_info: Some(payload.group_info.try_ref_into()?),
-            room_state: payload.room_state,
+            room_state: Some(payload.room_state.clone().unverify().try_ref_into()?),
         };
         let request = payload.sign(signing_key)?;
         self.client.clone().create_group(request).await?;
@@ -208,7 +209,13 @@ impl DsGrpcClient {
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
-            room_state: response.room_state,
+            room_state: VerifiedRoomState::verify(
+                response
+                    .room_state
+                    .ok_or(DsRequestError::UnexpectedResponse)?
+                    .try_ref_into()?,
+            )
+            .map_err(|_| DsRequestError::UnexpectedResponse)?,
         })
     }
 
@@ -305,7 +312,13 @@ impl DsGrpcClient {
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
-            room_state: response.room_state,
+            room_state: VerifiedRoomState::verify(
+                response
+                    .room_state
+                    .ok_or(DsRequestError::UnexpectedResponse)?
+                    .try_ref_into()?,
+            )
+            .map_err(|_| DsRequestError::UnexpectedResponse)?,
         })
     }
 
@@ -360,7 +373,13 @@ impl DsGrpcClient {
                 .map(TryFrom::try_from)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| DsRequestError::UnexpectedResponse)?,
-            room_state: response.room_state,
+            room_state: VerifiedRoomState::verify(
+                response
+                    .room_state
+                    .ok_or(DsRequestError::UnexpectedResponse)?
+                    .try_ref_into()?,
+            )
+            .map_err(|_| DsRequestError::UnexpectedResponse)?,
         })
     }
 

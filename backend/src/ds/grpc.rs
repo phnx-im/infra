@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     group::Group,
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
 use phnxprotos::{
-    convert::{RefInto, TryRefInto},
+    convert::{RefInto, TryFromRef, TryRefInto},
     delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
@@ -242,7 +243,14 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .creator_client_reference
             .ok_or_missing_field("creator_client_reference")?
             .try_into()?;
-        let room_state = serde_json::from_slice(&payload.room_state).unwrap(); // TODO Handle error
+        let room_state = mimi_room_policy::RoomState::try_from_ref(
+            &payload.room_state.ok_or_missing_field("room_state")?,
+        )
+        .map_err(|_| Status::invalid_argument("Invalid room_state message"))?;
+
+        let room_state = VerifiedRoomState::verify(room_state)
+            .map_err(|_| Status::invalid_argument("Room state verification failed"))?;
+
         let group_state = DsGroupState::new(
             provider,
             group,
@@ -306,7 +314,14 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
-            room_state: serde_json::to_vec(&group_state.room_state).unwrap(),
+            room_state: Some(
+                group_state
+                    .room_state
+                    .clone()
+                    .unverify()
+                    .try_ref_into()
+                    .invalid_tls("room_state")?,
+            ),
         }))
     }
 
@@ -344,7 +359,14 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
-            room_state: commit_info.room_state,
+            room_state: Some(
+                commit_info
+                    .room_state
+                    .clone()
+                    .unverify()
+                    .try_ref_into()
+                    .invalid_tls("room_state")?,
+            ),
         }))
     }
 
@@ -382,7 +404,14 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
-            room_state: commit_info.room_state,
+            room_state: Some(
+                commit_info
+                    .room_state
+                    .clone()
+                    .unverify()
+                    .try_ref_into()
+                    .invalid_tls("room_state")?,
+            ),
         }))
     }
 

@@ -31,6 +31,7 @@ chrono = { version = "0.4", features = ["serde"] }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "postgres"] }
+mimi-room-policy = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }

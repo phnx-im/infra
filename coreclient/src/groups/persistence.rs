@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::ensure;
+use mimi_room_policy::VerifiedRoomState;
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxtypes::{
@@ -20,7 +21,7 @@ struct SqlGroup {
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     pending_diff: Option<BlobDecoded<StagedGroupDiff>>,
-    room_state: Vec<u8>,
+    room_state: BlobDecoded<VerifiedRoomState>,
 }
 
 impl SqlGroup {
@@ -32,13 +33,14 @@ impl SqlGroup {
             pending_diff,
             room_state,
         } = self;
+
         Group {
             group_id,
             identity_link_wrapper_key,
             group_state_ear_key,
             mls_group,
             pending_diff: pending_diff.map(|BlobDecoded(diff)| diff),
-            room_state: serde_json::from_slice(&room_state).unwrap(),
+            room_state: room_state.0,
         }
     }
 }
@@ -46,7 +48,7 @@ impl SqlGroup {
 impl Group {
     pub(crate) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
-        let room_state = serde_json::to_vec(&self.room_state).unwrap();
+        let room_state = BlobEncoded(&self.room_state);
         let pending_diff = self.pending_diff.as_ref().map(BlobEncoded);
 
         query!(
@@ -114,7 +116,7 @@ impl Group {
     pub(crate) async fn store_update(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         let group_id = GroupIdRefWrapper::from(&self.group_id);
         let pending_diff = self.pending_diff.as_ref().map(BlobEncoded);
-        let room_state = serde_json::to_vec(&self.room_state).unwrap();
+        let room_state = BlobEncoded(&self.room_state);
         query!(
             "UPDATE groups SET
                 identity_link_wrapper_key = ?,
