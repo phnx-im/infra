@@ -63,6 +63,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                   autofocus: true,
                   controller: _controller,
                   decoration: const InputDecoration(hintText: "Display name"),
+                  style: inputTextStyle(context),
                 ),
                 const SizedBox(height: Spacings.s),
                 Align(

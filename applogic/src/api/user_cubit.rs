@@ -4,8 +4,8 @@
 
 //! Logged-in user feature
 
-use std::sync::Arc;
 use std::time::Duration;
+use std::{sync::Arc, time::Instant};
 
 use anyhow::{Context, bail};
 use flutter_rust_bridge::frb;
@@ -143,6 +143,9 @@ pub struct UserCubitBase {
 }
 
 const POLLING_INTERVAL: Duration = Duration::from_secs(10);
+
+/// Timeout after a queue disconnect is not considered as error
+const REGULAR_DISCONNECT_TIMEOUT: Duration = Duration::from_secs(30 * 60 * 60); // 30 minutes
 
 impl UserCubitBase {
     #[frb(sync)]
@@ -354,20 +357,20 @@ fn spawn_listen(
                 .wait_for(|app_state| matches!(app_state, AppState::Foreground))
                 .await;
 
-            // if listen failed, retry with backoff
             if let Err(error) = res {
+                // if listen failed, retry with backoff
                 let timeout = backoff.next_backoff();
                 info!(%error, retry_in =? timeout, "listen failed");
 
                 tokio::time::sleep(timeout).await;
+            } else {
+                // otherwise, reset backoff and reconnect
+                backoff.reset();
             }
         }
     });
 }
 
-/// Returns `true` if `cancel` was cancelled.
-///
-/// Otherwise, returns `false` or an error.
 async fn run_listen(
     core_user: &CoreUser,
     navigation_state: &watch::Receiver<NavigationState>,
@@ -376,6 +379,7 @@ async fn run_listen(
     cancel: &CancellationToken,
     backoff: &mut FibonacciBackoff,
 ) -> anyhow::Result<()> {
+    let connected_at = Instant::now();
     let mut queue_stream = core_user.listen_queue().await?;
     info!("listening to the queue");
 
@@ -396,7 +400,10 @@ async fn run_listen(
             Some(QueueEvent { event: None }) => {
                 error!("missing `event` field in queue event");
             }
-            None => bail!("disconnected from the queue"),
+            None if connected_at.elapsed() < REGULAR_DISCONNECT_TIMEOUT => {
+                bail!("disconnected from the queue");
+            }
+            None => return Ok(()), // regular disconnect
         }
         backoff.reset(); // reset backoff after a successful message
     }

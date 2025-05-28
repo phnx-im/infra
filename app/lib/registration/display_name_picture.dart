@@ -69,7 +69,7 @@ class _DisplayNameTextField extends StatelessWidget {
       autofocus: isSmallScreen(context) ? false : true,
       decoration: const InputDecoration(hintText: 'DISPLAY NAME'),
       initialValue: displayName,
-      style: inputTextStyle,
+      style: inputTextStyle(context),
       onChanged: (value) {
         context.read<RegistrationCubit>().setDisplayName(value);
       },

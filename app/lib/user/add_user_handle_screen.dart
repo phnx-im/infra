@@ -52,6 +52,8 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                   TextFormField(
                     autofocus: true,
                     controller: _controller,
+                    decoration: const InputDecoration(hintText: "Username"),
+                    style: inputTextStyle(context),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'User handle cannot be empty';
@@ -61,7 +63,6 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                       );
                       return handle.validationError();
                     },
-                    decoration: const InputDecoration(hintText: "Username"),
                   ),
                   const SizedBox(height: Spacings.s),
                   Align(

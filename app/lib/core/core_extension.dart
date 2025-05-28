@@ -24,6 +24,18 @@ extension UiConversationDetailsExtension on UiConversationDetails {
     UiConversationType_Connection(field0: final profile) => profile.displayName,
     UiConversationType_Group() => attributes.title,
   };
+
+  /// Picture of the conversation
+  ///
+  /// The picture is either the one from the conversation attributes (when this is a group
+  /// conversation) or the one from the user profile (when this is a 1:1 conversation).
+  ImageData? get picture => switch (conversationType) {
+    UiConversationType_Connection(field0: final profile) ||
+    UiConversationType_UnconfirmedConnection(
+      field0: final profile,
+    ) => profile.profilePicture,
+    UiConversationType_Group() => attributes.picture,
+  };
 }
 
 extension UiConversationTypeExtension on UiConversationType {
