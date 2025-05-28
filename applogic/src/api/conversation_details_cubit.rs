@@ -5,7 +5,7 @@
 //! A single conversation details feature
 
 use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 
 use std::{sync::Arc, time::Duration};
 

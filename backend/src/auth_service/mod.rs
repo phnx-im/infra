@@ -6,7 +6,7 @@ use credentials::{
     CredentialGenerationError, intermediate_signing_key::IntermediateSigningKey,
     signing_key::StorableSigningKey,
 };
-use phnxtypes::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
+use phnxcommon::{crypto::signatures::DEFAULT_SIGNATURE_SCHEME, identifiers::Fqdn};
 use queue::Queues;
 use sqlx::PgPool;
 use thiserror::Error;
@@ -23,6 +23,7 @@ mod credentials;
 pub mod grpc;
 mod privacy_pass;
 mod queue;
+mod user_handles;
 pub mod user_record;
 
 #[derive(Debug, Clone)]

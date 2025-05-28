@@ -8,14 +8,14 @@ use std::{
 };
 
 use mimi_content::MimiContent;
+use phnxcommon::{
+    DEFAULT_PORT_HTTP,
+    identifiers::{Fqdn, UserId},
+};
 use phnxcoreclient::{
     ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
 };
 use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
-use phnxtypes::{
-    DEFAULT_PORT_HTTP,
-    identifiers::{Fqdn, UserId},
-};
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
 use tempfile::TempDir;
@@ -415,6 +415,8 @@ impl TestBackend {
             .into_iter()
             .map(|contact| contact.user_id.clone())
             .collect();
+        dbg!(&user1_contacts_before);
+        dbg!(&user1_contacts_after);
         let new_user_vec: Vec<_> = user1_contacts_after
             .difference(&user1_contacts_before)
             .collect();

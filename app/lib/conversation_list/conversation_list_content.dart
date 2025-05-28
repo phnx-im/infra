@@ -89,7 +89,7 @@ class _ListTile extends StatelessWidget {
           children: [
             UserAvatar(
               size: 48,
-              image: conversation.attributes.picture,
+              image: conversation.picture,
               displayName: conversation.title,
             ),
             const SizedBox(width: Spacings.s),
@@ -141,9 +141,7 @@ class _ListTileBottom extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ownClientId = context.select(
-      (UserCubit cubit) => cubit.state.userId,
-    );
+    final ownClientId = context.select((UserCubit cubit) => cubit.state.userId);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

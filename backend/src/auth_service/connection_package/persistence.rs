@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::{
+use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::UserId,
     messages::client_as::ConnectionPackage,
@@ -102,7 +102,7 @@ impl StorableConnectionPackage {
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::ClientCredential,
         crypto::{ConnectionDecryptionKey, signatures::signable::Signature},
         messages::{MlsInfraVersion, client_as::ConnectionPackageTbs},

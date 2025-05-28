@@ -6,7 +6,7 @@ use anyhow::ensure;
 use mimi_room_policy::VerifiedRoomState;
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
-use phnxtypes::{
+use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };

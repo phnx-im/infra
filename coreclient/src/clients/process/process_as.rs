@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use openmls::prelude::MlsMessageOut;
-use phnxtypes::{
+use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::QualifiedGroupId,
@@ -85,6 +85,23 @@ impl CoreUser {
                     )
                     .await?;
 
+                // Verify that the group has only one other member and that it's
+                // the sender of the CEP.
+                let members = group.members(&mut *connection).await;
+
+                ensure!(
+                    members.len() == 2,
+                    "Connection group has more than two members: {:?}",
+                    members
+                );
+
+                ensure!(
+                    members.contains(self.user_id())
+                        && members.contains(cep_payload.sender_client_credential.identity()),
+                    "Connection group has unexpected members: {:?}",
+                    members
+                );
+
                 // There should be only one user profile
                 let contact_profile_info = member_profile_info
                     .pop()
@@ -109,7 +126,7 @@ impl CoreUser {
 
                 // Create conversation
                 let (mut conversation, contact) = self
-                    .create_connection_conversation(&group, &cep_payload)
+                    .create_connection_conversation(&mut connection, &group, &cep_payload)
                     .await?;
 
                 let mut notifier = self.store_notifier();
@@ -253,12 +270,16 @@ impl CoreUser {
 
     async fn create_connection_conversation(
         &self,
+        connection: &mut SqliteConnection,
         group: &Group,
         cep_payload: &ConnectionEstablishmentPackagePayload,
     ) -> Result<(Conversation, Contact)> {
         let sender_user_id = cep_payload.sender_client_credential.identity();
 
-        let display_name = self.user_profile(sender_user_id).await.display_name;
+        let display_name = self
+            .user_profile_internal(connection, sender_user_id)
+            .await
+            .display_name;
 
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),

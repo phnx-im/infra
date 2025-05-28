@@ -15,7 +15,7 @@ use mls_assist::{
     },
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{
+use phnxcommon::{
     codec::PhnxCodec,
     crypto::{
         ear::{
@@ -24,7 +24,7 @@ use phnxtypes::{
         },
         errors::{DecryptionError, EncryptionError},
     },
-    identifiers::{QsReference, SealedClientReference, UserId},
+    identifiers::{QsReference, SealedClientReference},
     messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
 };
@@ -62,24 +62,6 @@ pub(crate) struct DsGroupState {
 }
 
 impl DsGroupState {
-    // TODO: This is copied from CoreClient. Can we move this to openmls?
-    //
-    // Computes free indices based on existing leaf indices and staged removals.
-    // Not that staged additions are not considered.
-    pub(super) async fn free_indices(&mut self) -> impl Iterator<Item = LeafNodeIndex> + 'static {
-        let leaf_indices = self.member_profiles.keys().cloned().collect::<Vec<_>>();
-
-        let highest_index = leaf_indices
-            .last()
-            .cloned()
-            .unwrap_or(LeafNodeIndex::new(0));
-
-        (0..highest_index.u32())
-            .filter(move |index| !leaf_indices.contains(&LeafNodeIndex::new(*index)))
-            .chain(highest_index.u32() + 1..)
-            .map(LeafNodeIndex::new)
-    }
-
     pub(crate) fn new(
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
@@ -191,7 +173,7 @@ pub(super) enum DsGroupStateEncryptionError {
     #[error("Error decrypting group state: {0}")]
     EncryptionError(#[from] EncryptionError),
     #[error("Error deserializing group state: {0}")]
-    DeserializationError(#[from] phnxtypes::codec::Error),
+    DeserializationError(#[from] phnxcommon::codec::Error),
 }
 
 impl From<DsGroupStateEncryptionError> for tonic::Status {
@@ -206,7 +188,7 @@ pub(super) enum DsGroupStateDecryptionError {
     #[error("Error decrypting group state: {0}")]
     DecryptionError(#[from] DecryptionError),
     #[error("Error deserializing group state: {0}")]
-    DeserializationError(#[from] phnxtypes::codec::Error),
+    DeserializationError(#[from] phnxcommon::codec::Error),
 }
 
 impl From<DsGroupStateDecryptionError> for tonic::Status {
@@ -261,7 +243,7 @@ pub(crate) struct SerializableDsGroupState {
 impl SerializableDsGroupState {
     pub(super) fn from_group_state(
         group_state: DsGroupState,
-    ) -> Result<Self, phnxtypes::codec::Error> {
+    ) -> Result<Self, phnxcommon::codec::Error> {
         let group_id = group_state
             .group()
             .group_info()
@@ -278,7 +260,7 @@ impl SerializableDsGroupState {
         })
     }
 
-    pub(super) fn into_group_state(self) -> Result<DsGroupState, phnxtypes::codec::Error> {
+    pub(super) fn into_group_state(self) -> Result<DsGroupState, phnxcommon::codec::Error> {
         let storage = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
         // We unwrap here, because the constructor ensures that `self` always stores a group
         let group = Group::load(&storage, &self.group_id)?.unwrap();

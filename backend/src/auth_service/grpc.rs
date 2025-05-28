@@ -8,11 +8,11 @@ use phnxprotos::{
     validation::MissingFieldExt,
 };
 
-use phnxtypes::{
+use phnxcommon::{
     crypto::{
         indexed_aead::keys::UserProfileKeyIndex,
         signatures::{
-            private_keys::SignatureVerificationError,
+            private_keys::{SignatureVerificationError, VerifyingKeyBehaviour},
             signable::{Verifiable, VerifiedStruct},
         },
     },
@@ -31,7 +31,9 @@ use tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming, async_trait};
 use tracing::error;
 
-use super::{AuthService, client_record::ClientRecord, queue::Queues};
+use super::{
+    AuthService, client_record::ClientRecord, queue::Queues, user_handles::UserHandleRecord,
+};
 
 pub struct GrpcAs {
     inner: AuthService,
@@ -55,17 +57,46 @@ impl GrpcAs {
                 Status::internal("database error")
             })?
             .ok_or_else(|| Status::not_found("unknown client"))?;
-        let payload = request
-            .verify(client_record.credential.verifying_key())
-            .map_err(|error| match error {
-                SignatureVerificationError::VerificationFailure => {
-                    Status::unauthenticated("invalid signature")
-                }
-                SignatureVerificationError::LibraryError(_) => {
-                    Status::internal("unrecoverable error")
-                }
-            })?;
+        let payload = self.verify_request(request, client_record.credential.verifying_key())?;
         Ok((user_id, payload))
+    }
+
+    async fn verify_handle_auth<R, P>(
+        &self,
+        request: R,
+    ) -> Result<(identifiers::UserHandleHash, P), Status>
+    where
+        R: WithUserHandleHash + Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        let hash = request.user_handle_hash()?;
+        let verifying_key = UserHandleRecord::load_verifying_key(&self.inner.db_pool, &hash)
+            .await
+            .map_err(|error| {
+                error!(%error, "failed to load verifying key");
+                Status::internal("database error")
+            })?
+            .ok_or_else(|| Status::not_found("unknown handle"))?;
+        let payload = self.verify_request(request, &verifying_key)?;
+        Ok((hash, payload))
+    }
+
+    #[expect(clippy::result_large_err)]
+    fn verify_request<R, P>(
+        &self,
+        request: R,
+        verifying_key: impl VerifyingKeyBehaviour,
+    ) -> Result<P, Status>
+    where
+        R: Verifiable,
+        P: VerifiedStruct<R>,
+    {
+        request.verify(verifying_key).map_err(|error| match error {
+            SignatureVerificationError::VerificationFailure => {
+                Status::unauthenticated("invalid signature")
+            }
+            SignatureVerificationError::LibraryError(_) => Status::internal("unrecoverable error"),
+        })
     }
 
     async fn process_listen_requests_task(
@@ -338,23 +369,57 @@ impl auth_service_server::AuthService for GrpcAs {
 
     async fn create_handle(
         &self,
-        _request: Request<CreateHandleRequest>,
+        request: Request<CreateHandleRequest>,
     ) -> Result<Response<CreateHandleResponse>, tonic::Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let verifying_key = request
+            .payload
+            .as_ref()
+            .ok_or_missing_field("payload")?
+            .verifying_key
+            .clone()
+            .ok_or_missing_field("verifying_key")?
+            .into();
+        let payload = self.verify_request::<_, CreateHandlePayload>(request, &verifying_key)?;
+
+        let hash = payload.hash.ok_or_missing_field("hash")?.try_into()?;
+
+        self.inner
+            .as_create_handle(verifying_key, payload.plaintext, hash)
+            .await?;
+
+        Ok(Response::new(CreateHandleResponse {}))
     }
 
     async fn delete_handle(
         &self,
-        _request: Request<DeleteHandleRequest>,
+        request: Request<DeleteHandleRequest>,
     ) -> Result<Response<DeleteHandleResponse>, tonic::Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let (hash, _payload) = self
+            .verify_handle_auth::<_, DeleteHandlePayload>(request)
+            .await?;
+
+        self.inner.as_delete_handle(hash).await?;
+
+        Ok(Response::new(DeleteHandleResponse {}))
     }
 
     async fn refresh_handle(
         &self,
-        _request: Request<RefreshHandleRequest>,
+        request: Request<RefreshHandleRequest>,
     ) -> Result<Response<RefreshHandleResponse>, tonic::Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let (hash, _payload) = self
+            .verify_handle_auth::<_, RefreshHandlePayload>(request)
+            .await?;
+
+        self.inner.as_refresh_handle(hash).await?;
+
+        Ok(Response::new(RefreshHandleResponse {}))
     }
 
     type ConnectHandleStream = BoxStream<'static, Result<ConnectResponse, tonic::Status>>;
@@ -435,5 +500,35 @@ impl WithUserId for InitListenRequest {
 impl WithUserId for IssueTokensRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
+    }
+}
+
+trait WithUserHandleHash {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash>;
+
+    #[expect(clippy::result_large_err)]
+    fn user_handle_hash(&self) -> Result<identifiers::UserHandleHash, Status> {
+        Ok(self
+            .user_handle_hash_proto()
+            .ok_or_missing_field("user_handle_hash")?
+            .try_into()?)
+    }
+}
+
+impl WithUserHandleHash for CreateHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
+    }
+}
+
+impl WithUserHandleHash for DeleteHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
+    }
+}
+
+impl WithUserHandleHash for RefreshHandleRequest {
+    fn user_handle_hash_proto(&self) -> Option<UserHandleHash> {
+        self.payload.as_ref()?.hash.clone()
     }
 }

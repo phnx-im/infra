@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
-use phnxtypes::messages::push_token::PushToken;
+use phnxcommon::messages::push_token::PushToken;
 
 use super::{
     create_user::{

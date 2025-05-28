@@ -6,7 +6,7 @@ use mls_assist::{
     openmls::prelude::{KeyPackage, OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
 };
-use phnxtypes::messages::client_qs::{
+use phnxcommon::messages::client_qs::{
     EncryptionKeyResponse, KeyPackageParams, KeyPackageResponse, PublishKeyPackagesParams,
 };
 

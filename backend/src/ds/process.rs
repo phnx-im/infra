@@ -147,7 +147,7 @@
 //! message format looks like.
 //!
 
-use mimi_room_policy::{RoomState, VerifiedRoomState};
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     MlsAssistRustCrypto,
     openmls::{prelude::group_info::GroupInfo, treesync::RatchetTree},
@@ -155,7 +155,7 @@ use mls_assist::{
 use tls_codec::{TlsSerialize, TlsSize};
 use uuid::Uuid;
 
-use phnxtypes::{
+use phnxcommon::{
     codec::PhnxCodec, crypto::ear::keys::EncryptedUserProfileKey, identifiers::QualifiedGroupId,
 };
 

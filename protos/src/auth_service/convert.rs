@@ -2,16 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use displaydoc::Display;
 use openmls::prelude::HpkeCiphertext;
-use phnxtypes::{
-    credentials, crypto, identifiers,
+use phnxcommon::{
+    credentials::{self, keys},
+    crypto, identifiers,
     messages::{self, client_as},
     time,
 };
+use thiserror::Error;
 use tonic::Status;
 
 use crate::{
-    common::convert::{InvalidIndexedCiphertext, InvalidNonceLen},
+    common::{
+        convert::{InvalidIndexedCiphertext, InvalidNonceLen},
+        v1::Signature,
+    },
     convert::TryRefInto,
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -22,7 +28,8 @@ use super::v1::{
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
     CredentialFingerprint, EncryptedConnectionEstablishmentPackage, EncryptedUserProfile,
-    ExpirationData, MlsInfraVersion, QueueMessage, SignatureScheme, UserId,
+    ExpirationData, HandleSignature, HandleVerifyingKey, MlsInfraVersion, QueueMessage,
+    SignatureScheme, UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -684,5 +691,71 @@ impl TryFrom<QueueMessage> for messages::QueueMessage {
             sequence_number: proto.sequence_number,
             ciphertext: proto.ciphertext.unwrap_or_default().try_into()?,
         })
+    }
+}
+
+impl From<HandleVerifyingKey> for keys::HandleVerifyingKey {
+    fn from(proto: HandleVerifyingKey) -> Self {
+        Self::from_bytes(proto.bytes)
+    }
+}
+
+impl From<keys::HandleVerifyingKey> for HandleVerifyingKey {
+    fn from(value: keys::HandleVerifyingKey) -> Self {
+        Self {
+            bytes: value.into_bytes(),
+        }
+    }
+}
+
+impl TryFrom<UserHandleHash> for identifiers::UserHandleHash {
+    type Error = UserHandleHashError;
+
+    fn try_from(proto: UserHandleHash) -> Result<Self, Self::Error> {
+        Ok(Self::new(
+            proto
+                .bytes
+                .try_into()
+                .map_err(|_| UserHandleHashError::InvalidLength)?,
+        ))
+    }
+}
+
+impl From<identifiers::UserHandleHash> for UserHandleHash {
+    fn from(value: identifiers::UserHandleHash) -> Self {
+        Self {
+            bytes: value.into_bytes().to_vec(),
+        }
+    }
+}
+
+#[derive(Debug, Error, Display)]
+pub enum UserHandleHashError {
+    /// Invalid hash length
+    InvalidLength,
+}
+
+impl From<UserHandleHashError> for Status {
+    fn from(error: UserHandleHashError) -> Self {
+        let msg = error.to_string();
+        match error {
+            UserHandleHashError::InvalidLength => Status::invalid_argument(msg),
+        }
+    }
+}
+
+impl From<keys::HandleSignature> for HandleSignature {
+    fn from(value: keys::HandleSignature) -> Self {
+        Self {
+            signature: Some(Signature {
+                value: value.into_bytes(),
+            }),
+        }
+    }
+}
+
+impl From<HandleSignature> for keys::HandleSignature {
+    fn from(proto: HandleSignature) -> Self {
+        keys::HandleSignature::from_bytes(proto.signature.unwrap_or_default().value)
     }
 }

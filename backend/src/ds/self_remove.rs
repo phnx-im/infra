@@ -12,7 +12,7 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxtypes::{credentials::VerifiableClientCredential, time::Duration};
+use phnxcommon::{credentials::VerifiableClientCredential, time::Duration};
 use tracing::error;
 
 impl DsGroupState {

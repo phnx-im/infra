@@ -16,7 +16,7 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
 };
 
-use phnxtypes::{
+use phnxcommon::{
     credentials::VerifiableClientCredential,
     crypto::{
         ear::keys::{EncryptedUserProfileKey, GroupStateEarKey},

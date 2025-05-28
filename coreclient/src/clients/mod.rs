@@ -10,10 +10,7 @@ use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 use phnxapiclient::{ApiClient, ApiClientInitError};
-pub use phnxprotos::queue_service::v1::{
-    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
-};
-use phnxtypes::{
+use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
@@ -38,8 +35,11 @@ use phnxtypes::{
         push_token::{EncryptedPushToken, PushToken},
     },
 };
+pub use phnxprotos::queue_service::v1::{
+    QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
+};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
@@ -355,9 +355,25 @@ impl CoreUser {
     /// In case of an error, or if the user profile is not found, the client id is used as a
     /// fallback.
     pub async fn user_profile(&self, user_id: &UserId) -> UserProfile {
-        IndexedUserProfile::load(self.pool(), user_id)
+        if let Ok(mut connection) = self.pool().acquire().await {
+            self.user_profile_internal(&mut connection, user_id).await
+        } else {
+            panic!();
+            error!("Error loading user profile; fallback to user_id");
+            UserProfile::from_user_id(user_id)
+        }
+    }
+
+    // Helper to use when we already hold a connection
+    async fn user_profile_internal(
+        &self,
+        connection: &mut SqliteConnection,
+        user_id: &UserId,
+    ) -> UserProfile {
+        IndexedUserProfile::load(connection, user_id)
             .await
             .inspect_err(|error| {
+                panic!();
                 error!(%error, "Error loading user profile; fallback to user_id");
             })
             .ok()

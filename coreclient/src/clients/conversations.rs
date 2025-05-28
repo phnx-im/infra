@@ -7,7 +7,7 @@ use create_conversation_flow::IntitialConversationData;
 use delete_conversation_flow::DeleteConversationData;
 use leave_conversation_flow::LeaveConversationData;
 use mimi_room_policy::VerifiedRoomState;
-use phnxtypes::identifiers::UserId;
+use phnxcommon::identifiers::UserId;
 
 use crate::{
     ConversationMessageId,
@@ -218,7 +218,7 @@ mod create_conversation_flow {
     use anyhow::Result;
     use openmls::group::GroupId;
     use openmls_traits::OpenMlsProvider;
-    use phnxtypes::{
+    use phnxcommon::{
         codec::PhnxCodec,
         credentials::keys::ClientSigningKey,
         crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
@@ -368,7 +368,7 @@ mod delete_conversation_flow {
     use std::collections::HashSet;
 
     use anyhow::Context;
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
     };
@@ -562,7 +562,7 @@ mod delete_conversation_flow {
 mod leave_conversation_flow {
     use anyhow::Context;
     use mimi_room_policy::{MimiProposal, RoleIndex};
-    use phnxtypes::{
+    use phnxcommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::SelfRemoveParamsOut,
     };

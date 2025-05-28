@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxtypes::messages::client_qs::{
+use phnxcommon::messages::client_qs::{
     CreateClientRecordParams, CreateClientRecordResponse, CreateUserRecordParams,
     CreateUserRecordResponse, DeleteUserRecordParams, UpdateUserRecordParams,
 };
