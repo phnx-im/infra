@@ -11,8 +11,8 @@ use phnxprotos::{
     auth_service::{
         convert::UserHandleHashError,
         v1::{
-            ConnectRequest, ConnectResponse, EncryptedConnectionEstablishmentPackage,
-            EnqueuePackageResponse, FetchConnectionPackageResponse, connect_request,
+            ConnectRequest, ConnectResponse, EncryptedConnectionOffer,
+            EnqueueConnectionOfferResponse, FetchConnectionPackageResponse, connect_request,
             connect_response, handle_queue_message,
         },
     },
@@ -53,10 +53,10 @@ pub(crate) trait ConnectHandleProtocol {
         hash: &UserHandleHash,
     ) -> sqlx::Result<ConnectionPackage>;
 
-    async fn enqueue_connection_establishment_package(
+    async fn enqueue_connection_offer(
         &self,
         hash: &UserHandleHash,
-        connection_establishment_package: EncryptedConnectionEstablishmentPackage,
+        connection_offer: EncryptedConnectionOffer,
     ) -> Result<(), HandleQueueError>;
 }
 
@@ -125,7 +125,7 @@ async fn run_protocol_impl(
     // step 2: enqueue encrypted connection establishment package
     debug!("step 2: waiting for enqueue package step");
     let step = incoming.next().await;
-    let enqueue_package = match step {
+    let enqueue_offer = match step {
         Some(Ok(ConnectRequest {
             step: Some(connect_request::Step::Enqueue(enqueue_package)),
         })) => enqueue_package,
@@ -139,13 +139,13 @@ async fn run_protocol_impl(
         None => return Ok(()),
     };
 
-    let connection_establishment_package = enqueue_package
-        .connection_establishment_package
-        .ok_or_missing_field("connection_establishment_package")?;
+    let connection_establishment_package = enqueue_offer
+        .connection_offer
+        .ok_or_missing_field("connecton_offer")?;
 
-    debug!("enqueue connection package");
+    debug!("enqueue connection offer");
     protocol
-        .enqueue_connection_establishment_package(&hash, connection_establishment_package)
+        .enqueue_connection_offer(&hash, connection_establishment_package)
         .await?;
 
     // acknowledge
@@ -153,7 +153,7 @@ async fn run_protocol_impl(
     if outgoing
         .send(Ok(ConnectResponse {
             step: Some(connect_response::Step::EnqueueResponse(
-                EnqueuePackageResponse {},
+                EnqueueConnectionOfferResponse {},
             )),
         }))
         .await
@@ -218,14 +218,12 @@ impl ConnectHandleProtocol for AuthService {
         StorableConnectionPackage::load_for_handle(&self.db_pool, hash).await
     }
 
-    async fn enqueue_connection_establishment_package(
+    async fn enqueue_connection_offer(
         &self,
         hash: &UserHandleHash,
-        connection_establishment_package: EncryptedConnectionEstablishmentPackage,
+        connection_offer: EncryptedConnectionOffer,
     ) -> Result<(), HandleQueueError> {
-        let payload = handle_queue_message::Payload::ConnectionEstablishmentPackage(
-            connection_establishment_package,
-        );
+        let payload = handle_queue_message::Payload::ConnectionOffer(connection_offer);
         self.handle_queues.enqueue(hash, payload).await?;
         Ok(())
     }
@@ -257,7 +255,10 @@ mod tests {
 
     use mockall::predicate::*;
     use phnxcommon::{credentials::keys::HandleVerifyingKey, identifiers::UserId, time::Duration};
-    use phnxprotos::auth_service::v1::{self, EnqueuePackageStep, FetchConnectionPackageStep};
+    use phnxprotos::auth_service::v1::{
+        self, EncryptedConnectionOffer, EnqueueConnectionOfferResponse, EnqueueConnectionOfferStep,
+        FetchConnectionPackageStep,
+    };
     use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
 
@@ -315,7 +316,7 @@ mod tests {
         let hash = UserHandleHash::new([1; 32]);
         let expiration_data = ExpirationData::new(Duration::days(1));
         let connection_package = random_connection_package(client_credential);
-        let connection_establishment_package = EncryptedConnectionEstablishmentPackage::default();
+        let connection_offer = EncryptedConnectionOffer::default();
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
 
@@ -331,8 +332,8 @@ mod tests {
             .returning(move |_| Ok(inner_connection_package.clone()));
 
         mock_protocol
-            .expect_enqueue_connection_establishment_package()
-            .with(eq(hash), eq(connection_establishment_package.clone()))
+            .expect_enqueue_connection_offer()
+            .with(eq(hash), eq(connection_offer.clone()))
             .returning(|_, _| Ok(()));
 
         let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
@@ -360,14 +361,15 @@ mod tests {
 
         // step 2
         let request_enqueue = ConnectRequest {
-            step: Some(connect_request::Step::Enqueue(EnqueuePackageStep {
-                connection_establishment_package: Some(connection_establishment_package.clone()),
+            step: Some(connect_request::Step::Enqueue(EnqueueConnectionOfferStep {
+                connection_offer: Some(connection_offer.clone()),
             })),
         };
         requests.send(Ok(request_enqueue)).await.unwrap();
         match responses.recv().await.unwrap() {
             Ok(ConnectResponse {
-                step: Some(connect_response::Step::EnqueueResponse(EnqueuePackageResponse {})),
+                step:
+                    Some(connect_response::Step::EnqueueResponse(EnqueueConnectionOfferResponse {})),
             }) => {}
             _ => panic!("unexpected response type"),
         }
@@ -467,8 +469,8 @@ mod tests {
 
         requests
             .send(Ok(ConnectRequest {
-                step: Some(connect_request::Step::Enqueue(EnqueuePackageStep {
-                    connection_establishment_package: None,
+                step: Some(connect_request::Step::Enqueue(EnqueueConnectionOfferStep {
+                    connection_offer: None,
                 })),
             }))
             .await

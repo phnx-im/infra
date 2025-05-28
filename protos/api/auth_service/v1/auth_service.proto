@@ -57,8 +57,7 @@ service AuthService {
   //
   // 1. User sends a `fetch` request for a specific handle hash.
   // 2. Server responds with a connection package for the handle hash.
-  // 3. User sends an `enqueue` request with an encrypted connection
-  //    establishment package.
+  // 3. User sends an `enqueue` request with an encrypted connection offer.
   // 4. Server responds with an empty acknowledgement.
   rpc ConnectHandle(stream ConnectRequest) returns (stream ConnectResponse);
 
@@ -340,10 +339,10 @@ message IssueTokensResponse {
 
 message EnqueueMessagesRequest {
   UserId user_id = 1;
-  EncryptedConnectionEstablishmentPackage connection_establishment_package = 2;
+  EncryptedConnectionOffer connection_offer = 2;
 }
 
-message EncryptedConnectionEstablishmentPackage {
+message EncryptedConnectionOffer {
   common.v1.HpkeCiphertext ciphertext = 1;
 }
 
@@ -445,7 +444,7 @@ message RefreshHandleResponse {}
 message ConnectRequest {
   oneof step {
     FetchConnectionPackageStep fetch = 1;
-    EnqueuePackageStep enqueue = 2;
+    EnqueueConnectionOfferStep enqueue = 2;
   }
 }
 
@@ -457,18 +456,18 @@ message FetchConnectionPackageResponse {
   ConnectionPackage connection_package = 1;
 }
 
-message EnqueuePackageStep {
-  EncryptedConnectionEstablishmentPackage connection_establishment_package = 2;
+message EnqueueConnectionOfferStep {
+  EncryptedConnectionOffer connection_offer = 2;
 }
 
 message ConnectResponse {
   oneof step {
     FetchConnectionPackageResponse fetch_response = 1;
-    EnqueuePackageResponse enqueue_response = 2;
+    EnqueueConnectionOfferResponse enqueue_response = 2;
   }
 }
 
-message EnqueuePackageResponse {}
+message EnqueueConnectionOfferResponse {}
 
 // listen handle
 
@@ -502,6 +501,6 @@ message ListenHandleResponse {
 message HandleQueueMessage {
   common.v1.Uuid message_id = 1;
   oneof payload {
-    EncryptedConnectionEstablishmentPackage connection_establishment_package = 2;
+    EncryptedConnectionOffer connection_offer = 2;
   }
 }

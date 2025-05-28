@@ -365,9 +365,7 @@ mod test {
         time::{Duration, ExpirationData},
     };
     use phnxprotos::{
-        auth_service::v1::{
-            EncryptedConnectionEstablishmentPackage, handle_queue_message::Payload,
-        },
+        auth_service::v1::{EncryptedConnectionOffer, handle_queue_message::Payload},
         common::v1::HpkeCiphertext,
     };
     use tokio::time::timeout;
@@ -380,7 +378,7 @@ mod test {
     const STREAM_NEXT_TIMEOUT: time::Duration = time::Duration::from_secs(1);
 
     fn new_payload(payload_str: &str) -> Payload {
-        Payload::ConnectionEstablishmentPackage(EncryptedConnectionEstablishmentPackage {
+        Payload::ConnectionOffer(EncryptedConnectionOffer {
             ciphertext: Some(HpkeCiphertext {
                 kem_output: b"kem_output".to_vec(),
                 ciphertext: payload_str.as_bytes().to_vec(),
