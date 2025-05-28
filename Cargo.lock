@@ -3459,7 +3459,6 @@ dependencies = [
  "chrono",
  "displaydoc",
  "futures-util",
- "hex",
  "insta",
  "mimi-room-policy",
  "mls-assist",

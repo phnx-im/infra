@@ -36,7 +36,6 @@ futures-util = "0.3.31"
 chrono = "0.4"
 sha2 = "0.10"
 displaydoc = "0.2.5"
-hex = "0.4.3"
 prost.workspace = true
 
 [dev-dependencies]
