@@ -32,7 +32,7 @@ class ConnectionDetails extends StatelessWidget {
           UserAvatar(
             size: 64,
             displayName: conversation.title,
-            image: conversation.attributes.picture,
+            image: conversation.picture,
           ),
           Text(
             conversation.title,
