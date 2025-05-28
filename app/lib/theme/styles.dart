@@ -34,6 +34,10 @@ const variationMedium = [FontVariation("wght", 500)];
 const variationSemiBold = [FontVariation("wght", 600)];
 const variationBold = [FontVariation("wght", 700)];
 
+double fontSize(BuildContext context) {
+  return isLargeScreen(context) ? 14 : 16;
+}
+
 // === Colors ===
 
 // DMB
@@ -56,14 +60,19 @@ const inactiveButtonColor = colorDMBSuperLight;
 
 // === Inputs ===
 
-final inputTextStyle = const TextStyle(
-  fontFamily: fontFamily,
-  fontSize: 14,
-).merge(VariableFontWeight.normal);
+TextStyle inputTextStyle(BuildContext context) {
+  return TextStyle(
+    fontFamily: fontFamily,
+    fontSize: fontSize(context),
+  ).merge(VariableFontWeight.normal);
+}
 
 TextStyle messageTextStyle(BuildContext context, bool inverted) =>
     Theme.of(context).textTheme.bodyMedium!
-        .copyWith(color: inverted ? Colors.white : Colors.black)
+        .copyWith(
+          color: inverted ? Colors.white : Colors.black,
+          fontSize: fontSize(context),
+        )
         .merge(
           isLargeScreen(context)
               ? VariableFontWeight.normal
@@ -81,7 +90,7 @@ ButtonStyle textButtonStyle(BuildContext context) {
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
       Theme.of(context).textTheme.labelLarge!
-          .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
+          .copyWith(fontSize: fontSize(context))
           .merge(VariableFontWeight.semiBold),
     ),
   );
@@ -103,7 +112,7 @@ ButtonStyle dynamicTextButtonStyle(
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
       Theme.of(context).textTheme.labelLarge!
-          .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
+          .copyWith(fontSize: fontSize(context))
           .merge(
             isMain ? VariableFontWeight.semiBold : VariableFontWeight.medium,
           ),
@@ -150,7 +159,7 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
     ),
     textStyle: WidgetStateProperty.all<TextStyle>(
       Theme.of(context).textTheme.labelLarge!
-          .copyWith(fontSize: isSmallScreen(context) ? 16 : 14)
+          .copyWith(fontSize: fontSize(context))
           .merge(VariableFontWeight.semiBold),
     ),
   );
