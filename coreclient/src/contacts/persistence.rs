@@ -16,7 +16,7 @@ use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 use crate::{
-    Contact, ConversationId, PartialContact, clients::connection_establishment::FriendshipPackage,
+    Contact, ConversationId, PartialContact, clients::connection_offer::FriendshipPackage,
     store::StoreNotifier,
 };
 

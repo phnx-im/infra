@@ -27,9 +27,9 @@ use super::v1::{
     AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
-    CredentialFingerprint, EncryptedConnectionEstablishmentPackage, EncryptedUserProfile,
-    ExpirationData, HandleSignature, HandleVerifyingKey, MlsInfraVersion, QueueMessage,
-    SignatureScheme, UserHandleHash, UserId,
+    CredentialFingerprint, EncryptedConnectionOffer, EncryptedUserProfile, ExpirationData,
+    HandleSignature, HandleVerifyingKey, MlsInfraVersion, QueueMessage, SignatureScheme,
+    UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -653,22 +653,18 @@ impl From<AsIntermediateVerifyingKey> for credentials::keys::AsIntermediateVerif
     }
 }
 
-impl From<client_as::EncryptedConnectionEstablishmentPackage>
-    for EncryptedConnectionEstablishmentPackage
-{
-    fn from(value: client_as::EncryptedConnectionEstablishmentPackage) -> Self {
+impl From<client_as::EncryptedConnectionOffer> for EncryptedConnectionOffer {
+    fn from(value: client_as::EncryptedConnectionOffer) -> Self {
         Self {
             ciphertext: Some(value.into_ciphertext().into()),
         }
     }
 }
 
-impl TryFrom<EncryptedConnectionEstablishmentPackage>
-    for client_as::EncryptedConnectionEstablishmentPackage
-{
+impl TryFrom<EncryptedConnectionOffer> for client_as::EncryptedConnectionOffer {
     type Error = MissingFieldError<&'static str>;
 
-    fn try_from(proto: EncryptedConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
+    fn try_from(proto: EncryptedConnectionOffer) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
         Ok(ciphertext.into())
     }

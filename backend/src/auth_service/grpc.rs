@@ -19,7 +19,7 @@ use phnxcommon::{
     },
     identifiers,
     messages::{
-        client_as::{AsCredentialsParams, EnqueueMessageParams, UserConnectionPackagesParams},
+        client_as::{AsCredentialsParams, UserConnectionPackagesParams},
         client_as_out::{
             GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
             StageUserProfileParamsTbs,
@@ -410,14 +410,14 @@ impl auth_service_server::AuthService for GrpcAs {
         request: Request<EnqueueMessagesRequest>,
     ) -> Result<Response<EnqueueMessagesResponse>, Status> {
         let request = request.into_inner();
-        let params = EnqueueMessageParams {
-            user_id: request.user_id.ok_or_missing_field("user_id")?.try_into()?,
-            connection_establishment_ctxt: request
-                .connection_establishment_package
-                .ok_or_missing_field("connection_establishment_package")?
-                .try_into()?,
-        };
-        self.inner.as_enqueue_message(params).await?;
+        let user_id = request.user_id.ok_or_missing_field("user_id")?.try_into()?;
+        let connection_offer = request
+            .connection_offer
+            .ok_or_missing_field("connection_offer")?
+            .try_into()?;
+        self.inner
+            .as_enqueue_message(user_id, connection_offer)
+            .await?;
         Ok(Response::new(EnqueueMessagesResponse {}))
     }
 
