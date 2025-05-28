@@ -283,7 +283,7 @@ impl UserCubitBase {
     }
 
     pub fn set_app_state(&self, app_state: AppState) {
-        info!(?app_state, "app state changed");
+        debug!(?app_state, "app state changed");
         // Note: on Desktop, we consider the app to be always in foreground
         #[cfg(any(target_os = "android", target_os = "ios"))]
         let _no_receivers = self.app_state_tx.send(app_state);
