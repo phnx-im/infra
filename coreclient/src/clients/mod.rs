@@ -358,7 +358,6 @@ impl CoreUser {
         if let Ok(mut connection) = self.pool().acquire().await {
             self.user_profile_internal(&mut connection, user_id).await
         } else {
-            panic!();
             error!("Error loading user profile; fallback to user_id");
             UserProfile::from_user_id(user_id)
         }
@@ -373,7 +372,6 @@ impl CoreUser {
         IndexedUserProfile::load(connection, user_id)
             .await
             .inspect_err(|error| {
-                panic!();
                 error!(%error, "Error loading user profile; fallback to user_id");
             })
             .ok()

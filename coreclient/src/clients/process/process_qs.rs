@@ -98,17 +98,14 @@ impl CoreUser {
         let ds_timestamp = qs_queue_message.timestamp;
         match qs_queue_message.payload {
             ExtractedQsQueueMessagePayload::WelcomeBundle(welcome_bundle) => {
-                dbg!();
                 self.handle_welcome_bundle(welcome_bundle).await
             }
             ExtractedQsQueueMessagePayload::MlsMessage(mls_message) => {
-                dbg!();
                 self.handle_mls_message(*mls_message, ds_timestamp).await
             }
             ExtractedQsQueueMessagePayload::UserProfileKeyUpdate(
                 user_profile_key_update_params,
             ) => {
-                dbg!();
                 self.handle_user_profile_key_update(user_profile_key_update_params)
                     .await
             }
@@ -211,7 +208,7 @@ impl CoreUser {
         mls_message: MlsMessageIn,
         ds_timestamp: TimeStamp,
     ) -> Result<ProcessQsMessageResult> {
-        let protocol_message: ProtocolMessage = match dbg!(mls_message.extract()) {
+        let protocol_message: ProtocolMessage = match mls_message.extract() {
             MlsMessageBodyIn::PublicMessage(handshake_message) =>
                 handshake_message.into(),
             // Only application messages are private

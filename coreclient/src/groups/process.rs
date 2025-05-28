@@ -97,7 +97,7 @@ impl Group {
                 *sender_index
             }
             ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                let sender_index = match dbg!(processed_message.sender()) {
+                let sender_index = match processed_message.sender() {
                     Sender::Member(index) => index.to_owned(),
                     Sender::NewMemberCommit => {
                         self.mls_group.ext_commit_sender_index(staged_commit)?

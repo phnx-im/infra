@@ -415,8 +415,6 @@ impl TestBackend {
             .into_iter()
             .map(|contact| contact.user_id.clone())
             .collect();
-        dbg!(&user1_contacts_before);
-        dbg!(&user1_contacts_after);
         let new_user_vec: Vec<_> = user1_contacts_after
             .difference(&user1_contacts_before)
             .collect();
