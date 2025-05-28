@@ -41,6 +41,8 @@ displaydoc = "0.2.5"
 phnxcommon = { path = "../common", features = ["test_utils"] }
 anyhow = "1.0.97"
 insta = { workspace = true }
+mockall = "0.13.1"
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]
 test_utils = ["phnxcommon/test_utils"]

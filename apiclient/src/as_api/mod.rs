@@ -23,7 +23,7 @@ use phnxprotos::auth_service::v1::{
     AckListenRequest, AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
     GetUserConnectionPackagesRequest, GetUserProfileRequest, InitListenPayload, ListenRequest,
     MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
-    StageUserProfilePayload, listen_request,
+    StageUserProfilePayload, listen_request, publish_connection_packages_payload,
 };
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -229,7 +229,9 @@ impl ApiClient {
         signing_key: &ClientSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = PublishConnectionPackagesPayload {
-            user_id: Some(user_id.into()),
+            owner: Some(publish_connection_packages_payload::Owner::UserId(
+                user_id.into(),
+            )),
             connection_packages: connection_packages.into_iter().map(From::from).collect(),
         };
         let request = payload.sign(signing_key)?;
