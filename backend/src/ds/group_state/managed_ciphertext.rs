@@ -323,7 +323,7 @@ impl<'de, KeyType: IndexedKeyType, PayloadCtype, WrapperCtype> serde::Deserializ
 
 #[cfg(test)]
 mod tests {
-    use phnxtypes::{
+    use phnxcommon::{
         codec::PhnxCodec,
         crypto::{
             ear::{EarDecryptable, EarEncryptable},
@@ -332,6 +332,7 @@ mod tests {
                 keys::{BaseSecret, IndexedAeadKey, IndexedKeyType},
             },
         },
+        time::{Duration, TimeStamp},
     };
     use serde::{Deserialize, Serialize};
 
@@ -372,7 +373,7 @@ mod tests {
 
     #[test]
     fn encryption_decryption() {
-        let now = phnxtypes::time::TimeStamp::now();
+        let now = TimeStamp::now();
         let rng = &mut rand::thread_rng();
         let derivation_context = vec![1u8; 32]; // Example derivation context
 
@@ -401,7 +402,7 @@ mod tests {
 
     #[test]
     fn payload_update() {
-        let now = phnxtypes::time::TimeStamp::now();
+        let now = TimeStamp::now();
         let rng = &mut rand::thread_rng();
         let derivation_context = vec![1u8; 32]; // Example derivation context
 
@@ -456,7 +457,7 @@ mod tests {
 
     #[test]
     fn key_wrapping() {
-        let now = phnxtypes::time::TimeStamp::now();
+        let now = TimeStamp::now();
         let rng = &mut rand::thread_rng();
         let derivation_context = vec![1u8; 32]; // Example derivation context
 
@@ -472,7 +473,7 @@ mod tests {
         assert_eq!(deserialized.inner.ciphertext, ciphertext.inner.ciphertext);
 
         // Now some time passes and we need to decrypt
-        let now = *now + phnxtypes::time::Duration::days(31); // Simulate time passing
+        let now = *now + Duration::days(31); // Simulate time passing
         let decryption_result: DecryptionResult<
             DummyKeyType,
             DummyPayloadCtype,
@@ -525,7 +526,7 @@ mod tests {
 
     #[test]
     fn final_key_expiration() {
-        let now = phnxtypes::time::TimeStamp::now();
+        let now = TimeStamp::now();
         let rng = &mut rand::thread_rng();
         let derivation_context = vec![1u8; 32]; // Example derivation context
 
@@ -541,7 +542,7 @@ mod tests {
         assert_eq!(deserialized.inner.ciphertext, ciphertext.inner.ciphertext);
 
         // Now some time passes and we need to decrypt
-        let now = *now + phnxtypes::time::Duration::days(91); // Simulate time passing
+        let now = *now + Duration::days(91); // Simulate time passing
         let decryption_result: ManagedCiphertextError = deserialized
             .decrypt::<DummyPayload>(now, rng, &key, &derivation_context)
             .unwrap_err();
@@ -553,7 +554,7 @@ mod tests {
 
     #[test]
     fn full_life_cycle() {
-        let now = phnxtypes::time::TimeStamp::now();
+        let now = TimeStamp::now();
         let rng = &mut rand::thread_rng();
         let derivation_context = vec![1u8; 32]; // Example derivation context
 
@@ -599,7 +600,7 @@ mod tests {
         );
 
         // Now some time passes, the main key expires, and we need to decrypt again
-        let now = *now + phnxtypes::time::Duration::days(31); // Simulate time passing
+        let now = *now + Duration::days(31); // Simulate time passing
         let decryption_result: DecryptionResult<
             DummyKeyType,
             DummyPayloadCtype,
@@ -652,7 +653,7 @@ mod tests {
         // Now some more time passes and the old key is out of the total validity
         let updated_deserialized: DummyManagedCiphertext<BeforeDecryption> =
             PhnxCodec::from_slice(&updated_serialized).unwrap();
-        let now = now + phnxtypes::time::Duration::days(61); // Simulate more time passing
+        let now = now + Duration::days(61); // Simulate more time passing
         let decryption_result_old_key: ManagedCiphertextError = updated_deserialized
             .decrypt::<DummyPayload>(now, rng, &key, &derivation_context)
             .unwrap_err();
