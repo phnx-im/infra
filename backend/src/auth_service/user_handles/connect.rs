@@ -13,7 +13,7 @@ use phnxprotos::{
         v1::{
             ConnectRequest, ConnectResponse, EncryptedConnectionOffer,
             EnqueueConnectionOfferResponse, FetchConnectionPackageResponse, connect_request,
-            connect_response,
+            connect_response, handle_queue_message,
         },
     },
     validation::{MissingFieldError, MissingFieldExt},
@@ -27,7 +27,7 @@ use tracing::{debug, error};
 
 use crate::auth_service::{AuthService, connection_package::StorableConnectionPackage};
 
-use super::UserHandleRecord;
+use super::{UserHandleRecord, queue::HandleQueueError};
 
 /// The protocol for a user connecting to another user via their handle
 #[cfg_attr(test, mockall::automock)]
@@ -50,13 +50,14 @@ pub(crate) trait ConnectHandleProtocol {
 
     async fn get_connection_package_for_handle(
         &self,
-        hash: UserHandleHash,
-    ) -> Result<ConnectionPackage, GetConnectionPackageForHandleError>;
+        hash: &UserHandleHash,
+    ) -> sqlx::Result<ConnectionPackage>;
 
     async fn enqueue_connection_offer(
         &self,
+        hash: &UserHandleHash,
         connection_offer: EncryptedConnectionOffer,
-    ) -> Result<(), EnqueueConnectionPackageError>;
+    ) -> Result<(), HandleQueueError>;
 }
 
 async fn run_protocol(
@@ -106,7 +107,7 @@ async fn run_protocol_impl(
     }
 
     debug!("get connection package for handle");
-    let connection_package = protocol.get_connection_package_for_handle(hash).await?;
+    let connection_package = protocol.get_connection_package_for_handle(&hash).await?;
     if outgoing
         .send(Ok(ConnectResponse {
             step: Some(connect_response::Step::FetchResponse(
@@ -144,7 +145,7 @@ async fn run_protocol_impl(
 
     debug!("enqueue connection offer");
     protocol
-        .enqueue_connection_offer(connection_establishment_package)
+        .enqueue_connection_offer(&hash, connection_establishment_package)
         .await?;
 
     // acknowledge
@@ -177,10 +178,8 @@ pub(crate) enum ConnectProtocolError {
     InvalidHash(#[from] UserHandleHashError),
     /// Missing required field in request
     MissingField(#[from] MissingFieldError<&'static str>),
-    /// Failed to enqueue connection package
-    Enqueue(#[from] EnqueueConnectionPackageError),
-    /// Failed to get connection package for handle
-    ConnectionPackage(#[from] GetConnectionPackageForHandleError),
+    /// Enqueue failed
+    Enqueue(#[from] HandleQueueError),
 }
 
 impl From<ConnectProtocolError> for Status {
@@ -193,12 +192,11 @@ impl From<ConnectProtocolError> for Status {
                 Status::internal(msg)
             }
             ConnectProtocolError::HandleNotFound => Status::not_found(msg),
-            ConnectProtocolError::Enqueue(_) => Status::internal(msg),
             ConnectProtocolError::MissingField(_) | ConnectProtocolError::InvalidHash(_) => {
                 Status::invalid_argument(msg)
             }
-            ConnectProtocolError::ConnectionPackage(error) => {
-                error!(%error, "failed to get connection package for handle");
+            ConnectProtocolError::Enqueue(error) => {
+                error!(%error, "enqueue failed");
                 Status::internal(msg)
             }
         }
@@ -215,18 +213,19 @@ impl ConnectHandleProtocol for AuthService {
 
     async fn get_connection_package_for_handle(
         &self,
-        hash: UserHandleHash,
-    ) -> Result<ConnectionPackage, GetConnectionPackageForHandleError> {
-        StorableConnectionPackage::load_for_handle(&self.db_pool, &hash)
-            .await
-            .map_err(From::from)
+        hash: &UserHandleHash,
+    ) -> sqlx::Result<ConnectionPackage> {
+        StorableConnectionPackage::load_for_handle(&self.db_pool, hash).await
     }
 
     async fn enqueue_connection_offer(
         &self,
-        _connection_offer: EncryptedConnectionOffer,
-    ) -> Result<(), EnqueueConnectionPackageError> {
-        todo!("missing implementation of handle queue")
+        hash: &UserHandleHash,
+        connection_offer: EncryptedConnectionOffer,
+    ) -> Result<(), HandleQueueError> {
+        let payload = handle_queue_message::Payload::ConnectionOffer(connection_offer);
+        self.handle_queues.enqueue(hash, payload).await?;
+        Ok(())
     }
 }
 
@@ -250,33 +249,6 @@ impl AuthService {
     }
 }
 
-#[derive(Debug, Error, Display)]
-pub(crate) enum GetConnectionPackageForHandleError {
-    /// Storage provider error
-    Storage(#[from] sqlx::Error),
-}
-
-impl From<GetConnectionPackageForHandleError> for Status {
-    fn from(error: GetConnectionPackageForHandleError) -> Self {
-        let msg = error.to_string();
-        match error {
-            GetConnectionPackageForHandleError::Storage(error) => {
-                error!(%error, "failed to get a connection package for handle");
-                Status::internal(msg)
-            }
-        }
-    }
-}
-
-#[derive(Debug, Error, Clone)]
-pub(crate) enum EnqueueConnectionPackageError {}
-
-impl From<EnqueueConnectionPackageError> for Status {
-    fn from(error: EnqueueConnectionPackageError) -> Self {
-        match error {}
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time;
@@ -284,7 +256,8 @@ mod tests {
     use mockall::predicate::*;
     use phnxcommon::{credentials::keys::HandleVerifyingKey, identifiers::UserId, time::Duration};
     use phnxprotos::auth_service::v1::{
-        self, EncryptedConnectionOffer, EnqueueConnectionOfferStep, FetchConnectionPackageStep,
+        self, EncryptedConnectionOffer, EnqueueConnectionOfferResponse, EnqueueConnectionOfferStep,
+        FetchConnectionPackageStep,
     };
     use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
@@ -360,8 +333,8 @@ mod tests {
 
         mock_protocol
             .expect_enqueue_connection_offer()
-            .with(eq(connection_offer.clone()))
-            .returning(|_| Ok(()));
+            .with(eq(hash), eq(connection_offer.clone()))
+            .returning(|_, _| Ok(()));
 
         let (requests, mut responses, run_handle) = run_test_protocol(mock_protocol);
 

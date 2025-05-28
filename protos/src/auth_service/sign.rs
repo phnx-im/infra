@@ -10,10 +10,11 @@ use prost::Message;
 
 use super::v1::{
     CreateHandlePayload, CreateHandleRequest, DeleteHandlePayload, DeleteHandleRequest,
-    DeleteUserPayload, DeleteUserRequest, InitListenPayload, InitListenRequest, IssueTokensPayload,
-    IssueTokensRequest, MergeUserProfilePayload, MergeUserProfileRequest,
-    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest, RefreshHandlePayload,
-    RefreshHandleRequest, StageUserProfilePayload, StageUserProfileRequest,
+    DeleteUserPayload, DeleteUserRequest, InitListenHandlePayload, InitListenHandleRequest,
+    InitListenPayload, InitListenRequest, IssueTokensPayload, IssueTokensRequest,
+    MergeUserProfilePayload, MergeUserProfileRequest, PublishConnectionPackagesPayload,
+    PublishConnectionPackagesRequest, RefreshHandlePayload, RefreshHandleRequest,
+    StageUserProfilePayload, StageUserProfileRequest,
 };
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
@@ -497,6 +498,59 @@ impl Verifiable for RefreshHandleRequest {
 
     fn label(&self) -> &str {
         REFRESH_HANDLE_PAYLOAD_LABEL
+    }
+}
+
+const INIT_LISTEN_HANDLE_REQUEST_LABEL: &str = "InitListenHandleRequest";
+
+impl SignedStruct<InitListenHandlePayload, keys::HandleKeyType> for InitListenHandleRequest {
+    fn from_payload(payload: InitListenHandlePayload, signature: keys::HandleSignature) -> Self {
+        InitListenHandleRequest {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for InitListenHandlePayload {
+    type SignedOutput = InitListenHandleRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        INIT_LISTEN_HANDLE_REQUEST_LABEL
+    }
+}
+
+impl VerifiedStruct<InitListenHandleRequest> for InitListenHandlePayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: InitListenHandleRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for InitListenHandleRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .and_then(|s| s.signature.as_ref())
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        INIT_LISTEN_HANDLE_REQUEST_LABEL
     }
 }
 

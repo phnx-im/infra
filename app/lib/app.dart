@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:prototype/background_service.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/util/platform.dart';
@@ -32,6 +33,7 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> with WidgetsBindingObserver {
   final CoreClient _coreClient = CoreClient();
+  final _backgroundService = BackgroundService();
 
   final StreamController<ConversationId> _openedNotificationController =
       StreamController<ConversationId>();
@@ -53,6 +55,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         });
 
     _requestMobileNotifications();
+
+    _backgroundService.start(runImmediately: true);
   }
 
   @override
@@ -60,6 +64,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _openedNotificationSubscription.cancel();
     _openedNotificationController.close();
+    _backgroundService.stop();
     super.dispose();
   }
 
@@ -71,7 +76,6 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   Future<void> _onStateChanged(AppLifecycleState state) async {
     if (state == AppLifecycleState.paused) {
-      _log.fine('App is in the background');
       _appStateController.sink.add(AppState.background);
 
       // iOS only
@@ -83,7 +87,6 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         }
       }
     } else if (state == AppLifecycleState.resumed) {
-      _log.fine('App is in the foreground');
       _appStateController.sink.add(AppState.foreground);
     }
   }

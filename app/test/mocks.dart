@@ -27,13 +27,16 @@ class MockUiUser implements UiUser {
     required int id,
     required String displayName,
     Uint8List? profilePicture,
+    List<UiUserHandle> userHandles = const [],
   }) : _userId = id.userId(),
        _displayName = displayName,
-       _profilePicture = profilePicture?.toImageData();
+       _profilePicture = profilePicture?.toImageData(),
+       _userHandles = userHandles;
 
   final UiUserId _userId;
   final String _displayName;
   final ImageData? _profilePicture;
+  final List<UiUserHandle> _userHandles;
 
   @override
   UiUserId get userId => _userId;
@@ -49,6 +52,9 @@ class MockUiUser implements UiUser {
 
   @override
   ImageData? get profilePicture => _profilePicture;
+
+  @override
+  List<UiUserHandle> get userHandles => _userHandles;
 }
 
 class MockConversationDetailsCubit extends MockCubit<ConversationDetailsState>
