@@ -41,7 +41,7 @@ use crate::{
     ds::process::Provider,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
-    rate_limiter::{RateLimiter, RlConfig, RlKey, provider::RLPostgresStorage},
+    rate_limiter::{RateLimiter, RlConfig, RlKey, provider::RlPostgresStorage},
 };
 
 use super::{
@@ -261,7 +261,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             max_requests: 100,
             time_window: TimeDelta::hours(1),
         };
-        let rl_storage = RLPostgresStorage::new(self.ds.db_pool.clone());
+        let rl_storage = RlPostgresStorage::new(self.ds.db_pool.clone());
         let rl = RateLimiter::new(config, rl_storage);
 
         // Apply the rate-limiting
