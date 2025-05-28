@@ -67,7 +67,7 @@ impl UserHandle {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UserHandleHash {
     hash: [u8; 32],
 }

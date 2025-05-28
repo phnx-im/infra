@@ -17,9 +17,13 @@ use tracing::{error, warn};
 
 use super::AuthService;
 
+pub(crate) use connect::ConnectHandleProtocol;
 pub(crate) use persistence::UserHandleRecord;
+pub(crate) use queue::UserHandleQueues;
 
+mod connect;
 mod persistence;
+mod queue;
 
 impl AuthService {
     pub(crate) async fn as_create_handle(
@@ -54,7 +58,7 @@ impl AuthService {
         &self,
         hash: UserHandleHash,
     ) -> Result<(), DeleteHandleError> {
-        if UserHandleRecord::delete(&self.db_pool, hash).await? {
+        if UserHandleRecord::delete(&self.db_pool, &hash).await? {
             Ok(())
         } else {
             Err(DeleteHandleError::UserHandleNotFound)
@@ -66,7 +70,8 @@ impl AuthService {
         hash: UserHandleHash,
     ) -> Result<(), RefreshHandleError> {
         let expiration_data = ExpirationData::new(USER_HANDLE_VALIDITY_PERIOD);
-        match UserHandleRecord::update_expiration_data(&self.db_pool, hash, expiration_data).await?
+        match UserHandleRecord::update_expiration_data(&self.db_pool, &hash, expiration_data)
+            .await?
         {
             UpdateExpirationDataResult::Updated => Ok(()),
             UpdateExpirationDataResult::Deleted => Err(RefreshHandleError::HandleAlreadyExpired),
