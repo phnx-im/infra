@@ -286,7 +286,7 @@ impl<KT: IndexedKeyType> IndexedAeadKey<KT> {
         self.base_secret.encrypt_with_aad(wrapper_key, &aad)
     }
 
-    pub fn encrypt_with_index<'a, Ctype, EncryptionKeyType: IndexedKeyType>(
+    pub fn encrypt_with_index<Ctype, EncryptionKeyType: IndexedKeyType>(
         &self,
         wrapper_key: &IndexedAeadKey<EncryptionKeyType>,
     ) -> Result<IndexedCiphertext<EncryptionKeyType, Ctype>, IndexEncryptionError>

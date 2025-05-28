@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#![allow(dead_code)]
 
 use std::collections::HashMap;
 
@@ -630,7 +631,7 @@ mod tests {
         println!("New key index: {:?}", new_key.index());
         // We should now be able to decrypt the updated ciphertext with the new
         // key and the old key
-        let decryption_result_old_key: DecryptionResult<
+        let _decryption_result_old_key: DecryptionResult<
             DummyKeyType,
             DummyPayloadCtype,
             DummyWrapperCtype,
@@ -641,7 +642,7 @@ mod tests {
 
         let updated_deserialized: DummyManagedCiphertext<BeforeDecryption> =
             PhnxCodec::from_slice(&updated_serialized).unwrap();
-        let decryption_result_new_key: DecryptionResult<
+        let _decryption_result_new_key: DecryptionResult<
             DummyKeyType,
             DummyPayloadCtype,
             DummyWrapperCtype,
