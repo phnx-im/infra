@@ -444,7 +444,7 @@ message RefreshHandleResponse {}
 message ConnectRequest {
   oneof step {
     FetchConnectionPackageStep fetch = 1;
-    EnqueuePackageStep enqueue = 2;
+    EnqueueConnectionOfferStep enqueue = 2;
   }
 }
 
@@ -456,18 +456,18 @@ message FetchConnectionPackageResponse {
   ConnectionPackage connection_package = 1;
 }
 
-message EnqueuePackageStep {
+message EnqueueConnectionOfferStep {
   EncryptedConnectionOffer connection_offer = 2;
 }
 
 message ConnectResponse {
   oneof step {
     FetchConnectionPackageResponse fetch_response = 1;
-    EnqueuePackageResponse enqueue_response = 2;
+    EnqueueConnectionOfferResponse enqueue_response = 2;
   }
 }
 
-message EnqueuePackageResponse {}
+message EnqueueConnectionOfferResponse {}
 
 // listen handle
 
