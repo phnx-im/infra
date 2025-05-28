@@ -18,10 +18,7 @@ use crate::{
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
-        ear::{
-            Ciphertext, EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
-            keys::RatchetKey,
-        },
+        ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::RatchetKey},
         kdf::keys::RatchetSecret,
         ratchet::QueueRatchet,
         signatures::signable::{Signable, SignedStruct, VerifiedStruct},
@@ -206,22 +203,6 @@ impl TryFrom<EncryptedConnectionEstablishmentPackage> for AsQueueMessagePayload 
             message_type: AsQueueMessageType::EncryptedConnectionEstablishmentPackage,
             payload: value.tls_serialize_detached()?,
         })
-    }
-}
-
-impl GenericDeserializable for AsQueueMessagePayload {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact_bytes(bytes)
-    }
-}
-
-impl GenericSerializable for AsQueueMessagePayload {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
     }
 }
 

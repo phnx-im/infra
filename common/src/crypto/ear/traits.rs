@@ -10,18 +10,71 @@ use aes_gcm::{
     KeyInit,
     aead::{Aead as AesGcmAead, Key, Nonce, Payload},
 };
-use serde::de::DeserializeOwned;
 use tracing::{error, instrument};
 
-use crate::{
-    codec::PhnxCodec,
-    crypto::{
-        errors::{DecryptionError, EncryptionError, RandomnessError},
-        secrets::Secret,
-    },
+use crate::crypto::{
+    errors::{DecryptionError, EncryptionError, RandomnessError},
+    secrets::Secret,
 };
 
 use super::{AEAD_KEY_SIZE, AEAD_NONCE_SIZE, Aead, AeadCiphertext, Ciphertext};
+
+pub trait TlsSizeExt {
+    fn tls_serialized_len(&self) -> usize;
+}
+
+pub trait TlsSerializeExt: TlsSizeExt {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error>;
+
+    fn tls_serialize_detached(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        let mut buffer = Vec::with_capacity(self.tls_serialized_len());
+        let written = self.tls_serialize(&mut buffer)?;
+        if written != buffer.len() {
+            Err(tls_codec::Error::EncodingError(format!(
+                "Expected that {} bytes were written but the output holds {} bytes",
+                written,
+                buffer.len()
+            )))
+        } else {
+            Ok(buffer)
+        }
+    }
+}
+
+pub trait TlsDeserializeBytesExt: TlsSizeExt {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
+    where
+        Self: Sized;
+
+    fn tls_deserialize_exact_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error>
+    where
+        Self: Sized,
+    {
+        let (value, rest) = Self::tls_deserialize_bytes(bytes)?;
+        if !rest.is_empty() {
+            return Err(tls_codec::Error::TrailingData);
+        }
+        Ok(value)
+    }
+}
+
+impl<T: tls_codec::Size> TlsSizeExt for T {
+    fn tls_serialized_len(&self) -> usize {
+        self.tls_serialized_len()
+    }
+}
+
+impl<T: tls_codec::Serialize> TlsSerializeExt for T {
+    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
+        self.tls_serialize(writer)
+    }
+}
+
+impl<T: tls_codec::DeserializeBytes> TlsDeserializeBytesExt for T {
+    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
+        Self::tls_deserialize_bytes(bytes)
+    }
+}
 
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].
 /// It enables use of these keys for encryption and decryption operations.
@@ -99,41 +152,13 @@ fn decrypt<'ctxt, 'aad>(
     })
 }
 
-pub trait GenericSerializable: Sized {
-    type Error: std::error::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error>;
-}
-
-impl<T: serde::Serialize> GenericSerializable for T {
-    type Error = crate::codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        PhnxCodec::to_vec(self)
-    }
-}
-
-pub trait GenericDeserializable: Sized {
-    type Error: std::error::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error>;
-}
-
-impl<T: DeserializeOwned> GenericDeserializable for T {
-    type Error = crate::codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        PhnxCodec::from_slice(bytes)
-    }
-}
-
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
-pub trait EarEncryptable<EarKeyType: EarKey, CT>: GenericSerializable {
+pub trait EarEncryptable<EarKeyType: EarKey, CT>: TlsSerializeExt {
     /// Encrypt the value under the given [`EarKey`]. Returns an
     /// [`EncryptionError`] or the ciphertext.
     fn encrypt(&self, ear_key: &EarKeyType) -> Result<Ciphertext<CT>, EncryptionError> {
-        let plaintext = self.serialize().map_err(|e| {
+        let plaintext = self.tls_serialize_detached().map_err(|e| {
             tracing::error!("Could not serialize plaintext: {:?}", e);
             EncryptionError::SerializationError
         })?;
@@ -141,16 +166,16 @@ pub trait EarEncryptable<EarKeyType: EarKey, CT>: GenericSerializable {
         Ok(ciphertext.into())
     }
 
-    fn encrypt_with_aad<Aad: GenericSerializable>(
+    fn encrypt_with_aad<Aad: tls_codec::Serialize>(
         &self,
         ear_key: &EarKeyType,
         aad: &Aad,
     ) -> Result<Ciphertext<CT>, EncryptionError> {
-        let plaintext = self.serialize().map_err(|e| {
+        let plaintext = self.tls_serialize_detached().map_err(|e| {
             tracing::error!("Could not serialize plaintext: {:?}", e);
             EncryptionError::SerializationError
         })?;
-        let aad = aad.serialize().map_err(|e| {
+        let aad = aad.tls_serialize_detached().map_err(|e| {
             tracing::error!("Could not serialize plaintext: {:?}", e);
             EncryptionError::SerializationError
         })?;
@@ -165,24 +190,26 @@ pub trait EarEncryptable<EarKeyType: EarKey, CT>: GenericSerializable {
 
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
-pub trait EarDecryptable<EarKeyType: EarKey, CT>: GenericDeserializable {
+pub trait EarDecryptable<EarKeyType: EarKey, CT>: TlsDeserializeBytesExt + Sized {
     /// Decrypt the given ciphertext using the given [`EarKey`]. Returns a
     /// [`DecryptionError`] or the resulting plaintext.
     fn decrypt(ear_key: &EarKeyType, ciphertext: &Ciphertext<CT>) -> Result<Self, DecryptionError> {
         let plaintext = ear_key.decrypt(&ciphertext.ct)?;
-        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
+        Self::tls_deserialize_exact_bytes(&plaintext)
+            .map_err(|_| DecryptionError::DeserializationError)
     }
 
-    fn decrypt_with_aad<Aad: GenericSerializable>(
+    fn decrypt_with_aad<Aad: tls_codec::Serialize>(
         ear_key: &EarKeyType,
         ciphertext: &Ciphertext<CT>,
         aad: &Aad,
     ) -> Result<Self, DecryptionError> {
-        let aad = aad.serialize().map_err(|e| {
+        let aad = aad.tls_serialize_detached().map_err(|e| {
             tracing::error!(error = %e, "Could not serialize aad");
             DecryptionError::SerializationError
         })?;
         let plaintext = ear_key.decrypt_with_aad(&ciphertext.ct, aad.as_slice())?;
-        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
+        Self::tls_deserialize_exact_bytes(&plaintext)
+            .map_err(|_| DecryptionError::DeserializationError)
     }
 }

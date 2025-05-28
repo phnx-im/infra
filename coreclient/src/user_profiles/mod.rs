@@ -77,7 +77,7 @@ impl SignedStruct<IndexedUserProfile, ClientKeyType> for SignedUserProfile {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, TlsSize, TlsSerialize)]
 pub(crate) struct SignedUserProfile {
     tbs: IndexedUserProfile,
     signature: ClientSignature,
@@ -110,7 +110,7 @@ impl VerifiedStruct<VerifiableUserProfile> for UnvalidatedUserProfile {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, TlsSize, TlsSerialize, TlsDeserializeBytes)]
 pub(crate) struct VerifiableUserProfile {
     tbs: UnvalidatedUserProfile,
     signature: ClientSignature,
@@ -231,8 +231,7 @@ impl Asset {
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(transparent)]
+#[derive(Debug, TlsSize, TlsSerialize)]
 pub(crate) struct EncryptableUserProfile(SignedUserProfile);
 
 impl EarEncryptable<UserProfileKey, EncryptedUserProfileCtype> for EncryptableUserProfile {}

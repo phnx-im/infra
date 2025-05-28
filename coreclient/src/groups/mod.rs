@@ -231,7 +231,11 @@ impl Group {
             .build(provider, signer, credential_with_key)
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
 
-        let room_state = VerifiedRoomState::new(&0, RoomPolicy::default_private()).unwrap();
+        let room_state = VerifiedRoomState::new(
+            signer.credential().identity(),
+            RoomPolicy::default_private(),
+        )
+        .unwrap();
 
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),

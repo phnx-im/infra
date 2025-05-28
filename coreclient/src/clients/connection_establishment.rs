@@ -11,7 +11,7 @@ use phnxcommon::{
     },
     crypto::{
         ear::{
-            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+            EarDecryptable, EarEncryptable,
             keys::{
                 FriendshipPackageEarKey, GroupStateEarKey, IdentityLinkWrapperKey,
                 WelcomeAttributionInfoEarKey,
@@ -32,9 +32,7 @@ use phnxcommon::{
     },
 };
 use tbs::{ConnectionEstablishmentPackageTbs, VerifiableConnectionEstablishmentPackage};
-use tls_codec::{
-    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 pub(crate) mod payload {
     use phnxcommon::{LibraryError, credentials::keys::ClientSigningKey};
@@ -236,14 +234,6 @@ pub(crate) struct ConnectionEstablishmentPackage {
     signature: ClientSignature,
 }
 
-impl GenericSerializable for ConnectionEstablishmentPackage {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
 impl HpkeEncryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
     for ConnectionEstablishmentPackage
 {
@@ -253,14 +243,6 @@ impl HpkeEncryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
 pub(super) struct ConnectionEstablishmentPackageIn {
     payload: ConnectionEstablishmentPackagePayloadIn,
     signature: ClientSignature,
-}
-
-impl GenericDeserializable for ConnectionEstablishmentPackageIn {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact_bytes(bytes)
-    }
 }
 
 impl ConnectionEstablishmentPackageIn {
@@ -299,22 +281,6 @@ pub(crate) struct FriendshipPackage {
     pub(crate) connection_key: ConnectionKey,
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) user_profile_base_secret: UserProfileBaseSecret,
-}
-
-impl GenericSerializable for FriendshipPackage {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
-impl GenericDeserializable for FriendshipPackage {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact_bytes(bytes)
-    }
 }
 
 impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>

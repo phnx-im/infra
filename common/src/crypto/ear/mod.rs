@@ -13,9 +13,7 @@ mod traits;
 use std::marker::PhantomData;
 
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
-pub use traits::{
-    EarDecryptable, EarEncryptable, EarKey, GenericDeserializable, GenericSerializable,
-};
+pub use traits::{EarDecryptable, EarEncryptable, EarKey};
 
 use aes_gcm::Aes256Gcm;
 use serde::{Deserialize, Serialize};
