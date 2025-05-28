@@ -355,11 +355,12 @@ impl CoreUser {
     /// In case of an error, or if the user profile is not found, the client id is used as a
     /// fallback.
     pub async fn user_profile(&self, user_id: &UserId) -> UserProfile {
-        if let Ok(mut connection) = self.pool().acquire().await {
-            self.user_profile_internal(&mut connection, user_id).await
-        } else {
-            error!("Error loading user profile; fallback to user_id");
-            UserProfile::from_user_id(user_id)
+        match self.pool().acquire().await {
+            Ok(mut connection) => self.user_profile_internal(&mut connection, user_id).await,
+            Err(error) => {
+                error!(%error, "Error loading user profile; fallback to user_id");
+                UserProfile::from_user_id(user_id)
+            }
         }
     }
 

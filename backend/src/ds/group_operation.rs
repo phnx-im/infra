@@ -154,10 +154,11 @@ impl DsGroupState {
 
             let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
 
-            for user in &add_users_state.added_users {
-                let added =
-                    VerifiableClientCredential::try_from(user.0.0.leaf_node().credential().clone())
-                        .unwrap();
+            for ((added_key_package, _), _) in &add_users_state.added_users {
+                let added = VerifiableClientCredential::try_from(
+                    added_key_package.leaf_node().credential().clone(),
+                )
+                .unwrap();
 
                 if let Err(e) = self.room_state.apply_regular_proposals(
                     sender.user_id(),

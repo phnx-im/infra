@@ -32,7 +32,7 @@ use phnxprotos::{
 };
 use tls_codec::DeserializeBytes;
 use tonic::{Request, Response, Status, async_trait};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
     ds::process::Provider,
@@ -282,8 +282,10 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         )
         .map_err(|_| Status::invalid_argument("Invalid room_state message"))?;
 
-        let room_state = VerifiedRoomState::verify(room_state)
-            .map_err(|_| Status::invalid_argument("Room state verification failed"))?;
+        let room_state = VerifiedRoomState::verify(room_state).map_err(|e| {
+            warn!(%e, "proposed room policy failed verification");
+            Status::invalid_argument("Room state verification failed")
+        })?;
 
         let group_state = DsGroupState::new(
             provider,
