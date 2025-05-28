@@ -97,7 +97,7 @@ impl Group {
                 *sender_index
             }
             ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                let sender_index = match processed_message.sender() {
+                let sender_index = match dbg!(processed_message.sender()) {
                     Sender::Member(index) => index.to_owned(),
                     Sender::NewMemberCommit => {
                         self.mls_group.ext_commit_sender_index(staged_commit)?
@@ -107,9 +107,8 @@ impl Group {
                     }
                 };
 
-                let Some(sender_id) = self.client_by_index(connection, sender_index).await else {
-                    bail!("Unknown sender_id")
-                };
+                let sender =
+                    VerifiableClientCredential::try_from(processed_message.credential().clone())?;
 
                 // StagedCommitMessage Phase 1: Process the proposals.
 
@@ -125,7 +124,7 @@ impl Group {
 
                     // Room policy checks
                     self.room_state.apply_regular_proposals(
-                        &sender_id,
+                        sender.user_id(),
                         &[MimiProposal::ChangeRole {
                             target: removed_id,
                             role: RoleIndex::Outsider,
@@ -180,7 +179,7 @@ impl Group {
                             .await?;
                             let client_auth_infos = self
                                 .process_adds(
-                                    &sender_id,
+                                    sender.user_id(),
                                     staged_commit,
                                     &mut *connection,
                                     staged_commit.add_proposals(),
@@ -212,7 +211,7 @@ impl Group {
                         )
                         .await?;
 
-                        let old_credential = processed_message.credential().clone().try_into()?;
+                        let old_credential = sender;
 
                         if new_sender_credential != old_credential {
                             self.process_update(
