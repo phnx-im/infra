@@ -23,6 +23,7 @@ use phnxtypes::{
             keys::{EncryptedUserProfileKey, GroupStateEarKey},
         },
         errors::{DecryptionError, EncryptionError},
+        indexed_aead::ciphertexts::{IndexDecryptable, IndexEncryptable},
     },
     identifiers::{QsReference, SealedClientReference},
     messages::client_ds::WelcomeInfoParams,
@@ -38,6 +39,7 @@ use crate::errors::{CborMlsAssistStorage, StorageError};
 
 use super::{GROUP_STATE_EXPIRATION, ReservedGroupId, process::ExternalCommitInfo};
 
+mod managed_ciphertext;
 pub(super) mod persistence;
 
 #[derive(Debug, Serialize, Deserialize)]

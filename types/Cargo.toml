@@ -25,7 +25,7 @@ ciborium = "0.2"
 hex = { version = "0.4" }
 tracing = { version = "0.1.35", features = ["log"] }
 thiserror = { workspace = true }
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { workspace = true }
 
 # Workspace dependencies
 mls-assist = { workspace = true }

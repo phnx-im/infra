@@ -8,7 +8,7 @@
 //! and the type checker happy.
 use std::{fmt::Display, ops::Deref};
 
-use rand::{RngCore, SeedableRng};
+use rand::{Rng, RngCore, SeedableRng};
 use secrecy::{
     CloneableSecret, SerializableSecret,
     zeroize::{Zeroize, ZeroizeOnDrop},
@@ -21,7 +21,7 @@ use super::RandomnessError;
 
 /// Struct that contains a (symmetric) secret of fixed length LENGTH.
 #[derive(
-    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize,
+    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, PartialEq, Eq, Serialize, Deserialize, Hash,
 )]
 pub struct Secret<const LENGTH: usize> {
     #[serde(with = "super::serde_arrays")]
@@ -50,6 +50,13 @@ impl<const LENGTH: usize> Secret<LENGTH> {
         // TODO: Use a proper rng provider.
         rand_chacha::ChaCha20Rng::from_entropy()
             .try_fill_bytes(secret.as_mut_slice())
+            .map_err(|_| RandomnessError::InsufficientRandomness)?;
+        Ok(Self { secret })
+    }
+
+    pub fn random_sans_io(rng: &mut impl Rng) -> Result<Self, RandomnessError> {
+        let mut secret = [0; LENGTH];
+        rng.try_fill(secret.as_mut_slice())
             .map_err(|_| RandomnessError::InsufficientRandomness)?;
         Ok(Self { secret })
     }
