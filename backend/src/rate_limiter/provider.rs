@@ -107,16 +107,19 @@ pub(crate) mod persistence {
         use chrono::TimeDelta;
         use sqlx::PgPool;
 
+        use crate::rate_limiter::RlConfig;
+
         use super::*;
 
         pub async fn store_random_allowance(
             pool: &PgPool,
             key: &RlKey,
         ) -> anyhow::Result<Allowance> {
-            let allowance = Allowance {
-                remaining: 10,
-                valid_until: Utc::now() + TimeDelta::hours(1),
+            let config = RlConfig {
+                max_requests: 10,
+                time_window: TimeDelta::hours(1),
             };
+            let allowance = Allowance::new(&config);
             allowance.store(pool, key).await?;
             Ok(allowance)
         }
