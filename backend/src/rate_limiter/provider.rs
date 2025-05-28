@@ -6,17 +6,17 @@ use sqlx::PgPool;
 
 use super::{Allowance, RlKey, StorageProvider};
 
-pub(crate) struct RLPostgresStorage {
+pub(crate) struct RlPostgresStorage {
     pool: PgPool,
 }
 
-impl RLPostgresStorage {
+impl RlPostgresStorage {
     pub(crate) fn new(pool: PgPool) -> Self {
-        RLPostgresStorage { pool }
+        RlPostgresStorage { pool }
     }
 }
 
-impl StorageProvider for RLPostgresStorage {
+impl StorageProvider for RlPostgresStorage {
     async fn get(&self, key: &RlKey) -> Option<Allowance> {
         Allowance::load(&self.pool, key).await.ok().flatten()
     }
