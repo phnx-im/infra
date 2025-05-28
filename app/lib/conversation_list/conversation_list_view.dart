@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/theme/theme.dart';
@@ -31,8 +29,8 @@ class ConversationListContainer extends StatelessWidget {
 class ConversationListView extends StatelessWidget {
   const ConversationListView({super.key});
 
-  double _windowPadding() {
-    return (Platform.isMacOS) ? Spacings.s : 0;
+  double _desktopPadding() {
+    return isPointer() ? Spacings.l : 0;
   }
 
   @override
@@ -48,15 +46,12 @@ class ConversationListView extends StatelessWidget {
           children: [
             Padding(
               padding: EdgeInsets.only(
-                top: kToolbarHeight + _windowPadding(),
+                top: kToolbarHeight + _desktopPadding(),
                 bottom: 120,
               ),
               child: const ConversationListContent(),
             ),
-            Padding(
-              padding: EdgeInsets.only(top: _windowPadding()),
-              child: const ConversationListHeader(),
-            ),
+            const ConversationListHeader(),
             const ConversationListFooter(),
           ],
         ),
