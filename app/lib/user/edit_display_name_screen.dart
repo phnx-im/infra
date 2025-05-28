@@ -73,8 +73,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                     ),
                     child: Text(
                       style: TextStyle(color: Theme.of(context).hintColor),
-                      "Display Name is shared with Users and Groups in your "
-                      "conversations.",
+                      "Choose a name that others will see when you communicate with them.",
                     ),
                   ),
                 ),

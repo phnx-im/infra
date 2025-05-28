@@ -31,7 +31,7 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Handle'),
+        title: const Text('Username'),
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
@@ -61,7 +61,7 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                       );
                       return handle.validationError();
                     },
-                    decoration: const InputDecoration(hintText: "User handle"),
+                    decoration: const InputDecoration(hintText: "Username"),
                   ),
                   const SizedBox(height: Spacings.s),
                   Align(
@@ -72,9 +72,9 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                       ),
                       child: Text(
                         style: TextStyle(color: Theme.of(context).hintColor),
-                        "User handles are unique identifiers, always made up of "
-                        "letters, numbers, and underscores. They will never "
-                        "contain spaces or any other special characters.",
+                        "Choose a username that others can use to connect with you."
+                        "\n\n"
+                        "Use letters, numbers, or underscores. Minimum 5 characters.",
                       ),
                     ),
                   ),

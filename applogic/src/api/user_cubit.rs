@@ -312,7 +312,7 @@ impl UserCubitBase {
                 .user_handles
                 .iter()
                 .position(|handle| handle == &user_handle)
-                .context("user handle not found")?;
+                .context("Username not found")?;
             let mut handles = state.inner.user_handles.clone();
             handles.remove(idx);
             let user = UiUser::new(state.inner.profile.clone(), handles);

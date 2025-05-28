@@ -174,9 +174,9 @@ class _UserHandles extends StatelessWidget {
                 ListTile(
                   subtitle: Text(
                     style: TextStyle(color: Theme.of(context).hintColor),
-                    "Your user handles are not visible to other users. Share your handle "
-                    "with your friends to start messaging. You can create up to five different "
-                    "user handles.",
+                    "Share usernames with others so they can connect with you. After the connection, "
+                    "usernames are not visible to others anymore. "
+                    "You can have up to 5 usernames.",
                   ),
                 ),
               ],
@@ -203,10 +203,10 @@ class _UserHandle extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Remove user handle"),
+          title: const Text("Remove Username"),
           content: const Text(
-            "If you proceed, your handle will be removed and become available for others to claim. "
-            "You will no longer be reachable by this handle.",
+            "If you continue, your username will be removed and may be claimed by someone else. "
+            "You’ll no longer be reachable through it.",
           ),
           actions: [
             TextButton(
@@ -234,7 +234,7 @@ class _UserHandle extends StatelessWidget {
 }
 
 class _UserHandlePlaceholder extends StatelessWidget {
-  const _UserHandlePlaceholder({super.key});
+  const _UserHandlePlaceholder();
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +242,7 @@ class _UserHandlePlaceholder extends StatelessWidget {
       leading: const Icon(Icons.alternate_email, size: _listIconSize),
       title: Text(
         style: TextStyle(color: Theme.of(context).hintColor),
-        "user handle",
+        "Username",
       ),
       onTap:
           () => context.read<NavigationCubit>().openUserSettings(
