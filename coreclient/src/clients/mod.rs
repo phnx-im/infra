@@ -50,7 +50,7 @@ use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
-    clients::connection_establishment::FriendshipPackage,
+    clients::connection_offer::FriendshipPackage,
     contacts::{Contact, PartialContact},
     conversations::{
         Conversation, ConversationAttributes,
@@ -68,7 +68,7 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 
 mod add_contact;
 pub(crate) mod api_clients;
-pub(crate) mod connection_establishment;
+pub(crate) mod connection_offer;
 pub mod conversations;
 mod create_user;
 mod invite_users;

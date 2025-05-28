@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use openmls::group::GroupId;
-use payload::{ConnectionEstablishmentPackagePayload, ConnectionEstablishmentPackagePayloadIn};
+use payload::{ConnectionOfferPayload, ConnectionOfferPayloadIn};
 use phnxcommon::{
     credentials::{
         ClientCredential, CredentialFingerprint, VerifiableClientCredential,
@@ -28,10 +28,10 @@ use phnxcommon::{
     identifiers::{Fqdn, UserId},
     messages::{
         FriendshipToken,
-        client_as::{EncryptedConnectionEstablishmentPackage, EncryptedFriendshipPackageCtype},
+        client_as::{EncryptedConnectionOffer, EncryptedFriendshipPackageCtype},
     },
 };
-use tbs::{ConnectionEstablishmentPackageTbs, VerifiableConnectionEstablishmentPackage};
+use tbs::{ConnectionOfferTbs, VerifiableConnectionOffer};
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
@@ -42,7 +42,7 @@ pub(crate) mod payload {
     use super::*;
 
     #[derive(Debug, TlsDeserializeBytes, TlsSize, Clone)]
-    pub(super) struct ConnectionEstablishmentPackagePayloadIn {
+    pub(super) struct ConnectionOfferPayloadIn {
         pub(super) sender_client_credential: VerifiableClientCredential,
         connection_group_id: GroupId,
         connection_group_ear_key: GroupStateEarKey,
@@ -51,13 +51,13 @@ pub(crate) mod payload {
         friendship_package: FriendshipPackage,
     }
 
-    impl ConnectionEstablishmentPackagePayloadIn {
+    impl ConnectionOfferPayloadIn {
         pub(super) fn verify(
             self,
             verifying_key: &AsIntermediateVerifyingKey,
-        ) -> Result<ConnectionEstablishmentPackagePayload, SignatureVerificationError> {
+        ) -> Result<ConnectionOfferPayload, SignatureVerificationError> {
             let client_credential = self.sender_client_credential.verify(verifying_key)?;
-            let verified_payload = ConnectionEstablishmentPackagePayload {
+            let verified_payload = ConnectionOfferPayload {
                 sender_client_credential: client_credential,
                 connection_group_id: self.connection_group_id,
                 connection_group_ear_key: self.connection_group_ear_key,
@@ -72,7 +72,7 @@ pub(crate) mod payload {
 
     #[derive(Debug, TlsSerialize, TlsSize, Clone)]
     #[cfg_attr(test, derive(PartialEq))]
-    pub(crate) struct ConnectionEstablishmentPackagePayload {
+    pub(crate) struct ConnectionOfferPayload {
         pub(crate) sender_client_credential: ClientCredential,
         pub(crate) connection_group_id: GroupId,
         pub(crate) connection_group_ear_key: GroupStateEarKey,
@@ -81,14 +81,13 @@ pub(crate) mod payload {
         pub(crate) friendship_package: FriendshipPackage,
     }
 
-    impl ConnectionEstablishmentPackagePayload {
+    impl ConnectionOfferPayload {
         pub(crate) fn sign(
             self,
             signing_key: &ClientSigningKey,
             recipient_user_id: UserId,
-        ) -> Result<ConnectionEstablishmentPackage, LibraryError> {
-            let tbs =
-                ConnectionEstablishmentPackageTbs::from_payload(self.clone(), recipient_user_id);
+        ) -> Result<ConnectionOffer, LibraryError> {
+            let tbs = ConnectionOfferTbs::from_payload(self.clone(), recipient_user_id);
             tbs.sign(signing_key)
         }
 
@@ -119,17 +118,17 @@ mod tbs {
         identifiers::UserId,
     };
 
-    use super::payload::ConnectionEstablishmentPackagePayload;
+    use super::payload::ConnectionOfferPayload;
 
     #[derive(Debug, TlsSerialize, TlsSize, Clone)]
-    pub(super) struct ConnectionEstablishmentPackageTbs {
-        payload: ConnectionEstablishmentPackagePayload,
+    pub(super) struct ConnectionOfferTbs {
+        payload: ConnectionOfferPayload,
         recipient_user_id: UserId,
     }
 
-    impl ConnectionEstablishmentPackageTbs {
+    impl ConnectionOfferTbs {
         pub(super) fn from_payload(
-            payload: ConnectionEstablishmentPackagePayload,
+            payload: ConnectionOfferPayload,
             recipient_user_id: UserId,
         ) -> Self {
             Self {
@@ -139,25 +138,20 @@ mod tbs {
         }
     }
 
-    impl Signable for ConnectionEstablishmentPackageTbs {
-        type SignedOutput = ConnectionEstablishmentPackage;
+    impl Signable for ConnectionOfferTbs {
+        type SignedOutput = ConnectionOffer;
 
         fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
             self.tls_serialize_detached()
         }
 
         fn label(&self) -> &str {
-            "ConnectionEstablishmentPackageTBS"
+            "ConnectionOfferTBS"
         }
     }
 
-    impl SignedStruct<ConnectionEstablishmentPackageTbs, ClientKeyType>
-        for ConnectionEstablishmentPackage
-    {
-        fn from_payload(
-            tbs: ConnectionEstablishmentPackageTbs,
-            signature: ClientSignature,
-        ) -> Self {
+    impl SignedStruct<ConnectionOfferTbs, ClientKeyType> for ConnectionOffer {
+        fn from_payload(tbs: ConnectionOfferTbs, signature: ClientSignature) -> Self {
             Self {
                 payload: tbs.payload,
                 signature,
@@ -171,27 +165,22 @@ mod tbs {
     }
 
     #[derive(Debug)]
-    pub(super) struct VerifiableConnectionEstablishmentPackage {
-        tbs: ConnectionEstablishmentPackageTbs,
+    pub(super) struct VerifiableConnectionOffer {
+        tbs: ConnectionOfferTbs,
         signature: ClientSignature,
     }
 
-    impl VerifiableConnectionEstablishmentPackage {
+    impl VerifiableConnectionOffer {
         pub(super) fn from_verified_payload(
-            verified_payload: ConnectionEstablishmentPackagePayload,
+            verified_payload: ConnectionOfferPayload,
             recipient_user_id: UserId,
             signature: ClientSignature,
         ) -> Self {
-            let tbs = ConnectionEstablishmentPackageTbs::from_payload(
-                verified_payload,
-                recipient_user_id,
-            );
+            let tbs = ConnectionOfferTbs::from_payload(verified_payload, recipient_user_id);
             Self { tbs, signature }
         }
 
-        pub(super) fn verify(
-            self,
-        ) -> Result<ConnectionEstablishmentPackagePayload, SignatureVerificationError> {
+        pub(super) fn verify(self) -> Result<ConnectionOfferPayload, SignatureVerificationError> {
             let verifying_key = self
                 .tbs
                 .payload
@@ -202,7 +191,7 @@ mod tbs {
         }
     }
 
-    impl Verifiable for VerifiableConnectionEstablishmentPackage {
+    impl Verifiable for VerifiableConnectionOffer {
         fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
             self.tbs.tls_serialize_detached()
         }
@@ -212,17 +201,15 @@ mod tbs {
         }
 
         fn label(&self) -> &str {
-            "ConnectionEstablishmentPackageTBS"
+            "ConnectionOfferTBS"
         }
     }
 
-    impl VerifiedStruct<VerifiableConnectionEstablishmentPackage>
-        for ConnectionEstablishmentPackagePayload
-    {
+    impl VerifiedStruct<VerifiableConnectionOffer> for ConnectionOfferPayload {
         type SealingType = private_mod::Seal;
 
         fn from_verifiable(
-            verifiable: VerifiableConnectionEstablishmentPackage,
+            verifiable: VerifiableConnectionOffer,
             _seal: Self::SealingType,
         ) -> Self {
             verifiable.tbs.payload
@@ -231,12 +218,12 @@ mod tbs {
 }
 
 #[derive(Debug, TlsSerialize, TlsSize, Clone)]
-pub(crate) struct ConnectionEstablishmentPackage {
-    payload: ConnectionEstablishmentPackagePayload,
+pub(crate) struct ConnectionOffer {
+    payload: ConnectionOfferPayload,
     signature: ClientSignature,
 }
 
-impl GenericSerializable for ConnectionEstablishmentPackage {
+impl GenericSerializable for ConnectionOffer {
     type Error = tls_codec::Error;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
@@ -244,18 +231,15 @@ impl GenericSerializable for ConnectionEstablishmentPackage {
     }
 }
 
-impl HpkeEncryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
-    for ConnectionEstablishmentPackage
-{
-}
+impl HpkeEncryptable<ConnectionKeyType, EncryptedConnectionOffer> for ConnectionOffer {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize, Clone)]
-pub(super) struct ConnectionEstablishmentPackageIn {
-    payload: ConnectionEstablishmentPackagePayloadIn,
+pub(super) struct ConnectionOfferIn {
+    payload: ConnectionOfferPayloadIn,
     signature: ClientSignature,
 }
 
-impl GenericDeserializable for ConnectionEstablishmentPackageIn {
+impl GenericDeserializable for ConnectionOfferIn {
     type Error = tls_codec::Error;
 
     fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -263,7 +247,7 @@ impl GenericDeserializable for ConnectionEstablishmentPackageIn {
     }
 }
 
-impl ConnectionEstablishmentPackageIn {
+impl ConnectionOfferIn {
     pub(super) fn sender_domain(&self) -> &Fqdn {
         self.payload.sender_client_credential.domain()
     }
@@ -276,9 +260,9 @@ impl ConnectionEstablishmentPackageIn {
         self,
         verifying_key: &AsIntermediateVerifyingKey,
         recipient_user_id: UserId,
-    ) -> Result<ConnectionEstablishmentPackagePayload, SignatureVerificationError> {
+    ) -> Result<ConnectionOfferPayload, SignatureVerificationError> {
         let verified_payload = self.payload.verify(verifying_key)?;
-        VerifiableConnectionEstablishmentPackage::from_verified_payload(
+        VerifiableConnectionOffer::from_verified_payload(
             verified_payload,
             recipient_user_id,
             self.signature,
@@ -287,10 +271,7 @@ impl ConnectionEstablishmentPackageIn {
     }
 }
 
-impl HpkeDecryptable<ConnectionKeyType, EncryptedConnectionEstablishmentPackage>
-    for ConnectionEstablishmentPackageIn
-{
-}
+impl HpkeDecryptable<ConnectionKeyType, EncryptedConnectionOffer> for ConnectionOfferIn {}
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -334,23 +315,21 @@ mod tests {
     };
     use tls_codec::{DeserializeBytes as _, Serialize};
 
-    use super::{ConnectionEstablishmentPackageIn, payload::ConnectionEstablishmentPackagePayload};
+    use super::{ConnectionOfferIn, payload::ConnectionOfferPayload};
 
     #[test]
     fn signing_and_verifying() {
         let sender_user_id = UserId::random("localhost".parse().unwrap());
         let (as_sk, client_sk) = create_test_credentials(sender_user_id);
-        let cep_payload =
-            ConnectionEstablishmentPackagePayload::dummy(client_sk.credential().clone());
+        let cep_payload = ConnectionOfferPayload::dummy(client_sk.credential().clone());
         let recipient_user_id = UserId::random("localhost".parse().unwrap());
         let cep = cep_payload
             .clone()
             .sign(&client_sk, recipient_user_id.clone())
             .unwrap();
-        let cep_in = ConnectionEstablishmentPackageIn::tls_deserialize_exact_bytes(
-            &cep.tls_serialize_detached().unwrap(),
-        )
-        .unwrap();
+        let cep_in =
+            ConnectionOfferIn::tls_deserialize_exact_bytes(&cep.tls_serialize_detached().unwrap())
+                .unwrap();
         let cep_verified = cep_in
             .clone()
             .verify(as_sk.verifying_key(), recipient_user_id)

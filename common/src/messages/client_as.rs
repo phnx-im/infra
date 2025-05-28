@@ -148,23 +148,23 @@ pub struct EncryptedFriendshipPackageCtype;
 pub type EncryptedFriendshipPackage = Ciphertext<EncryptedFriendshipPackageCtype>;
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct EncryptedConnectionEstablishmentPackage {
+pub struct EncryptedConnectionOffer {
     ciphertext: HpkeCiphertext,
 }
 
-impl EncryptedConnectionEstablishmentPackage {
+impl EncryptedConnectionOffer {
     pub fn into_ciphertext(self) -> HpkeCiphertext {
         self.ciphertext
     }
 }
 
-impl AsRef<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
+impl AsRef<HpkeCiphertext> for EncryptedConnectionOffer {
     fn as_ref(&self) -> &HpkeCiphertext {
         &self.ciphertext
     }
 }
 
-impl From<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
+impl From<HpkeCiphertext> for EncryptedConnectionOffer {
     fn from(ciphertext: HpkeCiphertext) -> Self {
         Self { ciphertext }
     }
@@ -175,7 +175,7 @@ pub type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessageCtype, AsQueueMess
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 #[repr(u8)]
 pub enum AsQueueMessageType {
-    EncryptedConnectionEstablishmentPackage,
+    EncryptedConnectionOffer,
 }
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
@@ -187,23 +187,21 @@ pub struct AsQueueMessagePayload {
 impl AsQueueMessagePayload {
     pub fn extract(self) -> Result<ExtractedAsQueueMessagePayload, tls_codec::Error> {
         let message = match self.message_type {
-            AsQueueMessageType::EncryptedConnectionEstablishmentPackage => {
-                let cep = EncryptedConnectionEstablishmentPackage::tls_deserialize_exact_bytes(
-                    &self.payload,
-                )?;
-                ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(cep)
+            AsQueueMessageType::EncryptedConnectionOffer => {
+                let cep = EncryptedConnectionOffer::tls_deserialize_exact_bytes(&self.payload)?;
+                ExtractedAsQueueMessagePayload::EncryptedConnectionOffer(cep)
             }
         };
         Ok(message)
     }
 }
 
-impl TryFrom<EncryptedConnectionEstablishmentPackage> for AsQueueMessagePayload {
+impl TryFrom<EncryptedConnectionOffer> for AsQueueMessagePayload {
     type Error = tls_codec::Error;
 
-    fn try_from(value: EncryptedConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
+    fn try_from(value: EncryptedConnectionOffer) -> Result<Self, Self::Error> {
         Ok(Self {
-            message_type: AsQueueMessageType::EncryptedConnectionEstablishmentPackage,
+            message_type: AsQueueMessageType::EncryptedConnectionOffer,
             payload: value.tls_serialize_detached()?,
         })
     }
@@ -226,7 +224,7 @@ impl GenericSerializable for AsQueueMessagePayload {
 }
 
 pub enum ExtractedAsQueueMessagePayload {
-    EncryptedConnectionEstablishmentPackage(EncryptedConnectionEstablishmentPackage),
+    EncryptedConnectionOffer(EncryptedConnectionOffer),
 }
 
 impl EarEncryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
@@ -242,12 +240,6 @@ pub struct UserConnectionPackagesParams {
 #[derive(Debug)]
 pub struct UserConnectionPackagesResponse {
     pub key_packages: Vec<ConnectionPackage>,
-}
-
-#[derive(Debug)]
-pub struct EnqueueMessageParams {
-    pub user_id: UserId,
-    pub connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
 }
 
 #[derive(Debug)]
