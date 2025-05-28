@@ -10,7 +10,7 @@ use phnxcommon::{
     identifiers::QualifiedGroupId,
     messages::{
         QueueMessage,
-        client_as::{EncryptedConnectionEstablishmentPackage, ExtractedAsQueueMessagePayload},
+        client_as::{EncryptedConnectionOffer, ExtractedAsQueueMessagePayload},
         client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
     },
@@ -21,9 +21,7 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    clients::connection_establishment::{
-        ConnectionEstablishmentPackageIn, payload::ConnectionEstablishmentPackagePayload,
-    },
+    clients::connection_offer::{ConnectionOfferIn, payload::ConnectionOfferPayload},
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
@@ -59,12 +57,12 @@ impl CoreUser {
         as_message_plaintext: ExtractedAsQueueMessagePayload,
     ) -> Result<ConversationId> {
         match as_message_plaintext {
-            ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(ecep) => {
+            ExtractedAsQueueMessagePayload::EncryptedConnectionOffer(ecep) => {
                 let mut connection = self.pool().acquire().await?;
 
-                // Parse & verify connection establishment package
+                // Parse & verify connection offer
                 let cep_payload = self
-                    .parse_and_verify_connection_establishment_package(&mut connection, ecep)
+                    .parse_and_verify_connection_offer(&mut connection, ecep)
                     .await?;
 
                 // Prepare group
@@ -157,24 +155,22 @@ impl CoreUser {
         }
     }
 
-    /// Parse and verify the connection establishment package.
-    async fn parse_and_verify_connection_establishment_package(
+    /// Parse and verify the connection offer
+    async fn parse_and_verify_connection_offer(
         &self,
         connection: &mut SqliteConnection,
-        ecep: EncryptedConnectionEstablishmentPackage,
-    ) -> Result<ConnectionEstablishmentPackagePayload> {
-        let cep_in = ConnectionEstablishmentPackageIn::decrypt(
+        ecep: EncryptedConnectionOffer,
+    ) -> Result<ConnectionOfferPayload> {
+        let cep_in = ConnectionOfferIn::decrypt(
             ecep,
             &self.inner.key_store.connection_decryption_key,
             &[],
             &[],
         )?;
-        // Fetch authentication AS credentials of the sender if we
-        // don't have them already.
+        // Fetch authentication AS credentials of the sender if we don't have them already.
         let sender_domain = cep_in.sender_domain();
 
-        // EncryptedConnectionEstablishmentPackage Phase 1: Load the
-        // AS credential of the sender.
+        // EncryptedConnectionOffer Phase 1: Load the AS credential of the sender.
         let as_intermediate_credential = AsCredentials::get(
             connection,
             &self.inner.api_clients,
@@ -188,14 +184,14 @@ impl CoreUser {
                 self.user_id().clone(),
             )
             .map_err(|error| {
-                error!(%error, "Error verifying connection establishment package");
-                anyhow!("Error verifying connection establishment package")
+                error!(%error, "Error verifying connection offer");
+                anyhow!("Error verifying connection offer")
             })
     }
 
     fn prepare_group(
         &self,
-        cep_payload: &ConnectionEstablishmentPackagePayload,
+        cep_payload: &ConnectionOfferPayload,
         own_user_profile_key: &UserProfileKey,
     ) -> Result<(InfraAadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
@@ -230,7 +226,7 @@ impl CoreUser {
 
     async fn fetch_external_commit_info(
         &self,
-        cep_payload: &ConnectionEstablishmentPackagePayload,
+        cep_payload: &ConnectionOfferPayload,
         qgid: &QualifiedGroupId,
     ) -> Result<ExternalCommitInfoIn> {
         Ok(self
@@ -248,7 +244,7 @@ impl CoreUser {
         &self,
         connection: &mut SqliteConnection,
         eci: ExternalCommitInfoIn,
-        cep_payload: &ConnectionEstablishmentPackagePayload,
+        cep_payload: &ConnectionOfferPayload,
         leaf_signer: &ClientSigningKey,
         aad: InfraAadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
@@ -271,7 +267,7 @@ impl CoreUser {
     async fn create_connection_conversation(
         &self,
         group: &Group,
-        cep_payload: &ConnectionEstablishmentPackagePayload,
+        cep_payload: &ConnectionOfferPayload,
     ) -> Result<(Conversation, Contact)> {
         let sender_user_id = cep_payload.sender_client_credential.identity();
 
@@ -313,7 +309,7 @@ impl CoreUser {
         &self,
         commit: MlsMessageOut,
         group_info: MlsMessageOut,
-        cep_payload: &ConnectionEstablishmentPackagePayload,
+        cep_payload: &ConnectionOfferPayload,
         qgid: QualifiedGroupId,
     ) -> Result<()> {
         let qs_client_reference = self.create_own_client_reference();

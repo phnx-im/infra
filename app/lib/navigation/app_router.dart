@@ -174,11 +174,35 @@ extension on HomeNavigationState {
     );
     return [
       homeScreenPage,
-      if (userSettingsOpen)
-        const MaterialPage(
-          key: ValueKey("user-settings-screen"),
-          child: UserSettingsScreen(),
-        ),
+      ...switch (userSettingsScreen) {
+        null => [],
+        UserSettingsScreenType.root => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+        ],
+        UserSettingsScreenType.editDisplayName => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-edit-display-name"),
+            child: EditDisplayNameScreen(),
+          ),
+        ],
+        UserSettingsScreenType.addUserHandle => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-add-user-handle"),
+            child: AddUserHandleScreen(),
+          ),
+        ],
+      },
       if (conversationId != null &&
           conversationOpen &&
           screenType == ResponsiveScreenType.mobile)

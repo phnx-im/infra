@@ -220,7 +220,7 @@ pub(crate) mod persistence {
             Ok(record)
         }
 
-        fn random_client_record(user_id: UserId) -> Result<ClientRecord, anyhow::Error> {
+        pub(crate) fn random_client_record(user_id: UserId) -> Result<ClientRecord, anyhow::Error> {
             let (csr, _) = ClientCredentialCsr::new(user_id, SignatureScheme::ED25519)?;
             let expiration_data = ExpirationData::new(Duration::days(90));
             let record = ClientRecord {

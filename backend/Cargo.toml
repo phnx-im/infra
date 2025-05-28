@@ -36,11 +36,14 @@ futures-util = "0.3.31"
 chrono = "0.4"
 sha2 = "0.10"
 displaydoc = "0.2.5"
+prost.workspace = true
 
 [dev-dependencies]
 phnxcommon = { path = "../common", features = ["test_utils"] }
 anyhow = "1.0.97"
 insta = { workspace = true }
+mockall = "0.13.1"
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]
 test_utils = ["phnxcommon/test_utils"]

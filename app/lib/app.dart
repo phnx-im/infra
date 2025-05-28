@@ -76,7 +76,6 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   Future<void> _onStateChanged(AppLifecycleState state) async {
     if (state == AppLifecycleState.paused) {
-      _log.fine('App is in the background');
       _appStateController.sink.add(AppState.background);
 
       // iOS only
@@ -88,7 +87,6 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         }
       }
     } else if (state == AppLifecycleState.resumed) {
-      _log.fine('App is in the foreground');
       _appStateController.sink.add(AppState.foreground);
     }
   }
