@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
+use tracing::debug;
 
 use crate::{api::user::User, notifications::NotificationContent};
 
@@ -40,11 +41,13 @@ impl User {
         let mut notifications = Vec::new();
 
         // Fetch AS connection requests
+        debug!("fetch AS messages");
         let new_connections = self.fetch_as_messages().await?;
         self.new_connection_request_notifications(&new_connections, &mut notifications)
             .await;
 
         // Fetch QS messages
+        debug!("fetch QS messages");
         let ProcessedQsMessages {
             new_conversations,
             changed_conversations: _,
