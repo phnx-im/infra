@@ -185,7 +185,10 @@ message PublishConnectionPackagesRequest {
 }
 
 message PublishConnectionPackagesPayload {
-  UserId user_id = 1;
+  oneof owner {
+    UserId user_id = 1;
+    UserHandleHash hash = 3;
+  }
   repeated ConnectionPackage connection_packages = 2;
 }
 
