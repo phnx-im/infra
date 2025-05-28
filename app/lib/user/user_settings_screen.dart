@@ -115,8 +115,7 @@ class _UserProfileData extends StatelessWidget {
         ListTile(
           subtitle: Text(
             style: TextStyle(color: Theme.of(context).hintColor),
-            "Your Avatar and Display Name are shared with Users and Groups in your "
-            "conversations.",
+            "Others will see your picture and name when you communicate with them.",
           ),
         ),
       ],
@@ -154,8 +153,7 @@ class _UserHandles extends StatelessWidget {
                 ListTile(
                   subtitle: Text(
                     style: TextStyle(color: Theme.of(context).hintColor),
-                    "Others can send you a message and connect with you via one of your user "
-                    "handles. You can create up to five different user handles.",
+                    "Share usernames with others so they can connect with you.\nAfter the connection, usernames are not visible to others anymore.\nYou can have up to 5 usernames.",
                   ),
                 ),
               ]
