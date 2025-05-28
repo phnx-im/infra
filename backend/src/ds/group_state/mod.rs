@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use mimi_room_policy::VerifiedRoomState;
+use mimi_room_policy::{RoomState, VerifiedRoomState};
 use mls_assist::{
     MlsAssistRustCrypto,
     group::Group,
@@ -17,6 +17,7 @@ use mls_assist::{
 };
 use phnxcommon::{
     codec::PhnxCodec,
+    credentials::VerifiableClientCredential,
     crypto::{
         ear::{
             Ciphertext, EarDecryptable, EarEncryptable,
@@ -236,7 +237,7 @@ impl StorableDsGroupData {
 pub(crate) struct SerializableDsGroupState {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
-    room_state: VerifiedRoomState,
+    room_state: Vec<u8>,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
@@ -252,11 +253,12 @@ impl SerializableDsGroupState {
             .clone();
         let client_profiles = group_state.member_profiles.into_iter().collect();
         let serialized_provider = group_state.provider.storage().serialize()?;
+        let room_state = group_state.room_state.unverified().serialize()?;
         Ok(Self {
             group_id,
             serialized_provider,
             member_profiles: client_profiles,
-            room_state: group_state.room_state,
+            room_state,
         })
     }
 
@@ -266,11 +268,30 @@ impl SerializableDsGroupState {
         let group = Group::load(&storage, &self.group_id)?.unwrap();
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
+
+        let room_state = if let Ok(state) = RoomState::deserialize(self.room_state)
+            .and_then(|state| Ok(VerifiedRoomState::verify(state)?))
+        {
+            state
+        } else {
+            let mut members = group
+                .members()
+                .map(|m| {
+                    VerifiableClientCredential::try_from(m.credential)
+                        .unwrap()
+                        .user_id()
+                        .clone()
+                })
+                .collect::<Vec<_>>();
+
+            VerifiedRoomState::fallback_room(members)
+        };
+
         Ok(DsGroupState {
             provider,
             group,
             member_profiles: client_profiles,
-            room_state: self.room_state,
+            room_state,
         })
     }
 }

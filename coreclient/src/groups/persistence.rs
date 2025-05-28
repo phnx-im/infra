@@ -3,14 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::ensure;
-use mimi_room_policy::VerifiedRoomState;
+use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, RoomState, VerifiedRoomState};
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
+    credentials::{ClientCredential, VerifiableClientCredential},
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
-use sqlx::{SqliteExecutor, query, query_as};
+use sqlx::{Decode as _, SqliteExecutor, query, query_as};
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 
@@ -21,7 +22,7 @@ struct SqlGroup {
     identity_link_wrapper_key: IdentityLinkWrapperKey,
     group_state_ear_key: GroupStateEarKey,
     pending_diff: Option<BlobDecoded<StagedGroupDiff>>,
-    room_state: BlobDecoded<VerifiedRoomState>,
+    room_state: Vec<u8>,
 }
 
 impl SqlGroup {
@@ -34,13 +35,31 @@ impl SqlGroup {
             room_state,
         } = self;
 
+        let room_state = if let Ok(state) = BlobDecoded::<RoomState>::decode(room_state)
+            .and_then(|state| Ok(VerifiedRoomState::verify(state.0)?))
+        {
+            state
+        } else {
+            let mut members = mls_group
+                .members()
+                .map(|m| {
+                    VerifiableClientCredential::try_from(m.credential)
+                        .unwrap()
+                        .user_id()
+                        .clone()
+                })
+                .collect::<Vec<_>>();
+
+            VerifiedRoomState::fallback_room(members)
+        };
+
         Group {
             group_id,
             identity_link_wrapper_key,
             group_state_ear_key,
             mls_group,
             pending_diff: pending_diff.map(|BlobDecoded(diff)| diff),
-            room_state: room_state.0,
+            room_state,
         }
     }
 }
