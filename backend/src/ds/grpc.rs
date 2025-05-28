@@ -351,8 +351,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             room_state: Some(
                 group_state
                     .room_state
-                    .clone()
-                    .unverify()
+                    .unverified()
                     .try_ref_into()
                     .invalid_tls("room_state")?,
             ),
@@ -396,8 +395,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             room_state: Some(
                 commit_info
                     .room_state
-                    .clone()
-                    .unverify()
+                    .unverified()
                     .try_ref_into()
                     .invalid_tls("room_state")?,
             ),
@@ -441,8 +439,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             room_state: Some(
                 commit_info
                     .room_state
-                    .clone()
-                    .unverify()
+                    .unverified()
                     .try_ref_into()
                     .invalid_tls("room_state")?,
             ),

@@ -6,7 +6,7 @@ use mimi_content::MimiContent;
 use openmls::framing::ApplicationMessage;
 use tracing::warn;
 
-use crate::store::{Store, StoreNotifier, StoreResult};
+use crate::store::{Store, StoreNotifier};
 
 use super::*;
 

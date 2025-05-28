@@ -111,7 +111,7 @@ impl DsGrpcClient {
             encrypted_user_profile_key: Some(payload.encrypted_user_profile_key.into()),
             creator_client_reference: Some(payload.creator_client_reference.into()),
             group_info: Some(payload.group_info.try_ref_into()?),
-            room_state: Some(payload.room_state.clone().unverify().try_ref_into()?),
+            room_state: Some(payload.room_state.unverified().try_ref_into()?),
         };
         let request = payload.sign(signing_key)?;
         self.client.clone().create_group(request).await?;
