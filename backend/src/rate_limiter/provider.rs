@@ -30,7 +30,7 @@ impl StorageProvider for RLPostgresStorage {
 
 pub(crate) mod persistence {
 
-    use chrono::Timelike;
+    use chrono::SubsecRound;
     use sqlx::{
         PgExecutor, query, query_as,
         types::chrono::{DateTime, Utc},
@@ -39,12 +39,6 @@ pub(crate) mod persistence {
     use crate::{errors::StorageError, rate_limiter::RlKey};
 
     use super::Allowance;
-
-    /// Drop the last three digits so the value really is µs-precise.
-    fn trunc_to_micros(dt: DateTime<Utc>) -> DateTime<Utc> {
-        let micros = dt.timestamp_subsec_micros();
-        dt.with_nanosecond(micros * 1_000).unwrap()
-    }
 
     impl Allowance {
         /// Load an Allowance from the database by its key.
@@ -80,13 +74,16 @@ pub(crate) mod persistence {
             connection: impl PgExecutor<'_>,
             key: &RlKey,
         ) -> Result<(), StorageError> {
+            // Ensure valid_until is rounded to microseconds, since postgres
+            // only supports microsecond precision.
+            let valid_until = self.valid_until.round_subsecs(6);
             query!(
                 "INSERT INTO allowance_records
                     (key_value, remaining, valid_until)
                     VALUES ($1, $2, $3)",
                 key.serialize(),
                 self.remaining as i64,
-                trunc_to_micros(self.valid_until),
+                valid_until,
             )
             .execute(connection)
             .await?;
@@ -112,24 +109,13 @@ pub(crate) mod persistence {
 
         use super::*;
 
-        #[test]
-        fn trunc_to_micros_test() {
-            let dt = DateTime::<Utc>::from_timestamp(1_000_000, 123_456_789).unwrap();
-            assert_eq!(dt.timestamp(), 1_000_000);
-            assert_eq!(dt.timestamp_subsec_nanos(), 123_456_789);
-            let truncated = trunc_to_micros(dt);
-            assert_eq!(truncated.timestamp(), 1_000_000);
-            assert_eq!(truncated.timestamp_subsec_micros(), 123_456);
-            assert_eq!(truncated.timestamp_subsec_nanos(), 123_456_000);
-        }
-
         pub async fn store_random_allowance(
             pool: &PgPool,
             key: &RlKey,
         ) -> anyhow::Result<Allowance> {
             let allowance = Allowance {
                 remaining: 10,
-                valid_until: trunc_to_micros(Utc::now() + TimeDelta::hours(1)),
+                valid_until: Utc::now() + TimeDelta::hours(1),
             };
             allowance.store(pool, key).await?;
             Ok(allowance)
