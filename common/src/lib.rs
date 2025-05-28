@@ -20,7 +20,6 @@ pub mod endpoint_paths;
 pub mod identifiers;
 pub mod messages;
 pub mod pow;
-pub mod rate_limiter;
 pub mod time;
 
 pub const DEFAULT_PORT_HTTP: u16 = 9420;

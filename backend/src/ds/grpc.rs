@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::TimeDelta;
 use mls_assist::{
     group::Group,
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
 use phnxcommon::{
-    credentials::keys::ClientVerifyingKey,
+    credentials::{ClientCredential, keys::ClientVerifyingKey},
     crypto::signatures::{
         keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
     },
@@ -32,6 +33,7 @@ use phnxprotos::{
     delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
+use tls_codec::DeserializeBytes;
 use tonic::{Request, Response, Status, async_trait};
 use tracing::error;
 
@@ -39,6 +41,7 @@ use crate::{
     ds::process::Provider,
     messages::intra_backend::{DsFanOutMessage, DsFanOutPayload},
     qs::QsConnector,
+    rate_limiter::{RateLimiter, RlConfig, RlKey, provider::RLPostgresStorage},
 };
 
 use super::{
@@ -232,6 +235,41 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             error!(%error, "failed to create group");
             Status::internal("failed to create group")
         })?;
+
+        // Extract user id
+        let members = group.members().collect::<Vec<_>>();
+
+        let &[own_leaf] = &members.as_slice() else {
+            error!(members = %members.len(), "group must have exactly one member");
+            return Err(Status::invalid_argument(
+                "group must have exactly one member",
+            ));
+        };
+
+        let credential =
+            ClientCredential::tls_deserialize_exact_bytes(own_leaf.credential.serialized_content())
+                .map_err(|_| Status::invalid_argument("invalid credential"))?;
+        let user_id = credential.identity().uuid();
+
+        // Configure the rate-limiting
+        let rl_key = RlKey::new(
+            b"ds",
+            b"reserve_group_id",
+            &[b"user_uuid", user_id.as_bytes()],
+        );
+        let config = RlConfig {
+            max_requests: 100,
+            time_window: TimeDelta::hours(1),
+        };
+        let rl_storage = RLPostgresStorage::new(self.ds.db_pool.clone());
+        let rl = RateLimiter::new(config, rl_storage);
+
+        // Apply the rate-limiting
+        if !rl.allowed(rl_key).await {
+            return Err(Status::resource_exhausted(
+                "Too many requests, please try again later",
+            ));
+        }
 
         // encrypt and store group state
         let encrypted_user_profile_key = payload
