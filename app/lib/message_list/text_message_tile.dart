@@ -114,16 +114,16 @@ class _Timestamp extends StatefulWidget {
 }
 
 class _TimestampState extends State<_Timestamp> {
-  String displayTimestamp = '';
+  String _displayTimestamp = '';
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    displayTimestamp = _calcTimeString(widget.timestamp);
+    _displayTimestamp = _calcTimeString(widget.timestamp);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
-        displayTimestamp = _calcTimeString(widget.timestamp);
+        _displayTimestamp = _calcTimeString(widget.timestamp);
       });
     });
   }
@@ -133,7 +133,7 @@ class _TimestampState extends State<_Timestamp> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.timestamp != widget.timestamp) {
       setState(() {
-        displayTimestamp = _calcTimeString(widget.timestamp);
+        _displayTimestamp = _calcTimeString(widget.timestamp);
       });
     }
   }
@@ -150,7 +150,7 @@ class _TimestampState extends State<_Timestamp> {
       padding: const EdgeInsets.symmetric(horizontal: largeCornerRadius),
       child: SelectionContainer.disabled(
         child: Text(
-          _calcTimeString(widget.timestamp),
+          _displayTimestamp,
           style: TextStyle(
             color: colorGreyDark,
             fontSize: isLargeScreen(context) ? 10 : 12,
