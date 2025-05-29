@@ -17,7 +17,7 @@ use phnxcommon::{
 };
 use sqlx::SqliteConnection;
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
-use tracing::info;
+use tracing::debug;
 
 use crate::{clients::api_clients::ApiClients, key_stores::as_credentials::AsCredentials};
 
@@ -67,7 +67,7 @@ impl Group {
                 bail!("Unsupported message type")
             }
             ProcessedMessageContent::ApplicationMessage(_) => {
-                info!("Message type: application");
+                debug!("process application message");
                 let sender_client_credential =
                     if let Sender::Member(index) = processed_message.sender() {
                         ClientAuthInfo::load(&mut *connection, &group_id, *index)

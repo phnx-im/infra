@@ -5,6 +5,8 @@
 //! This module provides structs and functions to interact with users in the
 //! various groups an InfraClient is a member of.
 
+use std::{fmt, mem};
+
 use display_name::BaseDisplayName;
 pub use display_name::{DisplayName, DisplayNameError};
 use phnxcommon::{
@@ -143,6 +145,17 @@ impl UserProfile {
             profile_picture: None,
         }
     }
+
+    /// Takes data from the user profile without cloning it.
+    ///
+    /// This user profiles is empty after this operation.
+    pub fn take(&mut self) -> UserProfile {
+        Self {
+            user_id: self.user_id.clone(),
+            display_name: mem::take(&mut self.display_name),
+            profile_picture: mem::take(&mut self.profile_picture),
+        }
+    }
 }
 
 impl From<IndexedUserProfile> for UserProfile {
@@ -192,12 +205,23 @@ impl UnvalidatedUserProfile {
 }
 
 #[derive(
-    Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, PartialEq, Eq,
+    TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, PartialEq, Eq,
 )]
 #[repr(u8)]
 pub enum Asset {
     Value(Vec<u8>),
     // TODO: Assets by Reference
+}
+
+impl fmt::Debug for Asset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Value(bytes) => f
+                .debug_struct("Asset")
+                .field("bytes", &bytes.len())
+                .finish(),
+        }
+    }
 }
 
 impl sqlx::Type<Sqlite> for Asset {
