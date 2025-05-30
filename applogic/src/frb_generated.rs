@@ -2379,7 +2379,7 @@ fn wire__crate__api__conversation_details_cubit__UiRoomState_can_kick_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiRoomState>,
             >>::sse_decode(&mut deserializer);
-            let api_target = <u32>::sse_decode(&mut deserializer);
+            let api_target = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let mut api_that_guard = None;
@@ -2399,7 +2399,7 @@ fn wire__crate__api__conversation_details_cubit__UiRoomState_can_kick_impl(
                 let output_ok = Result::<_, ()>::Ok(
                     crate::api::conversation_details_cubit::UiRoomState::can_kick(
                         &*api_that_guard,
-                        api_target,
+                        &api_target,
                     ),
                 )?;
                 Ok(output_ok)

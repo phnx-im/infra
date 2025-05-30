@@ -39,7 +39,7 @@ pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
@@ -355,7 +355,22 @@ impl CoreUser {
     /// In case of an error, or if the user profile is not found, the client id is used as a
     /// fallback.
     pub async fn user_profile(&self, user_id: &UserId) -> UserProfile {
-        IndexedUserProfile::load(self.pool(), user_id)
+        match self.pool().acquire().await {
+            Ok(mut connection) => self.user_profile_internal(&mut connection, user_id).await,
+            Err(error) => {
+                error!(%error, "Error loading user profile; fallback to user_id");
+                UserProfile::from_user_id(user_id)
+            }
+        }
+    }
+
+    // Helper to use when we already hold a connection
+    async fn user_profile_internal(
+        &self,
+        connection: &mut SqliteConnection,
+        user_id: &UserId,
+    ) -> UserProfile {
+        IndexedUserProfile::load(connection, user_id)
             .await
             .inspect_err(|error| {
                 error!(%error, "Error loading user profile; fallback to user_id");

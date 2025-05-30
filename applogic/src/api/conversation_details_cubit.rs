@@ -5,6 +5,7 @@
 //! A single conversation details feature
 
 use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
+use phnxcommon::identifiers::UserId;
 
 use std::{sync::Arc, time::Duration};
 
@@ -42,18 +43,18 @@ pub struct ConversationDetailsState {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiRoomState {
-    our_user: u32,
+    our_user: UserId,
     state: VerifiedRoomState,
 }
 
 impl UiRoomState {
     #[frb(sync)]
-    pub fn can_kick(&self, target: u32) -> bool {
+    pub fn can_kick(&self, target: &UiUserId) -> bool {
         self.state
             .can_apply_regular_proposals(
                 &self.our_user,
                 &[MimiProposal::ChangeRole {
-                    target,
+                    target: UserId::from(target.clone()),
                     role: RoleIndex::Outsider,
                 }],
             )

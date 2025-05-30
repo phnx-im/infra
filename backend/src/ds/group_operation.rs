@@ -17,6 +17,7 @@ use mls_assist::{
 };
 
 use phnxcommon::{
+    credentials::VerifiableClientCredential,
     crypto::{
         ear::keys::{EncryptedUserProfileKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
@@ -125,6 +126,15 @@ impl DsGroupState {
             }
         };
 
+        let sender = VerifiableClientCredential::try_from(
+            self.group
+                .leaf(sender_index.leaf_index())
+                .unwrap()
+                .credential()
+                .clone(),
+        )
+        .unwrap();
+
         // Check if the operation adds a user.
         let adds_users = staged_commit.add_proposals().count() != 0;
 
@@ -144,12 +154,16 @@ impl DsGroupState {
 
             let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
 
-            let mut slots = self.free_indices().await;
-            for _user in &add_users_state.added_users {
+            for ((added_key_package, _), _) in &add_users_state.added_users {
+                let added = VerifiableClientCredential::try_from(
+                    added_key_package.leaf_node().credential().clone(),
+                )
+                .unwrap();
+
                 if let Err(e) = self.room_state.apply_regular_proposals(
-                    &sender_index.leaf_index().u32(),
+                    sender.user_id(),
                     &[MimiProposal::ChangeRole {
-                        target: slots.next().unwrap().u32(),
+                        target: added.user_id().clone(),
                         role: RoleIndex::Regular,
                     }],
                 ) {
@@ -210,10 +224,15 @@ impl DsGroupState {
                 return Err(GroupOperationError::InvalidMessage);
             }
 
+            let removed = VerifiableClientCredential::try_from(
+                self.group.leaf(*removed).unwrap().credential().clone(),
+            )
+            .unwrap();
+
             if let Err(e) = self.room_state.apply_regular_proposals(
-                &sender_index.leaf_index().u32(),
+                sender.user_id(),
                 &[MimiProposal::ChangeRole {
-                    target: removed.u32(),
+                    target: removed.user_id().clone(),
                     role: RoleIndex::Outsider,
                 }],
             ) {

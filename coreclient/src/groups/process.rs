@@ -13,6 +13,7 @@ use phnxcommon::{
         VerifiableClientCredential,
     },
     crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
+    identifiers::UserId,
     messages::client_ds::{InfraAadMessage, InfraAadPayload},
 };
 use sqlx::SqliteConnection;
@@ -106,6 +107,9 @@ impl Group {
                     }
                 };
 
+                let sender =
+                    VerifiableClientCredential::try_from(processed_message.credential().clone())?;
+
                 // StagedCommitMessage Phase 1: Process the proposals.
 
                 // Before we process the AAD payload, we first process the
@@ -113,11 +117,16 @@ impl Group {
                 for remove_proposal in staged_commit.remove_proposals() {
                     let removed_index = remove_proposal.remove_proposal().removed();
 
+                    let Some(removed_id) = self.client_by_index(connection, removed_index).await
+                    else {
+                        bail!("Unknown removed_id")
+                    };
+
                     // Room policy checks
                     self.room_state.apply_regular_proposals(
-                        &sender_index.u32(),
+                        sender.user_id(),
                         &[MimiProposal::ChangeRole {
-                            target: removed_index.u32(),
+                            target: removed_id,
                             role: RoleIndex::Outsider,
                         }],
                     )?;
@@ -170,7 +179,7 @@ impl Group {
                             .await?;
                             let client_auth_infos = self
                                 .process_adds(
-                                    sender_index,
+                                    sender.user_id(),
                                     staged_commit,
                                     &mut *connection,
                                     staged_commit.add_proposals(),
@@ -202,7 +211,7 @@ impl Group {
                         )
                         .await?;
 
-                        let old_credential = processed_message.credential().clone().try_into()?;
+                        let old_credential = sender;
 
                         if new_sender_credential != old_credential {
                             self.process_update(
@@ -388,7 +397,7 @@ impl Group {
 
     async fn process_adds<'a>(
         &mut self,
-        sender_index: LeafNodeIndex,
+        sender_user: &UserId,
         staged_commit: &StagedCommit,
         connection: &mut SqliteConnection,
         added_clients: impl Iterator<Item = QueuedAddProposal<'a>>,
@@ -400,17 +409,6 @@ impl Group {
                 .await?
                 .zip(added_clients)
                 .collect::<Vec<_>>();
-
-        // Room policy checks
-        for client in &added_clients_with_indices {
-            self.room_state.apply_regular_proposals(
-                &sender_index.u32(),
-                &[MimiProposal::ChangeRole {
-                    target: client.0.u32(),
-                    role: RoleIndex::Regular,
-                }],
-            )?;
-        }
 
         let added_credentials = added_clients_with_indices
             .into_iter()
@@ -432,6 +430,17 @@ impl Group {
             added_credentials,
             as_credentials,
         )?;
+
+        // Room policy checks
+        for client in &client_auth_infos {
+            self.room_state.apply_regular_proposals(
+                sender_user,
+                &[MimiProposal::ChangeRole {
+                    target: client.group_membership().user_id().clone(),
+                    role: RoleIndex::Regular,
+                }],
+            )?;
+        }
 
         // TODO: Validation:
         // * Check that this commit only contains (inline) add proposals

@@ -309,7 +309,7 @@ abstract class RustLibApi extends BaseApi {
 
   bool crateApiConversationDetailsCubitUiRoomStateCanKick({
     required UiRoomState that,
-    required int target,
+    required UiUserId target,
   });
 
   String crateApiUserCubitUiUserDisplayName({required UiUser that});
@@ -2310,7 +2310,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   bool crateApiConversationDetailsCubitUiRoomStateCanKick({
     required UiRoomState that,
-    required int target,
+    required UiUserId target,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -2320,7 +2320,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_u_32(target, serializer);
+          sse_encode_box_autoadd_ui_user_id(target, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 48)!;
         },
         codec: SseCodec(
@@ -9476,7 +9476,7 @@ class UiRoomStateImpl extends RustOpaque implements UiRoomState {
         RustLib.instance.api.rust_arc_decrement_strong_count_UiRoomStatePtr,
   );
 
-  bool canKick({required int target}) =>
+  bool canKick({required UiUserId target}) =>
       RustLib.instance.api.crateApiConversationDetailsCubitUiRoomStateCanKick(
         that: this,
         target: target,

@@ -299,6 +299,7 @@ impl TestBackend {
         info!("Connecting users {user1_id:?} and {user2_id:?}");
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
+        let user1_profile = user1.own_user_profile().await.unwrap();
         let user1_partial_contacts_before = user1.partial_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
         user1.add_contact(user2_id.clone()).await.unwrap();
@@ -375,7 +376,9 @@ impl TestBackend {
         );
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| c.attributes().title() == DisplayName::from_user_id(user1_id).to_string())
+            .position(|c| {
+                c.attributes().title() == user1_profile.display_name.clone().into_string()
+            })
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -806,7 +809,7 @@ impl TestBackend {
         conversation_id: ConversationId,
         remover_id: &UserId,
         removed_ids: Vec<&UserId>,
-    ) {
+    ) -> anyhow::Result<()> {
         let removed_strings = removed_ids
             .iter()
             .map(|n| format!("{n:?}"))
@@ -841,8 +844,7 @@ impl TestBackend {
                 conversation_id,
                 removed_ids.iter().copied().cloned().collect::<Vec<_>>(),
             )
-            .await
-            .expect("Error removing users.");
+            .await?;
 
         let mut expected_messages = HashSet::new();
 
@@ -957,10 +959,16 @@ impl TestBackend {
             let removed_set: HashSet<_> = removed_ids.iter().cloned().cloned().collect();
             assert_eq!(removed_members, removed_set)
         }
+
+        Ok(())
     }
 
     /// Has the leaver leave the given group.
-    pub async fn leave_group(&mut self, conversation_id: ConversationId, leaver_id: &UserId) {
+    pub async fn leave_group(
+        &mut self,
+        conversation_id: ConversationId,
+        leaver_id: &UserId,
+    ) -> anyhow::Result<()> {
         info!(
             "{leaver_id:?} leaves the group with id {}",
             conversation_id.uuid()
@@ -969,7 +977,7 @@ impl TestBackend {
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
-        leaver.leave_conversation(conversation_id).await.unwrap();
+        leaver.leave_conversation(conversation_id).await?;
 
         // Now have a random group member perform an update, thus committing the leave operation.
         // TODO: This is not really random. We should do better here. But also,
@@ -1001,7 +1009,10 @@ impl TestBackend {
             .await;
 
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
+
         group_members.remove(leaver_id);
+
+        Ok(())
     }
 
     pub async fn delete_group(&mut self, conversation_id: ConversationId, deleter_id: &UserId) {
@@ -1243,7 +1254,8 @@ impl TestBackend {
                         );
                         let members_to_remove = members_to_remove.iter().collect();
                         self.remove_from_group(conversation.id(), &random_user, members_to_remove)
-                            .await;
+                            .await
+                            .unwrap();
                     }
                 }
             }
@@ -1266,7 +1278,9 @@ impl TestBackend {
                         "Random operation: {random_user:?} leaves group {}",
                         conversation.id().uuid()
                     );
-                    self.leave_group(conversation.id(), &random_user).await;
+                    self.leave_group(conversation.id(), &random_user)
+                        .await
+                        .unwrap();
                 }
             }
             _ => panic!("Invalid action"),

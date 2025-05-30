@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/conversation_details/conversation_details_cubit.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -18,7 +19,7 @@ class MemberDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (conversationId, memberClientId) = context.select(
+    final (conversationId, memberUserId) = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Intro(:final screens) =>
           throw StateError("No member details for intro screen"),
@@ -32,14 +33,19 @@ class MemberDetailsScreen extends StatelessWidget {
       },
     );
 
-    final ownClientId = context.select(
-      (UserCubit cubit) => cubit.state.userId,
+    final roomState = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.roomState,
     );
-    final isSelf = memberClientId == ownClientId;
 
-    if (conversationId == null || memberClientId == null) {
+    final ownUserId = context.select((UserCubit cubit) => cubit.state.userId);
+
+    final isSelf = memberUserId == ownUserId;
+
+    if (conversationId == null || memberUserId == null || roomState == null) {
       return const SizedBox.shrink();
     }
+
+    final canKick = roomState.canKick(target: memberUserId);
 
     return Scaffold(
       appBar: AppBar(
@@ -60,19 +66,18 @@ class MemberDetailsScreen extends StatelessWidget {
                 FutureUserAvatar(
                   size: 64,
                   profile:
-                      () =>
-                          context.read<UserCubit>().userProfile(memberClientId),
+                      () => context.read<UserCubit>().userProfile(memberUserId),
                 ),
                 const SizedBox(height: _padding),
                 Text(
-                  memberClientId.uuid.toString(), // TODO: display name
+                  memberUserId.uuid.toString(), // TODO: display name
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
                 const SizedBox(height: _padding),
               ],
             ),
-            // Show the remove user button if the user is not the current user
-            (!isSelf)
+            // Show the remove user button if the user is not the current user and has kicking rights
+            (!isSelf && canKick)
                 ? Padding(
                   padding: const EdgeInsets.all(_padding),
                   child: OutlinedButton(
@@ -99,7 +104,7 @@ class MemberDetailsScreen extends StatelessWidget {
                                       .read<UserCubit>()
                                       .removeUserFromConversation(
                                         conversationId,
-                                        memberClientId,
+                                        memberUserId,
                                       );
                                   if (context.mounted) {
                                     Navigator.of(context).pop(true);

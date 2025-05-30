@@ -147,6 +147,7 @@
 //! message format looks like.
 //!
 
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     MlsAssistRustCrypto,
     openmls::{prelude::group_info::GroupInfo, treesync::RatchetTree},
@@ -179,5 +180,5 @@ pub struct ExternalCommitInfo {
     pub group_info: GroupInfo,
     pub ratchet_tree: RatchetTree,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub room_state: Vec<u8>,
+    pub room_state: VerifiedRoomState,
 }
