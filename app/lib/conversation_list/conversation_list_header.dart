@@ -12,26 +12,25 @@ import 'package:provider/provider.dart';
 class ConversationListHeader extends StatelessWidget {
   const ConversationListHeader({super.key});
 
-  static height(BuildContext context) =>
-      MediaQuery.of(context).padding.top + kToolbarHeight;
+  static _height(BuildContext context) =>
+      MediaQuery.of(context).padding.top +
+      kToolbarHeight +
+      (isPointer() ? Spacings.l : 0);
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-    const height = kToolbarHeight;
-
     return Stack(
       children: [
         SizedBox(
-          height: topPadding + height,
+          height: _height(context),
           child: FrostedGlass(
             color: convPaneBackgroundColor,
-            height: topPadding + height,
+            height: _height(context),
           ),
         ),
         Container(
-          height: topPadding + height,
-          padding: EdgeInsets.only(top: topPadding),
+          height: _height(context),
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
           child: const Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
