@@ -121,10 +121,13 @@ class _TimestampState extends State<_Timestamp> {
   void initState() {
     super.initState();
     _displayTimestamp = _calcTimeString(widget.timestamp);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _displayTimestamp = _calcTimeString(widget.timestamp);
-      });
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      final newDisplayTimestamp = _calcTimeString(widget.timestamp);
+      if (newDisplayTimestamp != _displayTimestamp) {
+        setState(() {
+          _displayTimestamp = _calcTimeString(widget.timestamp);
+        });
+      }
     });
   }
 
