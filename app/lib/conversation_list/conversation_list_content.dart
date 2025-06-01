@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prototype/core/core.dart';
@@ -258,10 +260,48 @@ class _LastMessage extends StatelessWidget {
   }
 }
 
-class _LastUpdated extends StatelessWidget {
+class _LastUpdated extends StatefulWidget {
   const _LastUpdated({required this.conversation});
 
   final UiConversationDetails conversation;
+
+  @override
+  State<_LastUpdated> createState() => _LastUpdatedState();
+}
+
+class _LastUpdatedState extends State<_LastUpdated> {
+  String _displayTimestamp = '';
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayTimestamp = formatTimestamp(widget.conversation.lastUsed);
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      final newDisplayTimestamp = formatTimestamp(widget.conversation.lastUsed);
+      if (newDisplayTimestamp != _displayTimestamp) {
+        setState(() {
+          _displayTimestamp = newDisplayTimestamp;
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _LastUpdated oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.conversation.lastUsed != widget.conversation.lastUsed) {
+      setState(() {
+        _displayTimestamp = formatTimestamp(widget.conversation.lastUsed);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -269,7 +309,7 @@ class _LastUpdated extends StatelessWidget {
       baseline: Spacings.xs,
       baselineType: TextBaseline.alphabetic,
       child: Text(
-        formatTimestamp(conversation.lastUsed),
+        _displayTimestamp,
         style: const TextStyle(color: colorDMB, fontSize: 11),
       ),
     );
