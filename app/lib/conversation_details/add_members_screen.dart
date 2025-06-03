@@ -21,7 +21,14 @@ class AddMembersScreen extends StatelessWidget {
     return BlocProvider(
       create: (context) {
         final userCubit = context.read<UserCubit>();
-        return AddMembersCubit()..loadContacts(userCubit.contacts);
+        final navigationCubit = context.read<NavigationCubit>();
+        final conversationId = navigationCubit.state.conversationId;
+        final contactsFuture =
+            conversationId != null
+                ? userCubit.addableContacts(conversationId)
+                : Future.value(<UiContact>[]);
+
+        return AddMembersCubit()..loadContacts(contactsFuture);
       },
       child: const AddMembersScreenView(),
     );
