@@ -133,7 +133,7 @@ impl DsGroupState {
         ear_key: &GroupStateEarKey,
     ) -> Result<EncryptedDsGroupState, DsGroupStateEncryptionError> {
         let encrypted =
-            EncryptableDsGroupState::from(SerializableDsGroupState::from_group_state(self)?)
+            EncryptableDsGroupState::from(SerializableDsGroupStateV2::from_group_state(self)?)
                 .encrypt(ear_key)?;
         Ok(encrypted)
     }
@@ -143,7 +143,7 @@ impl DsGroupState {
         ear_key: &GroupStateEarKey,
     ) -> Result<Self, DsGroupStateDecryptionError> {
         let encryptable = EncryptableDsGroupState::decrypt(ear_key, encrypted_group_state)?;
-        let group_state = SerializableDsGroupState::into_group_state(encryptable.into())?;
+        let group_state = SerializableDsGroupStateV2::into_group_state(encryptable.into())?;
         Ok(group_state)
     }
 
@@ -234,14 +234,21 @@ impl StorableDsGroupData {
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct SerializableDsGroupState {
+pub(crate) struct SerializableDsGroupStateV1 {
+    group_id: GroupId,
+    serialized_provider: Vec<u8>,
+    member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SerializableDsGroupStateV2 {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
     room_state: Vec<u8>,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
-impl SerializableDsGroupState {
+impl SerializableDsGroupStateV2 {
     pub(super) fn from_group_state(
         group_state: DsGroupState,
     ) -> Result<Self, phnxcommon::codec::Error> {
@@ -301,20 +308,27 @@ impl SerializableDsGroupState {
 
 #[derive(Serialize, Deserialize)]
 pub(super) enum EncryptableDsGroupState {
-    V1(SerializableDsGroupState),
+    V1(SerializableDsGroupStateV1),
+    V2(SerializableDsGroupStateV2),
 }
 
-impl From<EncryptableDsGroupState> for SerializableDsGroupState {
+impl From<EncryptableDsGroupState> for SerializableDsGroupStateV2 {
     fn from(encryptable: EncryptableDsGroupState) -> Self {
         match encryptable {
-            EncryptableDsGroupState::V1(serializable) => serializable,
+            EncryptableDsGroupState::V1(serializable) => Self {
+                group_id: serializable.group_id,
+                serialized_provider: serializable.serialized_provider,
+                room_state: Vec::new(),
+                member_profiles: serializable.member_profiles,
+            },
+            EncryptableDsGroupState::V2(serializable) => serializable,
         }
     }
 }
 
-impl From<SerializableDsGroupState> for EncryptableDsGroupState {
-    fn from(serializable: SerializableDsGroupState) -> Self {
-        EncryptableDsGroupState::V1(serializable)
+impl From<SerializableDsGroupStateV2> for EncryptableDsGroupState {
+    fn from(serializable: SerializableDsGroupStateV2) -> Self {
+        EncryptableDsGroupState::V2(serializable)
     }
 }
 
