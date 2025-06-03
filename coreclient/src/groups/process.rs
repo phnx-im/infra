@@ -117,10 +117,10 @@ impl Group {
                 for remove_proposal in staged_commit.remove_proposals() {
                     let removed_index = remove_proposal.remove_proposal().removed();
 
-                    let Some(removed_id) = self.client_by_index(connection, removed_index).await
-                    else {
-                        bail!("Unknown removed_id")
-                    };
+                    let removed_id = self
+                        .client_by_index(connection, removed_index)
+                        .await
+                        .context("Unknown removed_id")?;
 
                     // Room policy checks
                     self.room_state.apply_regular_proposals(

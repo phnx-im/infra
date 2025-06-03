@@ -38,7 +38,7 @@ impl SqlGroup {
 
         let room_state = if let Some(state) = PhnxCodec::from_slice::<RoomState>(&room_state)
             .ok()
-            .and_then(|state| Some(VerifiedRoomState::verify(state).ok()?))
+            .and_then(|state| VerifiedRoomState::verify(state).ok())
         {
             state
         } else {

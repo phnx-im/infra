@@ -129,11 +129,17 @@ impl DsGroupState {
         let sender = VerifiableClientCredential::try_from(
             self.group
                 .leaf(sender_index.leaf_index())
-                .unwrap()
+                .ok_or_else(|| {
+                    error!("Leaf of sender not found");
+                    GroupOperationError::InvalidMessage
+                })?
                 .credential()
                 .clone(),
         )
-        .unwrap();
+        .map_err(|e| {
+            error!(%e, "Credential in leaf of sender is invalid");
+            GroupOperationError::InvalidMessage
+        })?;
 
         // Check if the operation adds a user.
         let adds_users = staged_commit.add_proposals().count() != 0;
@@ -158,7 +164,10 @@ impl DsGroupState {
                 let added = VerifiableClientCredential::try_from(
                     added_key_package.leaf_node().credential().clone(),
                 )
-                .unwrap();
+                .map_err(|e| {
+                    error!(%e, "Credential of added user is invalid");
+                    GroupOperationError::InvalidMessage
+                })?;
 
                 if let Err(e) = self.room_state.apply_regular_proposals(
                     sender.user_id(),
@@ -225,9 +234,19 @@ impl DsGroupState {
             }
 
             let removed = VerifiableClientCredential::try_from(
-                self.group.leaf(*removed).unwrap().credential().clone(),
+                self.group
+                    .leaf(*removed)
+                    .ok_or_else(|| {
+                        error!("Leaf of removed user not found");
+                        GroupOperationError::InvalidMessage
+                    })?
+                    .credential()
+                    .clone(),
             )
-            .unwrap();
+            .map_err(|e| {
+                error!(%e, "Credential of removed user is invalid");
+                GroupOperationError::InvalidMessage
+            })?;
 
             if let Err(e) = self.room_state.apply_regular_proposals(
                 sender.user_id(),
