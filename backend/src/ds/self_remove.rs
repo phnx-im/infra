@@ -5,7 +5,7 @@
 use super::group_state::DsGroupState;
 use super::process::USER_EXPIRATION_DAYS;
 use crate::errors::ClientSelfRemovalError;
-use mimi_room_policy::{MimiProposal, RoleIndex};
+use mimi_room_policy::RoleIndex;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedMessageIn, SerializedMlsMessage},
@@ -13,7 +13,6 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
 };
 use phnxcommon::{credentials::VerifiableClientCredential, time::Duration};
-use tracing::error;
 
 impl DsGroupState {
     pub(crate) fn self_remove_client(
@@ -65,16 +64,8 @@ impl DsGroupState {
         )
         .unwrap();
 
-        if let Err(e) = self.room_state.apply_regular_proposals(
-            sender.user_id(),
-            &[MimiProposal::ChangeRole {
-                target: sender.user_id().clone(),
-                role: RoleIndex::Outsider,
-            }],
-        ) {
-            error!("{e:?}");
-            return Err(ClientSelfRemovalError::InvalidMessage);
-        }
+        self.room_state_change_role(sender.user_id(), sender.user_id(), RoleIndex::Outsider)
+            .ok_or(ClientSelfRemovalError::InvalidMessage)?;
 
         // We first accept the message into the group state ...
         self.group.accept_processed_message(

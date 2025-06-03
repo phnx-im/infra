@@ -50,7 +50,7 @@ impl CoreUser {
 
 mod remove_users_flow {
     use anyhow::Context;
-    use mimi_room_policy::{MimiProposal, RoleIndex};
+    use mimi_room_policy::RoleIndex;
     use phnxcommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
@@ -88,13 +88,7 @@ mod remove_users_flow {
 
             // Room policy checks
             for target in &target_users {
-                group.room_state.apply_regular_proposals(
-                    sender_id,
-                    &[MimiProposal::ChangeRole {
-                        target: target.clone(),
-                        role: RoleIndex::Outsider,
-                    }],
-                )?;
+                group.room_state_change_role(sender_id, target, RoleIndex::Outsider)?;
             }
 
             let params = group

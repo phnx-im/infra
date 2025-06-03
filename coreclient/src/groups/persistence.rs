@@ -12,6 +12,7 @@ use phnxcommon::{
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
 use sqlx::{SqliteExecutor, query, query_as};
+use tls_codec::Serialize as _;
 use tracing::error;
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
@@ -50,6 +51,14 @@ impl SqlGroup {
                         .unwrap()
                         .user_id()
                         .clone()
+                        .tls_serialize_detached()
+                })
+                .filter_map(|r| match r {
+                    Ok(user) => Some(user),
+                    Err(e) => {
+                        error!(%e, "Failed to serialize user id for fallback room");
+                        None
+                    }
                 })
                 .collect::<Vec<_>>();
 

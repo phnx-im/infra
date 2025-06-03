@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use mimi_room_policy::VerifiedRoomState;
+use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
 use mls_assist::{
     MlsAssistRustCrypto,
     group::Group,
@@ -25,13 +25,14 @@ use phnxcommon::{
         },
         errors::{DecryptionError, EncryptionError},
     },
-    identifiers::{QsReference, SealedClientReference},
+    identifiers::{QsReference, SealedClientReference, UserId},
     messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 use thiserror::Error;
+use tls_codec::Serialize as _;
 use tracing::error;
 use uuid::Uuid;
 
@@ -84,6 +85,32 @@ impl DsGroupState {
             group,
             room_state,
             member_profiles: client_profiles,
+        }
+    }
+
+    pub(crate) fn room_state_change_role(
+        &mut self,
+        sender: &UserId,
+        target: &UserId,
+        role: RoleIndex,
+    ) -> Option<()> {
+        let Ok(sender) = sender.tls_serialize_detached() else {
+            return None;
+        };
+
+        let Ok(target) = target.tls_serialize_detached() else {
+            return None;
+        };
+
+        match self
+            .room_state
+            .apply_regular_proposals(&sender, &[MimiProposal::ChangeRole { target, role }])
+        {
+            Ok(_) => Some(()),
+            Err(e) => {
+                error!(%e, "Change role proposal failed");
+                None
+            }
         }
     }
 
@@ -291,6 +318,14 @@ impl SerializableDsGroupStateV2 {
                         .unwrap()
                         .user_id()
                         .clone()
+                        .tls_serialize_detached()
+                })
+                .filter_map(|r| match r {
+                    Ok(user) => Some(user),
+                    Err(e) => {
+                        error!(%e, "Failed to serialize user id for fallback room");
+                        None
+                    }
                 })
                 .collect::<Vec<_>>();
 

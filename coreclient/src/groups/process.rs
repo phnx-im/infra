@@ -6,7 +6,7 @@ use std::{collections::HashMap, iter};
 
 use super::{ClientVerificationInfo, Group, openmls_provider::PhnxOpenMlsProvider};
 use anyhow::{Context, Result, anyhow, bail, ensure};
-use mimi_room_policy::{MimiProposal, RoleIndex};
+use mimi_room_policy::RoleIndex;
 use phnxcommon::{
     credentials::{
         AsIntermediateCredential, ClientCredential, CredentialFingerprint,
@@ -123,12 +123,10 @@ impl Group {
                         .context("Unknown removed_id")?;
 
                     // Room policy checks
-                    self.room_state.apply_regular_proposals(
+                    self.room_state_change_role(
                         sender.user_id(),
-                        &[MimiProposal::ChangeRole {
-                            target: removed_id,
-                            role: RoleIndex::Outsider,
-                        }],
+                        &removed_id,
+                        RoleIndex::Outsider,
                     )?;
 
                     GroupMembership::stage_removal(&mut *connection, &group_id, removed_index)
@@ -433,12 +431,10 @@ impl Group {
 
         // Room policy checks
         for client in &client_auth_infos {
-            self.room_state.apply_regular_proposals(
+            self.room_state_change_role(
                 sender_user,
-                &[MimiProposal::ChangeRole {
-                    target: client.group_membership().user_id().clone(),
-                    role: RoleIndex::Regular,
-                }],
+                client.group_membership().user_id(),
+                RoleIndex::Regular,
             )?;
         }
 

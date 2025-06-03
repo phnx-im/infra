@@ -63,7 +63,7 @@ impl CoreUser {
 
 mod invite_users_flow {
     use anyhow::Context;
-    use mimi_room_policy::{MimiProposal, RoleIndex};
+    use mimi_room_policy::RoleIndex;
     use openmls::group::GroupId;
     use phnxcommon::{
         credentials::{ClientCredential, keys::ClientSigningKey},
@@ -191,13 +191,7 @@ mod invite_users_flow {
 
                     // Room policy check
                     for target in &invited_users {
-                        group.room_state.apply_regular_proposals(
-                            sender_id,
-                            &[MimiProposal::ChangeRole {
-                                target: target.clone(),
-                                role: RoleIndex::Regular,
-                            }],
-                        )?;
+                        group.room_state_change_role(sender_id, target, RoleIndex::Regular)?;
                     }
 
                     // Adds new member and stages commit

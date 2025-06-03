@@ -17,7 +17,7 @@ pub(crate) use error::*;
 
 use anyhow::{Result, anyhow, bail};
 use mimi_content::MimiContent;
-use mimi_room_policy::{RoomPolicy, VerifiedRoomState};
+use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
 use mls_assist::messages::AssistedMessageOut;
 use openmls_provider::PhnxOpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
@@ -232,7 +232,11 @@ impl Group {
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
 
         let user_id = signer.credential().identity();
-        let room_state = VerifiedRoomState::new(user_id, RoomPolicy::default_private()).unwrap();
+        let room_state = VerifiedRoomState::new(
+            user_id.tls_serialize_detached()?,
+            RoomPolicy::default_private(),
+        )
+        .unwrap();
 
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
@@ -1014,6 +1018,22 @@ impl Group {
             }
         }
         pending_removes
+    }
+
+    pub(crate) fn room_state_change_role(
+        &mut self,
+        sender: &UserId,
+        target: &UserId,
+        role: RoleIndex,
+    ) -> Result<()> {
+        let sender = sender.tls_serialize_detached()?;
+        let target = target.tls_serialize_detached()?;
+
+        let result = self
+            .room_state
+            .apply_regular_proposals(&sender, &[MimiProposal::ChangeRole { target, role }]);
+
+        Ok(result?)
     }
 
     pub(crate) fn group_data(&self) -> Option<GroupData> {

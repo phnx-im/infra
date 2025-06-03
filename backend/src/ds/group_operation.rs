@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mimi_room_policy::{MimiProposal, RoleIndex};
+use mimi_room_policy::RoleIndex;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedWelcome, SerializedMlsMessage},
@@ -169,16 +169,8 @@ impl DsGroupState {
                     GroupOperationError::InvalidMessage
                 })?;
 
-                if let Err(e) = self.room_state.apply_regular_proposals(
-                    sender.user_id(),
-                    &[MimiProposal::ChangeRole {
-                        target: added.user_id().clone(),
-                        role: RoleIndex::Regular,
-                    }],
-                ) {
-                    error!(error = %e, "Failed to add new member to group state");
-                    return Err(GroupOperationError::InvalidMessage);
-                };
+                self.room_state_change_role(sender.user_id(), added.user_id(), RoleIndex::Regular)
+                    .ok_or(GroupOperationError::InvalidMessage)?;
             }
 
             Some(add_users_state)
@@ -248,16 +240,8 @@ impl DsGroupState {
                 GroupOperationError::InvalidMessage
             })?;
 
-            if let Err(e) = self.room_state.apply_regular_proposals(
-                sender.user_id(),
-                &[MimiProposal::ChangeRole {
-                    target: removed.user_id().clone(),
-                    role: RoleIndex::Outsider,
-                }],
-            ) {
-                error!("{e:?}");
-                return Err(GroupOperationError::InvalidMessage);
-            };
+            self.room_state_change_role(sender.user_id(), removed.user_id(), RoleIndex::Outsider)
+                .ok_or(GroupOperationError::InvalidMessage)?;
         }
 
         // Everything seems to be okay.

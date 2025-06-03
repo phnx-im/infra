@@ -561,7 +561,7 @@ mod delete_conversation_flow {
 
 mod leave_conversation_flow {
     use anyhow::Context;
-    use mimi_room_policy::{MimiProposal, RoleIndex};
+    use mimi_room_policy::RoleIndex;
     use phnxcommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::SelfRemoveParamsOut,
@@ -607,13 +607,7 @@ mod leave_conversation_flow {
                 state: (),
             } = self;
 
-            group.room_state.apply_regular_proposals(
-                sender_id,
-                &[MimiProposal::ChangeRole {
-                    target: sender_id.clone(),
-                    role: RoleIndex::Outsider,
-                }],
-            )?;
+            group.room_state_change_role(sender_id, sender_id, RoleIndex::Outsider)?;
 
             let params = group.stage_leave_group(connection, signer)?;
 

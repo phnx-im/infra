@@ -2809,7 +2809,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mimi-room-policy"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-room-policy?rev=d49caa86c701d24893cf86fff220b3875a7429fb#d49caa86c701d24893cf86fff220b3875a7429fb"
+source = "git+https://github.com/phnx-im/mimi-room-policy?rev=9424323744af3a452430e186d10013a331c3419c#9424323744af3a452430e186d10013a331c3419c"
 dependencies = [
  "ciborium",
  "serde",
@@ -3457,6 +3457,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.12",
+ "tls_codec",
  "tokio",
  "tokio-stream",
  "tokio-util",

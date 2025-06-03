@@ -14,6 +14,7 @@ use flutter_rust_bridge::frb;
 use mimi_content::MimiContent;
 use phnxcoreclient::{ConversationId, store::StoreNotification};
 use phnxcoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
+use tls_codec::Serialize;
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
@@ -48,13 +49,20 @@ pub struct UiRoomState {
 }
 
 impl UiRoomState {
-    #[frb(sync)]
+    // #[frb(sync)]
     pub fn can_kick(&self, target: &UiUserId) -> bool {
+        let Ok(user) = self.our_user.tls_serialize_detached() else {
+            return false;
+        };
+        let Ok(target) = UserId::from(target.clone()).tls_serialize_detached() else {
+            return false;
+        };
+
         self.state
             .can_apply_regular_proposals(
-                &self.our_user,
+                &user,
                 &[MimiProposal::ChangeRole {
-                    target: UserId::from(target.clone()),
+                    target,
                     role: RoleIndex::Outsider,
                 }],
             )
