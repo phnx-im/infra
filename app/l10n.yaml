@@ -7,6 +7,7 @@ template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
 nullable-getter: false
 synthetic-package: false
+format: true
 header: |
   // SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
   //
