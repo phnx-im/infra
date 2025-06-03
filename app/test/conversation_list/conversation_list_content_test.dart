@@ -20,9 +20,9 @@ import '../mocks.dart';
 import '../helpers.dart';
 
 final userProfiles = [
-  UiUserProfile(userId: 1.userId(), displayName: 'Alice'),
-  UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
-  UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+  UiUserProfile(userId: 1.userId(), displayName: 'alice'),
+  UiUserProfile(userId: 2.userId(), displayName: 'bob'),
+  UiUserProfile(userId: 3.userId(), displayName: 'eve'),
 ];
 
 final conversations = [

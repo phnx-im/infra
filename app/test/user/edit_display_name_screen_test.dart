@@ -43,7 +43,7 @@ void main() {
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(() => contactsCubit.state).thenReturn(
         MockContactsState(
-          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "ellie")],
         ),
       );
 
