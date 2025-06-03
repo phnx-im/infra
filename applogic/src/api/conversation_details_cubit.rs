@@ -49,7 +49,7 @@ pub struct UiRoomState {
 }
 
 impl UiRoomState {
-    // #[frb(sync)]
+    #[frb(sync)]
     pub fn can_kick(&self, target: &UiUserId) -> bool {
         let Ok(user) = self.our_user.tls_serialize_detached() else {
             return false;
