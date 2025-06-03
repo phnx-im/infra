@@ -288,17 +288,14 @@ impl UserCubitBase {
         else {
             return Ok(vec![]);
         };
-        let contacts = self.contacts().await.unwrap_or_default();
-        // Intersect contacts with members to get only those contacts that are
-        // not already in the conversation
-        Ok(contacts
-            .into_iter()
-            .filter(|contact| {
-                !members
-                    .iter()
-                    .any(|member| member.uuid() == contact.user_id.uuid)
-            })
-            .collect::<Vec<_>>())
+        let mut contacts = self.contacts().await.unwrap_or_default();
+        // Retain only those contacts that are not already in the conversation
+        contacts.retain(|contact| {
+            !members
+                .iter()
+                .any(|member| member.uuid() == contact.user_id.uuid)
+        });
+        Ok(contacts)
     }
 
     pub fn set_app_state(&self, app_state: AppState) {
