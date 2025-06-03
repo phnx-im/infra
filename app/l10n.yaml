@@ -1,5 +1,13 @@
+# SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
 nullable-getter: false
 synthetic-package: false
+header: |
+  // SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+  //
+  // SPDX-License-Identifier: AGPL-3.0-or-later
