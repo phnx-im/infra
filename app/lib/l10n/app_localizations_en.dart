@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
 import 'app_localizations.dart';
@@ -23,16 +22,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userSettingsScreen_idCopied => 'User ID copied to clipboard';
 
   @override
-  String get userSettingsScreen_profileDescription => 'Others will see your picture and name when you communicate with them.';
+  String get userSettingsScreen_profileDescription =>
+      'Others will see your picture and name when you communicate with them.';
 
   @override
-  String get userSettingsScreen_userNamesDescription => 'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.';
+  String get userSettingsScreen_userNamesDescription =>
+      'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.';
 
   @override
   String get removeUsernameDialog_title => 'Remove Username';
 
   @override
-  String get removeUsernameDialog_content => 'If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.';
+  String get removeUsernameDialog_content =>
+      'If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.';
 
   @override
   String get removeUsernameDialog_cancel => 'Cancel';
@@ -53,16 +55,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addMembersScreen_addMembers => 'Add member(s)';
 
   @override
-  String get addMembersScreen_error_noActiveConversation => 'an active conversation is obligatory';
+  String get addMembersScreen_error_noActiveConversation =>
+      'an active conversation is obligatory';
 
   @override
   String get conversationDetailsScreen_title => 'Details';
 
   @override
-  String get conversationDetailsScreen_unknownConversation => 'Unknown conversation';
+  String get conversationDetailsScreen_unknownConversation =>
+      'Unknown conversation';
 
   @override
-  String get conversationScreen_emptyConversation => 'Select a chat to start messaging';
+  String get conversationScreen_emptyConversation =>
+      'Select a chat to start messaging';
 
   @override
   String get memberDetailsScreen_title => 'Member details';
@@ -74,7 +79,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUserDialog_title => 'Remove user';
 
   @override
-  String get removeUserDialog_content => 'Are you sure you want to remove this user from the group?';
+  String get removeUserDialog_content =>
+      'Are you sure you want to remove this user from the group?';
 
   @override
   String get removeUserDialog_cancel => 'Cancel';
@@ -98,10 +104,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userHandleScreen_inputHint => 'Username';
 
   @override
-  String get userHandleScreen_error_emptyHandle => 'User handle cannot be empty';
+  String get userHandleScreen_error_emptyHandle =>
+      'User handle cannot be empty';
 
   @override
-  String get userHandleScreen_description => 'Choose a username that others can use to connect with you.\n\nUse letters, numbers, or underscores. Minimum 5 characters.';
+  String get userHandleScreen_description =>
+      'Choose a username that others can use to connect with you.\n\nUse letters, numbers, or underscores. Minimum 5 characters.';
 
   @override
   String get userHandleScreen_save => 'Save';
@@ -113,7 +121,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editDisplayNameScreen_hintText => 'Display name';
 
   @override
-  String get editDisplayNameScreen_description => 'Choose a name that others will see when you communicate with them.';
+  String get editDisplayNameScreen_description =>
+      'Choose a name that others will see when you communicate with them.';
 
   @override
   String get editDisplayNameScreen_save => 'Save';
