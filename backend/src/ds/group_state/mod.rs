@@ -253,7 +253,7 @@ impl SerializableDsGroupState {
             .clone();
         let client_profiles = group_state.member_profiles.into_iter().collect();
         let serialized_provider = group_state.provider.storage().serialize()?;
-        let room_state = group_state.room_state.unverified().serialize()?;
+        let room_state = PhnxCodec::to_vec(group_state.room_state.unverified())?;
         Ok(Self {
             group_id,
             serialized_provider,
@@ -269,12 +269,15 @@ impl SerializableDsGroupState {
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
 
-        let room_state = if let Ok(state) = RoomState::deserialize(self.room_state)
-            .and_then(|state| Ok(VerifiedRoomState::verify(state)?))
+        let room_state = if let Some(state) = PhnxCodec::from_slice(&self.room_state)
+            .ok()
+            .and_then(|state| VerifiedRoomState::verify(state).ok())
         {
             state
         } else {
-            let mut members = group
+            error!("Failed to load room state. Falling back to default room state.");
+
+            let members = group
                 .members()
                 .map(|m| {
                     VerifiableClientCredential::try_from(m.credential)

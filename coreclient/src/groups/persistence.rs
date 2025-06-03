@@ -7,11 +7,12 @@ use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, RoomState, VerifiedR
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxcommon::{
-    codec::{BlobDecoded, BlobEncoded},
+    codec::{BlobDecoded, BlobEncoded, PhnxCodec},
     credentials::{ClientCredential, VerifiableClientCredential},
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
 use sqlx::{Decode as _, SqliteExecutor, query, query_as};
+use tracing::error;
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
 
@@ -35,12 +36,14 @@ impl SqlGroup {
             room_state,
         } = self;
 
-        let room_state = if let Ok(state) = BlobDecoded::<RoomState>::decode(room_state)
-            .and_then(|state| Ok(VerifiedRoomState::verify(state.0)?))
+        let room_state = if let Some(state) = PhnxCodec::from_slice::<RoomState>(&room_state)
+            .ok()
+            .and_then(|state| Some(VerifiedRoomState::verify(state).ok()?))
         {
             state
         } else {
-            let mut members = mls_group
+            error!("Failed to load room state. Falling back to default room state.");
+            let members = mls_group
                 .members()
                 .map(|m| {
                     VerifiableClientCredential::try_from(m.credential)
