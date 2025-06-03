@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use mimi_room_policy::{RoomState, VerifiedRoomState};
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     MlsAssistRustCrypto,
     group::Group,

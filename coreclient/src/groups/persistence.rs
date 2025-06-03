@@ -3,15 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::ensure;
-use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, RoomState, VerifiedRoomState};
+use mimi_room_policy::{RoomState, VerifiedRoomState};
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
 use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded, PhnxCodec},
-    credentials::{ClientCredential, VerifiableClientCredential},
+    credentials::VerifiableClientCredential,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
-use sqlx::{Decode as _, SqliteExecutor, query, query_as};
+use sqlx::{SqliteExecutor, query, query_as};
 use tracing::error;
 
 use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
