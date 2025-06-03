@@ -71,4 +71,7 @@ class UserCubit implements StateStreamableSource<UiUser> {
 
   Future<void> removeUserHandle(UiUserHandle userHandle) =>
       _impl.removeUserHandle(userHandle: userHandle);
+
+  Future<List<UiContact>> addableContacts(ConversationId conversationId) =>
+      _impl.addableContacts(conversationId: conversationId);
 }

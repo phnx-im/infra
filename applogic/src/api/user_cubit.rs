@@ -223,6 +223,27 @@ impl UserCubitBase {
         Ok(contacts.into_iter().map(From::from).collect())
     }
 
+    pub async fn addable_contacts(
+        &self,
+        conversation_id: ConversationId,
+    ) -> anyhow::Result<Vec<UiContact>> {
+        let Some(members) = self
+            .core_user
+            .conversation_participants(conversation_id)
+            .await
+        else {
+            return Ok(vec![]);
+        };
+        let mut contacts = self.contacts().await.unwrap_or_default();
+        // Retain only those contacts that are not already in the conversation
+        contacts.retain(|contact| {
+            !members
+                .iter()
+                .any(|member| member.uuid() == contact.user_id.uuid)
+        });
+        Ok(contacts)
+    }
+
     pub fn set_app_state(&self, app_state: AppState) {
         debug!(?app_state, "app state changed");
         // Note: on Desktop, we consider the app to be always in foreground

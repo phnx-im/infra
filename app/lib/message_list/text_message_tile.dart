@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
@@ -102,10 +104,48 @@ class _MessageView extends StatelessWidget {
   }
 }
 
-class _Timestamp extends StatelessWidget {
+class _Timestamp extends StatefulWidget {
   const _Timestamp(this.timestamp);
 
   final String timestamp;
+
+  @override
+  State<_Timestamp> createState() => _TimestampState();
+}
+
+class _TimestampState extends State<_Timestamp> {
+  String _displayTimestamp = '';
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayTimestamp = _calcTimeString(widget.timestamp);
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      final newDisplayTimestamp = _calcTimeString(widget.timestamp);
+      if (newDisplayTimestamp != _displayTimestamp) {
+        setState(() {
+          _displayTimestamp = _calcTimeString(widget.timestamp);
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _Timestamp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.timestamp != widget.timestamp) {
+      setState(() {
+        _displayTimestamp = _calcTimeString(widget.timestamp);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +153,7 @@ class _Timestamp extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: largeCornerRadius),
       child: SelectionContainer.disabled(
         child: Text(
-          _calcTimeString(timestamp),
+          _displayTimestamp,
           style: TextStyle(
             color: colorGreyDark,
             fontSize: isLargeScreen(context) ? 10 : 12,
