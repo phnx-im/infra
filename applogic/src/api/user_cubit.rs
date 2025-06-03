@@ -9,12 +9,13 @@ use std::{sync::Arc, time::Instant};
 
 use anyhow::bail;
 use flutter_rust_bridge::frb;
+use phnxcommon::identifiers::UserHandle;
 use phnxcoreclient::{
     Asset, UserProfile,
     clients::{QueueEvent, queue_event},
 };
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
-use tokio::sync::{RwLock, watch};
+use tokio::sync::watch;
 use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, info, warn};
@@ -23,7 +24,7 @@ use crate::{
     StreamSink,
     api::navigation_cubit::HomeNavigationState,
     notifications::NotificationService,
-    util::{FibonacciBackoff, spawn_from_sync},
+    util::{Cubit, CubitCore, FibonacciBackoff, spawn_from_sync},
 };
 use crate::{
     api::types::{UiContact, UiUserProfile},
@@ -32,7 +33,7 @@ use crate::{
 
 use super::{
     navigation_cubit::{NavigationCubitBase, NavigationState},
-    types::{ImageData, UiUserId},
+    types::{ImageData, UiUserHandle, UiUserId},
     user::User,
 };
 
@@ -54,24 +55,28 @@ pub struct UiUser {
     inner: Arc<UiUserInner>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct UiUserInner {
     profile: UserProfile,
+    user_handles: Vec<UserHandle>,
 }
 
 impl UiUser {
-    fn new(profile: UserProfile) -> Self {
-        let inner = Arc::new(UiUserInner { profile });
+    fn new(inner: Arc<UiUserInner>) -> Self {
         Self { inner }
     }
 
     /// Loads the user profile in the background
-    fn spawn_load(this: Arc<RwLock<Self>>, core_user: CoreUser) {
+    fn spawn_load(state_tx: watch::Sender<UiUser>, core_user: CoreUser) {
         spawn_from_sync(async move {
             match core_user.own_user_profile().await {
                 Ok(profile) => {
-                    let mut state = this.write().await;
-                    *state = UiUser::new(profile);
+                    state_tx.send_modify(|state| {
+                        let mut user = state.inner.clone();
+                        let inner = Arc::make_mut(&mut user);
+                        inner.profile = profile;
+                        state.inner = user;
+                    });
                 }
                 Err(error) => {
                     error!(%error, "Could not load own user profile");
@@ -96,6 +101,16 @@ impl UiUser {
             self.inner.profile.profile_picture.clone()?,
         ))
     }
+
+    #[frb(getter, sync)]
+    pub fn user_handles(&self) -> Vec<UiUserHandle> {
+        self.inner
+            .user_handles
+            .iter()
+            .cloned()
+            .map(From::from)
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,8 +131,7 @@ pub enum AppState {
 /// special because it is a constuction entry point of other cubits.
 #[frb(opaque)]
 pub struct UserCubitBase {
-    state: Arc<RwLock<UiUser>>,
-    sinks: Option<Vec<StreamSink<UiUser>>>,
+    core: CubitCore<UiUser>,
     pub(crate) core_user: CoreUser,
     #[cfg_attr(
         any(target_os = "linux", target_os = "macos", target_os = "windows"),
@@ -135,12 +149,14 @@ const REGULAR_DISCONNECT_TIMEOUT: Duration = Duration::from_secs(30 * 60 * 60); 
 impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
-        let core_user = user.user.clone();
-        let state = Arc::new(RwLock::new(UiUser::new(UserProfile::from_user_id(
-            core_user.user_id(),
-        ))));
+        let core = CubitCore::with_initial_state(UiUser::new(Arc::new(UiUserInner {
+            profile: UserProfile::from_user_id(user.user.user_id()),
+            user_handles: Vec::new(), // for now empty
+        })));
 
-        UiUser::spawn_load(state.clone(), core_user.clone());
+        let core_user = user.user.clone();
+
+        UiUser::spawn_load(core.state_tx().clone(), core_user.clone());
 
         let navigation_state = navigation.subscribe();
         let notification_service = navigation.notification_service.clone();
@@ -164,41 +180,31 @@ impl UserCubitBase {
         );
 
         Self {
-            state,
-            sinks: Some(Default::default()),
+            core,
             core_user,
             app_state_tx,
             _background_tasks_cancel: cancel.drop_guard(),
         }
     }
 
-    async fn emit(&mut self, state: UiUser) {
-        *self.state.write().await = state.clone();
-        if let Some(sinks) = &mut self.sinks {
-            sinks.retain(|sink| sink.add(state.clone()).is_ok());
-        }
-    }
-
     // Cubit inteface
-
-    pub fn close(&mut self) {
-        self.sinks = None;
-    }
 
     #[frb(getter, sync)]
     pub fn is_closed(&self) -> bool {
-        self.sinks.is_none()
+        self.core.is_closed()
+    }
+
+    pub fn close(&mut self) {
+        self.core.close();
     }
 
     #[frb(getter, sync)]
     pub fn state(&self) -> UiUser {
-        self.state.blocking_read().clone()
+        self.core.state()
     }
 
-    pub fn stream(&mut self, sink: StreamSink<UiUser>) {
-        if let Some(sinks) = &mut self.sinks {
-            sinks.push(sink);
-        }
+    pub async fn stream(&mut self, sink: StreamSink<UiUser>) {
+        self.core.stream(sink).await;
     }
 
     // Cubit methods
@@ -211,24 +217,26 @@ impl UserCubitBase {
     ) -> anyhow::Result<()> {
         let display_name = display_name.map(|s| s.parse()).transpose()?;
         let profile_picture = profile_picture.map(Asset::Value);
-        let user = {
-            let mut state = self.state.write().await;
-            let user_profile = &state.inner.profile;
-            let mut user_profile = user_profile.clone();
-            if let Some(value) = display_name {
-                user_profile.display_name = value;
-            }
-            if let Some(value) = profile_picture {
-                user_profile.profile_picture = Some(value);
-            }
-            self.core_user
-                .set_own_user_profile(user_profile.clone())
-                .await?;
-            let user = UiUser::new(user_profile);
-            *state = user.clone();
-            user
-        };
-        self.emit(user).await;
+
+        let mut user = self.core.state_tx().borrow().inner.clone();
+        let inner = Arc::make_mut(&mut user);
+        if let Some(value) = display_name {
+            inner.profile.display_name = value;
+        }
+        if let Some(value) = profile_picture {
+            inner.profile.profile_picture = Some(value);
+        }
+
+        // setting own user profile resizes the profile picture
+        // => we need to store the new user profile first
+        let user_profile = self
+            .core_user
+            .set_own_user_profile(inner.profile.take())
+            .await?;
+        inner.profile = user_profile;
+
+        self.core.state_tx().send_modify(|state| state.inner = user);
+
         Ok(())
     }
 
@@ -270,10 +278,41 @@ impl UserCubitBase {
     }
 
     pub fn set_app_state(&self, app_state: AppState) {
-        info!(?app_state, "app state changed");
+        debug!(?app_state, "app state changed");
         // Note: on Desktop, we consider the app to be always in foreground
         #[cfg(any(target_os = "android", target_os = "ios"))]
         let _no_receivers = self.app_state_tx.send(app_state);
+    }
+
+    pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
+        let user_handle = UserHandle::new(user_handle.plaintext)?;
+        self.core.state_tx().send_modify(|state| {
+            let mut user = state.inner.clone();
+            let inner = Arc::make_mut(&mut user);
+            inner.user_handles.push(user_handle);
+            state.inner = user;
+        });
+        Ok(())
+    }
+
+    pub async fn remove_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
+        let user_handle = UserHandle::new(user_handle.plaintext)?;
+        self.core.state_tx().send_if_modified(|state| {
+            let mut user = state.inner.clone();
+            let inner = Arc::make_mut(&mut user);
+            let Some(idx) = inner
+                .user_handles
+                .iter()
+                .position(|handle| handle == &user_handle)
+            else {
+                error!("user handle is not found");
+                return false;
+            };
+            inner.user_handles.remove(idx);
+            state.inner = user;
+            true
+        });
+        Ok(())
     }
 }
 
@@ -464,7 +503,7 @@ async fn process_fetched_messages(
                 HomeNavigationState {
                     conversation_id: None,
                     developer_settings_screen,
-                    user_settings_open,
+                    user_settings_screen,
                     ..
                 },
         } => {
@@ -473,7 +512,8 @@ async fn process_fetched_messages(
                 target_os = "windows",
                 target_os = "linux"
             ));
-            if !IS_DESKTOP && developer_settings_screen.is_none() && !*user_settings_open {
+            if !IS_DESKTOP && developer_settings_screen.is_none() && user_settings_screen.is_none()
+            {
                 NotificationContext::ConversationList
             } else {
                 NotificationContext::Other

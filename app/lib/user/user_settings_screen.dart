@@ -6,53 +6,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/main.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
-class UserSettingsScreen extends StatefulWidget {
+const _listIconSize = 36.0;
+
+class UserSettingsScreen extends StatelessWidget {
   const UserSettingsScreen({super.key});
 
   @override
-  State<UserSettingsScreen> createState() => _UserSettingsScreenState();
-}
-
-class _UserSettingsScreenState extends State<UserSettingsScreen> {
-  String? newDisplayName;
-  ImageData? newProfilePicture;
-  bool isSetting = false;
-
-  bool get _isChanged => newDisplayName != null || newProfilePicture != null;
-
-  void _save(BuildContext context) async {
-    setState(() {
-      isSetting = true;
-    });
-
-    final user = context.read<UserCubit>();
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await user.setProfile(
-        displayName: newDisplayName,
-        profilePicture: newProfilePicture?.data,
-      );
-      setState(() {
-        newDisplayName = null;
-        newProfilePicture = null;
-        isSetting = false;
-      });
-    } catch (e) {
-      showErrorBanner(messenger, "Error when saving profile: ${e.toString()}");
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final (userId, displayName, profilePicture) = context.select(
+    final (displayName, profilePicture) = context.select(
       (UserCubit cubit) => (
-        cubit.state.userId,
         cubit.state.displayName,
         cubit.state.profilePicture,
       ),
@@ -65,113 +33,219 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
         leading: const AppBarBackButton(),
       ),
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.only(
-              left: Spacings.xs,
-              right: Spacings.xs,
-              bottom: Spacings.xs,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Column(
-                  children: [
-                    UserAvatar(
-                      displayName: displayName,
-                      size: 100,
-                      image: newProfilePicture ?? profilePicture,
-                      onPressed: () async {
-                        // Image picker
-                        final ImagePicker picker = ImagePicker();
-                        // Pick an image.
-                        final XFile? image = await picker.pickImage(
-                          source: ImageSource.gallery,
-                        );
-                        final bytes = await image?.readAsBytes();
-                        final data = bytes?.toImageData();
-                        setState(() {
-                          newProfilePicture = data;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 15),
-                    Text(
-                      displayName,
-                      style: const TextStyle(color: colorDMB, fontSize: 12),
-                    ),
-                  ],
-                ),
-                Column(
-                  children: [
-                    const Text('User ID'),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Spacer(),
-                        SelectableText(
-                          userId.uuid.toString(),
-                          style: const TextStyle(color: colorDMB, fontSize: 12),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy),
-                          onPressed: () {
-                            Clipboard.setData(
-                              ClipboardData(text: userId.uuid.toString()),
-                            );
-                          },
-                        ),
-                        const Spacer(),
-                      ],
-                    ),
-                  ],
-                ),
-                Column(
-                  children: [
-                    const Text('Display name'),
-                    const SizedBox(height: 20),
-                    Form(
-                      autovalidateMode: AutovalidateMode.always,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints.tight(const Size(300, 80)),
-                        child: TextFormField(
-                          autofocus: isSmallScreen(context) ? false : true,
-                          decoration: const InputDecoration(
-                            hintText: 'DISPLAY NAME',
-                          ),
-                          initialValue: displayName,
-                          style: inputTextStyle(context),
-                          onChanged: (value) {
-                            setState(() {
-                              newDisplayName = value;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment:
-                      isSmallScreen(context)
-                          ? CrossAxisAlignment.stretch
-                          : CrossAxisAlignment.center,
-                  children: [
-                    OutlinedButton(
-                      onPressed:
-                          _isChanged && !isSetting
-                              ? () => _save(context)
-                              : null,
-                      style: buttonStyle(context, _isChanged && !isSetting),
-                      child: const Text('Save'),
-                    ),
-                  ],
-                ),
-              ],
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            constraints:
+                isPointer() ? const BoxConstraints(maxWidth: 800) : null,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // User Profile and ID
+                  UserAvatar(
+                    displayName: displayName,
+                    size: 100,
+                    image: profilePicture,
+                    onPressed: () => _pickAvatar(context),
+                  ),
+                  const SizedBox(height: Spacings.xs),
+
+                  const _UserProfileData(),
+
+                  const SizedBox(height: Spacings.xs),
+                  Divider(color: Theme.of(context).hintColor),
+                  const SizedBox(height: Spacings.xs),
+
+                  const _UserHandles(),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _pickAvatar(BuildContext context) async {
+    final user = context.read<UserCubit>();
+
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    final bytes = await image?.readAsBytes();
+
+    if (bytes != null) {
+      await user.setProfile(profilePicture: bytes);
+    }
+  }
+}
+
+class _UserProfileData extends StatelessWidget {
+  const _UserProfileData();
+
+  @override
+  Widget build(BuildContext context) {
+    final (displayName, userId) = context.select(
+      (UserCubit cubit) => (cubit.state.displayName, cubit.state.userId),
+    );
+
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.person_outline, size: _listIconSize),
+          title: Text(displayName),
+          onTap:
+              () => context.read<NavigationCubit>().openUserSettings(
+                screen: UserSettingsScreenType.editDisplayName,
+              ),
+        ),
+        const SizedBox(height: Spacings.s),
+        ListTile(
+          leading: const Icon(Icons.numbers, size: _listIconSize),
+          title: Text(userId.uuid.toString()),
+          onTap: () {
+            _copyTextToClipboard(
+              context,
+              userId.uuid.toString(),
+              snackBarMessage: "User ID copied to clipboard",
+            );
+          },
+        ),
+        const SizedBox(height: Spacings.xs),
+        ListTile(
+          subtitle: Text(
+            style: TextStyle(color: Theme.of(context).hintColor),
+            "Others will see your picture and name when you communicate with them.",
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _copyTextToClipboard(
+    BuildContext context,
+    String textToCopy, {
+    required String snackBarMessage,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: textToCopy));
+    messenger.showSnackBar(SnackBar(content: Text(snackBarMessage)));
+  }
+}
+
+class _UserHandles extends StatelessWidget {
+  const _UserHandles();
+
+  @override
+  Widget build(BuildContext context) {
+    final userHandles = context.select(
+      (UserCubit cubit) => cubit.state.userHandles,
+    );
+
+    return ListView(
+      shrinkWrap: true,
+      children:
+          userHandles.isEmpty
+              // no user handles yet
+              ? [
+                const _UserHandlePlaceholder(),
+                const SizedBox(height: Spacings.xs),
+                ListTile(
+                  subtitle: Text(
+                    style: TextStyle(color: Theme.of(context).hintColor),
+                    "Share usernames with others so they can connect with you.\nAfter the connection, usernames are not visible to others anymore.\nYou can have up to 5 usernames.",
+                  ),
+                ),
+              ]
+              // user handles
+              : [
+                ...userHandles.expand(
+                  (handle) => [
+                    _UserHandle(handle: handle),
+                    const SizedBox(height: Spacings.xs),
+                  ],
+                ),
+                if (userHandles.length < 5) ...[
+                  const _UserHandlePlaceholder(),
+                  const SizedBox(height: Spacings.xs),
+                ],
+                ListTile(
+                  subtitle: Text(
+                    style: TextStyle(color: Theme.of(context).hintColor),
+                    "Share usernames with others so they can connect with you. After the connection, "
+                    "usernames are not visible to others anymore. "
+                    "You can have up to 5 usernames.",
+                  ),
+                ),
+              ],
+    );
+  }
+}
+
+class _UserHandle extends StatelessWidget {
+  const _UserHandle({required this.handle});
+
+  final UiUserHandle handle;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.alternate_email, size: _listIconSize),
+      title: Text(handle.plaintext),
+      onTap: () => _removeHandle(context),
+    );
+  }
+
+  void _removeHandle(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Remove Username"),
+          content: const Text(
+            "If you continue, your username will be removed and may be claimed by someone else. "
+            "You’ll no longer be reachable through it.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              style: textButtonStyle(context),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () async {
+                await context.read<UserCubit>().removeUserHandle(handle);
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              style: textButtonStyle(context),
+              child: const Text("Remove"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _UserHandlePlaceholder extends StatelessWidget {
+  const _UserHandlePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.alternate_email, size: _listIconSize),
+      title: Text(
+        style: TextStyle(color: Theme.of(context).hintColor),
+        "Username",
+      ),
+      onTap:
+          () => context.read<NavigationCubit>().openUserSettings(
+            screen: UserSettingsScreenType.addUserHandle,
+          ),
     );
   }
 }

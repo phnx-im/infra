@@ -21,7 +21,7 @@ impl Store for CoreUser {
         Ok(self.own_user_profile().await?)
     }
 
-    async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<()> {
+    async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
     }
 

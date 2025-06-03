@@ -4,7 +4,7 @@
 
 //! Rate Limiter
 
-use chrono::TimeDelta;
+use chrono::{SubsecRound, TimeDelta};
 use sha2::{Digest, Sha256};
 use sqlx::types::chrono::{DateTime, Utc};
 
@@ -55,7 +55,7 @@ impl Allowance {
     pub(crate) fn new(config: &RlConfig) -> Self {
         Allowance {
             remaining: config.max_requests,
-            valid_until: Utc::now() + config.time_window,
+            valid_until: Utc::now().round_subsecs(6) + config.time_window,
         }
     }
 

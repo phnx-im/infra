@@ -22,7 +22,8 @@ mixin _$HomeNavigationState {
   DeveloperSettingsScreenType? get developerSettingsScreen =>
       throw _privateConstructorUsedError;
   UiUserId? get memberDetails => throw _privateConstructorUsedError;
-  bool get userSettingsOpen => throw _privateConstructorUsedError;
+  UserSettingsScreenType? get userSettingsScreen =>
+      throw _privateConstructorUsedError;
   bool get conversationDetailsOpen => throw _privateConstructorUsedError;
   bool get addMembersOpen => throw _privateConstructorUsedError;
 
@@ -45,7 +46,7 @@ abstract class $HomeNavigationStateCopyWith<$Res> {
     ConversationId? conversationId,
     DeveloperSettingsScreenType? developerSettingsScreen,
     UiUserId? memberDetails,
-    bool userSettingsOpen,
+    UserSettingsScreenType? userSettingsScreen,
     bool conversationDetailsOpen,
     bool addMembersOpen,
   });
@@ -70,7 +71,7 @@ class _$HomeNavigationStateCopyWithImpl<$Res, $Val extends HomeNavigationState>
     Object? conversationId = freezed,
     Object? developerSettingsScreen = freezed,
     Object? memberDetails = freezed,
-    Object? userSettingsOpen = null,
+    Object? userSettingsScreen = freezed,
     Object? conversationDetailsOpen = null,
     Object? addMembersOpen = null,
   }) {
@@ -96,11 +97,11 @@ class _$HomeNavigationStateCopyWithImpl<$Res, $Val extends HomeNavigationState>
                     ? _value.memberDetails
                     : memberDetails // ignore: cast_nullable_to_non_nullable
                         as UiUserId?,
-            userSettingsOpen:
-                null == userSettingsOpen
-                    ? _value.userSettingsOpen
-                    : userSettingsOpen // ignore: cast_nullable_to_non_nullable
-                        as bool,
+            userSettingsScreen:
+                freezed == userSettingsScreen
+                    ? _value.userSettingsScreen
+                    : userSettingsScreen // ignore: cast_nullable_to_non_nullable
+                        as UserSettingsScreenType?,
             conversationDetailsOpen:
                 null == conversationDetailsOpen
                     ? _value.conversationDetailsOpen
@@ -131,7 +132,7 @@ abstract class _$$HomeNavigationStateImplCopyWith<$Res>
     ConversationId? conversationId,
     DeveloperSettingsScreenType? developerSettingsScreen,
     UiUserId? memberDetails,
-    bool userSettingsOpen,
+    UserSettingsScreenType? userSettingsScreen,
     bool conversationDetailsOpen,
     bool addMembersOpen,
   });
@@ -155,7 +156,7 @@ class __$$HomeNavigationStateImplCopyWithImpl<$Res>
     Object? conversationId = freezed,
     Object? developerSettingsScreen = freezed,
     Object? memberDetails = freezed,
-    Object? userSettingsOpen = null,
+    Object? userSettingsScreen = freezed,
     Object? conversationDetailsOpen = null,
     Object? addMembersOpen = null,
   }) {
@@ -181,11 +182,11 @@ class __$$HomeNavigationStateImplCopyWithImpl<$Res>
                 ? _value.memberDetails
                 : memberDetails // ignore: cast_nullable_to_non_nullable
                     as UiUserId?,
-        userSettingsOpen:
-            null == userSettingsOpen
-                ? _value.userSettingsOpen
-                : userSettingsOpen // ignore: cast_nullable_to_non_nullable
-                    as bool,
+        userSettingsScreen:
+            freezed == userSettingsScreen
+                ? _value.userSettingsScreen
+                : userSettingsScreen // ignore: cast_nullable_to_non_nullable
+                    as UserSettingsScreenType?,
         conversationDetailsOpen:
             null == conversationDetailsOpen
                 ? _value.conversationDetailsOpen
@@ -209,7 +210,7 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
     this.conversationId,
     this.developerSettingsScreen,
     this.memberDetails,
-    this.userSettingsOpen = false,
+    this.userSettingsScreen,
     this.conversationDetailsOpen = false,
     this.addMembersOpen = false,
   }) : super._();
@@ -224,8 +225,7 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
   @override
   final UiUserId? memberDetails;
   @override
-  @JsonKey()
-  final bool userSettingsOpen;
+  final UserSettingsScreenType? userSettingsScreen;
   @override
   @JsonKey()
   final bool conversationDetailsOpen;
@@ -235,7 +235,7 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
 
   @override
   String toString() {
-    return 'HomeNavigationState(conversationOpen: $conversationOpen, conversationId: $conversationId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsOpen: $userSettingsOpen, conversationDetailsOpen: $conversationDetailsOpen, addMembersOpen: $addMembersOpen)';
+    return 'HomeNavigationState(conversationOpen: $conversationOpen, conversationId: $conversationId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsScreen: $userSettingsScreen, conversationDetailsOpen: $conversationDetailsOpen, addMembersOpen: $addMembersOpen)';
   }
 
   @override
@@ -254,8 +254,8 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
                 other.developerSettingsScreen == developerSettingsScreen) &&
             (identical(other.memberDetails, memberDetails) ||
                 other.memberDetails == memberDetails) &&
-            (identical(other.userSettingsOpen, userSettingsOpen) ||
-                other.userSettingsOpen == userSettingsOpen) &&
+            (identical(other.userSettingsScreen, userSettingsScreen) ||
+                other.userSettingsScreen == userSettingsScreen) &&
             (identical(
                   other.conversationDetailsOpen,
                   conversationDetailsOpen,
@@ -272,7 +272,7 @@ class _$HomeNavigationStateImpl extends _HomeNavigationState {
     conversationId,
     developerSettingsScreen,
     memberDetails,
-    userSettingsOpen,
+    userSettingsScreen,
     conversationDetailsOpen,
     addMembersOpen,
   );
@@ -295,7 +295,7 @@ abstract class _HomeNavigationState extends HomeNavigationState {
     final ConversationId? conversationId,
     final DeveloperSettingsScreenType? developerSettingsScreen,
     final UiUserId? memberDetails,
-    final bool userSettingsOpen,
+    final UserSettingsScreenType? userSettingsScreen,
     final bool conversationDetailsOpen,
     final bool addMembersOpen,
   }) = _$HomeNavigationStateImpl;
@@ -310,7 +310,7 @@ abstract class _HomeNavigationState extends HomeNavigationState {
   @override
   UiUserId? get memberDetails;
   @override
-  bool get userSettingsOpen;
+  UserSettingsScreenType? get userSettingsScreen;
   @override
   bool get conversationDetailsOpen;
   @override

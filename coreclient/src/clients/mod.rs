@@ -289,7 +289,7 @@ impl CoreUser {
         Ok(StoreNotification::dequeue(self.pool()).await?)
     }
 
-    pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
+    pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<UserProfile> {
         if &user_profile.user_id != self.user_id() {
             bail!("Can't set user profile for users other than the current user.",);
         }
@@ -299,8 +299,8 @@ impl CoreUser {
             };
             user_profile.profile_picture = Some(Asset::Value(new_image));
         }
-        self.update_user_profile(user_profile).await?;
-        Ok(())
+        self.update_user_profile(user_profile.clone()).await?;
+        Ok(user_profile)
     }
 
     fn resize_image(&self, mut image_bytes: &[u8]) -> Result<Vec<u8>> {
