@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -18,10 +19,12 @@ class MemberDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     final (conversationId, memberClientId) = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Intro(:final screens) =>
-          throw StateError("No member details for intro screen"),
+          throw StateError(loc.memberDetailsScreen_error),
         NavigationState_Home(
           home: HomeNavigationState(
             conversationId: final conversationId,
@@ -32,9 +35,7 @@ class MemberDetailsScreen extends StatelessWidget {
       },
     );
 
-    final ownClientId = context.select(
-      (UserCubit cubit) => cubit.state.userId,
-    );
+    final ownClientId = context.select((UserCubit cubit) => cubit.state.userId);
     final isSelf = memberClientId == ownClientId;
 
     if (conversationId == null || memberClientId == null) {
@@ -47,7 +48,7 @@ class MemberDetailsScreen extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const AppBarBackButton(),
-        title: const Text("Member details"),
+        title: Text(loc.memberDetailsScreen_title),
       ),
       body: Center(
         child: Column(
@@ -81,17 +82,15 @@ class MemberDetailsScreen extends StatelessWidget {
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
-                            title: const Text("Remove user"),
-                            content: const Text(
-                              "Are you sure you want to remove this user from the group?",
-                            ),
+                            title: Text(loc.removeUserDialog_title),
+                            content: Text(loc.removeUserDialog_content),
                             actions: [
                               TextButton(
                                 onPressed: () {
                                   Navigator.of(context).pop(false);
                                 },
                                 style: textButtonStyle(context),
-                                child: const Text("Cancel"),
+                                child: Text(loc.removeUserDialog_cancel),
                               ),
                               TextButton(
                                 onPressed: () async {
@@ -106,7 +105,7 @@ class MemberDetailsScreen extends StatelessWidget {
                                   }
                                 },
                                 style: textButtonStyle(context),
-                                child: const Text("Remove user"),
+                                child: Text(loc.removeUserDialog_removeUser),
                               ),
                             ],
                           );
@@ -116,7 +115,7 @@ class MemberDetailsScreen extends StatelessWidget {
                         Navigator.of(context).pop(true);
                       }
                     },
-                    child: const Text("Remove user"),
+                    child: Text(loc.removeUserButton_text),
                   ),
                 )
                 : const SizedBox.shrink(),

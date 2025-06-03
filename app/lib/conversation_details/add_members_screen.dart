@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -39,13 +40,15 @@ class AddMembersScreenView extends StatelessWidget {
       ),
     );
 
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const AppBarBackButton(),
-        title: const Text("Add members"),
+        title: Text(loc.addMembersScreen_title),
       ),
       body: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -99,15 +102,11 @@ class AddMembersScreenView extends StatelessWidget {
                   onPressed:
                       selectedContacts.isNotEmpty
                           ? () async {
-                            _addSelectedContacts(
-                              context.read<NavigationCubit>(),
-                              context.read<UserCubit>(),
-                              selectedContacts,
-                            );
+                            _addSelectedContacts(context, selectedContacts);
                           }
                           : null,
                   style: buttonStyle(context, selectedContacts.isNotEmpty),
-                  child: const Text("Add member(s)"),
+                  child: Text(loc.addMembersScreen_addMembers),
                 ),
               ],
             ),
@@ -118,17 +117,19 @@ class AddMembersScreenView extends StatelessWidget {
   }
 
   void _addSelectedContacts(
-    NavigationCubit navigation,
-    UserCubit userCubit,
+    BuildContext context,
     Set<UiUserId> selectedContacts,
   ) async {
-    final conversationId = navigation.state.conversationId;
+    final navigationCubit = context.read<NavigationCubit>();
+    final userCubit = context.read<UserCubit>();
+    final conversationId = navigationCubit.state.conversationId;
+    final loc = AppLocalizations.of(context);
     if (conversationId == null) {
-      throw StateError("an active conversation is obligatory");
+      throw StateError(loc.addMembersScreen_error_noActiveConversation);
     }
     for (final userId in selectedContacts) {
       await userCubit.addUserToConversation(conversationId, userId);
     }
-    navigation.pop();
+    navigationCubit.pop();
   }
 }
