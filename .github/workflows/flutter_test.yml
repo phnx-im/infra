@@ -25,7 +25,7 @@ jobs:
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
-      - run: just check-localizations
+      - run: just check-l10n
 
   flutter-test:
     runs-on: ubuntu-latest
