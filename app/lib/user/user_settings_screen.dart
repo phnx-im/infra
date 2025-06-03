@@ -19,7 +19,9 @@ class UserSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profile = context.select((ContactsCubit cubit) => cubit.profile());
+    final profile = context.select(
+      (ContactsCubit cubit) => cubit.state.profile(),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -80,7 +82,7 @@ class _UserProfileData extends StatelessWidget {
   Widget build(BuildContext context) {
     final userId = context.select((UserCubit cubit) => cubit.state.userId);
     final displayName = context.select(
-      (ContactsCubit cubit) => cubit.displayName(),
+      (ContactsCubit cubit) => cubit.state.displayName(),
     );
 
     return ListView(

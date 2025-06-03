@@ -34,10 +34,11 @@ void main() {
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
-      when(
-        () => contactsCubit.profile(),
-      ).thenReturn(UiUserProfile(userId: 1.userId(), displayName: "alice"));
-      when(() => contactsCubit.displayName()).thenReturn("alice");
+      when(() => contactsCubit.state).thenReturn(
+        MockContactsState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+        ),
+      );
     });
 
     Widget buildSubject() => MultiBlocProvider(

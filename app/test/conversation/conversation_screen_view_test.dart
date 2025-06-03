@@ -51,11 +51,8 @@ void main() {
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => contactsCubit.profile(userId: 2.userId()),
-      ).thenReturn(profiles[1]);
-      when(
-        () => contactsCubit.profile(userId: 3.userId()),
-      ).thenReturn(profiles[2]);
+        () => contactsCubit.state,
+      ).thenReturn(MockContactsState(profiles: userProfiles));
       when(() => conversationDetailsCubit.state).thenReturn(
         ConversationDetailsState(conversation: conversation, members: members),
       );

@@ -22,10 +22,11 @@ void main() {
       userCubit = MockUserCubit();
       contactsCubit = MockContactsCubit();
 
-      when(() => contactsCubit.displayName()).thenReturn("alice");
-      when(
-        () => contactsCubit.profile(),
-      ).thenReturn(UiUserProfile(userId: 1.userId(), displayName: "alice"));
+      when(() => contactsCubit.state).thenReturn(
+        MockContactsState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+        ),
+      );
     });
 
     Widget buildSubject() => MultiBlocProvider(

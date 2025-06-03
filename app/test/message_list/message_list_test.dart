@@ -143,14 +143,8 @@ void main() {
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => contactsCubit.profile(userId: 1.userId()),
-      ).thenReturn(userProfiles[0]);
-      when(
-        () => contactsCubit.profile(userId: 2.userId()),
-      ).thenReturn(userProfiles[1]);
-      when(
-        () => contactsCubit.profile(userId: 3.userId()),
-      ).thenReturn(userProfiles[2]);
+        () => contactsCubit.state,
+      ).thenReturn(MockContactsState(profiles: userProfiles));
       when(
         () => conversationDetailsCubit.markAsRead(
           untilMessageId: any(named: 'untilMessageId'),

@@ -12,10 +12,9 @@ use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     DisplayName, UserProfile,
-    clients::CoreUser,
-    store::{Store, StoreEntityId, StoreOperation},
+    store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};
 
@@ -29,19 +28,117 @@ use super::{
     user_cubit::UserCubitBase,
 };
 
-#[derive(Debug, Clone, Default)]
+/// Clone-on-write state of the [`ContactsCubitBase`].
+#[derive(Debug, Clone)]
 #[frb(opaque)]
 pub struct ContactsState {
     inner: Arc<ContactsStateInner>,
 }
 
-#[derive(Debug, Clone, Default)]
+impl ContactsState {
+    /// Returns the profile of the given user.
+    ///
+    /// If the user is not specificed, the profile of the logged-in user is returned.
+    ///
+    /// If the profile is not yet loaded, the default profile is returned and loading is spawned in
+    /// the background.
+    #[frb(sync)]
+    pub fn profile(&self, user_id: Option<UiUserId>) -> UiUserProfile {
+        let user_id: UserId = user_id
+            .map(From::from)
+            .unwrap_or_else(|| self.inner.own_user_id.clone());
+        let profile = self.inner.profiles.get(&user_id).cloned();
+        match profile {
+            Some(profile) => profile,
+            None => {
+                // spawn loading profile and return default profile
+                self.spawn_load_profile(user_id.clone());
+                let default_profile = UserProfile::from_user_id(&user_id);
+                UiUserProfile::from_profile(default_profile)
+            }
+        }
+    }
+
+    /// Returns the display name of the given user.
+    ///
+    /// If the user is not specificed, the display name of the logged-in user is returned.
+    ///
+    /// If the profile is not yet loaded, the default display name is returned and loading of the
+    /// profile is spawned in the background.
+    #[frb(sync)]
+    pub fn display_name(&self, user_id: Option<UiUserId>) -> String {
+        let user_id = user_id
+            .map(From::from)
+            .unwrap_or_else(|| self.inner.own_user_id.clone());
+        let display_name = self
+            .inner
+            .profiles
+            .get(&user_id)
+            .map(|profile| profile.display_name.clone());
+        match display_name {
+            Some(display_name) => display_name,
+            None => {
+                // spawn loading profile and return default display name
+                self.spawn_load_profile(user_id.clone());
+                DisplayName::from_user_id(&user_id).into_string()
+            }
+        }
+    }
+
+    /// Returns the profile picture of the given user if any is set.
+    ///
+    /// If the user is not specificed, the profile picture of the logged-in user is returned.
+    ///
+    /// If the profile is not yet loaded, `null` is returned and loading of the profile is spawned
+    /// in the background.
+    #[frb(sync)]
+    pub fn profile_picture(&self, user_id: Option<UiUserId>) -> Option<ImageData> {
+        let user_id = user_id
+            .map(From::from)
+            .unwrap_or_else(|| self.inner.own_user_id.clone());
+        let profile_picture = self
+            .inner
+            .profiles
+            .get(&user_id)
+            .map(|profile| profile.profile_picture.clone());
+        match profile_picture {
+            Some(profile_picture) => profile_picture,
+            None => {
+                // spawn loading profile
+                self.spawn_load_profile(user_id.clone());
+                None
+            }
+        }
+    }
+
+    #[frb(ignore)]
+    fn spawn_load_profile(&self, user_id: UserId) {
+        let tx = self.inner.load_profile_tx.clone();
+        spawn_from_sync(async move {
+            let _ = tx.send(user_id).await.inspect_err(|error| {
+                tracing::error!(%error, "Failed to send load profile request");
+            });
+        });
+    }
+}
+
+#[derive(Debug, Clone)]
 #[frb(ignore)]
 pub(crate) struct ContactsStateInner {
+    load_profile_tx: mpsc::Sender<UserId>,
+    own_user_id: UserId,
     profiles: HashMap<UserId, UiUserProfile>,
 }
 
 impl ContactsStateInner {
+    fn new(own_user_id: UserId, load_profile_tx: mpsc::Sender<UserId>) -> Self {
+        Self {
+            load_profile_tx,
+            own_user_id,
+            profiles: HashMap::new(),
+        }
+    }
+
     /// Returns `true` if the profile was changed, otherwise `false`.
     ///
     /// A profile is not changed if the profile is the same as the current one.
@@ -64,9 +161,12 @@ impl ContactsStateInner {
     }
 }
 
+/// Provides synchronous access to the profiles of users.
+///
+/// Caches already loaded profiles. Loads profiles on first access in the background. Automatically
+/// reloads profiles when these are changed/removed.
 pub struct ContactsCubitBase {
     core: CubitCore<ContactsState>,
-    store: CoreUser,
     _cancel: DropGuard,
 }
 
@@ -75,14 +175,23 @@ impl ContactsCubitBase {
     pub fn new(user_cubit: &UserCubitBase) -> Self {
         let store = user_cubit.core_user.clone();
 
-        let core = CubitCore::new();
+        let (load_profile_tx, load_profile_rx) = mpsc::channel(1024);
+        let inner = ContactsStateInner::new(store.user_id().clone(), load_profile_tx);
+        let core = CubitCore::with_initial_state(ContactsState {
+            inner: Arc::new(inner),
+        });
 
         let cancel = CancellationToken::new();
-        spawn_process_store_notifications(store.clone(), core.state_tx().clone(), cancel.clone());
+        ProfileLoadingTask::new(
+            store,
+            core.state_tx().clone(),
+            load_profile_rx,
+            cancel.clone(),
+        )
+        .spawn();
 
         Self {
             core,
-            store,
             _cancel: cancel.drop_guard(),
         }
     }
@@ -106,152 +215,100 @@ impl ContactsCubitBase {
     pub async fn stream(&mut self, sink: StreamSink<ContactsState>) {
         self.core.stream(sink).await;
     }
+}
 
-    // Cubit methods
+/// Loads profile of users in the background.
+///
+/// The profiles are loaded (or removed) when
+///
+/// 1. there is a store notification about a user profile change/removal, or
+/// 2. profile loading is requested from the state.
+struct ProfileLoadingTask<S: Store + Sync + 'static> {
+    store: S,
+    state_tx: watch::Sender<ContactsState>,
+    load_profile_rx: mpsc::Receiver<UserId>,
+    cancel: CancellationToken,
+}
 
-    #[frb(sync)]
-    pub fn profile(&self, user_id: Option<UiUserId>) -> UiUserProfile {
-        let user_id: UserId = user_id
-            .map(From::from)
-            .unwrap_or_else(|| self.store.user_id().clone());
-        let profile = self
-            .core
-            .state_tx()
-            .borrow()
-            .inner
-            .profiles
-            .get(&user_id)
-            .cloned();
-        match profile {
-            Some(profile) => profile,
-            None => {
-                // spawn loading profile and return default profile
-                self.spawn_load_profile(user_id.clone());
-                let default_profile = UserProfile::from_user_id(&user_id);
-                UiUserProfile::from_profile(default_profile)
-            }
+impl<S: Store + Sync + 'static> ProfileLoadingTask<S> {
+    fn new(
+        store: S,
+        state_tx: watch::Sender<ContactsState>,
+        load_profile_rx: mpsc::Receiver<UserId>,
+        cancel: CancellationToken,
+    ) -> Self {
+        Self {
+            store,
+            state_tx,
+            load_profile_rx,
+            cancel,
         }
     }
 
-    #[frb(sync)]
-    pub fn display_name(&self, user_id: Option<UiUserId>) -> String {
-        let user_id: UserId = user_id
-            .map(From::from)
-            .unwrap_or_else(|| self.store.user_id().clone());
-        let display_name = self
-            .core
-            .state_tx()
-            .borrow()
-            .inner
-            .profiles
-            .get(&user_id)
-            .map(|profile| profile.display_name.clone());
-        match display_name {
-            Some(display_name) => display_name,
-            None => {
-                // spawn loading profile and return default display name
-                self.spawn_load_profile(user_id.clone());
-                DisplayName::from_user_id(&user_id).into_string()
-            }
-        }
+    fn spawn(self) {
+        spawn_from_sync(self.process());
     }
 
-    #[frb(sync)]
-    pub fn profile_picture(&self, user_id: Option<UiUserId>) -> Option<ImageData> {
-        let user_id: UserId = user_id
-            .map(From::from)
-            .unwrap_or_else(|| self.store.user_id().clone());
-        let profile_picture = self
-            .core
-            .state_tx()
-            .borrow()
-            .inner
-            .profiles
-            .get(&user_id)
-            .map(|profile| profile.profile_picture.clone());
-        match profile_picture {
-            Some(profile_picture) => profile_picture,
-            None => {
-                // spawn loading profile
-                self.spawn_load_profile(user_id.clone());
-                None
-            }
-        }
-    }
+    async fn process(mut self) -> Option<()> {
+        let mut store_notifications = pin!(self.store.subscribe());
+        loop {
+            // wait for the next store notification, explicit load profile request or cancellation
+            let changed_profiles = tokio::select! {
+                notification = store_notifications.next() => {
+                    self.process_notification(notification?).await
+                }
+                user_id = self.load_profile_rx.recv() => {
+                    let user_id = user_id?;
+                    let user_profile = self.store.user_profile(&user_id).await;
+                    vec![(user_id, Some(user_profile))]
+                }
+                _ = self.cancel.cancelled() => return None,
+            };
 
-    #[frb(ignore)]
-    fn spawn_load_profile(&self, user_id: UserId) {
-        let store = self.store.clone();
-        let state_tx = self.core.state_tx().clone();
-        spawn_from_sync(async move {
-            let profile = store.user_profile(&user_id).await;
-            state_tx.send_if_modified(|state| {
+            // update the state
+            self.state_tx.send_if_modified(|state| {
                 let inner = Arc::make_mut(&mut state.inner);
-                inner.set_profile(user_id, profile)
+                let mut modified = false;
+                for (user_id, profile) in changed_profiles {
+                    if let Some(profile) = profile {
+                        if inner.set_profile(user_id.clone(), profile) {
+                            modified = true;
+                        }
+                    } else {
+                        inner.profiles.remove(&user_id);
+                        modified = true;
+                    }
+                }
+                modified
             });
-        });
+        }
     }
-}
 
-fn spawn_process_store_notifications(
-    store: impl Store + 'static,
-    state_tx: watch::Sender<ContactsState>,
-    cancel: CancellationToken,
-) {
-    spawn_from_sync(process_store_notifications(store, state_tx, cancel));
-}
-
-async fn process_store_notifications(
-    store: impl Store,
-    state_tx: watch::Sender<ContactsState>,
-    cancel: CancellationToken,
-) {
-    let mut store_notifications = pin!(store.subscribe());
-    loop {
-        // wait for the next notification or cancellation
-        let notifications = tokio::select! {
-           notifications = store_notifications.next() => notifications,
-            _ = cancel.cancelled() => return,
-        };
-        let Some(notifications) = notifications else {
-            return;
-        };
-
-        // collect changed or removed profiles
+    async fn process_notification(
+        &self,
+        notification: Arc<StoreNotification>,
+    ) -> Vec<(UserId, Option<UserProfile>)> {
         let mut changed_profiles = Vec::new();
-        for (entity_id, op) in notifications.ops.iter() {
+        for (entity_id, op) in notification.ops.iter() {
             let StoreEntityId::User(user_id) = entity_id else {
                 continue;
             };
 
-            let is_loaded = state_tx.borrow().inner.profiles.contains_key(user_id);
+            let is_loaded = self.state_tx.borrow().inner.profiles.contains_key(user_id);
             if !is_loaded {
                 continue;
             }
 
             // We consider Add/Update to be of higher precedence than Remove
             if op.contains(StoreOperation::Add) || op.contains(StoreOperation::Update) {
-                changed_profiles.push((user_id, Some(store.user_profile(user_id).await)));
+                changed_profiles.push((
+                    user_id.clone(),
+                    Some(self.store.user_profile(user_id).await),
+                ));
             } else if op.contains(StoreOperation::Remove) {
-                changed_profiles.push((user_id, None));
+                changed_profiles.push((user_id.clone(), None));
             }
         }
-
-        // update the state
-        state_tx.send_if_modified(|state| {
-            let inner = Arc::make_mut(&mut state.inner);
-            let mut modified = false;
-            for (user_id, profile) in changed_profiles {
-                if let Some(profile) = profile {
-                    if inner.set_profile(user_id.clone(), profile) {
-                        modified = true;
-                    }
-                } else {
-                    inner.profiles.remove(user_id);
-                    modified = true;
-                }
-            }
-            modified
-        });
+        changed_profiles
     }
 }

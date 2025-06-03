@@ -34,7 +34,7 @@ class MemberDetailsScreen extends StatelessWidget {
 
     final ownClientId = context.select((UserCubit cubit) => cubit.state.userId);
     final profile = context.select(
-      (ContactsCubit cubit) => cubit.profile(userId: memberId),
+      (ContactsCubit cubit) => cubit.state.profile(userId: memberId),
     );
     final isSelf = memberId == ownClientId;
 

@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:typed_data';
-
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
@@ -44,6 +42,36 @@ class MockUiUser implements UiUser {
 
   @override
   List<UiUserHandle> get userHandles => _userHandles;
+}
+
+class MockContactsState implements ContactsState {
+  MockContactsState({
+    UiUserId? defaultUserId,
+    required List<UiUserProfile> profiles,
+  }) : _defaultUserId = defaultUserId ?? 1.userId(),
+       _profiles = {for (final profile in profiles) profile.userId: profile};
+
+  final UiUserId _defaultUserId;
+  final Map<UiUserId, UiUserProfile> _profiles;
+
+  @override
+  UiUserProfile profile({UiUserId? userId}) {
+    final id = userId ?? _defaultUserId;
+    return _profiles[id]!;
+  }
+
+  @override
+  String displayName({UiUserId? userId}) => profile(userId: userId).displayName;
+
+  @override
+  ImageData? profilePicture({UiUserId? userId}) =>
+      profile(userId: userId).profilePicture;
+
+  @override
+  void dispose() {}
+
+  @override
+  bool get isDisposed => false;
 }
 
 class MockConversationDetailsCubit extends MockCubit<ConversationDetailsState>

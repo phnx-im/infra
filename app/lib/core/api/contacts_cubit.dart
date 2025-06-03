@@ -12,16 +12,13 @@ import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
 
-// These functions are ignored because they are not marked as `pub`: `process_store_notifications`, `set_profile`, `spawn_load_profile`, `spawn_process_store_notifications`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ContactsStateInner`
+// These functions are ignored because they are not marked as `pub`: `new`, `new`, `process_notification`, `process`, `set_profile`, `spawn_load_profile`, `spawn`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ContactsStateInner`, `ProfileLoadingTask`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
-// These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ContactsCubitBase>>
 abstract class ContactsCubitBase implements RustOpaqueInterface {
   Future<void> close();
-
-  String displayName({UiUserId? userId});
 
   bool get isClosed;
 
@@ -30,10 +27,6 @@ abstract class ContactsCubitBase implements RustOpaqueInterface {
       .api
       .crateApiContactsCubitContactsCubitBaseNew(userCubit: userCubit);
 
-  UiUserProfile profile({UiUserId? userId});
-
-  ImageData? profilePicture({UiUserId? userId});
-
   ContactsState get state;
 
   Stream<ContactsState> stream();
@@ -41,6 +34,9 @@ abstract class ContactsCubitBase implements RustOpaqueInterface {
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ContactsState>>
 abstract class ContactsState implements RustOpaqueInterface {
-  static Future<ContactsState> default_() =>
-      RustLib.instance.api.crateApiContactsCubitContactsStateDefault();
+  String displayName({UiUserId? userId});
+
+  UiUserProfile profile({UiUserId? userId});
+
+  ImageData? profilePicture({UiUserId? userId});
 }

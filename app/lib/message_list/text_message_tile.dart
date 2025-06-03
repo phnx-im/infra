@@ -205,7 +205,7 @@ class _Sender extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = context.select(
-      (ContactsCubit cubit) => cubit.profile(userId: sender),
+      (ContactsCubit cubit) => cubit.state.profile(userId: sender),
     );
 
     return Padding(

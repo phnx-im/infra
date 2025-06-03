@@ -33,9 +33,11 @@ void main() {
 
       when(() => user.userId).thenReturn(1.userId());
       when(() => loadableUserCubit.state).thenReturn(LoadableUser.loaded(user));
-      when(
-        () => contactsCubit.profile(userId: 1.userId()),
-      ).thenReturn(UiUserProfile(userId: 1.userId(), displayName: "alice"));
+      when(() => contactsCubit.state).thenReturn(
+        MockContactsState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+        ),
+      );
     });
 
     Widget buildSubject() => MultiBlocProvider(

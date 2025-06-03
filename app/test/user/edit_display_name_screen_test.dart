@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
@@ -40,8 +41,11 @@ void main() {
 
     testWidgets('renders correctly', (tester) async {
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
-      when(() => contactsCubit.displayName()).thenReturn("alice");
-      when(() => contactsCubit.profilePicture()).thenReturn(null);
+      when(() => contactsCubit.state).thenReturn(
+        MockContactsState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+        ),
+      );
 
       await tester.pumpWidget(buildSubject());
 
