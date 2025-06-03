@@ -204,19 +204,21 @@ class _Sender extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profile = context.select(
+      (ContactsCubit cubit) => cubit.profile(userId: sender),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          FutureUserAvatar(
-            profile: () => context.read<UserCubit>().userProfile(sender),
+          UserAvatar(
+            displayName: profile.displayName,
+            image: profile.profilePicture,
           ),
           const SizedBox(width: 10),
-          _DisplayName(
-            displayName: sender.uuid.toString(), // TODO: display name
-            isSender: isSender,
-          ),
+          _DisplayName(displayName: profile.displayName, isSender: isSender),
         ],
       ),
     );

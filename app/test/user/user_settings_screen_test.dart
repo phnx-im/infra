@@ -10,18 +10,29 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
+import '../helpers.dart';
 import '../mocks.dart';
 
 void main() {
   group('UserSettingsScreenTest', () {
     late MockUserCubit userCubit;
+    late MockContactsCubit contactsCubit;
 
     setUp(() async {
       userCubit = MockUserCubit();
+      contactsCubit = MockContactsCubit();
+
+      when(() => contactsCubit.displayName()).thenReturn("alice");
+      when(
+        () => contactsCubit.profile(),
+      ).thenReturn(UiUserProfile(userId: 1.userId(), displayName: "alice"));
     });
 
     Widget buildSubject() => MultiBlocProvider(
-      providers: [BlocProvider<UserCubit>.value(value: userCubit)],
+      providers: [
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ContactsCubit>.value(value: contactsCubit),
+      ],
       child: Builder(
         builder: (context) {
           return MaterialApp(
@@ -36,7 +47,7 @@ void main() {
     testWidgets('renders correctly (no handles)', (tester) async {
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "ellie", userHandles: []));
+      ).thenReturn(MockUiUser(id: 1, userHandles: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -50,7 +61,6 @@ void main() {
       when(() => userCubit.state).thenReturn(
         MockUiUser(
           id: 1,
-          displayName: "ellie",
           userHandles: [
             const UiUserHandle(plaintext: "ellie"),
             const UiUserHandle(plaintext: "firefly"),
@@ -70,7 +80,6 @@ void main() {
       when(() => userCubit.state).thenReturn(
         MockUiUser(
           id: 1,
-          displayName: "ellie",
           userHandles: [
             const UiUserHandle(plaintext: "ellie"),
             const UiUserHandle(plaintext: "firefly"),

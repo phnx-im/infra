@@ -22,8 +22,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
   @override
   initState() {
     super.initState();
-    final userCubit = context.read<UserCubit>();
-    _controller.text = userCubit.state.displayName;
+    _controller.text = context.read<ContactsCubit>().displayName();
   }
 
   @override
@@ -35,7 +34,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
   @override
   Widget build(BuildContext context) {
     final profilePicture = context.select(
-      (UserCubit cubit) => cubit.state.profilePicture,
+      (ContactsCubit cubit) => cubit.profilePicture(),
     );
 
     return Scaffold(
@@ -55,8 +54,8 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
               children: [
                 UserAvatar(
                   displayName: _controller.text.trim(),
-                  size: 100,
                   image: profilePicture,
+                  size: 100,
                 ),
                 const SizedBox(height: Spacings.m),
                 TextFormField(

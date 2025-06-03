@@ -19,12 +19,7 @@ class UserSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (displayName, profilePicture) = context.select(
-      (UserCubit cubit) => (
-        cubit.state.displayName,
-        cubit.state.profilePicture,
-      ),
-    );
+    final profile = context.select((ContactsCubit cubit) => cubit.profile());
 
     return Scaffold(
       appBar: AppBar(
@@ -41,11 +36,10 @@ class UserSettingsScreen extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // User Profile and ID
                   UserAvatar(
-                    displayName: displayName,
+                    displayName: profile.displayName,
                     size: 100,
-                    image: profilePicture,
+                    image: profile.profilePicture,
                     onPressed: () => _pickAvatar(context),
                   ),
                   const SizedBox(height: Spacings.xs),
@@ -84,8 +78,9 @@ class _UserProfileData extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (displayName, userId) = context.select(
-      (UserCubit cubit) => (cubit.state.displayName, cubit.state.userId),
+    final userId = context.select((UserCubit cubit) => cubit.state.userId);
+    final displayName = context.select(
+      (ContactsCubit cubit) => cubit.displayName(),
     );
 
     return ListView(

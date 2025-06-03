@@ -9,18 +9,24 @@ import 'package:mocktail/mocktail.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
+import '../helpers.dart';
 import '../mocks.dart';
 
 void main() {
   group('EditDisplayNameScreenTest', () {
     late MockUserCubit userCubit;
+    late MockContactsCubit contactsCubit;
 
     setUp(() async {
       userCubit = MockUserCubit();
+      contactsCubit = MockContactsCubit();
     });
 
     Widget buildSubject() => MultiBlocProvider(
-      providers: [BlocProvider<UserCubit>.value(value: userCubit)],
+      providers: [
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ContactsCubit>.value(value: contactsCubit),
+      ],
       child: Builder(
         builder: (context) {
           return MaterialApp(
@@ -33,9 +39,9 @@ void main() {
     );
 
     testWidgets('renders correctly', (tester) async {
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "ellie"));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
+      when(() => contactsCubit.displayName()).thenReturn("alice");
+      when(() => contactsCubit.profilePicture()).thenReturn(null);
 
       await tester.pumpWidget(buildSubject());
 

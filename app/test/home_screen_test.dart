@@ -32,6 +32,7 @@ void main() {
   group('HomeScreen', () {
     late MockNavigationCubit navigationCubit;
     late MockUserCubit userCubit;
+    late MockContactsCubit contactsCubit;
     late MockConversationListCubit conversationListCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
@@ -39,19 +40,25 @@ void main() {
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
+      contactsCubit = MockContactsCubit();
       conversationListCubit = MockConversationListCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
+        () => contactsCubit.profile(),
+      ).thenReturn(UiUserProfile(userId: 1.userId(), displayName: "alice"));
+      when(() => contactsCubit.displayName()).thenReturn("alice");
       when(
-        () => userCubit.userProfile(any()),
-      ).thenAnswer((_) => Future.value(null));
+        () => contactsCubit.profile(userId: 1.userId()),
+      ).thenReturn(userProfiles[0]);
       when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
+        () => contactsCubit.profile(userId: 2.userId()),
+      ).thenReturn(userProfiles[1]);
+      when(
+        () => contactsCubit.profile(userId: 3.userId()),
+      ).thenReturn(userProfiles[2]);
       when(() => conversationDetailsCubit.state).thenReturn(
         ConversationDetailsState(conversation: conversation, members: members),
       );
@@ -67,6 +74,7 @@ void main() {
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ContactsCubit>.value(value: contactsCubit),
         BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
         BlocProvider<ConversationDetailsCubit>.value(
           value: conversationDetailsCubit,

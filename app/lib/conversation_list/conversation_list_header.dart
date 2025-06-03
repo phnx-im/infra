@@ -52,12 +52,7 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (displayName, profilePicture) = context.select(
-      (UserCubit cubit) => (
-        cubit.state.displayName,
-        cubit.state.profilePicture,
-      ),
-    );
+    final profile = context.select((ContactsCubit cubit) => cubit.profile());
 
     return Padding(
       padding: const EdgeInsets.only(left: 18.0),
@@ -66,9 +61,9 @@ class _Avatar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           UserAvatar(
+            displayName: profile.displayName,
+            image: profile.profilePicture,
             size: 32,
-            image: profilePicture,
-            displayName: displayName,
             onPressed: () {
               context.read<NavigationCubit>().openUserSettings();
             },
@@ -85,7 +80,7 @@ class _DisplayNameSpace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayName = context.select(
-      (UserCubit cubit) => cubit.state.displayName,
+      (ContactsCubit cubit) => cubit.displayName(),
     );
 
     return Text(

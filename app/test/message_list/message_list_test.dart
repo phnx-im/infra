@@ -131,20 +131,26 @@ void main() {
 
   group('MessageListView', () {
     late MockUserCubit userCubit;
+    late MockContactsCubit contactsCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
 
     setUp(() async {
       userCubit = MockUserCubit();
+      contactsCubit = MockContactsCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
+        () => contactsCubit.profile(userId: 1.userId()),
+      ).thenReturn(userProfiles[0]);
       when(
-        () => userCubit.userProfile(any()),
-      ).thenAnswer((_) => Future.value(null));
+        () => contactsCubit.profile(userId: 2.userId()),
+      ).thenReturn(userProfiles[1]);
+      when(
+        () => contactsCubit.profile(userId: 3.userId()),
+      ).thenReturn(userProfiles[2]);
       when(
         () => conversationDetailsCubit.markAsRead(
           untilMessageId: any(named: 'untilMessageId'),
@@ -156,6 +162,7 @@ void main() {
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<ContactsCubit>.value(value: contactsCubit),
         BlocProvider<ConversationDetailsCubit>.value(
           value: conversationDetailsCubit,
         ),

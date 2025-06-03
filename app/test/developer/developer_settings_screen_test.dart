@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/developer/developer.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -23,18 +24,24 @@ void main() {
   group('DeveloperSettingsScreen', () {
     late MockUser user;
     late MockLoadableUserCubit loadableUserCubit;
+    late MockContactsCubit contactsCubit;
 
     setUp(() async {
       user = MockUser();
+      contactsCubit = MockContactsCubit();
       loadableUserCubit = MockLoadableUserCubit();
 
       when(() => user.userId).thenReturn(1.userId());
       when(() => loadableUserCubit.state).thenReturn(LoadableUser.loaded(user));
+      when(
+        () => contactsCubit.profile(userId: 1.userId()),
+      ).thenReturn(UiUserProfile(userId: 1.userId(), displayName: "alice"));
     });
 
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<LoadableUserCubit>.value(value: loadableUserCubit),
+        BlocProvider<ContactsCubit>.value(value: contactsCubit),
       ],
       child: Builder(
         builder: (context) {

@@ -79,27 +79,8 @@ class GroupDetails extends StatelessWidget {
                         child: ListView.builder(
                           itemCount: members.length,
                           itemBuilder: (context, index) {
-                            final member = members[index];
-                            return ListTile(
-                              leading: FutureUserAvatar(
-                                size: 24,
-                                profile:
-                                    () => context.read<UserCubit>().userProfile(
-                                      member,
-                                    ),
-                              ),
-                              title: Text(
-                                member.uuid.toString(), // TODO: display name
-                                style: Theme.of(context).textTheme.labelMedium,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: const Icon(Icons.more_horiz),
-                              onTap: () {
-                                context
-                                    .read<NavigationCubit>()
-                                    .openMemberDetails(member);
-                              },
-                            );
+                            final memberId = members[index];
+                            return _MemberTile(memberId: memberId);
                           },
                         ),
                       ),
@@ -117,6 +98,35 @@ class GroupDetails extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MemberTile extends StatelessWidget {
+  const _MemberTile({required this.memberId});
+
+  final UiUserId memberId;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = context.select(
+      (ContactsCubit cubit) => cubit.profile(userId: memberId),
+    );
+
+    return ListTile(
+      leading: UserAvatar(
+        displayName: profile.displayName,
+        image: profile.profilePicture,
+      ),
+      title: Text(
+        profile.displayName,
+        style: Theme.of(context).textTheme.labelMedium,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.more_horiz),
+      onTap: () {
+        context.read<NavigationCubit>().openMemberDetails(memberId);
+      },
     );
   }
 }

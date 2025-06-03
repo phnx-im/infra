@@ -22,36 +22,25 @@ class MockNavigationCubit extends MockCubit<NavigationState>
 
 class MockUserCubit extends MockCubit<UiUser> implements UserCubit {}
 
+class MockContactsCubit extends MockCubit<ContactsState>
+    implements ContactsCubit {}
+
 class MockUiUser implements UiUser {
-  MockUiUser({
-    required int id,
-    required String displayName,
-    Uint8List? profilePicture,
-    List<UiUserHandle> userHandles = const [],
-  }) : _userId = id.userId(),
-       _displayName = displayName,
-       _profilePicture = profilePicture?.toImageData(),
-       _userHandles = userHandles;
+  MockUiUser({required int id, List<UiUserHandle> userHandles = const []})
+    : _userId = id.userId(),
+      _userHandles = userHandles;
 
   final UiUserId _userId;
-  final String _displayName;
-  final ImageData? _profilePicture;
   final List<UiUserHandle> _userHandles;
 
   @override
   UiUserId get userId => _userId;
 
   @override
-  String get displayName => _displayName;
-
-  @override
   void dispose() {}
 
   @override
   bool get isDisposed => false;
-
-  @override
-  ImageData? get profilePicture => _profilePicture;
 
   @override
   List<UiUserHandle> get userHandles => _userHandles;
