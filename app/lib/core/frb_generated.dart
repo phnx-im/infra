@@ -320,7 +320,7 @@ abstract class RustLibApi extends BaseApi {
 
   UiUserId crateApiUserCubitUiUserUserId({required UiUser that});
 
-  Future<void> crateApiUserCubitUserCubitBaseAddUserHandle({
+  Future<bool> crateApiUserCubitUserCubitBaseAddUserHandle({
     required UserCubitBase that,
     required UiUserHandle userHandle,
   });
@@ -2456,7 +2456,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "UiUser_user_id", argNames: ["that"]);
 
   @override
-  Future<void> crateApiUserCubitUserCubitBaseAddUserHandle({
+  Future<bool> crateApiUserCubitUserCubitBaseAddUserHandle({
     required UserCubitBase that,
     required UiUserHandle userHandle,
   }) {
@@ -2477,7 +2477,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
+          decodeSuccessData: sse_decode_bool,
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUserCubitUserCubitBaseAddUserHandleConstMeta,
@@ -9577,7 +9577,7 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
         RustLib.instance.api.rust_arc_decrement_strong_count_UserCubitBasePtr,
   );
 
-  Future<void> addUserHandle({required UiUserHandle userHandle}) =>
+  Future<bool> addUserHandle({required UiUserHandle userHandle}) =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseAddUserHandle(
         that: this,
         userHandle: userHandle,

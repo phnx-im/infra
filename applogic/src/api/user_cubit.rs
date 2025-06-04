@@ -66,20 +66,29 @@ impl UiUser {
         Self { inner }
     }
 
-    /// Loads the user profile in the background
+    /// Loads state in the background
     fn spawn_load(state_tx: watch::Sender<UiUser>, core_user: CoreUser) {
         spawn_from_sync(async move {
-            match core_user.own_user_profile().await {
-                Ok(profile) => {
+            match core_user.user_handles().await {
+                Ok(handles) => {
                     state_tx.send_modify(|state| {
-                        let mut user = state.inner.clone();
-                        let inner = Arc::make_mut(&mut user);
-                        inner.profile = profile;
-                        state.inner = user;
+                        let inner = Arc::make_mut(&mut state.inner);
+                        inner.user_handles = handles;
                     });
                 }
                 Err(error) => {
-                    error!(%error, "Could not load own user profile");
+                    error!(%error, "failed to load user handles");
+                }
+            }
+            match core_user.own_user_profile().await {
+                Ok(profile) => {
+                    state_tx.send_modify(|state| {
+                        let inner = Arc::make_mut(&mut state.inner);
+                        inner.profile = profile;
+                    });
+                }
+                Err(error) => {
+                    error!(%error, "failed to load own user profile");
                 }
             }
         });
@@ -151,7 +160,7 @@ impl UserCubitBase {
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
         let core = CubitCore::with_initial_state(UiUser::new(Arc::new(UiUserInner {
             profile: UserProfile::from_user_id(user.user.user_id()),
-            user_handles: Vec::new(), // for now empty
+            user_handles: Vec::new(),
         })));
 
         let core_user = user.user.clone();
@@ -305,22 +314,24 @@ impl UserCubitBase {
         let _no_receivers = self.app_state_tx.send(app_state);
     }
 
-    pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
+    pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
+        let added = self.core_user.add_user_handle(&user_handle).await?;
+        if !added {
+            return Ok(false);
+        }
         self.core.state_tx().send_modify(|state| {
-            let mut user = state.inner.clone();
-            let inner = Arc::make_mut(&mut user);
+            let inner = Arc::make_mut(&mut state.inner);
             inner.user_handles.push(user_handle);
-            state.inner = user;
         });
-        Ok(())
+        Ok(true)
     }
 
     pub async fn remove_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
+        self.core_user.remove_user_handle(&user_handle).await?;
         self.core.state_tx().send_if_modified(|state| {
-            let mut user = state.inner.clone();
-            let inner = Arc::make_mut(&mut user);
+            let inner = Arc::make_mut(&mut state.inner);
             let Some(idx) = inner
                 .user_handles
                 .iter()
@@ -330,7 +341,6 @@ impl UserCubitBase {
                 return false;
             };
             inner.user_handles.remove(idx);
-            state.inner = user;
             true
         });
         Ok(())

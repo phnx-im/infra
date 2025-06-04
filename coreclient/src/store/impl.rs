@@ -5,7 +5,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -23,6 +23,18 @@ impl Store for CoreUser {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
+    }
+
+    async fn user_handles(&self) -> StoreResult<Vec<UserHandle>> {
+        self.user_handles().await
+    }
+
+    async fn add_user_handle(&self, user_handle: &UserHandle) -> StoreResult<bool> {
+        self.add_user_handle(user_handle).await
+    }
+
+    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()> {
+        self.remove_user_handle(user_handle).await
     }
 
     async fn create_conversation(

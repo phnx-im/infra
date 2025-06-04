@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -31,13 +31,21 @@ pub type StoreResult<T> = anyhow::Result<T>;
 /// the messages. Additionaly, it is used to listen to changes in the client data via the
 /// [`Self::subscribe`] method and the [`StoreNotification`] type.
 #[allow(async_fn_in_trait, reason = "trait is only used in the workspace")]
-#[trait_variant::make(Store: Send)]
-pub trait LocalStore {
+#[trait_variant::make(Send)]
+pub trait Store {
     // user
 
     async fn own_user_profile(&self) -> StoreResult<UserProfile>;
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile>;
+
+    // user handles
+
+    async fn user_handles(&self) -> StoreResult<Vec<UserHandle>>;
+
+    async fn add_user_handle(&self, user_handle: &UserHandle) -> StoreResult<bool>;
+
+    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()>;
 
     // conversations
 
