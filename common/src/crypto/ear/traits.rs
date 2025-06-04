@@ -170,7 +170,7 @@ pub trait EarDecryptable<EarKeyType: EarKey, CT>: GenericDeserializable {
     /// [`DecryptionError`] or the resulting plaintext.
     fn decrypt(ear_key: &EarKeyType, ciphertext: &Ciphertext<CT>) -> Result<Self, DecryptionError> {
         let plaintext = ear_key.decrypt(&ciphertext.ct)?;
-        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
+        Self::deserialize(&plaintext).map_err(|e| DecryptionError::DeserializationError)
     }
 
     fn decrypt_with_aad<Aad: GenericSerializable>(

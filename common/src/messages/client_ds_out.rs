@@ -7,6 +7,7 @@
 //! TODO: We should eventually factor this module out, together with the crypto
 //! module, to allow re-use by the client implementation.
 
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     messages::AssistedMessageOut,
     openmls::{
@@ -25,14 +26,14 @@ pub struct ExternalCommitInfoIn {
     pub verifiable_group_info: VerifiableGroupInfo,
     pub ratchet_tree_in: RatchetTreeIn,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub room_state: Vec<u8>,
+    pub room_state: VerifiedRoomState,
 }
 
 #[derive(Debug)]
 pub struct WelcomeInfoIn {
     pub ratchet_tree: RatchetTreeIn,
     pub encrypted_user_profile_keys: Vec<EncryptedUserProfileKey>,
-    pub room_state: Vec<u8>,
+    pub room_state: VerifiedRoomState,
 }
 
 #[derive(Debug)]
@@ -42,7 +43,7 @@ pub struct CreateGroupParamsOut {
     pub encrypted_user_profile_key: EncryptedUserProfileKey,
     pub creator_client_reference: QsReference,
     pub group_info: MlsMessageOut,
-    pub room_state: Vec<u8>,
+    pub room_state: VerifiedRoomState,
 }
 
 #[derive(Debug)]
