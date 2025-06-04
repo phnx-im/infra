@@ -86,6 +86,9 @@ flutter:
     - family: InterEmbedded
       fonts:
         - asset: assets/fonts/inter.ttf
+    - family: SourceCodeProEmbedded
+      fonts:
+        - asset: assets/fonts/SourceCodePro-Regular.ttf
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
 
