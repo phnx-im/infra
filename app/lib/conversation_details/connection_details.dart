@@ -4,8 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/navigation/navigation.dart' show NavigationCubit;
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
+import 'package:prototype/util/dialog.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -60,45 +62,19 @@ class ConnectionDetails extends StatelessWidget {
   }
 
   void _delete(BuildContext context, ConversationId conversationId) async {
-    bool confirmed = await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete"),
-          content: const Text(
-            "Are you sure you want to remove this connection? The message history will be deleted.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              style: textButtonStyle(context),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (context.mounted) {
-                  Navigator.of(context).pop(true);
-                }
-              },
-              style: textButtonStyle(context),
-              child: const Text("Delete connection"),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    if (context.mounted) {
-      await context.read<UserCubit>().deleteConversation(conversationId);
-    }
-    if (context.mounted) {
-      Navigator.of(context).pop(true);
+    final userCubit = context.read<UserCubit>();
+    final navigationCubit = context.read<NavigationCubit>();
+    if (await showConfirmationDialog(
+      context,
+      title: "Delete",
+      message:
+          "Are you sure you want to remove this connection? "
+          "The message history will be also deleted.",
+      positiveButtonText: "Delete",
+      negativeButtonText: "Cancel",
+    )) {
+      userCubit.deleteConversation(conversationId);
+      navigationCubit.closeConversation();
     }
   }
 }

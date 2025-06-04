@@ -8,6 +8,7 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
+import 'package:prototype/util/dialog.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -136,7 +137,7 @@ class GroupDetails extends StatelessWidget {
   void _leave(BuildContext context, ConversationId id) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
-    if (await _showConfirmationDialog(
+    if (await showConfirmationDialog(
       context,
       title: "Leave conversation",
       message: "Are you sure you want to leave this conversation?",
@@ -151,7 +152,7 @@ class GroupDetails extends StatelessWidget {
   void _delete(BuildContext context, ConversationId id) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
-    if (await _showConfirmationDialog(
+    if (await showConfirmationDialog(
       context,
       title: "Leave conversation",
       message:
@@ -164,39 +165,4 @@ class GroupDetails extends StatelessWidget {
       navigationCubit.closeConversation();
     }
   }
-}
-
-Future<bool> _showConfirmationDialog(
-  BuildContext context, {
-  required String title,
-  required String message,
-  required String positiveButtonText,
-  required String negativeButtonText,
-}) async {
-  bool confirmed = await showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(false);
-            },
-            style: textButtonStyle(context),
-            child: Text(negativeButtonText),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(true);
-            },
-            style: textButtonStyle(context),
-            child: Text(positiveButtonText),
-          ),
-        ],
-      );
-    },
-  );
-  return confirmed;
 }
