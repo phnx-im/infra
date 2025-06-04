@@ -189,7 +189,15 @@ InlineSpan buildInlineElement(RangedInlineElement inline) {
     ),
     InlineElement_Image() => const WidgetSpan(child: Icon(Icons.image)),
     InlineElement_TaskListMarker(:final field0) => WidgetSpan(
-      child: Checkbox(value: field0, onChanged: null),
+      alignment: PlaceholderAlignment.middle,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: Checkbox(value: field0, onChanged: null),
+        ),
+      ),
     ),
   };
 }
