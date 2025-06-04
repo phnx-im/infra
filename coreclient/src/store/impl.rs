@@ -64,6 +64,10 @@ impl Store for CoreUser {
         self.leave_conversation(conversation_id).await
     }
 
+    async fn erase_conversation(&self, conversation_id: ConversationId) -> StoreResult<()> {
+        self.erase_conversation(conversation_id).await
+    }
+
     async fn update_key(
         &self,
         conversation_id: ConversationId,

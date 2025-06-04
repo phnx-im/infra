@@ -30,28 +30,19 @@ class GroupDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Center(
-      child: Padding(
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
         padding: const EdgeInsets.symmetric(vertical: Spacings.l),
         child: Column(
-          spacing: Spacings.l,
+          spacing: Spacings.s,
           children: [
             UserAvatar(
-              size: 64,
+              size: 100,
               image: conversation.picture,
               displayName: conversation.title,
-              onPressed: () async {
-                final conversationDetailsCubit =
-                    context.read<ConversationDetailsCubit>();
-                // Image picker
-                final ImagePicker picker = ImagePicker();
-                // Pick an image.
-                final XFile? image = await picker.pickImage(
-                  source: ImageSource.gallery,
-                );
-                final bytes = await image?.readAsBytes();
-                conversationDetailsCubit.setConversationPicture(bytes: bytes);
-              },
+              onPressed: () => _selectAvatar(context, conversation.id),
             ),
             Text(
               conversation.title,
@@ -114,9 +105,98 @@ class GroupDetails extends StatelessWidget {
               },
               child: const Text("Add members"),
             ),
+            Divider(color: Theme.of(context).hintColor),
+            OutlinedButton(
+              style: dangerButtonStyle(context),
+              onPressed: () => _leave(context, conversation.id),
+              child: const Text("Leave"),
+            ),
+            OutlinedButton(
+              style: dangerButtonStyle(context),
+              onPressed: () => _delete(context, conversation.id),
+              child: const Text("Delete"),
+            ),
           ],
         ),
       ),
     );
   }
+
+  void _selectAvatar(BuildContext context, ConversationId id) async {
+    final conversationDetailsCubit = context.read<ConversationDetailsCubit>();
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image == null) {
+      return;
+    }
+    final bytes = await image.readAsBytes();
+    conversationDetailsCubit.setConversationPicture(bytes: bytes);
+  }
+
+  void _leave(BuildContext context, ConversationId id) async {
+    final userCubit = context.read<UserCubit>();
+    final navigationCubit = context.read<NavigationCubit>();
+    if (await _showConfirmationDialog(
+      context,
+      title: "Leave conversation",
+      message: "Are you sure you want to leave this conversation?",
+      positiveButtonText: "Leave",
+      negativeButtonText: "Cancel",
+    )) {
+      userCubit.leaveConversation(id);
+      navigationCubit.closeConversation();
+    }
+  }
+
+  void _delete(BuildContext context, ConversationId id) async {
+    final userCubit = context.read<UserCubit>();
+    final navigationCubit = context.read<NavigationCubit>();
+    if (await _showConfirmationDialog(
+      context,
+      title: "Leave conversation",
+      message:
+          "Are you sure you want to delete this conversation? "
+          "The message history will be also deleted.",
+      positiveButtonText: "Delete",
+      negativeButtonText: "Cancel",
+    )) {
+      userCubit.deleteConversation(id);
+      navigationCubit.closeConversation();
+    }
+  }
+}
+
+Future<bool> _showConfirmationDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String positiveButtonText,
+  required String negativeButtonText,
+}) async {
+  bool confirmed = await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(false);
+            },
+            style: textButtonStyle(context),
+            child: Text(negativeButtonText),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(true);
+            },
+            style: textButtonStyle(context),
+            child: Text(positiveButtonText),
+          ),
+        ],
+      );
+    },
+  );
+  return confirmed;
 }

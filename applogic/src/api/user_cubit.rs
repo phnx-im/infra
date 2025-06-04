@@ -271,6 +271,24 @@ impl UserCubitBase {
         Ok(())
     }
 
+    #[frb(positional)]
+    pub async fn delete_conversation(&self, conversation_id: ConversationId) -> anyhow::Result<()> {
+        self.core_user
+            .delete_conversation(conversation_id)
+            .await
+            .inspect_err(|error| {
+                error!(%error, "failed to delete conversion; skipping");
+            })
+            .ok();
+        self.core_user.erase_conversation(conversation_id).await?;
+        Ok(())
+    }
+
+    #[frb(positional)]
+    pub async fn leave_conversation(&self, conversation_id: ConversationId) -> anyhow::Result<()> {
+        self.core_user.leave_conversation(conversation_id).await
+    }
+
     #[frb(getter)]
     pub async fn contacts(&self) -> anyhow::Result<Vec<UiContact>> {
         let contacts = self.core_user.contacts().await?;

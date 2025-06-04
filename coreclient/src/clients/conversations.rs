@@ -2,12 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use create_conversation_flow::IntitialConversationData;
 use delete_conversation_flow::DeleteConversationData;
 use leave_conversation_flow::LeaveConversationData;
 use mimi_room_policy::VerifiedRoomState;
 use phnxcommon::identifiers::UserId;
+use tracing::error;
 
 use crate::{
     ConversationMessageId,
@@ -101,6 +102,23 @@ impl CoreUser {
                 .await
             }
         }
+    }
+
+    pub(crate) async fn erase_conversation(&self, conversation_id: ConversationId) -> Result<()> {
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+                .await?
+                .context("missing conversation for deletion")?;
+            Group::delete_from_db(txn, conversation.group_id())
+                .await
+                .inspect_err(|error| {
+                    error!(%error, "failed to delete group; skipping");
+                })
+                .ok();
+            Conversation::delete(txn.as_mut(), notifier, conversation.id()).await?;
+            Ok(())
+        })
+        .await
     }
 
     pub(crate) async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
@@ -427,8 +445,8 @@ mod delete_conversation_flow {
     }
 
     pub(super) struct LoadedSingleUserConversationData {
-        conversation: Conversation,
-        member: UserId,
+        pub(super) conversation: Conversation,
+        pub(super) member: UserId,
     }
 
     impl LoadedSingleUserConversationData {

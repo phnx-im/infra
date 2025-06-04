@@ -82,6 +82,11 @@ pub trait LocalStore {
 
     async fn leave_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
 
+    /// Erases the conversation data with the given [`ConversationId`].
+    ///
+    /// Must not be called before the conversation is deleted.
+    async fn erase_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
+
     // user management
 
     /// Update the user's key material in the conversation with the given
