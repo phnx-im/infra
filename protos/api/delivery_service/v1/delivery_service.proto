@@ -59,6 +59,10 @@ message AssistedMessage {
   bytes tls = 1;
 }
 
+message RoomState {
+  bytes tls = 1;
+}
+
 // request group id
 
 message RequestGroupIdRequest {}
@@ -83,7 +87,7 @@ message CreateGroupPayload {
   EncryptedUserProfileKey encrypted_user_profile_key = 5;
   QsReference creator_client_reference = 6;
   MlsMessage group_info = 7;
-  bytes room_state = 8;
+  RoomState room_state = 8;
 }
 
 message EncryptedUserProfileKey {
@@ -124,7 +128,7 @@ message GroupEpoch {
 message WelcomeInfoResponse {
   RatchetTree ratchet_tree = 1;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 3;
-  bytes room_state = 4;
+  RoomState room_state = 4;
 }
 
 // external commit info
@@ -138,7 +142,7 @@ message ExternalCommitInfoResponse {
   GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
-  bytes room_state = 5;
+  RoomState room_state = 5;
 }
 
 message GroupInfo {
@@ -156,7 +160,7 @@ message ConnectionGroupInfoResponse {
   GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
-  bytes room_state = 5;
+  RoomState room_state = 5;
 }
 
 // update

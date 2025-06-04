@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mimi_room_policy::{MimiProposal, RoleIndex};
+use mimi_room_policy::RoleIndex;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedWelcome, SerializedMlsMessage},
@@ -17,6 +17,7 @@ use mls_assist::{
 };
 
 use phnxcommon::{
+    credentials::VerifiableClientCredential,
     crypto::{
         ear::keys::{EncryptedUserProfileKey, GroupStateEarKey},
         hpke::{HpkeEncryptable, JoinerInfoEncryptionKey},
@@ -125,6 +126,21 @@ impl DsGroupState {
             }
         };
 
+        let sender = VerifiableClientCredential::try_from(
+            self.group
+                .leaf(sender_index.leaf_index())
+                .ok_or_else(|| {
+                    error!("Leaf of sender not found");
+                    GroupOperationError::InvalidMessage
+                })?
+                .credential()
+                .clone(),
+        )
+        .map_err(|e| {
+            error!(%e, "Credential in leaf of sender is invalid");
+            GroupOperationError::InvalidMessage
+        })?;
+
         // Check if the operation adds a user.
         let adds_users = staged_commit.add_proposals().count() != 0;
 
@@ -144,18 +160,17 @@ impl DsGroupState {
 
             let add_users_state = validate_added_users(staged_commit, aad_payload, add_users_info)?;
 
-            let mut slots = self.free_indices().await;
-            for _user in &add_users_state.added_users {
-                if let Err(e) = self.room_state.apply_regular_proposals(
-                    &sender_index.leaf_index().u32(),
-                    &[MimiProposal::ChangeRole {
-                        target: slots.next().unwrap().u32(),
-                        role: RoleIndex::Regular,
-                    }],
-                ) {
-                    error!(error = %e, "Failed to add new member to group state");
-                    return Err(GroupOperationError::InvalidMessage);
-                };
+            for ((added_key_package, _), _) in &add_users_state.added_users {
+                let added = VerifiableClientCredential::try_from(
+                    added_key_package.leaf_node().credential().clone(),
+                )
+                .map_err(|e| {
+                    error!(%e, "Credential of added user is invalid");
+                    GroupOperationError::InvalidMessage
+                })?;
+
+                self.room_state_change_role(sender.user_id(), added.user_id(), RoleIndex::Regular)
+                    .ok_or(GroupOperationError::InvalidMessage)?;
             }
 
             Some(add_users_state)
@@ -210,16 +225,23 @@ impl DsGroupState {
                 return Err(GroupOperationError::InvalidMessage);
             }
 
-            if let Err(e) = self.room_state.apply_regular_proposals(
-                &sender_index.leaf_index().u32(),
-                &[MimiProposal::ChangeRole {
-                    target: removed.u32(),
-                    role: RoleIndex::Outsider,
-                }],
-            ) {
-                error!("{e:?}");
-                return Err(GroupOperationError::InvalidMessage);
-            };
+            let removed = VerifiableClientCredential::try_from(
+                self.group
+                    .leaf(*removed)
+                    .ok_or_else(|| {
+                        error!("Leaf of removed user not found");
+                        GroupOperationError::InvalidMessage
+                    })?
+                    .credential()
+                    .clone(),
+            )
+            .map_err(|e| {
+                error!(%e, "Credential of removed user is invalid");
+                GroupOperationError::InvalidMessage
+            })?;
+
+            self.room_state_change_role(sender.user_id(), removed.user_id(), RoleIndex::Outsider)
+                .ok_or(GroupOperationError::InvalidMessage)?;
         }
 
         // Everything seems to be okay.

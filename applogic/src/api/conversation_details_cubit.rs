@@ -5,6 +5,7 @@
 //! A single conversation details feature
 
 use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
+use phnxcommon::identifiers::UserId;
 
 use std::{sync::Arc, time::Duration};
 
@@ -13,6 +14,7 @@ use flutter_rust_bridge::frb;
 use mimi_content::MimiContent;
 use phnxcoreclient::{ConversationId, store::StoreNotification};
 use phnxcoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
+use tls_codec::Serialize;
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
@@ -42,16 +44,23 @@ pub struct ConversationDetailsState {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiRoomState {
-    our_user: u32,
+    our_user: UserId,
     state: VerifiedRoomState,
 }
 
 impl UiRoomState {
     #[frb(sync)]
-    pub fn can_kick(&self, target: u32) -> bool {
+    pub fn can_kick(&self, target: &UiUserId) -> bool {
+        let Ok(user) = self.our_user.tls_serialize_detached() else {
+            return false;
+        };
+        let Ok(target) = UserId::from(target.clone()).tls_serialize_detached() else {
+            return false;
+        };
+
         self.state
             .can_apply_regular_proposals(
-                &self.our_user,
+                &user,
                 &[MimiProposal::ChangeRole {
                     target,
                     role: RoleIndex::Outsider,
