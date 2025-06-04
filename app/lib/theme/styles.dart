@@ -165,6 +165,16 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
   );
 }
 
+ButtonStyle dangerButtonStyle(BuildContext context) =>
+    buttonStyle(context, true).copyWith(
+      backgroundColor: WidgetStateProperty.all(
+        Theme.of(context).colorScheme.errorContainer,
+      ),
+      overlayColor: WidgetStateProperty.all(
+        Theme.of(context).colorScheme.errorContainer,
+      ),
+    );
+
 // === Left pane ===
 
 const convPaneBackgroundColor = colorDMBSuperLight;

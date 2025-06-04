@@ -42,12 +42,14 @@ class ConversationDetailsScreenView extends StatelessWidget {
         leading: const AppBarBackButton(),
         title: const Text("Details"),
       ),
-      body: switch (conversationType) {
-        UiConversationType_UnconfirmedConnection() ||
-        UiConversationType_Connection() => const ConnectionDetails(),
-        UiConversationType_Group() => const GroupDetails(),
-        null => const Center(child: Text("Unknown conversation")),
-      },
+      body: SafeArea(
+        child: switch (conversationType) {
+          UiConversationType_UnconfirmedConnection() ||
+          UiConversationType_Connection() => const ConnectionDetails(),
+          UiConversationType_Group() => const GroupDetails(),
+          null => const Center(child: Text("Unknown conversation")),
+        },
+      ),
     );
   }
 }

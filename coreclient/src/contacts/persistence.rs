@@ -239,12 +239,12 @@ impl PartialContact {
     }
 
     pub(crate) async fn delete(
-        self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
+        user_id: &UserId,
     ) -> sqlx::Result<()> {
-        let uuid = self.user_id.uuid();
-        let domain = self.user_id.domain();
+        let uuid = user_id.uuid();
+        let domain = user_id.domain();
         query!(
             "DELETE FROM partial_contacts
             WHERE user_uuid = ? AND user_domain = ?",
@@ -253,7 +253,7 @@ impl PartialContact {
         )
         .execute(executor)
         .await?;
-        notifier.remove(self.user_id.clone());
+        notifier.remove(user_id.clone());
         Ok(())
     }
 
@@ -275,7 +275,7 @@ impl PartialContact {
             user_profile_key_index,
         };
 
-        self.delete(txn.as_mut(), notifier).await?;
+        PartialContact::delete(txn.as_mut(), notifier, &self.user_id).await?;
         contact.store(txn.as_mut(), notifier).await?;
 
         Ok(contact)

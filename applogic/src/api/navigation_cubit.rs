@@ -196,7 +196,10 @@ impl NavigationCubitBase {
     pub fn close_conversation(&self) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => false,
-            NavigationState::Home { home } => mem::replace(&mut home.conversation_open, false),
+            NavigationState::Home { home } => {
+                home.conversation_details_open = false;
+                mem::replace(&mut home.conversation_open, false)
+            }
         });
     }
 

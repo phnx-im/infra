@@ -4,7 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/navigation/navigation.dart' show NavigationCubit;
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/user/user.dart';
+import 'package:prototype/util/dialog.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -24,26 +27,54 @@ class ConnectionDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Center(
-      child: Column(
-        spacing: Spacings.l,
-        children: [
-          const SizedBox(height: Spacings.l),
-          UserAvatar(
-            size: 64,
-            displayName: conversation.title,
-            image: conversation.picture,
-          ),
-          Text(
-            conversation.title,
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-          Text(
-            conversation.conversationType.description,
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-        ],
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
+        padding: const EdgeInsets.all(Spacings.s),
+        child: Column(
+          children: [
+            UserAvatar(
+              size: 100,
+              displayName: conversation.title,
+              image: conversation.picture,
+            ),
+            const SizedBox(height: Spacings.m),
+            Text(
+              conversation.title,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: Spacings.s),
+            Text(
+              conversation.conversationType.description,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const Spacer(),
+            OutlinedButton(
+              onPressed: () => _delete(context, conversation.id),
+              style: dangerButtonStyle(context),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _delete(BuildContext context, ConversationId conversationId) async {
+    final userCubit = context.read<UserCubit>();
+    final navigationCubit = context.read<NavigationCubit>();
+    if (await showConfirmationDialog(
+      context,
+      title: "Delete",
+      message:
+          "Are you sure you want to remove this connection? "
+          "The message history will be also deleted.",
+      positiveButtonText: "Delete",
+      negativeButtonText: "Cancel",
+    )) {
+      userCubit.deleteConversation(conversationId);
+      navigationCubit.closeConversation();
+    }
   }
 }
