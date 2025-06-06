@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{api::user::User, notifications::NotificationContent};
 
@@ -22,7 +22,13 @@ impl User {
         // notifications to the UI in case a new conversation is created.
         let mut new_connections = vec![];
         for as_message in as_messages {
-            let as_message_plaintext = self.user.decrypt_as_queue_message(as_message).await?;
+            let as_message_plaintext = match self.user.decrypt_as_queue_message(as_message).await {
+                Ok(plaintext) => plaintext,
+                Err(error) => {
+                    error!(%error, "failed to decrypt AS message; ignoring");
+                    continue;
+                }
+            };
             let conversation_id = self.user.process_as_message(as_message_plaintext).await?;
             new_connections.push(conversation_id);
         }

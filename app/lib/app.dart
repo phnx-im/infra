@@ -158,8 +158,8 @@ class LoadableUserCubitProvider extends StatelessWidget {
       builder:
           (context, loadableUser) =>
               loadableUser.user != null
-                  // Logged-in user is accessible everywhere inside the app after
-                  // the user is loaded
+                  // Logged-in user and contacts are accessible everywhere inside the app after
+                  // the user is loaded.
                   ? BlocProvider<UserCubit>(
                     create:
                         (context) => UserCubit(
@@ -167,7 +167,13 @@ class LoadableUserCubitProvider extends StatelessWidget {
                           navigationCubit: context.read<NavigationCubit>(),
                           appStateStream: appStateController.stream,
                         ),
-                    child: child,
+                    child: BlocProvider<UsersCubit>(
+                      create:
+                          (context) =>
+                              UsersCubit(userCubit: context.read<UserCubit>()),
+
+                      child: child,
+                    ),
                   )
                   : child,
     );

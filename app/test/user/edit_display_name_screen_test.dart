@@ -6,22 +6,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
+import '../helpers.dart';
 import '../mocks.dart';
 
 void main() {
   group('EditDisplayNameScreenTest', () {
     late MockUserCubit userCubit;
+    late MockUsersCubit contactsCubit;
 
     setUp(() async {
       userCubit = MockUserCubit();
+      contactsCubit = MockUsersCubit();
     });
 
     Widget buildSubject() => MultiBlocProvider(
-      providers: [BlocProvider<UserCubit>.value(value: userCubit)],
+      providers: [
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
+      ],
       child: Builder(
         builder: (context) {
           return MaterialApp(
@@ -35,9 +42,12 @@ void main() {
     );
 
     testWidgets('renders correctly', (tester) async {
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "ellie"));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
+      when(() => contactsCubit.state).thenReturn(
+        MockUsersState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "ellie")],
+        ),
+      );
 
       await tester.pumpWidget(buildSubject());
 
