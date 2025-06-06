@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
@@ -49,46 +48,6 @@ class UserAvatar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class FutureUserAvatar extends StatefulWidget {
-  final AsyncValueGetter<UiUserProfile?> profile;
-  final VoidCallback? onPressed;
-  final double size;
-
-  const FutureUserAvatar({
-    super.key,
-    required this.profile,
-    this.onPressed,
-    this.size = 24.0,
-  });
-
-  @override
-  State<FutureUserAvatar> createState() => _FutureUserAvatarState();
-}
-
-class _FutureUserAvatarState extends State<FutureUserAvatar> {
-  late final Future<UiUserProfile?> _profileFuture;
-
-  @override
-  void initState() {
-    _profileFuture = widget.profile();
-    super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<UiUserProfile?>(
-      future: _profileFuture,
-      builder:
-          (context, snapshot) => UserAvatar(
-            displayName: snapshot.data?.displayName ?? " ",
-            image: snapshot.data?.profilePicture,
-            size: widget.size,
-            onPressed: widget.onPressed,
-          ),
     );
   }
 }
