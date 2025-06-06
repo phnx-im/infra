@@ -23,7 +23,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
   @override
   initState() {
     super.initState();
-    _controller.text = context.read<ContactsCubit>().state.displayName();
+    _controller.text = context.read<UsersCubit>().state.displayName();
   }
 
   @override
@@ -35,7 +35,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
   @override
   Widget build(BuildContext context) {
     final profilePicture = context.select(
-      (ContactsCubit cubit) => cubit.state.profilePicture(),
+      (UsersCubit cubit) => cubit.state.profilePicture(),
     );
 
     final loc = AppLocalizations.of(context);

@@ -121,7 +121,7 @@ class _MemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = context.select(
-      (ContactsCubit cubit) => cubit.state.profile(userId: contact.userId),
+      (UsersCubit cubit) => cubit.state.profile(userId: contact.userId),
     );
 
     return ListTile(

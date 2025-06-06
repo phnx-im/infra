@@ -52,9 +52,7 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profile = context.select(
-      (ContactsCubit cubit) => cubit.state.profile(),
-    );
+    final profile = context.select((UsersCubit cubit) => cubit.state.profile());
 
     return Padding(
       padding: const EdgeInsets.only(left: 18.0),
@@ -82,7 +80,7 @@ class _DisplayNameSpace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayName = context.select(
-      (ContactsCubit cubit) => cubit.state.displayName(),
+      (UsersCubit cubit) => cubit.state.displayName(),
     );
 
     return Text(

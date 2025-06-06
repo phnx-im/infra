@@ -167,11 +167,10 @@ class LoadableUserCubitProvider extends StatelessWidget {
                           navigationCubit: context.read<NavigationCubit>(),
                           appStateStream: appStateController.stream,
                         ),
-                    child: BlocProvider<ContactsCubit>(
+                    child: BlocProvider<UsersCubit>(
                       create:
-                          (context) => ContactsCubit(
-                            userCubit: context.read<UserCubit>(),
-                          ),
+                          (context) =>
+                              UsersCubit(userCubit: context.read<UserCubit>()),
 
                       child: child,
                     ),

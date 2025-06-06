@@ -39,21 +39,21 @@ void main() {
   group('ConversationScreenView', () {
     late MockNavigationCubit navigationCubit;
     late MockUserCubit userCubit;
-    late MockContactsCubit contactsCubit;
+    late MockUsersCubit contactsCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
-      contactsCubit = MockContactsCubit();
+      contactsCubit = MockUsersCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
         () => contactsCubit.state,
-      ).thenReturn(MockContactsState(profiles: userProfiles));
+      ).thenReturn(MockUsersState(profiles: userProfiles));
       when(() => conversationDetailsCubit.state).thenReturn(
         ConversationDetailsState(conversation: conversation, members: members),
       );
@@ -69,7 +69,7 @@ void main() {
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<ContactsCubit>.value(value: contactsCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
         BlocProvider<ConversationDetailsCubit>.value(
           value: conversationDetailsCubit,
         ),

@@ -89,7 +89,7 @@ class DeveloperSettingsScreenView extends StatelessWidget {
     final profile =
         user != null
             ? context.select(
-              (ContactsCubit cubit) => cubit.state.profile(userId: user.userId),
+              (UsersCubit cubit) => cubit.state.profile(userId: user.userId),
             )
             : null;
 

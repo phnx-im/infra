@@ -20,9 +20,7 @@ class UserSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profile = context.select(
-      (ContactsCubit cubit) => cubit.state.profile(),
-    );
+    final profile = context.select((UsersCubit cubit) => cubit.state.profile());
 
     final loc = AppLocalizations.of(context);
 
@@ -85,7 +83,7 @@ class _UserProfileData extends StatelessWidget {
   Widget build(BuildContext context) {
     final userId = context.select((UserCubit cubit) => cubit.state.userId);
     final displayName = context.select(
-      (ContactsCubit cubit) => cubit.state.displayName(),
+      (UsersCubit cubit) => cubit.state.displayName(),
     );
 
     final loc = AppLocalizations.of(context);

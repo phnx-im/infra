@@ -22,20 +22,20 @@ void main() {
     late MockNavigationCubit navigationCubit;
     late MockConversationListCubit conversationListCubit;
     late MockUserCubit userCubit;
-    late MockContactsCubit contactsCubit;
+    late MockUsersCubit contactsCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
-      contactsCubit = MockContactsCubit();
+      contactsCubit = MockUsersCubit();
 
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(() => contactsCubit.state).thenReturn(
-        MockContactsState(
+        MockUsersState(
           profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
         ),
       );
@@ -45,7 +45,7 @@ void main() {
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<ContactsCubit>.value(value: contactsCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
         BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
       ],
       child: Builder(

@@ -17,14 +17,14 @@ import '../mocks.dart';
 void main() {
   group('UserSettingsScreenTest', () {
     late MockUserCubit userCubit;
-    late MockContactsCubit contactsCubit;
+    late MockUsersCubit contactsCubit;
 
     setUp(() async {
       userCubit = MockUserCubit();
-      contactsCubit = MockContactsCubit();
+      contactsCubit = MockUsersCubit();
 
       when(() => contactsCubit.state).thenReturn(
-        MockContactsState(
+        MockUsersState(
           profiles: [UiUserProfile(userId: 1.userId(), displayName: "ellie")],
         ),
       );
@@ -33,7 +33,7 @@ void main() {
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<ContactsCubit>.value(value: contactsCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
       ],
       child: Builder(
         builder: (context) {

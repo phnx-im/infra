@@ -13,27 +13,27 @@ import 'types.dart';
 import 'user_cubit.dart';
 
 // These functions are ignored because they are not marked as `pub`: `new`, `new`, `process_notification`, `process`, `set_profile`, `spawn_load_profile`, `spawn`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ContactsStateInner`, `ProfileLoadingTask`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ProfileLoadingTask`, `UsersStateInner`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ContactsCubitBase>>
-abstract class ContactsCubitBase implements RustOpaqueInterface {
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UsersCubitBase>>
+abstract class UsersCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
   bool get isClosed;
 
-  factory ContactsCubitBase({required UserCubitBase userCubit}) => RustLib
+  factory UsersCubitBase({required UserCubitBase userCubit}) => RustLib
       .instance
       .api
-      .crateApiContactsCubitContactsCubitBaseNew(userCubit: userCubit);
+      .crateApiUsersCubitUsersCubitBaseNew(userCubit: userCubit);
 
-  ContactsState get state;
+  UsersState get state;
 
-  Stream<ContactsState> stream();
+  Stream<UsersState> stream();
 }
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ContactsState>>
-abstract class ContactsState implements RustOpaqueInterface {
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UsersState>>
+abstract class UsersState implements RustOpaqueInterface {
   /// Returns the display name of the given user.
   ///
   /// If the user is not specificed, the display name of the logged-in user is returned.

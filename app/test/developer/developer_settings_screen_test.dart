@@ -24,17 +24,17 @@ void main() {
   group('DeveloperSettingsScreen', () {
     late MockUser user;
     late MockLoadableUserCubit loadableUserCubit;
-    late MockContactsCubit contactsCubit;
+    late MockUsersCubit contactsCubit;
 
     setUp(() async {
       user = MockUser();
-      contactsCubit = MockContactsCubit();
+      contactsCubit = MockUsersCubit();
       loadableUserCubit = MockLoadableUserCubit();
 
       when(() => user.userId).thenReturn(1.userId());
       when(() => loadableUserCubit.state).thenReturn(LoadableUser.loaded(user));
       when(() => contactsCubit.state).thenReturn(
-        MockContactsState(
+        MockUsersState(
           profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
         ),
       );
@@ -43,7 +43,7 @@ void main() {
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<LoadableUserCubit>.value(value: loadableUserCubit),
-        BlocProvider<ContactsCubit>.value(value: contactsCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
       ],
       child: Builder(
         builder: (context) {

@@ -9,11 +9,11 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/user/user.dart';
 
 /// Repository of all user profiles including the logged-in user.
-class ContactsCubit implements StateStreamableSource<ContactsState> {
-  ContactsCubit({required UserCubit userCubit})
-    : _impl = ContactsCubitBase(userCubit: userCubit.impl);
+class UsersCubit implements StateStreamableSource<UsersState> {
+  UsersCubit({required UserCubit userCubit})
+    : _impl = UsersCubitBase(userCubit: userCubit.impl);
 
-  final ContactsCubitBase _impl;
+  final UsersCubitBase _impl;
 
   @override
   FutureOr<void> close() => _impl.close();
@@ -22,8 +22,8 @@ class ContactsCubit implements StateStreamableSource<ContactsState> {
   bool get isClosed => _impl.isClosed;
 
   @override
-  ContactsState get state => _impl.state;
+  UsersState get state => _impl.state;
 
   @override
-  Stream<ContactsState> get stream => _impl.stream();
+  Stream<UsersState> get stream => _impl.stream();
 }

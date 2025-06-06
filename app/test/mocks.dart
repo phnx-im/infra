@@ -20,8 +20,7 @@ class MockNavigationCubit extends MockCubit<NavigationState>
 
 class MockUserCubit extends MockCubit<UiUser> implements UserCubit {}
 
-class MockContactsCubit extends MockCubit<ContactsState>
-    implements ContactsCubit {}
+class MockUsersCubit extends MockCubit<UsersState> implements UsersCubit {}
 
 class MockUiUser implements UiUser {
   MockUiUser({required int id, List<UiUserHandle> userHandles = const []})
@@ -44,8 +43,8 @@ class MockUiUser implements UiUser {
   List<UiUserHandle> get userHandles => _userHandles;
 }
 
-class MockContactsState implements ContactsState {
-  MockContactsState({
+class MockUsersState implements UsersState {
+  MockUsersState({
     UiUserId? defaultUserId,
     required List<UiUserProfile> profiles,
   }) : _defaultUserId = defaultUserId ?? 1.userId(),

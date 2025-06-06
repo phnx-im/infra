@@ -28,14 +28,14 @@ use super::{
     user_cubit::UserCubitBase,
 };
 
-/// Clone-on-write state of the [`ContactsCubitBase`].
+/// Clone-on-write state of the [`UsersCubitBase`].
 #[derive(Debug, Clone)]
 #[frb(opaque)]
-pub struct ContactsState {
-    inner: Arc<ContactsStateInner>,
+pub struct UsersState {
+    inner: Arc<UsersStateInner>,
 }
 
-impl ContactsState {
+impl UsersState {
     /// Returns the profile of the given user.
     ///
     /// If the user is not specificed, the profile of the logged-in user is returned.
@@ -124,13 +124,13 @@ impl ContactsState {
 
 #[derive(Debug, Clone)]
 #[frb(ignore)]
-pub(crate) struct ContactsStateInner {
+pub(crate) struct UsersStateInner {
     load_profile_tx: mpsc::Sender<UserId>,
     own_user_id: UserId,
     profiles: HashMap<UserId, UiUserProfile>,
 }
 
-impl ContactsStateInner {
+impl UsersStateInner {
     fn new(own_user_id: UserId, load_profile_tx: mpsc::Sender<UserId>) -> Self {
         Self {
             load_profile_tx,
@@ -165,19 +165,19 @@ impl ContactsStateInner {
 ///
 /// Caches already loaded profiles. Loads profiles on first access in the background. Automatically
 /// reloads profiles when these are changed/removed.
-pub struct ContactsCubitBase {
-    core: CubitCore<ContactsState>,
+pub struct UsersCubitBase {
+    core: CubitCore<UsersState>,
     _cancel: DropGuard,
 }
 
-impl ContactsCubitBase {
+impl UsersCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
         let store = user_cubit.core_user.clone();
 
         let (load_profile_tx, load_profile_rx) = mpsc::channel(1024);
-        let inner = ContactsStateInner::new(store.user_id().clone(), load_profile_tx);
-        let core = CubitCore::with_initial_state(ContactsState {
+        let inner = UsersStateInner::new(store.user_id().clone(), load_profile_tx);
+        let core = CubitCore::with_initial_state(UsersState {
             inner: Arc::new(inner),
         });
 
@@ -208,11 +208,11 @@ impl ContactsCubitBase {
     }
 
     #[frb(getter, sync)]
-    pub fn state(&self) -> ContactsState {
+    pub fn state(&self) -> UsersState {
         self.core.state()
     }
 
-    pub async fn stream(&mut self, sink: StreamSink<ContactsState>) {
+    pub async fn stream(&mut self, sink: StreamSink<UsersState>) {
         self.core.stream(sink).await;
     }
 }
@@ -225,7 +225,7 @@ impl ContactsCubitBase {
 /// 2. profile loading is requested from the state.
 struct ProfileLoadingTask<S: Store + Sync + 'static> {
     store: S,
-    state_tx: watch::Sender<ContactsState>,
+    state_tx: watch::Sender<UsersState>,
     load_profile_rx: mpsc::Receiver<UserId>,
     cancel: CancellationToken,
 }
@@ -233,7 +233,7 @@ struct ProfileLoadingTask<S: Store + Sync + 'static> {
 impl<S: Store + Sync + 'static> ProfileLoadingTask<S> {
     fn new(
         store: S,
-        state_tx: watch::Sender<ContactsState>,
+        state_tx: watch::Sender<UsersState>,
         load_profile_rx: mpsc::Receiver<UserId>,
         cancel: CancellationToken,
     ) -> Self {
