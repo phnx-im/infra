@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, user_profiles::UserProfile,
+    PartialContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -43,7 +43,12 @@ pub trait Store {
 
     async fn user_handles(&self) -> StoreResult<Vec<UserHandle>>;
 
-    async fn add_user_handle(&self, user_handle: &UserHandle) -> StoreResult<bool>;
+    async fn user_handle_records(&self) -> StoreResult<Vec<UserHandleRecord>>;
+
+    async fn add_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<Option<UserHandleRecord>>;
 
     async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()>;
 

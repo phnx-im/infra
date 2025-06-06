@@ -316,8 +316,8 @@ impl UserCubitBase {
 
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
-        let added = self.core_user.add_user_handle(&user_handle).await?;
-        if !added {
+        let record = self.core_user.add_user_handle(&user_handle).await?;
+        if record.is_none() {
             return Ok(false);
         }
         self.core.state_tx().send_modify(|state| {

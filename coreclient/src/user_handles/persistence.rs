@@ -12,9 +12,10 @@ use sqlx::{SqliteExecutor, query, query_as, query_scalar};
 
 /// A user handle record stored in the client database.
 ///
-/// Contains additional information about the handle, such as hash and signature key.
+/// Contains additional information about the handle, such as hash and signing key.
+#[derive(Debug)]
+// #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct UserHandleRecord {
-    #[expect(dead_code)]
     pub handle: UserHandle,
     pub hash: UserHandleHash,
     pub signing_key: HandleSigningKey,
@@ -37,6 +38,14 @@ impl From<SqlUserHandleRecord> for UserHandleRecord {
 }
 
 impl UserHandleRecord {
+    pub fn new(handle: UserHandle, hash: UserHandleHash, signing_key: HandleSigningKey) -> Self {
+        Self {
+            handle,
+            hash,
+            signing_key,
+        }
+    }
+
     pub(super) async fn load(
         executor: impl SqliteExecutor<'_>,
         handle: &UserHandle,
@@ -58,8 +67,7 @@ impl UserHandleRecord {
         Ok(record.map(From::from))
     }
 
-    #[expect(dead_code)]
-    pub(super) async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
+    pub(crate) async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
         let records = query_as!(
             SqlUserHandleRecord,
             r#"
@@ -76,7 +84,7 @@ impl UserHandleRecord {
         Ok(records.into_iter().map(From::from).collect())
     }
 
-    pub(super) async fn load_all_handles(
+    pub(crate) async fn load_all_handles(
         executor: impl SqliteExecutor<'_>,
     ) -> sqlx::Result<Vec<UserHandle>> {
         query_scalar!(
@@ -90,13 +98,8 @@ impl UserHandleRecord {
         .await
     }
 
-    pub(super) async fn store(
-        executor: impl SqliteExecutor<'_>,
-        handle: &UserHandle,
-        hash: &UserHandleHash,
-        signing_key: &HandleSigningKey,
-    ) -> sqlx::Result<()> {
-        let signing_key = BlobEncoded(signing_key);
+    pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+        let signing_key = BlobEncoded(&self.signing_key);
         let created_at = Utc::now();
         let refreshed_at = created_at;
         query!(
@@ -109,8 +112,8 @@ impl UserHandleRecord {
                     refreshed_at
                 ) VALUES (?, ?, ?, ?, ?)
             "#,
-            handle,
-            hash,
+            self.handle,
+            self.hash,
             signing_key,
             created_at,
             refreshed_at,
@@ -150,16 +153,24 @@ mod test {
         let signing_key = HandleSigningKey::generate()?;
 
         // Store a user handle
-        UserHandleRecord::store(&pool, &handle, &hash, &signing_key).await?;
+        let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
+        record.store(&pool).await?;
 
         // Load the user handle
-        let loaded_handle = UserHandleRecord::load(&pool, &handle).await?.unwrap();
-        assert_eq!(loaded_handle.hash, hash);
+        let loaded_record = UserHandleRecord::load(&pool, &handle).await?.unwrap();
+        assert_eq!(loaded_record.handle, record.handle);
+        assert_eq!(loaded_record.hash, record.hash);
 
         // Load all handles (should only be one)
         let all_handles = UserHandleRecord::load_all_handles(&pool).await?;
         assert_eq!(all_handles.len(), 1);
         assert_eq!(all_handles[0], handle);
+
+        // Load all records (should only be one)
+        let all_records = UserHandleRecord::load_all(&pool).await?;
+        assert_eq!(all_records.len(), 1);
+        assert_eq!(all_records[0].handle, loaded_record.handle);
+        assert_eq!(all_records[0].hash, loaded_record.hash);
 
         // Delete the user handle
         UserHandleRecord::delete(&pool, &handle).await?;

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::Context;
-use persistence::UserHandleRecord;
+pub use persistence::UserHandleRecord;
 use phnxcommon::{credentials::keys::HandleSigningKey, identifiers::UserHandle};
 use tracing::error;
 
@@ -12,14 +12,13 @@ use crate::{clients::CoreUser, store::StoreResult};
 mod persistence;
 
 impl CoreUser {
-    pub(crate) async fn user_handles(&self) -> StoreResult<Vec<UserHandle>> {
-        Ok(UserHandleRecord::load_all_handles(self.pool()).await?)
-    }
-
     /// Registers a new user handle on the server and adds it locally.
     ///
     /// Returns `true` on success, or `false` if the handle was already present.
-    pub(crate) async fn add_user_handle(&self, handle: &UserHandle) -> StoreResult<bool> {
+    pub(crate) async fn add_user_handle(
+        &self,
+        handle: &UserHandle,
+    ) -> StoreResult<Option<UserHandleRecord>> {
         let signing_key = HandleSigningKey::generate()?;
         let hash = handle.hash()?;
 
@@ -28,14 +27,15 @@ impl CoreUser {
             .as_create_handle(handle, hash, &signing_key)
             .await?;
         if !created {
-            return Ok(false);
+            return Ok(None);
         }
 
-        if let Err(error) = UserHandleRecord::store(self.pool(), handle, &hash, &signing_key).await
-        {
+        let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
+
+        if let Err(error) = record.store(self.pool()).await {
             error!(%error, "failed to store user handle; rollback on the server");
             api_client
-                .as_delete_handle(hash, &signing_key)
+                .as_delete_handle(hash, &record.signing_key)
                 .await
                 .inspect_err(|error| {
                     error!(%error, "failed to delete user handle after error");
@@ -44,7 +44,9 @@ impl CoreUser {
             return Err(error.into());
         }
 
-        Ok(true)
+        // TODO: Publish connection packages for a handle
+
+        Ok(Some(record))
     }
 
     /// Deletes the user handle on the server and removes it locally.
