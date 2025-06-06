@@ -246,6 +246,26 @@ impl ApiClient {
         Ok(())
     }
 
+    pub async fn as_publish_connection_packages_for_handle(
+        &self,
+        hash: UserHandleHash,
+        connection_packages: Vec<ConnectionPackage>,
+        signing_key: &HandleSigningKey,
+    ) -> Result<(), AsRequestError> {
+        let payload = PublishConnectionPackagesPayload {
+            owner: Some(publish_connection_packages_payload::Owner::Hash(
+                hash.into(),
+            )),
+            connection_packages: connection_packages.into_iter().map(From::from).collect(),
+        };
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client
+            .client()
+            .publish_connection_packages(request)
+            .await?;
+        Ok(())
+    }
+
     pub async fn as_user_connection_packages(
         &self,
         payload: UserConnectionPackagesParams,
