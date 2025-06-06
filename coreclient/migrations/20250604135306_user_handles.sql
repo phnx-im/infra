@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS user_handles (
     handle TEXT NOT NULL PRIMARY KEY,
     hash BLOB NOT NULL,
-    signature_key BLOB NOT NULL,
-    created_at DATETIME NOT NULL,
-    refreshed_at DATETIME NOT NULL
+    signing_key BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    refreshed_at TEXT NOT NULL
 );

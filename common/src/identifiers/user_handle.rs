@@ -109,9 +109,35 @@ pub enum UserHandleHashError {
 }
 
 mod sqlx_impls {
-    use sqlx::{Database, Decode, Encode, Type, encode::IsNull, error::BoxDynError};
+    use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 
     use super::*;
+
+    // `UserHandle` is only persisted in the client database, so we only implement the sqlx traits
+    // for Sqlite.
+
+    impl Type<Sqlite> for UserHandle {
+        fn type_info() -> <Sqlite as Database>::TypeInfo {
+            <String as Type<Sqlite>>::type_info()
+        }
+    }
+
+    impl Encode<'_, Sqlite> for UserHandle {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+        ) -> Result<IsNull, BoxDynError> {
+            Encode::<Sqlite>::encode(self.plaintext().to_owned(), buf)
+        }
+    }
+
+    impl Decode<'_, Sqlite> for UserHandle {
+        fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+            let plaintext: String = Decode::<Sqlite>::decode(value)?;
+            let value = UserHandle::new(plaintext)?;
+            Ok(value)
+        }
+    }
 
     impl<DB> Type<DB> for UserHandleHash
     where

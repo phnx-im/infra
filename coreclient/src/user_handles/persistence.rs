@@ -2,33 +2,36 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::{SubsecRound, Utc};
+use chrono::Utc;
 use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
     credentials::keys::HandleSigningKey,
     identifiers::{UserHandle, UserHandleHash},
 };
-use sqlx::{SqliteExecutor, query};
-use tracing::error;
+use sqlx::{SqliteExecutor, query, query_as, query_scalar};
 
 /// A user handle record stored in the client database.
 ///
 /// Contains additional information about the handle, such as hash and signature key.
-pub(super) struct UserHandleRecord {
-    pub(super) hash: UserHandleHash,
-    pub(super) signature_key: HandleSigningKey,
+pub struct UserHandleRecord {
+    #[expect(dead_code)]
+    pub handle: UserHandle,
+    pub hash: UserHandleHash,
+    pub signing_key: HandleSigningKey,
 }
 
 struct SqlUserHandleRecord {
+    handle: UserHandle,
     hash: UserHandleHash,
-    signature_key: BlobDecoded<HandleSigningKey>,
+    signing_key: BlobDecoded<HandleSigningKey>,
 }
 
 impl From<SqlUserHandleRecord> for UserHandleRecord {
     fn from(record: SqlUserHandleRecord) -> Self {
         Self {
+            handle: record.handle,
             hash: record.hash,
-            signature_key: record.signature_key.into_inner(),
+            signing_key: record.signing_key.into_inner(),
         }
     }
 }
@@ -38,45 +41,53 @@ impl UserHandleRecord {
         executor: impl SqliteExecutor<'_>,
         handle: &UserHandle,
     ) -> sqlx::Result<Option<Self>> {
-        let plaintext = handle.plaintext();
-        let record = sqlx::query_as!(
+        let record = query_as!(
             SqlUserHandleRecord,
             r#"
                 SELECT
+                    handle AS "handle: _",
                     hash AS "hash: _",
-                    signature_key AS "signature_key: _"
+                    signing_key AS "signing_key: _"
                 FROM user_handles
                 WHERE handle = ?
             "#,
-            plaintext
+            handle
         )
         .fetch_optional(executor)
         .await?;
         Ok(record.map(From::from))
     }
 
-    pub(super) async fn load_all_handles(
-        executor: impl SqliteExecutor<'_>,
-    ) -> sqlx::Result<Vec<UserHandle>> {
-        let plaintext = sqlx::query_scalar!(
+    #[expect(dead_code)]
+    pub(super) async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
+        let records = query_as!(
+            SqlUserHandleRecord,
             r#"
                 SELECT
-                    handle
+                    handle AS "handle: _",
+                    hash AS "hash: _",
+                    signing_key AS "signing_key: _"
                 FROM user_handles
-            "#
+                ORDER BY created_at ASC
+            "#,
         )
         .fetch_all(executor)
         .await?;
-        Ok(plaintext
-            .into_iter()
-            .filter_map(|plaintext| {
-                UserHandle::new(plaintext)
-                    .inspect_err(
-                        |error| error!(%error,"failed to parse user handle from plaintext"),
-                    )
-                    .ok()
-            })
-            .collect())
+        Ok(records.into_iter().map(From::from).collect())
+    }
+
+    pub(super) async fn load_all_handles(
+        executor: impl SqliteExecutor<'_>,
+    ) -> sqlx::Result<Vec<UserHandle>> {
+        query_scalar!(
+            r#"
+                SELECT handle AS "handle: _"
+                FROM user_handles
+                ORDER BY created_at ASC
+            "#
+        )
+        .fetch_all(executor)
+        .await
     }
 
     pub(super) async fn store(
@@ -85,21 +96,20 @@ impl UserHandleRecord {
         hash: &UserHandleHash,
         signing_key: &HandleSigningKey,
     ) -> sqlx::Result<()> {
-        let plaintext = handle.plaintext();
         let signing_key = BlobEncoded(signing_key);
-        let created_at = Utc::now().round_subsecs(6);
+        let created_at = Utc::now();
         let refreshed_at = created_at;
         query!(
             r#"
                 INSERT INTO user_handles (
                     handle,
                     hash,
-                    signature_key,
+                    signing_key,
                     created_at,
                     refreshed_at
                 ) VALUES (?, ?, ?, ?, ?)
             "#,
-            plaintext,
+            handle,
             hash,
             signing_key,
             created_at,
@@ -114,13 +124,12 @@ impl UserHandleRecord {
         executor: impl SqliteExecutor<'_>,
         handle: &UserHandle,
     ) -> sqlx::Result<()> {
-        let plaintext = handle.plaintext();
         query!(
             r#"
                 DELETE FROM user_handles
                 WHERE handle = ?
             "#,
-            plaintext,
+            handle,
         )
         .execute(executor)
         .await?;

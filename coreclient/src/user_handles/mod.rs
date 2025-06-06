@@ -55,7 +55,7 @@ impl CoreUser {
             .context("no user handle found")?;
         let api_client = self.api_client()?;
         api_client
-            .as_delete_handle(record.hash, &record.signature_key)
+            .as_delete_handle(record.hash, &record.signing_key)
             .await?;
         UserHandleRecord::delete(txn.as_mut(), handle).await?;
         txn.commit().await?;
