@@ -10,7 +10,7 @@
     )
 )]
 
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use flutter_rust_bridge::{DartFnFuture, frb};
 use tracing::debug;
@@ -21,6 +21,13 @@ pub use crate::notifications::{NotificationContent, NotificationHandle, Notifica
 #[derive(Clone)]
 pub struct DartNotificationService {
     callback: Arc<Callbacks>,
+}
+
+impl fmt::Debug for DartNotificationService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DartNotificationService")
+            .finish_non_exhaustive()
+    }
 }
 
 #[frb(ignore)]

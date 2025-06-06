@@ -14,7 +14,7 @@ import 'types.dart';
 
 // These functions are ignored because they are not marked as `pub`: `cancel_notifications`, `get_active_notifications`, `send_notification`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Callbacks`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DartNotificationService>>
 abstract class DartNotificationService implements RustOpaqueInterface {

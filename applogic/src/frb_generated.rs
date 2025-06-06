@@ -3053,7 +3053,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_set_app_state_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>,
             >>::sse_decode(&mut deserializer);
-            let api_app_state = <crate::api::user_cubit::AppState>::sse_decode(&mut deserializer);
+            let api__app_state = <crate::api::user_cubit::AppState>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
@@ -3074,7 +3074,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_set_app_state_impl(
                     let output_ok = Result::<_, ()>::Ok({
                         crate::api::user_cubit::UserCubitBase::set_app_state(
                             &*api_that_guard,
-                            api_app_state,
+                            api__app_state,
                         );
                     })?;
                     Ok(output_ok)
