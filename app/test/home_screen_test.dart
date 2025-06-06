@@ -11,6 +11,7 @@ import 'package:prototype/conversation_list/conversation_list.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/home_screen.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -78,6 +79,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const HomeScreenDesktopLayout(
               conversationList: ConversationListView(),
               conversation: ConversationScreenView(
