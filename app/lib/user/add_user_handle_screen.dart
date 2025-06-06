@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/core.dart' show UiUserHandle;
+import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -29,9 +30,10 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Username'),
+        title: Text(loc.userHandleScreen_title),
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
@@ -52,11 +54,13 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                   TextFormField(
                     autofocus: true,
                     controller: _controller,
-                    decoration: const InputDecoration(hintText: "Username"),
+                    decoration: InputDecoration(
+                      hintText: loc.userHandleScreen_inputHint,
+                    ),
                     style: inputTextStyle(context),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'User handle cannot be empty';
+                        return loc.userHandleScreen_error_emptyHandle;
                       }
                       final handle = UiUserHandle(
                         plaintext: value.trim().toLowerCase(),
@@ -73,9 +77,7 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                       ),
                       child: Text(
                         style: TextStyle(color: Theme.of(context).hintColor),
-                        "Choose a username that others can use to connect with you."
-                        "\n\n"
-                        "Use letters, numbers, or underscores. Minimum 5 characters.",
+                        loc.userHandleScreen_description,
                       ),
                     ),
                   ),
@@ -83,7 +85,7 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                   OutlinedButton(
                     onPressed: () => _submit(context),
                     style: buttonStyle(context, true),
-                    child: const Text('Save'),
+                    child: Text(loc.userHandleScreen_save),
                   ),
                 ],
               ),
