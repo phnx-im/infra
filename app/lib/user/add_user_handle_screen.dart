@@ -21,6 +21,20 @@ class AddUserHandleScreen extends StatefulWidget {
 class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
   final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();
+  bool _alreadyExists = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Clear already exists flag when the text field changes
+    _controller.addListener(() {
+      if (_alreadyExists) {
+        setState(() {
+          _alreadyExists = false;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -59,6 +73,9 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                     ),
                     style: inputTextStyle(context),
                     validator: (value) {
+                      if (_alreadyExists) {
+                        return 'Username already exists';
+                      }
                       if (value == null || value.trim().isEmpty) {
                         return loc.userHandleScreen_error_emptyHandle;
                       }
@@ -105,7 +122,13 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
     );
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
-    await userCubit.addUserHandle(handle);
+    if (!await userCubit.addUserHandle(handle)) {
+      setState(() {
+        _alreadyExists = true;
+      });
+      _formKey.currentState!.validate();
+      return;
+    }
     navigationCubit.pop();
   }
 }

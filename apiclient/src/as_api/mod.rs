@@ -4,12 +4,15 @@
 
 use phnxcommon::{
     LibraryError,
-    credentials::{ClientCredentialPayload, keys::ClientSigningKey},
+    credentials::{
+        ClientCredentialPayload,
+        keys::{ClientSigningKey, HandleSigningKey},
+    },
     crypto::{
         RatchetEncryptionKey, indexed_aead::keys::UserProfileKeyIndex, kdf::keys::RatchetSecret,
         signatures::signable::Signable,
     },
-    identifiers::UserId,
+    identifiers::{UserHandle, UserHandleHash, UserId},
     messages::{
         QueueMessage,
         client_as::{ConnectionPackage, EncryptedConnectionOffer, UserConnectionPackagesParams},
@@ -20,10 +23,11 @@ use phnxcommon::{
     },
 };
 use phnxprotos::auth_service::v1::{
-    AckListenRequest, AsCredentialsRequest, DeleteUserPayload, EnqueueMessagesRequest,
-    GetUserConnectionPackagesRequest, GetUserProfileRequest, InitListenPayload, ListenRequest,
-    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
-    StageUserProfilePayload, listen_request, publish_connection_packages_payload,
+    AckListenRequest, AsCredentialsRequest, CreateHandlePayload, DeleteHandlePayload,
+    DeleteUserPayload, EnqueueMessagesRequest, GetUserConnectionPackagesRequest,
+    GetUserProfileRequest, InitListenPayload, ListenRequest, MergeUserProfilePayload,
+    PublishConnectionPackagesPayload, RegisterUserRequest, StageUserProfilePayload, listen_request,
+    publish_connection_packages_payload,
 };
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -242,6 +246,26 @@ impl ApiClient {
         Ok(())
     }
 
+    pub async fn as_publish_connection_packages_for_handle(
+        &self,
+        hash: UserHandleHash,
+        connection_packages: Vec<ConnectionPackage>,
+        signing_key: &HandleSigningKey,
+    ) -> Result<(), AsRequestError> {
+        let payload = PublishConnectionPackagesPayload {
+            owner: Some(publish_connection_packages_payload::Owner::Hash(
+                hash.into(),
+            )),
+            connection_packages: connection_packages.into_iter().map(From::from).collect(),
+        };
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client
+            .client()
+            .publish_connection_packages(request)
+            .await?;
+        Ok(())
+    }
+
     pub async fn as_user_connection_packages(
         &self,
         payload: UserConnectionPackagesParams,
@@ -318,6 +342,38 @@ impl ApiClient {
                 .map(From::from)
                 .collect(),
         })
+    }
+
+    pub async fn as_create_handle(
+        &self,
+        user_handle: &UserHandle,
+        hash: UserHandleHash,
+        signing_key: &HandleSigningKey,
+    ) -> Result<bool, AsRequestError> {
+        let payload = CreateHandlePayload {
+            verifying_key: Some(signing_key.verifying_key().clone().into()),
+            plaintext: user_handle.plaintext().into(),
+            hash: Some(hash.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        match self.as_grpc_client.client().create_handle(request).await {
+            Ok(_) => Ok(true),
+            Err(e) if e.code() == tonic::Code::AlreadyExists => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub async fn as_delete_handle(
+        &self,
+        hash: UserHandleHash,
+        signing_key: &HandleSigningKey,
+    ) -> Result<(), AsRequestError> {
+        let payload = DeleteHandlePayload {
+            hash: Some(hash.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client.client().delete_handle(request).await?;
+        Ok(())
     }
 }
 

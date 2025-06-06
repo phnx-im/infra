@@ -245,6 +245,14 @@ impl CoreUser {
         &self.inner.key_store.signing_key
     }
 
+    pub(crate) fn api_client(&self) -> anyhow::Result<ApiClient> {
+        Ok(self.inner.api_clients.default_client()?)
+    }
+
+    pub(crate) fn key_store(&self) -> &MemoryUserKeyStore {
+        &self.inner.key_store
+    }
+
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
         if !notification.is_empty() {
             self.inner.store_notifications_tx.notify(notification);
