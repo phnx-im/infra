@@ -91,8 +91,8 @@ class _UserAvatarPicker extends StatelessWidget {
 
     return UserAvatar(
       displayName: displayName,
-      size: 100,
       image: avatar,
+      size: 100,
       onPressed: () async {
         var registrationCubit = context.read<RegistrationCubit>();
         // Image picker

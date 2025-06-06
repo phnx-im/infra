@@ -9,9 +9,9 @@ use std::{sync::Arc, time::Instant};
 
 use anyhow::bail;
 use flutter_rust_bridge::frb;
-use phnxcommon::identifiers::UserHandle;
+use phnxcommon::identifiers::{UserHandle, UserId};
 use phnxcoreclient::{
-    Asset, UserProfile,
+    Asset,
     clients::{QueueEvent, queue_event},
 };
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
@@ -26,14 +26,11 @@ use crate::{
     notifications::NotificationService,
     util::{Cubit, CubitCore, FibonacciBackoff, spawn_from_sync},
 };
-use crate::{
-    api::types::{UiContact, UiUserProfile},
-    messages::FetchedMessages,
-};
+use crate::{api::types::UiContact, messages::FetchedMessages};
 
 use super::{
     navigation_cubit::{NavigationCubitBase, NavigationState},
-    types::{ImageData, UiUserHandle, UiUserId},
+    types::{UiUserHandle, UiUserId},
     user::User,
 };
 
@@ -55,51 +52,17 @@ pub struct UiUser {
     inner: Arc<UiUserInner>,
 }
 
+#[frb(ignore)]
 #[derive(Debug, Clone)]
 struct UiUserInner {
-    profile: UserProfile,
+    user_id: UserId,
     user_handles: Vec<UserHandle>,
 }
 
 impl UiUser {
-    fn new(inner: Arc<UiUserInner>) -> Self {
-        Self { inner }
-    }
-
-    /// Loads the user profile in the background
-    fn spawn_load(state_tx: watch::Sender<UiUser>, core_user: CoreUser) {
-        spawn_from_sync(async move {
-            match core_user.own_user_profile().await {
-                Ok(profile) => {
-                    state_tx.send_modify(|state| {
-                        let mut user = state.inner.clone();
-                        let inner = Arc::make_mut(&mut user);
-                        inner.profile = profile;
-                        state.inner = user;
-                    });
-                }
-                Err(error) => {
-                    error!(%error, "Could not load own user profile");
-                }
-            }
-        });
-    }
-
     #[frb(getter, sync)]
     pub fn user_id(&self) -> UiUserId {
-        self.inner.profile.user_id.clone().into()
-    }
-
-    #[frb(getter, sync)]
-    pub fn display_name(&self) -> String {
-        self.inner.profile.display_name.to_string()
-    }
-
-    #[frb(getter, sync)]
-    pub fn profile_picture(&self) -> Option<ImageData> {
-        Some(ImageData::from_asset(
-            self.inner.profile.profile_picture.clone()?,
-        ))
+        self.inner.user_id.clone().into()
     }
 
     #[frb(getter, sync)]
@@ -149,14 +112,14 @@ const REGULAR_DISCONNECT_TIMEOUT: Duration = Duration::from_secs(30 * 60 * 60); 
 impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
-        let core = CubitCore::with_initial_state(UiUser::new(Arc::new(UiUserInner {
-            profile: UserProfile::from_user_id(user.user.user_id()),
+        let inner = Arc::new(UiUserInner {
+            user_id: user.user.user_id().clone(),
             user_handles: Vec::new(), // for now empty
-        })));
+        });
+        let state = UiUser { inner };
+        let core = CubitCore::with_initial_state(state);
 
         let core_user = user.user.clone();
-
-        UiUser::spawn_load(core.state_tx().clone(), core_user.clone());
 
         let navigation_state = navigation.subscribe();
         let notification_service = navigation.notification_service.clone();
@@ -218,33 +181,16 @@ impl UserCubitBase {
         let display_name = display_name.map(|s| s.parse()).transpose()?;
         let profile_picture = profile_picture.map(Asset::Value);
 
-        let mut user = self.core.state_tx().borrow().inner.clone();
-        let inner = Arc::make_mut(&mut user);
+        let mut profile = self.core_user.own_user_profile().await?;
         if let Some(value) = display_name {
-            inner.profile.display_name = value;
+            profile.display_name = value;
         }
         if let Some(value) = profile_picture {
-            inner.profile.profile_picture = Some(value);
+            profile.profile_picture = Some(value);
         }
-
-        // setting own user profile resizes the profile picture
-        // => we need to store the new user profile first
-        let user_profile = self
-            .core_user
-            .set_own_user_profile(inner.profile.take())
-            .await?;
-        inner.profile = user_profile;
-
-        self.core.state_tx().send_modify(|state| state.inner = user);
+        self.core_user.set_own_user_profile(profile).await?;
 
         Ok(())
-    }
-
-    /// Get the user profile of the user with the given [`UiUserId`].
-    #[frb(positional)]
-    pub async fn user_profile(&self, user_id: UiUserId) -> UiUserProfile {
-        let profile = self.core_user.user_profile(&user_id.into()).await;
-        UiUserProfile::from_profile(profile)
     }
 
     #[frb(positional)]
@@ -308,10 +254,8 @@ impl UserCubitBase {
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
         self.core.state_tx().send_modify(|state| {
-            let mut user = state.inner.clone();
-            let inner = Arc::make_mut(&mut user);
+            let inner = Arc::make_mut(&mut state.inner);
             inner.user_handles.push(user_handle);
-            state.inner = user;
         });
         Ok(())
     }
@@ -319,8 +263,7 @@ impl UserCubitBase {
     pub async fn remove_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
         self.core.state_tx().send_if_modified(|state| {
-            let mut user = state.inner.clone();
-            let inner = Arc::make_mut(&mut user);
+            let inner = Arc::make_mut(&mut state.inner);
             let Some(idx) = inner
                 .user_handles
                 .iter()
@@ -330,7 +273,6 @@ impl UserCubitBase {
                 return false;
             };
             inner.user_handles.remove(idx);
-            state.inner = user;
             true
         });
         Ok(())

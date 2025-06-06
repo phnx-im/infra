@@ -22,7 +22,7 @@ class MemberDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
-    final (conversationId, memberUserId) = context.select(
+    final (conversationId, memberId) = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Intro(:final screens) =>
           throw StateError(loc.memberDetailsScreen_error),
@@ -37,16 +37,21 @@ class MemberDetailsScreen extends StatelessWidget {
     );
 
     final ownUserId = context.select((UserCubit cubit) => cubit.state.userId);
-    final isSelf = memberUserId == ownUserId;
+    final isSelf = memberId == ownUserId;
+
+    final profile = context.select(
+      (UsersCubit cubit) => cubit.state.profile(userId: memberId),
+    );
+
     final roomState = context.select(
       (ConversationDetailsCubit cubit) => cubit.state.roomState,
     );
 
-    if (conversationId == null || memberUserId == null || roomState == null) {
+    if (conversationId == null || memberId == null || roomState == null) {
       return const SizedBox.shrink();
     }
 
-    final canKick = roomState.canKick(target: memberUserId);
+    final canKick = roomState.canKick(target: memberId);
 
     return Scaffold(
       appBar: AppBar(
@@ -64,66 +69,65 @@ class MemberDetailsScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 const SizedBox(height: _padding),
-                FutureUserAvatar(
+                UserAvatar(
+                  displayName: profile.displayName,
+                  image: profile.profilePicture,
                   size: 64,
-                  profile:
-                      () => context.read<UserCubit>().userProfile(memberUserId),
                 ),
                 const SizedBox(height: _padding),
                 Text(
-                  memberUserId.uuid.toString(), // TODO: display name
                   style: Theme.of(context).textTheme.labelMedium,
+                  profile.displayName,
                 ),
                 const SizedBox(height: _padding),
               ],
             ),
             // Show the remove user button if the user is not the current user and has kicking rights
-            (!isSelf && canKick)
-                ? Padding(
-                  padding: const EdgeInsets.all(_padding),
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      bool confirmed = await showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: Text(loc.removeUserDialog_title),
-                            content: Text(loc.removeUserDialog_content),
-                            actions: [
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(false);
-                                },
-                                style: textButtonStyle(context),
-                                child: Text(loc.removeUserDialog_cancel),
-                              ),
-                              TextButton(
-                                onPressed: () async {
-                                  await context
-                                      .read<UserCubit>()
-                                      .removeUserFromConversation(
-                                        conversationId,
-                                        memberUserId,
-                                      );
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop(true);
-                                  }
-                                },
-                                style: textButtonStyle(context),
-                                child: Text(loc.removeUserDialog_removeUser),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                      if (confirmed && context.mounted) {
-                        Navigator.of(context).pop(true);
-                      }
-                    },
-                    child: Text(loc.removeUserButton_text),
-                  ),
-                )
-                : const SizedBox.shrink(),
+            if (!isSelf && canKick)
+              Padding(
+                padding: const EdgeInsets.all(_padding),
+                child: OutlinedButton(
+                  onPressed: () async {
+                    bool confirmed = await showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text(loc.removeUserDialog_title),
+                          content: Text(loc.removeUserDialog_content),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(false);
+                              },
+                              style: textButtonStyle(context),
+                              child: Text(loc.removeUserDialog_cancel),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                await context
+                                    .read<UserCubit>()
+                                    .removeUserFromConversation(
+                                      conversationId,
+                                      memberId,
+                                    );
+                                if (context.mounted) {
+                                  Navigator.of(context).pop(true);
+                                }
+                              },
+                              style: textButtonStyle(context),
+                              child: Text(loc.removeUserDialog_removeUser),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                    if (confirmed && context.mounted) {
+                      Navigator.of(context).pop(true);
+                    }
+                  },
+                  child: Text(loc.removeUserButton_text),
+                ),
+              ),
           ],
         ),
       ),

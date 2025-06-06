@@ -22,24 +22,30 @@ void main() {
     late MockNavigationCubit navigationCubit;
     late MockConversationListCubit conversationListCubit;
     late MockUserCubit userCubit;
+    late MockUsersCubit contactsCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
+      contactsCubit = MockUsersCubit();
 
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
+      when(() => contactsCubit.state).thenReturn(
+        MockUsersState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+        ),
+      );
     });
 
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
         BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
       ],
       child: Builder(

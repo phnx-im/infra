@@ -35,9 +35,7 @@ void main() {
     );
 
     testWidgets('renders correctly', (tester) async {
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "ellie"));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
 
       await tester.pumpWidget(buildSubject());
 
