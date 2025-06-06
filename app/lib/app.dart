@@ -11,9 +11,10 @@ import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:prototype/background_service.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/util/platform.dart';
 import 'package:prototype/user/user.dart';
+import 'package:prototype/util/platform.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details/conversation_details.dart';
@@ -110,7 +111,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         ),
       ],
       child: MaterialApp.router(
-        title: 'Prototype',
+        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: themeData(context),
         routerConfig: _appRouter,

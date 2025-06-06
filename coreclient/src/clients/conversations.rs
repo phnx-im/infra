@@ -7,6 +7,7 @@ use create_conversation_flow::IntitialConversationData;
 use delete_conversation_flow::DeleteConversationData;
 use leave_conversation_flow::LeaveConversationData;
 use mimi_room_policy::VerifiedRoomState;
+use phnxcommon::identifiers::UserId;
 
 use crate::{
     ConversationMessageId,
@@ -108,7 +109,7 @@ impl CoreUser {
                 // Phase 1: Load the conversation and the group
                 LeaveConversationData::load(txn, conversation_id)
                     .await?
-                    .stage_leave_group(txn, self.signing_key())
+                    .stage_leave_group(self.user_id(), txn, self.signing_key())
                     .await
             })
             .await?;
@@ -202,11 +203,11 @@ impl CoreUser {
     pub async fn load_room_state(
         &self,
         conversation_id: &ConversationId,
-    ) -> Result<(u32, VerifiedRoomState)> {
+    ) -> Result<(UserId, VerifiedRoomState)> {
         if let Some(conversation) = self.conversation(conversation_id).await {
             let mut connection = self.pool().acquire().await?;
             if let Some(group) = Group::load(&mut connection, conversation.group_id()).await? {
-                return Ok((group.own_leaf_index(), group.room_state));
+                return Ok((self.user_id().clone(), group.room_state));
             }
         }
         bail!("Room does not exist")
@@ -560,8 +561,10 @@ mod delete_conversation_flow {
 
 mod leave_conversation_flow {
     use anyhow::Context;
+    use mimi_room_policy::RoleIndex;
     use phnxcommon::{
-        credentials::keys::ClientSigningKey, messages::client_ds_out::SelfRemoveParamsOut,
+        credentials::keys::ClientSigningKey, identifiers::UserId,
+        messages::client_ds_out::SelfRemoveParamsOut,
     };
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
 
@@ -594,6 +597,7 @@ mod leave_conversation_flow {
 
         pub(super) async fn stage_leave_group(
             self,
+            sender_id: &UserId,
             connection: &mut SqliteConnection,
             signer: &ClientSigningKey,
         ) -> anyhow::Result<LeaveConversationData<SelfRemoveParamsOut>> {
@@ -602,6 +606,8 @@ mod leave_conversation_flow {
                 mut group,
                 state: (),
             } = self;
+
+            group.room_state_change_role(sender_id, sender_id, RoleIndex::Outsider)?;
 
             let params = group.stage_leave_group(connection, signer)?;
 

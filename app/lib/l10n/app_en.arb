@@ -1,0 +1,45 @@
+{
+  "appTitle": "Prototype",
+
+  "userSettingsScreen_title": "User Settings",
+  "userSettingsScreen_idCopied": "User ID copied to clipboard",
+  "userSettingsScreen_profileDescription": "Others will see your picture and name when you communicate with them.",
+  "userSettingsScreen_userNamesDescription": "Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.",
+  "removeUsernameDialog_title": "Remove Username",
+  "removeUsernameDialog_content": "If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.",
+  "removeUsernameDialog_cancel": "Cancel",
+  "removeUsernameDialog_remove": "Remove",
+  "userSettingsScreen_noUserHandles": "no user handles yet",
+  "userSettingsScreen_userHandlePlaceholder": "Username",
+
+  "addMembersScreen_title": "Add members",
+  "addMembersScreen_addMembers": "Add member(s)",
+  "addMembersScreen_error_noActiveConversation": "an active conversation is obligatory",
+
+  "conversationDetailsScreen_title": "Details",
+  "conversationDetailsScreen_unknownConversation": "Unknown conversation",
+
+  "conversationScreen_emptyConversation": "Select a chat to start messaging",
+
+  "memberDetailsScreen_title": "Member details",
+  "memberDetailsScreen_error": "No member details for intro screen",
+  "removeUserDialog_title": "Remove user",
+  "removeUserDialog_content": "Are you sure you want to remove this user from the group?",
+  "removeUserDialog_cancel": "Cancel",
+  "removeUserDialog_removeUser": "Remove user",
+  "removeUserButton_text": "Remove user",
+
+  "introScreen_developerSettings": "Developer Settings",
+  "introScreen_signUp": "Sign up",
+
+  "userHandleScreen_title": "Username",
+  "userHandleScreen_inputHint": "Username",
+  "userHandleScreen_error_emptyHandle": "User handle cannot be empty",
+  "userHandleScreen_description": "Choose a username that others can use to connect with you.\n\nUse letters, numbers, or underscores. Minimum 5 characters.",
+  "userHandleScreen_save": "Save",
+
+  "editDisplayNameScreen_title": "Display Name",
+  "editDisplayNameScreen_hintText": "Display name",
+  "editDisplayNameScreen_description": "Choose a name that others will see when you communicate with them.",
+  "editDisplayNameScreen_save": "Save"
+}

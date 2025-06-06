@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -37,9 +38,11 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
       (ContactsCubit cubit) => cubit.state.profilePicture(),
     );
 
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Display Name'),
+        title: Text(loc.editDisplayNameScreen_title),
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
@@ -61,7 +64,9 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                 TextFormField(
                   autofocus: true,
                   controller: _controller,
-                  decoration: const InputDecoration(hintText: "Display name"),
+                  decoration: InputDecoration(
+                    hintText: loc.userHandleScreen_inputHint,
+                  ),
                   style: inputTextStyle(context),
                 ),
                 const SizedBox(height: Spacings.s),
@@ -73,7 +78,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                     ),
                     child: Text(
                       style: TextStyle(color: Theme.of(context).hintColor),
-                      "Choose a name that others will see when you communicate with them.",
+                      loc.editDisplayNameScreen_description,
                     ),
                   ),
                 ),
@@ -81,7 +86,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                 OutlinedButton(
                   onPressed: () => _submit(context),
                   style: buttonStyle(context, true),
-                  child: const Text('Save'),
+                  child: Text(loc.editDisplayNameScreen_save),
                 ),
               ],
             ),

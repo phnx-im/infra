@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
@@ -26,6 +27,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const AddUserHandleScreen(),
           );
         },
