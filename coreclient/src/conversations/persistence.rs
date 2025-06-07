@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
-use phnxcommon::identifiers::{Fqdn, UserId};
+use phnxcommon::identifiers::{Fqdn, UserHandle, UserId};
 use sqlx::{Connection, SqliteConnection, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use tracing::info;
@@ -25,6 +25,7 @@ struct SqlConversation {
     last_read: DateTime<Utc>,
     connection_user_uuid: Option<Uuid>,
     connection_user_domain: Option<Fqdn>,
+    connection_user_handle: Option<UserHandle>,
     is_confirmed_connection: bool,
     is_active: bool,
 }
@@ -39,12 +40,17 @@ impl SqlConversation {
             last_read,
             connection_user_uuid,
             connection_user_domain,
+            connection_user_handle,
             is_confirmed_connection,
             is_active,
         } = self;
 
-        let conversation_type = match (connection_user_uuid, connection_user_domain) {
-            (Some(user_uuid), Some(domain)) => {
+        let conversation_type = match (
+            connection_user_uuid,
+            connection_user_domain,
+            connection_user_handle,
+        ) {
+            (Some(user_uuid), Some(domain), _) => {
                 let connection_user_id = UserId::new(user_uuid, domain);
                 if is_confirmed_connection {
                     ConversationType::Connection(connection_user_id)
@@ -52,6 +58,7 @@ impl SqlConversation {
                     ConversationType::UnconfirmedConnection(connection_user_id)
                 }
             }
+            (None, None, Some(handle)) => ConversationType::HandleConnection(handle),
             _ => ConversationType::Group,
         };
 
@@ -123,16 +130,27 @@ impl Conversation {
             }
             ConversationStatus::Active => (true, Vec::new()),
         };
-        let (is_confirmed_connection, connection_user_uuid, connection_user_domain) =
-            match self.conversation_type() {
-                ConversationType::UnconfirmedConnection(user_id) => {
-                    (false, Some(user_id.uuid()), Some(user_id.domain().clone()))
-                }
-                ConversationType::Connection(user_id) => {
-                    (true, Some(user_id.uuid()), Some(user_id.domain().clone()))
-                }
-                ConversationType::Group => (true, None, None),
-            };
+        let (
+            is_confirmed_connection,
+            connection_user_uuid,
+            connection_user_domain,
+            connection_user_handle,
+        ) = match self.conversation_type() {
+            ConversationType::UnconfirmedConnection(user_id) => (
+                false,
+                Some(user_id.uuid()),
+                Some(user_id.domain().clone()),
+                None,
+            ),
+            ConversationType::HandleConnection(handle) => (false, None, None, Some(handle)),
+            ConversationType::Connection(user_id) => (
+                true,
+                Some(user_id.uuid()),
+                Some(user_id.domain().clone()),
+                None,
+            ),
+            ConversationType::Group => (true, None, None, None),
+        };
         query!(
             "INSERT INTO conversations (
                 conversation_id,
@@ -142,10 +160,11 @@ impl Conversation {
                 last_read,
                 connection_user_uuid,
                 connection_user_domain,
+                connection_user_handle,
                 is_confirmed_connection,
                 is_active
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             self.id,
             title,
             picture,
@@ -153,6 +172,7 @@ impl Conversation {
             self.last_read,
             connection_user_uuid,
             connection_user_domain,
+            connection_user_handle,
             is_confirmed_connection,
             is_active,
         )
@@ -195,6 +215,7 @@ impl Conversation {
                 last_read AS "last_read: _",
                 connection_user_uuid AS "connection_user_uuid: _",
                 connection_user_domain AS "connection_user_domain: _",
+                connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations
@@ -227,6 +248,7 @@ impl Conversation {
                 last_read AS "last_read: _",
                 connection_user_uuid AS "connection_user_uuid: _",
                 connection_user_domain AS "connection_user_domain: _",
+                connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations WHERE group_id = ?"#,
@@ -256,6 +278,7 @@ impl Conversation {
                 last_read AS "last_read: _",
                 connection_user_uuid AS "connection_user_uuid: _",
                 connection_user_domain AS "connection_user_domain: _",
+                connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations"#,
@@ -528,6 +551,20 @@ impl Conversation {
                     WHERE conversation_id = ?",
                     uuid,
                     domain,
+                    self.id,
+                )
+                .execute(executor)
+                .await?;
+            }
+            ConversationType::HandleConnection(handle) => {
+                query!(
+                    "UPDATE conversations SET
+                        connection_user_uuid = NULL,
+                        connection_user_domain = NULL,
+                        connection_user_handle = ?,
+                        is_confirmed_connection = false
+                    WHERE conversation_id = ?",
+                    handle,
                     self.id,
                 )
                 .execute(executor)

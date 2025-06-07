@@ -2,16 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::Utc;
 use phnxcommon::{
     crypto::{
         ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
         indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::ConnectionKey,
     },
-    identifiers::{Fqdn, UserId},
+    identifiers::{Fqdn, UserHandle, UserId},
     messages::FriendshipToken,
 };
-use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
+use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
@@ -19,6 +20,8 @@ use crate::{
     Contact, ConversationId, PartialContact, clients::connection_offer::FriendshipPackage,
     store::StoreNotifier,
 };
+
+use super::HandleContact;
 
 struct SqlContact {
     user_uuid: Uuid,
@@ -279,6 +282,47 @@ impl PartialContact {
         contact.store(txn.as_mut(), notifier).await?;
 
         Ok(contact)
+    }
+}
+
+impl HandleContact {
+    pub(crate) async fn upsert(
+        &self,
+        executor: impl SqliteExecutor<'_>,
+        notifier: &mut StoreNotifier,
+    ) -> sqlx::Result<()> {
+        let created_at = Utc::now();
+        query!(
+            "INSERT OR REPLACE INTO user_handle_contacts (
+                user_handle,
+                conversation_id,
+                friendship_package_ear_key,
+                created_at
+            ) VALUES (?, ?, ?, ?)",
+            self.handle,
+            self.conversation_id,
+            created_at,
+            self.friendship_package_ear_key,
+        )
+        .execute(executor)
+        .await?;
+        notifier.update(self.conversation_id);
+        Ok(())
+    }
+
+    pub(crate) async fn load_conversation_id(
+        executor: impl SqliteExecutor<'_>,
+        handle: &UserHandle,
+    ) -> sqlx::Result<Option<ConversationId>> {
+        query_scalar!(
+            r#"SELECT
+                conversation_id AS "conversation_id: _"
+            FROM user_handle_contacts
+            WHERE user_handle = ?"#,
+            handle,
+        )
+        .fetch_optional(executor)
+        .await
     }
 }
 
