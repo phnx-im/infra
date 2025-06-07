@@ -17,23 +17,8 @@ impl User {
     /// Fetch AS messages
     async fn fetch_as_messages(&self) -> Result<Vec<ConversationId>> {
         let as_messages = self.user.as_fetch_messages().await?;
-
-        // Process each as message individually and dispatch conversation
-        // notifications to the UI in case a new conversation is created.
-        let mut new_connections = vec![];
-        for as_message in as_messages {
-            let as_message_plaintext = match self.user.decrypt_as_queue_message(as_message).await {
-                Ok(plaintext) => plaintext,
-                Err(error) => {
-                    error!(%error, "failed to decrypt AS message; ignoring");
-                    continue;
-                }
-            };
-            let conversation_id = self.user.process_as_message(as_message_plaintext).await?;
-            new_connections.push(conversation_id);
-        }
-
-        Ok(new_connections)
+        error!(num_messages = as_messages.len(), "ignoring AS messages");
+        Ok(Vec::new())
     }
 
     /// Fetch QS messages

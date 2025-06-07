@@ -7,7 +7,7 @@ use openmls::prelude::MlsMessageOut;
 use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
-    identifiers::QualifiedGroupId,
+    identifiers::{QualifiedGroupId, UserHandle},
     messages::{
         QueueMessage,
         client_as::{EncryptedConnectionOffer, ExtractedAsQueueMessagePayload},
@@ -55,6 +55,7 @@ impl CoreUser {
     pub async fn process_as_message(
         &self,
         as_message_plaintext: ExtractedAsQueueMessagePayload,
+        user_handle: UserHandle,
     ) -> Result<ConversationId> {
         match as_message_plaintext {
             ExtractedAsQueueMessagePayload::EncryptedConnectionOffer(ecep) => {
@@ -62,7 +63,7 @@ impl CoreUser {
 
                 // Parse & verify connection offer
                 let cep_payload = self
-                    .parse_and_verify_connection_offer(&mut connection, ecep)
+                    .parse_and_verify_connection_offer(&mut connection, ecep, user_handle)
                     .await?;
 
                 // Prepare group
@@ -160,6 +161,7 @@ impl CoreUser {
         &self,
         connection: &mut SqliteConnection,
         ecep: EncryptedConnectionOffer,
+        user_handle: UserHandle,
     ) -> Result<ConnectionOfferPayload> {
         let cep_in = ConnectionOfferIn::decrypt(
             ecep,
@@ -179,10 +181,7 @@ impl CoreUser {
         )
         .await?;
         cep_in
-            .verify(
-                as_intermediate_credential.verifying_key(),
-                self.user_id().clone(),
-            )
+            .verify(as_intermediate_credential.verifying_key(), user_handle)
             .map_err(|error| {
                 error!(%error, "Error verifying connection offer");
                 anyhow!("Error verifying connection offer")
@@ -336,12 +335,7 @@ impl CoreUser {
         &self,
         as_messages: Vec<QueueMessage>,
     ) -> Result<Vec<ConversationId>> {
-        let mut conversation_ids = vec![];
-        for as_message in as_messages {
-            let as_message_plaintext = self.decrypt_as_queue_message(as_message).await?;
-            let conversation_id = self.process_as_message(as_message_plaintext).await?;
-            conversation_ids.push(conversation_id);
-        }
-        Ok(conversation_ids)
+        error!(num_messages = as_messages.len(), "ignoring AS messages");
+        Ok(Vec::new())
     }
 }
