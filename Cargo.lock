@@ -3414,6 +3414,7 @@ dependencies = [
 name = "phnxapiclient"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "mimi-room-policy",
  "mls-assist",
  "phnxcommon",
