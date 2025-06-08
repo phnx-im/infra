@@ -141,7 +141,7 @@ abstract class RustLibApi extends BaseApi {
   Future<ConversationId>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
-    required UiUserId userId,
+    required UiUserHandle handle,
   });
 
   Future<ConversationId>
@@ -971,7 +971,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<ConversationId>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
-    required UiUserId userId,
+    required UiUserHandle handle,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -981,7 +981,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_ui_user_id(userId, serializer);
+          sse_encode_box_autoadd_ui_user_handle(handle, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -995,7 +995,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta,
-        argValues: [that, userId],
+        argValues: [that, handle],
         apiImpl: this,
       ),
     );
@@ -1005,7 +1005,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta =>
       const TaskConstMeta(
         debugName: "ConversationListCubitBase_create_connection",
-        argNames: ["that", "userId"],
+        argNames: ["that", "handle"],
       );
 
   @override
@@ -5572,10 +5572,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dco_decode_box_autoadd_ui_user_profile(raw[1]),
         );
       case 1:
+        return UiConversationType_HandleConnection(
+          dco_decode_box_autoadd_ui_user_handle(raw[1]),
+        );
+      case 2:
         return UiConversationType_Connection(
           dco_decode_box_autoadd_ui_user_profile(raw[1]),
         );
-      case 2:
+      case 3:
         return UiConversationType_Group();
       default:
         throw Exception("unreachable");
@@ -7449,9 +7453,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_field0 = sse_decode_box_autoadd_ui_user_profile(deserializer);
         return UiConversationType_UnconfirmedConnection(var_field0);
       case 1:
+        var var_field0 = sse_decode_box_autoadd_ui_user_handle(deserializer);
+        return UiConversationType_HandleConnection(var_field0);
+      case 2:
         var var_field0 = sse_decode_box_autoadd_ui_user_profile(deserializer);
         return UiConversationType_Connection(var_field0);
-      case 2:
+      case 3:
         return UiConversationType_Group();
       default:
         throw UnimplementedError('');
@@ -9445,11 +9452,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case UiConversationType_UnconfirmedConnection(field0: final field0):
         sse_encode_i_32(0, serializer);
         sse_encode_box_autoadd_ui_user_profile(field0, serializer);
-      case UiConversationType_Connection(field0: final field0):
+      case UiConversationType_HandleConnection(field0: final field0):
         sse_encode_i_32(1, serializer);
+        sse_encode_box_autoadd_ui_user_handle(field0, serializer);
+      case UiConversationType_Connection(field0: final field0):
+        sse_encode_i_32(2, serializer);
         sse_encode_box_autoadd_ui_user_profile(field0, serializer);
       case UiConversationType_Group():
-        sse_encode_i_32(2, serializer);
+        sse_encode_i_32(3, serializer);
     }
   }
 
@@ -9698,13 +9708,13 @@ class ConversationListCubitBaseImpl extends RustOpaque
   Future<void> close() => RustLib.instance.api
       .crateApiConversationListCubitConversationListCubitBaseClose(that: this);
 
-  /// Creates a new 1:1 connection with the given user.
-  Future<ConversationId> createConnection({required UiUserId userId}) => RustLib
-      .instance
-      .api
+  /// Creates a new 1:1 connection with the given user via a user handle.
+  Future<ConversationId> createConnection({
+    required UiUserHandle handle,
+  }) => RustLib.instance.api
       .crateApiConversationListCubitConversationListCubitBaseCreateConnection(
         that: this,
-        userId: userId,
+        handle: handle,
       );
 
   /// Creates a new group conversation with the given name.

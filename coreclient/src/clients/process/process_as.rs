@@ -335,7 +335,9 @@ impl CoreUser {
         &self,
         as_messages: Vec<QueueMessage>,
     ) -> Result<Vec<ConversationId>> {
-        error!(num_messages = as_messages.len(), "ignoring AS messages");
+        if !as_messages.is_empty() {
+            error!(num_messages = as_messages.len(), "ignoring AS messages");
+        }
         Ok(Vec::new())
     }
 }

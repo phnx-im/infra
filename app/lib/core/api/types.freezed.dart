@@ -310,6 +310,111 @@ abstract class UiConversationType_UnconfirmedConnection
 }
 
 /// @nodoc
+abstract class _$$UiConversationType_HandleConnectionImplCopyWith<$Res> {
+  factory _$$UiConversationType_HandleConnectionImplCopyWith(
+    _$UiConversationType_HandleConnectionImpl value,
+    $Res Function(_$UiConversationType_HandleConnectionImpl) then,
+  ) = __$$UiConversationType_HandleConnectionImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({UiUserHandle field0});
+
+  $UiUserHandleCopyWith<$Res> get field0;
+}
+
+/// @nodoc
+class __$$UiConversationType_HandleConnectionImplCopyWithImpl<$Res>
+    extends
+        _$UiConversationTypeCopyWithImpl<
+          $Res,
+          _$UiConversationType_HandleConnectionImpl
+        >
+    implements _$$UiConversationType_HandleConnectionImplCopyWith<$Res> {
+  __$$UiConversationType_HandleConnectionImplCopyWithImpl(
+    _$UiConversationType_HandleConnectionImpl _value,
+    $Res Function(_$UiConversationType_HandleConnectionImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$UiConversationType_HandleConnectionImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiUserHandle,
+      ),
+    );
+  }
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $UiUserHandleCopyWith<$Res> get field0 {
+    return $UiUserHandleCopyWith<$Res>(_value.field0, (value) {
+      return _then(_value.copyWith(field0: value));
+    });
+  }
+}
+
+/// @nodoc
+
+class _$UiConversationType_HandleConnectionImpl
+    extends UiConversationType_HandleConnection {
+  const _$UiConversationType_HandleConnectionImpl(this.field0) : super._();
+
+  @override
+  final UiUserHandle field0;
+
+  @override
+  String toString() {
+    return 'UiConversationType.handleConnection(field0: $field0)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiConversationType_HandleConnectionImpl &&
+            (identical(other.field0, field0) || other.field0 == field0));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, field0);
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UiConversationType_HandleConnectionImplCopyWith<
+    _$UiConversationType_HandleConnectionImpl
+  >
+  get copyWith => __$$UiConversationType_HandleConnectionImplCopyWithImpl<
+    _$UiConversationType_HandleConnectionImpl
+  >(this, _$identity);
+}
+
+abstract class UiConversationType_HandleConnection extends UiConversationType {
+  const factory UiConversationType_HandleConnection(final UiUserHandle field0) =
+      _$UiConversationType_HandleConnectionImpl;
+  const UiConversationType_HandleConnection._() : super._();
+
+  UiUserHandle get field0;
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UiConversationType_HandleConnectionImplCopyWith<
+    _$UiConversationType_HandleConnectionImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
 abstract class _$$UiConversationType_ConnectionImplCopyWith<$Res> {
   factory _$$UiConversationType_ConnectionImplCopyWith(
     _$UiConversationType_ConnectionImpl value,

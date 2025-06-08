@@ -142,6 +142,12 @@ pub trait Store {
 
     // contacts
 
+    /// Create a connection with a new user via their user handle.
+    ///
+    /// Returns the [`ConversationId`] of the newly created connection
+    /// conversation.
+    async fn add_contact_via_handle(&self, handle: UserHandle) -> StoreResult<ConversationId>;
+
     /// Create a connection with a new user.
     ///
     /// Returns the [`ConversationId`] of the newly created connection

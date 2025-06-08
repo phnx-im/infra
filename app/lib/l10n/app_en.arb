@@ -41,5 +41,20 @@
   "editDisplayNameScreen_title": "Display Name",
   "editDisplayNameScreen_hintText": "Display name",
   "editDisplayNameScreen_description": "Choose a name that others will see when you communicate with them.",
-  "editDisplayNameScreen_save": "Save"
+  "editDisplayNameScreen_save": "Save",
+
+  "conversationList_newConnection": "New connection",
+  "conversationList_newConversation": "New conversation",
+
+  "newConversationDialog_newConversationTitle": "New conversation",
+  "newConversationDialog_newConversationDescription": "Choose a name for the new conversation",
+  "newConversationDialog_conversationNamePlaceholder": "Conversation name",
+  "newConversationDialog_actionButton": "Create conversation",
+  "newConversationDialog_error": "Failed to add conversation with name {conversationName}: {error}",
+
+  "newConnectionDialog_newConnectionTitle": "New connection",
+  "newConnectionDialog_newConnectionDescription": "Enter the Username of the user you want to connect to",
+  "newConnectionDialog_usernamePlaceholder": "Username",
+  "newConnectionDialog_actionButton": "Connect",
+  "newConnectionDialog_error": "Failed to add user with Username {username}: {error}"
 }

@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::{api::user::User, notifications::NotificationContent};
 
@@ -17,7 +17,9 @@ impl User {
     /// Fetch AS messages
     async fn fetch_as_messages(&self) -> Result<Vec<ConversationId>> {
         let as_messages = self.user.as_fetch_messages().await?;
-        error!(num_messages = as_messages.len(), "ignoring AS messages");
+        if !as_messages.is_empty() {
+            error!(num_messages = as_messages.len(), "ignoring AS messages");
+        }
         Ok(Vec::new())
     }
 
