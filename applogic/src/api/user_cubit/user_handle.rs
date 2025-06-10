@@ -14,13 +14,14 @@ use phnxcoreclient::{
 use tokio::sync::{RwLock, watch};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::{CancellationToken, DropGuard};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 use uuid::Uuid;
 
 use crate::util::{BackgroundStreamContext, BackgroundStreamTask, spawn_from_sync};
 
 use super::qs::QueueContext;
 
+/// The context of the background task that listens to a user handle.
 #[derive(Debug, Clone)]
 pub(super) struct HandleContext {
     queue_context: QueueContext,
@@ -37,6 +38,8 @@ impl HandleContext {
         }
     }
 
+    /// Spawns a task that loads all user handle records in the background and spawns a new listen
+    /// handle background task for each record.
     pub(super) fn spawn_loading(
         queue_context: QueueContext,
         parent_cancel: CancellationToken,
@@ -107,13 +110,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
     }
 
     async fn handle_event(&self, message: HandleQueueMessage) {
-        info!(?message, "handling listen message");
         let message_id = message.message_id.map(From::from);
-        // self.queue_context
-        //     .core_user
-        //     .process_handle_queue_message(&self.handle_record.handle.clone(), message)
-        //     .await
-        //     .unwrap();
         if let Err(error) = self
             .queue_context
             .core_user
