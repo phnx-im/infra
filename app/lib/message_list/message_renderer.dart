@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/markdown.dart';
+import 'package:prototype/theme/theme.dart';
 
 Widget buildBlockElement(BlockElement block, bool isSender) {
   return switch (block) {
@@ -16,7 +17,11 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
     BlockElement_Heading(:final field0) => Text.rich(
       TextSpan(
         children: field0.map(buildInlineElement).toList(),
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          fontVariations: variationBold,
+        ),
       ),
     ),
     BlockElement_Quote(:final field0) => Container(
@@ -167,7 +172,10 @@ InlineSpan buildInlineElement(RangedInlineElement inline) {
     ),
     InlineElement_Bold(:final field0) => TextSpan(
       children: field0.map(buildInlineElement).toList(),
-      style: const TextStyle(fontWeight: FontWeight.bold),
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontVariations: variationBold,
+      ),
     ),
     InlineElement_Italic(:final field0) => TextSpan(
       children: field0.map(buildInlineElement).toList(),
@@ -424,7 +432,10 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Bold(:final field0) => TextSpan(
         children: buildWrappedInline(inline.start, inline.end, field0),
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontVariations: variationBold,
+        ),
       ),
       InlineElement_Italic(:final field0) => TextSpan(
         children: buildWrappedInline(inline.start, inline.end, field0),
