@@ -510,4 +510,127 @@ mod tests {
 
         Ok(())
     }
+
+    #[sqlx::test]
+    async fn handle_contact_upsert_load(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut store_notifier = StoreNotifier::noop();
+        let conversation = test_conversation();
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
+
+        let handle = UserHandle::new("ellie_".to_owned()).unwrap();
+        let handle_contact = HandleContact {
+            handle: handle.clone(),
+            conversation_id: conversation.id(),
+            friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+        };
+
+        handle_contact.upsert(&pool, &mut store_notifier).await?;
+
+        let loaded = HandleContact::load(&pool, &handle).await?.unwrap();
+        assert_eq!(loaded, handle_contact);
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn handle_contact_mark_as_complete(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut store_notifier = StoreNotifier::noop();
+        let conversation = test_conversation();
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
+
+        let handle = UserHandle::new("ellie_".to_owned()).unwrap();
+        let handle_contact = HandleContact {
+            handle: handle.clone(),
+            conversation_id: conversation.id(),
+            friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+        };
+
+        let user_id = UserId::random("localhost".parse().unwrap());
+        let user_profile_key = UserProfileKey::random(&user_id)?;
+        user_profile_key.store(&pool).await?;
+
+        let friendship_package = FriendshipPackage {
+            friendship_token: FriendshipToken::random().unwrap(),
+            connection_key: ConnectionKey::random().unwrap(),
+            wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
+            user_profile_base_secret: user_profile_key.base_secret().clone(),
+        };
+
+        let mut txn = pool.begin().await?;
+
+        let contact = handle_contact
+            .mark_as_complete(
+                &mut txn,
+                &mut store_notifier,
+                user_id,
+                friendship_package,
+                user_profile_key.index().clone(),
+            )
+            .await?;
+
+        txn.commit().await?;
+
+        let loaded_handle_contact = HandleContact::load(&pool, &handle).await?;
+        assert!(loaded_handle_contact.is_none());
+
+        let loaded_contact = Contact::load(&pool, &contact.user_id).await?.unwrap();
+        assert_eq!(loaded_contact, contact);
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn handle_contact_delete(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut store_notifier = StoreNotifier::noop();
+        let conversation = test_conversation();
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
+
+        let handle = UserHandle::new("ellie_".to_owned()).unwrap();
+        let handle_contact = HandleContact {
+            handle: handle.clone(),
+            conversation_id: conversation.id(),
+            friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+        };
+
+        handle_contact.upsert(&pool, &mut store_notifier).await?;
+
+        let mut txn = pool.begin().await?;
+        handle_contact.delete(txn.as_mut()).await?;
+        txn.commit().await?;
+
+        let loaded = HandleContact::load(&pool, &handle).await?;
+        assert!(loaded.is_none());
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn handle_contact_upsert_idempotent(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut store_notifier = StoreNotifier::noop();
+        let conversation = test_conversation();
+        conversation
+            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+            .await?;
+
+        let handle = UserHandle::new("ellie_".to_owned()).unwrap();
+        let handle_contact = HandleContact {
+            handle: handle.clone(),
+            conversation_id: conversation.id(),
+            friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+        };
+
+        handle_contact.upsert(&pool, &mut store_notifier).await?;
+        handle_contact.upsert(&pool, &mut store_notifier).await?; // Upsert again
+
+        let loaded = HandleContact::load(&pool, &handle).await?.unwrap();
+        assert_eq!(loaded, handle_contact);
+
+        Ok(())
+    }
 }

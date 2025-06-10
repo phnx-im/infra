@@ -151,6 +151,7 @@ impl PartialContact {
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct HandleContact {
     pub handle: UserHandle,
     pub conversation_id: ConversationId,
