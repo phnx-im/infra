@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:typed_data';
-
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
@@ -22,27 +20,18 @@ class MockNavigationCubit extends MockCubit<NavigationState>
 
 class MockUserCubit extends MockCubit<UiUser> implements UserCubit {}
 
+class MockUsersCubit extends MockCubit<UsersState> implements UsersCubit {}
+
 class MockUiUser implements UiUser {
-  MockUiUser({
-    required int id,
-    required String displayName,
-    Uint8List? profilePicture,
-    List<UiUserHandle> userHandles = const [],
-  }) : _userId = id.userId(),
-       _displayName = displayName,
-       _profilePicture = profilePicture?.toImageData(),
-       _userHandles = userHandles;
+  MockUiUser({required int id, List<UiUserHandle> userHandles = const []})
+    : _userId = id.userId(),
+      _userHandles = userHandles;
 
   final UiUserId _userId;
-  final String _displayName;
-  final ImageData? _profilePicture;
   final List<UiUserHandle> _userHandles;
 
   @override
   UiUserId get userId => _userId;
-
-  @override
-  String get displayName => _displayName;
 
   @override
   void dispose() {}
@@ -51,10 +40,37 @@ class MockUiUser implements UiUser {
   bool get isDisposed => false;
 
   @override
-  ImageData? get profilePicture => _profilePicture;
+  List<UiUserHandle> get userHandles => _userHandles;
+}
+
+class MockUsersState implements UsersState {
+  MockUsersState({
+    UiUserId? defaultUserId,
+    required List<UiUserProfile> profiles,
+  }) : _defaultUserId = defaultUserId ?? 1.userId(),
+       _profiles = {for (final profile in profiles) profile.userId: profile};
+
+  final UiUserId _defaultUserId;
+  final Map<UiUserId, UiUserProfile> _profiles;
 
   @override
-  List<UiUserHandle> get userHandles => _userHandles;
+  UiUserProfile profile({UiUserId? userId}) {
+    final id = userId ?? _defaultUserId;
+    return _profiles[id]!;
+  }
+
+  @override
+  String displayName({UiUserId? userId}) => profile(userId: userId).displayName;
+
+  @override
+  ImageData? profilePicture({UiUserId? userId}) =>
+      profile(userId: userId).profilePicture;
+
+  @override
+  void dispose() {}
+
+  @override
+  bool get isDisposed => false;
 }
 
 class MockConversationDetailsCubit extends MockCubit<ConversationDetailsState>

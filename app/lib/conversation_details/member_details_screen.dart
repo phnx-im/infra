@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_details/conversation_details_cubit.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -19,10 +20,12 @@ class MemberDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (conversationId, memberUserId) = context.select(
+    final loc = AppLocalizations.of(context);
+
+    final (conversationId, memberId) = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Intro(:final screens) =>
-          throw StateError("No member details for intro screen"),
+          throw StateError(loc.memberDetailsScreen_error),
         NavigationState_Home(
           home: HomeNavigationState(
             conversationId: final conversationId,
@@ -33,19 +36,22 @@ class MemberDetailsScreen extends StatelessWidget {
       },
     );
 
+    final ownUserId = context.select((UserCubit cubit) => cubit.state.userId);
+    final isSelf = memberId == ownUserId;
+
+    final profile = context.select(
+      (UsersCubit cubit) => cubit.state.profile(userId: memberId),
+    );
+
     final roomState = context.select(
       (ConversationDetailsCubit cubit) => cubit.state.roomState,
     );
 
-    final ownUserId = context.select((UserCubit cubit) => cubit.state.userId);
-
-    final isSelf = memberUserId == ownUserId;
-
-    if (conversationId == null || memberUserId == null || roomState == null) {
+    if (conversationId == null || memberId == null || roomState == null) {
       return const SizedBox.shrink();
     }
 
-    final canKick = roomState.canKick(target: memberUserId);
+    final canKick = roomState.canKick(target: memberId);
 
     return Scaffold(
       appBar: AppBar(
@@ -53,7 +59,7 @@ class MemberDetailsScreen extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const AppBarBackButton(),
-        title: const Text("Member details"),
+        title: Text(loc.memberDetailsScreen_title),
       ),
       body: Center(
         child: Column(
@@ -63,68 +69,65 @@ class MemberDetailsScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 const SizedBox(height: _padding),
-                FutureUserAvatar(
+                UserAvatar(
+                  displayName: profile.displayName,
+                  image: profile.profilePicture,
                   size: 64,
-                  profile:
-                      () => context.read<UserCubit>().userProfile(memberUserId),
                 ),
                 const SizedBox(height: _padding),
                 Text(
-                  memberUserId.uuid.toString(), // TODO: display name
                   style: Theme.of(context).textTheme.labelMedium,
+                  profile.displayName,
                 ),
                 const SizedBox(height: _padding),
               ],
             ),
             // Show the remove user button if the user is not the current user and has kicking rights
-            (!isSelf && canKick)
-                ? Padding(
-                  padding: const EdgeInsets.all(_padding),
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      bool confirmed = await showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: const Text("Remove user"),
-                            content: const Text(
-                              "Are you sure you want to remove this user from the group?",
+            if (!isSelf && canKick)
+              Padding(
+                padding: const EdgeInsets.all(_padding),
+                child: OutlinedButton(
+                  onPressed: () async {
+                    bool confirmed = await showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text(loc.removeUserDialog_title),
+                          content: Text(loc.removeUserDialog_content),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(false);
+                              },
+                              style: textButtonStyle(context),
+                              child: Text(loc.removeUserDialog_cancel),
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(false);
-                                },
-                                style: textButtonStyle(context),
-                                child: const Text("Cancel"),
-                              ),
-                              TextButton(
-                                onPressed: () async {
-                                  await context
-                                      .read<UserCubit>()
-                                      .removeUserFromConversation(
-                                        conversationId,
-                                        memberUserId,
-                                      );
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop(true);
-                                  }
-                                },
-                                style: textButtonStyle(context),
-                                child: const Text("Remove user"),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                      if (confirmed && context.mounted) {
-                        Navigator.of(context).pop(true);
-                      }
-                    },
-                    child: const Text("Remove user"),
-                  ),
-                )
-                : const SizedBox.shrink(),
+                            TextButton(
+                              onPressed: () async {
+                                await context
+                                    .read<UserCubit>()
+                                    .removeUserFromConversation(
+                                      conversationId,
+                                      memberId,
+                                    );
+                                if (context.mounted) {
+                                  Navigator.of(context).pop(true);
+                                }
+                              },
+                              style: textButtonStyle(context),
+                              child: Text(loc.removeUserDialog_removeUser),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                    if (confirmed && context.mounted) {
+                      Navigator.of(context).pop(true);
+                    }
+                  },
+                  child: Text(loc.removeUserButton_text),
+                ),
+              ),
           ],
         ),
       ),

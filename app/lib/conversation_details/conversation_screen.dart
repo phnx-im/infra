@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -48,13 +49,14 @@ class _EmptyConversationPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Scaffold(
       body: Center(
         child: Text(
           style: Theme.of(
             context,
           ).textTheme.labelMedium?.copyWith(color: colorDMB),
-          "Select a chat to start messaging",
+          loc.conversationScreen_emptyConversation,
         ),
       ),
     );

@@ -54,9 +54,6 @@ class UserCubit implements StateStreamableSource<UiUser> {
         profilePicture: profilePicture,
       );
 
-  Future<UiUserProfile?> userProfile(UiUserId userId) =>
-      _impl.userProfile(userId);
-
   Future<void> addUserToConversation(
     ConversationId conversationId,
     UiUserId userId,

@@ -13,16 +13,12 @@ import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user.dart';
 
-// These functions are ignored because they are not marked as `pub`: `handle_queue_event`, `new`, `process_fetched_messages`, `run_listen`, `spawn_listen`, `spawn_load`, `spawn_polling`
+// These functions are ignored because they are not marked as `pub`: `handle_queue_event`, `process_fetched_messages`, `run_listen`, `spawn_listen`, `spawn_polling`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NotificationContext`, `UiUserInner`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>>
 abstract class UiUser implements RustOpaqueInterface {
-  String get displayName;
-
-  ImageData? get profilePicture;
-
   List<UiUserHandle> get userHandles;
 
   UiUserId get userId;
@@ -70,9 +66,6 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   UiUser get state;
 
   Stream<UiUser> stream();
-
-  /// Get the user profile of the user with the given [`UiUserId`].
-  Future<UiUserProfile> userProfile(UiUserId userId);
 }
 
 enum AppState { background, foreground }

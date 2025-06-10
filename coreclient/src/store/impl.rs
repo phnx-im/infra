@@ -17,6 +17,10 @@ use crate::{
 use super::{Store, StoreNotification, StoreResult};
 
 impl Store for CoreUser {
+    fn user_id(&self) -> &UserId {
+        self.user_id()
+    }
+
     async fn own_user_profile(&self) -> StoreResult<UserProfile> {
         Ok(self.own_user_profile().await?)
     }

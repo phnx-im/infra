@@ -19,13 +19,17 @@ import 'package:prototype/user/user.dart';
 import '../mocks.dart';
 import '../helpers.dart';
 
+final userProfiles = [
+  UiUserProfile(userId: 1.userId(), displayName: 'Alice'),
+  UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
+  UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+];
+
 final conversations = [
   UiConversationDetails(
     id: 1.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_Connection(
-      UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
-    ),
+    conversationType: UiConversationType_Connection(userProfiles[1]),
     unreadMessages: 10,
     messagesCount: 10,
     attributes: const UiConversationAttributes(title: 'Bob', picture: null),
@@ -51,9 +55,7 @@ final conversations = [
   UiConversationDetails(
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_UnconfirmedConnection(
-      UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
-    ),
+    conversationType: UiConversationType_UnconfirmedConnection(userProfiles[2]),
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiConversationAttributes(title: 'Eve', picture: null),
@@ -139,9 +141,7 @@ void main() {
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: 'alice'));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
     });
 
     Widget buildSubject() => MultiBlocProvider(

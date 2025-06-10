@@ -53,10 +53,7 @@ class ConversationListFooter extends StatelessWidget {
                   connectionUuid,
                   ValidationMode.nonStrict,
                 );
-                final connectionId = UiUserId(
-                  uuid: clientUuid,
-                  domain: domain,
-                );
+                final connectionId = UiUserId(uuid: clientUuid, domain: domain);
                 try {
                   await conversationListCubit.createConnection(
                     userId: connectionId,

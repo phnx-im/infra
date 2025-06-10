@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/widgets/widgets.dart';
 
 import 'connection_details.dart';
@@ -34,19 +35,23 @@ class ConversationDetailsScreenView extends StatelessWidget {
           cubit.state.conversation?.conversationType,
     );
 
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const AppBarBackButton(),
-        title: const Text("Details"),
+        title: Text(loc.conversationDetailsScreen_title),
       ),
       body: switch (conversationType) {
         UiConversationType_UnconfirmedConnection() ||
         UiConversationType_Connection() => const ConnectionDetails(),
         UiConversationType_Group() => const GroupDetails(),
-        null => const Center(child: Text("Unknown conversation")),
+        null => Center(
+          child: Text(loc.conversationDetailsScreen_unknownConversation),
+        ),
       },
     );
   }
