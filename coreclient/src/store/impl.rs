@@ -5,13 +5,13 @@
 use std::{collections::HashSet, sync::Arc};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
     Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, clients::CoreUser, user_profiles::UserProfile,
+    PartialContact, clients::CoreUser, user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 use super::{Store, StoreNotification, StoreResult};
@@ -27,6 +27,25 @@ impl Store for CoreUser {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
+    }
+
+    async fn user_handles(&self) -> StoreResult<Vec<UserHandle>> {
+        Ok(UserHandleRecord::load_all_handles(self.pool()).await?)
+    }
+
+    async fn user_handle_records(&self) -> StoreResult<Vec<UserHandleRecord>> {
+        Ok(UserHandleRecord::load_all(self.pool()).await?)
+    }
+
+    async fn add_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<Option<UserHandleRecord>> {
+        self.add_user_handle(user_handle).await
+    }
+
+    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()> {
+        self.remove_user_handle(user_handle).await
     }
 
     async fn create_conversation(

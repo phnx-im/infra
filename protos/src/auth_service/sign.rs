@@ -3,18 +3,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxcommon::{
-    credentials::keys::{self, ClientKeyType, ClientSignature},
+    credentials::keys::{self, ClientKeyType, ClientSignature, HandleKeyType},
     crypto::signatures::signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
 };
 use prost::Message;
 
 use super::v1::{
     CreateHandlePayload, CreateHandleRequest, DeleteHandlePayload, DeleteHandleRequest,
-    DeleteUserPayload, DeleteUserRequest, InitListenHandlePayload, InitListenHandleRequest,
-    InitListenPayload, InitListenRequest, IssueTokensPayload, IssueTokensRequest,
-    MergeUserProfilePayload, MergeUserProfileRequest, PublishConnectionPackagesPayload,
-    PublishConnectionPackagesRequest, RefreshHandlePayload, RefreshHandleRequest,
-    StageUserProfilePayload, StageUserProfileRequest,
+    DeleteUserPayload, DeleteUserRequest, HandleSignature, InitListenHandlePayload,
+    InitListenHandleRequest, InitListenPayload, InitListenRequest, IssueTokensPayload,
+    IssueTokensRequest, MergeUserProfilePayload, MergeUserProfileRequest,
+    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest, RefreshHandlePayload,
+    RefreshHandleRequest, StageUserProfilePayload, StageUserProfileRequest,
 };
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
@@ -78,6 +78,21 @@ impl SignedStruct<PublishConnectionPackagesPayload, ClientKeyType>
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
+        }
+    }
+}
+
+impl SignedStruct<PublishConnectionPackagesPayload, HandleKeyType>
+    for PublishConnectionPackagesRequest
+{
+    fn from_payload(
+        payload: PublishConnectionPackagesPayload,
+        signature: keys::HandleSignature,
+    ) -> Self {
+        let signature_proto: HandleSignature = signature.into();
+        Self {
+            payload: Some(payload),
+            signature: signature_proto.signature,
         }
     }
 }

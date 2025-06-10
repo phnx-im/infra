@@ -62,6 +62,10 @@ impl UserHandle {
         Ok(UserHandleHash { hash })
     }
 
+    pub fn plaintext(&self) -> &str {
+        &self.plaintext
+    }
+
     pub fn into_plaintext(self) -> String {
         self.plaintext
     }
@@ -102,6 +106,74 @@ pub enum UserHandleValidationError {
 pub enum UserHandleHashError {
     #[error(transparent)]
     Argon2(#[from] argon2::Error),
+}
+
+mod sqlx_impls {
+    use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
+
+    use super::*;
+
+    // `UserHandle` is only persisted in the client database, so we only implement the sqlx traits
+    // for Sqlite.
+
+    impl Type<Sqlite> for UserHandle {
+        fn type_info() -> <Sqlite as Database>::TypeInfo {
+            <String as Type<Sqlite>>::type_info()
+        }
+    }
+
+    impl Encode<'_, Sqlite> for UserHandle {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+        ) -> Result<IsNull, BoxDynError> {
+            Encode::<Sqlite>::encode(self.plaintext().to_owned(), buf)
+        }
+    }
+
+    impl Decode<'_, Sqlite> for UserHandle {
+        fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+            let plaintext: String = Decode::<Sqlite>::decode(value)?;
+            let value = UserHandle::new(plaintext)?;
+            Ok(value)
+        }
+    }
+
+    impl<DB> Type<DB> for UserHandleHash
+    where
+        DB: Database,
+        Vec<u8>: Type<DB>,
+    {
+        fn type_info() -> <DB as Database>::TypeInfo {
+            <Vec<u8> as Type<DB>>::type_info()
+        }
+    }
+
+    impl<'q, DB> Encode<'q, DB> for UserHandleHash
+    where
+        DB: Database,
+        Vec<u8>: Encode<'q, DB>,
+    {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <DB as Database>::ArgumentBuffer<'q>,
+        ) -> Result<IsNull, BoxDynError> {
+            let bytes = self.as_bytes().to_vec();
+            Encode::<DB>::encode(bytes, buf)
+        }
+    }
+
+    impl<'r, DB> Decode<'r, DB> for UserHandleHash
+    where
+        DB: Database,
+        for<'a> &'a [u8]: Decode<'a, DB>,
+    {
+        fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+            let bytes: &[u8] = Decode::<DB>::decode(value)?;
+            let value = UserHandleHash::new(bytes.try_into()?);
+            Ok(value)
+        }
+    }
 }
 
 #[cfg(test)]
