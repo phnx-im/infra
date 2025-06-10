@@ -308,7 +308,6 @@ impl CoreUser {
         conversation
             .confirm(txn.as_mut(), notifier, contact.user_id.clone())
             .await?;
-        dbg!(&contact);
         contact.upsert(txn.as_mut(), notifier).await?;
 
         Ok(())

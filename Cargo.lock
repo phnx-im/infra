@@ -3642,6 +3642,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
  "uuid",

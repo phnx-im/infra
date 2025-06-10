@@ -5,8 +5,10 @@
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    time::Duration,
 };
 
+use anyhow::Context;
 use mimi_content::MimiContent;
 use phnxcommon::{
     DEFAULT_PORT_HTTP,
@@ -19,7 +21,11 @@ use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
 use tempfile::TempDir;
-use tokio::task::{LocalEnterGuard, LocalSet};
+use tokio::{
+    task::{LocalEnterGuard, LocalSet},
+    time::timeout,
+};
+use tokio_stream::StreamExt;
 use tracing::info;
 
 use crate::utils::spawn_app_with_rate_limits;
@@ -31,8 +37,8 @@ pub struct TestUser {
     pub user: CoreUser,
     /// If this is an ephemeral user, this is None.
     pub db_dir: Option<String>,
-    /// The user handle of the user if a handle was added.
-    pub handle: Option<UserHandle>,
+    /// The user handle record of the user if a handle was added.
+    pub user_handle_record: Option<UserHandleRecord>,
 }
 
 impl AsRef<CoreUser> for TestUser {
@@ -69,7 +75,7 @@ impl TestUser {
         Ok(Self {
             user,
             db_dir: None,
-            handle: None,
+            user_handle_record: None,
         })
     }
 
@@ -90,7 +96,7 @@ impl TestUser {
         Self {
             user,
             db_dir: Some(db_dir.to_owned()),
-            handle: None,
+            user_handle_record: None,
         }
     }
 
@@ -98,11 +104,12 @@ impl TestUser {
         &self.user
     }
 
-    pub fn handle(&self) -> Option<&UserHandle> {
-        self.handle.as_ref()
-    }
+    async fn add_user_handle(&mut self) -> anyhow::Result<UserHandleRecord> {
+        if let Some(record) = self.user_handle_record.clone() {
+            info!(user_id = ?self.user.user_id(), "User handle already exists");
+            return Ok(record);
+        }
 
-    async fn add_user_id_as_handle(&mut self) -> anyhow::Result<UserHandle> {
         let user_id_str = format!("{:?}", self.user.user_id())
             .replace('-', "")
             .replace(['@', '.'], "_");
@@ -112,9 +119,14 @@ impl TestUser {
             handle = handle.plaintext(),
             "Adding handle to user"
         );
-        self.user.add_user_handle(&handle).await?;
-        self.handle = Some(handle.clone());
-        Ok(handle)
+        let record = self
+            .user
+            .add_user_handle(&handle)
+            .await?
+            .context("user handle is already in use")?;
+        self.user_handle_record = Some(record.clone());
+
+        Ok(record)
     }
 }
 
@@ -326,7 +338,8 @@ impl TestBackend {
         info!("Connecting users {user1_id:?} and {user2_id:?}");
 
         let test_user2 = self.users.get_mut(user2_id).unwrap();
-        let user2_handle = test_user2.add_user_id_as_handle().await.unwrap();
+        let user2_handle_record = test_user2.add_user_handle().await.unwrap();
+        let user2_handle = &user2_handle_record.handle;
 
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
@@ -344,7 +357,7 @@ impl TestBackend {
         );
         let new_user_position = user1_handle_contacts_after
             .iter()
-            .position(|c| c.handle == user2_handle)
+            .position(|c| &c.handle == user2_handle)
             .expect(&error_msg);
         // If we remove the new user, the handle contact lists should be the same.
         user1_handle_contacts_after.remove(new_user_position);
@@ -378,15 +391,23 @@ impl TestBackend {
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
-        info!("{user2_id:?} fetches AS handle messages");
-        let as_handle_messages = user2.as_fetch_handle_messages().await.unwrap();
-        info!("{user2_id:?} processes AS handle messages");
-        for (handle, message) in as_handle_messages {
+        info!("{user2_id:?} fetches and process AS handle messages");
+        let (mut stream, responder) = user2
+            .listen_handle(user2_handle_record.hash, &user2_handle_record.signing_key)
+            .await
+            .unwrap();
+        while let Some(Some(message)) = timeout(Duration::from_millis(100), stream.next())
+            .await
+            .unwrap()
+        {
+            let message_id = message.message_id.unwrap();
             user2
-                .process_handle_queue_message(&handle, message)
+                .process_handle_queue_message(&user2_handle_record.handle, message)
                 .await
                 .unwrap();
+            responder.ack(message_id.into()).await;
         }
+
         // User 2 should have auto-accepted (for now at least) the connection request.
         let mut user2_contacts_after = user2.contacts().await.unwrap();
         info!("User 2 contacts after: {:?}", user2_contacts_after);

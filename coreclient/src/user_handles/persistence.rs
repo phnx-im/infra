@@ -13,7 +13,7 @@ use sqlx::{SqliteExecutor, query, query_as, query_scalar};
 /// A user handle record stored in the client database.
 ///
 /// Contains additional information about the handle, such as hash and signing key.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UserHandleRecord {
     pub handle: UserHandle,
     pub hash: UserHandleHash,

@@ -25,17 +25,11 @@ use phnxcommon::{
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
-        signatures::{
-            keys::{QsClientSigningKey, QsUserSigningKey},
-            signable::Signable,
-        },
+        signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
-    identifiers::{
-        ClientConfig, QsClientId, QsReference, QsUserId, UserHandle, UserHandleHash, UserId,
-    },
+    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
     messages::{
-        FriendshipToken, MlsInfraVersion, QueueMessage,
-        client_as::ConnectionPackageTbs,
+        FriendshipToken, QueueMessage,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
@@ -53,8 +47,7 @@ use tracing::{error, info};
 use url::Url;
 
 use crate::{
-    Asset, UserHandleRecord, contacts::HandleContact, groups::Group,
-    utils::persistence::delete_client_database,
+    Asset, contacts::HandleContact, groups::Group, utils::persistence::delete_client_database,
 };
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
@@ -449,26 +442,6 @@ impl CoreUser {
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
         self.fetch_messages_from_queue(QueueType::Qs).await
-    }
-
-    pub async fn as_fetch_handle_messages(&self) -> Result<Vec<(UserHandle, HandleQueueMessage)>> {
-        let records = UserHandleRecord::load_all(self.pool()).await?;
-        let mut messages = Vec::new();
-        let client = self.api_client()?;
-        for record in records {
-            let (mut stream, responder) = client
-                .as_listen_handle(record.hash, &record.signing_key)
-                .await?;
-            while let Some(message) = stream.next().await.flatten() {
-                let Some(message_id) = message.message_id else {
-                    error!("no message id in handle queue message");
-                    continue;
-                };
-                messages.push((record.handle.clone(), message));
-                responder.ack(message_id.into()).await;
-            }
-        }
-        Ok(messages)
     }
 
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
