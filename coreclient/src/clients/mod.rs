@@ -30,7 +30,9 @@ use phnxcommon::{
             signable::Signable,
         },
     },
-    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
+    identifiers::{
+        ClientConfig, QsClientId, QsReference, QsUserId, UserHandle, UserHandleHash, UserId,
+    },
     messages::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
         client_as::ConnectionPackageTbs,
@@ -50,7 +52,10 @@ use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info};
 use url::Url;
 
-use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
+use crate::{
+    Asset, UserHandleRecord, contacts::HandleContact, groups::Group,
+    utils::persistence::delete_client_database,
+};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
@@ -446,6 +451,26 @@ impl CoreUser {
         self.fetch_messages_from_queue(QueueType::Qs).await
     }
 
+    pub async fn as_fetch_handle_messages(&self) -> Result<Vec<(UserHandle, HandleQueueMessage)>> {
+        let records = UserHandleRecord::load_all(self.pool()).await?;
+        let mut messages = Vec::new();
+        let client = self.api_client()?;
+        for record in records {
+            let (mut stream, responder) = client
+                .as_listen_handle(record.hash, &record.signing_key)
+                .await?;
+            while let Some(message) = stream.next().await.flatten() {
+                let Some(message_id) = message.message_id else {
+                    error!("no message id in handle queue message");
+                    continue;
+                };
+                messages.push((record.handle.clone(), message));
+                responder.ack(message_id.into()).await;
+            }
+        }
+        Ok(messages)
+    }
+
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
         let contacts = Contact::load_all(self.pool()).await?;
         Ok(contacts)
@@ -460,8 +485,11 @@ impl CoreUser {
     }
 
     pub async fn partial_contacts(&self) -> sqlx::Result<Vec<PartialContact>> {
-        let partial_contact = PartialContact::load_all(self.pool()).await?;
-        Ok(partial_contact)
+        PartialContact::load_all(self.pool()).await
+    }
+
+    pub async fn handle_contacts(&self) -> sqlx::Result<Vec<HandleContact>> {
+        HandleContact::load_all(self.pool()).await
     }
 
     fn create_own_client_reference(&self) -> QsReference {

@@ -10,7 +10,7 @@ use std::{
 use mimi_content::MimiContent;
 use phnxcommon::{
     DEFAULT_PORT_HTTP,
-    identifiers::{Fqdn, UserId},
+    identifiers::{Fqdn, UserHandle, UserId},
 };
 use phnxcoreclient::{
     ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
@@ -29,8 +29,10 @@ use super::TEST_RATE_LIMITS;
 #[derive(Debug)]
 pub struct TestUser {
     pub user: CoreUser,
-    // If this is an ephemeral user, this is None.
+    /// If this is an ephemeral user, this is None.
     pub db_dir: Option<String>,
+    /// The user handle of the user if a handle was added.
+    pub handle: Option<UserHandle>,
 }
 
 impl AsRef<CoreUser> for TestUser {
@@ -63,7 +65,12 @@ impl TestUser {
         let server_url = format!("http://{hostname_str}").parse().unwrap();
 
         let user = CoreUser::new_ephemeral(user_id.clone(), server_url, grpc_port, None).await?;
-        Ok(Self { user, db_dir: None })
+
+        Ok(Self {
+            user,
+            db_dir: None,
+            handle: None,
+        })
     }
 
     pub async fn new_persisted(
@@ -83,11 +90,31 @@ impl TestUser {
         Self {
             user,
             db_dir: Some(db_dir.to_owned()),
+            handle: None,
         }
     }
 
     pub fn user(&self) -> &CoreUser {
         &self.user
+    }
+
+    pub fn handle(&self) -> Option<&UserHandle> {
+        self.handle.as_ref()
+    }
+
+    async fn add_user_id_as_handle(&mut self) -> anyhow::Result<UserHandle> {
+        let user_id_str = format!("{:?}", self.user.user_id())
+            .replace('-', "")
+            .replace(['@', '.'], "_");
+        let handle = UserHandle::new(user_id_str)?;
+        info!(
+            user_id = ?self.user.user_id(),
+            handle = handle.plaintext(),
+            "Adding handle to user"
+        );
+        self.user.add_user_handle(&handle).await?;
+        self.handle = Some(handle.clone());
+        Ok(handle)
     }
 }
 
@@ -297,31 +324,38 @@ impl TestBackend {
 
     pub async fn connect_users(&mut self, user1_id: &UserId, user2_id: &UserId) -> ConversationId {
         info!("Connecting users {user1_id:?} and {user2_id:?}");
+
+        let test_user2 = self.users.get_mut(user2_id).unwrap();
+        let user2_handle = test_user2.add_user_id_as_handle().await.unwrap();
+
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
         let user1_profile = user1.own_user_profile().await.unwrap();
-        let user1_partial_contacts_before = user1.partial_contacts().await.unwrap();
+        let user1_handle_contacts_before = user1.handle_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
-        user1.add_contact(user2_id.clone()).await.unwrap();
-        let mut user1_partial_contacts_after = user1.partial_contacts().await.unwrap();
+        user1
+            .add_contact_via_handle(user2_handle.clone())
+            .await
+            .unwrap();
+        let mut user1_handle_contacts_after = user1.handle_contacts().await.unwrap();
         let error_msg = format!(
-            "User 2 should be in the partial contacts list of user 1. List: {:?}",
-            user1_partial_contacts_after,
+            "User 2 should be in the handle contacts list of user 1. List: {:?}",
+            user1_handle_contacts_after,
         );
-        let new_user_position = user1_partial_contacts_after
+        let new_user_position = user1_handle_contacts_after
             .iter()
-            .position(|c| &c.user_id == user2_id)
+            .position(|c| c.handle == user2_handle)
             .expect(&error_msg);
-        // If we remove the new user, the partial contact lists should be the same.
-        user1_partial_contacts_after.remove(new_user_position);
-        user1_partial_contacts_before
+        // If we remove the new user, the handle contact lists should be the same.
+        user1_handle_contacts_after.remove(new_user_position);
+        user1_handle_contacts_before
             .into_iter()
-            .zip(user1_partial_contacts_after)
+            .zip(user1_handle_contacts_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.user_id, after.user_id);
+                assert_eq!(before.handle, after.handle);
             });
         let mut user1_conversations_after = user1.conversations().await.unwrap();
-        let test_title = format!("Connection group: {user1_id:?} - {user2_id:?}");
+        let test_title = format!("Connection group: {}", user2_handle.plaintext());
         let new_conversation_position = user1_conversations_after
             .iter()
             .position(|c| c.attributes().title() == test_title)
@@ -330,7 +364,7 @@ impl TestBackend {
         assert!(conversation.status() == &ConversationStatus::Active);
         assert!(
             conversation.conversation_type()
-                == &ConversationType::UnconfirmedConnection(user2_id.clone())
+                == &ConversationType::HandleConnection(user2_handle.clone())
         );
         user1_conversations_before
             .into_iter()
@@ -344,23 +378,28 @@ impl TestBackend {
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
-        info!("{user2_id:?} fetches AS messages");
-        let as_messages = user2.as_fetch_messages().await.unwrap();
-        info!("{user2_id:?} processes AS messages");
-        user2.fully_process_as_messages(as_messages).await.unwrap();
+        info!("{user2_id:?} fetches AS handle messages");
+        let as_handle_messages = user2.as_fetch_handle_messages().await.unwrap();
+        info!("{user2_id:?} processes AS handle messages");
+        for (handle, message) in as_handle_messages {
+            user2
+                .process_handle_queue_message(&handle, message)
+                .await
+                .unwrap();
+        }
         // User 2 should have auto-accepted (for now at least) the connection request.
         let mut user2_contacts_after = user2.contacts().await.unwrap();
         info!("User 2 contacts after: {:?}", user2_contacts_after);
-        let user2_partial_contacts_before = user2.partial_contacts().await.unwrap();
+        let user2_handle_contacts_before = user2.handle_contacts().await.unwrap();
         info!(
-            "User 2 partial contacts after: {:?}",
-            user2_partial_contacts_before
+            "User 2 handle contacts after: {:?}",
+            user2_handle_contacts_before
         );
         let new_contact_position = user2_contacts_after
             .iter()
             .position(|c| &c.user_id == user1_id)
-            .expect("User 1 should be in the partial contacts list of user 2");
-        // If we remove the new user, the partial contact lists should be the same.
+            .expect("User 1 should be in the handle contacts list of user 2");
+        // If we remove the new user, the handle contact lists should be the same.
         user2_contacts_after.remove(new_contact_position);
         user2_contacts_before
             .into_iter()

@@ -328,6 +328,19 @@ impl HandleContact {
         .await
     }
 
+    pub(crate) async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
+        query_as!(
+            Self,
+            r#"SELECT
+                user_handle AS "handle: _",
+                conversation_id AS "conversation_id: _",
+                friendship_package_ear_key AS "friendship_package_ear_key: _"
+            FROM user_handle_contacts"#,
+        )
+        .fetch_all(executor)
+        .await
+    }
+
     async fn delete(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         query!(
             "DELETE FROM user_handle_contacts WHERE user_handle = ?",
