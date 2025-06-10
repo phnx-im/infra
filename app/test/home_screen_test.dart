@@ -11,6 +11,7 @@ import 'package:prototype/conversation_list/conversation_list.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/home_screen.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -32,6 +33,7 @@ void main() {
   group('HomeScreen', () {
     late MockNavigationCubit navigationCubit;
     late MockUserCubit userCubit;
+    late MockUsersCubit contactsCubit;
     late MockConversationListCubit conversationListCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
@@ -39,19 +41,15 @@ void main() {
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
+      contactsCubit = MockUsersCubit();
       conversationListCubit = MockConversationListCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
-      when(
-        () => userCubit.userProfile(any()),
-      ).thenAnswer((_) => Future.value(null));
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
+        () => contactsCubit.state,
+      ).thenReturn(MockUsersState(profiles: userProfiles));
       when(() => conversationDetailsCubit.state).thenReturn(
         ConversationDetailsState(conversation: conversation, members: members),
       );
@@ -67,6 +65,7 @@ void main() {
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
         BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
         BlocProvider<ConversationDetailsCubit>.value(
           value: conversationDetailsCubit,
@@ -78,6 +77,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const HomeScreenDesktopLayout(
               conversationList: ConversationListView(),
               conversation: ConversationScreenView(

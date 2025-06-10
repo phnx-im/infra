@@ -79,6 +79,23 @@ check-frb-ci: install-cargo-binstall
     cargo binstall flutter_rust_bridge_codegen@2.9.0 cargo-expand
     just check-frb
 
+# generate localization files
+[working-directory: 'app']
+gen-l10n:
+    flutter gen-l10n
+
+# check that the localization files are up to date
+[working-directory: 'app']
+check-l10n: gen-l10n
+    #!/usr/bin/env -S bash -eu
+    if [ -n "$(git status --porcelain)" ]; then
+        git add -N .
+        git --no-pager diff
+        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to check in generated localization?"
+        echo -e "\x1b[1;31mConsider to run 'just gen-l10n' manually."
+        exit 1
+    fi
+
 # set up the CI environment for the app
 install-cargo-binstall:
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
