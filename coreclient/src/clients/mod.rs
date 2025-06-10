@@ -9,11 +9,13 @@ use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
+pub use phnxapiclient::as_api::ListenHandleResponder;
 use phnxapiclient::{ApiClient, ApiClientInitError};
 use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        keys::{ClientSigningKey, HandleSigningKey},
     },
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
@@ -28,16 +30,18 @@ use phnxcommon::{
             signable::Signable,
         },
     },
-    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
+    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
     messages::{
         FriendshipToken, MlsInfraVersion, QueueMessage,
         client_as::ConnectionPackageTbs,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
+pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
+
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
@@ -511,6 +515,18 @@ impl CoreUser {
     pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
         let api_client = self.inner.api_clients.default_client()?;
         Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
+    }
+
+    pub async fn listen_handle(
+        &self,
+        hash: UserHandleHash,
+        signing_key: &HandleSigningKey,
+    ) -> Result<(
+        impl Stream<Item = Option<HandleQueueMessage>> + use<>,
+        ListenHandleResponder,
+    )> {
+        let api_client = self.inner.api_clients.default_client()?;
+        Ok(api_client.as_listen_handle(hash, signing_key).await?)
     }
 
     /// Mark all messages in the conversation with the given conversation id and

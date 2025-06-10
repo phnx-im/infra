@@ -20,10 +20,10 @@ use super::AppState;
 #[derive(Debug, Clone)]
 #[frb(ignore)]
 pub(super) struct QueueContext {
-    core_user: CoreUser,
-    navigation_state: watch::Receiver<NavigationState>,
-    app_state: watch::Receiver<AppState>,
-    notification_service: NotificationService,
+    pub(super) core_user: CoreUser,
+    pub(super) navigation_state: watch::Receiver<NavigationState>,
+    pub(super) app_state: watch::Receiver<AppState>,
+    pub(super) notification_service: NotificationService,
 }
 
 impl BackgroundStreamContext<QueueEvent> for QueueContext {

@@ -190,12 +190,23 @@ impl Conversation {
         &mut self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
+        user_id: UserId,
     ) -> sqlx::Result<()> {
-        if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
-            let conversation_type = ConversationType::Connection(user_name);
-            self.set_conversation_type(executor, notifier, &conversation_type)
-                .await?;
-            self.conversation_type = conversation_type;
+        match &self.conversation_type {
+            ConversationType::UnconfirmedConnection(connection_user_id) => {
+                debug_assert_eq!(connection_user_id, &user_id);
+                let conversation_type = ConversationType::Connection(user_id);
+                self.set_conversation_type(executor, notifier, &conversation_type)
+                    .await?;
+                self.conversation_type = conversation_type;
+            }
+            ConversationType::HandleConnection(_) => {
+                let conversation_type = ConversationType::Connection(user_id);
+                self.set_conversation_type(executor, notifier, &conversation_type)
+                    .await?;
+                self.conversation_type = conversation_type;
+            }
+            _ => {}
         }
         Ok(())
     }

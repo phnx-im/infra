@@ -4,7 +4,7 @@
 
 use std::fmt;
 
-use anyhow::{Context, bail, ensure};
+use anyhow::{Context, ensure};
 use openmls::group::GroupId;
 use phnxapiclient::{ApiClient, as_api::ConnectionOfferResponder};
 use phnxcommon::{
@@ -25,7 +25,7 @@ use sqlx::SqliteConnection;
 use tracing::info;
 
 use crate::{
-    Conversation, ConversationAttributes, ConversationId, ConversationType, PartialContact,
+    Conversation, ConversationAttributes, ConversationId, PartialContact,
     clients::connection_offer::FriendshipPackage,
     contacts::HandleContact,
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
@@ -75,21 +75,6 @@ impl CoreUser {
             verified_connection_packages: vec![connection_package],
             group_id,
         };
-
-        // Remove previous connection if it exists and is not yet confirmed
-        if let Some(conversation_id) =
-            HandleContact::load_conversation_id(&mut *connection, &handle).await?
-        {
-            if let Some(conversation) =
-                Conversation::load(&mut connection, &conversation_id).await?
-            {
-                let ConversationType::HandleConnection(_) = conversation.conversation_type() else {
-                    bail!("Conversation with this handle already exists");
-                };
-                // This will also delete the handle contact
-                Conversation::delete(&mut *connection, &mut notifier, conversation_id).await?;
-            }
-        }
 
         let contact_id = ContactId::Handle(handle);
 

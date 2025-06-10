@@ -12,7 +12,7 @@ use phnxcommon::{
     identifiers::{Fqdn, UserHandle, UserId},
     messages::FriendshipToken,
 };
-use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as, query_scalar};
+use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
@@ -101,7 +101,7 @@ impl Contact {
         .await
     }
 
-    pub(crate) async fn store(
+    pub(crate) async fn upsert(
         &self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
@@ -109,7 +109,7 @@ impl Contact {
         let uuid = self.user_id.uuid();
         let domain = self.user_id.domain();
         query!(
-            "INSERT INTO contacts (
+            "INSERT OR REPLACE INTO contacts (
                 user_uuid,
                 user_domain,
                 conversation_id,
@@ -279,7 +279,7 @@ impl PartialContact {
         };
 
         self.delete(txn.as_mut(), notifier).await?;
-        contact.store(txn.as_mut(), notifier).await?;
+        contact.upsert(txn.as_mut(), notifier).await?;
 
         Ok(contact)
     }
@@ -301,8 +301,8 @@ impl HandleContact {
             ) VALUES (?, ?, ?, ?)",
             self.handle,
             self.conversation_id,
-            created_at,
             self.friendship_package_ear_key,
+            created_at,
         )
         .execute(executor)
         .await?;
@@ -310,19 +310,56 @@ impl HandleContact {
         Ok(())
     }
 
-    pub(crate) async fn load_conversation_id(
+    pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
         handle: &UserHandle,
-    ) -> sqlx::Result<Option<ConversationId>> {
-        query_scalar!(
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            Self,
             r#"SELECT
-                conversation_id AS "conversation_id: _"
+                user_handle AS "handle: _",
+                conversation_id AS "conversation_id: _",
+                friendship_package_ear_key AS "friendship_package_ear_key: _"
             FROM user_handle_contacts
             WHERE user_handle = ?"#,
             handle,
         )
         .fetch_optional(executor)
         .await
+    }
+
+    async fn delete(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+        query!(
+            "DELETE FROM user_handle_contacts WHERE user_handle = ?",
+            self.handle
+        )
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    /// Creates and persists a [`Contact`] from this [`HandleContact`] and the additional data
+    pub(crate) async fn mark_as_complete(
+        self,
+        txn: &mut SqliteTransaction<'_>,
+        notifier: &mut StoreNotifier,
+        user_id: UserId,
+        friendship_package: FriendshipPackage,
+        user_profile_key_index: UserProfileKeyIndex,
+    ) -> anyhow::Result<Contact> {
+        let contact = Contact {
+            user_id,
+            conversation_id: self.conversation_id,
+            wai_ear_key: friendship_package.wai_ear_key,
+            friendship_token: friendship_package.friendship_token,
+            connection_key: friendship_package.connection_key,
+            user_profile_key_index,
+        };
+
+        self.delete(txn.as_mut()).await?;
+        contact.upsert(txn.as_mut(), notifier).await?;
+
+        Ok(contact)
     }
 }
 
@@ -379,7 +416,7 @@ mod tests {
 
         let (contact, user_profile_key) = test_contact(conversation.id());
         user_profile_key.store(&pool).await?;
-        contact.store(&pool, &mut store_notifier).await?;
+        contact.upsert(&pool, &mut store_notifier).await?;
 
         let loaded = Contact::load(&pool, &contact.user_id).await?.unwrap();
         assert_eq!(loaded, contact);

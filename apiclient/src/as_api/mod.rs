@@ -537,6 +537,7 @@ impl ListenResponder {
     }
 }
 
+#[derive(Debug)]
 pub struct ListenHandleResponder {
     tx: mpsc::Sender<Uuid>,
 }

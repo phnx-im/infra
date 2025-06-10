@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
 use crate::{api::user::User, notifications::NotificationContent};
 
