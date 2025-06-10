@@ -29,7 +29,6 @@ use phnxcommon::{
         client_qs::CreateUserRecordResponse,
         push_token::{EncryptedPushToken, PushToken},
     },
-    time::ExpirationData,
 };
 use tracing::debug;
 
@@ -268,27 +267,11 @@ impl PostAsRegistrationState {
             qs_client_id_encryption_key: key_store.qs_client_id_encryption_key,
         };
 
-        // TODO: For now, we use the same ConnectionDecryptionKey for all
-        // connection packages.
-
-        let mut connection_packages = vec![];
-        for _ in 0..CONNECTION_PACKAGES {
-            let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
-            let connection_package_tbs = ConnectionPackageTbs::new(
-                MlsInfraVersion::default(),
-                key_store.connection_decryption_key.encryption_key().clone(),
-                lifetime,
-                key_store.signing_key.credential().clone(),
-            );
-            let connection_package = connection_package_tbs.sign(&key_store.signing_key)?;
-            connection_packages.push(connection_package);
-        }
-
         let unfinalized_registration_state = UnfinalizedRegistrationState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
-            connection_packages,
+            connection_packages: Vec::new(),
             encrypted_push_token,
         };
 
@@ -318,33 +301,22 @@ pub(crate) struct UnfinalizedRegistrationState {
 }
 
 impl UnfinalizedRegistrationState {
-    pub(super) async fn publish_connection_packages(
-        self,
-        api_clients: &ApiClients,
-    ) -> Result<AsRegisteredUserState> {
+    // Previously, this published connection packages. Now, these are published on user handle
+    // creation.
+    pub(super) fn noop(self) -> AsRegisteredUserState {
         let UnfinalizedRegistrationState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
-            connection_packages,
+            connection_packages: _,
             encrypted_push_token,
         } = self;
-
-        api_clients
-            .default_client()?
-            .as_publish_connection_packages(
-                key_store.signing_key.credential().identity().clone(),
-                connection_packages,
-                &key_store.signing_key,
-            )
-            .await?;
-        let as_registered_user_state = AsRegisteredUserState {
+        AsRegisteredUserState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
             encrypted_push_token,
-        };
-        Ok(as_registered_user_state)
+        }
     }
 
     pub(super) fn user_id(&self) -> &UserId {
