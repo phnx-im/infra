@@ -185,7 +185,7 @@ where
 
     pub(crate) fn spawn(mut self) {
         spawn_from_sync(async move {
-            loop {
+            while !matches!(self.state, State::Finished) {
                 self.step().await;
             }
         });
