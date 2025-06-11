@@ -195,24 +195,27 @@ where
 type EventStream<Event> = Pin<Box<dyn Stream<Item = Event> + Send + 'static>>;
 
 enum State<Event> {
-    /// Initial state, ready to start the main loop.
+    /// Initial state
+    ///
+    /// Creates an event stream and transitions to `Running` when the app is in the foreground.
     Initial,
-    /// The process is running and actively polling the event stream.
-    /// It can also be cancelled or moved to the background from this state.
+    /// The event stream is created and events are being fetched and handled in each step.
     Running {
         stream: EventStream<Event>,
         started_at: Instant,
     },
+    /// The event stream has been stopped with an error or gracefully.
     Stopped {
         result: anyhow::Result<()>,
         started_at: Instant,
     },
-    /// The stream has failed and is waiting for a backoff period before retrying.
+    /// The event stream has failed or stopped too fast, and is waiting for a backoff period before
+    /// retrying.
     Backoff {
         error: Option<anyhow::Error>,
         timeout: Duration,
     },
-    /// The entire operation has been cancelled and is finished.
+    /// The task has been cancelled and is finished.
     Finished,
 }
 
