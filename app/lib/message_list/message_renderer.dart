@@ -11,12 +11,21 @@ import 'package:prototype/core/api/markdown.dart';
 Widget buildBlockElement(BlockElement block, bool isSender) {
   return switch (block) {
     BlockElement_Paragraph(:final field0) => Text.rich(
-      TextSpan(children: field0.map(buildInlineElement).toList()),
+      TextSpan(
+        children:
+            field0.map((child) => buildInlineElement(child, isSender)).toList(),
+        style: TextStyle(color: isSender ? Colors.white : Colors.black),
+      ),
     ),
     BlockElement_Heading(:final field0) => Text.rich(
       TextSpan(
-        children: field0.map(buildInlineElement).toList(),
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        children:
+            field0.map((child) => buildInlineElement(child, isSender)).toList(),
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: isSender ? Colors.white : Colors.black,
+        ),
       ),
     ),
     BlockElement_Quote(:final field0) => Container(
@@ -150,7 +159,7 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
   };
 }
 
-InlineSpan buildInlineElement(RangedInlineElement inline) {
+InlineSpan buildInlineElement(RangedInlineElement inline, bool isSender) {
   return switch (inline.element) {
     InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
@@ -158,27 +167,32 @@ InlineSpan buildInlineElement(RangedInlineElement inline) {
       style: const TextStyle(fontSize: 12),
     ),
     InlineElement_Link(:final children) => TextSpan(
-      children: children.map(buildInlineElement).toList(),
-      style: const TextStyle(
-        color: Colors.black,
-        decorationColor: Colors.blue,
+      children:
+          children.map((child) => buildInlineElement(child, isSender)).toList(),
+      style: TextStyle(
+        color: isSender ? const Color(0xFF69d1ff) : Colors.blue,
+        decorationColor: isSender ? const Color(0xFF69d1ff) : Colors.blue,
         decoration: TextDecoration.underline,
       ),
     ),
     InlineElement_Bold(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
       style: const TextStyle(fontWeight: FontWeight.bold),
     ),
     InlineElement_Italic(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
       style: const TextStyle(fontStyle: FontStyle.italic),
     ),
     InlineElement_Strikethrough(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
       style: const TextStyle(decoration: TextDecoration.lineThrough),
     ),
     InlineElement_Spoiler(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
       style: TextStyle(
         decoration: TextDecoration.combine([
           TextDecoration.overline,
