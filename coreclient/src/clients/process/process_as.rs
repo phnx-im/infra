@@ -333,16 +333,4 @@ impl CoreUser {
             .await?;
         Ok(())
     }
-
-    /// Convenience function that takes a list of `QueueMessage`s retrieved from
-    /// the AS, decrypts them, and processes them.
-    pub async fn fully_process_as_messages(
-        &self,
-        as_messages: Vec<QueueMessage>,
-    ) -> Result<Vec<ConversationId>> {
-        if !as_messages.is_empty() {
-            error!(num_messages = as_messages.len(), "ignoring AS messages");
-        }
-        Ok(Vec::new())
-    }
 }
