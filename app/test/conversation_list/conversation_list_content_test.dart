@@ -55,7 +55,9 @@ final conversations = [
   UiConversationDetails(
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_UnconfirmedConnection(userProfiles[2]),
+    conversationType: const UiConversationType_HandleConnection(
+      UiUserHandle(plaintext: "eve_03"),
+    ),
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiConversationAttributes(title: 'Eve', picture: null),

@@ -11,8 +11,6 @@ import 'package:uuid/uuid.dart';
 extension UiConversationDetailsExtension on UiConversationDetails {
   /// ClientId of the conversation (for group it is null)
   UiUserId? get userId => switch (conversationType) {
-    UiConversationType_UnconfirmedConnection(field0: final profile) =>
-      profile.userId,
     UiConversationType_HandleConnection() => null,
     UiConversationType_Connection(field0: final profile) => profile.userId,
     UiConversationType_Group() => null,
@@ -20,8 +18,6 @@ extension UiConversationDetailsExtension on UiConversationDetails {
 
   /// Title of the conversation
   String get title => switch (conversationType) {
-    UiConversationType_UnconfirmedConnection(field0: final profile) =>
-      "⏳ ${profile.displayName}",
     UiConversationType_HandleConnection(field0: final handle) =>
       "⏳ ${handle.plaintext}",
     UiConversationType_Connection(field0: final profile) => profile.displayName,
@@ -33,10 +29,8 @@ extension UiConversationDetailsExtension on UiConversationDetails {
   /// The picture is either the one from the conversation attributes (when this is a group
   /// conversation) or the one from the user profile (when this is a 1:1 conversation).
   ImageData? get picture => switch (conversationType) {
-    UiConversationType_Connection(field0: final profile) ||
-    UiConversationType_UnconfirmedConnection(
-      field0: final profile,
-    ) => profile.profilePicture,
+    UiConversationType_Connection(field0: final profile) =>
+      profile.profilePicture,
     UiConversationType_HandleConnection() => null,
     UiConversationType_Group() => attributes.picture,
   };
@@ -45,7 +39,6 @@ extension UiConversationDetailsExtension on UiConversationDetails {
 extension UiConversationTypeExtension on UiConversationType {
   /// Description of the conversation type which can show in the UI
   String get description => switch (this) {
-    UiConversationType_UnconfirmedConnection() ||
     UiConversationType_HandleConnection() => "Pending connection request",
     UiConversationType_Connection() => "1:1 conversation",
     UiConversationType_Group() => 'Group conversation',
