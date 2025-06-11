@@ -4,21 +4,16 @@
 
 //! Logged-in user feature
 
+use std::sync::Arc;
 use std::time::Duration;
-use std::{sync::Arc, time::Instant};
 
-use anyhow::bail;
 use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::{UserHandle, UserId};
-use phnxcoreclient::{
-    Asset,
-    clients::{QueueEvent, queue_event},
-};
+use phnxcoreclient::Asset;
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use tokio::sync::watch;
-use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error};
 
 use crate::{
     StreamSink,
@@ -33,6 +28,8 @@ use super::{
     types::{UiUserHandle, UiUserId},
     user::User,
 };
+
+mod qs;
 
 /// State of the [`UserCubit`] which is the logged in user
 ///
@@ -127,9 +124,6 @@ pub struct UserCubitBase {
 
 const POLLING_INTERVAL: Duration = Duration::from_secs(10);
 
-/// Timeout after a queue disconnect is not considered as error
-const REGULAR_DISCONNECT_TIMEOUT: Duration = Duration::from_secs(30 * 60 * 60); // 30 minutes
-
 impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
@@ -147,13 +141,16 @@ impl UserCubitBase {
         let (app_state_tx, app_state) = watch::channel(AppState::Foreground);
 
         let cancel = CancellationToken::new();
-        spawn_listen(
+
+        qs::QueueContext::new(
             core_user.clone(),
             navigation_state.clone(),
             app_state.clone(),
             notification_service.clone(),
-            cancel.clone(),
-        );
+        )
+        .into_task(cancel.clone())
+        .spawn();
+
         spawn_polling(
             core_user.clone(),
             navigation_state,
@@ -264,11 +261,14 @@ impl UserCubitBase {
         Ok(contacts)
     }
 
-    pub fn set_app_state(&self, app_state: AppState) {
-        debug!(?app_state, "app state changed");
+    pub fn set_app_state(&self, _app_state: AppState) {
         // Note: on Desktop, we consider the app to be always in foreground
         #[cfg(any(target_os = "android", target_os = "ios"))]
-        let _no_receivers = self.app_state_tx.send(app_state);
+        {
+            let app_state = _app_state;
+            debug!(?app_state, "app state changed");
+            let _no_receivers = self.app_state_tx.send(app_state);
+        }
     }
 
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
@@ -301,88 +301,6 @@ impl UserCubitBase {
             true
         });
         Ok(())
-    }
-}
-
-fn spawn_listen(
-    core_user: CoreUser,
-    navigation_state: watch::Receiver<NavigationState>,
-    mut app_state: watch::Receiver<AppState>,
-    notification_service: NotificationService,
-    cancel: CancellationToken,
-) {
-    spawn_from_sync(async move {
-        let mut backoff = FibonacciBackoff::new();
-        loop {
-            let res = run_listen(
-                &core_user,
-                &navigation_state,
-                &mut app_state,
-                &notification_service,
-                &cancel,
-                &mut backoff,
-            )
-            .await;
-
-            // stop handler on cancellation
-            if cancel.is_cancelled() {
-                return;
-            }
-
-            // wait for app to be foreground
-            let _ = app_state
-                .wait_for(|app_state| matches!(app_state, AppState::Foreground))
-                .await;
-
-            if let Err(error) = res {
-                // if listen failed, retry with backoff
-                let timeout = backoff.next_backoff();
-                info!(%error, retry_in =? timeout, "listen failed");
-
-                tokio::time::sleep(timeout).await;
-            } else {
-                // otherwise, reset backoff and reconnect
-                backoff.reset();
-            }
-        }
-    });
-}
-
-async fn run_listen(
-    core_user: &CoreUser,
-    navigation_state: &watch::Receiver<NavigationState>,
-    app_state: &mut watch::Receiver<AppState>,
-    notification_service: &NotificationService,
-    cancel: &CancellationToken,
-    backoff: &mut FibonacciBackoff,
-) -> anyhow::Result<()> {
-    let connected_at = Instant::now();
-    let mut queue_stream = core_user.listen_queue().await?;
-    info!("listening to the queue");
-
-    loop {
-        let in_background =
-            app_state.wait_for(|app_state| matches!(app_state, AppState::Background));
-
-        let event = tokio::select! {
-            event = queue_stream.next() => event,
-            _ = in_background => return Ok(()),
-            _ = cancel.cancelled() => return Ok(()),
-        };
-
-        match event {
-            Some(QueueEvent { event: Some(event) }) => {
-                handle_queue_event(event, core_user, navigation_state, notification_service).await
-            }
-            Some(QueueEvent { event: None }) => {
-                error!("missing `event` field in queue event");
-            }
-            None if connected_at.elapsed() < REGULAR_DISCONNECT_TIMEOUT => {
-                bail!("disconnected from the queue");
-            }
-            None => return Ok(()), // regular disconnect
-        }
-        backoff.reset(); // reset backoff after a successful message
     }
 }
 
@@ -427,38 +345,6 @@ fn spawn_polling(
             }
         }
     });
-}
-
-async fn handle_queue_event(
-    event: queue_event::Event,
-    core_user: &CoreUser,
-    navigation_state: &watch::Receiver<NavigationState>,
-    notification_service: &NotificationService,
-) {
-    debug!(?event, "handling listen event");
-    match event {
-        queue_event::Event::Payload(_) => {
-            // currently, we don't handle payload events
-            warn!("ignoring listen event")
-        }
-        queue_event::Event::Update(_) => {
-            let core_user = core_user.clone();
-            let user = User::from_core_user(core_user);
-            match user.fetch_all_messages().await {
-                Ok(fetched_messages) => {
-                    process_fetched_messages(
-                        navigation_state,
-                        notification_service,
-                        fetched_messages,
-                    )
-                    .await;
-                }
-                Err(error) => {
-                    error!(%error, "failed to fetch messages on queue update");
-                }
-            }
-        }
-    }
 }
 
 /// Places in the app where notifications in foreground are handled differently.

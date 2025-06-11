@@ -124,7 +124,7 @@ pub struct NotificationHandle {
     pub conversation_id: Option<ConversationId>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct NotificationService {
     #[cfg(any(target_os = "ios", target_os = "android", target_os = "macos"))]
     dart_service: DartNotificationService,
