@@ -281,10 +281,6 @@ sealed class UiConversationStatus with _$UiConversationStatus {
 sealed class UiConversationType with _$UiConversationType {
   const UiConversationType._();
 
-  /// A connection conversation that is not yet confirmed by the other party.
-  const factory UiConversationType.unconfirmedConnection(UiUserProfile field0) =
-      UiConversationType_UnconfirmedConnection;
-
   /// A connection conversation which was established via a handle and is not yet confirmed by
   /// the other party.
   const factory UiConversationType.handleConnection(UiUserHandle field0) =

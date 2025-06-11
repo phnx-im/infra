@@ -6101,18 +6101,14 @@ impl SseDecode for crate::api::types::UiConversationType {
         let mut tag_ = <i32>::sse_decode(deserializer);
         match tag_ {
             0 => {
-                let mut var_field0 = <crate::api::types::UiUserProfile>::sse_decode(deserializer);
-                return crate::api::types::UiConversationType::UnconfirmedConnection(var_field0);
-            }
-            1 => {
                 let mut var_field0 = <crate::api::types::UiUserHandle>::sse_decode(deserializer);
                 return crate::api::types::UiConversationType::HandleConnection(var_field0);
             }
-            2 => {
+            1 => {
                 let mut var_field0 = <crate::api::types::UiUserProfile>::sse_decode(deserializer);
                 return crate::api::types::UiConversationType::Connection(var_field0);
             }
-            3 => {
+            2 => {
                 return crate::api::types::UiConversationType::Group;
             }
             _ => {
@@ -7349,16 +7345,13 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiConversationStatus>
 impl flutter_rust_bridge::IntoDart for crate::api::types::UiConversationType {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            crate::api::types::UiConversationType::UnconfirmedConnection(field0) => {
+            crate::api::types::UiConversationType::HandleConnection(field0) => {
                 [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
             }
-            crate::api::types::UiConversationType::HandleConnection(field0) => {
+            crate::api::types::UiConversationType::Connection(field0) => {
                 [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
             }
-            crate::api::types::UiConversationType::Connection(field0) => {
-                [2.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::api::types::UiConversationType::Group => [3.into_dart()].into_dart(),
+            crate::api::types::UiConversationType::Group => [2.into_dart()].into_dart(),
             _ => {
                 unimplemented!("");
             }
@@ -8758,20 +8751,16 @@ impl SseEncode for crate::api::types::UiConversationType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         match self {
-            crate::api::types::UiConversationType::UnconfirmedConnection(field0) => {
-                <i32>::sse_encode(0, serializer);
-                <crate::api::types::UiUserProfile>::sse_encode(field0, serializer);
-            }
             crate::api::types::UiConversationType::HandleConnection(field0) => {
-                <i32>::sse_encode(1, serializer);
+                <i32>::sse_encode(0, serializer);
                 <crate::api::types::UiUserHandle>::sse_encode(field0, serializer);
             }
             crate::api::types::UiConversationType::Connection(field0) => {
-                <i32>::sse_encode(2, serializer);
+                <i32>::sse_encode(1, serializer);
                 <crate::api::types::UiUserProfile>::sse_encode(field0, serializer);
             }
             crate::api::types::UiConversationType::Group => {
-                <i32>::sse_encode(3, serializer);
+                <i32>::sse_encode(2, serializer);
             }
             _ => {
                 unimplemented!("");

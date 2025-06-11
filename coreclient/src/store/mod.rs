@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
+    contacts::HandleContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -146,19 +146,13 @@ pub trait Store {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    async fn add_contact_via_handle(&self, handle: UserHandle) -> StoreResult<ConversationId>;
-
-    /// Create a connection with a new user.
-    ///
-    /// Returns the [`ConversationId`] of the newly created connection
-    /// conversation.
-    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId>;
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
     async fn contact(&self, user_id: &UserId) -> StoreResult<Option<Contact>>;
 
-    async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>>;
+    async fn handle_contacts(&self) -> StoreResult<Vec<HandleContact>>;
 
     async fn user_profile(&self, user_id: &UserId) -> UserProfile;
 

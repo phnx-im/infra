@@ -53,7 +53,7 @@ use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
     clients::connection_offer::FriendshipPackage,
-    contacts::{Contact, PartialContact},
+    contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes,
         messages::{ConversationMessage, TimestampedMessage},
@@ -455,10 +455,6 @@ impl CoreUser {
 
     pub async fn try_contact(&self, user_id: &UserId) -> sqlx::Result<Option<Contact>> {
         Contact::load(self.pool(), user_id).await
-    }
-
-    pub async fn partial_contacts(&self) -> sqlx::Result<Vec<PartialContact>> {
-        PartialContact::load_all(self.pool()).await
     }
 
     pub async fn handle_contacts(&self) -> sqlx::Result<Vec<HandleContact>> {

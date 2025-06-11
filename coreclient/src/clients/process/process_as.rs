@@ -71,14 +71,14 @@ impl CoreUser {
 
     async fn process_connection_offer(
         &self,
-        user_handle: UserHandle,
+        handle: UserHandle,
         ecep: EncryptedConnectionOffer,
     ) -> Result<ConversationId> {
         let mut connection = self.pool().acquire().await?;
 
         // Parse & verify connection offer
         let cep_payload = self
-            .parse_and_verify_connection_offer(&mut connection, ecep, user_handle)
+            .parse_and_verify_connection_offer(&mut connection, ecep, handle.clone())
             .await?;
 
         // Prepare group
@@ -129,6 +129,7 @@ impl CoreUser {
         .await?;
 
         // Create conversation
+        // Note: For now, the conversation is immediately confirmed.
         let (mut conversation, contact) = self
             .create_connection_conversation(&mut connection, &group, &cep_payload)
             .await?;
@@ -282,7 +283,6 @@ impl CoreUser {
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
             sender_user_id.clone(),
-            // TODO: conversation title
             ConversationAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
@@ -303,13 +303,7 @@ impl CoreUser {
     ) -> Result<()> {
         group.store(txn.as_mut()).await?;
         conversation.store(txn.as_mut(), notifier).await?;
-
-        // TODO: For now, we automatically confirm conversations.
-        conversation
-            .confirm(txn.as_mut(), notifier, contact.user_id.clone())
-            .await?;
         contact.upsert(txn.as_mut(), notifier).await?;
-
         Ok(())
     }
 

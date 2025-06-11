@@ -15,7 +15,7 @@ mod user_profiles;
 mod utils;
 
 pub use crate::{
-    contacts::{Contact, PartialContact},
+    contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
         InactiveConversation,

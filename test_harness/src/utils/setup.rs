@@ -104,7 +104,7 @@ impl TestUser {
         &self.user
     }
 
-    async fn add_user_handle(&mut self) -> anyhow::Result<UserHandleRecord> {
+    pub async fn add_user_handle(&mut self) -> anyhow::Result<UserHandleRecord> {
         if let Some(record) = self.user_handle_record.clone() {
             info!(user_id = ?self.user.user_id(), "User handle already exists");
             return Ok(record);
@@ -346,10 +346,7 @@ impl TestBackend {
         let user1_profile = user1.own_user_profile().await.unwrap();
         let user1_handle_contacts_before = user1.handle_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
-        user1
-            .add_contact_via_handle(user2_handle.clone())
-            .await
-            .unwrap();
+        user1.add_contact(user2_handle.clone()).await.unwrap();
         let mut user1_handle_contacts_after = user1.handle_contacts().await.unwrap();
         let error_msg = format!(
             "User 2 should be in the handle contacts list of user 1. List: {:?}",
