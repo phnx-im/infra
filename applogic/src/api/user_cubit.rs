@@ -60,6 +60,27 @@ struct UiUserInner {
 }
 
 impl UiUser {
+    fn new(inner: Arc<UiUserInner>) -> Self {
+        Self { inner }
+    }
+
+    /// Loads state in the background
+    fn spawn_load(state_tx: watch::Sender<UiUser>, core_user: CoreUser) {
+        spawn_from_sync(async move {
+            match core_user.user_handles().await {
+                Ok(handles) => {
+                    state_tx.send_modify(|state| {
+                        let inner = Arc::make_mut(&mut state.inner);
+                        inner.user_handles = handles;
+                    });
+                }
+                Err(error) => {
+                    error!(%error, "failed to load user handles");
+                }
+            }
+        });
+    }
+
     #[frb(getter, sync)]
     pub fn user_id(&self) -> UiUserId {
         self.inner.user_id.clone().into()
@@ -112,14 +133,13 @@ const REGULAR_DISCONNECT_TIMEOUT: Duration = Duration::from_secs(30 * 60 * 60); 
 impl UserCubitBase {
     #[frb(sync)]
     pub fn new(user: &User, navigation: &NavigationCubitBase) -> Self {
-        let inner = Arc::new(UiUserInner {
-            user_id: user.user.user_id().clone(),
-            user_handles: Vec::new(), // for now empty
-        });
-        let state = UiUser { inner };
-        let core = CubitCore::with_initial_state(state);
-
         let core_user = user.user.clone();
+        let core = CubitCore::with_initial_state(UiUser::new(Arc::new(UiUserInner {
+            user_id: user.user.user_id().clone(),
+            user_handles: Vec::new(),
+        })));
+
+        UiUser::spawn_load(core.state_tx().clone(), core_user.clone());
 
         let navigation_state = navigation.subscribe();
         let notification_service = navigation.notification_service.clone();
@@ -251,17 +271,22 @@ impl UserCubitBase {
         let _no_receivers = self.app_state_tx.send(app_state);
     }
 
-    pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
+    pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
+        let record = self.core_user.add_user_handle(&user_handle).await?;
+        if record.is_none() {
+            return Ok(false);
+        }
         self.core.state_tx().send_modify(|state| {
             let inner = Arc::make_mut(&mut state.inner);
             inner.user_handles.push(user_handle);
         });
-        Ok(())
+        Ok(true)
     }
 
     pub async fn remove_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
+        self.core_user.remove_user_handle(&user_handle).await?;
         self.core.state_tx().send_if_modified(|state| {
             let inner = Arc::make_mut(&mut state.inner);
             let Some(idx) = inner
