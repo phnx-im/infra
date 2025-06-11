@@ -71,17 +71,6 @@ impl Verifiable for DeleteUserRequest {
 
 const PUBLISH_CONNECTION_PACKAGES_PAYLOAD_LABEL: &str = "PublishConnectionPackagesPayload";
 
-impl SignedStruct<PublishConnectionPackagesPayload, ClientKeyType>
-    for PublishConnectionPackagesRequest
-{
-    fn from_payload(payload: PublishConnectionPackagesPayload, signature: ClientSignature) -> Self {
-        Self {
-            payload: Some(payload),
-            signature: Some(signature.into()),
-        }
-    }
-}
-
 impl SignedStruct<PublishConnectionPackagesPayload, HandleKeyType>
     for PublishConnectionPackagesRequest
 {

@@ -18,10 +18,10 @@ use phnxcommon::{
     identifiers::{UserHandle, UserHandleHash, UserId},
     messages::{
         QueueMessage,
-        client_as::{ConnectionPackage, EncryptedConnectionOffer, UserConnectionPackagesParams},
+        client_as::{ConnectionPackage, EncryptedConnectionOffer},
         client_as_out::{
             AsCredentialsResponseIn, ConnectionPackageIn, EncryptedUserProfile,
-            GetUserProfileResponse, RegisterUserResponseIn, UserConnectionPackagesResponseIn,
+            GetUserProfileResponse, RegisterUserResponseIn,
         },
     },
 };
@@ -29,11 +29,10 @@ use phnxprotos::auth_service::v1::{
     AckListenHandleRequest, AckListenRequest, AsCredentialsRequest, ConnectRequest,
     ConnectResponse, CreateHandlePayload, DeleteHandlePayload, DeleteUserPayload,
     EnqueueConnectionOfferStep, EnqueueMessagesRequest, FetchConnectionPackageStep,
-    GetUserConnectionPackagesRequest, GetUserProfileRequest, HandleQueueMessage,
-    InitListenHandlePayload, InitListenPayload, ListenHandleRequest, ListenRequest,
-    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
-    StageUserProfilePayload, connect_request, connect_response, listen_handle_request,
-    listen_request, publish_connection_packages_payload,
+    GetUserProfileRequest, HandleQueueMessage, InitListenHandlePayload, InitListenPayload,
+    ListenHandleRequest, ListenRequest, MergeUserProfilePayload, PublishConnectionPackagesPayload,
+    RegisterUserRequest, StageUserProfilePayload, connect_request, connect_response,
+    listen_handle_request, listen_request,
 };
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -233,26 +232,6 @@ impl ApiClient {
         Ok((messages, responder))
     }
 
-    pub async fn as_publish_connection_packages(
-        &self,
-        user_id: UserId,
-        connection_packages: Vec<ConnectionPackage>,
-        signing_key: &ClientSigningKey,
-    ) -> Result<(), AsRequestError> {
-        let payload = PublishConnectionPackagesPayload {
-            owner: Some(publish_connection_packages_payload::Owner::UserId(
-                user_id.into(),
-            )),
-            connection_packages: connection_packages.into_iter().map(From::from).collect(),
-        };
-        let request = payload.sign(signing_key)?;
-        self.as_grpc_client
-            .client()
-            .publish_connection_packages(request)
-            .await?;
-        Ok(())
-    }
-
     pub async fn as_publish_connection_packages_for_handle(
         &self,
         hash: UserHandleHash,
@@ -260,9 +239,7 @@ impl ApiClient {
         signing_key: &HandleSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = PublishConnectionPackagesPayload {
-            owner: Some(publish_connection_packages_payload::Owner::Hash(
-                hash.into(),
-            )),
+            hash: Some(hash.into()),
             connection_packages: connection_packages.into_iter().map(From::from).collect(),
         };
         let request = payload.sign(signing_key)?;
@@ -271,33 +248,6 @@ impl ApiClient {
             .publish_connection_packages(request)
             .await?;
         Ok(())
-    }
-
-    pub async fn as_user_connection_packages(
-        &self,
-        payload: UserConnectionPackagesParams,
-    ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {
-        let request = GetUserConnectionPackagesRequest {
-            user_id: Some(payload.user_id.into()),
-        };
-        let response = self
-            .as_grpc_client
-            .client()
-            .get_user_connection_packages(request)
-            .await?
-            .into_inner();
-        let connection_packages = response
-            .connection_packages
-            .into_iter()
-            .map(TryFrom::try_from)
-            .collect::<Result<_, _>>()
-            .map_err(|error| {
-                error!(%error, "failed to convert connection package");
-                AsRequestError::UnexpectedResponse
-            })?;
-        Ok(UserConnectionPackagesResponseIn {
-            connection_packages,
-        })
     }
 
     pub async fn as_enqueue_message(

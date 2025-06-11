@@ -26,7 +26,6 @@ use crate::{
         ratchet::QueueRatchet,
         signatures::signable::{Signable, SignedStruct, VerifiedStruct},
     },
-    identifiers::UserId,
     time::ExpirationData,
 };
 
@@ -231,16 +230,6 @@ impl EarEncryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessage
 impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
 
 // === Anonymous requests ===
-
-#[derive(Debug)]
-pub struct UserConnectionPackagesParams {
-    pub user_id: UserId,
-}
-
-#[derive(Debug)]
-pub struct UserConnectionPackagesResponse {
-    pub key_packages: Vec<ConnectionPackage>,
-}
 
 #[derive(Debug)]
 pub struct AsCredentialsParams {}

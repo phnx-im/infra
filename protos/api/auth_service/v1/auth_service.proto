@@ -13,7 +13,6 @@ service AuthService {
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
-  rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
 
   rpc StageUserProfile(StageUserProfileRequest) returns (StageUserProfileResponse);
   rpc MergeUserProfile(MergeUserProfileRequest) returns (MergeUserProfileResponse);
@@ -184,10 +183,7 @@ message PublishConnectionPackagesRequest {
 }
 
 message PublishConnectionPackagesPayload {
-  oneof owner {
-    UserId user_id = 1;
-    UserHandleHash hash = 3;
-  }
+  UserHandleHash hash = 3;
   repeated ConnectionPackage connection_packages = 2;
 }
 

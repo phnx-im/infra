@@ -20,7 +20,7 @@ use phnxcommon::{
     },
     identifiers,
     messages::{
-        client_as::{AsCredentialsParams, UserConnectionPackagesParams},
+        client_as::AsCredentialsParams,
         client_as_out::{
             GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
             StageUserProfileParamsTbs,
@@ -232,68 +232,30 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
 
-        match request
+        let hash = request
             .payload
             .as_ref()
             .ok_or_missing_field("payload")?
-            .owner
+            .hash
             .clone()
-            .ok_or_missing_field("owner")?
-        {
-            // publishing connection packages for a user
-            publish_connection_packages_payload::Owner::UserId(user_id) => {
-                let user_id: identifiers::UserId = user_id.try_into()?;
-                let client_verifying_key = self.load_client_verifying_key(&user_id).await?;
-                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
-                    request,
-                    &client_verifying_key,
-                )?;
-                let connection_packages = payload
-                    .connection_packages
-                    .into_iter()
-                    .map(|package| package.try_into())
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.inner
-                    .as_publish_connection_packages(user_id, connection_packages)
-                    .await?;
-            }
-            // publishing connection packages for a user handle
-            publish_connection_packages_payload::Owner::Hash(hash) => {
-                let hash: identifiers::UserHandleHash = hash.try_into()?;
-                let handle_verifying_key = self.load_handle_verifying_key(hash).await?;
-                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
-                    request,
-                    &handle_verifying_key,
-                )?;
-                let connection_packages = payload
-                    .connection_packages
-                    .into_iter()
-                    .map(|package| package.try_into())
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.inner
-                    .as_publish_connection_packages_for_handle(&hash, connection_packages)
-                    .await?;
-            }
-        };
+            .ok_or_missing_field("hash")?;
+
+        let hash: identifiers::UserHandleHash = hash.try_into()?;
+        let handle_verifying_key = self.load_handle_verifying_key(hash).await?;
+        let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
+            request,
+            &handle_verifying_key,
+        )?;
+        let connection_packages = payload
+            .connection_packages
+            .into_iter()
+            .map(|package| package.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
+        self.inner
+            .as_publish_connection_packages_for_handle(&hash, connection_packages)
+            .await?;
 
         Ok(Response::new(PublishConnectionPackagesResponse {}))
-    }
-
-    async fn get_user_connection_packages(
-        &self,
-        request: Request<GetUserConnectionPackagesRequest>,
-    ) -> Result<Response<GetUserConnectionPackagesResponse>, Status> {
-        let request = request.into_inner();
-        let user_id = request.user_id.ok_or_missing_field("user_id")?.try_into()?;
-        let params = UserConnectionPackagesParams { user_id };
-        let connection_packages = self
-            .inner
-            .as_user_connection_packages(params)
-            .await?
-            .key_packages;
-        Ok(Response::new(GetUserConnectionPackagesResponse {
-            connection_packages: connection_packages.into_iter().map(Into::into).collect(),
-        }))
     }
 
     async fn as_credentials(
