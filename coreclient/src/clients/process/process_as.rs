@@ -50,7 +50,7 @@ impl CoreUser {
         .await
     }
 
-    /// Process a decrypted message received from the AS handle queue.
+    /// Process a queue message received from the AS handle queue.
     ///
     /// Returns the [`ConversationId`] of any newly created conversations.
     pub async fn process_handle_queue_message(

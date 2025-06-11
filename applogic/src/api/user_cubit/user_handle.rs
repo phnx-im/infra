@@ -9,7 +9,7 @@ use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::UserHandle;
 use phnxcoreclient::{
     UserHandleRecord,
-    clients::{CoreUser, HandleQueueMessage, ListenHandleResponder},
+    clients::{HandleQueueMessage, ListenHandleResponder},
     store::Store,
 };
 use tokio::sync::{RwLock, watch};
@@ -18,29 +18,26 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::util::{BackgroundStreamContext, BackgroundStreamTask, spawn_from_sync};
+use crate::{
+    api::user::User,
+    util::{BackgroundStreamContext, BackgroundStreamTask, spawn_from_sync},
+};
 
-use super::AppState;
+use super::{AppState, CubitContext};
 
 /// The context of the background task that listens to a user handle.
 #[derive(Debug, Clone)]
 #[frb(ignore)]
 pub(super) struct HandleContext {
-    core_user: CoreUser,
-    app_state: watch::Receiver<AppState>,
+    cubit_context: CubitContext,
     handle_record: Arc<UserHandleRecord>,
     responder: Arc<RwLock<Option<ListenHandleResponder>>>,
 }
 
 impl HandleContext {
-    pub(super) fn new(
-        core_user: CoreUser,
-        app_state: watch::Receiver<AppState>,
-        handle_record: UserHandleRecord,
-    ) -> Self {
+    pub(super) fn new(cubit_context: CubitContext, handle_record: UserHandleRecord) -> Self {
         Self {
-            core_user,
-            app_state,
+            cubit_context,
             handle_record: Arc::new(handle_record),
             responder: Default::default(),
         }
@@ -49,13 +46,13 @@ impl HandleContext {
     /// Spawns a task that loads all user handle records in the background and spawns a new listen
     /// handle background task for each record.
     pub(super) fn spawn_loading(
-        core_user: CoreUser,
-        app_state: watch::Receiver<AppState>,
+        cubit_context: CubitContext,
         parent_cancel: CancellationToken,
-        handle_background_tasks: HandleBackgroundTasks,
-    ) {
+    ) -> HandleBackgroundTasks {
+        let handle_background_tasks = HandleBackgroundTasks::default();
+        let tasks_inner = handle_background_tasks.clone();
         spawn_from_sync(async move {
-            let records = match core_user.user_handle_records().await {
+            let records = match cubit_context.core_user.user_handle_records().await {
                 Ok(records) => records,
                 Err(error) => {
                     error!(%error, "failed to load user handle records; won't listen to handles");
@@ -63,11 +60,12 @@ impl HandleContext {
                 }
             };
             for record in records {
-                Self::new(core_user.clone(), app_state.clone(), record)
-                    .into_task(parent_cancel.child_token(), &handle_background_tasks)
+                Self::new(cubit_context.clone(), record)
+                    .into_task(parent_cancel.child_token(), &tasks_inner)
                     .spawn();
             }
         });
+        handle_background_tasks
     }
 
     pub(super) fn into_task(
@@ -102,6 +100,7 @@ impl HandleContext {
 impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
     async fn in_foreground(&self) {
         let _ = self
+            .cubit_context
             .app_state
             .clone()
             .wait_for(|app_state| matches!(app_state, AppState::Foreground))
@@ -110,6 +109,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
 
     async fn in_background(&self) {
         let _ = self
+            .cubit_context
             .app_state
             .clone()
             .wait_for(|app_state| matches!(app_state, AppState::Background))
@@ -120,6 +120,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
         &self,
     ) -> anyhow::Result<impl Stream<Item = HandleQueueMessage> + 'static> {
         let (stream, responder) = self
+            .cubit_context
             .core_user
             .listen_handle(self.handle_record.hash, &self.handle_record.signing_key)
             .await?;
@@ -129,12 +130,22 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
 
     async fn handle_event(&self, message: HandleQueueMessage) {
         let message_id = message.message_id.map(From::from);
-        if let Err(error) = self
+        match self
+            .cubit_context
             .core_user
             .process_handle_queue_message(&self.handle_record.handle.clone(), message)
             .await
         {
-            error!(?error, "failed to process handle queue message");
+            Ok(conversation_id) => {
+                let user = User::from_core_user(self.cubit_context.core_user.clone());
+                let mut notifications = Vec::with_capacity(1);
+                user.new_connection_request_notifications(&[conversation_id], &mut notifications)
+                    .await;
+                self.cubit_context.show_notifications(notifications).await;
+            }
+            Err(error) => {
+                error!(?error, "failed to process handle queue message");
+            }
         }
         // ack the message independently of the result of processing the message
         self.ack(message_id).await;
