@@ -5,6 +5,7 @@
 use std::{collections::HashMap, convert::identity, sync::Arc};
 
 use anyhow::{Context, bail};
+use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::UserHandle;
 use phnxcoreclient::{
     UserHandleRecord,
@@ -23,6 +24,7 @@ use super::AppState;
 
 /// The context of the background task that listens to a user handle.
 #[derive(Debug, Clone)]
+#[frb(ignore)]
 pub(super) struct HandleContext {
     core_user: CoreUser,
     app_state: watch::Receiver<AppState>,
@@ -141,6 +143,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
 
 /// Tracks the background tasks listening to user handles.
 #[derive(Debug, Clone)]
+#[frb(ignore)]
 pub(super) struct HandleBackgroundTasks {
     tx: watch::Sender<HashMap<UserHandle, DropGuard>>,
 }
