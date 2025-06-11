@@ -27,7 +27,7 @@ pub(super) struct QueueContext {
 }
 
 impl BackgroundStreamContext<QueueEvent> for QueueContext {
-    async fn create_stream(&self) -> anyhow::Result<impl Stream<Item = QueueEvent>> {
+    async fn create_stream(&self) -> anyhow::Result<impl Stream<Item = QueueEvent> + 'static> {
         let stream = self.core_user.listen_queue().await?;
         // Immediately emit an update event to kick off the initial state
         let initial_event = QueueEvent {
