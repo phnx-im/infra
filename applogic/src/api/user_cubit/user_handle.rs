@@ -8,7 +8,7 @@ use anyhow::{Context, bail};
 use phnxcommon::identifiers::UserHandle;
 use phnxcoreclient::{
     UserHandleRecord,
-    clients::{HandleQueueMessage, ListenHandleResponder},
+    clients::{CoreUser, HandleQueueMessage, ListenHandleResponder},
     store::Store,
 };
 use tokio::sync::{RwLock, watch};
@@ -19,20 +19,26 @@ use uuid::Uuid;
 
 use crate::util::{BackgroundStreamContext, BackgroundStreamTask, spawn_from_sync};
 
-use super::qs::QueueContext;
+use super::AppState;
 
 /// The context of the background task that listens to a user handle.
 #[derive(Debug, Clone)]
 pub(super) struct HandleContext {
-    queue_context: QueueContext,
+    core_user: CoreUser,
+    app_state: watch::Receiver<AppState>,
     handle_record: Arc<UserHandleRecord>,
     responder: Arc<RwLock<Option<ListenHandleResponder>>>,
 }
 
 impl HandleContext {
-    pub(super) fn new(queue_context: QueueContext, handle_record: UserHandleRecord) -> Self {
+    pub(super) fn new(
+        core_user: CoreUser,
+        app_state: watch::Receiver<AppState>,
+        handle_record: UserHandleRecord,
+    ) -> Self {
         Self {
-            queue_context,
+            core_user,
+            app_state,
             handle_record: Arc::new(handle_record),
             responder: Default::default(),
         }
@@ -41,12 +47,13 @@ impl HandleContext {
     /// Spawns a task that loads all user handle records in the background and spawns a new listen
     /// handle background task for each record.
     pub(super) fn spawn_loading(
-        queue_context: QueueContext,
+        core_user: CoreUser,
+        app_state: watch::Receiver<AppState>,
         parent_cancel: CancellationToken,
         handle_background_tasks: HandleBackgroundTasks,
     ) {
         spawn_from_sync(async move {
-            let records = match queue_context.core_user.user_handle_records().await {
+            let records = match core_user.user_handle_records().await {
                 Ok(records) => records,
                 Err(error) => {
                     error!(%error, "failed to load user handle records; won't listen to handles");
@@ -54,7 +61,7 @@ impl HandleContext {
                 }
             };
             for record in records {
-                Self::new(queue_context.clone(), record)
+                Self::new(core_user.clone(), app_state.clone(), record)
                     .into_task(parent_cancel.child_token(), &handle_background_tasks)
                     .spawn();
             }
@@ -92,16 +99,25 @@ impl HandleContext {
 
 impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
     async fn in_foreground(&self) {
-        self.queue_context.in_foreground().await;
+        let _ = self
+            .app_state
+            .clone()
+            .wait_for(|app_state| matches!(app_state, AppState::Foreground))
+            .await;
     }
 
     async fn in_background(&self) {
-        self.queue_context.in_background().await;
+        let _ = self
+            .app_state
+            .clone()
+            .wait_for(|app_state| matches!(app_state, AppState::Background))
+            .await;
     }
 
-    async fn create_stream(&self) -> anyhow::Result<impl Stream<Item = HandleQueueMessage>> {
+    async fn create_stream(
+        &self,
+    ) -> anyhow::Result<impl Stream<Item = HandleQueueMessage> + 'static> {
         let (stream, responder) = self
-            .queue_context
             .core_user
             .listen_handle(self.handle_record.hash, &self.handle_record.signing_key)
             .await?;
@@ -112,7 +128,6 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
     async fn handle_event(&self, message: HandleQueueMessage) {
         let message_id = message.message_id.map(From::from);
         if let Err(error) = self
-            .queue_context
             .core_user
             .process_handle_queue_message(&self.handle_record.handle.clone(), message)
             .await

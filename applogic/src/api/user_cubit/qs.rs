@@ -17,17 +17,17 @@ use crate::{
 
 use super::AppState;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[frb(ignore)]
 pub(super) struct QueueContext {
     pub(super) core_user: CoreUser,
-    pub(super) navigation_state: watch::Receiver<NavigationState>,
-    pub(super) app_state: watch::Receiver<AppState>,
-    pub(super) notification_service: NotificationService,
+    navigation_state: watch::Receiver<NavigationState>,
+    app_state: watch::Receiver<AppState>,
+    notification_service: NotificationService,
 }
 
 impl BackgroundStreamContext<QueueEvent> for QueueContext {
-    async fn create_stream(&self) -> anyhow::Result<impl Stream<Item = QueueEvent>> {
+    async fn create_stream(&self) -> anyhow::Result<impl Stream<Item = QueueEvent> + 'static> {
         let stream = self.core_user.listen_queue().await?;
         // Immediately emit an update event to kick off the initial state
         let initial_event = QueueEvent {

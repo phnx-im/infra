@@ -116,12 +116,7 @@ pub enum AppState {
 pub struct UserCubitBase {
     core: CubitCore<UiUser>,
     pub(crate) core_user: CoreUser,
-    #[cfg_attr(
-        any(target_os = "linux", target_os = "macos", target_os = "windows"),
-        expect(dead_code)
-    )]
     app_state_tx: watch::Sender<AppState>,
-    queue_context: QueueContext,
     background_listen_handle_tasks: HandleBackgroundTasks,
     cancel: CancellationToken,
 }
@@ -145,18 +140,20 @@ impl UserCubitBase {
         let cancel = CancellationToken::new();
 
         // start background task listening for incoming messages
-        let queue_context = QueueContext::new(
+        QueueContext::new(
             core_user.clone(),
             navigation_state.clone(),
             app_state.clone(),
             notification_service.clone(),
-        );
-        queue_context.clone().into_task(cancel.clone()).spawn();
+        )
+        .into_task(cancel.clone())
+        .spawn();
 
         // start background tasks listening for incoming handle messages
         let background_listen_handle_tasks = HandleBackgroundTasks::default();
         HandleContext::spawn_loading(
-            queue_context.clone(),
+            core_user.clone(),
+            app_state.clone(),
             cancel.clone(),
             background_listen_handle_tasks.clone(),
         );
@@ -165,7 +162,6 @@ impl UserCubitBase {
             core,
             core_user,
             app_state_tx,
-            queue_context,
             background_listen_handle_tasks,
             cancel: cancel.clone(),
         }
@@ -289,12 +285,16 @@ impl UserCubitBase {
         });
 
         // start background listen stream for the handle
-        HandleContext::new(self.queue_context.clone(), record)
-            .into_task(
-                self.cancel.child_token(),
-                &self.background_listen_handle_tasks,
-            )
-            .spawn();
+        HandleContext::new(
+            self.core_user.clone(),
+            self.app_state_tx.subscribe(),
+            record,
+        )
+        .into_task(
+            self.cancel.child_token(),
+            &self.background_listen_handle_tasks,
+        )
+        .spawn();
 
         Ok(true)
     }
