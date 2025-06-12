@@ -13,3 +13,7 @@ DROP COLUMN queue_encryption_key;
 
 ALTER TABLE as_client_records
 DROP COLUMN ratchet;
+
+DROP INDEX IF EXISTS idx_connection_package_user_uuid;
+
+DROP TABLE IF EXISTS connection_packages;
