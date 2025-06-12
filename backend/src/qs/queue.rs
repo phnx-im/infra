@@ -9,6 +9,7 @@ use phnxcommon::{
 };
 use sqlx::{Connection, PgConnection, PgExecutor};
 use tokio_stream::StreamExt;
+use tracing::info;
 
 use crate::errors::{QueueError, StorageError};
 
@@ -69,6 +70,7 @@ impl Queue {
             );
             return Err(QueueError::SequenceNumberMismatch);
         }
+        info!(sequence_number, "enqueue",);
 
         transaction.commit().await?;
 
@@ -132,6 +134,14 @@ impl Queue {
             .unwrap_or_default()
             .try_into()
             .expect("logic error: negative remaining messages");
+
+        info!(
+            sequence_number,
+            number_of_messages,
+            num_messages = %messages.len(),
+            remaining_messages,
+            "read and delete"
+        );
 
         Ok((messages, remaining_messages))
     }

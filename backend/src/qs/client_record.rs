@@ -4,7 +4,7 @@
 
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection, PgConnection};
+use sqlx::{Connection, PgConnection, PgPool};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use phnxcommon::{
@@ -21,6 +21,7 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
+use tracing::{error, info, trace, warn};
 
 use crate::{
     errors::StorageError,
@@ -203,6 +204,25 @@ pub(crate) mod persistence {
             .await?;
             Ok(())
         }
+
+        /// Deletes token from client's database record if it still set.
+        pub(in crate::qs) async fn delete_push_token(
+            &self,
+            executor: impl PgExecutor<'_>,
+        ) -> sqlx::Result<()> {
+            if let Some(encrypted_push_token) = self.encrypted_push_token.as_ref() {
+                query!(
+                    "UPDATE qs_client_records
+                    SET encrypted_push_token = NULL
+                    WHERE client_id = $1 AND encrypted_push_token = $2",
+                    self.client_id as _,
+                    encrypted_push_token as _,
+                )
+                .execute(executor)
+                .await?;
+            }
+            Ok(())
+        }
     }
 
     #[cfg(test)]
@@ -291,14 +311,58 @@ pub(crate) mod persistence {
 
             Ok(())
         }
+
+        #[sqlx::test]
+        async fn delete_push_token(pool: PgPool) -> anyhow::Result<()> {
+            let user_record = store_random_user_record(&pool).await?;
+            let mut client_record = store_random_client_record(&pool, user_record.user_id).await?;
+
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            // push token is deleted
+            client_record.delete_push_token(&pool).await?;
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded.encrypted_push_token, None);
+
+            // push token is not deleted because it is a different one
+            let push_token = EncryptedPushToken::random();
+            client_record.encrypted_push_token = Some(push_token.clone());
+            client_record.update(&pool).await?;
+
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded, client_record);
+
+            client_record.encrypted_push_token = Some(EncryptedPushToken::random());
+            client_record.delete_push_token(&pool).await?;
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded.encrypted_push_token, Some(push_token.clone()));
+
+            // push token is not deleted because it is not set
+            client_record.encrypted_push_token = None;
+            client_record.delete_push_token(&pool).await?;
+            let loaded = QsClientRecord::load(&pool, &client_record.client_id)
+                .await?
+                .expect("missing client record");
+            assert_eq!(loaded.encrypted_push_token, Some(push_token));
+
+            Ok(())
+        }
     }
 }
 
 impl QsClientRecord {
     /// Put a message into the queue.
     pub(crate) async fn enqueue<W: Notifier, P: PushNotificationProvider>(
-        &mut self,
-        connection: &mut PgConnection,
+        pool: &PgPool,
         client_id: &QsClientId,
         websocket_notifier: &W,
         push_notification_provider: &P,
@@ -309,21 +373,28 @@ impl QsClientRecord {
             // Enqueue a queue message.
             // Serialize the message so that we can put it in the queue.
             DsFanOutPayload::QueueMessage(queue_message) => {
+                let mut txn = pool.begin().await?;
+
+                let mut client_record = Self::load(txn.as_mut(), client_id)
+                    .await?
+                    .ok_or(EnqueueError::ClientNotFound)?;
+
                 // Encrypt the message under the current ratchet key.
-                let queue_message = self
-                    .ratchet_key
-                    .encrypt(queue_message)
-                    .map_err(|_| EnqueueError::LibraryError)?;
+                let queue_message = client_record.ratchet_key.encrypt(queue_message)?;
 
                 // TODO: Future work: PCS
 
-                tracing::trace!("Enqueueing message in storage provider");
-                Queue::enqueue(connection, &self.client_id, &queue_message)
-                    .await
-                    .map_err(|e| {
-                        tracing::error!("Failed to enqueue message: {:?}", e);
-                        EnqueueError::Storage
-                    })?;
+                trace!("Enqueueing message in storage provider");
+                Queue::enqueue(txn.as_mut(), client_id, &queue_message).await?;
+
+                // We also update the client record in the storage provider, since we need to store
+                // the new ratchet key.
+                client_record.update(txn.as_mut()).await?;
+
+                // We have to commit the transaction before we can send the notification.
+                // Otherwise, the data might not be yet in the database, but because of the
+                // notification the recipient client might try to fetch it.
+                txn.commit().await?;
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if websocket_notifier
@@ -335,12 +406,12 @@ impl QsClientRecord {
                     // - there is a push token associated with the queue
                     // - there is a push token decryption key
                     // - the decryption is successful
-                    if let Some(ref encrypted_push_token) = self.encrypted_push_token {
+                    if let Some(ref encrypted_push_token) = client_record.encrypted_push_token {
                         if let Some(ref ear_key) = push_token_key_option {
                             // Attempt to decrypt the push token.
                             match PushToken::decrypt(ear_key, encrypted_push_token) {
                                 Err(e) => {
-                                    tracing::error!("Push token decryption failed: {}", e);
+                                    error!("Push token decryption failed: {}", e);
                                 }
                                 Ok(push_token) => {
                                     // Send the push notification.
@@ -350,7 +421,7 @@ impl QsClientRecord {
                                         match e {
                                             // The push notification failed for some other reason.
                                             PushNotificationError::Other(error_description) => {
-                                                tracing::error!(
+                                                error!(
                                                     "Push notification failed unexpectedly: {}",
                                                     error_description
                                                 )
@@ -359,40 +430,40 @@ impl QsClientRecord {
                                             PushNotificationError::InvalidToken(
                                                 error_description,
                                             ) => {
-                                                tracing::info!(
-                                                    "Push notification failed because the token is invalid: {}",
-                                                    error_description
+                                                info!(
+                                                    %error_description,
+                                                    "Push notification failed because the token is invalid",
                                                 );
-                                                self.encrypted_push_token = None;
+                                                client_record.delete_push_token(pool).await?;
                                             }
                                             // There was a network error when trying to send the push notification.
-                                            PushNotificationError::NetworkError(e) => {
-                                                tracing::info!(
-                                                    "Push notification failed because of a network error: {}",
-                                                    e
+                                            PushNotificationError::NetworkError(error) => {
+                                                info!(
+                                                    %error,
+                                                    "Push notification failed because of a network error",
                                                 )
                                             }
                                             PushNotificationError::UnsupportedType => {
-                                                tracing::warn!(
+                                                warn!(
                                                     "Push notification failed because the push token type is unsupported",
                                                 )
                                             }
-                                            PushNotificationError::JwtCreationError(e) => {
-                                                tracing::error!(
-                                                    "Push notification failed because the JWT token could not be created: {}",
-                                                    e
+                                            PushNotificationError::JwtCreationError(error) => {
+                                                error!(
+                                                    error,
+                                                    "Push notification failed because the JWT token could not be created",
                                                 )
                                             }
-                                            PushNotificationError::OAuthError(e) => {
-                                                tracing::error!(
-                                                    "Push notification failed because of an OAuth error: {}",
-                                                    e
+                                            PushNotificationError::OAuthError(error) => {
+                                                error!(
+                                                    %error,
+                                                    "Push notification failed because of an OAuth error",
                                                 )
                                             }
-                                            PushNotificationError::InvalidConfiguration(e) => {
-                                                tracing::error!(
-                                                    "Push notification failed because of an invalid configuration: {}",
-                                                    e
+                                            PushNotificationError::InvalidConfiguration(error) => {
+                                                error!(
+                                                    error,
+                                                    "Push notification failed because of an invalid configuration",
                                                 )
                                             }
                                         }
@@ -402,14 +473,6 @@ impl QsClientRecord {
                         }
                     }
                 }
-
-                // We also update th client record in the storage provider,
-                // since we need to store the new ratchet key and because we
-                // might have deleted the push token.
-                self.update(connection).await.map_err(|e| {
-                    tracing::error!("Failed to update client record: {:?}", e);
-                    EnqueueError::Storage
-                })?;
             }
             // Dispatch an event message.
             DsFanOutPayload::EventMessage(event_message) => {
