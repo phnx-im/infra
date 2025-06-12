@@ -176,7 +176,7 @@ pub trait LocalStore {
 
     async fn load_message_status(
         &self,
-        message_id: ConversationMessageId,
+        mimi_id: &[u8],
         status: MessageStatus,
     ) -> StoreResult<Vec<UserId>>;
 

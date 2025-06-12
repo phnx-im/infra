@@ -8,6 +8,7 @@ use std::{
 };
 
 use mimi_content::MimiContent;
+use openmls::group::GroupId;
 use phnxcommon::{
     DEFAULT_PORT_HTTP,
     identifiers::{Fqdn, UserId},
@@ -558,7 +559,8 @@ impl TestBackend {
             &Message::Content(Box::new(ContentMessage::new(
                 test_sender.user.user_id().clone(),
                 true,
-                orig_message.clone()
+                orig_message.clone(),
+                &GroupId::from_slice(&[0]),
             )))
         );
 
@@ -578,7 +580,8 @@ impl TestBackend {
                 &Message::Content(Box::new(ContentMessage::new(
                     sender_user_id.clone(),
                     true,
-                    orig_message.clone()
+                    orig_message.clone(),
+                    &GroupId::from_slice(&[0])
                 )))
             );
         }

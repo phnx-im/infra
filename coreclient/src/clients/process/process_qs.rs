@@ -259,6 +259,7 @@ impl CoreUser {
                                 // This only returns messages, if they should be shown in the timeline
                                 self.handle_application_message(
                                     txn,
+                                    &group,
                                     application_message,
                                     ds_timestamp,
                                     sender_client_credential.identity(),
@@ -311,9 +312,7 @@ impl CoreUser {
                     if let Err(e) = self
                         .send_message(
                             conversation_id,
-                            MimiContent::simple_delivery_receipt(vec![
-                                message.id().uuid().as_u128().to_be_bytes().to_vec().into(),
-                            ]),
+                            MimiContent::simple_delivery_receipt(&[content_message.mimi_id()]),
                         )
                         .await
                     {
@@ -346,6 +345,7 @@ impl CoreUser {
     async fn handle_application_message(
         &self,
         txn: &mut SqliteTransaction<'_>,
+        group: &Group,
         application_message: openmls::prelude::ApplicationMessage,
         ds_timestamp: TimeStamp,
         sender_user_id: &UserId,
@@ -354,6 +354,7 @@ impl CoreUser {
             application_message,
             ds_timestamp,
             sender_user_id,
+            group,
         );
 
         if let Message::Content(content_message) = message.message() {

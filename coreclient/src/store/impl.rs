@@ -11,7 +11,7 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
+    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message,
     PartialContact, clients::CoreUser, conversations::persistence::load_message_status,
     store::MessageWithStatus, user_profiles::UserProfile,
 };
@@ -145,20 +145,24 @@ impl Store for CoreUser {
 
         let mut connection = self.pool().acquire().await?;
         for message in messages {
-            match message.message() {
-                crate::Message::Content(content_message) => {
-                    dbg!(content_message.content().string_rendering());
-                }
-                crate::Message::Event(event_message) => {}
-            }
+            if let Message::Content(content_message) = message.message() {
+                let delivery_status = load_message_status(
+                    &mut connection,
+                    content_message.mimi_id(),
+                    MessageStatus::Delivered,
+                )
+                .await?;
 
-            let delivery_status =
-                load_message_status(&mut connection, message.id(), MessageStatus::Delivered)
-                    .await?;
-            result.push(MessageWithStatus {
-                message,
-                delivery_status,
-            });
+                result.push(MessageWithStatus {
+                    message,
+                    delivery_status,
+                });
+            } else {
+                result.push(MessageWithStatus {
+                    message,
+                    delivery_status: Vec::new(),
+                });
+            }
         }
 
         Ok(result)
@@ -173,21 +177,33 @@ impl Store for CoreUser {
         };
 
         let mut connection = self.pool().acquire().await?;
-        let delivery_status =
-            load_message_status(&mut connection, message_id, MessageStatus::Delivered).await?;
 
-        Ok(Some(MessageWithStatus {
-            message,
-            delivery_status,
-        }))
+        if let Message::Content(content_message) = message.message() {
+            let delivery_status = load_message_status(
+                &mut connection,
+                content_message.mimi_id(),
+                MessageStatus::Delivered,
+            )
+            .await?;
+
+            Ok(Some(MessageWithStatus {
+                message,
+                delivery_status,
+            }))
+        } else {
+            Ok(Some(MessageWithStatus {
+                message,
+                delivery_status: Vec::new(),
+            }))
+        }
     }
     async fn load_message_status(
         &self,
-        message_id: ConversationMessageId,
+        mimi_id: &[u8],
         status: MessageStatus,
     ) -> StoreResult<Vec<UserId>> {
         let mut connection = self.pool().acquire().await?;
-        Ok(load_message_status(&mut connection, message_id, status).await?)
+        Ok(load_message_status(&mut connection, mimi_id, status).await?)
     }
 
     async fn prev_message(

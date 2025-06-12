@@ -104,6 +104,7 @@ impl UnsentContent {
             sender.clone(),
             conversation_id,
             content.clone(),
+            conversation.group_id(),
         );
         conversation_message.store(txn.as_mut(), notifier).await?;
 

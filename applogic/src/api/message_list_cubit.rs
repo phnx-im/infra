@@ -297,6 +297,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 #[cfg(test)]
 mod tests {
     use mimi_content::MimiContent;
+    use openmls::group::GroupId;
     use phnxcommon::{identifiers::UserId, time::TimeStamp};
     use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
     use uuid::Uuid;
@@ -313,6 +314,7 @@ mod tests {
                     sender.clone(),
                     true,
                     MimiContent::simple_markdown_message("some content".into()),
+                    &GroupId::from_slice(&[0]),
                 )),
             ),
             delivery_status: Vec::new(),

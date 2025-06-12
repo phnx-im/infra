@@ -601,33 +601,17 @@ pub async fn persist_message_status_report(
     let (sender_uuid, sender_domain) = sender.clone().into_parts();
 
     for update in &report.statuses {
-        let message_id = dbg!(Uuid::from_slice(&update.message_id)?);
+        let mimi_id = &update.mimi_id;
         let discriminant = update.status.discriminant();
         query!(
-            "INSERT INTO conversation_message_status (message_id, status, sender_user_domain, sender_user_uuid) VALUES (?, ?, ?, ?)",
-            message_id,
+            "INSERT INTO conversation_message_status (mimi_id, status, sender_user_domain, sender_user_uuid) VALUES (?, ?, ?, ?)",
+            mimi_id,
             discriminant,
             sender_domain,
             sender_uuid,
         )
         .execute(&mut **txn)
         .await?;
-
-        let users = query_as!(
-            SqlPastMember,
-            r#"SELECT
-        sender_user_uuid AS "member_user_uuid: _",
-        sender_user_domain AS "member_user_domain: _"
-        FROM conversation_message_status
-        WHERE message_id = ? AND status = ?"#,
-            message_id,
-            discriminant,
-        )
-        .map(|row| UserId::from(row))
-        .fetch_all(&mut **txn)
-        .await?;
-        assert_ne!(users.len(), 0);
-        dbg!(users);
     }
 
     Ok(())
@@ -635,11 +619,10 @@ pub async fn persist_message_status_report(
 
 pub async fn load_message_status(
     connection: &mut SqliteConnection,
-    message_id: ConversationMessageId,
+    mimi_id: &[u8],
     status: MessageStatus,
 ) -> sqlx::Result<Vec<UserId>> {
     let discriminant = status.discriminant();
-    let message_id = dbg!(message_id.uuid());
 
     let users = query_as!(
         SqlPastMember,
@@ -647,8 +630,8 @@ pub async fn load_message_status(
         sender_user_uuid AS "member_user_uuid: _",
         sender_user_domain AS "member_user_domain: _"
         FROM conversation_message_status
-        WHERE message_id = ? AND status = ?"#,
-        message_id,
+        WHERE mimi_id = ? AND status = ?"#,
+        mimi_id,
         discriminant,
     )
     .map(|row| UserId::from(row))

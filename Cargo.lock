@@ -2826,6 +2826,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_list",
+ "sha2",
  "thiserror 2.0.12",
 ]
 
@@ -3443,6 +3444,7 @@ dependencies = [
  "mimi-room-policy",
  "mimi_content",
  "notify-rust",
+ "openmls",
  "parking_lot",
  "phnxcommon",
  "phnxcoreclient",
@@ -3631,6 +3633,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "mimi_content",
+ "openmls",
  "phnxbackend",
  "phnxcommon",
  "phnxcoreclient",

@@ -6,7 +6,10 @@ use mimi_content::MimiContent;
 use openmls::framing::ApplicationMessage;
 use tracing::warn;
 
-use crate::store::{Store, StoreNotifier};
+use crate::{
+    groups::Group,
+    store::{Store, StoreNotifier},
+};
 
 use super::*;
 
@@ -45,12 +48,14 @@ impl TimestampedMessage {
         application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
         user_id: &UserId,
+        group: &Group,
     ) -> Self {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
                 user_id.clone(),
                 true,
                 content,
+                group.group_id(),
             ))),
             Err(e) => {
                 warn!("Message parsing failed: {e}");
@@ -135,8 +140,11 @@ impl ConversationMessage {
         sender: UserId,
         conversation_id: ConversationId,
         content: MimiContent,
+        group_id: &GroupId,
     ) -> ConversationMessage {
-        let message = Message::Content(Box::new(ContentMessage::new(sender, false, content)));
+        let message = Message::Content(Box::new(ContentMessage::new(
+            sender, false, content, group_id,
+        )));
         let timestamped_message = TimestampedMessage {
             message,
             timestamp: TimeStamp::now(),
@@ -245,14 +253,18 @@ pub struct ContentMessage {
     pub(super) sender: UserId,
     pub(super) sent: bool,
     pub(super) content: MimiContent,
+    pub(super) mimi_id: Vec<u8>,
 }
 
 impl ContentMessage {
-    pub fn new(sender: UserId, sent: bool, content: MimiContent) -> Self {
+    pub fn new(sender: UserId, sent: bool, content: MimiContent, group_id: &GroupId) -> Self {
+        let mimi_id = content.message_id(sender.uuid().as_bytes(), group_id.as_slice());
+
         Self {
             sender,
             sent,
             content,
+            mimi_id,
         }
     }
 
@@ -262,6 +274,10 @@ impl ContentMessage {
 
     pub fn sender(&self) -> &UserId {
         &self.sender
+    }
+
+    pub fn mimi_id(&self) -> &[u8] {
+        &self.mimi_id
     }
 
     pub fn was_sent(&self) -> bool {
