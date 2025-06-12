@@ -160,14 +160,6 @@ impl auth_service_server::AuthService for GrpcAs {
                 .client_credential_payload
                 .ok_or_missing_field("client_payload")?
                 .try_into()?,
-            queue_encryption_key: request
-                .queue_encryption_key
-                .ok_or_missing_field("queue_encryption_key")?
-                .into(),
-            initial_ratchet_secret: request
-                .initial_ratchet_secret
-                .ok_or_missing_field("initial_ratchet_secret")?
-                .try_into()?,
             encrypted_user_profile: request
                 .encrypted_user_profile
                 .ok_or_missing_field("encrypted_user_profile")?

@@ -15,3 +15,9 @@ CREATE TABLE IF NOT EXISTS as_queues (
     PRIMARY KEY (queue_id, sequence_number),
     FOREIGN KEY (queue_id) REFERENCES as_queue_data (queue_id) ON DELETE CASCADE
 );
+
+ALTER TABLE as_client_records
+ADD COLUMN queue_encryption_key BYTEA NOT NULL DEFAULT '\x00';
+
+ALTER TABLE as_client_records
+ADD COLUMN ratchet BYTEA NOT NULL DEFAULT '\x00';

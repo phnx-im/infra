@@ -400,9 +400,6 @@ impl CoreUser {
         while remaining_messages > 0 {
             let api_client = self.inner.api_clients.default_client()?;
             let mut response = match &queue_type {
-                QueueType::As => {
-                    unimplemented!()
-                }
                 QueueType::Qs => {
                     api_client
                         .qs_dequeue_messages(

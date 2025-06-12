@@ -11,10 +11,7 @@ use phnxcommon::{
         ClientCredentialPayload,
         keys::{ClientSigningKey, HandleSigningKey},
     },
-    crypto::{
-        RatchetEncryptionKey, indexed_aead::keys::UserProfileKeyIndex, kdf::keys::RatchetSecret,
-        signatures::signable::Signable,
-    },
+    crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Signable},
     identifiers::{UserHandle, UserHandleHash, UserId},
     messages::{
         client_as::{ConnectionPackage, EncryptedConnectionOffer},
@@ -63,14 +60,10 @@ impl ApiClient {
     pub async fn as_register_user(
         &self,
         client_payload: ClientCredentialPayload,
-        queue_encryption_key: RatchetEncryptionKey,
-        initial_ratchet_secret: RatchetSecret,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<RegisterUserResponseIn, AsRequestError> {
         let request = RegisterUserRequest {
             client_credential_payload: Some(client_payload.into()),
-            queue_encryption_key: Some(queue_encryption_key.into()),
-            initial_ratchet_secret: Some(initial_ratchet_secret.into()),
             encrypted_user_profile: Some(encrypted_user_profile.into()),
         };
         let response = self

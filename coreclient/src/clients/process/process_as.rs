@@ -9,8 +9,7 @@ use phnxcommon::{
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{QualifiedGroupId, UserHandle},
     messages::{
-        QueueMessage,
-        client_as::{EncryptedConnectionOffer, ExtractedAsQueueMessagePayload},
+        client_as::EncryptedConnectionOffer,
         client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
     },
@@ -33,23 +32,8 @@ use super::{
     AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
     EarEncryptable, FriendshipPackage, anyhow,
 };
-use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 
 impl CoreUser {
-    /// Decrypt a `QueueMessage` received from the AS queue.
-    pub async fn decrypt_as_queue_message(
-        &self,
-        as_message_ciphertext: QueueMessage,
-    ) -> Result<ExtractedAsQueueMessagePayload> {
-        self.with_transaction(async |txn| {
-            let mut as_queue_ratchet = StorableAsQueueRatchet::load(txn.as_mut()).await?;
-            let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-            as_queue_ratchet.update_ratchet(txn.as_mut()).await?;
-            Ok(payload.extract()?)
-        })
-        .await
-    }
-
     /// Process a queue message received from the AS handle queue.
     ///
     /// Returns the [`ConversationId`] of any newly created conversations.

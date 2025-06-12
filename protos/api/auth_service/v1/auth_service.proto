@@ -150,8 +150,6 @@ message CredentialFingerprint {
 
 message RegisterUserRequest {
   ClientCredentialPayload client_credential_payload = 1;
-  common.v1.RatchetEncryptionKey queue_encryption_key = 2;
-  common.v1.RatchetSecret initial_ratchet_secret = 3;
   EncryptedUserProfile encrypted_user_profile = 4;
 }
 
