@@ -7,7 +7,7 @@ use openmls::group::GroupId;
 use phnxcommon::identifiers::{Fqdn, UserHandle, UserId};
 use sqlx::{Connection, SqliteConnection, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
-use tracing::info;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -31,7 +31,7 @@ struct SqlConversation {
 }
 
 impl SqlConversation {
-    fn convert(self, past_members: Vec<SqlPastMember>) -> Conversation {
+    fn convert(self, past_members: Vec<SqlPastMember>) -> Option<Conversation> {
         let Self {
             conversation_id,
             conversation_title,
@@ -55,9 +55,11 @@ impl SqlConversation {
                 if is_confirmed_connection {
                     ConversationType::Connection(connection_user_id)
                 } else {
-                    ConversationType::UnconfirmedConnection(connection_user_id)
+                    warn!("Unconfirmed user connections are not supported anymore");
+                    return None;
                 }
             }
+
             (None, None, Some(handle)) => ConversationType::HandleConnection(handle),
             _ => ConversationType::Group,
         };
@@ -70,7 +72,7 @@ impl SqlConversation {
             ))
         };
 
-        Conversation {
+        Some(Conversation {
             id: conversation_id,
             group_id,
             last_read,
@@ -80,7 +82,7 @@ impl SqlConversation {
                 title: conversation_title,
                 picture: conversation_picture,
             },
-        }
+        })
     }
 
     async fn load_past_members(
@@ -136,12 +138,6 @@ impl Conversation {
             connection_user_domain,
             connection_user_handle,
         ) = match self.conversation_type() {
-            ConversationType::UnconfirmedConnection(user_id) => (
-                false,
-                Some(user_id.uuid()),
-                Some(user_id.domain().clone()),
-                None,
-            ),
             ConversationType::HandleConnection(handle) => (false, None, None, Some(handle)),
             ConversationType::Connection(user_id) => (
                 true,
@@ -229,7 +225,7 @@ impl Conversation {
         };
         let members = conversation.load_past_members(&mut transaction).await?;
         transaction.commit().await?;
-        Ok(Some(conversation.convert(members)))
+        Ok(conversation.convert(members))
     }
 
     pub(crate) async fn load_by_group_id(
@@ -261,7 +257,7 @@ impl Conversation {
         };
         let members = conversation.load_past_members(&mut transaction).await?;
         transaction.commit().await?;
-        Ok(Some(conversation.convert(members)))
+        Ok(conversation.convert(members))
     }
 
     pub(crate) async fn load_all(
@@ -284,7 +280,10 @@ impl Conversation {
             FROM conversations"#,
         )
         .fetch(&mut *transaction)
-        .map(|res| res.map(|conversation| conversation.convert(Vec::new())))
+        .filter_map(|res| {
+            res.map(|conversation| conversation.convert(Vec::new()))
+                .transpose()
+        })
         .collect::<sqlx::Result<Vec<Conversation>>>()
         .await?;
         for conversation in &mut conversations {
@@ -540,22 +539,6 @@ impl Conversation {
         conversation_type: &ConversationType,
     ) -> sqlx::Result<()> {
         match conversation_type {
-            ConversationType::UnconfirmedConnection(user_id) => {
-                let uuid = user_id.uuid();
-                let domain = user_id.domain();
-                query!(
-                    "UPDATE conversations SET
-                        connection_user_uuid = ?,
-                        connection_user_domain = ?,
-                        is_confirmed_connection = false
-                    WHERE conversation_id = ?",
-                    uuid,
-                    domain,
-                    self.id,
-                )
-                .execute(executor)
-                .await?;
-            }
             ConversationType::HandleConnection(handle) => {
                 query!(
                     "UPDATE conversations SET

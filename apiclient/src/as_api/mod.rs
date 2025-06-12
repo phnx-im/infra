@@ -11,29 +11,23 @@ use phnxcommon::{
         ClientCredentialPayload,
         keys::{ClientSigningKey, HandleSigningKey},
     },
-    crypto::{
-        RatchetEncryptionKey, indexed_aead::keys::UserProfileKeyIndex, kdf::keys::RatchetSecret,
-        signatures::signable::Signable,
-    },
+    crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Signable},
     identifiers::{UserHandle, UserHandleHash, UserId},
     messages::{
-        QueueMessage,
-        client_as::{ConnectionPackage, EncryptedConnectionOffer, UserConnectionPackagesParams},
+        client_as::{ConnectionPackage, EncryptedConnectionOffer},
         client_as_out::{
             AsCredentialsResponseIn, ConnectionPackageIn, EncryptedUserProfile,
-            GetUserProfileResponse, RegisterUserResponseIn, UserConnectionPackagesResponseIn,
+            GetUserProfileResponse, RegisterUserResponseIn,
         },
     },
 };
 use phnxprotos::auth_service::v1::{
-    AckListenHandleRequest, AckListenRequest, AsCredentialsRequest, ConnectRequest,
-    ConnectResponse, CreateHandlePayload, DeleteHandlePayload, DeleteUserPayload,
-    EnqueueConnectionOfferStep, EnqueueMessagesRequest, FetchConnectionPackageStep,
-    GetUserConnectionPackagesRequest, GetUserProfileRequest, HandleQueueMessage,
-    InitListenHandlePayload, InitListenPayload, ListenHandleRequest, ListenRequest,
-    MergeUserProfilePayload, PublishConnectionPackagesPayload, RegisterUserRequest,
-    StageUserProfilePayload, connect_request, connect_response, listen_handle_request,
-    listen_request, publish_connection_packages_payload,
+    AckListenHandleRequest, AsCredentialsRequest, ConnectRequest, ConnectResponse,
+    CreateHandlePayload, DeleteHandlePayload, DeleteUserPayload, EnqueueConnectionOfferStep,
+    FetchConnectionPackageStep, GetUserProfileRequest, HandleQueueMessage, InitListenHandlePayload,
+    ListenHandleRequest, MergeUserProfilePayload, PublishConnectionPackagesPayload,
+    RegisterUserRequest, StageUserProfilePayload, connect_request, connect_response,
+    listen_handle_request,
 };
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -66,14 +60,10 @@ impl ApiClient {
     pub async fn as_register_user(
         &self,
         client_payload: ClientCredentialPayload,
-        queue_encryption_key: RatchetEncryptionKey,
-        initial_ratchet_secret: RatchetSecret,
         encrypted_user_profile: EncryptedUserProfile,
     ) -> Result<RegisterUserResponseIn, AsRequestError> {
         let request = RegisterUserRequest {
             client_credential_payload: Some(client_payload.into()),
-            queue_encryption_key: Some(queue_encryption_key.into()),
-            initial_ratchet_secret: Some(initial_ratchet_secret.into()),
             encrypted_user_profile: Some(encrypted_user_profile.into()),
         };
         let response = self
@@ -174,85 +164,6 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn as_listen(
-        &self,
-        sequence_number_start: u64,
-        signing_key: &ClientSigningKey,
-    ) -> Result<
-        (
-            impl Stream<Item = Option<QueueMessage>> + Send,
-            ListenResponder,
-        ),
-        AsRequestError,
-    > {
-        let init_payload = InitListenPayload {
-            user_id: Some(signing_key.credential().identity().clone().into()),
-            sequence_number_start,
-        };
-        let init_request = init_payload.sign(signing_key)?;
-
-        const ACK_CHANNEL_BUFFER_SIZE: usize = 16; // not too big for applying backpressure
-        let (requests_tx, requests_rx) = mpsc::channel(ACK_CHANNEL_BUFFER_SIZE);
-        requests_tx
-            .send(ListenRequest {
-                request: Some(listen_request::Request::Init(init_request)),
-            })
-            .await
-            .map_err(|_| {
-                error!("logic error: channel closed");
-                tonic::Status::internal("logic error")
-            })?;
-
-        let mut client = self.as_grpc_client.client();
-
-        let responses = client
-            .listen(ReceiverStream::new(requests_rx))
-            .await?
-            .into_inner();
-
-        let messages = responses.filter_map(|response| -> Option<Option<QueueMessage>> {
-            let response = response
-                .inspect_err(|error| {
-                    error!(%error, "error receiving response");
-                })
-                .ok()?;
-            let Some(message) = response.message else {
-                return Some(None); // sentinel value
-            };
-            let message = message
-                .try_into()
-                .inspect_err(|error| {
-                    error!(%error, "invalid message in response");
-                })
-                .ok()?;
-            Some(Some(message))
-        });
-
-        let responder = ListenResponder { tx: requests_tx };
-
-        Ok((messages, responder))
-    }
-
-    pub async fn as_publish_connection_packages(
-        &self,
-        user_id: UserId,
-        connection_packages: Vec<ConnectionPackage>,
-        signing_key: &ClientSigningKey,
-    ) -> Result<(), AsRequestError> {
-        let payload = PublishConnectionPackagesPayload {
-            owner: Some(publish_connection_packages_payload::Owner::UserId(
-                user_id.into(),
-            )),
-            connection_packages: connection_packages.into_iter().map(From::from).collect(),
-        };
-        let request = payload.sign(signing_key)?;
-        self.as_grpc_client
-            .client()
-            .publish_connection_packages(request)
-            .await?;
-        Ok(())
-    }
-
     pub async fn as_publish_connection_packages_for_handle(
         &self,
         hash: UserHandleHash,
@@ -260,58 +171,13 @@ impl ApiClient {
         signing_key: &HandleSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = PublishConnectionPackagesPayload {
-            owner: Some(publish_connection_packages_payload::Owner::Hash(
-                hash.into(),
-            )),
+            hash: Some(hash.into()),
             connection_packages: connection_packages.into_iter().map(From::from).collect(),
         };
         let request = payload.sign(signing_key)?;
         self.as_grpc_client
             .client()
             .publish_connection_packages(request)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn as_user_connection_packages(
-        &self,
-        payload: UserConnectionPackagesParams,
-    ) -> Result<UserConnectionPackagesResponseIn, AsRequestError> {
-        let request = GetUserConnectionPackagesRequest {
-            user_id: Some(payload.user_id.into()),
-        };
-        let response = self
-            .as_grpc_client
-            .client()
-            .get_user_connection_packages(request)
-            .await?
-            .into_inner();
-        let connection_packages = response
-            .connection_packages
-            .into_iter()
-            .map(TryFrom::try_from)
-            .collect::<Result<_, _>>()
-            .map_err(|error| {
-                error!(%error, "failed to convert connection package");
-                AsRequestError::UnexpectedResponse
-            })?;
-        Ok(UserConnectionPackagesResponseIn {
-            connection_packages,
-        })
-    }
-
-    pub async fn as_enqueue_message(
-        &self,
-        user_id: UserId,
-        connection_offer: EncryptedConnectionOffer,
-    ) -> Result<(), AsRequestError> {
-        let request = EnqueueMessagesRequest {
-            user_id: Some(user_id.into()),
-            connection_offer: Some(connection_offer.into()),
-        };
-        self.as_grpc_client
-            .client()
-            .enqueue_messages(request)
             .await?;
         Ok(())
     }
@@ -518,22 +384,6 @@ impl ApiClient {
         let request = payload.sign(signing_key)?;
         self.as_grpc_client.client().delete_handle(request).await?;
         Ok(())
-    }
-}
-
-pub struct ListenResponder {
-    tx: mpsc::Sender<ListenRequest>,
-}
-
-impl ListenResponder {
-    pub async fn ack(&self, up_to_sequence_number: u64) {
-        let ack_request = listen_request::Request::Ack(AckListenRequest {
-            up_to_sequence_number,
-        });
-        let request = ListenRequest {
-            request: Some(ack_request),
-        };
-        let _ = self.tx.send(request).await;
     }
 }
 

@@ -11,7 +11,7 @@ use phnxcommon::{
     codec::PhnxCodec,
     credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
-    identifiers::{QualifiedGroupId, UserId},
+    identifiers::{QualifiedGroupId, UserHandle, UserId},
     messages::{
         QueueMessage,
         client_ds::{
@@ -26,7 +26,7 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    ConversationMessage, PartialContact,
+    ConversationMessage,
     contacts::HandleContact,
     conversations::ConversationType,
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
@@ -366,11 +366,8 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         let conversation_changed = match &conversation.conversation_type() {
-            ConversationType::UnconfirmedConnection(user_id) => {
-                ensure!(
-                    sender_client_credential.identity() == user_id,
-                    "Incoming commit to ConnectionGroup was not from the expected user"
-                );
+            ConversationType::HandleConnection(handle) => {
+                let handle = handle.clone();
                 self.handle_unconfirmed_conversation(
                     txn,
                     &mut notifier,
@@ -378,19 +375,10 @@ impl CoreUser {
                     sender,
                     sender_client_credential,
                     &mut conversation,
+                    &handle,
                 )
-                .await?
-            }
-            ConversationType::HandleConnection(_) => {
-                self.handle_unconfirmed_conversation(
-                    txn,
-                    &mut notifier,
-                    aad,
-                    sender,
-                    sender_client_credential,
-                    &mut conversation,
-                )
-                .await?
+                .await?;
+                true
             }
             _ => false,
         };
@@ -413,6 +401,7 @@ impl CoreUser {
         Ok((group_messages, conversation_changed))
     }
 
+    #[expect(clippy::too_many_arguments)]
     async fn handle_unconfirmed_conversation(
         &self,
         txn: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
@@ -421,7 +410,8 @@ impl CoreUser {
         sender: &Sender,
         sender_client_credential: &ClientCredential,
         conversation: &mut Conversation,
-    ) -> Result<bool, anyhow::Error> {
+        handle: &UserHandle,
+    ) -> Result<(), anyhow::Error> {
         // Check if it was an external commit
         ensure!(
             matches!(sender, Sender::NewMemberCommit),
@@ -429,30 +419,11 @@ impl CoreUser {
         );
         let user_id = sender_client_credential.identity();
 
-        enum Contact {
-            User(PartialContact),
-            Handle(HandleContact),
-        }
-
         // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
         // friendship package
-        let contact = match conversation.conversation_type() {
-            ConversationType::UnconfirmedConnection(_) => Contact::User(
-                PartialContact::load(txn.as_mut(), user_id)
-                    .await?
-                    .with_context(|| {
-                        format!("No partial contact found with user_id: {user_id:?}")
-                    })?,
-            ),
-            ConversationType::HandleConnection(handle) => Contact::Handle(
-                HandleContact::load(txn.as_mut(), handle)
-                    .await?
-                    .with_context(|| {
-                        format!("No contact found with handle: {}", handle.plaintext())
-                    })?,
-            ),
-            _ => bail!("logic error: conversation type is not unconfirmed"),
-        };
+        let contact = HandleContact::load(txn.as_mut(), handle)
+            .await?
+            .with_context(|| format!("No contact found with handle: {}", handle.plaintext()))?;
 
         // This is a bit annoying, since we already
         // de-serialized this in the group processing
@@ -466,12 +437,10 @@ impl CoreUser {
             bail!("Unexpected AAD payload")
         };
 
-        let friendship_package_ear_key = match &contact {
-            Contact::User(partial_contact) => &partial_contact.friendship_package_ear_key,
-            Contact::Handle(handle_contact) => &handle_contact.friendship_package_ear_key,
-        };
-        let friendship_package =
-            FriendshipPackage::decrypt(friendship_package_ear_key, &encrypted_friendship_package)?;
+        let friendship_package = FriendshipPackage::decrypt(
+            &contact.friendship_package_ear_key,
+            &encrypted_friendship_package,
+        )?;
 
         let user_profile_key = UserProfileKey::from_base_secret(
             friendship_package.user_profile_base_secret.clone(),
@@ -488,30 +457,21 @@ impl CoreUser {
         .await?;
 
         // Now we can turn the partial contact into a full one.
-        let contact = match contact {
-            Contact::User(partial_contact) => {
-                partial_contact
-                    .mark_as_complete(txn, notifier, friendship_package, user_profile_key_index)
-                    .await?
-            }
-            Contact::Handle(handle_contact) => {
-                handle_contact
-                    .mark_as_complete(
-                        txn,
-                        notifier,
-                        user_id.clone(),
-                        friendship_package,
-                        user_profile_key_index,
-                    )
-                    .await?
-            }
-        };
+        let contact = contact
+            .mark_as_complete(
+                txn,
+                notifier,
+                user_id.clone(),
+                friendship_package,
+                user_profile_key_index,
+            )
+            .await?;
 
         conversation
             .confirm(txn.as_mut(), notifier, contact.user_id)
             .await?;
 
-        Ok(true)
+        Ok(())
     }
 
     async fn handle_user_profile_key_update(

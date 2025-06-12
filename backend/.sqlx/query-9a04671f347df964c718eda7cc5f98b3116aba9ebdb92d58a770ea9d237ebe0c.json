@@ -1,12 +1,10 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE as_client_records SET\n                    queue_encryption_key = $1,\n                    ratchet = $2,\n                    activity_time = $3,\n                    credential = $4,\n                    remaining_tokens = $5\n                WHERE user_uuid = $6 AND user_domain = $7",
+  "query": "UPDATE as_client_records SET\n                    activity_time = $1,\n                    credential = $2,\n                    remaining_tokens = $3\n                WHERE user_uuid = $4 AND user_domain = $5",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
-        "Bytea",
-        "Bytea",
         "Timestamptz",
         {
           "Custom": {
@@ -64,5 +62,5 @@
     },
     "nullable": []
   },
-  "hash": "7ed00915935ac188b579fb9639cd57b3fd8e64335bb387c08a50884aa7b002de"
+  "hash": "9a04671f347df964c718eda7cc5f98b3116aba9ebdb92d58a770ea9d237ebe0c"
 }

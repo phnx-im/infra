@@ -130,8 +130,6 @@ impl From<InactiveConversation> for UiInactiveConversation {
 /// Type of a conversation
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiConversationType {
-    /// A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UiUserProfile),
     /// A connection conversation which was established via a handle and is not yet confirmed by
     /// the other party.
     HandleConnection(UiUserHandle),
@@ -153,18 +151,15 @@ impl UiConversationType {
         store: &impl Store,
         conversation_type: ConversationType,
     ) -> Self {
-        let load_profile = async |user_id| {
-            let user_profile = store.user_profile(&user_id).await;
-            UiUserProfile::from_profile(user_profile)
-        };
         match conversation_type {
-            ConversationType::UnconfirmedConnection(user_id) => {
-                Self::UnconfirmedConnection(load_profile(user_id).await)
-            }
             ConversationType::HandleConnection(handle) => {
                 Self::HandleConnection(UiUserHandle::from(handle))
             }
-            ConversationType::Connection(user_id) => Self::Connection(load_profile(user_id).await),
+            ConversationType::Connection(user_id) => {
+                let user_profile = store.user_profile(&user_id).await;
+                let profile = UiUserProfile::from_profile(user_profile);
+                Self::Connection(profile)
+            }
             ConversationType::Group => Self::Group,
         }
     }

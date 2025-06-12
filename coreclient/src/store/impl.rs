@@ -11,7 +11,8 @@ use uuid::Uuid;
 
 use crate::{
     Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, clients::CoreUser, user_handles::UserHandleRecord, user_profiles::UserProfile,
+    clients::CoreUser, contacts::HandleContact, user_handles::UserHandleRecord,
+    user_profiles::UserProfile,
 };
 
 use super::{Store, StoreNotification, StoreResult};
@@ -117,12 +118,8 @@ impl Store for CoreUser {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact_via_handle(&self, handle: UserHandle) -> StoreResult<ConversationId> {
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId> {
         self.add_contact_via_handle(handle).await
-    }
-
-    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId> {
-        self.add_contact(user_id).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
@@ -133,8 +130,8 @@ impl Store for CoreUser {
         Ok(self.try_contact(user_id).await?)
     }
 
-    async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>> {
-        Ok(self.partial_contacts().await?)
+    async fn handle_contacts(&self) -> StoreResult<Vec<HandleContact>> {
+        Ok(self.handle_contacts().await?)
     }
 
     async fn user_profile(&self, user_id: &UserId) -> UserProfile {

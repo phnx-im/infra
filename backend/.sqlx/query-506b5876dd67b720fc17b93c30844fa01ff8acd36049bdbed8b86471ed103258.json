@@ -1,14 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO as_client_records (\n                    user_uuid,\n                    user_domain,\n                    queue_encryption_key,\n                    ratchet,\n                    activity_time,\n                    credential,\n                    remaining_tokens\n                ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+  "query": "INSERT INTO as_client_records (\n                    user_uuid,\n                    user_domain,\n                    activity_time,\n                    credential,\n                    remaining_tokens\n                ) VALUES ($1, $2, $3, $4, $5)",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Uuid",
         "Text",
-        "Bytea",
-        "Bytea",
         "Timestamptz",
         {
           "Custom": {
@@ -64,5 +62,5 @@
     },
     "nullable": []
   },
-  "hash": "f46fc27a87c7925045a69ae7b794888f365e8122c5366dc1f2204e2d1870198f"
+  "hash": "506b5876dd67b720fc17b93c30844fa01ff8acd36049bdbed8b86471ed103258"
 }

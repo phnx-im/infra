@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcoreclient::{ConversationId, ConversationMessage};
+use phnxcoreclient::{ConversationId, ConversationMessage, ConversationType};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,19 +22,14 @@ impl User {
                 .await
             {
                 let title = match conversation.conversation_type() {
-                    phnxcoreclient::ConversationType::UnconfirmedConnection(user_id)
-                    | phnxcoreclient::ConversationType::Connection(user_id) => self
+                    ConversationType::Connection(user_id) => self
                         .user
                         .user_profile(user_id)
                         .await
                         .display_name
                         .to_string(),
-                    phnxcoreclient::ConversationType::HandleConnection(handle) => {
-                        handle.plaintext().to_owned()
-                    }
-                    phnxcoreclient::ConversationType::Group => {
-                        conversation.attributes().title().to_string()
-                    }
+                    ConversationType::HandleConnection(handle) => handle.plaintext().to_owned(),
+                    ConversationType::Group => conversation.attributes().title().to_string(),
                 };
                 let body = conversation_message
                     .message()
@@ -78,21 +73,18 @@ impl User {
     ) {
         for conversation_id in connection_conversations {
             if let Some(conversation) = self.user.conversation(conversation_id).await {
-                if let phnxcoreclient::ConversationType::UnconfirmedConnection(client_id)
-                | phnxcoreclient::ConversationType::Connection(client_id) =
-                    conversation.conversation_type()
-                {
+                if let ConversationType::Connection(client_id) = conversation.conversation_type() {
                     let contact_name = self.user.user_profile(client_id).await.display_name;
                     let title = format!("New connection with {contact_name}");
                     let body = "Say hi".to_owned();
 
                     notifications.push(NotificationContent {
                         identifier: NotificationId::random(),
-                        title: title.to_owned(),
-                        body: body.to_owned(),
+                        title,
+                        body,
                         conversation_id: Some(*conversation_id),
                     });
-                };
+                }
             }
         }
     }

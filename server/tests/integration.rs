@@ -13,7 +13,7 @@ use phnxprotos::{
 };
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{UserHandle, UserId};
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
     store::Store,
@@ -625,7 +625,9 @@ async fn error_if_user_doesnt_exist() {
     let alice_test = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test.user;
 
-    let res = alice.add_contact(BOB.clone()).await;
+    let res = alice
+        .add_contact(UserHandle::new("non_existent".to_owned()).unwrap())
+        .await;
 
     assert!(res.is_err());
 }
