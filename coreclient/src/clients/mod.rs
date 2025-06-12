@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, convert::identity, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
@@ -47,7 +47,8 @@ use tracing::{error, info};
 use url::Url;
 
 use crate::{
-    Asset, contacts::HandleContact, groups::Group, utils::persistence::delete_client_database,
+    Asset, contacts::HandleContact, groups::Group, store::Store,
+    utils::persistence::delete_client_database,
 };
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
@@ -427,17 +428,38 @@ impl CoreUser {
         Ok(messages)
     }
 
-    pub async fn as_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        let sequence_number = QueueType::As.load_sequence_number(self.pool()).await?;
-        let api_client = self.inner.api_clients.default_client()?;
-        let (stream, responder) = api_client
-            .as_listen(sequence_number, &self.inner.key_store.signing_key)
-            .await?;
-        let messages: Vec<QueueMessage> = stream.map_while(identity).collect().await;
-        if let Some(message) = messages.last() {
-            responder.ack(message.sequence_number).await;
+    /// Fetch and process AS messages
+    ///
+    /// Returns the list of [`ConversationId`]s of any newly created conversations.
+    pub async fn fetch_and_process_as_messages(&self) -> Result<Vec<ConversationId>> {
+        let records = self.user_handle_records().await?;
+        let api_client = self.api_client()?;
+        let mut conversation_ids = Vec::new();
+        for record in records {
+            let (mut stream, responder) = api_client
+                .as_listen_handle(record.hash, &record.signing_key)
+                .await?;
+            while let Some(Some(message)) = stream.next().await {
+                let Some(message_id) = message.message_id else {
+                    error!("no message id in handle queue message");
+                    continue;
+                };
+                match self
+                    .process_handle_queue_message(&record.handle, message)
+                    .await
+                {
+                    Ok(conversation_id) => {
+                        conversation_ids.push(conversation_id);
+                    }
+                    Err(error) => {
+                        error!(%error, "failed to process handle queue message");
+                    }
+                }
+                // ack the message independently of the result of processing the message
+                responder.ack(message_id.into()).await;
+            }
         }
-        Ok(messages)
+        Ok(conversation_ids)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {

@@ -14,7 +14,10 @@ pub mod java_api;
 #[cfg(target_os = "ios")]
 pub mod swift_api;
 
-#[cfg(any(target_os = "ios", target_os = "android"))]
+#[expect(
+    dead_code,
+    reason = "used only on Android/iOS but is compiled for all targets"
+)]
 pub(crate) mod processing;
 
 #[derive(Serialize, Deserialize)]

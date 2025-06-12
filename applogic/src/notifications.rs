@@ -73,22 +73,14 @@ impl User {
     ) {
         for conversation_id in connection_conversations {
             if let Some(conversation) = self.user.conversation(conversation_id).await {
-                let title_body = match conversation.conversation_type() {
-                    ConversationType::HandleConnection(handle) => {
-                        let handle_plaintext = handle.plaintext();
-                        let title = format!("New connection request from {handle_plaintext}");
-                        let body = "Open to accept or ignore".to_owned();
-                        Some((title, body))
-                    }
-                    ConversationType::Connection(client_id) => {
-                        let contact_name = self.user.user_profile(client_id).await.display_name;
-                        let title = format!("New connection request from {contact_name}");
-                        let body = "Open to accept or ignore".to_owned();
-                        Some((title, body))
-                    }
-                    _ => None,
-                };
-                if let Some((title, body)) = title_body {
+                if let phnxcoreclient::ConversationType::UnconfirmedConnection(client_id)
+                | phnxcoreclient::ConversationType::Connection(client_id) =
+                    conversation.conversation_type()
+                {
+                    let contact_name = self.user.user_profile(client_id).await.display_name;
+                    let title = format!("New connection with {contact_name}");
+                    let body = "Say hi".to_owned();
+
                     notifications.push(NotificationContent {
                         identifier: NotificationId::random(),
                         title,
@@ -109,7 +101,6 @@ impl NotificationId {
         Self(Uuid::new_v4())
     }
 
-    #[cfg(any(target_os = "ios", target_os = "android"))]
     pub(crate) fn invalid() -> Self {
         Self(Uuid::nil())
     }
@@ -145,7 +136,7 @@ impl NotificationService {
         }
     }
 
-    pub(crate) async fn send_notification(&self, notification: NotificationContent) {
+    pub(crate) async fn show_notification(&self, notification: NotificationContent) {
         #[cfg(any(target_os = "ios", target_os = "android", target_os = "macos"))]
         self.dart_service.send_notification(notification).await;
         #[cfg(any(target_os = "linux", target_os = "windows"))]
