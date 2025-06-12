@@ -11,10 +11,9 @@ use prost::Message;
 use super::v1::{
     CreateHandlePayload, CreateHandleRequest, DeleteHandlePayload, DeleteHandleRequest,
     DeleteUserPayload, DeleteUserRequest, HandleSignature, InitListenHandlePayload,
-    InitListenHandleRequest, InitListenPayload, InitListenRequest, IssueTokensPayload,
-    IssueTokensRequest, MergeUserProfilePayload, MergeUserProfileRequest,
-    PublishConnectionPackagesPayload, PublishConnectionPackagesRequest, RefreshHandlePayload,
-    RefreshHandleRequest, StageUserProfilePayload, StageUserProfileRequest,
+    InitListenHandleRequest, IssueTokensPayload, IssueTokensRequest, MergeUserProfilePayload,
+    MergeUserProfileRequest, PublishConnectionPackagesPayload, PublishConnectionPackagesRequest,
+    RefreshHandlePayload, RefreshHandleRequest, StageUserProfilePayload, StageUserProfileRequest,
 };
 
 const DELETE_USER_PAYLOAD_LABEL: &str = "DeleteUserPayload";
@@ -239,58 +238,6 @@ impl Verifiable for MergeUserProfileRequest {
 
     fn label(&self) -> &str {
         MERGE_USER_PROFILE_PAYLOAD_LABEL
-    }
-}
-
-const INIT_LISTEN_REQUEST_LABEL: &str = "InitListenRequest";
-
-impl SignedStruct<InitListenPayload, ClientKeyType> for InitListenRequest {
-    fn from_payload(payload: InitListenPayload, signature: ClientSignature) -> Self {
-        InitListenRequest {
-            payload: Some(payload),
-            signature: Some(signature.into()),
-        }
-    }
-}
-
-impl Signable for InitListenPayload {
-    type SignedOutput = InitListenRequest;
-
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        Ok(self.encode_to_vec())
-    }
-
-    fn label(&self) -> &str {
-        INIT_LISTEN_REQUEST_LABEL
-    }
-}
-
-impl VerifiedStruct<InitListenRequest> for InitListenPayload {
-    type SealingType = private_mod::Seal;
-
-    fn from_verifiable(verifiable: InitListenRequest, _seal: Self::SealingType) -> Self {
-        verifiable.payload.unwrap()
-    }
-}
-
-impl Verifiable for InitListenRequest {
-    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        Ok(self
-            .payload
-            .as_ref()
-            .ok_or(MissingPayloadError)?
-            .encode_to_vec())
-    }
-
-    fn signature(&self) -> impl AsRef<[u8]> {
-        self.signature
-            .as_ref()
-            .map(|s| s.value.as_slice())
-            .unwrap_or_default()
-    }
-
-    fn label(&self) -> &str {
-        INIT_LISTEN_REQUEST_LABEL
     }
 }
 

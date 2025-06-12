@@ -14,10 +14,7 @@ use thiserror::Error;
 use tonic::Status;
 
 use crate::{
-    common::{
-        convert::{InvalidIndexedCiphertext, InvalidNonceLen},
-        v1::Signature,
-    },
+    common::{convert::InvalidIndexedCiphertext, v1::Signature},
     convert::TryRefInto,
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -28,8 +25,7 @@ use super::v1::{
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
     CredentialFingerprint, EncryptedConnectionOffer, EncryptedUserProfile, ExpirationData,
-    HandleSignature, HandleVerifyingKey, MlsInfraVersion, QueueMessage, SignatureScheme,
-    UserHandleHash, UserId,
+    HandleSignature, HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -667,26 +663,6 @@ impl TryFrom<EncryptedConnectionOffer> for client_as::EncryptedConnectionOffer {
     fn try_from(proto: EncryptedConnectionOffer) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
         Ok(ciphertext.into())
-    }
-}
-
-impl From<messages::QueueMessage> for QueueMessage {
-    fn from(value: messages::QueueMessage) -> Self {
-        Self {
-            sequence_number: value.sequence_number,
-            ciphertext: Some(value.ciphertext.into()),
-        }
-    }
-}
-
-impl TryFrom<QueueMessage> for messages::QueueMessage {
-    type Error = InvalidNonceLen;
-
-    fn try_from(proto: QueueMessage) -> Result<Self, Self::Error> {
-        Ok(Self {
-            sequence_number: proto.sequence_number,
-            ciphertext: proto.ciphertext.unwrap_or_default().try_into()?,
-        })
     }
 }
 

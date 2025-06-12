@@ -6,11 +6,9 @@ use phnxcommon::{
     credentials::ClientCredential, crypto::RatchetEncryptionKey, identifiers::UserId,
     messages::client_as::AsQueueRatchet, time::TimeStamp,
 };
-use sqlx::{Connection, PgConnection};
+use sqlx::PgConnection;
 
 use crate::errors::StorageError;
-
-use super::queue::Queue;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -38,13 +36,7 @@ impl ClientRecord {
             credential,
             token_allowance: DEFAULT_TOKEN_ALLOWANCE,
         };
-
-        // Initialize the client's queue.
-        let mut transaction = connection.begin().await?;
-        record.store(&mut *transaction).await?;
-        Queue::new_and_store(record.user_id(), &mut *transaction).await?;
-        transaction.commit().await?;
-
+        record.store(connection).await?;
         Ok(record)
     }
 
@@ -53,6 +45,7 @@ impl ClientRecord {
         &self.credential
     }
 
+    #[cfg(test)]
     fn user_id(&self) -> &UserId {
         self.credential.identity()
     }

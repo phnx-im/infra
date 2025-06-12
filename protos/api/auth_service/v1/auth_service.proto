@@ -22,9 +22,6 @@ service AuthService {
 
   rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
 
-  rpc Listen(stream ListenRequest) returns (stream ListenResponse);
-  rpc EnqueueMessages(EnqueueMessagesRequest) returns (EnqueueMessagesResponse);
-
   // User Handles API
 
   // Creates a new handle
@@ -331,54 +328,6 @@ message IssueTokensResponse {
   bytes token_response = 1;
 }
 
-// enqueue messages
-
-message EnqueueMessagesRequest {
-  UserId user_id = 1;
-  EncryptedConnectionOffer connection_offer = 2;
-}
-
-message EncryptedConnectionOffer {
-  common.v1.HpkeCiphertext ciphertext = 1;
-}
-
-message EnqueueMessagesResponse {}
-
-// listen
-
-message ListenRequest {
-  oneof request {
-    InitListenRequest init = 1;
-    AckListenRequest ack = 2;
-  }
-}
-
-message InitListenRequest {
-  InitListenPayload payload = 1;
-  common.v1.Signature signature = 2;
-}
-
-message InitListenPayload {
-  UserId user_id = 1;
-  uint64 sequence_number_start = 2;
-}
-
-message AckListenRequest {
-  uint64 up_to_sequence_number = 1;
-}
-
-message ListenResponse {
-  // Optional message
-  //
-  // When not present, there are currently no messages in the queue.
-  QueueMessage message = 1;
-}
-
-message QueueMessage {
-  uint64 sequence_number = 1;
-  common.v1.Ciphertext ciphertext = 2;
-}
-
 // User Handles API common messsages
 
 message UserHandleHash {
@@ -454,6 +403,10 @@ message FetchConnectionPackageResponse {
 
 message EnqueueConnectionOfferStep {
   EncryptedConnectionOffer connection_offer = 2;
+}
+
+message EncryptedConnectionOffer {
+  common.v1.HpkeCiphertext ciphertext = 1;
 }
 
 message ConnectResponse {

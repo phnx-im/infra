@@ -1,0 +1,17 @@
+-- SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+--
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+CREATE TABLE IF NOT EXISTS as_queue_data (
+    queue_id uuid PRIMARY KEY,
+    sequence_number BIGINT NOT NULL,
+    FOREIGN KEY (queue_id) REFERENCES as_client_records (user_uuid) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS as_queues (
+    message_id uuid NOT NULL,
+    queue_id uuid NOT NULL,
+    sequence_number BIGINT NOT NULL,
+    message_bytes BYTEA NOT NULL,
+    PRIMARY KEY (queue_id, sequence_number),
+    FOREIGN KEY (queue_id) REFERENCES as_queue_data (queue_id) ON DELETE CASCADE
+);
