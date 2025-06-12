@@ -307,6 +307,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get editDisplayNameScreen_save;
+
+  /// No description provided for @conversationList_newConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'New connection'**
+  String get conversationList_newConnection;
+
+  /// No description provided for @conversationList_newConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'New conversation'**
+  String get conversationList_newConversation;
+
+  /// No description provided for @newConversationDialog_newConversationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New conversation'**
+  String get newConversationDialog_newConversationTitle;
+
+  /// No description provided for @newConversationDialog_newConversationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a name for the new conversation'**
+  String get newConversationDialog_newConversationDescription;
+
+  /// No description provided for @newConversationDialog_conversationNamePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation name'**
+  String get newConversationDialog_conversationNamePlaceholder;
+
+  /// No description provided for @newConversationDialog_actionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create conversation'**
+  String get newConversationDialog_actionButton;
+
+  /// No description provided for @newConversationDialog_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add conversation with name {conversationName}: {error}'**
+  String newConversationDialog_error(Object conversationName, Object error);
+
+  /// No description provided for @newConnectionDialog_newConnectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New connection'**
+  String get newConnectionDialog_newConnectionTitle;
+
+  /// No description provided for @newConnectionDialog_newConnectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the Username of the user you want to connect to'**
+  String get newConnectionDialog_newConnectionDescription;
+
+  /// No description provided for @newConnectionDialog_usernamePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get newConnectionDialog_usernamePlaceholder;
+
+  /// No description provided for @newConnectionDialog_actionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get newConnectionDialog_actionButton;
+
+  /// No description provided for @newConnectionDialog_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add user with Username {username}: {error}'**
+  String newConnectionDialog_error(Object error, Object username);
 }
 
 class _AppLocalizationsDelegate

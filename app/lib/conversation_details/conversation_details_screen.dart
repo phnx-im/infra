@@ -47,6 +47,7 @@ class ConversationDetailsScreenView extends StatelessWidget {
       ),
       body: switch (conversationType) {
         UiConversationType_UnconfirmedConnection() ||
+        UiConversationType_HandleConnection() ||
         UiConversationType_Connection() => const ConnectionDetails(),
         UiConversationType_Group() => const GroupDetails(),
         null => Center(

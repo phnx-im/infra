@@ -128,10 +128,13 @@ impl From<InactiveConversation> for UiInactiveConversation {
 }
 
 /// Type of a conversation
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiConversationType {
     /// A connection conversation that is not yet confirmed by the other party.
     UnconfirmedConnection(UiUserProfile),
+    /// A connection conversation which was established via a handle and is not yet confirmed by
+    /// the other party.
+    HandleConnection(UiUserHandle),
     /// A connection conversation that is confirmed by the other party and for which we have
     /// received the necessary secrets.
     Connection(UiUserProfile),
@@ -157,6 +160,9 @@ impl UiConversationType {
         match conversation_type {
             ConversationType::UnconfirmedConnection(user_id) => {
                 Self::UnconfirmedConnection(load_profile(user_id).await)
+            }
+            ConversationType::HandleConnection(handle) => {
+                Self::HandleConnection(UiUserHandle::from(handle))
             }
             ConversationType::Connection(user_id) => Self::Connection(load_profile(user_id).await),
             ConversationType::Group => Self::Group,
@@ -525,7 +531,7 @@ pub struct UiClientRecord {
     pub(crate) is_finished: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(dart_metadata = ("freezed"))]
 pub struct UiUserHandle {
     pub(crate) plaintext: String,

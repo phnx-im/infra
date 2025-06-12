@@ -24,6 +24,7 @@ pub use crate::{
             Message, NotificationType, SystemMessage,
         },
     },
+    user_handles::UserHandleRecord,
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
     utils::persistence::{delete_client_database, delete_databases, open_client_db},
 };

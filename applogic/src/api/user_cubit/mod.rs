@@ -5,21 +5,22 @@
 //! Logged-in user feature
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::{UserHandle, UserId};
 use phnxcoreclient::Asset;
 use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
+use qs::QueueContext;
 use tokio::sync::watch;
-use tokio_util::sync::{CancellationToken, DropGuard};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
+use user_handle::{HandleBackgroundTasks, HandleContext};
 
 use crate::{
     StreamSink,
     api::navigation_cubit::HomeNavigationState,
     notifications::NotificationService,
-    util::{Cubit, CubitCore, FibonacciBackoff, spawn_from_sync},
+    util::{Cubit, CubitCore, spawn_from_sync},
 };
 use crate::{api::types::UiContact, messages::FetchedMessages};
 
@@ -30,6 +31,7 @@ use super::{
 };
 
 mod qs;
+mod user_handle;
 
 /// State of the [`UserCubit`] which is the logged in user
 ///
@@ -114,15 +116,10 @@ pub enum AppState {
 pub struct UserCubitBase {
     core: CubitCore<UiUser>,
     pub(crate) core_user: CoreUser,
-    #[cfg_attr(
-        any(target_os = "linux", target_os = "macos", target_os = "windows"),
-        expect(dead_code)
-    )]
     app_state_tx: watch::Sender<AppState>,
-    _background_tasks_cancel: DropGuard,
+    background_listen_handle_tasks: HandleBackgroundTasks,
+    cancel: CancellationToken,
 }
-
-const POLLING_INTERVAL: Duration = Duration::from_secs(10);
 
 impl UserCubitBase {
     #[frb(sync)]
@@ -142,7 +139,8 @@ impl UserCubitBase {
 
         let cancel = CancellationToken::new();
 
-        qs::QueueContext::new(
+        // start background task listening for incoming messages
+        QueueContext::new(
             core_user.clone(),
             navigation_state.clone(),
             app_state.clone(),
@@ -151,19 +149,21 @@ impl UserCubitBase {
         .into_task(cancel.clone())
         .spawn();
 
-        spawn_polling(
+        // start background tasks listening for incoming handle messages
+        let background_listen_handle_tasks = HandleBackgroundTasks::default();
+        HandleContext::spawn_loading(
             core_user.clone(),
-            navigation_state,
-            app_state,
-            notification_service.clone(),
+            app_state.clone(),
             cancel.clone(),
+            background_listen_handle_tasks.clone(),
         );
 
         Self {
             core,
             core_user,
             app_state_tx,
-            _background_tasks_cancel: cancel.drop_guard(),
+            background_listen_handle_tasks,
+            cancel: cancel.clone(),
         }
     }
 
@@ -176,6 +176,7 @@ impl UserCubitBase {
 
     pub fn close(&mut self) {
         self.core.close();
+        self.cancel.cancel();
     }
 
     #[frb(getter, sync)]
@@ -273,20 +274,36 @@ impl UserCubitBase {
 
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
-        let record = self.core_user.add_user_handle(&user_handle).await?;
-        if record.is_none() {
+        let Some(record) = self.core_user.add_user_handle(&user_handle).await? else {
             return Ok(false);
-        }
+        };
+
+        // add user handle to UI state
         self.core.state_tx().send_modify(|state| {
             let inner = Arc::make_mut(&mut state.inner);
             inner.user_handles.push(user_handle);
         });
+
+        // start background listen stream for the handle
+        HandleContext::new(
+            self.core_user.clone(),
+            self.app_state_tx.subscribe(),
+            record,
+        )
+        .into_task(
+            self.cancel.child_token(),
+            &self.background_listen_handle_tasks,
+        )
+        .spawn();
+
         Ok(true)
     }
 
     pub async fn remove_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
         self.core_user.remove_user_handle(&user_handle).await?;
+
+        // remove user handle from UI state
         self.core.state_tx().send_if_modified(|state| {
             let inner = Arc::make_mut(&mut state.inner);
             let Some(idx) = inner
@@ -300,51 +317,18 @@ impl UserCubitBase {
             inner.user_handles.remove(idx);
             true
         });
+
+        // stop background listen stream for the handle
+        self.background_listen_handle_tasks.remove(user_handle);
+
         Ok(())
     }
 }
 
-fn spawn_polling(
-    core_user: CoreUser,
-    navigation_state: watch::Receiver<NavigationState>,
-    mut app_state: watch::Receiver<AppState>,
-    notification_service: NotificationService,
-    cancel: CancellationToken,
-) {
-    let user = User::from_core_user(core_user);
-    spawn_from_sync(async move {
-        let mut backoff = FibonacciBackoff::new();
-        loop {
-            let _ = app_state
-                .wait_for(|app_state| matches!(app_state, AppState::Foreground))
-                .await;
-
-            let res = tokio::select! {
-                _ = cancel.cancelled() => break,
-                res = user.fetch_all_messages() => res,
-            };
-            let mut timeout = POLLING_INTERVAL;
-            match res {
-                Ok(fetched_messages) => {
-                    process_fetched_messages(
-                        &navigation_state,
-                        &notification_service,
-                        fetched_messages,
-                    )
-                    .await;
-                    backoff.reset();
-                }
-                Err(error) => {
-                    timeout = backoff.next_backoff().max(timeout);
-                    error!(retry_in =? timeout, %error, "Failed to fetch messages");
-                }
-            }
-            tokio::select! {
-                _ = cancel.cancelled() => break,
-                _ = tokio::time::sleep(POLLING_INTERVAL) => {},
-            }
-        }
-    });
+impl Drop for UserCubitBase {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
 }
 
 /// Places in the app where notifications in foreground are handled differently.

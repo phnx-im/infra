@@ -13,7 +13,7 @@ use phnxcommon::{
         indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
-    identifiers::UserId,
+    identifiers::{UserHandle, UserId},
     messages::FriendshipToken,
 };
 use sqlx::SqliteConnection;
@@ -144,6 +144,28 @@ impl PartialContact {
     ) -> Self {
         Self {
             user_id,
+            conversation_id,
+            friendship_package_ear_key,
+        }
+    }
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+pub struct HandleContact {
+    pub handle: UserHandle,
+    pub conversation_id: ConversationId,
+    pub friendship_package_ear_key: FriendshipPackageEarKey,
+}
+
+impl HandleContact {
+    pub fn new(
+        handle: UserHandle,
+        conversation_id: ConversationId,
+        friendship_package_ear_key: FriendshipPackageEarKey,
+    ) -> Self {
+        Self {
+            handle,
             conversation_id,
             friendship_package_ear_key,
         }

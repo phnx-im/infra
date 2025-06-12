@@ -25,7 +25,7 @@ use phnxcommon::{
             signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
         },
     },
-    identifiers::{Fqdn, UserId},
+    identifiers::{Fqdn, UserHandle},
     messages::{
         FriendshipToken,
         client_as::{EncryptedConnectionOffer, EncryptedFriendshipPackageCtype},
@@ -37,7 +37,7 @@ use tls_codec::{
 };
 
 pub(crate) mod payload {
-    use phnxcommon::{LibraryError, credentials::keys::ClientSigningKey};
+    use phnxcommon::{LibraryError, credentials::keys::ClientSigningKey, identifiers::UserHandle};
 
     use super::*;
 
@@ -85,9 +85,9 @@ pub(crate) mod payload {
         pub(crate) fn sign(
             self,
             signing_key: &ClientSigningKey,
-            recipient_user_id: UserId,
+            recipient_user_handle: UserHandle,
         ) -> Result<ConnectionOffer, LibraryError> {
-            let tbs = ConnectionOfferTbs::from_payload(self.clone(), recipient_user_id);
+            let tbs = ConnectionOfferTbs::from_payload(self.clone(), recipient_user_handle);
             tbs.sign(signing_key)
         }
 
@@ -115,7 +115,7 @@ mod tbs {
     use super::*;
     use phnxcommon::{
         credentials::keys::{ClientKeyType, ClientSignature},
-        identifiers::UserId,
+        identifiers::UserHandle,
     };
 
     use super::payload::ConnectionOfferPayload;
@@ -123,17 +123,17 @@ mod tbs {
     #[derive(Debug, TlsSerialize, TlsSize, Clone)]
     pub(super) struct ConnectionOfferTbs {
         payload: ConnectionOfferPayload,
-        recipient_user_id: UserId,
+        recipient_user_handle: UserHandle,
     }
 
     impl ConnectionOfferTbs {
         pub(super) fn from_payload(
             payload: ConnectionOfferPayload,
-            recipient_user_id: UserId,
+            recipient_user_handle: UserHandle,
         ) -> Self {
             Self {
                 payload,
-                recipient_user_id,
+                recipient_user_handle,
             }
         }
     }
@@ -173,10 +173,10 @@ mod tbs {
     impl VerifiableConnectionOffer {
         pub(super) fn from_verified_payload(
             verified_payload: ConnectionOfferPayload,
-            recipient_user_id: UserId,
+            recipient_user_handle: UserHandle,
             signature: ClientSignature,
         ) -> Self {
-            let tbs = ConnectionOfferTbs::from_payload(verified_payload, recipient_user_id);
+            let tbs = ConnectionOfferTbs::from_payload(verified_payload, recipient_user_handle);
             Self { tbs, signature }
         }
 
@@ -259,12 +259,12 @@ impl ConnectionOfferIn {
     pub(super) fn verify(
         self,
         verifying_key: &AsIntermediateVerifyingKey,
-        recipient_user_id: UserId,
+        recipient_user_handle: UserHandle,
     ) -> Result<ConnectionOfferPayload, SignatureVerificationError> {
         let verified_payload = self.payload.verify(verifying_key)?;
         VerifiableConnectionOffer::from_verified_payload(
             verified_payload,
-            recipient_user_id,
+            recipient_user_handle,
             self.signature,
         )
         .verify()
@@ -311,7 +311,8 @@ impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
 mod tests {
     use phnxcommon::{
         credentials::test_utils::create_test_credentials,
-        crypto::signatures::private_keys::SignatureVerificationError, identifiers::UserId,
+        crypto::signatures::private_keys::SignatureVerificationError,
+        identifiers::{UserHandle, UserId},
     };
     use tls_codec::{DeserializeBytes as _, Serialize};
 
@@ -322,24 +323,24 @@ mod tests {
         let sender_user_id = UserId::random("localhost".parse().unwrap());
         let (as_sk, client_sk) = create_test_credentials(sender_user_id);
         let cep_payload = ConnectionOfferPayload::dummy(client_sk.credential().clone());
-        let recipient_user_id = UserId::random("localhost".parse().unwrap());
+        let user_handle = UserHandle::new("ellie_01".to_owned()).unwrap();
         let cep = cep_payload
             .clone()
-            .sign(&client_sk, recipient_user_id.clone())
+            .sign(&client_sk, user_handle.clone())
             .unwrap();
         let cep_in =
             ConnectionOfferIn::tls_deserialize_exact_bytes(&cep.tls_serialize_detached().unwrap())
                 .unwrap();
         let cep_verified = cep_in
             .clone()
-            .verify(as_sk.verifying_key(), recipient_user_id)
+            .verify(as_sk.verifying_key(), user_handle.clone())
             .unwrap();
         assert_eq!(cep_verified, cep_payload);
 
         // Try with a different recipient
-        let recipient_user_id_2 = UserId::random("localhost".parse().unwrap());
+        let user_handle_2 = UserHandle::new("ellie_02".to_owned()).unwrap();
         let err = cep_in
-            .verify(as_sk.verifying_key(), recipient_user_id_2)
+            .verify(as_sk.verifying_key(), user_handle_2)
             .unwrap_err();
         assert!(matches!(
             err,

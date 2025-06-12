@@ -13,6 +13,7 @@ extension UiConversationDetailsExtension on UiConversationDetails {
   UiUserId? get userId => switch (conversationType) {
     UiConversationType_UnconfirmedConnection(field0: final profile) =>
       profile.userId,
+    UiConversationType_HandleConnection() => null,
     UiConversationType_Connection(field0: final profile) => profile.userId,
     UiConversationType_Group() => null,
   };
@@ -21,6 +22,8 @@ extension UiConversationDetailsExtension on UiConversationDetails {
   String get title => switch (conversationType) {
     UiConversationType_UnconfirmedConnection(field0: final profile) =>
       "⏳ ${profile.displayName}",
+    UiConversationType_HandleConnection(field0: final handle) =>
+      "⏳ ${handle.plaintext}",
     UiConversationType_Connection(field0: final profile) => profile.displayName,
     UiConversationType_Group() => attributes.title,
   };
@@ -34,6 +37,7 @@ extension UiConversationDetailsExtension on UiConversationDetails {
     UiConversationType_UnconfirmedConnection(
       field0: final profile,
     ) => profile.profilePicture,
+    UiConversationType_HandleConnection() => null,
     UiConversationType_Group() => attributes.picture,
   };
 }
@@ -41,7 +45,8 @@ extension UiConversationDetailsExtension on UiConversationDetails {
 extension UiConversationTypeExtension on UiConversationType {
   /// Description of the conversation type which can show in the UI
   String get description => switch (this) {
-    UiConversationType_UnconfirmedConnection() => "Pending connection request",
+    UiConversationType_UnconfirmedConnection() ||
+    UiConversationType_HandleConnection() => "Pending connection request",
     UiConversationType_Connection() => "1:1 conversation",
     UiConversationType_Group() => 'Group conversation',
   };

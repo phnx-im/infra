@@ -126,4 +126,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editDisplayNameScreen_save => 'Save';
+
+  @override
+  String get conversationList_newConnection => 'New connection';
+
+  @override
+  String get conversationList_newConversation => 'New conversation';
+
+  @override
+  String get newConversationDialog_newConversationTitle => 'New conversation';
+
+  @override
+  String get newConversationDialog_newConversationDescription =>
+      'Choose a name for the new conversation';
+
+  @override
+  String get newConversationDialog_conversationNamePlaceholder =>
+      'Conversation name';
+
+  @override
+  String get newConversationDialog_actionButton => 'Create conversation';
+
+  @override
+  String newConversationDialog_error(Object conversationName, Object error) {
+    return 'Failed to add conversation with name $conversationName: $error';
+  }
+
+  @override
+  String get newConnectionDialog_newConnectionTitle => 'New connection';
+
+  @override
+  String get newConnectionDialog_newConnectionDescription =>
+      'Enter the Username of the user you want to connect to';
+
+  @override
+  String get newConnectionDialog_usernamePlaceholder => 'Username';
+
+  @override
+  String get newConnectionDialog_actionButton => 'Connect';
+
+  @override
+  String newConnectionDialog_error(Object error, Object username) {
+    return 'Failed to add user with Username $username: $error';
+  }
 }

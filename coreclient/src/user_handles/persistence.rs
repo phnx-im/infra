@@ -13,12 +13,21 @@ use sqlx::{SqliteExecutor, query, query_as, query_scalar};
 /// A user handle record stored in the client database.
 ///
 /// Contains additional information about the handle, such as hash and signing key.
-#[derive(Debug)]
-// #[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Debug, Clone)]
 pub struct UserHandleRecord {
     pub handle: UserHandle,
     pub hash: UserHandleHash,
     pub signing_key: HandleSigningKey,
+}
+
+#[cfg(test)]
+impl PartialEq for UserHandleRecord {
+    fn eq(&self, other: &Self) -> bool {
+        // Note: only the verifying key part of the signing key is compared.
+        self.handle == other.handle
+            && self.hash == other.hash
+            && self.signing_key.verifying_key() == other.signing_key.verifying_key()
+    }
 }
 
 struct SqlUserHandleRecord {
@@ -147,38 +156,71 @@ mod test {
     use super::*;
 
     #[sqlx::test]
-    async fn user_handle_persistence(pool: SqlitePool) -> anyhow::Result<()> {
+    async fn user_handle_record_store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let handle = UserHandle::new("ellie_03".to_owned())?;
         let hash = handle.hash()?;
         let signing_key = HandleSigningKey::generate()?;
-
-        // Store a user handle
         let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
         record.store(&pool).await?;
 
-        // Load the user handle
         let loaded_record = UserHandleRecord::load(&pool, &handle).await?.unwrap();
-        assert_eq!(loaded_record.handle, record.handle);
-        assert_eq!(loaded_record.hash, record.hash);
+        assert_eq!(loaded_record, record);
+        Ok(())
+    }
 
-        // Load all handles (should only be one)
-        let all_handles = UserHandleRecord::load_all_handles(&pool).await?;
-        assert_eq!(all_handles.len(), 1);
-        assert_eq!(all_handles[0], handle);
+    #[sqlx::test]
+    async fn user_handle_record_load_all(pool: SqlitePool) -> anyhow::Result<()> {
+        let handle1 = UserHandle::new("ellie_03".to_owned())?;
+        let hash1 = handle1.hash()?;
+        let signing_key1 = HandleSigningKey::generate()?;
+        let record1 = UserHandleRecord::new(handle1.clone(), hash1, signing_key1);
+        record1.store(&pool).await?;
 
-        // Load all records (should only be one)
-        let all_records = UserHandleRecord::load_all(&pool).await?;
-        assert_eq!(all_records.len(), 1);
-        assert_eq!(all_records[0].handle, loaded_record.handle);
-        assert_eq!(all_records[0].hash, loaded_record.hash);
+        let handle2 = UserHandle::new("joel_03".to_owned())?;
+        let hash2 = handle2.hash()?;
+        let signing_key2 = HandleSigningKey::generate()?;
+        let record2 = UserHandleRecord::new(handle2.clone(), hash2, signing_key2);
+        record2.store(&pool).await?;
 
-        // Delete the user handle
+        let loaded_records = UserHandleRecord::load_all(&pool).await?;
+        assert_eq!(loaded_records.len(), 2);
+        assert!(loaded_records.contains(&record1));
+        assert!(loaded_records.contains(&record2));
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn user_handle_record_load_all_handles(pool: SqlitePool) -> anyhow::Result<()> {
+        let handle1 = UserHandle::new("ellie_03".to_owned())?;
+        let hash1 = handle1.hash()?;
+        let signing_key1 = HandleSigningKey::generate()?;
+        let record1 = UserHandleRecord::new(handle1.clone(), hash1, signing_key1);
+        record1.store(&pool).await?;
+
+        let handle2 = UserHandle::new("joel_03".to_owned())?;
+        let hash2 = handle2.hash()?;
+        let signing_key2 = HandleSigningKey::generate()?;
+        let record2 = UserHandleRecord::new(handle2.clone(), hash2, signing_key2);
+        record2.store(&pool).await?;
+
+        let loaded_handles = UserHandleRecord::load_all_handles(&pool).await?;
+        assert_eq!(loaded_handles.len(), 2);
+        assert!(loaded_handles.contains(&handle1));
+        assert!(loaded_handles.contains(&handle2));
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn user_handle_record_delete(pool: SqlitePool) -> anyhow::Result<()> {
+        let handle = UserHandle::new("ellie_03".to_owned())?;
+        let hash = handle.hash()?;
+        let signing_key = HandleSigningKey::generate()?;
+        let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
+        record.store(&pool).await?;
+
         UserHandleRecord::delete(&pool, &handle).await?;
-
-        // Verify deletion
-        let loaded_handle = UserHandleRecord::load(&pool, &handle).await?;
-        assert!(loaded_handle.is_none());
-
+        let loaded_record = UserHandleRecord::load(&pool, &handle).await?;
+        assert!(loaded_record.is_none());
         Ok(())
     }
 }

@@ -29,6 +29,9 @@ impl User {
                         .await
                         .display_name
                         .to_string(),
+                    phnxcoreclient::ConversationType::HandleConnection(handle) => {
+                        handle.plaintext().to_owned()
+                    }
                     phnxcoreclient::ConversationType::Group => {
                         conversation.attributes().title().to_string()
                     }

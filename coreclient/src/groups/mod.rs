@@ -146,6 +146,7 @@ impl PartialCreateGroupParams {
     }
 }
 
+#[derive(Debug)]
 pub(super) struct ProfileInfo {
     pub(super) client_credential: ClientCredential,
     pub(super) user_profile_key: UserProfileKey,

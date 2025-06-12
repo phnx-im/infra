@@ -7,6 +7,9 @@ use argon2::Argon2;
 use chrono::Duration;
 use displaydoc::Display;
 use thiserror::Error;
+use tls_codec::{TlsSerialize, TlsSize};
+
+use super::TlsString;
 
 const MIN_USER_HANDLE_LENGTH: usize = 6;
 const MAX_USER_HANDLE_LENGTH: usize = 64;
@@ -15,9 +18,9 @@ const USER_HANDLE_CHARSET: &[u8] = b"_0123456789abcdefghijklmnopqrstuvwxyz";
 pub const USER_HANDLE_VALIDITY_PERIOD: Duration = Duration::days(30);
 
 /// Validated plaintext user handle
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash, TlsSize, TlsSerialize)]
 pub struct UserHandle {
-    plaintext: String,
+    plaintext: TlsString,
 }
 
 impl fmt::Debug for UserHandle {
@@ -31,7 +34,9 @@ impl fmt::Debug for UserHandle {
 impl UserHandle {
     pub fn new(plaintext: String) -> Result<Self, UserHandleValidationError> {
         Self::validate(&plaintext)?;
-        Ok(Self { plaintext })
+        Ok(Self {
+            plaintext: TlsString(plaintext),
+        })
     }
 
     fn validate(plaintext: &str) -> Result<(), UserHandleValidationError> {
@@ -58,16 +63,16 @@ impl UserHandle {
         let argon2 = Argon2::default();
         let const_salt = b"user handle salt"; // TODO(security): this is not what we want
         let mut hash = [0u8; 32];
-        argon2.hash_password_into(self.plaintext.as_bytes(), const_salt, &mut hash)?;
+        argon2.hash_password_into(self.plaintext.0.as_bytes(), const_salt, &mut hash)?;
         Ok(UserHandleHash { hash })
     }
 
     pub fn plaintext(&self) -> &str {
-        &self.plaintext
+        &self.plaintext.0
     }
 
     pub fn into_plaintext(self) -> String {
-        self.plaintext
+        self.plaintext.0
     }
 }
 
@@ -188,7 +193,7 @@ mod tests {
     fn test_user_handle_new_valid() {
         let handle_str = valid_user_handle_string();
         let handle = UserHandle::new(handle_str.clone());
-        assert_eq!(handle.unwrap().plaintext, handle_str);
+        assert_eq!(handle.unwrap().plaintext(), handle_str);
     }
 
     #[test]

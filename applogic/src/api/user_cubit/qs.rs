@@ -17,10 +17,10 @@ use crate::{
 
 use super::AppState;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[frb(ignore)]
 pub(super) struct QueueContext {
-    core_user: CoreUser,
+    pub(super) core_user: CoreUser,
     navigation_state: watch::Receiver<NavigationState>,
     app_state: watch::Receiver<AppState>,
     notification_service: NotificationService,
