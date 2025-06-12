@@ -73,10 +73,7 @@ impl User {
     ) {
         for conversation_id in connection_conversations {
             if let Some(conversation) = self.user.conversation(conversation_id).await {
-                if let phnxcoreclient::ConversationType::UnconfirmedConnection(client_id)
-                | phnxcoreclient::ConversationType::Connection(client_id) =
-                    conversation.conversation_type()
-                {
+                if let ConversationType::Connection(client_id) = conversation.conversation_type() {
                     let contact_name = self.user.user_profile(client_id).await.display_name;
                     let title = format!("New connection with {contact_name}");
                     let body = "Say hi".to_owned();
