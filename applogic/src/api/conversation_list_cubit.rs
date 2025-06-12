@@ -86,7 +86,7 @@ impl ConversationListCubitBase {
     /// Creates a new 1:1 connection with the given user via a user handle.
     pub async fn create_connection(&self, handle: UiUserHandle) -> anyhow::Result<ConversationId> {
         let handle = UserHandle::new(handle.plaintext)?;
-        self.context.store.add_contact_via_handle(handle).await
+        self.context.store.add_contact(handle).await
     }
 
     /// Creates a new group conversation with the given name.

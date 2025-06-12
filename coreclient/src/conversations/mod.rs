@@ -91,7 +91,7 @@ impl Conversation {
             group_id,
             last_read: Utc::now(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_id),
+            conversation_type: ConversationType::Connection(user_id),
             attributes,
         };
         Ok(conversation)
@@ -192,21 +192,11 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         user_id: UserId,
     ) -> sqlx::Result<()> {
-        match &self.conversation_type {
-            ConversationType::UnconfirmedConnection(connection_user_id) => {
-                debug_assert_eq!(connection_user_id, &user_id);
-                let conversation_type = ConversationType::Connection(user_id);
-                self.set_conversation_type(executor, notifier, &conversation_type)
-                    .await?;
-                self.conversation_type = conversation_type;
-            }
-            ConversationType::HandleConnection(_) => {
-                let conversation_type = ConversationType::Connection(user_id);
-                self.set_conversation_type(executor, notifier, &conversation_type)
-                    .await?;
-                self.conversation_type = conversation_type;
-            }
-            _ => {}
+        if let ConversationType::HandleConnection(_) = &self.conversation_type {
+            let conversation_type = ConversationType::Connection(user_id);
+            self.set_conversation_type(executor, notifier, &conversation_type)
+                .await?;
+            self.conversation_type = conversation_type;
         }
         Ok(())
     }
@@ -239,8 +229,6 @@ impl InactiveConversation {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ConversationType {
-    /// A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UserId),
     /// A connection conversation which was established via a handle and is not yet confirmed by
     /// the other party.
     HandleConnection(UserHandle),

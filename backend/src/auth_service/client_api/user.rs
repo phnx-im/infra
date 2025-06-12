@@ -26,8 +26,6 @@ impl AuthService {
     ) -> Result<RegisterUserResponse, RegisterUserError> {
         let RegisterUserParamsIn {
             client_payload,
-            queue_encryption_key,
-            initial_ratchet_secret,
             encrypted_user_profile,
         } = params;
 
@@ -70,31 +68,24 @@ impl AuthService {
         let user_id = client_credential.identity();
 
         // Create the user entry with the information given in the request
-        UserRecord::new_and_store(&self.db_pool, user_id, &encrypted_user_profile)
+        let mut txn = self.db_pool.begin().await.map_err(|error| {
+            error!(%error, "Failed to start transaction");
+            RegisterUserError::StorageError
+        })?;
+        UserRecord::new_and_store(txn.as_mut(), user_id, &encrypted_user_profile)
             .await
             .map_err(|error| {
                 error!(%error, "Storage provider error");
                 RegisterUserError::StorageError
             })?;
-
-        // Create the initial client entry
-        let ratchet_key = initial_ratchet_secret
-            .try_into()
-            // Hiding the LibraryError here behind a StorageError
-            .map_err(|_| RegisterUserError::StorageError)?;
-        let mut connection = self.db_pool.acquire().await.map_err(|error| {
-            error!(%error, "Error acquiring connection");
-            RegisterUserError::StorageError
-        })?;
-        ClientRecord::new_and_store(
-            &mut connection,
-            queue_encryption_key,
-            ratchet_key,
-            client_credential.clone(),
-        )
-        .await
-        .map_err(|error| {
-            error!(%error, "Storage provider error");
+        ClientRecord::new_and_store(txn.as_mut(), client_credential.clone())
+            .await
+            .map_err(|error| {
+                error!(%error, "Storage provider error");
+                RegisterUserError::StorageError
+            })?;
+        txn.commit().await.map_err(|error| {
+            error!(%error, "Failed to commit transaction");
             RegisterUserError::StorageError
         })?;
 

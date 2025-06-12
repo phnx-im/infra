@@ -13,7 +13,6 @@ service AuthService {
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
-  rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
 
   rpc StageUserProfile(StageUserProfileRequest) returns (StageUserProfileResponse);
   rpc MergeUserProfile(MergeUserProfileRequest) returns (MergeUserProfileResponse);
@@ -22,9 +21,6 @@ service AuthService {
   rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
 
   rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
-
-  rpc Listen(stream ListenRequest) returns (stream ListenResponse);
-  rpc EnqueueMessages(EnqueueMessagesRequest) returns (EnqueueMessagesResponse);
 
   // User Handles API
 
@@ -154,8 +150,6 @@ message CredentialFingerprint {
 
 message RegisterUserRequest {
   ClientCredentialPayload client_credential_payload = 1;
-  common.v1.RatchetEncryptionKey queue_encryption_key = 2;
-  common.v1.RatchetSecret initial_ratchet_secret = 3;
   EncryptedUserProfile encrypted_user_profile = 4;
 }
 
@@ -184,10 +178,7 @@ message PublishConnectionPackagesRequest {
 }
 
 message PublishConnectionPackagesPayload {
-  oneof owner {
-    UserId user_id = 1;
-    UserHandleHash hash = 3;
-  }
+  UserHandleHash hash = 3;
   repeated ConnectionPackage connection_packages = 2;
 }
 
@@ -335,54 +326,6 @@ message IssueTokensResponse {
   bytes token_response = 1;
 }
 
-// enqueue messages
-
-message EnqueueMessagesRequest {
-  UserId user_id = 1;
-  EncryptedConnectionOffer connection_offer = 2;
-}
-
-message EncryptedConnectionOffer {
-  common.v1.HpkeCiphertext ciphertext = 1;
-}
-
-message EnqueueMessagesResponse {}
-
-// listen
-
-message ListenRequest {
-  oneof request {
-    InitListenRequest init = 1;
-    AckListenRequest ack = 2;
-  }
-}
-
-message InitListenRequest {
-  InitListenPayload payload = 1;
-  common.v1.Signature signature = 2;
-}
-
-message InitListenPayload {
-  UserId user_id = 1;
-  uint64 sequence_number_start = 2;
-}
-
-message AckListenRequest {
-  uint64 up_to_sequence_number = 1;
-}
-
-message ListenResponse {
-  // Optional message
-  //
-  // When not present, there are currently no messages in the queue.
-  QueueMessage message = 1;
-}
-
-message QueueMessage {
-  uint64 sequence_number = 1;
-  common.v1.Ciphertext ciphertext = 2;
-}
-
 // User Handles API common messsages
 
 message UserHandleHash {
@@ -458,6 +401,10 @@ message FetchConnectionPackageResponse {
 
 message EnqueueConnectionOfferStep {
   EncryptedConnectionOffer connection_offer = 2;
+}
+
+message EncryptedConnectionOffer {
+  common.v1.HpkeCiphertext ciphertext = 1;
 }
 
 message ConnectResponse {

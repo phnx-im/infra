@@ -127,29 +127,7 @@ impl Contact {
     }
 }
 
-/// Contact which has not yet accepted our connection request.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PartialContact {
-    pub user_id: UserId,
-    // ID of the connection conversation with this contact.
-    pub conversation_id: ConversationId,
-    pub friendship_package_ear_key: FriendshipPackageEarKey,
-}
-
-impl PartialContact {
-    pub(crate) fn new(
-        user_id: UserId,
-        conversation_id: ConversationId,
-        friendship_package_ear_key: FriendshipPackageEarKey,
-    ) -> Self {
-        Self {
-            user_id,
-            conversation_id,
-            friendship_package_ear_key,
-        }
-    }
-}
-
+/// Partial contact established via a user handle
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct HandleContact {
@@ -159,7 +137,7 @@ pub struct HandleContact {
 }
 
 impl HandleContact {
-    pub fn new(
+    pub(crate) fn new(
         handle: UserHandle,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,

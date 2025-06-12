@@ -5,8 +5,7 @@
 use chrono::Utc;
 use phnxcommon::{
     crypto::{
-        ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
-        indexed_aead::keys::UserProfileKeyIndex,
+        ear::keys::WelcomeAttributionInfoEarKey, indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::ConnectionKey,
     },
     identifiers::{Fqdn, UserHandle, UserId},
@@ -17,8 +16,7 @@ use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 use crate::{
-    Contact, ConversationId, PartialContact, clients::connection_offer::FriendshipPackage,
-    store::StoreNotifier,
+    Contact, ConversationId, clients::connection_offer::FriendshipPackage, store::StoreNotifier,
 };
 
 use super::HandleContact;
@@ -154,137 +152,6 @@ impl Contact {
     }
 }
 
-struct SqlPartialContact {
-    user_uuid: Uuid,
-    user_domain: Fqdn,
-    conversation_id: ConversationId,
-    friendship_package_ear_key: FriendshipPackageEarKey,
-}
-
-impl From<SqlPartialContact> for PartialContact {
-    fn from(
-        SqlPartialContact {
-            user_uuid,
-            user_domain,
-            conversation_id,
-            friendship_package_ear_key,
-        }: SqlPartialContact,
-    ) -> Self {
-        Self {
-            user_id: UserId::new(user_uuid, user_domain),
-            conversation_id,
-            friendship_package_ear_key,
-        }
-    }
-}
-
-impl PartialContact {
-    pub(crate) async fn load(
-        executor: impl SqliteExecutor<'_>,
-        client: &UserId,
-    ) -> sqlx::Result<Option<Self>> {
-        let uuid = client.uuid();
-        let domain = client.domain();
-        query_as!(
-            SqlPartialContact,
-            r#"SELECT
-                user_uuid AS "user_uuid: _",
-                user_domain AS "user_domain: _",
-                conversation_id AS "conversation_id: _",
-                friendship_package_ear_key AS "friendship_package_ear_key: _"
-            FROM partial_contacts
-            WHERE user_uuid = ? AND user_domain = ?"#,
-            uuid,
-            domain,
-        )
-        .fetch_optional(executor)
-        .await
-        .map(|res| res.map(From::from))
-    }
-
-    pub(crate) async fn load_all(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Vec<Self>> {
-        let contacts = query_as!(
-            SqlPartialContact,
-            r#"SELECT
-                user_uuid AS "user_uuid: _",
-                user_domain AS "user_domain: _",
-                conversation_id AS "conversation_id: _",
-                friendship_package_ear_key AS "friendship_package_ear_key: _"
-            FROM partial_contacts"#
-        )
-        .fetch_all(executor)
-        .await?;
-        Ok(contacts.into_iter().map(From::from).collect())
-    }
-
-    pub(crate) async fn store(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-        notifier: &mut StoreNotifier,
-    ) -> sqlx::Result<()> {
-        let domain = self.user_id.domain();
-        let uuid = self.user_id.uuid();
-        query!(
-            "INSERT INTO partial_contacts
-                (user_uuid, user_domain, conversation_id, friendship_package_ear_key)
-                VALUES (?, ?, ?, ?)",
-            uuid,
-            domain,
-            self.conversation_id,
-            self.friendship_package_ear_key,
-        )
-        .execute(executor)
-        .await?;
-        notifier
-            .add(self.user_id.clone())
-            .update(self.conversation_id);
-        Ok(())
-    }
-
-    pub(crate) async fn delete(
-        self,
-        executor: impl SqliteExecutor<'_>,
-        notifier: &mut StoreNotifier,
-    ) -> sqlx::Result<()> {
-        let uuid = self.user_id.uuid();
-        let domain = self.user_id.domain();
-        query!(
-            "DELETE FROM partial_contacts
-            WHERE user_uuid = ? AND user_domain = ?",
-            uuid,
-            domain,
-        )
-        .execute(executor)
-        .await?;
-        notifier.remove(self.user_id.clone());
-        Ok(())
-    }
-
-    /// Creates a Contact from this PartialContact and the additional data. Then
-    /// persists the resulting contact.
-    pub(crate) async fn mark_as_complete(
-        self,
-        txn: &mut SqliteTransaction<'_>,
-        notifier: &mut StoreNotifier,
-        friendship_package: FriendshipPackage,
-        user_profile_key_index: UserProfileKeyIndex,
-    ) -> anyhow::Result<Contact> {
-        let contact = Contact {
-            user_id: self.user_id.clone(),
-            conversation_id: self.conversation_id,
-            wai_ear_key: friendship_package.wai_ear_key,
-            friendship_token: friendship_package.friendship_token,
-            connection_key: friendship_package.connection_key,
-            user_profile_key_index,
-        };
-
-        self.delete(txn.as_mut(), notifier).await?;
-        contact.upsert(txn.as_mut(), notifier).await?;
-
-        Ok(contact)
-    }
-}
-
 impl HandleContact {
     pub(crate) async fn upsert(
         &self,
@@ -409,15 +276,6 @@ mod tests {
         (contact, user_profile_key)
     }
 
-    fn test_partial_contact(conversation_id: ConversationId) -> PartialContact {
-        let user_id = UserId::random("localhost".parse().unwrap());
-        PartialContact {
-            user_id,
-            conversation_id,
-            friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
-        }
-    }
-
     #[sqlx::test]
     async fn contact_store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
@@ -432,93 +290,6 @@ mod tests {
         contact.upsert(&pool, &mut store_notifier).await?;
 
         let loaded = Contact::load(&pool, &contact.user_id).await?.unwrap();
-        assert_eq!(loaded, contact);
-
-        Ok(())
-    }
-
-    #[sqlx::test]
-    async fn partial_contact_store_load(pool: SqlitePool) -> anyhow::Result<()> {
-        let mut store_notifier = StoreNotifier::noop();
-
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
-            .await?;
-
-        let contact = test_partial_contact(conversation.id());
-        contact.store(&pool, &mut store_notifier).await?;
-
-        let loaded = PartialContact::load(&pool, &contact.user_id)
-            .await?
-            .unwrap();
-        assert_eq!(loaded, contact);
-
-        Ok(())
-    }
-
-    #[sqlx::test]
-    async fn partial_contact_store_load_all(pool: SqlitePool) -> anyhow::Result<()> {
-        let mut store_notifier = StoreNotifier::noop();
-
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
-            .await?;
-
-        let alice = test_partial_contact(conversation.id());
-        let bob = test_partial_contact(conversation.id());
-
-        alice.store(&pool, &mut store_notifier).await?;
-        bob.store(&pool, &mut store_notifier).await?;
-
-        let loaded = PartialContact::load_all(&pool).await?;
-        assert_eq!(loaded, [alice, bob]);
-
-        Ok(())
-    }
-
-    #[sqlx::test]
-    async fn partial_contact_mark_as_complete(pool: SqlitePool) -> anyhow::Result<()> {
-        let mut store_notifier = StoreNotifier::noop();
-
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
-            .await?;
-
-        let partial = test_partial_contact(conversation.id());
-        let user_id = partial.user_id.clone();
-
-        let user_profile_key = UserProfileKey::random(&partial.user_id)?;
-        user_profile_key.store(&pool).await?;
-
-        partial.store(&pool, &mut store_notifier).await?;
-
-        let friendship_package = FriendshipPackage {
-            friendship_token: FriendshipToken::random().unwrap(),
-            connection_key: ConnectionKey::random().unwrap(),
-            wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
-            user_profile_base_secret: user_profile_key.base_secret().clone(),
-        };
-
-        let mut txn = pool.begin().await?;
-
-        let contact = partial
-            .mark_as_complete(
-                &mut txn,
-                &mut store_notifier,
-                friendship_package,
-                user_profile_key.index().clone(),
-            )
-            .await?;
-
-        txn.commit().await?;
-
-        let loaded = PartialContact::load(&pool, &user_id).await?;
-        assert!(loaded.is_none());
-
-        let loaded = Contact::load(&pool, &user_id).await?.unwrap();
         assert_eq!(loaded, contact);
 
         Ok(())

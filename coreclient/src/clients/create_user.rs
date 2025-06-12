@@ -6,10 +6,8 @@ use crate::{
     DisplayName,
     groups::client_auth_info::StorableClientCredential,
     key_stores::{
-        MemoryUserKeyStoreBase,
-        as_credentials::AsCredentials,
-        indexed_keys::StorableIndexedKey,
-        queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+        MemoryUserKeyStoreBase, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
+        queue_ratchets::StorableQsQueueRatchet,
     },
     user_profiles::generate::NewUserProfile,
 };
@@ -87,9 +85,6 @@ impl BasicUserData {
             as_intermediate_credential.fingerprint().clone(),
         );
 
-        let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
-        let as_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableAsQueueRatchet::initialize(pool, as_initial_ratchet_secret.clone()).await?;
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
         StorableQsQueueRatchet::initialize(pool, qs_initial_ratchet_secret.clone()).await?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
@@ -107,7 +102,6 @@ impl BasicUserData {
 
         let key_store = MemoryUserKeyStoreBase {
             signing_key: prelim_signing_key,
-            as_queue_decryption_key,
             connection_decryption_key,
             qs_client_signing_key,
             qs_user_signing_key,
@@ -151,7 +145,6 @@ impl BasicUserData {
             encrypted_push_token,
             encrypted_user_profile,
             key_store,
-            as_initial_ratchet_secret,
             qs_initial_ratchet_secret,
         };
 
@@ -170,7 +163,6 @@ pub(crate) struct InitialUserState {
     encrypted_push_token: Option<EncryptedPushToken>,
     encrypted_user_profile: EncryptedUserProfile,
     key_store: MemoryUserKeyStoreBase<PreliminaryClientSigningKey>,
-    as_initial_ratchet_secret: RatchetSecret,
     qs_initial_ratchet_secret: RatchetSecret,
 }
 
@@ -185,11 +177,6 @@ impl InitialUserState {
             .default_client()?
             .as_register_user(
                 self.client_credential_payload.clone(),
-                self.key_store
-                    .as_queue_decryption_key
-                    .encryption_key()
-                    .clone(),
-                self.as_initial_ratchet_secret.clone(),
                 self.encrypted_user_profile.clone(),
             )
             .await?;
@@ -233,7 +220,6 @@ impl PostAsRegistrationState {
             encrypted_push_token,
             encrypted_user_profile: _,
             key_store,
-            as_initial_ratchet_secret: _,
             qs_initial_ratchet_secret,
         } = self.initial_user_state;
 
@@ -255,7 +241,6 @@ impl PostAsRegistrationState {
         // Replace preliminary signing key in the key store
         let key_store = MemoryUserKeyStore {
             signing_key,
-            as_queue_decryption_key: key_store.as_queue_decryption_key,
             connection_decryption_key: key_store.connection_decryption_key,
             qs_client_signing_key: key_store.qs_client_signing_key,
             qs_user_signing_key: key_store.qs_user_signing_key,

@@ -9,8 +9,7 @@ use phnxcommon::{
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{QualifiedGroupId, UserHandle},
     messages::{
-        QueueMessage,
-        client_as::{EncryptedConnectionOffer, ExtractedAsQueueMessagePayload},
+        client_as::EncryptedConnectionOffer,
         client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
     },
@@ -33,23 +32,8 @@ use super::{
     AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
     EarEncryptable, FriendshipPackage, anyhow,
 };
-use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 
 impl CoreUser {
-    /// Decrypt a `QueueMessage` received from the AS queue.
-    pub async fn decrypt_as_queue_message(
-        &self,
-        as_message_ciphertext: QueueMessage,
-    ) -> Result<ExtractedAsQueueMessagePayload> {
-        self.with_transaction(async |txn| {
-            let mut as_queue_ratchet = StorableAsQueueRatchet::load(txn.as_mut()).await?;
-            let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-            as_queue_ratchet.update_ratchet(txn.as_mut()).await?;
-            Ok(payload.extract()?)
-        })
-        .await
-    }
-
     /// Process a queue message received from the AS handle queue.
     ///
     /// Returns the [`ConversationId`] of any newly created conversations.
@@ -71,14 +55,14 @@ impl CoreUser {
 
     async fn process_connection_offer(
         &self,
-        user_handle: UserHandle,
+        handle: UserHandle,
         ecep: EncryptedConnectionOffer,
     ) -> Result<ConversationId> {
         let mut connection = self.pool().acquire().await?;
 
         // Parse & verify connection offer
         let cep_payload = self
-            .parse_and_verify_connection_offer(&mut connection, ecep, user_handle)
+            .parse_and_verify_connection_offer(&mut connection, ecep, handle.clone())
             .await?;
 
         // Prepare group
@@ -129,6 +113,7 @@ impl CoreUser {
         .await?;
 
         // Create conversation
+        // Note: For now, the conversation is immediately confirmed.
         let (mut conversation, contact) = self
             .create_connection_conversation(&mut connection, &group, &cep_payload)
             .await?;
@@ -282,7 +267,6 @@ impl CoreUser {
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
             sender_user_id.clone(),
-            // TODO: conversation title
             ConversationAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
@@ -303,13 +287,7 @@ impl CoreUser {
     ) -> Result<()> {
         group.store(txn.as_mut()).await?;
         conversation.store(txn.as_mut(), notifier).await?;
-
-        // TODO: For now, we automatically confirm conversations.
-        conversation
-            .confirm(txn.as_mut(), notifier, contact.user_id.clone())
-            .await?;
         contact.upsert(txn.as_mut(), notifier).await?;
-
         Ok(())
     }
 

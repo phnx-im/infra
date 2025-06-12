@@ -86,51 +86,6 @@ impl From<PublishConnectionPackageError> for Status {
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum UserConnectionPackagesError {
-    /// User could not be found
-    #[error("User could not be found")]
-    UnknownUser,
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-}
-
-impl From<UserConnectionPackagesError> for Status {
-    fn from(e: UserConnectionPackagesError) -> Self {
-        let msg = e.to_string();
-        match e {
-            UserConnectionPackagesError::UnknownUser => Status::not_found(msg),
-            UserConnectionPackagesError::StorageError => Status::internal(msg),
-        }
-    }
-}
-
-#[derive(Error, Debug)]
-pub(crate) enum EnqueueMessageError {
-    /// Library error
-    #[error("Library error")]
-    LibraryError,
-    /// Storage provider error
-    #[error("Storage provider error")]
-    StorageError,
-    /// Client not found
-    #[error("Client not found")]
-    ClientNotFound,
-}
-
-impl From<EnqueueMessageError> for Status {
-    fn from(e: EnqueueMessageError) -> Self {
-        let msg = e.to_string();
-        match e {
-            EnqueueMessageError::StorageError | EnqueueMessageError::LibraryError => {
-                Status::internal(msg)
-            }
-            EnqueueMessageError::ClientNotFound => Status::not_found(msg),
-        }
-    }
-}
-
-#[derive(Error, Debug)]
 pub(crate) enum IssueTokensError {
     /// Storage provider error
     #[error("Storage provider error")]
