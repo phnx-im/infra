@@ -21,7 +21,7 @@ use phnxcommon::{
         client_ds_out::CreateGroupParamsOut,
     },
 };
-use sqlx::SqliteConnection;
+use sqlx::{SqliteConnection, SqliteTransaction};
 use tracing::info;
 
 use crate::{
@@ -65,57 +65,50 @@ impl CoreUser {
         let verifying_key = as_intermediate_credential.verifying_key();
         let connection_package = connection_package.verify(verifying_key)?;
 
-        // Phase 3: Create a connection group
+        // Phase 3: Prepare the connection locally
         let group_id = client.ds_request_group_id().await?;
-
-        // Phase 4: Prepare the connection locally
-        let mut connection = self.pool().acquire().await?;
-        let mut notifier = self.store_notifier();
         let connection_package = VerifiedConnectionPackagesWithGroupId {
             verified_connection_packages: vec![connection_package],
             group_id,
         };
 
         let contact_id = ContactId::Handle(handle);
-
-        let local_group = connection
-            .with_transaction(async |txn| {
-                connection_package
-                    .create_local_connection_group(
-                        txn,
-                        &mut notifier,
-                        &self.inner.key_store,
-                        contact_id.clone(),
-                    )
-                    .await
-            })
-            .await?;
-
         let client_reference = self.create_own_client_reference();
 
-        let local_partial_contact = local_group
-            .create_partial_contact(
-                &mut connection,
-                &mut notifier,
-                &self.inner.key_store,
-                client_reference,
-                self.user_id(),
-                contact_id,
-            )
-            .await?;
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            // Phase 4: Create a connection group
+            let local_group = connection_package
+                .create_local_connection_group(
+                    txn,
+                    notifier,
+                    &self.inner.key_store.signing_key,
+                    contact_id.clone(),
+                )
+                .await?;
 
-        // Phase 5: Create the connection group on the DS and send off the connection offer
-        let conversation_id = local_partial_contact
-            .create_connection_group_via_handle(
-                &client,
-                self.signing_key(),
-                connection_offer_responder,
-            )
-            .await?;
+            let local_partial_contact = local_group
+                .create_partial_contact(
+                    txn,
+                    notifier,
+                    &self.inner.key_store,
+                    client_reference,
+                    self.user_id(),
+                    contact_id,
+                )
+                .await?;
 
-        notifier.notify();
+            // Phase 5: Create the connection group on the DS and send off the connection offer
+            let conversation_id = local_partial_contact
+                .create_connection_group_via_handle(
+                    &client,
+                    self.signing_key(),
+                    connection_offer_responder,
+                )
+                .await?;
 
-        Ok(conversation_id)
+            Ok(conversation_id)
+        })
+        .await
     }
 
     /// Create a connection with a new user.
@@ -144,7 +137,7 @@ impl CoreUser {
                     .create_local_connection_group(
                         txn,
                         &mut notifier,
-                        &self.inner.key_store,
+                        &self.inner.key_store.signing_key,
                         contact_id.clone(),
                     )
                     .await
@@ -153,15 +146,19 @@ impl CoreUser {
 
         let client_reference = self.create_own_client_reference();
 
-        let local_partial_contact = local_group
-            .create_partial_contact(
-                &mut connection,
-                &mut notifier,
-                &self.inner.key_store,
-                client_reference,
-                self.user_id(),
-                contact_id,
-            )
+        let local_partial_contact = connection
+            .with_transaction(async |txn| {
+                local_group
+                    .create_partial_contact(
+                        txn,
+                        &mut notifier,
+                        &self.inner.key_store,
+                        client_reference,
+                        self.user_id(),
+                        contact_id,
+                    )
+                    .await
+            })
             .await?;
 
         // Phase 5: Create the connection group on the DS and send off the connection offer
@@ -270,7 +267,7 @@ impl VerifiedConnectionPackagesWithGroupId {
         self,
         txn: &mut sqlx::SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
-        key_store: &MemoryUserKeyStore,
+        signing_key: &ClientSigningKey,
         contact_id: ContactId,
     ) -> anyhow::Result<LocalGroup> {
         let Self {
@@ -284,12 +281,8 @@ impl VerifiedConnectionPackagesWithGroupId {
         let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
 
         let provider = PhnxOpenMlsProvider::new(txn);
-        let (group, group_membership, partial_params) = Group::create_group(
-            &provider,
-            &key_store.signing_key,
-            group_id.clone(),
-            group_data,
-        )?;
+        let (group, group_membership, partial_params) =
+            Group::create_group(&provider, signing_key, group_id.clone(), group_data)?;
         group_membership.store(txn.as_mut()).await?;
         group.store(txn.as_mut()).await?;
 
@@ -330,7 +323,7 @@ struct LocalGroup {
 impl LocalGroup {
     async fn create_partial_contact(
         self,
-        connection: &mut SqliteConnection,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         key_store: &MemoryUserKeyStore,
         own_client_reference: QsReference,
@@ -344,7 +337,7 @@ impl LocalGroup {
             verified_connection_packages,
         } = self;
 
-        let own_user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
+        let own_user_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
 
         let friendship_package = FriendshipPackage {
             friendship_token: key_store.friendship_token.clone(),
@@ -363,12 +356,12 @@ impl LocalGroup {
                     conversation_id,
                     friendship_package_ear_key.clone(),
                 )
-                .store(&mut *connection, notifier)
+                .store(txn.as_mut(), notifier)
                 .await?;
             }
             ContactId::Handle(handle) => {
                 HandleContact::new(handle, conversation_id, friendship_package_ear_key.clone())
-                    .upsert(&mut *connection, notifier)
+                    .upsert(txn.as_mut(), notifier)
                     .await?;
             }
         };
