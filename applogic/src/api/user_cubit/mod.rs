@@ -16,16 +16,17 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 use user_handle::{HandleBackgroundTasks, HandleContext};
 
+use crate::api::types::UiContact;
 use crate::{
     StreamSink,
     api::navigation_cubit::HomeNavigationState,
     notifications::NotificationService,
     util::{Cubit, CubitCore, spawn_from_sync},
 };
-use crate::{api::types::UiContact, messages::FetchedMessages};
 
 use super::{
     navigation_cubit::{NavigationCubitBase, NavigationState},
+    notifications::NotificationContent,
     types::{UiUserHandle, UiUserId},
     user::User,
 };
@@ -115,7 +116,11 @@ pub enum AppState {
 #[frb(opaque)]
 pub struct UserCubitBase {
     core: CubitCore<UiUser>,
-    pub(crate) core_user: CoreUser,
+    context: CubitContext,
+    #[cfg_attr(
+        not(any(target_os = "android", target_os = "ios")),
+        expect(dead_code, reason = "app state only changes on mobile")
+    )]
     app_state_tx: watch::Sender<AppState>,
     background_listen_handle_tasks: HandleBackgroundTasks,
     cancel: CancellationToken,
@@ -139,32 +144,34 @@ impl UserCubitBase {
 
         let cancel = CancellationToken::new();
 
+        let context = CubitContext {
+            core_user,
+            app_state,
+            navigation_state,
+            notification_service,
+        };
+
         // start background task listening for incoming messages
-        QueueContext::new(
-            core_user.clone(),
-            navigation_state.clone(),
-            app_state.clone(),
-            notification_service.clone(),
-        )
-        .into_task(cancel.clone())
-        .spawn();
+        QueueContext::new(context.clone())
+            .into_task(cancel.clone())
+            .spawn();
 
         // start background tasks listening for incoming handle messages
-        let background_listen_handle_tasks = HandleBackgroundTasks::default();
-        HandleContext::spawn_loading(
-            core_user.clone(),
-            app_state.clone(),
-            cancel.clone(),
-            background_listen_handle_tasks.clone(),
-        );
+        let background_listen_handle_tasks =
+            HandleContext::spawn_loading(context.clone(), cancel.clone());
 
         Self {
             core,
-            core_user,
+            context,
             app_state_tx,
             background_listen_handle_tasks,
             cancel: cancel.clone(),
         }
+    }
+
+    #[frb(ignore)]
+    pub(crate) fn core_user(&self) -> &CoreUser {
+        &self.context.core_user
     }
 
     // Cubit inteface
@@ -199,14 +206,14 @@ impl UserCubitBase {
         let display_name = display_name.map(|s| s.parse()).transpose()?;
         let profile_picture = profile_picture.map(Asset::Value);
 
-        let mut profile = self.core_user.own_user_profile().await?;
+        let mut profile = self.context.core_user.own_user_profile().await?;
         if let Some(value) = display_name {
             profile.display_name = value;
         }
         if let Some(value) = profile_picture {
             profile.profile_picture = Some(value);
         }
-        self.core_user.set_own_user_profile(profile).await?;
+        self.context.core_user.set_own_user_profile(profile).await?;
 
         Ok(())
     }
@@ -217,7 +224,8 @@ impl UserCubitBase {
         conversation_id: ConversationId,
         user_id: UiUserId,
     ) -> anyhow::Result<()> {
-        self.core_user
+        self.context
+            .core_user
             .invite_users(conversation_id, &[user_id.into()])
             .await?;
         Ok(())
@@ -229,7 +237,8 @@ impl UserCubitBase {
         conversation_id: ConversationId,
         user_id: UiUserId,
     ) -> anyhow::Result<()> {
-        self.core_user
+        self.context
+            .core_user
             .remove_users(conversation_id, vec![user_id.into()])
             .await?;
         Ok(())
@@ -237,7 +246,7 @@ impl UserCubitBase {
 
     #[frb(getter)]
     pub async fn contacts(&self) -> anyhow::Result<Vec<UiContact>> {
-        let contacts = self.core_user.contacts().await?;
+        let contacts = self.context.core_user.contacts().await?;
         Ok(contacts.into_iter().map(From::from).collect())
     }
 
@@ -246,6 +255,7 @@ impl UserCubitBase {
         conversation_id: ConversationId,
     ) -> anyhow::Result<Vec<UiContact>> {
         let Some(members) = self
+            .context
             .core_user
             .conversation_participants(conversation_id)
             .await
@@ -274,7 +284,7 @@ impl UserCubitBase {
 
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
-        let Some(record) = self.core_user.add_user_handle(&user_handle).await? else {
+        let Some(record) = self.context.core_user.add_user_handle(&user_handle).await? else {
             return Ok(false);
         };
 
@@ -285,23 +295,22 @@ impl UserCubitBase {
         });
 
         // start background listen stream for the handle
-        HandleContext::new(
-            self.core_user.clone(),
-            self.app_state_tx.subscribe(),
-            record,
-        )
-        .into_task(
-            self.cancel.child_token(),
-            &self.background_listen_handle_tasks,
-        )
-        .spawn();
+        HandleContext::new(self.context.clone(), record)
+            .into_task(
+                self.cancel.child_token(),
+                &self.background_listen_handle_tasks,
+            )
+            .spawn();
 
         Ok(true)
     }
 
     pub async fn remove_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<()> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
-        self.core_user.remove_user_handle(&user_handle).await?;
+        self.context
+            .core_user
+            .remove_user_handle(&user_handle)
+            .await?;
 
         // remove user handle from UI state
         self.core.state_tx().send_if_modified(|state| {
@@ -331,6 +340,16 @@ impl Drop for UserCubitBase {
     }
 }
 
+/// Reusable context of this cubit in background tasks.
+#[frb(ignore)]
+#[derive(Debug, Clone)]
+struct CubitContext {
+    core_user: CoreUser,
+    app_state: watch::Receiver<AppState>,
+    navigation_state: watch::Receiver<NavigationState>,
+    notification_service: NotificationService,
+}
+
 /// Places in the app where notifications in foreground are handled differently.
 ///
 /// Dervived from the [`NavigationState`].
@@ -342,63 +361,61 @@ enum NotificationContext {
     Other,
 }
 
-async fn process_fetched_messages(
-    navigation_state: &watch::Receiver<NavigationState>,
-    notification_service: &NotificationService,
-    mut fetched_messages: FetchedMessages,
-) {
-    let notification_context = match &*navigation_state.borrow() {
-        NavigationState::Intro { .. } => NotificationContext::Intro,
-        NavigationState::Home {
-            home:
-                HomeNavigationState {
-                    conversation_id: Some(conversation_id),
-                    ..
-                },
-        } => NotificationContext::Conversation(*conversation_id),
-        NavigationState::Home {
-            home:
-                HomeNavigationState {
-                    conversation_id: None,
-                    developer_settings_screen,
-                    user_settings_screen,
-                    ..
-                },
-        } => {
-            const IS_DESKTOP: bool = cfg!(any(
-                target_os = "macos",
-                target_os = "windows",
-                target_os = "linux"
-            ));
-            if !IS_DESKTOP && developer_settings_screen.is_none() && user_settings_screen.is_none()
-            {
-                NotificationContext::ConversationList
-            } else {
-                NotificationContext::Other
+impl CubitContext {
+    /// Show OS notifications depending on the current navigation state and OS.
+    async fn show_notifications(&self, mut notifications: Vec<NotificationContent>) {
+        let notification_context = match &*self.navigation_state.borrow() {
+            NavigationState::Intro { .. } => NotificationContext::Intro,
+            NavigationState::Home {
+                home:
+                    HomeNavigationState {
+                        conversation_id: Some(conversation_id),
+                        ..
+                    },
+            } => NotificationContext::Conversation(*conversation_id),
+            NavigationState::Home {
+                home:
+                    HomeNavigationState {
+                        conversation_id: None,
+                        developer_settings_screen,
+                        user_settings_screen,
+                        ..
+                    },
+            } => {
+                const IS_DESKTOP: bool = cfg!(any(
+                    target_os = "macos",
+                    target_os = "windows",
+                    target_os = "linux"
+                ));
+                if !IS_DESKTOP
+                    && developer_settings_screen.is_none()
+                    && user_settings_screen.is_none()
+                {
+                    NotificationContext::ConversationList
+                } else {
+                    NotificationContext::Other
+                }
             }
-        }
-    };
+        };
 
-    debug!(
-        ?fetched_messages,
-        ?notification_context,
-        "process_fetched_messages"
-    );
+        debug!(?notifications, ?notification_context, "send_notification");
 
-    match notification_context {
-        NotificationContext::Intro | NotificationContext::ConversationList => {
-            return; // suppress all notifications
+        match notification_context {
+            NotificationContext::Intro | NotificationContext::ConversationList => {
+                return; // suppress all notifications
+            }
+            NotificationContext::Conversation(conversation_id) => {
+                // Remove notifications for the current conversation
+                notifications
+                    .retain(|notification| notification.conversation_id != Some(conversation_id));
+            }
+            NotificationContext::Other => (),
         }
-        NotificationContext::Conversation(conversation_id) => {
-            // Remove notifications for the current conversation
-            fetched_messages
-                .notifications_content
-                .retain(|notification| notification.conversation_id != Some(conversation_id));
-        }
-        NotificationContext::Other => (),
-    }
 
-    for notification in fetched_messages.notifications_content {
-        notification_service.send_notification(notification).await;
+        for notification in notifications {
+            self.notification_service
+                .show_notification(notification)
+                .await;
+        }
     }
 }
