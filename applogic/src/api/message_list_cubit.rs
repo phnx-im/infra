@@ -9,7 +9,7 @@ use std::{collections::HashMap, pin::pin, sync::Arc};
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
     ConversationId, ConversationMessage, ConversationMessageId,
-    store::{Store, StoreEntityId, StoreNotification, StoreOperation},
+    store::{MessageWithStatus, Store, StoreEntityId, StoreNotification, StoreOperation},
 };
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
@@ -56,7 +56,7 @@ impl MessageListState {
     /// of additional messages via batching <https://github.com/phnx-im/infra/issues/287>.
     fn rebuild_from_messages(
         &mut self,
-        mut new_messages: Vec<ConversationMessage>,
+        mut new_messages: Vec<MessageWithStatus>,
         include_first: bool,
     ) {
         let capacity = new_messages.len().saturating_sub(1);
@@ -68,13 +68,13 @@ impl MessageListState {
         let prev = if include_first {
             None
         } else {
-            messages_iter.next().map(UiConversationMessage::from)
+            messages_iter.next().map(UiConversationMessage::with_status)
         };
         let mut prev = prev.as_ref();
-        let mut cur = messages_iter.next().map(UiConversationMessage::from);
+        let mut cur = messages_iter.next().map(UiConversationMessage::with_status);
 
         while let Some(mut message) = cur.take() {
-            let next = messages_iter.next().map(From::from);
+            let next = messages_iter.next().map(UiConversationMessage::with_status);
 
             message.position = UiFlightPosition::calculate(&message, prev, next.as_ref());
 
@@ -196,7 +196,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         const MAX_MESSAGES: usize = 1001;
         let messages = match self
             .store
-            .messages(self.conversation_id, MAX_MESSAGES)
+            .messages_with_status(self.conversation_id, MAX_MESSAGES)
             .await
         {
             Ok(messages) => messages,
@@ -303,17 +303,20 @@ mod tests {
 
     use super::*;
 
-    fn new_test_message(sender: &UserId, timestamp_secs: i64) -> ConversationMessage {
-        ConversationMessage::new_for_test(
-            ConversationId::new(Uuid::from_u128(1)),
-            ConversationMessageId::new(Uuid::from_u128(1)),
-            TimeStamp::from(timestamp_secs * 1_000_000_000),
-            Message::with_content(ContentMessage::new(
-                sender.clone(),
-                true,
-                MimiContent::simple_markdown_message("some content".into()),
-            )),
-        )
+    fn new_test_message(sender: &UserId, timestamp_secs: i64) -> MessageWithStatus {
+        MessageWithStatus {
+            message: ConversationMessage::new_for_test(
+                ConversationId::new(Uuid::from_u128(1)),
+                ConversationMessageId::new(Uuid::from_u128(1)),
+                TimeStamp::from(timestamp_secs * 1_000_000_000),
+                Message::with_content(ContentMessage::new(
+                    sender.clone(),
+                    true,
+                    MimiContent::simple_markdown_message("some content".into()),
+                )),
+            ),
+            delivery_status: Vec::new(),
+        }
     }
 
     #[test]

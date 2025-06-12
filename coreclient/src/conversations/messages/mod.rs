@@ -26,6 +26,10 @@ impl TimestampedMessage {
         self.timestamp
     }
 
+    pub(crate) fn message(&self) -> &Message {
+        &self.message
+    }
+
     /// Mark the message as sent and update the timestamp. If the message was
     /// already marked as sent, nothing happens.
     pub(super) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {

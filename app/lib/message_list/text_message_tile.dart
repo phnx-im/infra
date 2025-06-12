@@ -24,12 +24,14 @@ class TextMessageTile extends StatelessWidget {
     required this.contentMessage,
     required this.timestamp,
     required this.flightPosition,
+    required this.deliveryStatus,
     super.key,
   });
 
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
+  final List<UiUserId> deliveryStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +47,7 @@ class TextMessageTile extends StatelessWidget {
           timestamp: timestamp,
           isSender: isSender,
           flightPosition: flightPosition,
+          deliveryStatus: deliveryStatus,
         ),
       ],
     );
@@ -57,12 +60,14 @@ class _MessageView extends StatelessWidget {
     required this.timestamp,
     required this.flightPosition,
     required this.isSender,
+    required this.deliveryStatus,
   });
 
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
   final bool isSender;
+  final List<UiUserId> deliveryStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +95,7 @@ class _MessageView extends StatelessWidget {
                   isSender: isSender,
                   flightPosition: flightPosition,
                 ),
+                Text.rich(TextSpan(text: deliveryStatus.length.toString())),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 2),
                   _Timestamp(timestamp),

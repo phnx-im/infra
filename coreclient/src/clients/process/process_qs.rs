@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{Context, Result, bail, ensure};
+use mimi_content::{Disposition, MessageStatusReport, MimiContent, NestedPartContent};
 use openmls::{
     group::QueuedProposal,
     prelude::{MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage, Sender},
@@ -26,8 +27,8 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    ConversationMessage, PartialContact,
-    conversations::ConversationType,
+    ConversationMessage, Message, PartialContact,
+    conversations::{ConversationType, persistence::persist_message_status_report},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
     utils::connection_ext::ConnectionExt,
@@ -252,37 +253,40 @@ impl CoreUser {
                     let aad = processed_message.aad().to_vec();
 
                     // `conversation_changed` indicates whether the state of the conversation was updated
-                    let (group_messages, conversation_changed) = match processed_message
-                        .into_content()
-                    {
-                        ProcessedMessageContent::ApplicationMessage(application_message) => self
-                            .handle_application_message(
-                                application_message,
-                                ds_timestamp,
-                                sender_client_credential.identity(),
-                            )?,
-                        ProcessedMessageContent::ProposalMessage(proposal) => {
-                            self.handle_proposal_message(txn, &mut group, *proposal)
+                    let (group_messages, conversation_changed) =
+                        match processed_message.into_content() {
+                            ProcessedMessageContent::ApplicationMessage(application_message) => {
+                                // This only returns messages, if they should be shown in the timeline
+                                self.handle_application_message(
+                                    txn,
+                                    application_message,
+                                    ds_timestamp,
+                                    sender_client_credential.identity(),
+                                )
                                 .await?
-                        }
-                        ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                            self.handle_staged_commit_message(
-                                txn,
-                                &mut group,
-                                conversation_id,
-                                *staged_commit,
-                                aad,
-                                ds_timestamp,
-                                &sender,
-                                &sender_client_credential,
-                                we_were_removed,
-                            )
-                            .await?
-                        }
-                        ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-                            self.handle_external_join_proposal_message()?
-                        }
-                    };
+                            }
+                            ProcessedMessageContent::ProposalMessage(proposal) => {
+                                self.handle_proposal_message(txn, &mut group, *proposal)
+                                    .await?
+                            }
+                            ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
+                                self.handle_staged_commit_message(
+                                    txn,
+                                    &mut group,
+                                    conversation_id,
+                                    *staged_commit,
+                                    aad,
+                                    ds_timestamp,
+                                    &sender,
+                                    &sender_client_credential,
+                                    we_were_removed,
+                                )
+                                .await?
+                            }
+                            ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
+                                self.handle_external_join_proposal_message()?
+                            }
+                        };
 
                     // MLSMessage Phase 3: Store the updated group and the messages.
                     group.store_update(txn.as_mut()).await?;
@@ -299,6 +303,27 @@ impl CoreUser {
                     ))
                 })
                 .await?;
+
+        // TODO: Queue this and run the network requests batched together in a background task
+        for message in &conversation_messages {
+            if let Message::Content(content_message) = message.message() {
+                if content_message.content().nested_part.disposition == Disposition::Render {
+                    if let Err(e) = self
+                        .send_message(
+                            conversation_id,
+                            MimiContent::simple_delivery_receipt(vec![
+                                message.id().uuid().as_u128().to_be_bytes().to_vec().into(),
+                            ]),
+                        )
+                        .await
+                    {
+                        error!(%e, "Could not send delivery receipt");
+                    }
+                }
+            } else {
+                todo!()
+            }
+        }
 
         let res = match (conversation_messages, conversation_changed) {
             (messages, true) => {
@@ -318,17 +343,40 @@ impl CoreUser {
         Ok(res)
     }
 
-    fn handle_application_message(
+    async fn handle_application_message(
         &self,
+        txn: &mut SqliteTransaction<'_>,
         application_message: openmls::prelude::ApplicationMessage,
         ds_timestamp: TimeStamp,
         sender_user_id: &UserId,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
-        let group_messages = vec![TimestampedMessage::from_application_message(
+        let message = TimestampedMessage::from_application_message(
             application_message,
             ds_timestamp,
             sender_user_id,
-        )];
+        );
+
+        if let Message::Content(content_message) = message.message() {
+            if let NestedPartContent::SinglePart {
+                content_type,
+                content,
+            } = &content_message.content().nested_part.part
+            {
+                if content_type == "application/mimi-message-status" {
+                    if let Ok(report) = MessageStatusReport::deserialize(content) {
+                        persist_message_status_report(txn, sender_user_id, &report).await?;
+                        dbg!(report);
+
+                        // TODO: Uncomment
+                        // This is a status update, we don't need any further processing
+                        // return Ok((Vec::new(), false));
+                    }
+                }
+            }
+        }
+
+        let group_messages = vec![message];
+
         Ok((group_messages, false))
     }
 

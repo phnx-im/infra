@@ -202,7 +202,7 @@ pub(super) async fn converation_into_ui_details(
         .await
         .ok()
         .flatten()
-        .map(|m| m.into());
+        .map(UiConversationMessage::from_simple);
     let last_used = last_message
         .as_ref()
         .map(|m: &UiConversationMessage| m.timestamp.clone())

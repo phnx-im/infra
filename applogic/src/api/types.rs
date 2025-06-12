@@ -17,7 +17,8 @@ use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
-    InactiveConversation, Message, SystemMessage, UserProfile, store::Store,
+    InactiveConversation, Message, SystemMessage, UserProfile,
+    store::{MessageWithStatus, Store},
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
@@ -203,22 +204,35 @@ pub struct UiConversationMessage {
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub position: UiFlightPosition,
+    pub delivery_status: Vec<UiUserId>,
 }
 
 impl UiConversationMessage {
     pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp.parse().ok()
     }
-}
 
-impl From<ConversationMessage> for UiConversationMessage {
-    fn from(conversation_message: ConversationMessage) -> Self {
+    #[frb(ignore)]
+    pub fn from_simple(conversation_message: ConversationMessage) -> Self {
+        Self::with_status(MessageWithStatus {
+            message: conversation_message,
+            delivery_status: Vec::new(),
+        })
+    }
+
+    #[frb(ignore)]
+    pub fn with_status(message: MessageWithStatus) -> Self {
         Self {
-            conversation_id: conversation_message.conversation_id(),
-            id: conversation_message.id(),
-            timestamp: conversation_message.timestamp().to_rfc3339(),
-            message: UiMessage::from(conversation_message.message().clone()),
+            conversation_id: message.message.conversation_id(),
+            id: message.message.id(),
+            timestamp: message.message.timestamp().to_rfc3339(),
+            message: UiMessage::from(message.message.message().clone()),
             position: UiFlightPosition::Single,
+            delivery_status: message
+                .delivery_status
+                .into_iter()
+                .map(|u| UiUserId::from(u))
+                .collect(),
         }
     }
 }

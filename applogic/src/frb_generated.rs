@@ -6065,12 +6065,14 @@ impl SseDecode for crate::api::types::UiConversationMessage {
         let mut var_timestamp = <String>::sse_decode(deserializer);
         let mut var_message = <crate::api::types::UiMessage>::sse_decode(deserializer);
         let mut var_position = <crate::api::types::UiFlightPosition>::sse_decode(deserializer);
+        let mut var_deliveryStatus = <Vec<crate::api::types::UiUserId>>::sse_decode(deserializer);
         return crate::api::types::UiConversationMessage {
             conversation_id: var_conversationId,
             id: var_id,
             timestamp: var_timestamp,
             message: var_message,
             position: var_position,
+            delivery_status: var_deliveryStatus,
         };
     }
 }
@@ -7301,6 +7303,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::UiConversationMessage 
             self.timestamp.into_into_dart().into_dart(),
             self.message.into_into_dart().into_dart(),
             self.position.into_into_dart().into_dart(),
+            self.delivery_status.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -8726,6 +8729,7 @@ impl SseEncode for crate::api::types::UiConversationMessage {
         <String>::sse_encode(self.timestamp, serializer);
         <crate::api::types::UiMessage>::sse_encode(self.message, serializer);
         <crate::api::types::UiFlightPosition>::sse_encode(self.position, serializer);
+        <Vec<crate::api::types::UiUserId>>::sse_encode(self.delivery_status, serializer);
     }
 }
 
