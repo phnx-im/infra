@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/theme/theme.dart';
 
 class Timestamp extends StatefulWidget {
@@ -71,11 +72,11 @@ class TimestampState extends State<Timestamp> {
     final t = DateTime.parse(time);
     // If the elapsed time is less than 60 seconds, show "now"
     if (DateTime.now().difference(t).inSeconds < 60) {
-      return 'Now';
+      return AppLocalizations.of(context).timestamp_now;
     }
     // If the elapsed time is less than 60 minutes, show the elapsed minutes
     if (DateTime.now().difference(t).inMinutes < 60) {
-      return '${DateTime.now().difference(t).inMinutes}m ago';
+      return '${DateTime.now().difference(t).inMinutes}m';
     }
     // Otherwise show the time
     return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';

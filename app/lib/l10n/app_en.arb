@@ -50,7 +50,9 @@
   "systemMessage_userRemovedUser_prefix": "",
   "systemMessage_userRemovedUser_infix": " removed ",
   "systemMessage_userRemovedUser_suffix": "",
-  
+
+  "timestamp_now": "now",
+
   "conversationList_newConnection": "New connection",
   "conversationList_newConversation": "New conversation",
 

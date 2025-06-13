@@ -344,6 +344,12 @@ abstract class AppLocalizations {
   /// **''**
   String get systemMessage_userRemovedUser_suffix;
 
+  /// No description provided for @timestamp_now.
+  ///
+  /// In en, this message translates to:
+  /// **'now'**
+  String get timestamp_now;
+
   /// No description provided for @conversationList_newConnection.
   ///
   /// In en, this message translates to:

@@ -146,6 +146,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemMessage_userRemovedUser_suffix => '';
 
   @override
+  String get timestamp_now => 'now';
+
+  @override
   String get conversationList_newConnection => 'New connection';
 
   @override
