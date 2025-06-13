@@ -11,8 +11,8 @@ use tls_codec::{TlsSerialize, TlsSize};
 
 use super::TlsString;
 
-const MIN_USER_HANDLE_LENGTH: usize = 6;
-const MAX_USER_HANDLE_LENGTH: usize = 64;
+const MIN_USER_HANDLE_LENGTH: usize = 5;
+const MAX_USER_HANDLE_LENGTH: usize = 63;
 const USER_HANDLE_CHARSET: &[u8] = b"_0123456789abcdefghijklmnopqrstuvwxyz";
 
 pub const USER_HANDLE_VALIDITY_PERIOD: Duration = Duration::days(30);
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_user_handle_new_too_short() {
-        let handle_str = "abcde".to_string(); // Length 5, MIN_USER_HANDLE_LENGTH is 6
+        let handle_str = "abcd".to_string(); // Length 4, MIN_USER_HANDLE_LENGTH is 5
         let handle = UserHandle::new(handle_str);
         assert!(matches!(
             handle.unwrap_err(),
