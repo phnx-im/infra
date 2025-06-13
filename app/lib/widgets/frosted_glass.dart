@@ -7,25 +7,22 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 class FrostedGlass extends StatelessWidget {
-  const FrostedGlass({super.key, required this.color, required this.height});
+  const FrostedGlass({super.key, this.child, this.borderRadius});
 
-  final Color color;
-  final double height;
+  final BorderRadiusGeometry? borderRadius;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
+    return ClipRRect(
+      borderRadius: borderRadius ?? BorderRadius.zero,
       child: BackdropFilter(
         filter: ImageFilter.blur(
-          sigmaX: 15,
-          sigmaY: 15,
+          sigmaX: 32,
+          sigmaY: 32,
           tileMode: TileMode.repeated,
         ),
-        child: Container(
-          width: MediaQuery.of(context).size.width,
-          height: height,
-          color: color.withValues(alpha: 0.4),
-        ),
+        child: child,
       ),
     );
   }

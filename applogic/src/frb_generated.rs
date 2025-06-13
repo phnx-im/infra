@@ -6214,10 +6214,22 @@ impl SseDecode for crate::api::types::UiMimiContent {
 impl SseDecode for crate::api::types::UiSystemMessage {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_message = <String>::sse_decode(deserializer);
-        return crate::api::types::UiSystemMessage {
-            message: var_message,
-        };
+        let mut tag_ = <i32>::sse_decode(deserializer);
+        match tag_ {
+            0 => {
+                let mut var_field0 = <crate::api::types::UiUserId>::sse_decode(deserializer);
+                let mut var_field1 = <crate::api::types::UiUserId>::sse_decode(deserializer);
+                return crate::api::types::UiSystemMessage::Add(var_field0, var_field1);
+            }
+            1 => {
+                let mut var_field0 = <crate::api::types::UiUserId>::sse_decode(deserializer);
+                let mut var_field1 = <crate::api::types::UiUserId>::sse_decode(deserializer);
+                return crate::api::types::UiSystemMessage::Remove(var_field0, var_field1);
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
     }
 }
 
@@ -7504,7 +7516,23 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMimiContent>
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::UiSystemMessage {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [self.message.into_into_dart().into_dart()].into_dart()
+        match self {
+            crate::api::types::UiSystemMessage::Add(field0, field1) => [
+                0.into_dart(),
+                field0.into_into_dart().into_dart(),
+                field1.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            crate::api::types::UiSystemMessage::Remove(field0, field1) => [
+                1.into_dart(),
+                field0.into_into_dart().into_dart(),
+                field1.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            _ => {
+                unimplemented!("");
+            }
+        }
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
@@ -8853,7 +8881,21 @@ impl SseEncode for crate::api::types::UiMimiContent {
 impl SseEncode for crate::api::types::UiSystemMessage {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.message, serializer);
+        match self {
+            crate::api::types::UiSystemMessage::Add(field0, field1) => {
+                <i32>::sse_encode(0, serializer);
+                <crate::api::types::UiUserId>::sse_encode(field0, serializer);
+                <crate::api::types::UiUserId>::sse_encode(field1, serializer);
+            }
+            crate::api::types::UiSystemMessage::Remove(field0, field1) => {
+                <i32>::sse_encode(1, serializer);
+                <crate::api::types::UiUserId>::sse_encode(field0, serializer);
+                <crate::api::types::UiUserId>::sse_encode(field1, serializer);
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
     }
 }
 

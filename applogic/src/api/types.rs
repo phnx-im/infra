@@ -320,22 +320,21 @@ impl From<EventMessage> for UiEventMessage {
 
 /// System message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct UiSystemMessage {
-    pub message: String,
+pub enum UiSystemMessage {
+    Add(UiUserId, UiUserId),
+    Remove(UiUserId, UiUserId),
 }
 
 impl From<SystemMessage> for UiSystemMessage {
     fn from(system_message: SystemMessage) -> Self {
-        // TODO: Use display names here
-        let message = match system_message {
-            SystemMessage::Add(adder, added) => {
-                format!("{adder:?} added {added:?} to the conversation")
+        match system_message {
+            SystemMessage::Add(user_id, contact_id) => {
+                UiSystemMessage::Add(user_id.into(), contact_id.into())
             }
-            SystemMessage::Remove(remover, removed) => {
-                format!("{remover:?} removed {removed:?} from the conversation")
+            SystemMessage::Remove(user_id, contact_id) => {
+                UiSystemMessage::Remove(user_id.into(), contact_id.into())
             }
-        };
-        Self { message }
+        }
     }
 }
 

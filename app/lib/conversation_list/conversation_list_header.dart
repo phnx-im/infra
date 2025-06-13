@@ -24,8 +24,9 @@ class ConversationListHeader extends StatelessWidget {
         SizedBox(
           height: _height(context),
           child: FrostedGlass(
-            color: convPaneBackgroundColor,
-            height: _height(context),
+            child: Container(
+              color: convPaneBackgroundColor.withValues(alpha: 0.1),
+            ),
           ),
         ),
         Container(

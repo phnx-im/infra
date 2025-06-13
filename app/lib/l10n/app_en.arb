@@ -41,5 +41,13 @@
   "editDisplayNameScreen_title": "Display Name",
   "editDisplayNameScreen_hintText": "Display name",
   "editDisplayNameScreen_description": "Choose a name that others will see when you communicate with them.",
-  "editDisplayNameScreen_save": "Save"
+  "editDisplayNameScreen_save": "Save",
+
+  "systemMessage_userAddedUser_prefix": "",
+  "systemMessage_userAddedUser_infix": " added ",
+  "systemMessage_userAddedUser_suffix": "",
+
+  "systemMessage_userRemovedUser_prefix": "",
+  "systemMessage_userRemovedUser_infix": " removed ",
+  "systemMessage_userRemovedUser_suffix": ""
 }

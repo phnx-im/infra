@@ -375,21 +375,14 @@ class UiMimiContent with _$UiMimiContent {
   }) = _UiMimiContent;
 }
 
-/// System message
-class UiSystemMessage {
-  final String message;
+@freezed
+sealed class UiSystemMessage with _$UiSystemMessage {
+  const UiSystemMessage._();
 
-  const UiSystemMessage({required this.message});
-
-  @override
-  int get hashCode => message.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiSystemMessage &&
-          runtimeType == other.runtimeType &&
-          message == other.message;
+  const factory UiSystemMessage.add(UiUserId field0, UiUserId field1) =
+      UiSystemMessage_Add;
+  const factory UiSystemMessage.remove(UiUserId field0, UiUserId field1) =
+      UiSystemMessage_Remove;
 }
 
 @freezed
