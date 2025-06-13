@@ -128,6 +128,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editDisplayNameScreen_save => 'Save';
 
   @override
+  String get systemMessage_userAddedUser_prefix => '';
+
+  @override
+  String get systemMessage_userAddedUser_infix => ' added ';
+
+  @override
+  String get systemMessage_userAddedUser_suffix => '';
+
+  @override
+  String get systemMessage_userRemovedUser_prefix => '';
+
+  @override
+  String get systemMessage_userRemovedUser_infix => ' removed ';
+
+  @override
+  String get systemMessage_userRemovedUser_suffix => '';
+
+  @override
+  String get timestamp_now => 'now';
+
+  @override
   String get conversationList_newConnection => 'New connection';
 
   @override

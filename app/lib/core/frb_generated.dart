@@ -5658,10 +5658,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   UiSystemMessage dco_decode_ui_system_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 1)
-      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return UiSystemMessage(message: dco_decode_String(arr[0]));
+    switch (raw[0]) {
+      case 0:
+        return UiSystemMessage_Add(
+          dco_decode_box_autoadd_ui_user_id(raw[1]),
+          dco_decode_box_autoadd_ui_user_id(raw[2]),
+        );
+      case 1:
+        return UiSystemMessage_Remove(
+          dco_decode_box_autoadd_ui_user_id(raw[1]),
+          dco_decode_box_autoadd_ui_user_id(raw[2]),
+        );
+      default:
+        throw Exception("unreachable");
+    }
   }
 
   @protected
@@ -7535,8 +7545,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   UiSystemMessage sse_decode_ui_system_message(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_message = sse_decode_String(deserializer);
-    return UiSystemMessage(message: var_message);
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_field0 = sse_decode_box_autoadd_ui_user_id(deserializer);
+        var var_field1 = sse_decode_box_autoadd_ui_user_id(deserializer);
+        return UiSystemMessage_Add(var_field0, var_field1);
+      case 1:
+        var var_field0 = sse_decode_box_autoadd_ui_user_id(deserializer);
+        var var_field1 = sse_decode_box_autoadd_ui_user_id(deserializer);
+        return UiSystemMessage_Remove(var_field0, var_field1);
+      default:
+        throw UnimplementedError('');
+    }
   }
 
   @protected
@@ -9528,7 +9550,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.message, serializer);
+    switch (self) {
+      case UiSystemMessage_Add(field0: final field0, field1: final field1):
+        sse_encode_i_32(0, serializer);
+        sse_encode_box_autoadd_ui_user_id(field0, serializer);
+        sse_encode_box_autoadd_ui_user_id(field1, serializer);
+      case UiSystemMessage_Remove(field0: final field0, field1: final field1):
+        sse_encode_i_32(1, serializer);
+        sse_encode_box_autoadd_ui_user_id(field0, serializer);
+        sse_encode_box_autoadd_ui_user_id(field1, serializer);
+    }
   }
 
   @protected

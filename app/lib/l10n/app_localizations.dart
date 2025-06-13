@@ -308,6 +308,48 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get editDisplayNameScreen_save;
 
+  /// No description provided for @systemMessage_userAddedUser_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userAddedUser_prefix;
+
+  /// No description provided for @systemMessage_userAddedUser_infix.
+  ///
+  /// In en, this message translates to:
+  /// **' added '**
+  String get systemMessage_userAddedUser_infix;
+
+  /// No description provided for @systemMessage_userAddedUser_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userAddedUser_suffix;
+
+  /// No description provided for @systemMessage_userRemovedUser_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userRemovedUser_prefix;
+
+  /// No description provided for @systemMessage_userRemovedUser_infix.
+  ///
+  /// In en, this message translates to:
+  /// **' removed '**
+  String get systemMessage_userRemovedUser_infix;
+
+  /// No description provided for @systemMessage_userRemovedUser_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userRemovedUser_suffix;
+
+  /// No description provided for @timestamp_now.
+  ///
+  /// In en, this message translates to:
+  /// **'now'**
+  String get timestamp_now;
+
   /// No description provided for @conversationList_newConnection.
   ///
   /// In en, this message translates to:
