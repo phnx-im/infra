@@ -5,13 +5,14 @@
 use std::{collections::HashSet, sync::Arc};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
     Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, clients::CoreUser, user_profiles::UserProfile,
+    clients::CoreUser, contacts::HandleContact, user_handles::UserHandleRecord,
+    user_profiles::UserProfile,
 };
 
 use super::{Store, StoreNotification, StoreResult};
@@ -27,6 +28,25 @@ impl Store for CoreUser {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
+    }
+
+    async fn user_handles(&self) -> StoreResult<Vec<UserHandle>> {
+        Ok(UserHandleRecord::load_all_handles(self.pool()).await?)
+    }
+
+    async fn user_handle_records(&self) -> StoreResult<Vec<UserHandleRecord>> {
+        Ok(UserHandleRecord::load_all(self.pool()).await?)
+    }
+
+    async fn add_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<Option<UserHandleRecord>> {
+        self.add_user_handle(user_handle).await
+    }
+
+    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()> {
+        self.remove_user_handle(user_handle).await
     }
 
     async fn create_conversation(
@@ -98,8 +118,8 @@ impl Store for CoreUser {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId> {
-        self.add_contact(user_id).await
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId> {
+        self.add_contact_via_handle(handle).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
@@ -110,8 +130,8 @@ impl Store for CoreUser {
         Ok(self.try_contact(user_id).await?)
     }
 
-    async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>> {
-        Ok(self.partial_contacts().await?)
+    async fn handle_contacts(&self) -> StoreResult<Vec<HandleContact>> {
+        Ok(self.handle_contacts().await?)
     }
 
     async fn user_profile(&self, user_id: &UserId) -> UserProfile {

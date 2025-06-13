@@ -218,7 +218,14 @@ impl Message {
                         .unwrap_or_else(|e| format!("Error: {e}"));
                     format!("{display_name}: {content}")
                 }
-                ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
+                ConversationType::HandleConnection(handle) => {
+                    let content = content_message
+                        .content
+                        .string_rendering() // TODO: Better error handling
+                        .unwrap_or_else(|e| format!("Error: {e}"));
+                    format!("{handle}: {content}", handle = handle.plaintext())
+                }
+                ConversationType::Connection(_) => {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling

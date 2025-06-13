@@ -49,7 +49,7 @@ impl MessageCubitBase {
     pub fn new(user_cubit: &UserCubitBase, initial_state: MessageState) -> Self {
         let message_id = initial_state.message.id.into();
 
-        let store = user_cubit.core_user.clone();
+        let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::with_initial_state(initial_state);

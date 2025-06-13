@@ -7,14 +7,14 @@ use openmls::prelude::MlsMessageOut;
 use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
-    identifiers::QualifiedGroupId,
+    identifiers::{QualifiedGroupId, UserHandle},
     messages::{
-        QueueMessage,
-        client_as::{EncryptedConnectionOffer, ExtractedAsQueueMessagePayload},
+        client_as::EncryptedConnectionOffer,
         client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
     },
 };
+use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 use sqlx::SqliteConnection;
 use sqlx::SqliteTransaction;
 use tls_codec::DeserializeBytes;
@@ -32,127 +32,116 @@ use super::{
     AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
     EarEncryptable, FriendshipPackage, anyhow,
 };
-use crate::key_stores::queue_ratchets::StorableAsQueueRatchet;
 
 impl CoreUser {
-    /// Decrypt a `QueueMessage` received from the AS queue.
-    pub async fn decrypt_as_queue_message(
-        &self,
-        as_message_ciphertext: QueueMessage,
-    ) -> Result<ExtractedAsQueueMessagePayload> {
-        self.with_transaction(async |txn| {
-            let mut as_queue_ratchet = StorableAsQueueRatchet::load(txn.as_mut()).await?;
-            let payload = as_queue_ratchet.decrypt(as_message_ciphertext)?;
-            as_queue_ratchet.update_ratchet(txn.as_mut()).await?;
-            Ok(payload.extract()?)
-        })
-        .await
-    }
-
-    /// Process a decrypted message received from the AS queue.
+    /// Process a queue message received from the AS handle queue.
     ///
     /// Returns the [`ConversationId`] of any newly created conversations.
-    pub async fn process_as_message(
+    pub async fn process_handle_queue_message(
         &self,
-        as_message_plaintext: ExtractedAsQueueMessagePayload,
+        user_handle: &UserHandle,
+        handle_queue_message: HandleQueueMessage,
     ) -> Result<ConversationId> {
-        match as_message_plaintext {
-            ExtractedAsQueueMessagePayload::EncryptedConnectionOffer(ecep) => {
-                let mut connection = self.pool().acquire().await?;
-
-                // Parse & verify connection offer
-                let cep_payload = self
-                    .parse_and_verify_connection_offer(&mut connection, ecep)
-                    .await?;
-
-                // Prepare group
-                let own_user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
-                let (aad, qgid) = self.prepare_group(&cep_payload, &own_user_profile_key)?;
-
-                // Fetch external commit info
-                let eci = self.fetch_external_commit_info(&cep_payload, &qgid).await?;
-
-                // Join group
-                let (group, commit, group_info, mut member_profile_info) = self
-                    .join_group_externally(
-                        &mut connection,
-                        eci,
-                        &cep_payload,
-                        self.signing_key(),
-                        aad,
-                    )
-                    .await?;
-
-                // Verify that the group has only one other member and that it's
-                // the sender of the CEP.
-                let members = group.members(&mut *connection).await;
-
-                ensure!(
-                    members.len() == 2,
-                    "Connection group has more than two members: {:?}",
-                    members
-                );
-
-                ensure!(
-                    members.contains(self.user_id())
-                        && members.contains(cep_payload.sender_client_credential.identity()),
-                    "Connection group has unexpected members: {:?}",
-                    members
-                );
-
-                // There should be only one user profile
-                let contact_profile_info = member_profile_info
-                    .pop()
-                    .context("No user profile returned when joining connection group")?;
-
-                debug_assert!(
-                    member_profile_info.is_empty(),
-                    "More than one user profile returned when joining connection group"
-                );
-
-                // Fetch and store user profile
-
-                self.with_notifier(async |notifier| {
-                    self.fetch_and_store_user_profile(
-                        &mut connection,
-                        notifier,
-                        contact_profile_info,
-                    )
+        let payload = handle_queue_message
+            .payload
+            .context("no payload in handle queue message")?;
+        match payload {
+            handle_queue_message::Payload::ConnectionOffer(eco) => {
+                self.process_connection_offer(user_handle.clone(), eco.try_into()?)
                     .await
-                })
-                .await?;
-
-                // Create conversation
-                let (mut conversation, contact) = self
-                    .create_connection_conversation(&mut connection, &group, &cep_payload)
-                    .await?;
-
-                let mut notifier = self.store_notifier();
-
-                // Store group, conversation & contact
-                connection
-                    .with_transaction(async |txn| {
-                        self.store_group_conversation_contact(
-                            txn,
-                            &mut notifier,
-                            &group,
-                            &mut conversation,
-                            contact,
-                        )
-                        .await
-                    })
-                    .await?;
-
-                // Send confirmation
-                self.send_confirmation_to_ds(commit, group_info, &cep_payload, qgid)
-                    .await?;
-
-                notifier.notify();
-
-                // Return the conversation ID
-                Ok(conversation.id())
             }
         }
+    }
+
+    async fn process_connection_offer(
+        &self,
+        handle: UserHandle,
+        ecep: EncryptedConnectionOffer,
+    ) -> Result<ConversationId> {
+        let mut connection = self.pool().acquire().await?;
+
+        // Parse & verify connection offer
+        let cep_payload = self
+            .parse_and_verify_connection_offer(&mut connection, ecep, handle.clone())
+            .await?;
+
+        // Prepare group
+        let own_user_profile_key = UserProfileKey::load_own(&mut *connection).await?;
+        let (aad, qgid) = self.prepare_group(&cep_payload, &own_user_profile_key)?;
+
+        // Fetch external commit info
+        let eci = self.fetch_external_commit_info(&cep_payload, &qgid).await?;
+
+        // Join group
+        let (group, commit, group_info, mut member_profile_info) = self
+            .join_group_externally(&mut connection, eci, &cep_payload, self.signing_key(), aad)
+            .await?;
+
+        // Verify that the group has only one other member and that it's
+        // the sender of the CEP.
+        let members = group.members(&mut *connection).await;
+
+        ensure!(
+            members.len() == 2,
+            "Connection group has more than two members: {:?}",
+            members
+        );
+
+        ensure!(
+            members.contains(self.user_id())
+                && members.contains(cep_payload.sender_client_credential.identity()),
+            "Connection group has unexpected members: {:?}",
+            members
+        );
+
+        // There should be only one user profile
+        let contact_profile_info = member_profile_info
+            .pop()
+            .context("No user profile returned when joining connection group")?;
+
+        debug_assert!(
+            member_profile_info.is_empty(),
+            "More than one user profile returned when joining connection group"
+        );
+
+        // Fetch and store user profile
+
+        self.with_notifier(async |notifier| {
+            self.fetch_and_store_user_profile(&mut connection, notifier, contact_profile_info)
+                .await
+        })
+        .await?;
+
+        // Create conversation
+        // Note: For now, the conversation is immediately confirmed.
+        let (mut conversation, contact) = self
+            .create_connection_conversation(&mut connection, &group, &cep_payload)
+            .await?;
+
+        let mut notifier = self.store_notifier();
+
+        // Store group, conversation & contact
+        connection
+            .with_transaction(async |txn| {
+                self.store_group_conversation_contact(
+                    txn,
+                    &mut notifier,
+                    &group,
+                    &mut conversation,
+                    contact,
+                )
+                .await
+            })
+            .await?;
+
+        // Send confirmation
+        self.send_confirmation_to_ds(commit, group_info, &cep_payload, qgid)
+            .await?;
+
+        notifier.notify();
+
+        // Return the conversation ID
+        Ok(conversation.id())
     }
 
     /// Parse and verify the connection offer
@@ -160,6 +149,7 @@ impl CoreUser {
         &self,
         connection: &mut SqliteConnection,
         ecep: EncryptedConnectionOffer,
+        user_handle: UserHandle,
     ) -> Result<ConnectionOfferPayload> {
         let cep_in = ConnectionOfferIn::decrypt(
             ecep,
@@ -179,10 +169,7 @@ impl CoreUser {
         )
         .await?;
         cep_in
-            .verify(
-                as_intermediate_credential.verifying_key(),
-                self.user_id().clone(),
-            )
+            .verify(as_intermediate_credential.verifying_key(), user_handle)
             .map_err(|error| {
                 error!(%error, "Error verifying connection offer");
                 anyhow!("Error verifying connection offer")
@@ -280,7 +267,6 @@ impl CoreUser {
         let conversation = Conversation::new_connection_conversation(
             group.group_id().clone(),
             sender_user_id.clone(),
-            // TODO: conversation title
             ConversationAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
@@ -301,11 +287,7 @@ impl CoreUser {
     ) -> Result<()> {
         group.store(txn.as_mut()).await?;
         conversation.store(txn.as_mut(), notifier).await?;
-
-        // TODO: For now, we automatically confirm conversations.
-        conversation.confirm(txn.as_mut(), notifier).await?;
-        contact.store(txn.as_mut(), notifier).await?;
-
+        contact.upsert(txn.as_mut(), notifier).await?;
         Ok(())
     }
 
@@ -328,20 +310,5 @@ impl CoreUser {
             )
             .await?;
         Ok(())
-    }
-
-    /// Convenience function that takes a list of `QueueMessage`s retrieved from
-    /// the AS, decrypts them, and processes them.
-    pub async fn fully_process_as_messages(
-        &self,
-        as_messages: Vec<QueueMessage>,
-    ) -> Result<Vec<ConversationId>> {
-        let mut conversation_ids = vec![];
-        for as_message in as_messages {
-            let as_message_plaintext = self.decrypt_as_queue_message(as_message).await?;
-            let conversation_id = self.process_as_message(as_message_plaintext).await?;
-            conversation_ids.push(conversation_id);
-        }
-        Ok(conversation_ids)
     }
 }

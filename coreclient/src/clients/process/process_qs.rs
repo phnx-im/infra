@@ -11,7 +11,7 @@ use phnxcommon::{
     codec::PhnxCodec,
     credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
-    identifiers::{QualifiedGroupId, UserId},
+    identifiers::{QualifiedGroupId, UserHandle, UserId},
     messages::{
         QueueMessage,
         client_ds::{
@@ -26,7 +26,8 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    ConversationMessage, PartialContact,
+    ConversationMessage,
+    contacts::HandleContact,
     conversations::ConversationType,
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
@@ -269,7 +270,7 @@ impl CoreUser {
                             self.handle_staged_commit_message(
                                 txn,
                                 &mut group,
-                                conversation_id,
+                                conversation,
                                 *staged_commit,
                                 aad,
                                 ds_timestamp,
@@ -345,12 +346,12 @@ impl CoreUser {
         Ok((vec![], false))
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     async fn handle_staged_commit_message(
         &self,
         txn: &mut SqliteTransaction<'_>,
         group: &mut Group,
-        conversation_id: ConversationId,
+        mut conversation: Conversation,
         staged_commit: openmls::prelude::StagedCommit,
         aad: Vec<u8>,
         ds_timestamp: TimeStamp,
@@ -361,77 +362,26 @@ impl CoreUser {
         // If a client joined externally, we check if the
         // group belongs to an unconfirmed conversation.
 
-        // StagedCommitMessage Phase 1: Load the conversation.
-        let mut conversation = Conversation::load(txn.as_mut(), &conversation_id)
-            .await?
-            .ok_or_else(|| anyhow!("Can't find conversation with id {}", conversation_id.uuid()))?;
-        let mut conversation_changed = false;
-
+        // StagedCommitMessage Phase 1: Confirm the conversation if unconfirmed
         let mut notifier = self.store_notifier();
 
-        if let ConversationType::UnconfirmedConnection(user_id) = conversation.conversation_type() {
-            // Check if it was an external commit
-            ensure!(
-                matches!(sender, Sender::NewMemberCommit),
-                "Incoming commit to ConnectionGroup was not an external commit"
-            );
-            // Check if the user id matches the one we expect
-            ensure!(
-                sender_client_credential.identity() == user_id,
-                "Incoming commit to ConnectionGroup was not from the expected user"
-            );
-
-            // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
-            // friendship package
-            let partial_contact = PartialContact::load(txn.as_mut(), user_id)
-                .await?
-                .with_context(|| format!("No partial contact found with user_id: {user_id:?}"))?;
-
-            // This is a bit annoying, since we already
-            // de-serialized this in the group processing
-            // function, but we need the encrypted
-            // friendship package here.
-            let encrypted_friendship_package =
-                if let InfraAadPayload::JoinConnectionGroup(payload) =
-                    InfraAadMessage::tls_deserialize_exact_bytes(&aad)?.into_payload()
-                {
-                    payload.encrypted_friendship_package
-                } else {
-                    bail!("Unexpected AAD payload")
-                };
-
-            let friendship_package = FriendshipPackage::decrypt(
-                &partial_contact.friendship_package_ear_key,
-                &encrypted_friendship_package,
-            )?;
-
-            let user_profile_key = UserProfileKey::from_base_secret(
-                friendship_package.user_profile_base_secret.clone(),
-                user_id,
-            )?;
-
-            // UnconfirmedConnection Phase 2: Fetch the user profile.
-            let user_profile_key_index = user_profile_key.index().clone();
-            self.fetch_and_store_user_profile(
-                txn,
-                &mut notifier,
-                (sender_client_credential.clone(), user_profile_key),
-            )
-            .await?;
-
-            // Now we can turn the partial contact into a full one.
-            partial_contact
-                .mark_as_complete(
+        let conversation_changed = match &conversation.conversation_type() {
+            ConversationType::HandleConnection(handle) => {
+                let handle = handle.clone();
+                self.handle_unconfirmed_conversation(
                     txn,
                     &mut notifier,
-                    friendship_package,
-                    user_profile_key_index,
+                    aad,
+                    sender,
+                    sender_client_credential,
+                    &mut conversation,
+                    &handle,
                 )
                 .await?;
-
-            conversation.confirm(txn.as_mut(), &mut notifier).await?;
-            conversation_changed = true;
-        }
+                true
+            }
+            _ => false,
+        };
 
         // StagedCommitMessage Phase 2: Merge the staged commit into the group.
 
@@ -449,6 +399,79 @@ impl CoreUser {
         notifier.notify();
 
         Ok((group_messages, conversation_changed))
+    }
+
+    #[expect(clippy::too_many_arguments)]
+    async fn handle_unconfirmed_conversation(
+        &self,
+        txn: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        notifier: &mut crate::store::StoreNotifier,
+        aad: Vec<u8>,
+        sender: &Sender,
+        sender_client_credential: &ClientCredential,
+        conversation: &mut Conversation,
+        handle: &UserHandle,
+    ) -> Result<(), anyhow::Error> {
+        // Check if it was an external commit
+        ensure!(
+            matches!(sender, Sender::NewMemberCommit),
+            "Incoming commit to ConnectionGroup was not an external commit"
+        );
+        let user_id = sender_client_credential.identity();
+
+        // UnconfirmedConnection Phase 1: Load up the partial contact and decrypt the
+        // friendship package
+        let contact = HandleContact::load(txn.as_mut(), handle)
+            .await?
+            .with_context(|| format!("No contact found with handle: {}", handle.plaintext()))?;
+
+        // This is a bit annoying, since we already
+        // de-serialized this in the group processing
+        // function, but we need the encrypted
+        // friendship package here.
+        let encrypted_friendship_package = if let InfraAadPayload::JoinConnectionGroup(payload) =
+            InfraAadMessage::tls_deserialize_exact_bytes(&aad)?.into_payload()
+        {
+            payload.encrypted_friendship_package
+        } else {
+            bail!("Unexpected AAD payload")
+        };
+
+        let friendship_package = FriendshipPackage::decrypt(
+            &contact.friendship_package_ear_key,
+            &encrypted_friendship_package,
+        )?;
+
+        let user_profile_key = UserProfileKey::from_base_secret(
+            friendship_package.user_profile_base_secret.clone(),
+            user_id,
+        )?;
+
+        // UnconfirmedConnection Phase 2: Fetch the user profile.
+        let user_profile_key_index = user_profile_key.index().clone();
+        self.fetch_and_store_user_profile(
+            txn,
+            notifier,
+            (sender_client_credential.clone(), user_profile_key),
+        )
+        .await?;
+
+        // Now we can turn the partial contact into a full one.
+        let contact = contact
+            .mark_as_complete(
+                txn,
+                notifier,
+                user_id.clone(),
+                friendship_package,
+                user_profile_key_index,
+            )
+            .await?;
+
+        conversation
+            .confirm(txn.as_mut(), notifier, contact.user_id)
+            .await?;
+
+        Ok(())
     }
 
     async fn handle_user_profile_key_update(

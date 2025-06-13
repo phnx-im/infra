@@ -433,7 +433,7 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_create_c
             let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
             let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>>::sse_decode(&mut deserializer);
-let api_user_id = <crate::api::types::UiUserId>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
+let api_handle = <crate::api::types::UiUserHandle>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
                     transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
                         let mut api_that_guard = None;
 let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
@@ -444,7 +444,7 @@ let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decod
             }
         }
         let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_list_cubit::ConversationListCubitBase::create_connection(&*api_that_guard, api_user_id).await?;   Ok(output_ok)
+ let output_ok = crate::api::conversation_list_cubit::ConversationListCubitBase::create_connection(&*api_that_guard, api_handle).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -3053,7 +3053,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_set_app_state_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>,
             >>::sse_decode(&mut deserializer);
-            let api_app_state = <crate::api::user_cubit::AppState>::sse_decode(&mut deserializer);
+            let api__app_state = <crate::api::user_cubit::AppState>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
@@ -3074,7 +3074,7 @@ fn wire__crate__api__user_cubit__UserCubitBase_set_app_state_impl(
                     let output_ok = Result::<_, ()>::Ok({
                         crate::api::user_cubit::UserCubitBase::set_app_state(
                             &*api_that_guard,
-                            api_app_state,
+                            api__app_state,
                         );
                     })?;
                     Ok(output_ok)
@@ -6101,8 +6101,8 @@ impl SseDecode for crate::api::types::UiConversationType {
         let mut tag_ = <i32>::sse_decode(deserializer);
         match tag_ {
             0 => {
-                let mut var_field0 = <crate::api::types::UiUserProfile>::sse_decode(deserializer);
-                return crate::api::types::UiConversationType::UnconfirmedConnection(var_field0);
+                let mut var_field0 = <crate::api::types::UiUserHandle>::sse_decode(deserializer);
+                return crate::api::types::UiConversationType::HandleConnection(var_field0);
             }
             1 => {
                 let mut var_field0 = <crate::api::types::UiUserProfile>::sse_decode(deserializer);
@@ -7357,7 +7357,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiConversationStatus>
 impl flutter_rust_bridge::IntoDart for crate::api::types::UiConversationType {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            crate::api::types::UiConversationType::UnconfirmedConnection(field0) => {
+            crate::api::types::UiConversationType::HandleConnection(field0) => {
                 [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
             }
             crate::api::types::UiConversationType::Connection(field0) => {
@@ -8779,9 +8779,9 @@ impl SseEncode for crate::api::types::UiConversationType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         match self {
-            crate::api::types::UiConversationType::UnconfirmedConnection(field0) => {
+            crate::api::types::UiConversationType::HandleConnection(field0) => {
                 <i32>::sse_encode(0, serializer);
-                <crate::api::types::UiUserProfile>::sse_encode(field0, serializer);
+                <crate::api::types::UiUserHandle>::sse_encode(field0, serializer);
             }
             crate::api::types::UiConversationType::Connection(field0) => {
                 <i32>::sse_encode(1, serializer);

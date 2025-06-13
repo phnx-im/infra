@@ -100,7 +100,7 @@ impl UserCreationState {
                 Self::UnfinalizedRegistrationState(state)
             }
             UserCreationState::UnfinalizedRegistrationState(state) => {
-                Self::AsRegisteredUserState(state.publish_connection_packages(api_clients).await?)
+                Self::AsRegisteredUserState(state.noop())
             }
             UserCreationState::AsRegisteredUserState(state) => {
                 Self::QsRegisteredUserState(state.register_with_qs(api_clients).await?)

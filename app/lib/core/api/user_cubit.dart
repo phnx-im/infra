@@ -13,9 +13,9 @@ import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user.dart';
 
-// These functions are ignored because they are not marked as `pub`: `handle_queue_event`, `process_fetched_messages`, `run_listen`, `spawn_listen`, `spawn_polling`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NotificationContext`, `UiUserInner`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `core_user`, `new`, `show_notifications`, `spawn_load`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CubitContext`, `NotificationContext`, `UiUserInner`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `drop`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>>
 abstract class UiUser implements RustOpaqueInterface {
@@ -26,7 +26,7 @@ abstract class UiUser implements RustOpaqueInterface {
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>>
 abstract class UserCubitBase implements RustOpaqueInterface {
-  Future<void> addUserHandle({required UiUserHandle userHandle});
+  Future<bool> addUserHandle({required UiUserHandle userHandle});
 
   Future<void> addUserToConversation(
     ConversationId conversationId,

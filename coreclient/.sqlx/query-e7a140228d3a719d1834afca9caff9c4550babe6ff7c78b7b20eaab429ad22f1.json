@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                conversation_id AS \"conversation_id: _\",\n                conversation_title,\n                conversation_picture,\n                group_id AS \"group_id: _\",\n                last_read AS \"last_read: _\",\n                connection_user_uuid AS \"connection_user_uuid: _\",\n                connection_user_domain AS \"connection_user_domain: _\",\n                is_confirmed_connection,\n                is_active\n            FROM conversations WHERE group_id = ?",
+  "query": "SELECT\n                conversation_id AS \"conversation_id: _\",\n                conversation_title,\n                conversation_picture,\n                group_id AS \"group_id: _\",\n                last_read AS \"last_read: _\",\n                connection_user_uuid AS \"connection_user_uuid: _\",\n                connection_user_domain AS \"connection_user_domain: _\",\n                connection_user_handle AS \"connection_user_handle: _\",\n                is_confirmed_connection,\n                is_active\n            FROM conversations",
   "describe": {
     "columns": [
       {
@@ -39,18 +39,23 @@
         "type_info": "Text"
       },
       {
-        "name": "is_confirmed_connection",
+        "name": "connection_user_handle: _",
         "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "is_confirmed_connection",
+        "ordinal": 8,
         "type_info": "Bool"
       },
       {
         "name": "is_active",
-        "ordinal": 8,
+        "ordinal": 9,
         "type_info": "Bool"
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 0
     },
     "nullable": [
       false,
@@ -60,9 +65,10 @@
       false,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "aa87c4577a37e98dade80d209fc1a442df4edcdc6247d8258fc6fbc2de7a3157"
+  "hash": "e7a140228d3a719d1834afca9caff9c4550babe6ff7c78b7b20eaab429ad22f1"
 }

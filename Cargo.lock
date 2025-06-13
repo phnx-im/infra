@@ -3414,6 +3414,7 @@ dependencies = [
 name = "phnxapiclient"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "mimi-room-policy",
  "mls-assist",
  "phnxcommon",
@@ -3641,6 +3642,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
  "uuid",

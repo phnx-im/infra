@@ -1,25 +1,15 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                    queue_encryption_key\n                        AS \"queue_encryption_key: BlobDecoded<RatchetEncryptionKey>\",\n                    ratchet AS \"ratchet: BlobDecoded<AsQueueRatchet>\",\n                    activity_time,\n                    credential AS \"credential: FlatClientCredential\",\n                    remaining_tokens\n                FROM as_client_records\n                WHERE user_uuid = $1 AND user_domain = $2",
+  "query": "SELECT\n                    activity_time,\n                    credential AS \"credential: FlatClientCredential\",\n                    remaining_tokens\n                FROM as_client_records\n                WHERE user_uuid = $1 AND user_domain = $2",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "queue_encryption_key: BlobDecoded<RatchetEncryptionKey>",
-        "type_info": "Bytea"
-      },
-      {
-        "ordinal": 1,
-        "name": "ratchet: BlobDecoded<AsQueueRatchet>",
-        "type_info": "Bytea"
-      },
-      {
-        "ordinal": 2,
         "name": "activity_time",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 3,
+        "ordinal": 1,
         "name": "credential: FlatClientCredential",
         "type_info": {
           "Custom": {
@@ -72,7 +62,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 2,
         "name": "remaining_tokens",
         "type_info": "Int4"
       }
@@ -86,10 +76,8 @@
     "nullable": [
       false,
       false,
-      false,
-      false,
       false
     ]
   },
-  "hash": "59191989f91ddc2fe9eb400a1638e8b21b2ed1692cbe8c121e40f9efe8fa2197"
+  "hash": "827bc5456683d5aa2fef67e9057dd5169c7a7045addac8f649d492c750f8b01f"
 }

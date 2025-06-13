@@ -87,7 +87,7 @@ impl ConversationDetailsCubitBase {
     /// to the changes in the conversation and update the state accordingly.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
-        let store = user_cubit.core_user.clone();
+        let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::new();

@@ -23,8 +23,8 @@ part 'conversation_list_cubit.freezed.dart';
 abstract class ConversationListCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
-  /// Creates a new 1:1 connection with the given user.
-  Future<ConversationId> createConnection({required UiUserId userId});
+  /// Creates a new 1:1 connection with the given user via a user handle.
+  Future<ConversationId> createConnection({required UiUserHandle handle});
 
   /// Creates a new group conversation with the given name.
   ///

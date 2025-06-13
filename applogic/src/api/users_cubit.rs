@@ -173,7 +173,7 @@ pub struct UsersCubitBase {
 impl UsersCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
-        let store = user_cubit.core_user.clone();
+        let store = user_cubit.core_user().clone();
 
         let (load_profile_tx, load_profile_rx) = mpsc::channel(1024);
         let inner = UsersStateInner::new(store.user_id().clone(), load_profile_tx);

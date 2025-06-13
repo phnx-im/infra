@@ -215,26 +215,28 @@ class _$UiConversationTypeCopyWithImpl<$Res, $Val extends UiConversationType>
 }
 
 /// @nodoc
-abstract class _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
-  factory _$$UiConversationType_UnconfirmedConnectionImplCopyWith(
-    _$UiConversationType_UnconfirmedConnectionImpl value,
-    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) then,
-  ) = __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>;
+abstract class _$$UiConversationType_HandleConnectionImplCopyWith<$Res> {
+  factory _$$UiConversationType_HandleConnectionImplCopyWith(
+    _$UiConversationType_HandleConnectionImpl value,
+    $Res Function(_$UiConversationType_HandleConnectionImpl) then,
+  ) = __$$UiConversationType_HandleConnectionImplCopyWithImpl<$Res>;
   @useResult
-  $Res call({UiUserProfile field0});
+  $Res call({UiUserHandle field0});
+
+  $UiUserHandleCopyWith<$Res> get field0;
 }
 
 /// @nodoc
-class __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>
+class __$$UiConversationType_HandleConnectionImplCopyWithImpl<$Res>
     extends
         _$UiConversationTypeCopyWithImpl<
           $Res,
-          _$UiConversationType_UnconfirmedConnectionImpl
+          _$UiConversationType_HandleConnectionImpl
         >
-    implements _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
-  __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl(
-    _$UiConversationType_UnconfirmedConnectionImpl _value,
-    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) _then,
+    implements _$$UiConversationType_HandleConnectionImplCopyWith<$Res> {
+  __$$UiConversationType_HandleConnectionImplCopyWithImpl(
+    _$UiConversationType_HandleConnectionImpl _value,
+    $Res Function(_$UiConversationType_HandleConnectionImpl) _then,
   ) : super(_value, _then);
 
   /// Create a copy of UiConversationType
@@ -243,35 +245,45 @@ class __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>
   @override
   $Res call({Object? field0 = null}) {
     return _then(
-      _$UiConversationType_UnconfirmedConnectionImpl(
+      _$UiConversationType_HandleConnectionImpl(
         null == field0
             ? _value.field0
             : field0 // ignore: cast_nullable_to_non_nullable
-                as UiUserProfile,
+                as UiUserHandle,
       ),
     );
+  }
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $UiUserHandleCopyWith<$Res> get field0 {
+    return $UiUserHandleCopyWith<$Res>(_value.field0, (value) {
+      return _then(_value.copyWith(field0: value));
+    });
   }
 }
 
 /// @nodoc
 
-class _$UiConversationType_UnconfirmedConnectionImpl
-    extends UiConversationType_UnconfirmedConnection {
-  const _$UiConversationType_UnconfirmedConnectionImpl(this.field0) : super._();
+class _$UiConversationType_HandleConnectionImpl
+    extends UiConversationType_HandleConnection {
+  const _$UiConversationType_HandleConnectionImpl(this.field0) : super._();
 
   @override
-  final UiUserProfile field0;
+  final UiUserHandle field0;
 
   @override
   String toString() {
-    return 'UiConversationType.unconfirmedConnection(field0: $field0)';
+    return 'UiConversationType.handleConnection(field0: $field0)';
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$UiConversationType_UnconfirmedConnectionImpl &&
+            other is _$UiConversationType_HandleConnectionImpl &&
             (identical(other.field0, field0) || other.field0 == field0));
   }
 
@@ -283,28 +295,26 @@ class _$UiConversationType_UnconfirmedConnectionImpl
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
-  _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
-    _$UiConversationType_UnconfirmedConnectionImpl
+  _$$UiConversationType_HandleConnectionImplCopyWith<
+    _$UiConversationType_HandleConnectionImpl
   >
-  get copyWith => __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<
-    _$UiConversationType_UnconfirmedConnectionImpl
+  get copyWith => __$$UiConversationType_HandleConnectionImplCopyWithImpl<
+    _$UiConversationType_HandleConnectionImpl
   >(this, _$identity);
 }
 
-abstract class UiConversationType_UnconfirmedConnection
-    extends UiConversationType {
-  const factory UiConversationType_UnconfirmedConnection(
-    final UiUserProfile field0,
-  ) = _$UiConversationType_UnconfirmedConnectionImpl;
-  const UiConversationType_UnconfirmedConnection._() : super._();
+abstract class UiConversationType_HandleConnection extends UiConversationType {
+  const factory UiConversationType_HandleConnection(final UiUserHandle field0) =
+      _$UiConversationType_HandleConnectionImpl;
+  const UiConversationType_HandleConnection._() : super._();
 
-  UiUserProfile get field0;
+  UiUserHandle get field0;
 
   /// Create a copy of UiConversationType
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
-    _$UiConversationType_UnconfirmedConnectionImpl
+  _$$UiConversationType_HandleConnectionImplCopyWith<
+    _$UiConversationType_HandleConnectionImpl
   >
   get copyWith => throw _privateConstructorUsedError;
 }
