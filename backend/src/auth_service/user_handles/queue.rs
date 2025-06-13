@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use displaydoc::Display;
 use futures_util::stream;
@@ -56,9 +56,7 @@ impl UserHandleQueues {
         hash: UserHandleHash,
     ) -> Result<impl Stream<Item = Option<HandleQueueMessage>> + use<>, HandleQueueError> {
         let mut pg_listener = PgListener::connect_with(&self.pool).await?;
-        pg_listener
-            .listen(&hash.pg_queue_label().to_string())
-            .await?;
+        pg_listener.listen(&hash.pg_queue_label()).await?;
 
         let cancel = self.track_listener(hash).await?;
         let context = QueueStreamContext {
@@ -121,24 +119,18 @@ impl UserHandleQueues {
 }
 
 trait UserHandleHashExt {
-    fn pg_queue_label(&self) -> impl fmt::Display;
+    fn pg_queue_label(&self) -> String;
 }
 
 impl UserHandleHashExt for UserHandleHash {
-    fn pg_queue_label(&self) -> impl fmt::Display {
-        struct UserHandleHashDisplay<'a>(&'a UserHandleHash);
-
-        impl fmt::Display for UserHandleHashDisplay<'_> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "as_user_handle_queue_")?;
-                for byte in self.0.as_bytes() {
-                    write!(f, "{:02x}", byte)?;
-                }
-                Ok(())
-            }
-        }
-
-        UserHandleHashDisplay(self)
+    fn pg_queue_label(&self) -> String {
+        use base64::prelude::*;
+        let buf_len = 3 + base64::encoded_len(self.as_bytes().len(), true).unwrap_or(0);
+        let mut buf = String::with_capacity(buf_len);
+        // base64 encoding of a hash (32 bytes) is max 44 bytes
+        buf.push_str("as_");
+        BASE64_STANDARD.encode_string(&self.as_bytes(), &mut buf);
+        buf
     }
 }
 
@@ -412,9 +404,22 @@ mod test {
         hash_bytes[16..].copy_from_slice(hi.as_bytes());
         let hash = UserHandleHash::new(hash_bytes);
         assert_eq!(
-            hash.pg_queue_label().to_string(),
-            "as_user_handle_queue_829e63e4d6ed4691b8a3f4bd17861505c2cf7189925049a5b9c67b97ccc61ac8"
+            hash.pg_queue_label(),
+            "as_gp5j5NbtRpG4o/S9F4YVBcLPcYmSUEmlucZ7l8zGGsg="
         );
+    }
+
+    #[test]
+    fn pg_queue_label_len() {
+        for _ in 0..1000 {
+            let lo = Uuid::new_v4();
+            let hi = Uuid::new_v4();
+            let mut hash_bytes: [u8; 32] = [0; 32];
+            hash_bytes[..16].copy_from_slice(lo.as_bytes());
+            hash_bytes[16..].copy_from_slice(hi.as_bytes());
+            let hash = UserHandleHash::new(hash_bytes);
+            assert!(hash.pg_queue_label().len() < 64);
+        }
     }
 
     #[sqlx::test]
