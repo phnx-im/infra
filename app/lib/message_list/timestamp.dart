@@ -53,11 +53,12 @@ class TimestampState extends State<Timestamp> {
 
   @override
   Widget build(BuildContext context) {
+    final localizedTimestamp = _localizedTimeString(_displayTimestamp, context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       child: SelectionContainer.disabled(
         child: Text(
-          _displayTimestamp,
+          localizedTimestamp,
           style: TextStyle(
             color: colorGreyDark,
             fontSize: isLargeScreen(context) ? 10 : 12,
@@ -72,7 +73,7 @@ class TimestampState extends State<Timestamp> {
     final t = DateTime.parse(time);
     // If the elapsed time is less than 60 seconds, show "now"
     if (DateTime.now().difference(t).inSeconds < 60) {
-      return AppLocalizations.of(context).timestamp_now;
+      return "now";
     }
     // If the elapsed time is less than 60 minutes, show the elapsed minutes
     if (DateTime.now().difference(t).inMinutes < 60) {
@@ -80,5 +81,13 @@ class TimestampState extends State<Timestamp> {
     }
     // Otherwise show the time
     return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _localizedTimeString(String time, BuildContext context) {
+    if (time == "now") {
+      return AppLocalizations.of(context).timestamp_now;
+    } else {
+      return time;
+    }
   }
 }
