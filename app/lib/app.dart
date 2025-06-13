@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:prototype/app_config.dart';
 import 'package:prototype/background_service.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
@@ -94,34 +95,36 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        Provider.value(value: _coreClient),
-        BlocProvider<NavigationCubit>.value(value: _navigationCubit),
-        BlocProvider<RegistrationCubit>(
-          create: (context) => RegistrationCubit(coreClient: _coreClient),
-        ),
-        BlocProvider<LoadableUserCubit>(
-          // loads the user on startup
-          create:
-              (context) => LoadableUserCubit(
-                (_coreClient..loadDefaultUser()).userStream,
+    return AppConfig(
+      child: MultiBlocProvider(
+        providers: [
+          Provider.value(value: _coreClient),
+          BlocProvider<NavigationCubit>.value(value: _navigationCubit),
+          BlocProvider<RegistrationCubit>(
+            create: (context) => RegistrationCubit(coreClient: _coreClient),
+          ),
+          BlocProvider<LoadableUserCubit>(
+            // loads the user on startup
+            create:
+                (context) => LoadableUserCubit(
+                  (_coreClient..loadDefaultUser()).userStream,
+                ),
+            lazy: false, // immediately try to load the user
+          ),
+        ],
+        child: MaterialApp.router(
+          onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          debugShowCheckedModeBanner: false,
+          theme: themeData(context),
+          routerConfig: _appRouter,
+          builder:
+              (context, router) => LoadableUserCubitProvider(
+                appStateController: _appStateController,
+                child: ConversationDetailsCubitProvider(child: router!),
               ),
-          lazy: false, // immediately try to load the user
         ),
-      ],
-      child: MaterialApp.router(
-        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        debugShowCheckedModeBanner: false,
-        theme: themeData(context),
-        routerConfig: _appRouter,
-        builder:
-            (context, router) => LoadableUserCubitProvider(
-              appStateController: _appStateController,
-              child: ConversationDetailsCubitProvider(child: router!),
-            ),
       ),
     );
   }

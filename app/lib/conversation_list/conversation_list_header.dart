@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/app_config.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -21,12 +22,11 @@ class ConversationListHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        SizedBox(
-          height: _height(context),
-          child: FrostedGlass(
-            child: Container(
-              color: convPaneBackgroundColor.withValues(alpha: 0.1),
-            ),
+        FrostedGlass(
+          enabled: AppConfig.of(context).frostedGlassEnabled,
+          child: Container(
+            color: convPaneBackgroundColor.withValues(alpha: 0.1),
+            height: _height(context),
           ),
         ),
         Container(

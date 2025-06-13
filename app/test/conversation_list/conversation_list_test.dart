@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prototype/app_config.dart';
 import 'package:prototype/conversation_list/conversation_list.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
@@ -42,22 +43,27 @@ void main() {
       );
     });
 
-    Widget buildSubject() => MultiBlocProvider(
-      providers: [
-        BlocProvider<NavigationCubit>.value(value: navigationCubit),
-        BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
-      ],
-      child: Builder(
-        builder: (context) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: themeData(context),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: const Scaffold(body: ConversationListView()),
-          );
-        },
+    Widget buildSubject() => AppConfig(
+      frostedGlassEnabled: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<NavigationCubit>.value(value: navigationCubit),
+          BlocProvider<UserCubit>.value(value: userCubit),
+          BlocProvider<UsersCubit>.value(value: contactsCubit),
+          BlocProvider<ConversationListCubit>.value(
+            value: conversationListCubit,
+          ),
+        ],
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: themeData(context),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              home: const Scaffold(body: ConversationListView()),
+            );
+          },
+        ),
       ),
     );
 

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:prototype/app_config.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/conversation_list/conversation_list.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
@@ -61,31 +62,36 @@ void main() {
       ).thenAnswer((_) => Future.value());
     });
 
-    Widget buildSubject() => MultiBlocProvider(
-      providers: [
-        BlocProvider<NavigationCubit>.value(value: navigationCubit),
-        BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
-        BlocProvider<ConversationDetailsCubit>.value(
-          value: conversationDetailsCubit,
-        ),
-        BlocProvider<MessageListCubit>.value(value: messageListCubit),
-      ],
-      child: Builder(
-        builder: (context) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: themeData(context),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: const HomeScreenDesktopLayout(
-              conversationList: ConversationListView(),
-              conversation: ConversationScreenView(
-                createMessageCubit: createMockMessageCubit,
+    Widget buildSubject() => AppConfig(
+      frostedGlassEnabled: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<NavigationCubit>.value(value: navigationCubit),
+          BlocProvider<UserCubit>.value(value: userCubit),
+          BlocProvider<UsersCubit>.value(value: contactsCubit),
+          BlocProvider<ConversationListCubit>.value(
+            value: conversationListCubit,
+          ),
+          BlocProvider<ConversationDetailsCubit>.value(
+            value: conversationDetailsCubit,
+          ),
+          BlocProvider<MessageListCubit>.value(value: messageListCubit),
+        ],
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: themeData(context),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              home: const HomeScreenDesktopLayout(
+                conversationList: ConversationListView(),
+                conversation: ConversationScreenView(
+                  createMessageCubit: createMockMessageCubit,
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
 
