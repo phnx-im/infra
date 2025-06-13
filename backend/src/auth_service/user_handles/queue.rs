@@ -129,7 +129,7 @@ impl UserHandleHashExt for UserHandleHash {
         let mut buf = String::with_capacity(buf_len);
         // base64 encoding of a hash (32 bytes) is max 44 bytes
         buf.push_str("as_");
-        BASE64_STANDARD.encode_string(&self.as_bytes(), &mut buf);
+        BASE64_STANDARD.encode_string(self.as_bytes(), &mut buf);
         buf
     }
 }
