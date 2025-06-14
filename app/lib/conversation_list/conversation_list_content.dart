@@ -29,6 +29,7 @@ class ConversationListContent extends StatelessWidget {
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.all(0),
       itemCount: conversations.length,
       physics: const BouncingScrollPhysics().applyTo(
         const AlwaysScrollableScrollPhysics(),
