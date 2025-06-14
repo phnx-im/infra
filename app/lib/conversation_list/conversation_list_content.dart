@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -78,31 +79,35 @@ class _ListTile extends StatelessWidget {
       ),
       minVerticalPadding: 0,
       title: Container(
-        alignment: AlignmentDirectional.topStart,
-        height: 76,
+        alignment: AlignmentDirectional.centerStart,
+        height: 70,
         width: 300,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.only(
+          top: Spacings.xxs,
+          bottom: Spacings.xxs,
+          left: Spacings.xs,
+          right: Spacings.xs,
+        ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(Spacings.s),
           color: isSelected ? convPaneFocusColor : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          spacing: Spacings.s,
           children: [
             UserAvatar(
               size: 48,
               image: conversation.picture,
               displayName: conversation.title,
             ),
-            const SizedBox(width: Spacings.s),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   _ListTileTop(conversation: conversation),
-                  const SizedBox(height: 2),
                   Expanded(child: _ListTileBottom(conversation: conversation)),
                 ],
               ),
@@ -128,9 +133,9 @@ class _ListTileTop extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      spacing: Spacings.xxs,
       children: [
         Expanded(child: _ConversationTitle(title: conversation.title)),
-        const SizedBox(width: 8),
         _LastUpdated(conversation: conversation),
       ],
     );
@@ -148,6 +153,8 @@ class _ListTileBottom extends StatelessWidget {
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: Spacings.s,
       children: [
         Expanded(
           child: Align(
@@ -158,7 +165,6 @@ class _ListTileBottom extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 16),
         Align(
           alignment: Alignment.center,
           child: _UnreadBadge(
@@ -306,12 +312,17 @@ class _LastUpdatedState extends State<_LastUpdated> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Baseline(
       baseline: Spacings.xs,
       baselineType: TextBaseline.alphabetic,
       child: Text(
-        _displayTimestamp,
-        style: const TextStyle(color: colorDMB, fontSize: 11),
+        _localizedTimestamp(_displayTimestamp, loc),
+        style: const TextStyle(
+          color: colorDMB,
+          fontSize: 12,
+          letterSpacing: -0.2,
+        ).merge(VariableFontWeight.medium),
       ),
     );
   }
@@ -338,6 +349,13 @@ class _ConversationTitle extends StatelessWidget {
     );
   }
 }
+
+String _localizedTimestamp(String original, AppLocalizations loc) =>
+    switch (original) {
+      'Now' => loc.timestamp_now,
+      'Yesterday' => loc.timestamp_yesterday,
+      _ => original,
+    };
 
 String formatTimestamp(String t, {DateTime? now}) {
   DateTime timestamp;
