@@ -176,9 +176,6 @@ extension on HomeNavigationState {
       canPop: false,
       child: HomeScreen(),
     );
-
-    debugPrint("$userSettingsScreen");
-
     return [
       homeScreenPage,
       ...switch (userSettingsScreen) {

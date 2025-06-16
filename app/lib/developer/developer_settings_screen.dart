@@ -125,12 +125,12 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                   ListTile(
                     title: const Text("Change User"),
                     trailing: const Icon(Icons.change_circle),
-                    onTap: () {
-                      debugPrint("change user");
-                      context.read<NavigationCubit>().openDeveloperSettings(
-                        screen: DeveloperSettingsScreenType.changeUser,
-                      );
-                    },
+                    onTap:
+                        () => context
+                            .read<NavigationCubit>()
+                            .openDeveloperSettings(
+                              screen: DeveloperSettingsScreenType.changeUser,
+                            ),
                   ),
                   if (user != null) ...[
                     ListTile(
