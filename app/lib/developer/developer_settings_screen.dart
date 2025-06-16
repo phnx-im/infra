@@ -4,6 +4,7 @@
 
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/navigation/navigation.dart';
@@ -12,6 +13,7 @@ import 'package:prototype/theme/theme.dart';
 import 'package:prototype/util/platform.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class DeveloperSettingsScreen extends StatefulWidget {
   const DeveloperSettingsScreen({super.key});
@@ -152,6 +154,17 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                   ),
                   if (user != null)
                     ListTile(
+                      title: const Text("Export Database"),
+                      trailing: const Icon(Icons.file_download),
+                      onTap: () => _exportDatabase(context, user),
+                    ),
+                  ListTile(
+                    title: const Text("Import Database"),
+                    trailing: const Icon(Icons.file_upload),
+                    onTap: () => _importDatabase(context),
+                  ),
+                  if (user != null)
+                    ListTile(
                       title: Text(
                         profile?.displayName ?? user.userId.uuid.toString(),
                         style: Theme.of(context).textTheme.bodyLarge
@@ -200,6 +213,44 @@ class DeveloperSettingsScreenView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _exportDatabase(BuildContext context, User user) async {
+    final isMobile = Platform.isAndroid || Platform.isIOS;
+    if (isMobile) {
+      // on mobile, the exported database is shared as a file
+      final bytes = await exportClientDatabase(
+        dbPath: await dbPath(),
+        userId: user.userId,
+      );
+      final params = ShareParams(
+        files: [XFile.fromData(bytes, mimeType: "application/gzip")],
+        fileNameOverrides: ["${user.userId}.tar.gz"],
+      );
+      SharePlus.instance.share(params);
+    } else {
+      // on desktop, we ask for a directory and save the database there
+      final location = await getSaveLocation(
+        suggestedName: "${user.userId}.tar.gz",
+      );
+      if (location == null) {
+        return;
+      }
+      final bytes = await exportClientDatabase(
+        dbPath: await dbPath(),
+        userId: user.userId,
+      );
+      File(location.path).writeAsBytes(bytes);
+    }
+  }
+
+  void _importDatabase(BuildContext context) async {
+    final file = await openFile();
+    if (file == null) {
+      return;
+    }
+    final bytes = await file.readAsBytes();
+    await importClientDatabase(dbPath: await dbPath(), tarGzBytes: bytes);
   }
 }
 

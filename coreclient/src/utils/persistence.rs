@@ -2,9 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{fmt::Display, fs, path::Path, time::Duration};
+use std::{
+    fmt::Display,
+    fs::{self, File},
+    path::Path,
+    time::Duration,
+};
 
 use anyhow::{Result, bail};
+use flate2::{Compression, bufread::GzDecoder, write::GzEncoder};
 use openmls::group::GroupId;
 use phnxcommon::identifiers::UserId;
 use sqlx::{
@@ -112,6 +118,74 @@ pub async fn delete_client_database(db_path: &str, user_id: &UserId) -> Result<(
 
 fn client_db_name(user_id: &UserId) -> String {
     format!("{}@{}.db", user_id.uuid(), user_id.domain())
+}
+
+pub async fn export_client_database(db_path: &str, user_id: &UserId) -> Result<Vec<u8>> {
+    let client_db_name = client_db_name(user_id);
+
+    // Commit the WAL to the database file
+    let db_url = format!("sqlite://{db_path}/{client_db_name}");
+    let opts: SqliteConnectOptions = db_url.parse()?;
+    let opts = opts
+        .journal_mode(SqliteJournalMode::Wal)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::default().connect_with(opts).await?;
+    sqlx::query("VACUUM").execute(&pool).await?;
+    pool.close().await;
+
+    // Create a tar archive of the database
+    let mut data = Vec::new();
+    let enc = GzEncoder::new(&mut data, Compression::default());
+    let mut tar = tar::Builder::new(enc);
+
+    let client_db_path = format!("{db_path}/{client_db_name}");
+    let content = fs::read(client_db_path)?;
+    let mut header = tar::Header::new_gnu();
+    header.set_size(content.len().try_into().expect("usize overflow"));
+    header.set_mode(0o644);
+    header.set_cksum();
+    tar.append_data(&mut header, client_db_name, content.as_slice())?;
+
+    tar.finish()?;
+    drop(tar);
+
+    Ok(data)
+}
+
+pub async fn import_client_database(db_path: &str, tar_gz_bytes: &[u8]) -> Result<()> {
+    let dec = GzDecoder::new(tar_gz_bytes);
+    let mut tar = tar::Archive::new(dec);
+    for entry in tar.entries()? {
+        // Find an entry corresponding to a client DB
+        let mut entry = entry?;
+        let path = entry.path()?;
+        let Some(user_id) = user_id_from_entry(db_path, &path) else {
+            continue;
+        };
+
+        let client_db_name = client_db_name(&user_id);
+        let client_db_path = format!("{db_path}/{client_db_name}");
+        if Path::new(&client_db_path).exists() {
+            bail!("client DB already exist: {client_db_path}");
+        }
+
+        std::io::copy(&mut entry, &mut File::create(client_db_path)?)?;
+        return Ok(());
+    }
+    bail!("no client DB found in tar archive")
+}
+
+fn user_id_from_entry(db_path: &str, path: &Path) -> Option<UserId> {
+    let file_name = path.file_name()?.to_str()?;
+    let extension = file_name.rsplit('.').next()?;
+    if extension != "db" {
+        return None;
+    }
+    let (user_id_str, domain) = file_name.split_once('@')?;
+    let user_id = user_id_str.parse().ok()?;
+    let domain = domain.parse().ok()?;
+    let user_id = UserId::new(user_id, domain);
+    Some(user_id)
 }
 
 pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Result<SqlitePool> {

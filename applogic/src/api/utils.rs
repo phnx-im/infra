@@ -13,3 +13,11 @@ pub async fn delete_databases(db_path: String) -> anyhow::Result<()> {
 pub async fn delete_client_database(db_path: String, user_id: UiUserId) -> anyhow::Result<()> {
     phnxcoreclient::delete_client_database(&db_path, &user_id.into()).await
 }
+
+pub async fn export_client_database(db_path: String, user_id: UiUserId) -> anyhow::Result<Vec<u8>> {
+    phnxcoreclient::export_client_database(&db_path, &user_id.into()).await
+}
+
+pub async fn import_client_database(db_path: String, tar_gz_bytes: Vec<u8>) -> anyhow::Result<()> {
+    phnxcoreclient::import_client_database(&db_path, &tar_gz_bytes).await
+}
