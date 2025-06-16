@@ -82,11 +82,9 @@ class _ListTile extends StatelessWidget {
         alignment: AlignmentDirectional.centerStart,
         height: 70,
         width: 300,
-        padding: const EdgeInsets.only(
-          top: Spacings.xxs,
-          bottom: Spacings.xxs,
-          left: Spacings.xs,
-          right: Spacings.xs,
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacings.xs,
+          vertical: Spacings.xxs,
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Spacings.s),
