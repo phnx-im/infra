@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/markdown.dart';
+import 'package:prototype/theme/theme.dart';
 
 Widget buildBlockElement(BlockElement block, bool isSender) {
   return switch (block) {
@@ -24,6 +25,7 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
         style: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.bold,
+          fontVariations: variationBold,
           color: isSender ? Colors.white : Colors.black,
         ),
       ),
@@ -145,7 +147,7 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
     BlockElement_CodeBlock(:final field0) => Text.rich(
       TextSpan(
         text: field0.map((e) => e.value).join('\n'),
-        style: const TextStyle(fontSize: 12, color: Colors.black),
+        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
       ),
     ),
     BlockElement_Error(:final field0) => Container(
@@ -164,7 +166,7 @@ InlineSpan buildInlineElement(RangedInlineElement inline, bool isSender) {
     InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
       text: field0,
-      style: const TextStyle(fontSize: 12),
+      style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
     ),
     InlineElement_Link(:final children) => TextSpan(
       children:
@@ -178,7 +180,10 @@ InlineSpan buildInlineElement(RangedInlineElement inline, bool isSender) {
     InlineElement_Bold(:final field0) => TextSpan(
       children:
           field0.map((child) => buildInlineElement(child, isSender)).toList(),
-      style: const TextStyle(fontWeight: FontWeight.bold),
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontVariations: variationBold,
+      ),
     ),
     InlineElement_Italic(:final field0) => TextSpan(
       children:
@@ -412,7 +417,7 @@ class CustomTextEditingController extends TextEditingController {
               )
               .toList(),
         ),
-        style: const TextStyle(fontSize: 12, color: Colors.black),
+        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
       ),
       BlockElement_Error() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
@@ -434,7 +439,7 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Code() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        style: const TextStyle(fontSize: 12),
+        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
       ),
       InlineElement_Link() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
@@ -446,7 +451,10 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Bold(:final field0) => TextSpan(
         children: buildWrappedInline(inline.start, inline.end, field0),
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontVariations: variationBold,
+        ),
       ),
       InlineElement_Italic(:final field0) => TextSpan(
         children: buildWrappedInline(inline.start, inline.end, field0),

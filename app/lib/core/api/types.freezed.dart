@@ -215,26 +215,28 @@ class _$UiConversationTypeCopyWithImpl<$Res, $Val extends UiConversationType>
 }
 
 /// @nodoc
-abstract class _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
-  factory _$$UiConversationType_UnconfirmedConnectionImplCopyWith(
-    _$UiConversationType_UnconfirmedConnectionImpl value,
-    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) then,
-  ) = __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>;
+abstract class _$$UiConversationType_HandleConnectionImplCopyWith<$Res> {
+  factory _$$UiConversationType_HandleConnectionImplCopyWith(
+    _$UiConversationType_HandleConnectionImpl value,
+    $Res Function(_$UiConversationType_HandleConnectionImpl) then,
+  ) = __$$UiConversationType_HandleConnectionImplCopyWithImpl<$Res>;
   @useResult
-  $Res call({UiUserProfile field0});
+  $Res call({UiUserHandle field0});
+
+  $UiUserHandleCopyWith<$Res> get field0;
 }
 
 /// @nodoc
-class __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>
+class __$$UiConversationType_HandleConnectionImplCopyWithImpl<$Res>
     extends
         _$UiConversationTypeCopyWithImpl<
           $Res,
-          _$UiConversationType_UnconfirmedConnectionImpl
+          _$UiConversationType_HandleConnectionImpl
         >
-    implements _$$UiConversationType_UnconfirmedConnectionImplCopyWith<$Res> {
-  __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl(
-    _$UiConversationType_UnconfirmedConnectionImpl _value,
-    $Res Function(_$UiConversationType_UnconfirmedConnectionImpl) _then,
+    implements _$$UiConversationType_HandleConnectionImplCopyWith<$Res> {
+  __$$UiConversationType_HandleConnectionImplCopyWithImpl(
+    _$UiConversationType_HandleConnectionImpl _value,
+    $Res Function(_$UiConversationType_HandleConnectionImpl) _then,
   ) : super(_value, _then);
 
   /// Create a copy of UiConversationType
@@ -243,35 +245,45 @@ class __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<$Res>
   @override
   $Res call({Object? field0 = null}) {
     return _then(
-      _$UiConversationType_UnconfirmedConnectionImpl(
+      _$UiConversationType_HandleConnectionImpl(
         null == field0
             ? _value.field0
             : field0 // ignore: cast_nullable_to_non_nullable
-                as UiUserProfile,
+                as UiUserHandle,
       ),
     );
+  }
+
+  /// Create a copy of UiConversationType
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $UiUserHandleCopyWith<$Res> get field0 {
+    return $UiUserHandleCopyWith<$Res>(_value.field0, (value) {
+      return _then(_value.copyWith(field0: value));
+    });
   }
 }
 
 /// @nodoc
 
-class _$UiConversationType_UnconfirmedConnectionImpl
-    extends UiConversationType_UnconfirmedConnection {
-  const _$UiConversationType_UnconfirmedConnectionImpl(this.field0) : super._();
+class _$UiConversationType_HandleConnectionImpl
+    extends UiConversationType_HandleConnection {
+  const _$UiConversationType_HandleConnectionImpl(this.field0) : super._();
 
   @override
-  final UiUserProfile field0;
+  final UiUserHandle field0;
 
   @override
   String toString() {
-    return 'UiConversationType.unconfirmedConnection(field0: $field0)';
+    return 'UiConversationType.handleConnection(field0: $field0)';
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$UiConversationType_UnconfirmedConnectionImpl &&
+            other is _$UiConversationType_HandleConnectionImpl &&
             (identical(other.field0, field0) || other.field0 == field0));
   }
 
@@ -283,28 +295,26 @@ class _$UiConversationType_UnconfirmedConnectionImpl
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
-  _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
-    _$UiConversationType_UnconfirmedConnectionImpl
+  _$$UiConversationType_HandleConnectionImplCopyWith<
+    _$UiConversationType_HandleConnectionImpl
   >
-  get copyWith => __$$UiConversationType_UnconfirmedConnectionImplCopyWithImpl<
-    _$UiConversationType_UnconfirmedConnectionImpl
+  get copyWith => __$$UiConversationType_HandleConnectionImplCopyWithImpl<
+    _$UiConversationType_HandleConnectionImpl
   >(this, _$identity);
 }
 
-abstract class UiConversationType_UnconfirmedConnection
-    extends UiConversationType {
-  const factory UiConversationType_UnconfirmedConnection(
-    final UiUserProfile field0,
-  ) = _$UiConversationType_UnconfirmedConnectionImpl;
-  const UiConversationType_UnconfirmedConnection._() : super._();
+abstract class UiConversationType_HandleConnection extends UiConversationType {
+  const factory UiConversationType_HandleConnection(final UiUserHandle field0) =
+      _$UiConversationType_HandleConnectionImpl;
+  const UiConversationType_HandleConnection._() : super._();
 
-  UiUserProfile get field0;
+  UiUserHandle get field0;
 
   /// Create a copy of UiConversationType
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$UiConversationType_UnconfirmedConnectionImplCopyWith<
-    _$UiConversationType_UnconfirmedConnectionImpl
+  _$$UiConversationType_HandleConnectionImplCopyWith<
+    _$UiConversationType_HandleConnectionImpl
   >
   get copyWith => throw _privateConstructorUsedError;
 }
@@ -485,6 +495,8 @@ abstract class _$$UiEventMessage_SystemImplCopyWith<$Res> {
   ) = __$$UiEventMessage_SystemImplCopyWithImpl<$Res>;
   @useResult
   $Res call({UiSystemMessage field0});
+
+  $UiSystemMessageCopyWith<$Res> get field0;
 }
 
 /// @nodoc
@@ -509,6 +521,16 @@ class __$$UiEventMessage_SystemImplCopyWithImpl<$Res>
                 as UiSystemMessage,
       ),
     );
+  }
+
+  /// Create a copy of UiEventMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $UiSystemMessageCopyWith<$Res> get field0 {
+    return $UiSystemMessageCopyWith<$Res>(_value.field0, (value) {
+      return _then(_value.copyWith(field0: value));
+    });
   }
 }
 
@@ -1115,6 +1137,262 @@ abstract class _UiMimiContent implements UiMimiContent {
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$UiMimiContentImplCopyWith<_$UiMimiContentImpl> get copyWith =>
       throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+mixin _$UiSystemMessage {
+  UiUserId get field0 => throw _privateConstructorUsedError;
+  UiUserId get field1 => throw _privateConstructorUsedError;
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $UiSystemMessageCopyWith<UiSystemMessage> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $UiSystemMessageCopyWith<$Res> {
+  factory $UiSystemMessageCopyWith(
+    UiSystemMessage value,
+    $Res Function(UiSystemMessage) then,
+  ) = _$UiSystemMessageCopyWithImpl<$Res, UiSystemMessage>;
+  @useResult
+  $Res call({UiUserId field0, UiUserId field1});
+}
+
+/// @nodoc
+class _$UiSystemMessageCopyWithImpl<$Res, $Val extends UiSystemMessage>
+    implements $UiSystemMessageCopyWith<$Res> {
+  _$UiSystemMessageCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null, Object? field1 = null}) {
+    return _then(
+      _value.copyWith(
+            field0:
+                null == field0
+                    ? _value.field0
+                    : field0 // ignore: cast_nullable_to_non_nullable
+                        as UiUserId,
+            field1:
+                null == field1
+                    ? _value.field1
+                    : field1 // ignore: cast_nullable_to_non_nullable
+                        as UiUserId,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$UiSystemMessage_AddImplCopyWith<$Res>
+    implements $UiSystemMessageCopyWith<$Res> {
+  factory _$$UiSystemMessage_AddImplCopyWith(
+    _$UiSystemMessage_AddImpl value,
+    $Res Function(_$UiSystemMessage_AddImpl) then,
+  ) = __$$UiSystemMessage_AddImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({UiUserId field0, UiUserId field1});
+}
+
+/// @nodoc
+class __$$UiSystemMessage_AddImplCopyWithImpl<$Res>
+    extends _$UiSystemMessageCopyWithImpl<$Res, _$UiSystemMessage_AddImpl>
+    implements _$$UiSystemMessage_AddImplCopyWith<$Res> {
+  __$$UiSystemMessage_AddImplCopyWithImpl(
+    _$UiSystemMessage_AddImpl _value,
+    $Res Function(_$UiSystemMessage_AddImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null, Object? field1 = null}) {
+    return _then(
+      _$UiSystemMessage_AddImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiUserId,
+        null == field1
+            ? _value.field1
+            : field1 // ignore: cast_nullable_to_non_nullable
+                as UiUserId,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UiSystemMessage_AddImpl extends UiSystemMessage_Add {
+  const _$UiSystemMessage_AddImpl(this.field0, this.field1) : super._();
+
+  @override
+  final UiUserId field0;
+  @override
+  final UiUserId field1;
+
+  @override
+  String toString() {
+    return 'UiSystemMessage.add(field0: $field0, field1: $field1)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiSystemMessage_AddImpl &&
+            (identical(other.field0, field0) || other.field0 == field0) &&
+            (identical(other.field1, field1) || other.field1 == field1));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, field0, field1);
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UiSystemMessage_AddImplCopyWith<_$UiSystemMessage_AddImpl> get copyWith =>
+      __$$UiSystemMessage_AddImplCopyWithImpl<_$UiSystemMessage_AddImpl>(
+        this,
+        _$identity,
+      );
+}
+
+abstract class UiSystemMessage_Add extends UiSystemMessage {
+  const factory UiSystemMessage_Add(
+    final UiUserId field0,
+    final UiUserId field1,
+  ) = _$UiSystemMessage_AddImpl;
+  const UiSystemMessage_Add._() : super._();
+
+  @override
+  UiUserId get field0;
+  @override
+  UiUserId get field1;
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UiSystemMessage_AddImplCopyWith<_$UiSystemMessage_AddImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$UiSystemMessage_RemoveImplCopyWith<$Res>
+    implements $UiSystemMessageCopyWith<$Res> {
+  factory _$$UiSystemMessage_RemoveImplCopyWith(
+    _$UiSystemMessage_RemoveImpl value,
+    $Res Function(_$UiSystemMessage_RemoveImpl) then,
+  ) = __$$UiSystemMessage_RemoveImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({UiUserId field0, UiUserId field1});
+}
+
+/// @nodoc
+class __$$UiSystemMessage_RemoveImplCopyWithImpl<$Res>
+    extends _$UiSystemMessageCopyWithImpl<$Res, _$UiSystemMessage_RemoveImpl>
+    implements _$$UiSystemMessage_RemoveImplCopyWith<$Res> {
+  __$$UiSystemMessage_RemoveImplCopyWithImpl(
+    _$UiSystemMessage_RemoveImpl _value,
+    $Res Function(_$UiSystemMessage_RemoveImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null, Object? field1 = null}) {
+    return _then(
+      _$UiSystemMessage_RemoveImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as UiUserId,
+        null == field1
+            ? _value.field1
+            : field1 // ignore: cast_nullable_to_non_nullable
+                as UiUserId,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UiSystemMessage_RemoveImpl extends UiSystemMessage_Remove {
+  const _$UiSystemMessage_RemoveImpl(this.field0, this.field1) : super._();
+
+  @override
+  final UiUserId field0;
+  @override
+  final UiUserId field1;
+
+  @override
+  String toString() {
+    return 'UiSystemMessage.remove(field0: $field0, field1: $field1)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UiSystemMessage_RemoveImpl &&
+            (identical(other.field0, field0) || other.field0 == field0) &&
+            (identical(other.field1, field1) || other.field1 == field1));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, field0, field1);
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UiSystemMessage_RemoveImplCopyWith<_$UiSystemMessage_RemoveImpl>
+  get copyWith =>
+      __$$UiSystemMessage_RemoveImplCopyWithImpl<_$UiSystemMessage_RemoveImpl>(
+        this,
+        _$identity,
+      );
+}
+
+abstract class UiSystemMessage_Remove extends UiSystemMessage {
+  const factory UiSystemMessage_Remove(
+    final UiUserId field0,
+    final UiUserId field1,
+  ) = _$UiSystemMessage_RemoveImpl;
+  const UiSystemMessage_Remove._() : super._();
+
+  @override
+  UiUserId get field0;
+  @override
+  UiUserId get field1;
+
+  /// Create a copy of UiSystemMessage
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UiSystemMessage_RemoveImplCopyWith<_$UiSystemMessage_RemoveImpl>
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc

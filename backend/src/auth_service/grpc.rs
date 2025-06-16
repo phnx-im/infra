@@ -20,7 +20,7 @@ use phnxcommon::{
     },
     identifiers,
     messages::{
-        client_as::{AsCredentialsParams, UserConnectionPackagesParams},
+        client_as::AsCredentialsParams,
         client_as_out::{
             GetUserProfileParams, MergeUserProfileParamsTbs, RegisterUserParamsIn,
             StageUserProfileParamsTbs,
@@ -37,7 +37,6 @@ use tracing::error;
 use super::{
     AuthService,
     client_record::ClientRecord,
-    queue::Queues,
     user_handles::{ConnectHandleProtocol, UserHandleQueues, UserHandleRecord},
 };
 
@@ -120,35 +119,6 @@ impl GrpcAs {
         })
     }
 
-    async fn process_listen_requests_task(
-        queues: Queues,
-        user_id: identifiers::UserId,
-        mut requests: Streaming<ListenRequest>,
-    ) {
-        while let Some(request) = requests.next().await {
-            if let Err(error) = Self::process_listen_request(&queues, &user_id, request).await {
-                // We report the error, but don't stop processing requests.
-                // TODO(#466): Send this to the client.
-                error!(%error, "error processing listen request");
-            }
-        }
-    }
-
-    async fn process_listen_request(
-        queues: &Queues,
-        user_id: &identifiers::UserId,
-        request: Result<ListenRequest, Status>,
-    ) -> Result<(), Status> {
-        let request = request?;
-        let Some(listen_request::Request::Ack(ack_request)) = request.request else {
-            return Err(ListenProtocolViolation::OnlyAckRequestAllowed.into());
-        };
-        queues
-            .ack(user_id, ack_request.up_to_sequence_number)
-            .await?;
-        Ok(())
-    }
-
     async fn process_listen_handle_requests_task(
         queues: UserHandleQueues,
         mut requests: Streaming<ListenHandleRequest>,
@@ -190,14 +160,6 @@ impl auth_service_server::AuthService for GrpcAs {
                 .client_credential_payload
                 .ok_or_missing_field("client_payload")?
                 .try_into()?,
-            queue_encryption_key: request
-                .queue_encryption_key
-                .ok_or_missing_field("queue_encryption_key")?
-                .into(),
-            initial_ratchet_secret: request
-                .initial_ratchet_secret
-                .ok_or_missing_field("initial_ratchet_secret")?
-                .try_into()?,
             encrypted_user_profile: request
                 .encrypted_user_profile
                 .ok_or_missing_field("encrypted_user_profile")?
@@ -232,68 +194,30 @@ impl auth_service_server::AuthService for GrpcAs {
     ) -> Result<Response<PublishConnectionPackagesResponse>, Status> {
         let request = request.into_inner();
 
-        match request
+        let hash = request
             .payload
             .as_ref()
             .ok_or_missing_field("payload")?
-            .owner
+            .hash
             .clone()
-            .ok_or_missing_field("owner")?
-        {
-            // publishing connection packages for a user
-            publish_connection_packages_payload::Owner::UserId(user_id) => {
-                let user_id: identifiers::UserId = user_id.try_into()?;
-                let client_verifying_key = self.load_client_verifying_key(&user_id).await?;
-                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
-                    request,
-                    &client_verifying_key,
-                )?;
-                let connection_packages = payload
-                    .connection_packages
-                    .into_iter()
-                    .map(|package| package.try_into())
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.inner
-                    .as_publish_connection_packages(user_id, connection_packages)
-                    .await?;
-            }
-            // publishing connection packages for a user handle
-            publish_connection_packages_payload::Owner::Hash(hash) => {
-                let hash: identifiers::UserHandleHash = hash.try_into()?;
-                let handle_verifying_key = self.load_handle_verifying_key(hash).await?;
-                let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
-                    request,
-                    &handle_verifying_key,
-                )?;
-                let connection_packages = payload
-                    .connection_packages
-                    .into_iter()
-                    .map(|package| package.try_into())
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.inner
-                    .as_publish_connection_packages_for_handle(&hash, connection_packages)
-                    .await?;
-            }
-        };
+            .ok_or_missing_field("hash")?;
+
+        let hash: identifiers::UserHandleHash = hash.try_into()?;
+        let handle_verifying_key = self.load_handle_verifying_key(hash).await?;
+        let payload = self.verify_request::<_, PublishConnectionPackagesPayload>(
+            request,
+            &handle_verifying_key,
+        )?;
+        let connection_packages = payload
+            .connection_packages
+            .into_iter()
+            .map(|package| package.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
+        self.inner
+            .as_publish_connection_packages_for_handle(&hash, connection_packages)
+            .await?;
 
         Ok(Response::new(PublishConnectionPackagesResponse {}))
-    }
-
-    async fn get_user_connection_packages(
-        &self,
-        request: Request<GetUserConnectionPackagesRequest>,
-    ) -> Result<Response<GetUserConnectionPackagesResponse>, Status> {
-        let request = request.into_inner();
-        let user_id = request.user_id.ok_or_missing_field("user_id")?.try_into()?;
-        let params = UserConnectionPackagesParams { user_id };
-        let connection_packages = self
-            .inner
-            .as_user_connection_packages(params)
-            .await?
-            .key_packages;
-        Ok(Response::new(GetUserConnectionPackagesResponse {
-            connection_packages: connection_packages.into_iter().map(Into::into).collect(),
-        }))
     }
 
     async fn as_credentials(
@@ -393,63 +317,6 @@ impl auth_service_server::AuthService for GrpcAs {
         Ok(Response::new(IssueTokensResponse { token_response }))
     }
 
-    type ListenStream = BoxStream<'static, Result<ListenResponse, Status>>;
-
-    async fn listen(
-        &self,
-        request: Request<Streaming<ListenRequest>>,
-    ) -> Result<Response<Self::ListenStream>, Status> {
-        let mut requests = request.into_inner();
-
-        let request = requests
-            .next()
-            .await
-            .ok_or(ListenProtocolViolation::MissingInitRequest)??;
-        let Some(listen_request::Request::Init(init_request)) = request.request else {
-            return Err(Status::failed_precondition("missing initial request"));
-        };
-
-        let (user_id, payload) = self
-            .verify_user_auth::<_, InitListenPayload>(init_request)
-            .await?;
-
-        let messages = self
-            .inner
-            .queues
-            .listen(&user_id, payload.sequence_number_start)
-            .await?;
-
-        tokio::spawn(Self::process_listen_requests_task(
-            self.inner.queues.clone(),
-            user_id.clone(),
-            requests,
-        ));
-
-        let responses = Box::pin(messages.map(|message| {
-            Ok(ListenResponse {
-                message: message.map(From::from),
-            })
-        }));
-
-        Ok(Response::new(responses))
-    }
-
-    async fn enqueue_messages(
-        &self,
-        request: Request<EnqueueMessagesRequest>,
-    ) -> Result<Response<EnqueueMessagesResponse>, Status> {
-        let request = request.into_inner();
-        let user_id = request.user_id.ok_or_missing_field("user_id")?.try_into()?;
-        let connection_offer = request
-            .connection_offer
-            .ok_or_missing_field("connection_offer")?
-            .try_into()?;
-        self.inner
-            .as_enqueue_message(user_id, connection_offer)
-            .await?;
-        Ok(Response::new(EnqueueMessagesResponse {}))
-    }
-
     async fn create_handle(
         &self,
         request: Request<CreateHandleRequest>,
@@ -536,7 +403,7 @@ impl auth_service_server::AuthService for GrpcAs {
         let request = requests
             .next()
             .await
-            .ok_or(ListenProtocolViolation::MissingInitRequest)??;
+            .ok_or(ListenHandleProtocolViolation::MissingInitRequest)??;
         let Some(listen_handle_request::Request::Init(init_request)) = request.request else {
             return Err(ListenHandleProtocolViolation::MissingInitRequest.into());
         };
@@ -555,20 +422,6 @@ impl auth_service_server::AuthService for GrpcAs {
         let responses = Box::pin(messages.map(|message| Ok(ListenHandleResponse { message })));
 
         Ok(Response::new(responses))
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-enum ListenProtocolViolation {
-    #[error("missing initial request")]
-    MissingInitRequest,
-    #[error("only ack request allowed")]
-    OnlyAckRequestAllowed,
-}
-
-impl From<ListenProtocolViolation> for Status {
-    fn from(error: ListenProtocolViolation) -> Self {
-        Status::failed_precondition(error.to_string())
     }
 }
 
@@ -613,12 +466,6 @@ impl WithUserId for StageUserProfileRequest {
 }
 
 impl WithUserId for MergeUserProfileRequest {
-    fn user_id_proto(&self) -> Option<UserId> {
-        self.payload.as_ref()?.user_id.clone()
-    }
-}
-
-impl WithUserId for InitListenRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
     }

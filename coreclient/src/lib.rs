@@ -10,11 +10,12 @@ mod conversations;
 mod groups;
 mod key_stores;
 pub mod store;
+mod user_handles;
 mod user_profiles;
 mod utils;
 
 pub use crate::{
-    contacts::{Contact, PartialContact},
+    contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
         InactiveConversation,
@@ -23,6 +24,7 @@ pub use crate::{
             Message, NotificationType, SystemMessage,
         },
     },
+    user_handles::UserHandleRecord,
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
     utils::persistence::{delete_client_database, delete_databases, open_client_db},
 };

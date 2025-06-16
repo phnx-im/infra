@@ -29,8 +29,8 @@ class ConversationListContainer extends StatelessWidget {
 class ConversationListView extends StatelessWidget {
   const ConversationListView({super.key});
 
-  double _desktopPadding() {
-    return isPointer() ? Spacings.l : 0;
+  double _topPadding() {
+    return isPointer() ? Spacings.l : kToolbarHeight;
   }
 
   @override
@@ -42,18 +42,16 @@ class ConversationListView extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: convPaneBackgroundColor,
-        body: Stack(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(
-                top: kToolbarHeight + _desktopPadding(),
-                bottom: 120,
-              ),
-              child: const ConversationListContent(),
-            ),
-            const ConversationListHeader(),
-            const ConversationListFooter(),
-          ],
+        body: Padding(
+          padding: EdgeInsets.only(top: _topPadding()),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ConversationListHeader(),
+              Expanded(child: ConversationListContent()),
+              ConversationListFooter(),
+            ],
+          ),
         ),
       ),
     );

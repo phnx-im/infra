@@ -5,11 +5,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:prototype/widgets/user_avatar.dart';
 
 import 'conversation_details_cubit.dart';
 
@@ -48,13 +49,14 @@ class _EmptyConversationPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Scaffold(
       body: Center(
         child: Text(
           style: Theme.of(
             context,
           ).textTheme.labelMedium?.copyWith(color: colorDMB),
-          "Select a chat to start messaging",
+          loc.conversationScreen_emptyConversation,
         ),
       ),
     );
@@ -75,10 +77,6 @@ class ConversationScreenView extends StatelessWidget {
       (NavigationCubit cubit) => cubit.state.conversationId,
     );
 
-    final conversationTitle = context.select(
-      (ConversationDetailsCubit cubit) => cubit.state.conversation?.title,
-    );
-
     if (conversationId == null) {
       return const _EmptyConversationPane();
     }
@@ -88,39 +86,78 @@ class ConversationScreenView extends StatelessWidget {
         children: <Widget>[
           Column(
             children: [
+              const _ConversationHeader(),
               Expanded(
                 child: MessageListView(createMessageCubit: createMessageCubit),
               ),
               const MessageComposer(),
             ],
           ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: AppBar(
-              title: Text(conversationTitle ?? ""),
-              backgroundColor: Colors.white,
-              forceMaterialTransparency: true,
-              actions: [
-                // Conversation details
-                conversationTitle != null
-                    ? const _DetailsButton()
-                    : const SizedBox.shrink(),
-              ],
-              leading:
-                  context.responsiveScreenType == ResponsiveScreenType.mobile
-                      ? const _BackButton()
-                      : null,
-              elevation: 0,
-              // Applying blur effect
-              flexibleSpace: FrostedGlass(
-                color: Colors.white,
-                height: kToolbarHeight + MediaQuery.of(context).padding.top,
-              ),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ConversationHeader extends StatelessWidget {
+  const _ConversationHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final conversationTitle = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.conversation?.title,
+    );
+
+    final conversationPicture = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.conversation?.picture,
+    );
+
+    return Container(
+      padding: EdgeInsets.only(
+        top:
+            context.responsiveScreenType == ResponsiveScreenType.mobile
+                ? kToolbarHeight
+                : Spacings.xxs,
+        bottom: Spacings.xxs,
+        left: Spacings.xs,
+        right: Spacings.xs,
+      ),
+      child: Container(
+        color: Colors.white,
+        height: Spacings.l,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            context.responsiveScreenType == ResponsiveScreenType.mobile
+                ? const _BackButton()
+                : const SizedBox.shrink(),
+            Row(
+              spacing: Spacings.xs,
+              children: [
+                UserAvatar(
+                  displayName: conversationTitle ?? "",
+                  image: conversationPicture,
+                  size: Spacings.m,
+                  onPressed: () {
+                    context.read<NavigationCubit>().openConversationDetails();
+                  },
+                ),
+                Text(
+                  conversationTitle ?? "",
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontVariations: variationBold,
+                  ),
+                ),
+              ],
+            ),
+            conversationTitle != null
+                ? const _DetailsButton()
+                : const SizedBox.shrink(),
+          ],
+        ),
       ),
     );
   }
@@ -132,9 +169,9 @@ class _DetailsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.more_horiz, size: 28),
+      icon: const Icon(Icons.more_horiz, size: 26),
       color: Colors.black,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: Spacings.xs),
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
@@ -151,7 +188,8 @@ class _BackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.arrow_back),
+      icon: const Icon(Icons.arrow_back, size: 26),
+      padding: const EdgeInsets.symmetric(horizontal: Spacings.xs),
       color: Colors.black,
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,

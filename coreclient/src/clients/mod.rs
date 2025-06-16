@@ -2,18 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, convert::identity, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
+pub use phnxapiclient::as_api::ListenHandleResponder;
 use phnxapiclient::{ApiClient, ApiClientInitError};
 use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        keys::{ClientSigningKey, HandleSigningKey},
     },
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
@@ -23,21 +25,19 @@ use phnxcommon::{
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
-        signatures::{
-            keys::{QsClientSigningKey, QsUserSigningKey},
-            signable::Signable,
-        },
+        signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
-    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
+    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
     messages::{
-        FriendshipToken, MlsInfraVersion, QueueMessage,
-        client_as::ConnectionPackageTbs,
+        FriendshipToken, QueueMessage,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
+pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
+
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
@@ -46,12 +46,15 @@ use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info};
 use url::Url;
 
-use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
+use crate::{
+    Asset, contacts::HandleContact, groups::Group, store::Store,
+    utils::persistence::delete_client_database,
+};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
     clients::connection_offer::FriendshipPackage,
-    contacts::{Contact, PartialContact},
+    contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes,
         messages::{ConversationMessage, TimestampedMessage},
@@ -245,6 +248,14 @@ impl CoreUser {
         &self.inner.key_store.signing_key
     }
 
+    pub(crate) fn api_client(&self) -> anyhow::Result<ApiClient> {
+        Ok(self.inner.api_clients.default_client()?)
+    }
+
+    pub(crate) fn key_store(&self) -> &MemoryUserKeyStore {
+        &self.inner.key_store
+    }
+
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
         if !notification.is_empty() {
             self.inner.store_notifications_tx.notify(notification);
@@ -389,9 +400,6 @@ impl CoreUser {
         while remaining_messages > 0 {
             let api_client = self.inner.api_clients.default_client()?;
             let mut response = match &queue_type {
-                QueueType::As => {
-                    unimplemented!()
-                }
                 QueueType::Qs => {
                     api_client
                         .qs_dequeue_messages(
@@ -417,17 +425,38 @@ impl CoreUser {
         Ok(messages)
     }
 
-    pub async fn as_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        let sequence_number = QueueType::As.load_sequence_number(self.pool()).await?;
-        let api_client = self.inner.api_clients.default_client()?;
-        let (stream, responder) = api_client
-            .as_listen(sequence_number, &self.inner.key_store.signing_key)
-            .await?;
-        let messages: Vec<QueueMessage> = stream.map_while(identity).collect().await;
-        if let Some(message) = messages.last() {
-            responder.ack(message.sequence_number).await;
+    /// Fetch and process AS messages
+    ///
+    /// Returns the list of [`ConversationId`]s of any newly created conversations.
+    pub async fn fetch_and_process_as_messages(&self) -> Result<Vec<ConversationId>> {
+        let records = self.user_handle_records().await?;
+        let api_client = self.api_client()?;
+        let mut conversation_ids = Vec::new();
+        for record in records {
+            let (mut stream, responder) = api_client
+                .as_listen_handle(record.hash, &record.signing_key)
+                .await?;
+            while let Some(Some(message)) = stream.next().await {
+                let Some(message_id) = message.message_id else {
+                    error!("no message id in handle queue message");
+                    continue;
+                };
+                match self
+                    .process_handle_queue_message(&record.handle, message)
+                    .await
+                {
+                    Ok(conversation_id) => {
+                        conversation_ids.push(conversation_id);
+                    }
+                    Err(error) => {
+                        error!(%error, "failed to process handle queue message");
+                    }
+                }
+                // ack the message independently of the result of processing the message
+                responder.ack(message_id.into()).await;
+            }
         }
-        Ok(messages)
+        Ok(conversation_ids)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
@@ -447,9 +476,8 @@ impl CoreUser {
         Contact::load(self.pool(), user_id).await
     }
 
-    pub async fn partial_contacts(&self) -> sqlx::Result<Vec<PartialContact>> {
-        let partial_contact = PartialContact::load_all(self.pool()).await?;
-        Ok(partial_contact)
+    pub async fn handle_contacts(&self) -> sqlx::Result<Vec<HandleContact>> {
+        HandleContact::load_all(self.pool()).await
     }
 
     fn create_own_client_reference(&self) -> QsReference {
@@ -503,6 +531,18 @@ impl CoreUser {
     pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
         let api_client = self.inner.api_clients.default_client()?;
         Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
+    }
+
+    pub async fn listen_handle(
+        &self,
+        hash: UserHandleHash,
+        signing_key: &HandleSigningKey,
+    ) -> Result<(
+        impl Stream<Item = Option<HandleQueueMessage>> + use<>,
+        ListenHandleResponder,
+    )> {
+        let api_client = self.inner.api_clients.default_client()?;
+        Ok(api_client.as_listen_handle(hash, signing_key).await?)
     }
 
     /// Mark all messages in the conversation with the given conversation id and

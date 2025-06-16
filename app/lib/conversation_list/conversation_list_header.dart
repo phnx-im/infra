@@ -12,37 +12,19 @@ import 'package:provider/provider.dart';
 class ConversationListHeader extends StatelessWidget {
   const ConversationListHeader({super.key});
 
-  static _height(BuildContext context) =>
-      MediaQuery.of(context).padding.top +
-      kToolbarHeight +
-      (isPointer() ? Spacings.l : 0);
-
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        SizedBox(
-          height: _height(context),
-          child: FrostedGlass(
-            color: convPaneBackgroundColor,
-            height: _height(context),
-          ),
-        ),
-        Container(
-          height: _height(context),
-          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _Avatar(),
-              SizedBox(width: Spacings.xxxs),
-              Expanded(child: _DisplayNameSpace()),
-              SizedBox(width: Spacings.xxxs),
-              _SettingsButton(),
-            ],
-          ),
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.only(left: Spacings.xxs),
+      child: const Row(
+        spacing: Spacings.xxs,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _Avatar(),
+          Expanded(child: _DisplayNameSpace()),
+          _SettingsButton(),
+        ],
+      ),
     );
   }
 }
@@ -52,12 +34,7 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (displayName, profilePicture) = context.select(
-      (UserCubit cubit) => (
-        cubit.state.displayName,
-        cubit.state.profilePicture,
-      ),
-    );
+    final profile = context.select((UsersCubit cubit) => cubit.state.profile());
 
     return Padding(
       padding: const EdgeInsets.only(left: 18.0),
@@ -66,9 +43,9 @@ class _Avatar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           UserAvatar(
+            displayName: profile.displayName,
+            image: profile.profilePicture,
             size: 32,
-            image: profilePicture,
-            displayName: displayName,
             onPressed: () {
               context.read<NavigationCubit>().openUserSettings();
             },
@@ -85,7 +62,7 @@ class _DisplayNameSpace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayName = context.select(
-      (UserCubit cubit) => cubit.state.displayName,
+      (UsersCubit cubit) => cubit.state.displayName(),
     );
 
     return Text(
