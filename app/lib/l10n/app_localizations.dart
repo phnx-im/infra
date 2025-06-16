@@ -347,8 +347,14 @@ abstract class AppLocalizations {
   /// No description provided for @timestamp_now.
   ///
   /// In en, this message translates to:
-  /// **'now'**
+  /// **'Now'**
   String get timestamp_now;
+
+  /// No description provided for @timestamp_yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get timestamp_yesterday;
 
   /// No description provided for @conversationList_newConnection.
   ///
