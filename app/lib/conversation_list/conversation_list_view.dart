@@ -41,7 +41,8 @@ class ConversationListView extends StatelessWidget {
         border: Border(right: BorderSide(width: 1, color: colorGreyLight)),
       ),
       child: Scaffold(
-        backgroundColor: convPaneBackgroundColor,
+        backgroundColor:
+            isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
         body: Padding(
           padding: EdgeInsets.only(top: _topPadding()),
           child: const Column(
