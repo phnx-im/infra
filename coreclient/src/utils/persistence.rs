@@ -159,7 +159,7 @@ pub async fn import_client_database(db_path: &str, tar_gz_bytes: &[u8]) -> Resul
         // Find an entry corresponding to a client DB
         let mut entry = entry?;
         let path = entry.path()?;
-        let Some(user_id) = user_id_from_entry(db_path, &path) else {
+        let Some(user_id) = user_id_from_entry(&path) else {
             continue;
         };
 
@@ -175,7 +175,7 @@ pub async fn import_client_database(db_path: &str, tar_gz_bytes: &[u8]) -> Resul
     bail!("no client DB found in tar archive")
 }
 
-fn user_id_from_entry(db_path: &str, path: &Path) -> Option<UserId> {
+fn user_id_from_entry(path: &Path) -> Option<UserId> {
     let file_name = path.file_name()?.to_str()?;
     let extension = file_name.rsplit('.').next()?;
     if extension != "db" {
