@@ -17,9 +17,11 @@ class MessageComposer extends StatefulWidget {
   State<MessageComposer> createState() => _MessageComposerState();
 }
 
-class _MessageComposerState extends State<MessageComposer> {
+class _MessageComposerState extends State<MessageComposer>
+    with WidgetsBindingObserver {
   final TextEditingController _controller = CustomTextEditingController();
   final _focusNode = FocusNode();
+  bool _keyboardVisible = false;
 
   // Key events
   KeyEventResult _onKeyEvent(
@@ -43,8 +45,28 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _focusNode.onKeyEvent =
         (focusNode, event) => _onKeyEvent(context.read(), focusNode, event);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    final view = View.of(context);
+    final bottomInset = view.viewInsets.bottom;
+    final newValue = bottomInset > 0.0;
+
+    if (_keyboardVisible != newValue) {
+      setState(() {
+        _keyboardVisible = newValue;
+      });
+    }
   }
 
   void _submitMessage(ConversationDetailsCubit conversationDetailsCubit) async {
@@ -75,38 +97,56 @@ class _MessageComposerState extends State<MessageComposer> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 1000),
-      padding: const EdgeInsets.only(left: 10, top: 0, right: 10, bottom: 5),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(height: 1.5, color: colorGreyLight),
-          ),
-          Row(
-            children: [
-              Expanded(
+      child: Container(
+        color: Colors.white.withValues(alpha: 0.9),
+        padding: EdgeInsets.only(
+          top: Spacings.xs,
+          bottom:
+              isSmallScreen(context) && !_keyboardVisible
+                  ? Spacings.m
+                  : Spacings.xs,
+          left: Spacings.xs,
+          right: Spacings.xs,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(Spacings.m),
+                ),
+                padding: const EdgeInsets.only(
+                  left: Spacings.xs,
+                  right: Spacings.xs,
+                ),
                 child: _MessageInput(
                   focusNode: _focusNode,
                   controller: _controller,
                   conversationTitle: conversationTitle,
                 ),
               ),
-              if (isSmallScreen(context))
-                Container(
-                  width: 40,
-                  margin: const EdgeInsets.all(10),
-                  child: IconButton(
-                    icon: const Icon(Icons.send),
-                    color: colorDMB,
-                    hoverColor: const Color(0x00FFFFFF),
-                    onPressed: () {
-                      _submitMessage(context.read());
-                    },
-                  ),
+            ),
+            if (isSmallScreen(context))
+              Container(
+                width: 50,
+                height: 50,
+                margin: const EdgeInsets.only(left: Spacings.xs),
+                decoration: BoxDecoration(
+                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(Spacings.m),
                 ),
-            ],
-          ),
-        ],
+                child: IconButton(
+                  icon: const Icon(Icons.send),
+                  color: colorDMB,
+                  hoverColor: const Color(0x00FFFFFF),
+                  onPressed: () {
+                    _submitMessage(context.read());
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -136,6 +176,9 @@ class _MessageInput extends StatelessWidget {
       maxLines: 10,
       decoration: InputDecoration(
         hintText: "Message $conversationTitle",
+        hintStyle: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: colorDMB),
       ).copyWith(filled: false),
       textInputAction:
           smallScreen ? TextInputAction.send : TextInputAction.newline,
