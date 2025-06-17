@@ -24,9 +24,8 @@ class ConversationListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(left: Spacings.xxs),
+      padding: const EdgeInsets.only(left: Spacings.xxs, right: Spacings.s),
       child: const Row(
-        spacing: Spacings.xxs,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _Avatar(),
@@ -143,7 +142,7 @@ class _SettingsButton extends StatelessWidget {
         focusColor: Colors.transparent,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        icon: const Icon(Icons.settings, size: 20, color: colorDMB),
+        icon: const Icon(Icons.add_circle_rounded, size: 24, color: colorDMB),
       ),
     );
   }
