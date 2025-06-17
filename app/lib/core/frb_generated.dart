@@ -2143,7 +2143,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_intro_screen_type(screen, serializer);
+          sse_encode_box_autoadd_intro_screen_type(screen, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -4861,6 +4861,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  IntroScreenType dco_decode_box_autoadd_intro_screen_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_intro_screen_type(raw);
+  }
+
+  @protected
   MessageState dco_decode_box_autoadd_message_state(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_message_state(raw);
@@ -5084,7 +5090,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   IntroScreenType dco_decode_intro_screen_type(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return IntroScreenType.values[raw as int];
+    switch (raw[0]) {
+      case 0:
+        return IntroScreenType_Intro();
+      case 1:
+        return IntroScreenType_ServerChoice();
+      case 2:
+        return IntroScreenType_DisplayNamePicture();
+      case 3:
+        return IntroScreenType_DeveloperSettings(
+          dco_decode_developer_settings_screen_type(raw[1]),
+        );
+      default:
+        throw Exception("unreachable");
+    }
   }
 
   @protected
@@ -6545,6 +6564,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  IntroScreenType sse_decode_box_autoadd_intro_screen_type(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_intro_screen_type(deserializer));
+  }
+
+  @protected
   MessageState sse_decode_box_autoadd_message_state(
     SseDeserializer deserializer,
   ) {
@@ -6791,8 +6818,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   IntroScreenType sse_decode_intro_screen_type(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
-    return IntroScreenType.values[inner];
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        return IntroScreenType_Intro();
+      case 1:
+        return IntroScreenType_ServerChoice();
+      case 2:
+        return IntroScreenType_DisplayNamePicture();
+      case 3:
+        var var_field0 = sse_decode_developer_settings_screen_type(
+          deserializer,
+        );
+        return IntroScreenType_DeveloperSettings(var_field0);
+      default:
+        throw UnimplementedError('');
+    }
   }
 
   @protected
@@ -8613,6 +8655,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_intro_screen_type(
+    IntroScreenType self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_intro_screen_type(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_message_state(
     MessageState self,
     SseSerializer serializer,
@@ -8863,7 +8914,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.index, serializer);
+    switch (self) {
+      case IntroScreenType_Intro():
+        sse_encode_i_32(0, serializer);
+      case IntroScreenType_ServerChoice():
+        sse_encode_i_32(1, serializer);
+      case IntroScreenType_DisplayNamePicture():
+        sse_encode_i_32(2, serializer);
+      case IntroScreenType_DeveloperSettings(field0: final field0):
+        sse_encode_i_32(3, serializer);
+        sse_encode_developer_settings_screen_type(field0, serializer);
+    }
   }
 
   @protected
