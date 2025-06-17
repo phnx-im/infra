@@ -70,14 +70,14 @@ class AppRouterDelegate extends RouterDelegate<EmptyConfig> {
       NavigationState_Intro(:final screens) => [
         if (screens.isEmpty)
           MaterialPage(
-            key: IntroScreenType.intro.key,
+            key: const IntroScreenType.intro().key,
             canPop: false,
-            child: IntroScreenType.intro.screen,
+            child: const IntroScreenType.intro().screen,
           ),
         for (final screenType in screens)
           MaterialPage(
             key: screenType.key,
-            canPop: screenType != IntroScreenType.intro,
+            canPop: screenType != const IntroScreenType.intro(),
             child: screenType.screen,
           ),
       ],
@@ -146,21 +146,25 @@ class AppBackButtonDispatcher extends RootBackButtonDispatcher {}
 /// Convert an [IntroScreenType] into a [ValueKey] and a screen [Widget].
 extension on IntroScreenType {
   ValueKey<String> get key => switch (this) {
-    IntroScreenType.intro => const ValueKey("intro-screen"),
-    IntroScreenType.serverChoice => const ValueKey("server-choice-screen"),
-    IntroScreenType.displayNamePicture => const ValueKey(
+    IntroScreenType_Intro() => const ValueKey("intro-screen"),
+    IntroScreenType_ServerChoice() => const ValueKey("server-choice-screen"),
+    IntroScreenType_DisplayNamePicture() => const ValueKey(
       "display-name-picture-screen",
     ),
-    IntroScreenType.developerSettings => const ValueKey(
-      "developer-settings-screen",
+    IntroScreenType_DeveloperSettings(field0: final screen) => ValueKey(
+      "developer-settings-screen-$screen",
     ),
   };
 
   Widget get screen => switch (this) {
-    IntroScreenType.intro => const IntroScreen(),
-    IntroScreenType.serverChoice => const ServerChoice(),
-    IntroScreenType.displayNamePicture => const DisplayNameAvatarChoice(),
-    IntroScreenType.developerSettings => const DeveloperSettingsScreen(),
+    IntroScreenType_Intro() => const IntroScreen(),
+    IntroScreenType_ServerChoice() => const ServerChoice(),
+    IntroScreenType_DisplayNamePicture() => const DisplayNameAvatarChoice(),
+    IntroScreenType_DeveloperSettings(field0: final screen) => switch (screen) {
+      DeveloperSettingsScreenType.root => const DeveloperSettingsScreen(),
+      DeveloperSettingsScreenType.changeUser => const ChangeUserScreen(),
+      DeveloperSettingsScreenType.logs => const LogsScreen(),
+    },
   };
 }
 
