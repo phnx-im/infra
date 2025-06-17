@@ -325,6 +325,274 @@ abstract class _HomeNavigationState extends HomeNavigationState {
 }
 
 /// @nodoc
+mixin _$IntroScreenType {}
+
+/// @nodoc
+abstract class $IntroScreenTypeCopyWith<$Res> {
+  factory $IntroScreenTypeCopyWith(
+    IntroScreenType value,
+    $Res Function(IntroScreenType) then,
+  ) = _$IntroScreenTypeCopyWithImpl<$Res, IntroScreenType>;
+}
+
+/// @nodoc
+class _$IntroScreenTypeCopyWithImpl<$Res, $Val extends IntroScreenType>
+    implements $IntroScreenTypeCopyWith<$Res> {
+  _$IntroScreenTypeCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of IntroScreenType
+  /// with the given fields replaced by the non-null parameter values.
+}
+
+/// @nodoc
+abstract class _$$IntroScreenType_IntroImplCopyWith<$Res> {
+  factory _$$IntroScreenType_IntroImplCopyWith(
+    _$IntroScreenType_IntroImpl value,
+    $Res Function(_$IntroScreenType_IntroImpl) then,
+  ) = __$$IntroScreenType_IntroImplCopyWithImpl<$Res>;
+}
+
+/// @nodoc
+class __$$IntroScreenType_IntroImplCopyWithImpl<$Res>
+    extends _$IntroScreenTypeCopyWithImpl<$Res, _$IntroScreenType_IntroImpl>
+    implements _$$IntroScreenType_IntroImplCopyWith<$Res> {
+  __$$IntroScreenType_IntroImplCopyWithImpl(
+    _$IntroScreenType_IntroImpl _value,
+    $Res Function(_$IntroScreenType_IntroImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of IntroScreenType
+  /// with the given fields replaced by the non-null parameter values.
+}
+
+/// @nodoc
+
+class _$IntroScreenType_IntroImpl extends IntroScreenType_Intro {
+  const _$IntroScreenType_IntroImpl() : super._();
+
+  @override
+  String toString() {
+    return 'IntroScreenType.intro()';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$IntroScreenType_IntroImpl);
+  }
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+}
+
+abstract class IntroScreenType_Intro extends IntroScreenType {
+  const factory IntroScreenType_Intro() = _$IntroScreenType_IntroImpl;
+  const IntroScreenType_Intro._() : super._();
+}
+
+/// @nodoc
+abstract class _$$IntroScreenType_ServerChoiceImplCopyWith<$Res> {
+  factory _$$IntroScreenType_ServerChoiceImplCopyWith(
+    _$IntroScreenType_ServerChoiceImpl value,
+    $Res Function(_$IntroScreenType_ServerChoiceImpl) then,
+  ) = __$$IntroScreenType_ServerChoiceImplCopyWithImpl<$Res>;
+}
+
+/// @nodoc
+class __$$IntroScreenType_ServerChoiceImplCopyWithImpl<$Res>
+    extends
+        _$IntroScreenTypeCopyWithImpl<$Res, _$IntroScreenType_ServerChoiceImpl>
+    implements _$$IntroScreenType_ServerChoiceImplCopyWith<$Res> {
+  __$$IntroScreenType_ServerChoiceImplCopyWithImpl(
+    _$IntroScreenType_ServerChoiceImpl _value,
+    $Res Function(_$IntroScreenType_ServerChoiceImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of IntroScreenType
+  /// with the given fields replaced by the non-null parameter values.
+}
+
+/// @nodoc
+
+class _$IntroScreenType_ServerChoiceImpl extends IntroScreenType_ServerChoice {
+  const _$IntroScreenType_ServerChoiceImpl() : super._();
+
+  @override
+  String toString() {
+    return 'IntroScreenType.serverChoice()';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$IntroScreenType_ServerChoiceImpl);
+  }
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+}
+
+abstract class IntroScreenType_ServerChoice extends IntroScreenType {
+  const factory IntroScreenType_ServerChoice() =
+      _$IntroScreenType_ServerChoiceImpl;
+  const IntroScreenType_ServerChoice._() : super._();
+}
+
+/// @nodoc
+abstract class _$$IntroScreenType_DisplayNamePictureImplCopyWith<$Res> {
+  factory _$$IntroScreenType_DisplayNamePictureImplCopyWith(
+    _$IntroScreenType_DisplayNamePictureImpl value,
+    $Res Function(_$IntroScreenType_DisplayNamePictureImpl) then,
+  ) = __$$IntroScreenType_DisplayNamePictureImplCopyWithImpl<$Res>;
+}
+
+/// @nodoc
+class __$$IntroScreenType_DisplayNamePictureImplCopyWithImpl<$Res>
+    extends
+        _$IntroScreenTypeCopyWithImpl<
+          $Res,
+          _$IntroScreenType_DisplayNamePictureImpl
+        >
+    implements _$$IntroScreenType_DisplayNamePictureImplCopyWith<$Res> {
+  __$$IntroScreenType_DisplayNamePictureImplCopyWithImpl(
+    _$IntroScreenType_DisplayNamePictureImpl _value,
+    $Res Function(_$IntroScreenType_DisplayNamePictureImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of IntroScreenType
+  /// with the given fields replaced by the non-null parameter values.
+}
+
+/// @nodoc
+
+class _$IntroScreenType_DisplayNamePictureImpl
+    extends IntroScreenType_DisplayNamePicture {
+  const _$IntroScreenType_DisplayNamePictureImpl() : super._();
+
+  @override
+  String toString() {
+    return 'IntroScreenType.displayNamePicture()';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$IntroScreenType_DisplayNamePictureImpl);
+  }
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+}
+
+abstract class IntroScreenType_DisplayNamePicture extends IntroScreenType {
+  const factory IntroScreenType_DisplayNamePicture() =
+      _$IntroScreenType_DisplayNamePictureImpl;
+  const IntroScreenType_DisplayNamePicture._() : super._();
+}
+
+/// @nodoc
+abstract class _$$IntroScreenType_DeveloperSettingsImplCopyWith<$Res> {
+  factory _$$IntroScreenType_DeveloperSettingsImplCopyWith(
+    _$IntroScreenType_DeveloperSettingsImpl value,
+    $Res Function(_$IntroScreenType_DeveloperSettingsImpl) then,
+  ) = __$$IntroScreenType_DeveloperSettingsImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({DeveloperSettingsScreenType field0});
+}
+
+/// @nodoc
+class __$$IntroScreenType_DeveloperSettingsImplCopyWithImpl<$Res>
+    extends
+        _$IntroScreenTypeCopyWithImpl<
+          $Res,
+          _$IntroScreenType_DeveloperSettingsImpl
+        >
+    implements _$$IntroScreenType_DeveloperSettingsImplCopyWith<$Res> {
+  __$$IntroScreenType_DeveloperSettingsImplCopyWithImpl(
+    _$IntroScreenType_DeveloperSettingsImpl _value,
+    $Res Function(_$IntroScreenType_DeveloperSettingsImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of IntroScreenType
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$IntroScreenType_DeveloperSettingsImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                as DeveloperSettingsScreenType,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$IntroScreenType_DeveloperSettingsImpl
+    extends IntroScreenType_DeveloperSettings {
+  const _$IntroScreenType_DeveloperSettingsImpl(this.field0) : super._();
+
+  @override
+  final DeveloperSettingsScreenType field0;
+
+  @override
+  String toString() {
+    return 'IntroScreenType.developerSettings(field0: $field0)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$IntroScreenType_DeveloperSettingsImpl &&
+            (identical(other.field0, field0) || other.field0 == field0));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, field0);
+
+  /// Create a copy of IntroScreenType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$IntroScreenType_DeveloperSettingsImplCopyWith<
+    _$IntroScreenType_DeveloperSettingsImpl
+  >
+  get copyWith => __$$IntroScreenType_DeveloperSettingsImplCopyWithImpl<
+    _$IntroScreenType_DeveloperSettingsImpl
+  >(this, _$identity);
+}
+
+abstract class IntroScreenType_DeveloperSettings extends IntroScreenType {
+  const factory IntroScreenType_DeveloperSettings(
+    final DeveloperSettingsScreenType field0,
+  ) = _$IntroScreenType_DeveloperSettingsImpl;
+  const IntroScreenType_DeveloperSettings._() : super._();
+
+  DeveloperSettingsScreenType get field0;
+
+  /// Create a copy of IntroScreenType
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$IntroScreenType_DeveloperSettingsImplCopyWith<
+    _$IntroScreenType_DeveloperSettingsImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
 mixin _$NavigationState {}
 
 /// @nodoc
