@@ -123,18 +123,18 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                       onTap: onRefreshPushToken,
                     ),
                   ],
+                  const _SectionHeader("User"),
+                  ListTile(
+                    title: const Text("Change User"),
+                    trailing: const Icon(Icons.change_circle),
+                    onTap:
+                        () => context
+                            .read<NavigationCubit>()
+                            .openDeveloperSettings(
+                              screen: DeveloperSettingsScreenType.changeUser,
+                            ),
+                  ),
                   if (user != null) ...[
-                    const _SectionHeader("User"),
-                    ListTile(
-                      title: const Text("Change User"),
-                      trailing: const Icon(Icons.change_circle),
-                      onTap:
-                          () => context
-                              .read<NavigationCubit>()
-                              .openDeveloperSettings(
-                                screen: DeveloperSettingsScreenType.changeUser,
-                              ),
-                    ),
                     ListTile(
                       title: const Text("Log Out"),
                       trailing: const Icon(Icons.logout),

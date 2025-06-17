@@ -5,6 +5,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
+import 'package:prototype/core/core.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:provider/provider.dart';
 
@@ -87,8 +88,7 @@ class _MessageComposerState extends State<MessageComposer>
   @override
   Widget build(BuildContext context) {
     final conversationTitle = context.select(
-      (ConversationDetailsCubit cubit) =>
-          cubit.state.conversation?.attributes.title,
+      (ConversationDetailsCubit cubit) => cubit.state.conversation?.title,
     );
 
     if (conversationTitle == null) {
@@ -109,6 +109,7 @@ class _MessageComposerState extends State<MessageComposer>
           right: Spacings.xs,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
               child: Container(
@@ -127,24 +128,23 @@ class _MessageComposerState extends State<MessageComposer>
                 ),
               ),
             ),
-            if (isSmallScreen(context))
-              Container(
-                width: 50,
-                height: 50,
-                margin: const EdgeInsets.only(left: Spacings.xs),
-                decoration: BoxDecoration(
-                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(Spacings.m),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.send),
-                  color: colorDMB,
-                  hoverColor: const Color(0x00FFFFFF),
-                  onPressed: () {
-                    _submitMessage(context.read());
-                  },
-                ),
+            Container(
+              width: 50,
+              height: 50,
+              margin: const EdgeInsets.only(left: Spacings.xs),
+              decoration: BoxDecoration(
+                color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(Spacings.m),
               ),
+              child: IconButton(
+                icon: const Icon(Icons.send),
+                color: colorDMB,
+                hoverColor: const Color(0x00FFFFFF),
+                onPressed: () {
+                  _submitMessage(context.read());
+                },
+              ),
+            ),
           ],
         ),
       ),

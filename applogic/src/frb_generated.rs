@@ -5498,14 +5498,30 @@ impl SseDecode for crate::api::markdown::InlineElement {
 impl SseDecode for crate::api::navigation_cubit::IntroScreenType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <i32>::sse_decode(deserializer);
-        return match inner {
-            0 => crate::api::navigation_cubit::IntroScreenType::Intro,
-            1 => crate::api::navigation_cubit::IntroScreenType::ServerChoice,
-            2 => crate::api::navigation_cubit::IntroScreenType::DisplayNamePicture,
-            3 => crate::api::navigation_cubit::IntroScreenType::DeveloperSettings,
-            _ => unreachable!("Invalid variant for IntroScreenType: {}", inner),
-        };
+        let mut tag_ = <i32>::sse_decode(deserializer);
+        match tag_ {
+            0 => {
+                return crate::api::navigation_cubit::IntroScreenType::Intro;
+            }
+            1 => {
+                return crate::api::navigation_cubit::IntroScreenType::ServerChoice;
+            }
+            2 => {
+                return crate::api::navigation_cubit::IntroScreenType::DisplayNamePicture;
+            }
+            3 => {
+                let mut var_field0 =
+                    <crate::api::navigation_cubit::DeveloperSettingsScreenType>::sse_decode(
+                        deserializer,
+                    );
+                return crate::api::navigation_cubit::IntroScreenType::DeveloperSettings(
+                    var_field0,
+                );
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
     }
 }
 
@@ -7001,11 +7017,19 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::InlineElement>
 impl flutter_rust_bridge::IntoDart for crate::api::navigation_cubit::IntroScreenType {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            Self::Intro => 0.into_dart(),
-            Self::ServerChoice => 1.into_dart(),
-            Self::DisplayNamePicture => 2.into_dart(),
-            Self::DeveloperSettings => 3.into_dart(),
-            _ => unreachable!(),
+            crate::api::navigation_cubit::IntroScreenType::Intro => [0.into_dart()].into_dart(),
+            crate::api::navigation_cubit::IntroScreenType::ServerChoice => {
+                [1.into_dart()].into_dart()
+            }
+            crate::api::navigation_cubit::IntroScreenType::DisplayNamePicture => {
+                [2.into_dart()].into_dart()
+            }
+            crate::api::navigation_cubit::IntroScreenType::DeveloperSettings(field0) => {
+                [3.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            _ => {
+                unimplemented!("");
+            }
         }
     }
 }
@@ -8324,18 +8348,26 @@ impl SseEncode for crate::api::markdown::InlineElement {
 impl SseEncode for crate::api::navigation_cubit::IntroScreenType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(
-            match self {
-                crate::api::navigation_cubit::IntroScreenType::Intro => 0,
-                crate::api::navigation_cubit::IntroScreenType::ServerChoice => 1,
-                crate::api::navigation_cubit::IntroScreenType::DisplayNamePicture => 2,
-                crate::api::navigation_cubit::IntroScreenType::DeveloperSettings => 3,
-                _ => {
-                    unimplemented!("");
-                }
-            },
-            serializer,
-        );
+        match self {
+            crate::api::navigation_cubit::IntroScreenType::Intro => {
+                <i32>::sse_encode(0, serializer);
+            }
+            crate::api::navigation_cubit::IntroScreenType::ServerChoice => {
+                <i32>::sse_encode(1, serializer);
+            }
+            crate::api::navigation_cubit::IntroScreenType::DisplayNamePicture => {
+                <i32>::sse_encode(2, serializer);
+            }
+            crate::api::navigation_cubit::IntroScreenType::DeveloperSettings(field0) => {
+                <i32>::sse_encode(3, serializer);
+                <crate::api::navigation_cubit::DeveloperSettingsScreenType>::sse_encode(
+                    field0, serializer,
+                );
+            }
+            _ => {
+                unimplemented!("");
+            }
+        }
     }
 }
 
