@@ -34,7 +34,7 @@
 
   "userHandleScreen_title": "Username",
   "userHandleScreen_inputHint": "Username",
-  "userHandleScreen_error_emptyHandle": "User handle cannot be empty",
+  "userHandleScreen_error_emptyHandle": "Username cannot be empty",
   "userHandleScreen_description": "Choose a username that others can use to connect with you.\n\nUse letters, numbers, or underscores. Minimum 5 characters.",
   "userHandleScreen_save": "Save",
 
@@ -61,11 +61,14 @@
   "newConversationDialog_newConversationDescription": "Choose a name for the new conversation",
   "newConversationDialog_conversationNamePlaceholder": "Conversation name",
   "newConversationDialog_actionButton": "Create conversation",
-  "newConversationDialog_error": "Failed to add conversation with name {conversationName}: {error}",
+  "newConversationDialog_error": "Failed to add conversation with name {conversationName}",
+  "newConversationDialog_error_emptyGroupName": "Conversation name cannot be empty",
 
   "newConnectionDialog_newConnectionTitle": "New connection",
   "newConnectionDialog_newConnectionDescription": "Enter the Username of the user you want to connect to",
   "newConnectionDialog_usernamePlaceholder": "Username",
   "newConnectionDialog_actionButton": "Connect",
-  "newConnectionDialog_error": "Failed to add user with Username {username}: {error}"
+  "newConnectionDialog_error": "Failed to add user with Username {username}. Please try again.",
+  "newConnectionDialog_error_emptyHandle": "Username cannot be empty",
+  "newConnectionDialog_error_handleNotFound": "Username {username} does not exist"
 }
