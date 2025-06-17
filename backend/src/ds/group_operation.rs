@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::HashSet;
+
 use mimi_room_policy::RoleIndex;
 use mls_assist::{
     group::ProcessedAssistedMessage,
@@ -424,6 +426,8 @@ fn validate_added_users(
 
     // Check if for each added member, there is a corresponding entry
     // in the Welcome.
+    let mut remaining_welcomes = add_users_info.welcome.joiners().collect::<HashSet<_>>();
+
     if staged_commit
         .add_proposals()
         .map(|ap| {
@@ -436,12 +440,14 @@ fn validate_added_users(
             let Ok(hash_ref) = add_proposal_ref else {
                 return true;
             };
-            !add_users_info
-                .welcome
-                .joiners()
-                .any(|joiner_ref| joiner_ref == hash_ref)
+            !remaining_welcomes.remove(&hash_ref)
         })
     {
+        return Err(GroupOperationError::IncompleteWelcome);
+    }
+
+    // Check if all welcomes had a corresponding add proposal
+    if !remaining_welcomes.is_empty() {
         return Err(GroupOperationError::IncompleteWelcome);
     }
 
