@@ -138,7 +138,7 @@ abstract class RustLibApi extends BaseApi {
     required ConversationListCubitBase that,
   });
 
-  Future<ConversationId>
+  Future<ConversationId?>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
@@ -978,7 +978,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<ConversationId>
+  Future<ConversationId?>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
@@ -1000,7 +1000,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_conversation_id,
+          decodeSuccessData: sse_decode_opt_box_autoadd_conversation_id,
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
@@ -9810,7 +9810,9 @@ class ConversationListCubitBaseImpl extends RustOpaque
       .crateApiConversationListCubitConversationListCubitBaseClose(that: this);
 
   /// Creates a new 1:1 connection with the given user via a user handle.
-  Future<ConversationId> createConnection({
+  ///
+  /// Returns `None` if the provided handle does not exist.
+  Future<ConversationId?> createConnection({
     required UiUserHandle handle,
   }) => RustLib.instance.api
       .crateApiConversationListCubitConversationListCubitBaseCreateConnection(
