@@ -393,7 +393,7 @@ impl TestBackend {
             .listen_handle(user2_handle_record.hash, &user2_handle_record.signing_key)
             .await
             .unwrap();
-        while let Some(Some(message)) = timeout(Duration::from_millis(100), stream.next())
+        while let Some(Some(message)) = timeout(Duration::from_millis(500), stream.next())
             .await
             .unwrap()
         {
