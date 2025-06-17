@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use flate2::{Compression, bufread::GzDecoder, write::GzEncoder};
 use openmls::group::GroupId;
 use phnxcommon::identifiers::UserId;
@@ -141,7 +141,7 @@ pub async fn export_client_database(db_path: &str, user_id: &UserId) -> Result<V
     let client_db_path = format!("{db_path}/{client_db_name}");
     let content = fs::read(client_db_path)?;
     let mut header = tar::Header::new_gnu();
-    header.set_size(content.len().try_into().expect("usize overflow"));
+    header.set_size(content.len().try_into().context("usize overflow")?);
     header.set_mode(0o644);
     header.set_cksum();
     tar.append_data(&mut header, client_db_name, content.as_slice())?;
