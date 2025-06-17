@@ -9,7 +9,6 @@ import 'package:prototype/user/user.dart';
 
 import 'conversation_list_content.dart';
 import 'conversation_list_cubit.dart';
-import 'conversation_list_footer.dart';
 import 'conversation_list_header.dart';
 
 class ConversationListContainer extends StatelessWidget {
@@ -50,7 +49,6 @@ class ConversationListView extends StatelessWidget {
             children: [
               ConversationListHeader(),
               Expanded(child: ConversationListContent()),
-              ConversationListFooter(),
             ],
           ),
         ),

@@ -92,9 +92,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUserButton_text => 'Remove user';
 
   @override
-  String get introScreen_developerSettings => 'Developer Settings';
-
-  @override
   String get introScreen_signUp => 'Sign up';
 
   @override
@@ -152,10 +149,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timestamp_yesterday => 'Yesterday';
 
   @override
-  String get conversationList_newConnection => 'New connection';
+  String get conversationList_newContact => 'New contact';
 
   @override
-  String get conversationList_newConversation => 'New conversation';
+  String get conversationList_newGroup => 'New group';
+
+  @override
+  String get settings_profile => 'Profile';
+
+  @override
+  String get settings_developerSettings => 'Settings (developer)';
 
   @override
   String get newConversationDialog_newConversationTitle => 'New conversation';

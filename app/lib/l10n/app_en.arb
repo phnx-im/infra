@@ -29,7 +29,6 @@
   "removeUserDialog_removeUser": "Remove user",
   "removeUserButton_text": "Remove user",
 
-  "introScreen_developerSettings": "Developer Settings",
   "introScreen_signUp": "Sign up",
 
   "userHandleScreen_title": "Username",
@@ -54,8 +53,11 @@
   "timestamp_now": "Now",
   "timestamp_yesterday": "Yesterday",
 
-  "conversationList_newConnection": "New connection",
-  "conversationList_newConversation": "New conversation",
+  "conversationList_newContact": "New contact",
+  "conversationList_newGroup": "New group",
+
+  "settings_profile": "Profile",
+  "settings_developerSettings": "Settings (developer)",
 
   "newConversationDialog_newConversationTitle": "New conversation",
   "newConversationDialog_newConversationDescription": "Choose a name for the new conversation",
