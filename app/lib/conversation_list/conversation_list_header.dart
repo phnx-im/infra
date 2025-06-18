@@ -37,13 +37,19 @@ class ConversationListHeader extends StatelessWidget {
   }
 }
 
-class _Avatar extends StatelessWidget {
+class _Avatar extends StatefulWidget {
   const _Avatar();
+
+  @override
+  State<_Avatar> createState() => _AvatarState();
+}
+
+class _AvatarState extends State<_Avatar> {
+  final contextMenuController = OverlayPortalController();
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final contextMenuController = OverlayPortalController();
     final profile = context.select((UsersCubit cubit) => cubit.state.profile());
 
     return Padding(
