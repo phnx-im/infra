@@ -269,7 +269,7 @@ abstract class AppLocalizations {
   /// No description provided for @userHandleScreen_error_emptyHandle.
   ///
   /// In en, this message translates to:
-  /// **'User handle cannot be empty'**
+  /// **'Username cannot be empty'**
   String get userHandleScreen_error_emptyHandle;
 
   /// No description provided for @userHandleScreen_description.
@@ -395,8 +395,14 @@ abstract class AppLocalizations {
   /// No description provided for @newConversationDialog_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to add conversation with name {conversationName}: {error}'**
-  String newConversationDialog_error(Object conversationName, Object error);
+  /// **'Failed to add conversation with name {conversationName}'**
+  String newConversationDialog_error(Object conversationName);
+
+  /// No description provided for @newConversationDialog_error_emptyGroupName.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation name cannot be empty'**
+  String get newConversationDialog_error_emptyGroupName;
 
   /// No description provided for @newConnectionDialog_newConnectionTitle.
   ///
@@ -425,8 +431,20 @@ abstract class AppLocalizations {
   /// No description provided for @newConnectionDialog_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to add user with Username {username}: {error}'**
-  String newConnectionDialog_error(Object error, Object username);
+  /// **'Failed to add user with Username {username}. Please try again.'**
+  String newConnectionDialog_error(Object username);
+
+  /// No description provided for @newConnectionDialog_error_emptyHandle.
+  ///
+  /// In en, this message translates to:
+  /// **'Username cannot be empty'**
+  String get newConnectionDialog_error_emptyHandle;
+
+  /// No description provided for @newConnectionDialog_error_handleNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Username {username} does not exist'**
+  String newConnectionDialog_error_handleNotFound(Object username);
 }
 
 class _AppLocalizationsDelegate

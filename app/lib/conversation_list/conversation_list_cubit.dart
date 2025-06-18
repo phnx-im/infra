@@ -29,7 +29,7 @@ class ConversationListCubit
   @override
   Stream<ConversationListState> get stream => _impl.stream();
 
-  Future<ConversationId> createConnection({required UiUserHandle handle}) =>
+  Future<ConversationId?> createConnection({required UiUserHandle handle}) =>
       _impl.createConnection(handle: handle);
 
   Future<ConversationId> createConversation({required String groupName}) =>
