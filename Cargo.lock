@@ -2809,7 +2809,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mimi-room-policy"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-room-policy?rev=9f32e174019288f717cff3ddb537a6a4eeaecc36#9f32e174019288f717cff3ddb537a6a4eeaecc36"
+source = "git+https://github.com/phnx-im/mimi-room-policy?rev=fdb7c4bd7ad399e8244b3e7db13e120d5d646ad9#fdb7c4bd7ad399e8244b3e7db13e120d5d646ad9"
 dependencies = [
  "ciborium",
  "serde",
