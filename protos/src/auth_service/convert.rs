@@ -7,7 +7,10 @@ use openmls::prelude::HpkeCiphertext;
 use phnxcommon::{
     credentials::{self, keys},
     crypto, identifiers,
-    messages::{self, client_as},
+    messages::{
+        self,
+        client_as::{self},
+    },
     time,
 };
 use thiserror::Error;
@@ -23,8 +26,8 @@ use super::v1::{
     AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
     AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
-    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
-    CredentialFingerprint, EncryptedConnectionOffer, EncryptedUserProfile, ExpirationData,
+    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionOfferMessage, ConnectionPackage,
+    ConnectionPackagePayload, CredentialFingerprint, EncryptedUserProfile, ExpirationData,
     HandleSignature, HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
 };
 
@@ -649,20 +652,24 @@ impl From<AsIntermediateVerifyingKey> for credentials::keys::AsIntermediateVerif
     }
 }
 
-impl From<client_as::EncryptedConnectionOffer> for EncryptedConnectionOffer {
-    fn from(value: client_as::EncryptedConnectionOffer) -> Self {
+impl From<client_as::ConnectionOfferMessage> for ConnectionOfferMessage {
+    fn from(value: client_as::ConnectionOfferMessage) -> Self {
+        let (ciphertext, connection_package_hash) = value.into_parts();
+        let ciphertext: HpkeCiphertext = ciphertext.as_ref().clone();
         Self {
-            ciphertext: Some(value.into_ciphertext().into()),
+            ciphertext: Some(ciphertext.into()),
+            connection_package_hash: connection_package_hash.into(),
         }
     }
 }
 
-impl TryFrom<EncryptedConnectionOffer> for client_as::EncryptedConnectionOffer {
+impl TryFrom<ConnectionOfferMessage> for client_as::ConnectionOfferMessage {
     type Error = MissingFieldError<&'static str>;
 
-    fn try_from(proto: EncryptedConnectionOffer) -> Result<Self, Self::Error> {
+    fn try_from(proto: ConnectionOfferMessage) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
-        Ok(ciphertext.into())
+        let connection_package_hash = proto.connection_package_hash.into();
+        Ok(Self::new(connection_package_hash, ciphertext.into()))
     }
 }
 

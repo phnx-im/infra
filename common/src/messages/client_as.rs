@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls_traits::types::HpkeCiphertext;
+use mls_assist::{
+    openmls::prelude::HashType,
+    openmls_rust_crypto::RustCrypto,
+    openmls_traits::{crypto::OpenMlsCrypto, types::HpkeCiphertext},
+};
 
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -57,6 +61,36 @@ impl ConnectionPackageTbs {
     }
 }
 
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
+)]
+#[serde(transparent)]
+pub struct ConnectionPackageHash(Vec<u8>);
+
+impl From<Vec<u8>> for ConnectionPackageHash {
+    fn from(value: Vec<u8>) -> Self {
+        debug_assert_eq!(value.len(), 32);
+        Self(value)
+    }
+}
+
+impl From<ConnectionPackageHash> for Vec<u8> {
+    fn from(value: ConnectionPackageHash) -> Self {
+        value.0
+    }
+}
+
+#[cfg(feature = "test_utils")]
+impl ConnectionPackageHash {
+    pub fn random() -> Self {
+        use rand::RngCore;
+
+        let mut bytes = vec![0u8; 32];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        Self(bytes)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackage {
     payload: ConnectionPackageTbs,
@@ -82,6 +116,18 @@ impl ConnectionPackage {
 
     pub fn client_credential_signer_fingerprint(&self) -> &CredentialFingerprint {
         self.payload.client_credential.signer_fingerprint()
+    }
+
+    pub fn hash(&self) -> ConnectionPackageHash {
+        let rust_crypto = RustCrypto::default();
+        let payload = self.tls_serialize_detached().unwrap_or_default();
+        debug_assert!(!payload.is_empty());
+        let input = [b"Connection Package".to_vec(), payload].concat();
+        let value = rust_crypto
+            .hash(HashType::Sha2_256, &input)
+            .unwrap_or_default();
+        debug_assert!(!value.is_empty());
+        ConnectionPackageHash(value)
     }
 
     #[cfg(feature = "test_utils")]
@@ -145,21 +191,37 @@ pub struct EncryptedConnectionOffer {
     ciphertext: HpkeCiphertext,
 }
 
-impl EncryptedConnectionOffer {
-    pub fn into_ciphertext(self) -> HpkeCiphertext {
-        self.ciphertext
-    }
+#[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
+pub struct ConnectionOfferMessage {
+    connection_package_hash: ConnectionPackageHash,
+    ciphertext: EncryptedConnectionOffer,
 }
 
-impl AsRef<HpkeCiphertext> for EncryptedConnectionOffer {
-    fn as_ref(&self) -> &HpkeCiphertext {
-        &self.ciphertext
+impl ConnectionOfferMessage {
+    pub fn new(
+        connection_package_hash: ConnectionPackageHash,
+        ciphertext: EncryptedConnectionOffer,
+    ) -> Self {
+        Self {
+            connection_package_hash,
+            ciphertext,
+        }
+    }
+
+    pub fn into_parts(self) -> (EncryptedConnectionOffer, ConnectionPackageHash) {
+        (self.ciphertext, self.connection_package_hash)
     }
 }
 
 impl From<HpkeCiphertext> for EncryptedConnectionOffer {
     fn from(ciphertext: HpkeCiphertext) -> Self {
         Self { ciphertext }
+    }
+}
+
+impl AsRef<HpkeCiphertext> for EncryptedConnectionOffer {
+    fn as_ref(&self) -> &HpkeCiphertext {
+        &self.ciphertext
     }
 }
 

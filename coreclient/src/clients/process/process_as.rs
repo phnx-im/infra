@@ -9,7 +9,7 @@ use phnxcommon::{
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{QualifiedGroupId, UserHandle},
     messages::{
-        client_as::EncryptedConnectionOffer,
+        client_as::ConnectionOfferMessage,
         client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
     },
@@ -56,7 +56,7 @@ impl CoreUser {
     async fn process_connection_offer(
         &self,
         handle: UserHandle,
-        ecep: EncryptedConnectionOffer,
+        ecep: ConnectionOfferMessage,
     ) -> Result<ConversationId> {
         let mut connection = self.pool().acquire().await?;
 
@@ -148,9 +148,11 @@ impl CoreUser {
     async fn parse_and_verify_connection_offer(
         &self,
         connection: &mut SqliteConnection,
-        ecep: EncryptedConnectionOffer,
+        com: ConnectionOfferMessage,
         user_handle: UserHandle,
     ) -> Result<ConnectionOfferPayload> {
+        // TODO: Fetch the right key based on the hash in the ConnectionOfferMessage.
+        let (ecep, hash) = com.into_parts();
         let cep_in = ConnectionOfferIn::decrypt(
             ecep,
             &self.inner.key_store.connection_decryption_key,
@@ -169,7 +171,11 @@ impl CoreUser {
         )
         .await?;
         cep_in
-            .verify(as_intermediate_credential.verifying_key(), user_handle)
+            .verify(
+                as_intermediate_credential.verifying_key(),
+                user_handle,
+                hash,
+            )
             .map_err(|error| {
                 error!(%error, "Error verifying connection offer");
                 anyhow!("Error verifying connection offer")
