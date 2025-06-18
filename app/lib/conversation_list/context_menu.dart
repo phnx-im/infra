@@ -15,7 +15,7 @@ class ContextMenu extends StatefulWidget {
   const ContextMenu({
     super.key,
     required this.direction,
-    required this.offset,
+    this.offset = Offset.zero,
     required this.width,
     required this.controller,
     required this.menuItems,
@@ -39,6 +39,31 @@ class _ContextMenuState extends State<ContextMenu> {
   Offset? _childPosition;
   Size? _childSize;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPersistentFrameCallback(_checkChildPosition);
+  }
+
+  void _checkChildPosition(Duration timeStamp) {
+    final context = _childKey.currentContext;
+    final box = context?.findRenderObject() as RenderBox?;
+
+    if (box != null && box.hasSize) {
+      final newSize = box.size;
+      final newPosition = box.localToGlobal(Offset.zero);
+
+      if (newSize != _childSize || newPosition != _childPosition) {
+        setState(() {
+          _childSize = newSize;
+          _childPosition = newPosition;
+        });
+      }
+    }
+
+    WidgetsBinding.instance.scheduleFrameCallback(_checkChildPosition);
+  }
+
   Offset _relativePosition() {
     final (position, size) = (_childPosition, _childSize);
     if (position == null || size == null) {
@@ -57,25 +82,6 @@ class _ContextMenuState extends State<ContextMenu> {
           position.dy + size.height + widget.offset.dy,
         );
     }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = _childKey.currentContext;
-      final box = context?.findRenderObject() as RenderBox?;
-
-      if (box != null && box.hasSize) {
-        final size = box.size;
-        final position = box.localToGlobal(Offset.zero);
-
-        setState(() {
-          _childPosition = position;
-          _childSize = size;
-        });
-      }
-    });
   }
 
   @override
@@ -130,13 +136,13 @@ class _ContextMenuState extends State<ContextMenu> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (int i = 0; i < widget.menuItems.length; i++) ...[
+                        for (final (i, item) in widget.menuItems.indexed) ...[
                           ContextMenuItem(
                             onPressed: () {
-                              widget.menuItems[i].onPressed();
+                              item.onPressed();
                               widget.controller.hide();
                             },
-                            label: widget.menuItems[i].label,
+                            label: item.label,
                           ),
                           if (i < widget.menuItems.length - 1)
                             const Divider(
@@ -173,7 +179,7 @@ class ContextMenuItem extends StatelessWidget {
     return TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         foregroundColor: Colors.black87,
         padding: const EdgeInsets.symmetric(
           horizontal: Spacings.sm,

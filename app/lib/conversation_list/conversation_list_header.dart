@@ -54,7 +54,6 @@ class _Avatar extends StatelessWidget {
         children: [
           ContextMenu(
             direction: ContextMenuDirection.right,
-            offset: Offset.zero,
             width: 200,
             controller: contextMenuController,
             menuItems: [
@@ -107,17 +106,22 @@ class _DisplayNameSpace extends StatelessWidget {
   }
 }
 
-class _SettingsButton extends StatelessWidget {
+class _SettingsButton extends StatefulWidget {
   const _SettingsButton();
 
   @override
+  State<_SettingsButton> createState() => _SettingsButtonState();
+}
+
+class _SettingsButtonState extends State<_SettingsButton> {
+  final contextMenuController = OverlayPortalController();
+
+  @override
   Widget build(BuildContext context) {
-    final contextMenuController = OverlayPortalController();
     final loc = AppLocalizations.of(context);
 
     return ContextMenu(
       direction: ContextMenuDirection.left,
-      offset: Offset.zero,
       width: 200,
       controller: contextMenuController,
       menuItems: [
