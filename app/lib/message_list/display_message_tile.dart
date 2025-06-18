@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/theme/theme.dart';
-import 'tile_timestamp.dart';
+import 'package:prototype/user/users_cubit.dart';
+import 'timestamp.dart';
 
 class DisplayMessageTile extends StatefulWidget {
   final UiEventMessage eventMessage;
@@ -17,50 +20,22 @@ class DisplayMessageTile extends StatefulWidget {
 }
 
 class _DisplayMessageTileState extends State<DisplayMessageTile> {
-  bool _hovering = false;
-
-  void onEnter(PointerEvent e) {
-    setState(() {
-      _hovering = true;
-    });
-  }
-
-  void onExit(PointerEvent e) {
-    setState(() {
-      _hovering = false;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: onEnter,
-      onExit: onExit,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: Spacings.m),
+      child: Column(
+        spacing: Spacings.xxxs,
         children: [
           Container(
-            alignment: Alignment.center,
-            width: 24,
-            height: 24,
-            child: const Icon(
-              Icons.info_outline,
-              color: colorDMBLight,
-              size: 16,
-            ),
+            child: switch (widget.eventMessage) {
+              UiEventMessage_System(field0: final message) =>
+                SystemMessageContent(message: message),
+              UiEventMessage_Error(field0: final message) =>
+                ErrorMessageContent(message: message),
+            },
           ),
-          Expanded(
-            child: Container(
-              alignment: Alignment.centerLeft,
-              child: switch (widget.eventMessage) {
-                UiEventMessage_System(field0: final message) =>
-                  SystemMessageContent(message: message),
-                UiEventMessage_Error(field0: final message) =>
-                  ErrorMessageContent(message: message),
-              },
-            ),
-          ),
-          TileTimestamp(hovering: _hovering, timestamp: widget.timestamp),
+          Timestamp(widget.timestamp),
         ],
       ),
     );
@@ -74,21 +49,55 @@ class SystemMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      alignment: AlignmentDirectional.centerStart,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(5.0),
-        color: colorDMBSuperLight,
+    final loc = AppLocalizations.of(context);
+
+    final (user1, user2, prefix, infix, suffix) = switch (message) {
+      UiSystemMessage_Add(:final field0, :final field1) => (
+        context.select((UsersCubit c) => c.state.profile(userId: field0)),
+        context.select((UsersCubit c) => c.state.profile(userId: field1)),
+        loc.systemMessage_userAddedUser_prefix,
+        loc.systemMessage_userAddedUser_infix,
+        loc.systemMessage_userAddedUser_suffix,
       ),
-      padding: const EdgeInsets.all(10),
-      margin: const EdgeInsets.fromLTRB(25, 0, 20, 0),
-      child: Text(
-        message.message,
-        style: TextStyle(
-          color: Colors.grey[700],
-          fontSize: 10,
-          height: 1.4,
-        ).merge(VariableFontWeight.bold),
+      UiSystemMessage_Remove(:final field0, :final field1) => (
+        context.select((UsersCubit c) => c.state.profile(userId: field0)),
+        context.select((UsersCubit c) => c.state.profile(userId: field1)),
+        loc.systemMessage_userRemovedUser_prefix,
+        loc.systemMessage_userRemovedUser_infix,
+        loc.systemMessage_userRemovedUser_suffix,
+      ),
+    };
+
+    final textStyle = const TextStyle(
+      color: colorDMB,
+      fontSize: 12,
+      height: 1.4,
+    ).merge(VariableFontWeight.w400);
+
+    final profileNameStyle = textStyle.merge(VariableFontWeight.bold);
+
+    return Center(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Spacings.s),
+          border: Border.all(color: colorDMBSuperLight, width: 2),
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacings.s,
+          vertical: Spacings.xs,
+        ),
+        child: RichText(
+          text: TextSpan(
+            style: textStyle,
+            children: [
+              if (prefix.isNotEmpty) TextSpan(text: prefix),
+              TextSpan(text: user1.displayName, style: profileNameStyle),
+              if (infix.isNotEmpty) TextSpan(text: infix),
+              TextSpan(text: user2.displayName, style: profileNameStyle),
+              if (suffix.isNotEmpty) TextSpan(text: suffix),
+            ],
+          ),
+        ),
       ),
     );
   }

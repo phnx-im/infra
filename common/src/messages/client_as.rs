@@ -4,9 +4,7 @@
 
 use mls_assist::openmls_traits::types::HpkeCiphertext;
 
-use tls_codec::{
-    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use serde::{Deserialize, Serialize};
 
@@ -18,17 +16,15 @@ use crate::{
     },
     crypto::{
         ConnectionEncryptionKey, RatchetEncryptionKey,
-        ear::{Ciphertext, EarDecryptable, EarEncryptable, keys::RatchetKey},
+        ear::Ciphertext,
         kdf::keys::RatchetSecret,
-        ratchet::QueueRatchet,
         signatures::signable::{Signable, SignedStruct, VerifiedStruct},
     },
-    identifiers::UserId,
     time::ExpirationData,
 };
 
 use super::{
-    EncryptedAsQueueMessageCtype, MlsInfraVersion,
+    MlsInfraVersion,
     client_as_out::{EncryptedUserProfile, VerifiableConnectionPackage},
 };
 
@@ -145,91 +141,29 @@ pub struct EncryptedFriendshipPackageCtype;
 pub type EncryptedFriendshipPackage = Ciphertext<EncryptedFriendshipPackageCtype>;
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
-pub struct EncryptedConnectionEstablishmentPackage {
+pub struct EncryptedConnectionOffer {
     ciphertext: HpkeCiphertext,
 }
 
-impl EncryptedConnectionEstablishmentPackage {
+impl EncryptedConnectionOffer {
     pub fn into_ciphertext(self) -> HpkeCiphertext {
         self.ciphertext
     }
 }
 
-impl AsRef<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
+impl AsRef<HpkeCiphertext> for EncryptedConnectionOffer {
     fn as_ref(&self) -> &HpkeCiphertext {
         &self.ciphertext
     }
 }
 
-impl From<HpkeCiphertext> for EncryptedConnectionEstablishmentPackage {
+impl From<HpkeCiphertext> for EncryptedConnectionOffer {
     fn from(ciphertext: HpkeCiphertext) -> Self {
         Self { ciphertext }
     }
 }
 
-pub type AsQueueRatchet = QueueRatchet<EncryptedAsQueueMessageCtype, AsQueueMessagePayload>;
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
-#[repr(u8)]
-pub enum AsQueueMessageType {
-    EncryptedConnectionEstablishmentPackage,
-}
-
-#[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
-pub struct AsQueueMessagePayload {
-    pub message_type: AsQueueMessageType,
-    pub payload: Vec<u8>,
-}
-
-impl AsQueueMessagePayload {
-    pub fn extract(self) -> Result<ExtractedAsQueueMessagePayload, tls_codec::Error> {
-        let message = match self.message_type {
-            AsQueueMessageType::EncryptedConnectionEstablishmentPackage => {
-                let cep = EncryptedConnectionEstablishmentPackage::tls_deserialize_exact_bytes(
-                    &self.payload,
-                )?;
-                ExtractedAsQueueMessagePayload::EncryptedConnectionEstablishmentPackage(cep)
-            }
-        };
-        Ok(message)
-    }
-}
-
-impl TryFrom<EncryptedConnectionEstablishmentPackage> for AsQueueMessagePayload {
-    type Error = tls_codec::Error;
-
-    fn try_from(value: EncryptedConnectionEstablishmentPackage) -> Result<Self, Self::Error> {
-        Ok(Self {
-            message_type: AsQueueMessageType::EncryptedConnectionEstablishmentPackage,
-            payload: value.tls_serialize_detached()?,
-        })
-    }
-}
-
-pub enum ExtractedAsQueueMessagePayload {
-    EncryptedConnectionEstablishmentPackage(EncryptedConnectionEstablishmentPackage),
-}
-
-impl EarEncryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
-impl EarDecryptable<RatchetKey, EncryptedAsQueueMessageCtype> for AsQueueMessagePayload {}
-
 // === Anonymous requests ===
-
-#[derive(Debug)]
-pub struct UserConnectionPackagesParams {
-    pub user_id: UserId,
-}
-
-#[derive(Debug)]
-pub struct UserConnectionPackagesResponse {
-    pub key_packages: Vec<ConnectionPackage>,
-}
-
-#[derive(Debug)]
-pub struct EnqueueMessageParams {
-    pub user_id: UserId,
-    pub connection_establishment_ctxt: EncryptedConnectionEstablishmentPackage,
-}
 
 #[derive(Debug)]
 pub struct AsCredentialsParams {}

@@ -29,6 +29,10 @@ class ConversationListContainer extends StatelessWidget {
 class ConversationListView extends StatelessWidget {
   const ConversationListView({super.key});
 
+  double _topPadding() {
+    return isPointer() ? Spacings.l : kToolbarHeight;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -36,17 +40,19 @@ class ConversationListView extends StatelessWidget {
         shape: BoxShape.rectangle,
         border: Border(right: BorderSide(width: 1, color: colorGreyLight)),
       ),
-      child: const Scaffold(
-        backgroundColor: convPaneBackgroundColor,
-        body: Stack(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: kToolbarHeight, bottom: 120),
-              child: ConversationListContent(),
-            ),
-            ConversationListHeader(),
-            ConversationListFooter(),
-          ],
+      child: Scaffold(
+        backgroundColor:
+            isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+        body: Padding(
+          padding: EdgeInsets.only(top: _topPadding()),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ConversationListHeader(),
+              Expanded(child: ConversationListContent()),
+              ConversationListFooter(),
+            ],
+          ),
         ),
       ),
     );

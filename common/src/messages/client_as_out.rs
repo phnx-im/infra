@@ -11,12 +11,11 @@ use crate::{
         keys::{AsIntermediateVerifyingKey, ClientSignature},
     },
     crypto::{
-        ConnectionEncryptionKey, RatchetEncryptionKey,
+        ConnectionEncryptionKey,
         indexed_aead::{
             ciphertexts::IndexedCiphertext,
             keys::{UserProfileKeyIndex, UserProfileKeyType},
         },
-        kdf::keys::RatchetSecret,
         signatures::{private_keys::SignatureVerificationError, signable::Verifiable},
     },
     identifiers::UserId,
@@ -115,8 +114,6 @@ impl Verifiable for VerifiableConnectionPackage {
 #[derive(Debug)]
 pub struct RegisterUserParamsIn {
     pub client_payload: ClientCredentialPayload,
-    pub queue_encryption_key: RatchetEncryptionKey,
-    pub initial_ratchet_secret: RatchetSecret,
     pub encrypted_user_profile: EncryptedUserProfile,
 }
 

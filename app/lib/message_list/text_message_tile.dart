@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/message_list/timestamp.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
@@ -90,7 +91,7 @@ class _MessageView extends StatelessWidget {
                 ),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 2),
-                  _Timestamp(timestamp),
+                  Timestamp(timestamp),
                 ],
               ],
             ),
@@ -100,43 +101,6 @@ class _MessageView extends StatelessWidget {
       ],
     );
   }
-}
-
-class _Timestamp extends StatelessWidget {
-  const _Timestamp(this.timestamp);
-
-  final String timestamp;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: largeCornerRadius),
-      child: SelectionContainer.disabled(
-        child: Text(
-          _calcTimeString(timestamp),
-          style: TextStyle(
-            color: colorGreyDark,
-            fontSize: isLargeScreen(context) ? 10 : 12,
-            letterSpacing: -0.1,
-          ).merge(VariableFontWeight.medium),
-        ),
-      ),
-    );
-  }
-}
-
-String _calcTimeString(String time) {
-  final t = DateTime.parse(time);
-  // If the elapsed time is less than 60 seconds, show "now"
-  if (DateTime.now().difference(t).inSeconds < 60) {
-    return 'Now';
-  }
-  // If the elapsed time is less than 60 minutes, show the elapsed minutes
-  if (DateTime.now().difference(t).inMinutes < 60) {
-    return '${DateTime.now().difference(t).inMinutes}m ago';
-  }
-  // Otherwise show the time
-  return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
 }
 
 class _TextMessage extends StatelessWidget {
@@ -204,19 +168,21 @@ class _Sender extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profile = context.select(
+      (UsersCubit cubit) => cubit.state.profile(userId: sender),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          FutureUserAvatar(
-            profile: () => context.read<UserCubit>().userProfile(sender),
+          UserAvatar(
+            displayName: profile.displayName,
+            image: profile.profilePicture,
           ),
           const SizedBox(width: 10),
-          _DisplayName(
-            displayName: sender.uuid.toString(), // TODO: display name
-            isSender: isSender,
-          ),
+          _DisplayName(displayName: profile.displayName, isSender: isSender),
         ],
       ),
     );

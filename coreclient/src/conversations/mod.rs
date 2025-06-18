@@ -7,7 +7,7 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use openmls::group::GroupId;
 use phnxcommon::{
-    identifiers::{Fqdn, QualifiedGroupId, UserId},
+    identifiers::{Fqdn, QualifiedGroupId, UserHandle, UserId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -66,14 +66,7 @@ impl TryFrom<&GroupId> for ConversationId {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(super) struct ConversationPayload {
-    status: ConversationStatus,
-    conversation_type: ConversationType,
-    attributes: ConversationAttributes,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Conversation {
     pub id: ConversationId,
     // Id of the (active) MLS group representing this conversation.
@@ -98,10 +91,26 @@ impl Conversation {
             group_id,
             last_read: Utc::now(),
             status: ConversationStatus::Active,
-            conversation_type: ConversationType::UnconfirmedConnection(user_id),
+            conversation_type: ConversationType::Connection(user_id),
             attributes,
         };
         Ok(conversation)
+    }
+
+    pub(crate) fn new_handle_conversation(
+        group_id: GroupId,
+        attributes: ConversationAttributes,
+        handle: UserHandle,
+    ) -> Self {
+        let id = ConversationId::try_from(&group_id).unwrap();
+        Self {
+            id,
+            group_id,
+            last_read: Utc::now(),
+            status: ConversationStatus::Active,
+            conversation_type: ConversationType::HandleConnection(handle),
+            attributes,
+        }
     }
 
     pub(crate) fn new_group_conversation(
@@ -181,9 +190,10 @@ impl Conversation {
         &mut self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
+        user_id: UserId,
     ) -> sqlx::Result<()> {
-        if let ConversationType::UnconfirmedConnection(user_name) = self.conversation_type.clone() {
-            let conversation_type = ConversationType::Connection(user_name);
+        if let ConversationType::HandleConnection(_) = &self.conversation_type {
+            let conversation_type = ConversationType::Connection(user_id);
             self.set_conversation_type(executor, notifier, &conversation_type)
                 .await?;
             self.conversation_type = conversation_type;
@@ -217,12 +227,13 @@ impl InactiveConversation {
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ConversationType {
-    // A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UserId),
-    // A connection conversation that is confirmed by the other party and for
-    // which we have received the necessary secrets.
+    /// A connection conversation which was established via a handle and is not yet confirmed by
+    /// the other party.
+    HandleConnection(UserHandle),
+    /// A connection conversation that is confirmed by the other party and for
+    /// which we have received the necessary secrets.
     Connection(UserId),
     Group,
 }

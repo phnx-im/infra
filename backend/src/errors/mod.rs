@@ -64,8 +64,6 @@ pub(super) enum QueueError {
     /// Unrecoverable implementation error
     #[error("Library Error")]
     LibraryError,
-    #[error("Queue not found")]
-    QueueNotFound,
 }
 
 impl From<sqlx::Error> for QueueError {
@@ -89,7 +87,6 @@ impl From<QueueError> for Status {
                 Self::internal(msg)
             }
             QueueError::SequenceNumberMismatch | QueueError::LibraryError => Self::internal(msg),
-            QueueError::QueueNotFound => Self::not_found(msg),
         }
     }
 }

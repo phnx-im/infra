@@ -59,6 +59,19 @@ class MainFlutterWindow: NSWindow {
             message: "Failed to decode cancelNotifications arguments",
             details: nil))
       }
+    } else if call.method == "setBadgeCount" {
+      if let args = call.arguments as? [String: Any?],
+        let count = args["count"] as? Int
+      {
+        NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
+        result(nil)
+      } else {
+        result(
+          FlutterError(
+            code: "DecodingError",
+            message: "Failed to decode setBadgeCount arguments",
+            details: nil))
+      }
     } else {
       NSLog("Unknown method called: \(call.method)")
       result(FlutterMethodNotImplemented)

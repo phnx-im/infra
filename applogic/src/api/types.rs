@@ -12,6 +12,7 @@ use std::fmt;
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
 use mimi_content::MimiContent;
+pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
@@ -23,7 +24,7 @@ use uuid::Uuid;
 
 use super::markdown::MessageContent;
 
-/// Mirror of the [`ConversationId`] types
+/// Mirror of the [`ConversationId`] type
 #[doc(hidden)]
 #[frb(mirror(ConversationId))]
 #[frb(dart_code = "
@@ -127,10 +128,11 @@ impl From<InactiveConversation> for UiInactiveConversation {
 }
 
 /// Type of a conversation
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiConversationType {
-    /// A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UiUserProfile),
+    /// A connection conversation which was established via a handle and is not yet confirmed by
+    /// the other party.
+    HandleConnection(UiUserHandle),
     /// A connection conversation that is confirmed by the other party and for which we have
     /// received the necessary secrets.
     Connection(UiUserProfile),
@@ -149,15 +151,15 @@ impl UiConversationType {
         store: &impl Store,
         conversation_type: ConversationType,
     ) -> Self {
-        let load_profile = async |user_id| {
-            let user_profile = store.user_profile(&user_id).await;
-            UiUserProfile::from_profile(user_profile)
-        };
         match conversation_type {
-            ConversationType::UnconfirmedConnection(user_id) => {
-                Self::UnconfirmedConnection(load_profile(user_id).await)
+            ConversationType::HandleConnection(handle) => {
+                Self::HandleConnection(UiUserHandle::from(handle))
             }
-            ConversationType::Connection(user_id) => Self::Connection(load_profile(user_id).await),
+            ConversationType::Connection(user_id) => {
+                let user_profile = store.user_profile(&user_id).await;
+                let profile = UiUserProfile::from_profile(user_profile);
+                Self::Connection(profile)
+            }
             ConversationType::Group => Self::Group,
         }
     }
@@ -319,22 +321,21 @@ impl From<EventMessage> for UiEventMessage {
 
 /// System message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct UiSystemMessage {
-    pub message: String,
+pub enum UiSystemMessage {
+    Add(UiUserId, UiUserId),
+    Remove(UiUserId, UiUserId),
 }
 
 impl From<SystemMessage> for UiSystemMessage {
     fn from(system_message: SystemMessage) -> Self {
-        // TODO: Use display names here
-        let message = match system_message {
-            SystemMessage::Add(adder, added) => {
-                format!("{adder:?} added {added:?} to the conversation")
+        match system_message {
+            SystemMessage::Add(user_id, contact_id) => {
+                UiSystemMessage::Add(user_id.into(), contact_id.into())
             }
-            SystemMessage::Remove(remover, removed) => {
-                format!("{remover:?} removed {removed:?} from the conversation")
+            SystemMessage::Remove(user_id, contact_id) => {
+                UiSystemMessage::Remove(user_id.into(), contact_id.into())
             }
-        };
-        Self { message }
+        }
     }
 }
 
@@ -522,4 +523,31 @@ pub struct UiClientRecord {
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) user_profile: UiUserProfile,
     pub(crate) is_finished: bool,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
+pub struct UiUserHandle {
+    pub(crate) plaintext: String,
+}
+
+impl UiUserHandle {
+    /// Returns `None` if the handle is valid, otherwise returns an error message why it is
+    /// invalid.
+    #[frb(sync)]
+    pub fn validation_error(&self) -> Option<String> {
+        if let Err(error) = UserHandle::new(self.plaintext.clone()) {
+            Some(error.to_string())
+        } else {
+            None
+        }
+    }
+}
+
+impl From<UserHandle> for UiUserHandle {
+    fn from(user_handle: UserHandle) -> Self {
+        Self {
+            plaintext: user_handle.into_plaintext(),
+        }
+    }
 }

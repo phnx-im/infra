@@ -45,7 +45,6 @@ pub(crate) struct MemoryUserKeyStoreBase<K> {
     // Client credential secret key
     pub(super) signing_key: K,
     // AS-specific key material
-    pub(super) as_queue_decryption_key: RatchetDecryptionKey,
     pub(super) connection_decryption_key: ConnectionDecryptionKey,
     // QS-specific key material
     pub(super) qs_client_signing_key: QsClientSigningKey,

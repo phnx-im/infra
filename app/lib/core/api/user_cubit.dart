@@ -13,25 +13,29 @@ import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user.dart';
 
-// These functions are ignored because they are not marked as `pub`: `emit`, `handle_queue_event`, `new`, `process_fetched_messages`, `run_listen`, `spawn_listen`, `spawn_load`, `spawn_polling`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NotificationContext`, `UiUserInner`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `core_user`, `new`, `show_notifications`, `spawn_load`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CubitContext`, `NotificationContext`, `UiUserInner`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `drop`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiUser>>
 abstract class UiUser implements RustOpaqueInterface {
-  String get displayName;
-
-  ImageData? get profilePicture;
+  List<UiUserHandle> get userHandles;
 
   UiUserId get userId;
 }
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UserCubitBase>>
 abstract class UserCubitBase implements RustOpaqueInterface {
+  Future<bool> addUserHandle({required UiUserHandle userHandle});
+
   Future<void> addUserToConversation(
     ConversationId conversationId,
     UiUserId userId,
   );
+
+  Future<List<UiContact>> addableContacts({
+    required ConversationId conversationId,
+  });
 
   Future<void> close();
 
@@ -52,6 +56,8 @@ abstract class UserCubitBase implements RustOpaqueInterface {
     UiUserId userId,
   );
 
+  Future<void> removeUserHandle({required UiUserHandle userHandle});
+
   Future<void> setAppState({required AppState appState});
 
   /// Set the display name and/or profile picture of the user.
@@ -60,9 +66,6 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   UiUser get state;
 
   Stream<UiUser> stream();
-
-  /// Get the user profile of the user with the given [`UiUserId`].
-  Future<UiUserProfile> userProfile(UiUserId userId);
 }
 
 enum AppState { background, foreground }

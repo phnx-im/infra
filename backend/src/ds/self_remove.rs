@@ -5,15 +5,14 @@
 use super::group_state::DsGroupState;
 use super::process::USER_EXPIRATION_DAYS;
 use crate::errors::ClientSelfRemovalError;
-use mimi_room_policy::{MimiProposal, RoleIndex};
+use mimi_room_policy::RoleIndex;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxcommon::time::Duration;
-use tracing::error;
+use phnxcommon::{credentials::VerifiableClientCredential, time::Duration};
 
 impl DsGroupState {
     pub(crate) fn self_remove_client(
@@ -60,16 +59,13 @@ impl DsGroupState {
         // Everything seems to be okay.
         // Now we have to update the group state and distribute.
 
-        if let Err(e) = self.room_state.apply_regular_proposals(
-            &sender_index.u32(),
-            &[MimiProposal::ChangeRole {
-                target: sender_index.u32(),
-                role: RoleIndex::Outsider,
-            }],
-        ) {
-            error!("{e:?}");
-            return Err(ClientSelfRemovalError::InvalidMessage);
-        }
+        let sender = VerifiableClientCredential::try_from(
+            self.group.leaf(sender_index).unwrap().credential().clone(),
+        )
+        .unwrap();
+
+        self.room_state_change_role(sender.user_id(), sender.user_id(), RoleIndex::Outsider)
+            .ok_or(ClientSelfRemovalError::InvalidMessage)?;
 
         // We first accept the message into the group state ...
         self.group.accept_processed_message(

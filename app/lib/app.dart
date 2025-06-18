@@ -9,10 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:prototype/background_service.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/util/platform.dart';
 import 'package:prototype/user/user.dart';
+import 'package:prototype/util/platform.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details/conversation_details.dart';
@@ -32,6 +34,7 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> with WidgetsBindingObserver {
   final CoreClient _coreClient = CoreClient();
+  final _backgroundService = BackgroundService();
 
   final StreamController<ConversationId> _openedNotificationController =
       StreamController<ConversationId>();
@@ -53,6 +56,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         });
 
     _requestMobileNotifications();
+
+    _backgroundService.start(runImmediately: true);
   }
 
   @override
@@ -60,6 +65,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _openedNotificationSubscription.cancel();
     _openedNotificationController.close();
+    _backgroundService.stop();
     super.dispose();
   }
 
@@ -71,7 +77,6 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   Future<void> _onStateChanged(AppLifecycleState state) async {
     if (state == AppLifecycleState.paused) {
-      _log.fine('App is in the background');
       _appStateController.sink.add(AppState.background);
 
       // iOS only
@@ -83,7 +88,6 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         }
       }
     } else if (state == AppLifecycleState.resumed) {
-      _log.fine('App is in the foreground');
       _appStateController.sink.add(AppState.foreground);
     }
   }
@@ -107,7 +111,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         ),
       ],
       child: MaterialApp.router(
-        title: 'Prototype',
+        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: themeData(context),
         routerConfig: _appRouter,
@@ -152,8 +158,8 @@ class LoadableUserCubitProvider extends StatelessWidget {
       builder:
           (context, loadableUser) =>
               loadableUser.user != null
-                  // Logged-in user is accessible everywhere inside the app after
-                  // the user is loaded
+                  // Logged-in user and contacts are accessible everywhere inside the app after
+                  // the user is loaded.
                   ? BlocProvider<UserCubit>(
                     create:
                         (context) => UserCubit(
@@ -161,7 +167,13 @@ class LoadableUserCubitProvider extends StatelessWidget {
                           navigationCubit: context.read<NavigationCubit>(),
                           appStateStream: appStateController.stream,
                         ),
-                    child: child,
+                    child: BlocProvider<UsersCubit>(
+                      create:
+                          (context) =>
+                              UsersCubit(userCubit: context.read<UserCubit>()),
+
+                      child: child,
+                    ),
                   )
                   : child,
     );

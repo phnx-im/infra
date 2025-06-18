@@ -76,36 +76,15 @@ impl Qs {
                 &[],
             )?;
 
-            let mut transaction = self.db_pool.begin().await.map_err(|e| {
-                tracing::warn!("Failed to start transaction: {:?}", e);
-                QsEnqueueError::StorageError
-            })?;
-
-            // Fetch the client record.
-            let mut client_record =
-                QsClientRecord::load(&mut *transaction, &client_config.client_id)
-                    .await
-                    .map_err(|e| {
-                        tracing::warn!("Failed to load client record: {:?}", e);
-                        QsEnqueueError::StorageError
-                    })?
-                    .ok_or(QsEnqueueError::QueueNotFound)?;
-
-            client_record
-                .enqueue(
-                    &mut transaction,
-                    &client_config.client_id,
-                    websocket_notifier,
-                    push_notification_provider,
-                    message.payload,
-                    client_config.push_token_ear_key,
-                )
-                .await?;
-
-            transaction.commit().await.map_err(|e| {
-                tracing::warn!("Failed to commit transaction: {:?}", e);
-                QsEnqueueError::StorageError
-            })?;
+            QsClientRecord::enqueue(
+                &self.db_pool,
+                &client_config.client_id,
+                websocket_notifier,
+                push_notification_provider,
+                message.payload,
+                client_config.push_token_ear_key,
+            )
+            .await?;
         }
         Ok(())
     }

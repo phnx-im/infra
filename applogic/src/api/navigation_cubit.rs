@@ -62,8 +62,7 @@ pub struct HomeNavigationState {
     pub developer_settings_screen: Option<DeveloperSettingsScreenType>,
     /// User name of the member that details are currently open
     pub member_details: Option<UiUserId>,
-    #[frb(default = false)]
-    pub user_settings_open: bool,
+    pub user_settings_screen: Option<UserSettingsScreenType>,
     #[frb(default = false)]
     pub conversation_details_open: bool,
     #[frb(default = false)]
@@ -76,6 +75,14 @@ pub enum DeveloperSettingsScreenType {
     Root,
     ChangeUser,
     Logs,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[frb(dart_metadata = ("freezed"))]
+pub enum UserSettingsScreenType {
+    Root,
+    EditDisplayName,
+    AddUserHandle,
 }
 
 impl NavigationState {
@@ -226,10 +233,12 @@ impl NavigationCubitBase {
         });
     }
 
-    pub fn open_user_settings(&self) {
+    pub fn open_user_settings(&self, screen: UserSettingsScreenType) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => false,
-            NavigationState::Home { home } => !mem::replace(&mut home.user_settings_open, true),
+            NavigationState::Home { home } => {
+                home.user_settings_screen.replace(screen) != Some(screen)
+            }
         });
     }
 
@@ -292,8 +301,29 @@ impl NavigationCubitBase {
                     .replace(DeveloperSettingsScreenType::Root);
                 true
             }
-            NavigationState::Home { home } if home.user_settings_open => {
-                home.user_settings_open = false;
+            NavigationState::Home {
+                home:
+                    home @ HomeNavigationState {
+                        user_settings_screen: Some(UserSettingsScreenType::Root),
+                        ..
+                    },
+            } => {
+                home.user_settings_screen.take();
+                true
+            }
+            NavigationState::Home {
+                home:
+                    home @ HomeNavigationState {
+                        user_settings_screen:
+                            Some(
+                                UserSettingsScreenType::EditDisplayName
+                                | UserSettingsScreenType::AddUserHandle,
+                            ),
+                        ..
+                    },
+            } => {
+                home.user_settings_screen
+                    .replace(UserSettingsScreenType::Root);
                 true
             }
             NavigationState::Home { home } if home.member_details.is_some() => {

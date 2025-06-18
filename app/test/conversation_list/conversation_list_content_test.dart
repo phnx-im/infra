@@ -12,6 +12,7 @@ import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -19,13 +20,17 @@ import 'package:prototype/user/user.dart';
 import '../mocks.dart';
 import '../helpers.dart';
 
+final userProfiles = [
+  UiUserProfile(userId: 1.userId(), displayName: 'Alice'),
+  UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
+  UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+];
+
 final conversations = [
   UiConversationDetails(
     id: 1.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_Connection(
-      UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
-    ),
+    conversationType: UiConversationType_Connection(userProfiles[1]),
     unreadMessages: 10,
     messagesCount: 10,
     attributes: const UiConversationAttributes(title: 'Bob', picture: null),
@@ -51,8 +56,8 @@ final conversations = [
   UiConversationDetails(
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_UnconfirmedConnection(
-      UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+    conversationType: const UiConversationType_HandleConnection(
+      UiUserHandle(plaintext: "eve_03"),
     ),
     unreadMessages: 0,
     messagesCount: 10,
@@ -139,9 +144,7 @@ void main() {
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: 'alice'));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
     });
 
     Widget buildSubject() => MultiBlocProvider(
@@ -155,6 +158,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(body: ConversationListContent()),
           );
         },

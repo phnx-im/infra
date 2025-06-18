@@ -132,20 +132,21 @@ pub(crate) struct PartialCreateGroupParams {
 impl PartialCreateGroupParams {
     pub(crate) fn into_params(
         self,
-        client_reference: QsReference,
+        creator_client_reference: QsReference,
         encrypted_user_profile_key: EncryptedUserProfileKey,
     ) -> CreateGroupParamsOut {
         CreateGroupParamsOut {
             group_id: self.group_id,
             ratchet_tree: self.ratchet_tree,
             encrypted_user_profile_key,
-            creator_client_reference: client_reference,
+            creator_client_reference,
             group_info: self.group_info,
-            room_state: serde_json::to_vec(&self.room_state).unwrap(),
+            room_state: self.room_state,
         }
     }
 }
 
+#[derive(Debug)]
 pub(super) struct ProfileInfo {
     pub(super) client_credential: ClientCredential,
     pub(super) user_profile_key: UserProfileKey,
@@ -231,8 +232,9 @@ impl Group {
             .build(provider, signer, credential_with_key)
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
 
+        let user_id = signer.credential().identity();
         let room_state = VerifiedRoomState::new(
-            signer.credential().identity(),
+            user_id.tls_serialize_detached()?,
             RoomPolicy::default_private(),
         )
         .unwrap();
@@ -245,7 +247,7 @@ impl Group {
         };
 
         let group_membership = GroupMembership::new(
-            signer.credential().identity().clone(),
+            user_id.clone(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
             signer.credential().fingerprint(),
@@ -432,7 +434,7 @@ impl Group {
             identity_link_wrapper_key: welcome_attribution_info.identity_link_wrapper_key().clone(),
             group_state_ear_key: joiner_info.group_state_ear_key,
             pending_diff: None,
-            room_state: serde_json::from_slice(&room_state).unwrap(),
+            room_state,
         };
 
         Ok((group, member_profile_info))
@@ -546,7 +548,7 @@ impl Group {
             identity_link_wrapper_key,
             group_state_ear_key,
             pending_diff: None,
-            room_state: serde_json::from_slice(&room_state).unwrap(),
+            room_state,
         };
 
         Ok((group, commit, group_info, member_profile_info))
@@ -651,15 +653,6 @@ impl Group {
         // Stage the adds in the DB.
         let free_indices = GroupMembership::free_indices(&mut *connection, self.group_id()).await?;
         for (leaf_index, client_credential) in free_indices.zip(client_credentials) {
-            // Room policy check
-            self.room_state.apply_regular_proposals(
-                &self.mls_group.own_leaf_index().u32(),
-                &[MimiProposal::ChangeRole {
-                    target: leaf_index.u32(),
-                    role: RoleIndex::Regular,
-                }],
-            )?;
-
             let fingerprint = client_credential.fingerprint();
             let group_membership = GroupMembership::new(
                 client_credential.identity().clone(),
@@ -692,17 +685,6 @@ impl Group {
     ) -> Result<GroupOperationParamsOut> {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
-
-        // Room policy checks
-        for client in &remove_indices {
-            self.room_state.apply_regular_proposals(
-                &self.mls_group.own_leaf_index().u32(),
-                &[MimiProposal::ChangeRole {
-                    target: client.u32(),
-                    role: RoleIndex::Outsider,
-                }],
-            )?;
-        }
 
         let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],
@@ -917,10 +899,6 @@ impl Group {
         Ok(send_message_params)
     }
 
-    pub(super) fn own_leaf_index(&self) -> u32 {
-        self.mls_group.own_leaf_index().u32()
-    }
-
     /// Get a reference to the group's group id.
     pub(crate) fn group_id(&self) -> &GroupId {
         self.mls_group().group_id()
@@ -1041,6 +1019,22 @@ impl Group {
             }
         }
         pending_removes
+    }
+
+    pub(crate) fn room_state_change_role(
+        &mut self,
+        sender: &UserId,
+        target: &UserId,
+        role: RoleIndex,
+    ) -> Result<()> {
+        let sender = sender.tls_serialize_detached()?;
+        let target = target.tls_serialize_detached()?;
+
+        let result = self
+            .room_state
+            .apply_regular_proposals(&sender, &[MimiProposal::ChangeRole { target, role }]);
+
+        Ok(result?)
     }
 
     pub(crate) fn group_data(&self) -> Option<GroupData> {

@@ -20,6 +20,7 @@ import 'api/notifications.dart';
 import 'api/types.dart';
 import 'api/user.dart';
 import 'api/user_cubit.dart';
+import 'api/users_cubit.dart';
 import 'api/utils.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -80,6 +81,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_UserCubitBasePtr =>
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_UsersCubitBasePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UsersStatePtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState;
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw);
@@ -157,6 +165,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UsersCubitBase
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    dynamic raw,
+  );
+
+  @protected
+  UsersState
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    dynamic raw,
+  );
+
+  @protected
   ConversationDetailsCubitBase
   dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     dynamic raw,
@@ -189,6 +209,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   UserCubitBase
   dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    dynamic raw,
+  );
+
+  @protected
+  UsersCubitBase
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
     dynamic raw,
   );
 
@@ -261,6 +287,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   UserCubitBase
   dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    dynamic raw,
+  );
+
+  @protected
+  UsersCubitBase
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    dynamic raw,
+  );
+
+  @protected
+  UsersState
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
     dynamic raw,
   );
 
@@ -364,6 +402,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UsersCubitBase
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    dynamic raw,
+  );
+
+  @protected
+  UsersState
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    dynamic raw,
+  );
+
+  @protected
   RustStreamSink<MessageListState>
   dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
     dynamic raw,
@@ -372,6 +422,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   RustStreamSink<UiUser>
   dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<UsersState>
+  dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState_Sse(
     dynamic raw,
   );
 
@@ -472,10 +528,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiSystemMessage dco_decode_box_autoadd_ui_system_message(dynamic raw);
 
   @protected
+  UiUserHandle dco_decode_box_autoadd_ui_user_handle(dynamic raw);
+
+  @protected
   UiUserId dco_decode_box_autoadd_ui_user_id(dynamic raw);
 
   @protected
   UiUserProfile dco_decode_box_autoadd_ui_user_profile(dynamic raw);
+
+  @protected
+  UserSettingsScreenType dco_decode_box_autoadd_user_settings_screen_type(
+    dynamic raw,
+  );
 
   @protected
   UiContentMessage dco_decode_box_ui_content_message(dynamic raw);
@@ -563,6 +627,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<UiUserHandle> dco_decode_list_ui_user_handle(dynamic raw);
+
+  @protected
   List<UiUserId> dco_decode_list_ui_user_id(dynamic raw);
 
   @protected
@@ -636,6 +703,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiUserId? dco_decode_opt_box_autoadd_ui_user_id(dynamic raw);
 
   @protected
+  UserSettingsScreenType? dco_decode_opt_box_autoadd_user_settings_screen_type(
+    dynamic raw,
+  );
+
+  @protected
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
@@ -705,6 +777,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiSystemMessage dco_decode_ui_system_message(dynamic raw);
 
   @protected
+  UiUserHandle dco_decode_ui_user_handle(dynamic raw);
+
+  @protected
   UiUserId dco_decode_ui_user_id(dynamic raw);
 
   @protected
@@ -712,6 +787,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void dco_decode_unit(dynamic raw);
+
+  @protected
+  UserSettingsScreenType dco_decode_user_settings_screen_type(dynamic raw);
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
@@ -792,6 +870,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UsersCubitBase
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UsersState
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ConversationDetailsCubitBase
   sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     SseDeserializer deserializer,
@@ -824,6 +914,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   UserCubitBase
   sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UsersCubitBase
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
     SseDeserializer deserializer,
   );
 
@@ -896,6 +992,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   UserCubitBase
   sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UsersCubitBase
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UsersState
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
     SseDeserializer deserializer,
   );
 
@@ -981,6 +1089,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UsersCubitBase
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UsersState
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<MessageListState>
   sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
     SseDeserializer deserializer,
@@ -989,6 +1109,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   RustStreamSink<UiUser>
   sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<UsersState>
+  sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState_Sse(
     SseDeserializer deserializer,
   );
 
@@ -1111,10 +1237,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiUserHandle sse_decode_box_autoadd_ui_user_handle(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   UiUserId sse_decode_box_autoadd_ui_user_id(SseDeserializer deserializer);
 
   @protected
   UiUserProfile sse_decode_box_autoadd_ui_user_profile(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UserSettingsScreenType sse_decode_box_autoadd_user_settings_screen_type(
     SseDeserializer deserializer,
   );
 
@@ -1228,6 +1364,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<UiUserHandle> sse_decode_list_ui_user_handle(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<UiUserId> sse_decode_list_ui_user_id(SseDeserializer deserializer);
 
   @protected
@@ -1309,6 +1450,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiUserId? sse_decode_opt_box_autoadd_ui_user_id(SseDeserializer deserializer);
+
+  @protected
+  UserSettingsScreenType? sse_decode_opt_box_autoadd_user_settings_screen_type(
+    SseDeserializer deserializer,
+  );
 
   @protected
   Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
@@ -1398,6 +1544,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiSystemMessage sse_decode_ui_system_message(SseDeserializer deserializer);
 
   @protected
+  UiUserHandle sse_decode_ui_user_handle(SseDeserializer deserializer);
+
+  @protected
   UiUserId sse_decode_ui_user_id(SseDeserializer deserializer);
 
   @protected
@@ -1405,6 +1554,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  UserSettingsScreenType sse_decode_user_settings_screen_type(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
@@ -1501,6 +1655,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    UsersCubitBase self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    UsersState self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
   sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     ConversationDetailsCubitBase self,
     SseSerializer serializer,
@@ -1538,6 +1706,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
     UserCubitBase self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    UsersCubitBase self,
     SseSerializer serializer,
   );
 
@@ -1622,6 +1797,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
     UserCubitBase self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    UsersCubitBase self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    UsersState self,
     SseSerializer serializer,
   );
 
@@ -1741,6 +1930,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    UsersCubitBase self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    UsersState self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
   sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState_Sse(
     RustStreamSink<MessageListState> self,
     SseSerializer serializer,
@@ -1750,6 +1953,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
     RustStreamSink<UiUser> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState_Sse(
+    RustStreamSink<UsersState> self,
     SseSerializer serializer,
   );
 
@@ -1891,6 +2101,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_ui_user_handle(
+    UiUserHandle self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_ui_user_id(
     UiUserId self,
     SseSerializer serializer,
@@ -1899,6 +2115,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_ui_user_profile(
     UiUserProfile self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_user_settings_screen_type(
+    UserSettingsScreenType self,
     SseSerializer serializer,
   );
 
@@ -2041,6 +2263,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_ui_user_handle(
+    List<UiUserHandle> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_ui_user_id(
     List<UiUserId> self,
     SseSerializer serializer,
@@ -2147,6 +2375,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_ui_user_id(
     UiUserId? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_user_settings_screen_type(
+    UserSettingsScreenType? self,
     SseSerializer serializer,
   );
 
@@ -2271,6 +2505,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_ui_user_handle(UiUserHandle self, SseSerializer serializer);
+
+  @protected
   void sse_encode_ui_user_id(UiUserId self, SseSerializer serializer);
 
   @protected
@@ -2278,6 +2515,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_user_settings_screen_type(
+    UserSettingsScreenType self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
@@ -2479,6 +2722,38 @@ class RustLibWire implements BaseWire {
       .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
         ptr,
       );
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+        ptr,
+      );
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+        ptr,
+      );
 }
 
 @JS('wasm_bindgen')
@@ -2604,6 +2879,26 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
 
   external void
   rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUserCubitBase(
+    int ptr,
+  );
+
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersCubitBase(
+    int ptr,
+  );
+
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUsersState(
     int ptr,
   );
 }

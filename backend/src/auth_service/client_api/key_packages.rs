@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use phnxcommon::{
-    identifiers::UserId,
+    identifiers::UserHandleHash,
     messages::{client_as::ConnectionPackage, client_as_out::ConnectionPackageIn},
 };
 use tracing::error;
@@ -17,9 +17,9 @@ use crate::{
 };
 
 impl AuthService {
-    pub(crate) async fn as_publish_connection_packages(
+    pub(crate) async fn as_publish_connection_packages_for_handle(
         &self,
-        user_id: UserId,
+        hash: &UserHandleHash,
         connection_packages: Vec<ConnectionPackageIn>,
     ) -> Result<(), PublishConnectionPackageError> {
         let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
@@ -29,7 +29,7 @@ impl AuthService {
                 PublishConnectionPackageError::StorageError
             })?;
 
-        // TODO: Last resort connection package
+        // TODO(#496): Last resort connection package
         let connection_packages = connection_packages
             .into_iter()
             .map(|cp| {
@@ -42,9 +42,13 @@ impl AuthService {
             })
             .collect::<Result<Vec<ConnectionPackage>, PublishConnectionPackageError>>()?;
 
-        StorableConnectionPackage::store_multiple(&self.db_pool, &connection_packages, &user_id)
-            .await
-            .map_err(|_| PublishConnectionPackageError::StorageError)?;
+        StorableConnectionPackage::store_multiple_for_handle(
+            &self.db_pool,
+            &connection_packages,
+            hash,
+        )
+        .await
+        .map_err(|_| PublishConnectionPackageError::StorageError)?;
         Ok(())
     }
 }

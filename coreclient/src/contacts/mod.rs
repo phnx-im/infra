@@ -13,14 +13,14 @@ use phnxcommon::{
         indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
         kdf::keys::ConnectionKey,
     },
-    identifiers::UserId,
+    identifiers::{UserHandle, UserId},
     messages::FriendshipToken,
 };
 use sqlx::SqliteConnection;
 
 use crate::{
     ConversationId,
-    clients::{api_clients::ApiClients, connection_establishment::FriendshipPackage},
+    clients::{api_clients::ApiClients, connection_offer::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
     key_stores::{as_credentials::AsCredentials, indexed_keys::StorableIndexedKey},
 };
@@ -127,23 +127,23 @@ impl Contact {
     }
 }
 
-/// Contact which has not yet accepted our connection request.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PartialContact {
-    pub user_id: UserId,
-    // ID of the connection conversation with this contact.
+/// Partial contact established via a user handle
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+pub struct HandleContact {
+    pub handle: UserHandle,
     pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
 }
 
-impl PartialContact {
+impl HandleContact {
     pub(crate) fn new(
-        user_id: UserId,
+        handle: UserHandle,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
     ) -> Self {
         Self {
-            user_id,
+            handle,
             conversation_id,
             friendship_package_ear_key,
         }
