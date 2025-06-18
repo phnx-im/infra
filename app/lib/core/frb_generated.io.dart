@@ -496,6 +496,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImageData dco_decode_box_autoadd_image_data(dynamic raw);
 
   @protected
+  IntroScreenType dco_decode_box_autoadd_intro_screen_type(dynamic raw);
+
+  @protected
   MessageState dco_decode_box_autoadd_message_state(dynamic raw);
 
   @protected
@@ -1193,6 +1196,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageData sse_decode_box_autoadd_image_data(SseDeserializer deserializer);
+
+  @protected
+  IntroScreenType sse_decode_box_autoadd_intro_screen_type(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageState sse_decode_box_autoadd_message_state(
@@ -2047,6 +2055,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_image_data(
     ImageData self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_intro_screen_type(
+    IntroScreenType self,
     SseSerializer serializer,
   );
 

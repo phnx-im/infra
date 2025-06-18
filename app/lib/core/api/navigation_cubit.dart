@@ -82,12 +82,17 @@ class HomeNavigationState with _$HomeNavigationState {
       RustLib.instance.api.crateApiNavigationCubitHomeNavigationStateDefault();
 }
 
-/// Possible intro screens
-enum IntroScreenType {
-  intro,
-  serverChoice,
-  displayNamePicture,
-  developerSettings,
+@freezed
+sealed class IntroScreenType with _$IntroScreenType {
+  const IntroScreenType._();
+
+  const factory IntroScreenType.intro() = IntroScreenType_Intro;
+  const factory IntroScreenType.serverChoice() = IntroScreenType_ServerChoice;
+  const factory IntroScreenType.displayNamePicture() =
+      IntroScreenType_DisplayNamePicture;
+  const factory IntroScreenType.developerSettings(
+    DeveloperSettingsScreenType field0,
+  ) = IntroScreenType_DeveloperSettings;
 }
 
 @freezed
