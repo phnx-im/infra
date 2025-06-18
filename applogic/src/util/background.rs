@@ -76,7 +76,7 @@ where
     ///
     /// # State transitions
     ///
-    /// ```no_run
+    /// ```norun
     /// Initial --> Running
     ///   ^       |
     ///   |       v
