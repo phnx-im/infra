@@ -11,7 +11,7 @@ import 'package:prototype/core/core.dart';
 part 'add_members_cubit.freezed.dart';
 
 @freezed
-class AddMembersState with _$AddMembersState {
+sealed class AddMembersState with _$AddMembersState {
   const factory AddMembersState({
     required List<UiContact> contacts,
     required Set<UiUserId> selectedContacts,

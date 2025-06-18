@@ -151,6 +151,9 @@ impl UserCubitBase {
             notification_service,
         };
 
+        // emit persisted store notifications
+        context.spawn_emit_stored_notifications(cancel.clone());
+
         // start background task listening for incoming messages
         QueueContext::new(context.clone())
             .into_task(cancel.clone())
@@ -348,6 +351,48 @@ struct CubitContext {
     app_state: watch::Receiver<AppState>,
     navigation_state: watch::Receiver<NavigationState>,
     notification_service: NotificationService,
+}
+
+impl CubitContext {
+    fn spawn_emit_stored_notifications(&self, cancel: CancellationToken) {
+        let core_user = self.core_user.clone();
+        let app_state = self.app_state.clone();
+        spawn_from_sync(async move {
+            if let Err(error) = Self::emit_stored_notifications(core_user, app_state, cancel).await
+            {
+                error!(%error, "Failed to emit stored notifications");
+            }
+        });
+    }
+
+    /// Emit persisted store notifications when the app goes in the foreground.
+    ///
+    /// Store notification is stored in the database in the background process.
+    async fn emit_stored_notifications(
+        core_user: CoreUser,
+        mut app_state: watch::Receiver<AppState>,
+        cancel: CancellationToken,
+    ) -> anyhow::Result<()> {
+        loop {
+            let in_foreground = app_state.wait_for(|state| matches!(state, AppState::Foreground));
+            tokio::select! {
+                _ = cancel.cancelled() => return Ok(()),
+                _ = in_foreground => {}
+            };
+
+            match core_user.dequeue_notification().await {
+                Ok(store_notification) => {
+                    if !store_notification.is_empty() {
+                        core_user.notify(store_notification);
+                    }
+                }
+                Err(error) => {
+                    error!(%error, "Failed to dequeue stored notifications");
+                    continue;
+                }
+            }
+        }
+    }
 }
 
 /// Places in the app where notifications in foreground are handled differently.
