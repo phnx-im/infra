@@ -39,12 +39,18 @@ impl CoreUser {
     pub(crate) async fn add_contact_via_handle(
         &self,
         handle: UserHandle,
-    ) -> anyhow::Result<ConversationId> {
+    ) -> anyhow::Result<Option<ConversationId>> {
         let client = self.api_client()?;
 
         // Phase 1: Fetch a connection package from the AS
         let (connection_package, connection_offer_responder) =
-            client.as_connect_handle(&handle).await?;
+            match client.as_connect_handle(&handle).await {
+                Ok(res) => res,
+                Err(error) if error.is_not_found() => {
+                    return Ok(None);
+                }
+                Err(error) => return Err(error.into()),
+            };
 
         // Phase 2: Verify the connection package
         let as_intermediate_credential = AsCredentials::get(
@@ -97,7 +103,7 @@ impl CoreUser {
                 )
                 .await?;
 
-            Ok(conversation_id)
+            Ok(Some(conversation_id))
         })
         .await
     }

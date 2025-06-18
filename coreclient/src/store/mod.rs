@@ -145,8 +145,8 @@ pub trait Store {
     /// Create a connection with a new user via their user handle.
     ///
     /// Returns the [`ConversationId`] of the newly created connection
-    /// conversation.
-    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId>;
+    /// conversation, or `None` if the user handle does not exist.
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ConversationId>>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
