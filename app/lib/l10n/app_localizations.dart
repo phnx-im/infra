@@ -242,12 +242,6 @@ abstract class AppLocalizations {
   /// **'Remove user'**
   String get removeUserButton_text;
 
-  /// No description provided for @introScreen_developerSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Developer Settings'**
-  String get introScreen_developerSettings;
-
   /// No description provided for @introScreen_signUp.
   ///
   /// In en, this message translates to:
@@ -356,17 +350,29 @@ abstract class AppLocalizations {
   /// **'Yesterday'**
   String get timestamp_yesterday;
 
-  /// No description provided for @conversationList_newConnection.
+  /// No description provided for @conversationList_newContact.
   ///
   /// In en, this message translates to:
-  /// **'New connection'**
-  String get conversationList_newConnection;
+  /// **'New contact'**
+  String get conversationList_newContact;
 
-  /// No description provided for @conversationList_newConversation.
+  /// No description provided for @conversationList_newGroup.
   ///
   /// In en, this message translates to:
-  /// **'New conversation'**
-  String get conversationList_newConversation;
+  /// **'New group'**
+  String get conversationList_newGroup;
+
+  /// No description provided for @settings_profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get settings_profile;
+
+  /// No description provided for @settings_developerSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings (developer)'**
+  String get settings_developerSettings;
 
   /// No description provided for @newConversationDialog_newConversationTitle.
   ///
