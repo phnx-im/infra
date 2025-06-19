@@ -42,10 +42,12 @@ class _ContextMenuState extends State<ContextMenu> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPersistentFrameCallback(_checkChildPosition);
+    WidgetsBinding.instance.scheduleFrameCallback(_checkChildPosition);
   }
 
   void _checkChildPosition(Duration timeStamp) {
+    if (!mounted) return;
+
     final context = _childKey.currentContext;
     final box = context?.findRenderObject() as RenderBox?;
 
