@@ -72,11 +72,9 @@ impl Attachment {
             let ReencodedAttachmentImage {
                 webp_image,
                 image_dimensions: (width, height),
-                webp_thumbnail,
                 blurhash,
             } = reencode_attachment_image(content)?;
             let image_data = AttachmentImageData {
-                thumbnail: webp_thumbnail.into(),
                 blurhash,
                 width,
                 height,
@@ -109,11 +107,7 @@ impl Attachment {
             .unwrap_or("application/octet-stream")
     }
 
-    fn to_nested_parts(
-        &self,
-        metadata: &AttachmentMetadata,
-        image_metadata: Option<&AttachmentMetadata>,
-    ) -> Vec<NestedPart> {
+    fn to_nested_parts(&self, metadata: &AttachmentMetadata) -> Vec<NestedPart> {
         let attachment = NestedPart {
             disposition: Disposition::Attachment,
             language: String::new(),
@@ -133,12 +127,6 @@ impl Attachment {
             },
         };
 
-        let thumbnail = self
-            .image_data
-            .as_ref()
-            .zip(image_metadata)
-            .map(|(data, metadata)| data.to_nested_part(metadata));
-
         let blurhash = self.image_data.as_ref().map(|data| NestedPart {
             disposition: Disposition::Preview,
             language: String::new(),
@@ -148,41 +136,14 @@ impl Attachment {
             },
         });
 
-        [Some(attachment), thumbnail, blurhash]
-            .into_iter()
-            .flatten()
-            .collect()
+        [Some(attachment), blurhash].into_iter().flatten().collect()
     }
 }
 
 struct AttachmentImageData {
-    thumbnail: AttachmentContent,
     blurhash: String,
     width: u32,
     height: u32,
-}
-
-impl AttachmentImageData {
-    fn to_nested_part(&self, metadata: &AttachmentMetadata) -> NestedPart {
-        NestedPart {
-            disposition: Disposition::Preview,
-            language: String::new(),
-            part: NestedPartContent::ExternalPart {
-                content_type: "image/webp".to_owned(),
-                url: metadata.attachment_url(),
-                expires: 0,
-                size: metadata.size,
-                enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
-                key: metadata.key.clone().into_bytes().to_vec().into(),
-                nonce: metadata.nonce.to_vec().into(),
-                aad: Default::default(),
-                hash_alg: HashAlgorithm::Custom(PHNX_BLAKE3_HASH_ID),
-                content_hash: metadata.content_hash.clone().into(),
-                description: Default::default(),
-                filename: "thumbnail.webp".to_owned(),
-            },
-        }
-    }
 }
 
 impl CoreUser {
@@ -222,23 +183,6 @@ impl CoreUser {
             &group,
         )
         .await?;
-        let thumbnail_metadata = if let Some(thumbnail) = attachment
-            .image_data
-            .as_ref()
-            .map(|image_data| &image_data.thumbnail)
-        {
-            let metadata = encrypt_and_upload(
-                &api_client,
-                &http_client,
-                self.signing_key(),
-                thumbnail,
-                &group,
-            )
-            .await?;
-            Some(metadata)
-        } else {
-            None
-        };
 
         // store attachment locally
         let record = AttachmentRecord {
@@ -246,14 +190,9 @@ impl CoreUser {
             conversation_id: conversation.id(),
             content_type: attachment.mime_type().to_owned(),
         };
-        let image_record = if let Some((image_data, encrypted_metadata)) = attachment
-            .image_data
-            .as_ref()
-            .zip(thumbnail_metadata.as_ref())
-        {
+        let image_record = if let Some(image_data) = attachment.image_data.as_ref() {
             Some(AttachmentImageRecord {
                 attachment_id: attachment_metadata.attachment_id,
-                thumbnail_id: encrypted_metadata.attachment_id,
                 blurhash: image_data.blurhash.clone(),
                 width: image_data.width,
                 height: image_data.height,
@@ -268,10 +207,8 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         record.store(txn.as_mut(), &attachment.content).await?;
-        if let Some((image_data, image_record)) = attachment.image_data.as_ref().zip(image_record) {
-            image_record
-                .store(txn.as_mut(), &image_data.thumbnail)
-                .await?;
+        if let Some(image_record) = image_record {
+            image_record.store(txn.as_mut()).await?;
         }
 
         // send attachment message
@@ -280,8 +217,7 @@ impl CoreUser {
                 disposition: Disposition::Attachment,
                 part: NestedPartContent::MultiPart {
                     part_semantics: PartSemantics::ProcessAll,
-                    parts: attachment
-                        .to_nested_parts(&attachment_metadata, thumbnail_metadata.as_ref()),
+                    parts: attachment.to_nested_parts(&attachment_metadata),
                 },
                 ..Default::default()
             },

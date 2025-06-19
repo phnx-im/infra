@@ -15,8 +15,6 @@ CREATE TABLE IF NOT EXISTS attachments (
 
 CREATE TABLE IF NOT EXISTS attachment_images (
     attachment_id BLOB PRIMARY KEY,
-    thumbnail_id BLOB NOT NULL,
-    thumbnail_content BLOB NOT NULL,
     blurhash TEXT NOT NULL,
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,

@@ -39,13 +39,10 @@ pub(crate) fn resize_profile_image(mut image_bytes: &[u8]) -> anyhow::Result<Vec
 const ATTACHMENT_IMAGE_QUALITY_PERCENT: f32 = 90.0;
 const MAX_ATTACHMENT_IMAGE_WIDTH: u32 = 4096;
 const MAX_ATTACHMENT_IMAGE_HEIGHT: u32 = 4096;
-const ATTACHMENT_THUMBNAIL_WIDTH: u32 = 300;
-const ATTACHMENT_THUMBNAIL_HEIGHT: u32 = 300;
 
 pub(crate) struct ReencodedAttachmentImage {
     pub(crate) webp_image: Vec<u8>,
     pub(crate) image_dimensions: (u32, u32),
-    pub(crate) webp_thumbnail: Vec<u8>,
     pub(crate) blurhash: String,
 }
 
@@ -55,8 +52,6 @@ pub(crate) struct ReencodedAttachmentImage {
 /// - Rotates and flips the image according to the EXIF orientation
 /// - Resizes the image to a maximum width and height of 4096x4096
 /// - Converts the image to WebP
-///
-/// Returns the WebP image bytes and the blurhash of the image.
 pub(crate) fn reencode_attachment_image(
     image_bytes: Vec<u8>,
 ) -> anyhow::Result<ReencodedAttachmentImage> {
@@ -85,13 +80,6 @@ pub(crate) fn reencode_attachment_image(
     // => We should never get an error here.
     let blurhash = blurhash::encode(4, 3, width, height, &image_rgba)?;
 
-    let thumbnail = image
-        .thumbnail(ATTACHMENT_THUMBNAIL_WIDTH, ATTACHMENT_THUMBNAIL_HEIGHT)
-        .to_rgba8();
-    let (thumbnail_width, thumbnail_height) = thumbnail.dimensions();
-    let webp_thumbnail = webp::Encoder::from_rgba(&thumbnail, thumbnail_width, thumbnail_height)
-        .encode(ATTACHMENT_IMAGE_QUALITY_PERCENT);
-
     info!(
         from_bytes = image_bytes.len(),
         to_bytes = webp_image.len(),
@@ -102,7 +90,6 @@ pub(crate) fn reencode_attachment_image(
     Ok(ReencodedAttachmentImage {
         webp_image: webp_image.to_vec(),
         image_dimensions: (width, height),
-        webp_thumbnail: webp_thumbnail.to_vec(),
         blurhash,
     })
 }
@@ -133,17 +120,12 @@ fn rotate(exif: Option<Exif>, image: DynamicImage) -> DynamicImage {
 
 fn resize(image: DynamicImage) -> DynamicImage {
     let (width, height) = image.dimensions();
-
     if width <= MAX_ATTACHMENT_IMAGE_WIDTH && height <= MAX_ATTACHMENT_IMAGE_HEIGHT {
         return image;
     }
-
-    let scale_x = MAX_ATTACHMENT_IMAGE_WIDTH as f32 / width as f32;
-    let scale_y = MAX_ATTACHMENT_IMAGE_HEIGHT as f32 / height as f32;
-    let scale = scale_x.min(scale_y);
-
-    let new_width = (width as f32 * scale).round() as u32;
-    let new_height = (height as f32 * scale).round() as u32;
-
-    image.resize(new_width, new_height, image::imageops::FilterType::Lanczos3)
+    image.resize(
+        MAX_ATTACHMENT_IMAGE_WIDTH,
+        MAX_ATTACHMENT_IMAGE_HEIGHT,
+        image::imageops::FilterType::Lanczos3,
+    )
 }
