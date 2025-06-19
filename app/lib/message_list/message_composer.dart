@@ -175,14 +175,16 @@ class _MessageComposerState extends State<MessageComposer>
 
     final cubit = context.read<ConversationDetailsCubit>();
     try {
-      cubit.uploadAttachment(file.path);
+      await cubit.uploadAttachment(file.path);
     } catch (e) {
-      _log.severe('Failed to upload attachment', e);
-      final loc = AppLocalizations.of(context);
-      showErrorBanner(
-        ScaffoldMessenger.of(context),
-        loc.composer_error_attachment,
-      );
+      _log.severe("Failed to upload attachment: $e");
+      if (context.mounted) {
+        final loc = AppLocalizations.of(context);
+        showErrorBanner(
+          ScaffoldMessenger.of(context),
+          loc.composer_error_attachment,
+        );
+      }
     }
   }
 
