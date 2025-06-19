@@ -2,9 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/timestamp.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -84,8 +88,8 @@ class _MessageView extends StatelessWidget {
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _TextMessage(
-                  blockElements: contentMessage.content.content.content,
+                _MessageContent(
+                  content: contentMessage.content,
                   isSender: isSender,
                   flightPosition: flightPosition,
                 ),
@@ -103,14 +107,14 @@ class _MessageView extends StatelessWidget {
   }
 }
 
-class _TextMessage extends StatelessWidget {
-  const _TextMessage({
-    required this.blockElements,
+class _MessageContent extends StatelessWidget {
+  const _MessageContent({
+    required this.content,
     required this.isSender,
     required this.flightPosition,
   });
 
-  final List<RangedBlockElement> blockElements;
+  final UiMimiContent content;
   final bool isSender;
   final UiFlightPosition flightPosition;
 
@@ -146,12 +150,22 @@ class _TextMessage extends StatelessWidget {
             style: messageTextStyle(context, isSender),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children:
-                  blockElements
-                      .map(
-                        (inner) => buildBlockElement(inner.element, isSender),
+              children: [
+                if (content.attachments.firstOrNull != null)
+                  content.attachments.first.blurhash == null
+                      ? _FileAttachmentContent(
+                        attachment: content.attachments.first,
+                        isSender: isSender,
                       )
-                      .toList(),
+                      : _ImageAttachmentContent(
+                        attachment: content.attachments.first,
+                        blurhash: content.attachments.first.blurhash!,
+                        isSender: isSender,
+                      ),
+                ...(content.content?.elements ?? []).map(
+                  (inner) => buildBlockElement(inner.element, isSender),
+                ),
+              ],
             ),
           ),
         ),
@@ -206,6 +220,60 @@ class _DisplayName extends StatelessWidget {
         ).merge(VariableFontWeight.semiBold),
         overflow: TextOverflow.ellipsis,
       ),
+    );
+  }
+}
+
+class _FileAttachmentContent extends StatelessWidget {
+  const _FileAttachmentContent({
+    required this.attachment,
+    required this.isSender,
+  });
+
+  final UiAttachment attachment;
+  final bool isSender;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.file_present_sharp,
+          size: 46,
+          color: isSender ? Colors.white : Colors.black,
+        ),
+        const SizedBox(width: Spacings.xxs),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(attachment.filename),
+            Text(loc.bytesToHumanReadable(attachment.size)),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ImageAttachmentContent extends StatelessWidget {
+  const _ImageAttachmentContent({
+    required this.attachment,
+    required this.blurhash,
+    required this.isSender,
+  });
+
+  final UiAttachment attachment;
+  final String blurhash;
+  final bool isSender;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 300,
+      child: AspectRatio(aspectRatio: 1.6, child: BlurHash(hash: blurhash)),
     );
   }
 }

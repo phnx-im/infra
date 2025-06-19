@@ -69,5 +69,18 @@
   "newConnectionDialog_actionButton": "Connect",
   "newConnectionDialog_error": "Failed to add user with Username {username}: {error}",
 
-  "composer_error_attachment": "Failed to upload attachment. Please try again."
+  "composer_error_attachment": "Failed to upload attachment. Please try again.",
+
+  "attachmentSize": "{size} {byteUnit}",
+  "@attachmentSize": {
+    "placeholders": {
+      "size": {
+        "type": "double",
+        "format": "decimalPatternDigits",
+        "optionalParameters": {
+          "decimalDigits": 2
+        }
+      }
+    }
+  }
 }

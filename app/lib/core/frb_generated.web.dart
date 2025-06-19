@@ -304,6 +304,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  int dco_decode_CastedPrimitive_u_64(dynamic raw);
+
+  @protected
   int dco_decode_CastedPrimitive_usize(dynamic raw);
 
   @protected
@@ -505,6 +508,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   IntroScreenType dco_decode_box_autoadd_intro_screen_type(dynamic raw);
 
   @protected
+  MessageContent dco_decode_box_autoadd_message_content(dynamic raw);
+
+  @protected
   MessageState dco_decode_box_autoadd_message_state(dynamic raw);
 
   @protected
@@ -693,6 +699,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageData? dco_decode_opt_box_autoadd_image_data(dynamic raw);
+
+  @protected
+  MessageContent? dco_decode_opt_box_autoadd_message_content(dynamic raw);
 
   @protected
   PlatformPushToken? dco_decode_opt_box_autoadd_platform_push_token(
@@ -1021,6 +1030,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  int sse_decode_CastedPrimitive_u_64(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_CastedPrimitive_usize(SseDeserializer deserializer);
 
   @protected
@@ -1214,6 +1226,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   IntroScreenType sse_decode_box_autoadd_intro_screen_type(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MessageContent sse_decode_box_autoadd_message_content(
     SseDeserializer deserializer,
   );
 
@@ -1456,6 +1473,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageData? sse_decode_opt_box_autoadd_image_data(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MessageContent? sse_decode_opt_box_autoadd_message_content(
     SseDeserializer deserializer,
   );
 
@@ -1844,6 +1866,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_CastedPrimitive_u_64(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_CastedPrimitive_usize(int self, SseSerializer serializer);
 
   @protected
@@ -2087,6 +2112,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_intro_screen_type(
     IntroScreenType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_message_content(
+    MessageContent self,
     SseSerializer serializer,
   );
 
@@ -2395,6 +2426,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_image_data(
     ImageData? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_message_content(
+    MessageContent? self,
     SseSerializer serializer,
   );
 

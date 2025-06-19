@@ -42,8 +42,9 @@ sealed class UiAttachment with _$UiAttachment {
     required AttachmentId attachmentId,
     required String filename,
     required String contentType,
-    String? blurhash,
     String? discription,
+    required int size,
+    String? blurhash,
   }) = _UiAttachment;
 }
 
@@ -54,8 +55,8 @@ sealed class UiMimiContent with _$UiMimiContent {
     Uint8List? replaces,
     required Uint8List topicId,
     Uint8List? inReplyTo,
-    required String plainBody,
-    required MessageContent content,
+    String? plainBody,
+    MessageContent? content,
     required List<UiAttachment> attachments,
   }) = _UiMimiContent;
 }

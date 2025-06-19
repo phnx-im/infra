@@ -31,24 +31,43 @@ pub struct UiMimiContent {
     pub replaces: Option<Vec<u8>>,
     pub topic_id: Vec<u8>,
     pub in_reply_to: Option<Vec<u8>>,
-    pub plain_body: String,
-    pub content: MessageContent,
+    pub plain_body: Option<String>,
+    pub content: Option<MessageContent>,
     pub attachments: Vec<UiAttachment>,
 }
 
+impl UiMimiContent {
+    fn error_message(mut self, message: impl Into<String>) -> Self {
+        let message = message.into();
+        self.plain_body = Some(message.clone());
+        self.content = Some(MessageContent::error(message));
+        self
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb(dart_metadata = ("freezed"))]
+#[frb(dart_metadata = ("freezed"), type_64bit_int)]
 pub struct UiAttachment {
     pub attachment_id: AttachmentId,
     pub filename: String,
     pub content_type: String,
-    pub blurhash: Option<String>,
     pub discription: Option<String>,
+    pub size: u64,
+    pub blurhash: Option<String>,
 }
 
 impl From<MimiContent> for UiMimiContent {
     fn from(mut mimi_content: MimiContent) -> Self {
-        let (plain_body, attachments) = match (
+        let mut res = Self {
+            plain_body: None,
+            replaces: mimi_content.replaces.map(|v| v.into_vec()),
+            topic_id: mimi_content.topic_id.into_vec(),
+            in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
+            content: None,
+            attachments: Default::default(),
+        };
+
+        match (
             mimi_content.nested_part.disposition,
             std::mem::take(&mut mimi_content.nested_part.part),
         ) {
@@ -61,9 +80,9 @@ impl From<MimiContent> for UiMimiContent {
                 },
             ) => {
                 let Some(attachment) = convert_attachment(parts) else {
-                    return error_message(mimi_content, "Unsupported attachment message");
+                    return res.error_message("Unsupported attachment message");
                 };
-                (attachment.filename.clone(), vec![attachment])
+                res.attachments = vec![attachment];
             }
 
             // single part message
@@ -76,40 +95,17 @@ impl From<MimiContent> for UiMimiContent {
             ) if content_type == "text/markdown" => {
                 let plain_body = String::from_utf8(content.into_vec())
                     .unwrap_or_else(|_| "Invalid non-UTF8 message".to_owned());
-                (plain_body, Default::default())
+                res.content = Some(MessageContent::parse_markdown(&plain_body));
+                res.plain_body = Some(plain_body);
             }
 
             // any other message
             (disposition, _) => {
-                return error_message(
-                    mimi_content,
-                    format!("Unsupported message: {disposition:?}"),
-                );
+                return res.error_message(format!("Unsupported message: {disposition:?}"));
             }
-        };
-
-        let parsed_message = MessageContent::parse_markdown(&plain_body);
-
-        Self {
-            plain_body,
-            replaces: mimi_content.replaces.map(|v| v.into_vec()),
-            topic_id: mimi_content.topic_id.into_vec(),
-            in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
-            content: parsed_message,
-            attachments,
         }
-    }
-}
 
-fn error_message(mimi_content: MimiContent, message: impl Into<String>) -> UiMimiContent {
-    let message = message.into();
-    UiMimiContent {
-        plain_body: message.clone(),
-        replaces: mimi_content.replaces.map(|v| v.into_vec()),
-        topic_id: mimi_content.topic_id.into_vec(),
-        in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
-        content: MessageContent::error(message),
-        attachments: Default::default(),
+        res
     }
 }
 
@@ -127,6 +123,7 @@ fn convert_attachment(parts: Vec<NestedPart>) -> Option<UiAttachment> {
                     url,
                     description,
                     filename,
+                    size,
                     ..
                 },
             ) => {
@@ -144,8 +141,9 @@ fn convert_attachment(parts: Vec<NestedPart>) -> Option<UiAttachment> {
                     attachment_id,
                     filename,
                     content_type,
-                    blurhash: None,
                     discription: Some(description).filter(|d| !d.is_empty()),
+                    size,
+                    blurhash: None,
                 });
             }
 
