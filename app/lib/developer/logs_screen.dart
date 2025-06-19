@@ -147,7 +147,9 @@ class LogsScreenView extends StatelessWidget {
     final cacheDir = await getApplicationCacheDirectory();
     final data = await tarLogs(cacheDir: cacheDir.path);
     final file = XFile.fromData(data, mimeType: 'application/gzip');
-    Share.shareXFiles([file], fileNameOverrides: ['logs.tar.gz']);
+    SharePlus.instance.share(
+      ShareParams(files: [file], fileNameOverrides: ['logs.tar.gz']),
+    );
   }
 
   void _saveLogs() async {
