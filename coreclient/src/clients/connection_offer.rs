@@ -360,7 +360,7 @@ mod tests {
                 .unwrap();
         let cep_verified = cep_in
             .clone()
-            .verify(as_sk.verifying_key(), user_handle.clone(), hash.clone())
+            .verify(as_sk.verifying_key(), user_handle.clone(), hash)
             .unwrap();
         assert_eq!(cep_verified, cep_payload);
 

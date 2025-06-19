@@ -63,8 +63,9 @@ impl ConnectionPackageTbs {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
+    Debug, Clone, Copy, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
 )]
+#[cfg_attr(any(feature = "test_utils", test), derive(PartialEq))]
 #[serde(transparent)]
 pub struct ConnectionPackageHash([u8; 32]);
 
