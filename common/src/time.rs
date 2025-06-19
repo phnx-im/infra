@@ -160,10 +160,20 @@ impl ExpirationData {
     }
 
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
-    /// days and the validity of which starts now.
+    /// days and the validity of which starts 15 minutes before the current time.
     pub fn new(lifetime: Duration) -> Self {
         // Note: databases only support microsecond precision.
         let not_before = Utc::now().round_subsecs(6) - Duration::minutes(15);
+        Self {
+            not_before: TimeStamp::from(not_before),
+            not_after: TimeStamp::from(not_before + lifetime),
+        }
+    }
+
+    /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
+    /// days and the validity of which starts now.
+    pub fn now(lifetime: Duration) -> Self {
+        let not_before = Utc::now().round_subsecs(6);
         Self {
             not_before: TimeStamp::from(not_before),
             not_after: TimeStamp::from(not_before + lifetime),

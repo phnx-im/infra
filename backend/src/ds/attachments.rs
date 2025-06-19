@@ -30,8 +30,8 @@ impl Ds {
         _payload: ProvisionAttachmentPayload,
     ) -> Result<Response<ProvisionAttachmentResponse>, ProvisionAttachmentError> {
         let minio_endpoint = "http://localhost:9000";
-        let minio_access_key_id = "minioadmin";
-        let minio_secret_access_key = "minioadmin";
+        let minio_access_key_id = "minioaccesskey";
+        let minio_secret_access_key = "miniosecretkey";
         let minio_region = "eu-west-1";
 
         let credentials = Credentials::new(
@@ -54,7 +54,7 @@ impl Ds {
 
         let client = Client::from_conf(config);
 
-        let expiration = ExpirationData::new(Duration::minutes(5));
+        let expiration = ExpirationData::now(Duration::minutes(5));
         let not_before: DateTime<Utc> = expiration.not_before().into();
         let not_after: DateTime<Utc> = expiration.not_after().into();
         let duration = not_after - not_before;
