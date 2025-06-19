@@ -2,15 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::path::Path;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Context;
 use infer::MatcherType;
 use mimi_content::{
     MimiContent,
-    content_container::{Disposition, HashAlgorithm, NestedPart, NestedPartContent},
+    content_container::{Disposition, HashAlgorithm, NestedPart, NestedPartContent, PartSemantics},
 };
-use phnxcommon::crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey};
+use phnxapiclient::ApiClient;
+use phnxcommon::{
+    credentials::keys::ClientSigningKey,
+    crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
+};
 use uuid::Uuid;
 
 use crate::{
@@ -18,16 +25,165 @@ use crate::{
     clients::{
         CoreUser,
         attachment::{
-            ear::{AttachmentContent, PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
-            persistence::AttachmentRecord,
+            ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
+            persistence::{AttachmentImageRecord, AttachmentRecord},
         },
     },
     groups::Group,
+    utils::image::{ReencodedAttachmentImage, reencode_attachment_image},
 };
 
 mod ear;
-mod image;
 mod persistence;
+
+/// In-memory loaded and processed attachment
+///
+/// If it is an image, it will contain additional image data, like a thumbnail and blurhash.
+struct Attachment {
+    filename: String,
+    content: AttachmentContent,
+    mime: Option<infer::Type>,
+    image_data: Option<AttachmentImageData>,
+}
+
+#[derive(derive_more::From)]
+struct AttachmentContent {
+    bytes: Vec<u8>,
+}
+
+impl AsRef<[u8]> for AttachmentContent {
+    fn as_ref(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+impl Attachment {
+    fn from_file(path: &Path) -> anyhow::Result<Self> {
+        // TODO: Avoid reading the whole file into memory when it is an image.
+        // Instead, it should be re-encoded directly from the file.
+        let content = std::fs::read(path)
+            .with_context(|| format!("Failed to read file at {}", path.display()))?;
+        let mime = infer::get(&content);
+
+        let (content, image_data) = if mime
+            .map(|mime| mime.matcher_type() == MatcherType::Image)
+            .unwrap_or(false)
+        {
+            let ReencodedAttachmentImage {
+                webp_image,
+                image_dimensions: (width, height),
+                webp_thumbnail,
+                blurhash,
+            } = reencode_attachment_image(content)?;
+            let image_data = AttachmentImageData {
+                thumbnail: webp_thumbnail.into(),
+                blurhash,
+                width,
+                height,
+            };
+            (webp_image.into(), Some(image_data))
+        } else {
+            (content.into(), None)
+        };
+
+        let mut filename = PathBuf::from(
+            path.file_name()
+                .unwrap_or_else(|| OsStr::new("attachment.bin")),
+        );
+        if image_data.is_some() {
+            filename.set_extension("webp");
+        }
+
+        Ok(Self {
+            filename: filename.to_string_lossy().to_string(),
+            content,
+            mime,
+            image_data,
+        })
+    }
+
+    fn mime_type(&self) -> &'static str {
+        self.mime
+            .as_ref()
+            .map(|mime| mime.mime_type())
+            .unwrap_or("application/octet-stream")
+    }
+
+    fn to_nested_parts(
+        &self,
+        metadata: &AttachmentMetadata,
+        image_metadata: Option<&AttachmentMetadata>,
+    ) -> Vec<NestedPart> {
+        let attachment = NestedPart {
+            disposition: Disposition::Attachment,
+            language: String::new(),
+            part: NestedPartContent::ExternalPart {
+                content_type: self.mime_type().to_owned(),
+                url: metadata.attachment_url(),
+                expires: 0,
+                size: metadata.size,
+                enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
+                key: metadata.key.clone().into_bytes().to_vec().into(),
+                nonce: metadata.nonce.to_vec().into(),
+                aad: Default::default(),
+                hash_alg: HashAlgorithm::Custom(PHNX_BLAKE3_HASH_ID),
+                content_hash: metadata.content_hash.clone().into(),
+                description: Default::default(),
+                filename: self.filename.clone(),
+            },
+        };
+
+        let thumbnail = self
+            .image_data
+            .as_ref()
+            .zip(image_metadata)
+            .map(|(data, metadata)| data.to_nested_part(metadata));
+
+        let blurhash = self.image_data.as_ref().map(|data| NestedPart {
+            disposition: Disposition::Preview,
+            language: String::new(),
+            part: NestedPartContent::SinglePart {
+                content_type: "text/blurhash".to_owned(),
+                content: data.blurhash.clone().into_bytes().into(),
+            },
+        });
+
+        [Some(attachment), thumbnail, blurhash]
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+}
+
+struct AttachmentImageData {
+    thumbnail: AttachmentContent,
+    blurhash: String,
+    width: u32,
+    height: u32,
+}
+
+impl AttachmentImageData {
+    fn to_nested_part(&self, metadata: &AttachmentMetadata) -> NestedPart {
+        NestedPart {
+            disposition: Disposition::Preview,
+            language: String::new(),
+            part: NestedPartContent::ExternalPart {
+                content_type: "image/webp".to_owned(),
+                url: metadata.attachment_url(),
+                expires: 0,
+                size: metadata.size,
+                enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
+                key: metadata.key.clone().into_bytes().to_vec().into(),
+                nonce: metadata.nonce.to_vec().into(),
+                aad: Default::default(),
+                hash_alg: HashAlgorithm::Custom(PHNX_BLAKE3_HASH_ID),
+                content_hash: metadata.content_hash.clone().into(),
+                description: Default::default(),
+                filename: "thumbnail.webp".to_owned(),
+            },
+        }
+    }
+}
 
 impl CoreUser {
     pub(crate) async fn upload_attachment(
@@ -51,71 +207,71 @@ impl CoreUser {
             })
             .await?;
 
-        // read the file
-        let mime = infer::get_from_path(path)
-            .with_context(|| format!("Failed to read file at {}", path.display()))?;
-        let content = tokio::fs::read(path)
-            .await
-            .with_context(|| format!("Failed to read file at {}", path.display()))?;
-        let content = AttachmentContent(content);
+        // load the attachment data
+        let attachment = Attachment::from_file(path)?;
 
-        // encrypt the file
-        let key = AttachmentEarKey::random()?;
-        let ciphertext: AeadCiphertext = content.encrypt(&key)?.into();
-        let (ciphertext, nonce) = ciphertext.into_parts();
-        let size: u64 = ciphertext
-            .len()
-            .try_into()
-            .context("attachment size overflow")?;
-        let content_hash = blake3::hash(&ciphertext).as_bytes().to_vec();
-
-        // provision and upload encrypted content
+        // encrypt the content and upload the content
         let api_client = self.api_client()?;
-        let response = api_client
-            .ds_provision_attachment(
+        let http_client = self.http_client();
+
+        let attachment_metadata = encrypt_and_upload(
+            &api_client,
+            &http_client,
+            self.signing_key(),
+            &attachment.content,
+            &group,
+        )
+        .await?;
+        let thumbnail_metadata = if let Some(thumbnail) = attachment
+            .image_data
+            .as_ref()
+            .map(|image_data| &image_data.thumbnail)
+        {
+            let metadata = encrypt_and_upload(
+                &api_client,
+                &http_client,
                 self.signing_key(),
-                group.group_state_ear_key(),
-                conversation.group_id(),
-                group.own_index(),
+                thumbnail,
+                &group,
             )
             .await?;
-        let attachment_id: Uuid = response.attachment_id.context("no attachment id")?.into();
-
-        let mut request = self.http_client().put(response.upload_url);
-        for header in response.upload_headers {
-            request = request.header(header.key, header.value);
-        }
-        request.body(ciphertext).send().await?.error_for_status()?;
+            Some(metadata)
+        } else {
+            None
+        };
 
         // store attachment locally
+        let record = AttachmentRecord {
+            attachment_id: attachment_metadata.attachment_id,
+            conversation_id: conversation.id(),
+            content_type: attachment.mime_type().to_owned(),
+        };
+        let image_record = if let Some((image_data, encrypted_metadata)) = attachment
+            .image_data
+            .as_ref()
+            .zip(thumbnail_metadata.as_ref())
+        {
+            Some(AttachmentImageRecord {
+                attachment_id: attachment_metadata.attachment_id,
+                thumbnail_id: encrypted_metadata.attachment_id,
+                blurhash: image_data.blurhash.clone(),
+                width: image_data.width,
+                height: image_data.height,
+            })
+        } else {
+            None
+        };
 
         // Note: Acquire a transaction here to ensure that the attachment will be deleted from the
         // local database in case of an error.
         let mut txn = self.pool().begin().await?;
         let mut notifier = self.store_notifier();
 
-        let filename = path
-            .file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "attachment".to_owned());
-        let content_type = mime
-            .map(|mime| mime.mime_type())
-            .unwrap_or("application/octet-stream");
-
-        let record = AttachmentRecord {
-            attachment_id,
-            conversation_id,
-            content_type: content_type.to_owned(),
-            content: content.0,
-        };
-        record.store(txn.as_mut()).await?;
-
-        if mime
-            .map(|mime| mime.matcher_type() == MatcherType::Image)
-            .unwrap_or(false)
-        {
-            let record = record.calculate_image_record().await?;
-            record.store(txn.as_mut()).await?;
+        record.store(txn.as_mut(), &attachment.content).await?;
+        if let Some((image_data, image_record)) = attachment.image_data.as_ref().zip(image_record) {
+            image_record
+                .store(txn.as_mut(), &image_data.thumbnail)
+                .await?;
         }
 
         // send attachment message
@@ -123,36 +279,9 @@ impl CoreUser {
             nested_part: NestedPart {
                 disposition: Disposition::Attachment,
                 part: NestedPartContent::MultiPart {
-                    part_semantics: mimi_content::content_container::PartSemantics::SingleUnit,
-                    parts: vec![
-                        NestedPart {
-                            disposition: Disposition::Render,
-                            language: String::new(),
-                            part: NestedPartContent::SinglePart {
-                                content_type: "text/markdown".to_owned(),
-                                // Will become an optional message
-                                content: filename.clone().into_bytes().into(),
-                            },
-                        },
-                        NestedPart {
-                            disposition: Disposition::Attachment,
-                            language: String::new(),
-                            part: NestedPartContent::ExternalPart {
-                                content_type: content_type.to_owned(),
-                                url: format!("phnx://attachment/{attachment_id}"),
-                                expires: 0,
-                                size,
-                                enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
-                                key: key.into_bytes().to_vec().into(),
-                                nonce: nonce.to_vec().into(),
-                                aad: Default::default(),
-                                hash_alg: HashAlgorithm::Custom(PHNX_BLAKE3_HASH_ID),
-                                content_hash: content_hash.into(),
-                                description: String::new(),
-                                filename,
-                            },
-                        },
-                    ],
+                    part_semantics: PartSemantics::ProcessAll,
+                    parts: attachment
+                        .to_nested_parts(&attachment_metadata, thumbnail_metadata.as_ref()),
                 },
                 ..Default::default()
             },
@@ -168,4 +297,63 @@ impl CoreUser {
 
         Ok(message)
     }
+}
+
+/// Metadata of an encrypted and uploaded attachment
+struct AttachmentMetadata {
+    attachment_id: Uuid,
+    key: AttachmentEarKey,
+    content_hash: Vec<u8>,
+    size: u64,
+    nonce: [u8; 12],
+}
+
+impl AttachmentMetadata {
+    fn attachment_url(&self) -> String {
+        format!("phnx://attachment/{}", self.attachment_id)
+    }
+}
+
+async fn encrypt_and_upload(
+    api_client: &ApiClient,
+    http_client: &reqwest::Client,
+    signing_key: &ClientSigningKey,
+    content: &AttachmentContent,
+    group: &Group,
+) -> anyhow::Result<AttachmentMetadata> {
+    // encrypt the content
+    let key = AttachmentEarKey::random()?;
+    let ciphertext: AeadCiphertext = content.encrypt(&key)?.into();
+    let (ciphertext, nonce) = ciphertext.into_parts();
+    let size: u64 = ciphertext
+        .len()
+        .try_into()
+        .context("attachment size overflow")?;
+    let content_hash = blake3::hash(&ciphertext).as_bytes().to_vec();
+
+    // provision attachment
+    let response = api_client
+        .ds_provision_attachment(
+            signing_key,
+            group.group_state_ear_key(),
+            group.group_id(),
+            group.own_index(),
+        )
+        .await?;
+    let attachment_id: Uuid = response.attachment_id.context("no attachment id")?.into();
+
+    // upload encrypted content
+    let mut request = http_client.put(response.upload_url);
+    for header in response.upload_headers {
+        request = request.header(header.key, header.value);
+    }
+    request.body(ciphertext).send().await?.error_for_status()?;
+
+    Ok(AttachmentMetadata {
+        attachment_id,
+        key,
+        content_hash,
+        size,
+        nonce,
+    })
 }

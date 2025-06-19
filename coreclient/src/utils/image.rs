@@ -6,8 +6,7 @@ use std::io::Cursor;
 
 use exif::{Exif, Tag};
 use image::{DynamicImage, GenericImageView};
-use tracing::{error, info};
-use webp::WebPMemory;
+use tracing::info;
 
 pub(crate) fn resize_profile_image(mut image_bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     let image = image::load_from_memory(image_bytes)?;
@@ -44,9 +43,10 @@ const ATTACHMENT_THUMBNAIL_WIDTH: u32 = 300;
 const ATTACHMENT_THUMBNAIL_HEIGHT: u32 = 300;
 
 pub(crate) struct ReencodedAttachmentImage {
-    pub(crate) webp_image: WebPMemory,
-    pub(crate) webp_thumbnail: WebPMemory,
-    pub(crate) blurhash: Option<String>,
+    pub(crate) webp_image: Vec<u8>,
+    pub(crate) image_dimensions: (u32, u32),
+    pub(crate) webp_thumbnail: Vec<u8>,
+    pub(crate) blurhash: String,
 }
 
 /// Reencodes the image to WEBP format.
@@ -58,8 +58,9 @@ pub(crate) struct ReencodedAttachmentImage {
 ///
 /// Returns the WebP image bytes and the blurhash of the image.
 pub(crate) fn reencode_attachment_image(
-    mut image_bytes: &[u8],
+    image_bytes: Vec<u8>,
 ) -> anyhow::Result<ReencodedAttachmentImage> {
+    let mut image_bytes = image_bytes.as_slice();
     let image = image::load_from_memory(image_bytes)?;
 
     // Read EXIF data
@@ -80,9 +81,9 @@ pub(crate) fn reencode_attachment_image(
     let webp_image = webp::Encoder::from_rgba(&image_rgba, width, height)
         .encode(ATTACHMENT_IMAGE_QUALITY_PERCENT);
 
-    let blurhash = blurhash::encode(4, 3, width, height, &image_rgba)
-        .inspect_err(|error| error!(%error, "Failed to encode blurhash"))
-        .ok();
+    // `blurhash::encode` can only fail if the compoments dimension is out of range
+    // => We should never get an error here.
+    let blurhash = blurhash::encode(4, 3, width, height, &image_rgba)?;
 
     let thumbnail = image
         .thumbnail(ATTACHMENT_THUMBNAIL_WIDTH, ATTACHMENT_THUMBNAIL_HEIGHT)
@@ -97,9 +98,11 @@ pub(crate) fn reencode_attachment_image(
         "Reencoded attachment image as WebP",
     );
 
+    // Note: We need to convert WebPMemory to Vec here, because the former is not Send.
     Ok(ReencodedAttachmentImage {
-        webp_image,
-        webp_thumbnail,
+        webp_image: webp_image.to_vec(),
+        image_dimensions: (width, height),
+        webp_thumbnail: webp_thumbnail.to_vec(),
         blurhash,
     })
 }
@@ -142,5 +145,5 @@ fn resize(image: DynamicImage) -> DynamicImage {
     let new_width = (width as f32 * scale).round() as u32;
     let new_height = (height as f32 * scale).round() as u32;
 
-    image.resize_exact(new_width, new_height, image::imageops::FilterType::Lanczos3)
+    image.resize(new_width, new_height, image::imageops::FilterType::Lanczos3)
 }

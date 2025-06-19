@@ -4,9 +4,8 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Context, Result, anyhow, bail, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 use chrono::{DateTime, Duration, Utc};
-use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 pub use phnxapiclient::as_api::ListenHandleResponder;

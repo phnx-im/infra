@@ -12,6 +12,8 @@ use phnxcommon::crypto::{
     errors::EncryptionError,
 };
 
+use super::AttachmentContent;
+
 pub(super) const PHNX_ATTACHMENT_ENCRYPTION_ALG: EncryptionAlgorithm =
     EncryptionAlgorithm::Aes256Gcm;
 
@@ -25,8 +27,6 @@ pub struct EncryptedAttachmentCtype;
 
 pub type EncryptedAttachment = Ciphertext<EncryptedAttachmentCtype>;
 
-pub(super) struct AttachmentContent(pub Vec<u8>);
-
 impl GenericSerializable for AttachmentContent {
     type Error = Infallible;
 
@@ -37,7 +37,7 @@ impl GenericSerializable for AttachmentContent {
 
 impl EarEncryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentContent {
     fn encrypt(&self, key: &AttachmentEarKey) -> Result<EncryptedAttachment, EncryptionError> {
-        Ok(key.encrypt(self.0.as_slice())?.into())
+        Ok(key.encrypt(self.as_ref())?.into())
     }
 
     fn encrypt_with_aad<Aad: GenericSerializable>(
@@ -49,7 +49,7 @@ impl EarEncryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentCo
             .serialize()
             .map_err(|_| EncryptionError::SerializationError)?;
         let payload = Payload {
-            msg: self.0.as_slice(),
+            msg: self.as_ref(),
             aad: aad.as_slice(),
         };
         Ok(key.encrypt(payload)?.into())
