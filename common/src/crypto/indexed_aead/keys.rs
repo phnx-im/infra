@@ -7,6 +7,7 @@ use std::marker::PhantomData;
 use crate::{
     LibraryError,
     crypto::{
+        RawKey,
         ear::{
             AEAD_KEY_SIZE, EarDecryptable, EarEncryptable, EarKey,
             keys::{EncryptedUserProfileKey, EncryptedUserProfileKeyCtype, IdentityLinkWrapperKey},
@@ -67,6 +68,19 @@ pub type Key<KT> = TypedSecret<KT, KeySecretType, AEAD_KEY_SIZE>;
 /// An index is derived from the base secret. It is used to identify the key
 /// of the same key type `KT` derived from the same [`BaseSecret`].
 pub type Index<KT> = TypedSecret<KT, IndexSecretType, AEAD_KEY_SIZE>;
+
+impl<KT: RawKey> Key<KT> {
+    pub fn from_bytes(bytes: [u8; AEAD_KEY_SIZE]) -> Self {
+        Self {
+            secret: Secret::from(bytes),
+            _type: PhantomData,
+        }
+    }
+
+    pub fn into_bytes(self) -> [u8; AEAD_KEY_SIZE] {
+        self.secret.into_secret()
+    }
+}
 
 pub trait RawIndex {}
 

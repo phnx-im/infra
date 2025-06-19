@@ -7,6 +7,7 @@
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
 use crate::crypto::{
+    RawKey,
     indexed_aead::keys::{Key, RandomlyGeneratable},
     kdf::{KdfDerivable, keys::RatchetSecret},
 };
@@ -99,3 +100,14 @@ impl EarKey for IdentityLinkWrapperKey {}
 #[derive(Debug)]
 pub struct EncryptedUserProfileKeyCtype;
 pub type EncryptedUserProfileKey = Ciphertext<EncryptedUserProfileKeyCtype>;
+
+#[derive(Debug)]
+pub struct AttachmentEarKeyType;
+
+impl RawKey for AttachmentEarKeyType {}
+
+pub type AttachmentEarKey = Key<AttachmentEarKeyType>;
+
+impl RandomlyGeneratable for AttachmentEarKeyType {}
+
+impl EarKey for AttachmentEarKey {}

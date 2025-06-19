@@ -4,6 +4,11 @@
 
 use prost::Message;
 
+use crate::delivery_service::v1::{
+    GetAttachmentPayload, GetAttachmentRequest, ProvisionAttachmentPayload,
+    ProvisionAttachmentRequest,
+};
+
 use super::v1::{
     CreateGroupPayload, CreateGroupRequest, DeleteGroupPayload, DeleteGroupRequest,
     GroupOperationPayload, GroupOperationRequest, ResyncPayload, ResyncRequest, SelfRemovePayload,
@@ -482,6 +487,110 @@ impl Verifiable for UpdateProfileKeyRequest {
 
     fn label(&self) -> &str {
         UPDATE_PROFILE_KEY_PAYLOAD_LABEL
+    }
+}
+
+const PROVISION_ATTACHMENT_PAYLOAD_LABEL: &str = "ProvisionAttachmentPayload";
+
+impl SignedStruct<ProvisionAttachmentPayload, ClientKeyType> for ProvisionAttachmentRequest {
+    fn from_payload(payload: ProvisionAttachmentPayload, signature: ClientSignature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for ProvisionAttachmentPayload {
+    type SignedOutput = ProvisionAttachmentRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        PROVISION_ATTACHMENT_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<ProvisionAttachmentRequest> for ProvisionAttachmentPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: ProvisionAttachmentRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for ProvisionAttachmentRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        PROVISION_ATTACHMENT_PAYLOAD_LABEL
+    }
+}
+
+const GET_ATTACHMENT_PAYLOAD_LABEL: &str = "GetAttachmentPayload";
+
+impl SignedStruct<GetAttachmentPayload, ClientKeyType> for GetAttachmentRequest {
+    fn from_payload(payload: GetAttachmentPayload, signature: ClientSignature) -> Self {
+        Self {
+            payload: Some(payload),
+            signature: Some(signature.into()),
+        }
+    }
+}
+
+impl Signable for GetAttachmentPayload {
+    type SignedOutput = GetAttachmentRequest;
+
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self.encode_to_vec())
+    }
+
+    fn label(&self) -> &str {
+        GET_ATTACHMENT_PAYLOAD_LABEL
+    }
+}
+
+impl VerifiedStruct<GetAttachmentRequest> for GetAttachmentPayload {
+    type SealingType = private_mod::Seal;
+
+    fn from_verifiable(verifiable: GetAttachmentRequest, _seal: Self::SealingType) -> Self {
+        verifiable.payload.unwrap()
+    }
+}
+
+impl Verifiable for GetAttachmentRequest {
+    fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        Ok(self
+            .payload
+            .as_ref()
+            .ok_or(MissingPayloadError)?
+            .encode_to_vec())
+    }
+
+    fn signature(&self) -> impl AsRef<[u8]> {
+        self.signature
+            .as_ref()
+            .map(|s| s.value.as_slice())
+            .unwrap_or_default()
+    }
+
+    fn label(&self) -> &str {
+        GET_ATTACHMENT_PAYLOAD_LABEL
     }
 }
 

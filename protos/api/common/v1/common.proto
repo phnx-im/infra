@@ -55,3 +55,8 @@ message HpkeCiphertext {
   bytes kem_output = 1;
   bytes ciphertext = 2;
 }
+
+message ExpirationData {
+  Timestamp not_before = 1;
+  Timestamp not_after = 2;
+}

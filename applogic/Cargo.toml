@@ -39,7 +39,7 @@ chrono = { workspace = true }
 jni = "0.21"
 tokio-util = { workspace = true }
 tokio-stream = "0.1.17"
-blake3 = "1.5.5"
+blake3 = { workspace = true }
 bytes = "1.10.0"
 memmap2 = "0.9.5"
 regex = "1.11.1"

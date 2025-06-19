@@ -69,5 +69,7 @@
   "newConnectionDialog_newConnectionDescription": "Enter the Username of the user you want to connect to",
   "newConnectionDialog_usernamePlaceholder": "Username",
   "newConnectionDialog_actionButton": "Connect",
-  "newConnectionDialog_error": "Failed to add user with Username {username}: {error}"
+  "newConnectionDialog_error": "Failed to add user with Username {username}: {error}",
+
+  "composer_error_attachment": "Failed to upload attachment. Please try again."
 }

@@ -13,6 +13,7 @@ use crate::{
     ConversationMessageId,
     conversations::{Conversation, messages::ConversationMessage},
     groups::{Group, openmls_provider::PhnxOpenMlsProvider},
+    utils::image::resize_profile_image,
 };
 
 use super::{ConversationId, CoreUser};
@@ -136,7 +137,8 @@ impl CoreUser {
                 let id = conversation_id.uuid();
                 anyhow!("Can't find conversation with id {id}")
             })?;
-        let resized_picture_option = picture.and_then(|picture| self.resize_image(&picture).ok());
+        let resized_picture_option =
+            picture.and_then(|picture| resize_profile_image(&picture).ok());
         let mut notifier = self.store_notifier();
         conversation
             .set_conversation_picture(&mut *connection, &mut notifier, resized_picture_option)

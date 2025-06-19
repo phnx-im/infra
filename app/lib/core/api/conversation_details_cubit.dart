@@ -61,6 +61,8 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   ConversationDetailsState get state;
 
   Stream<ConversationDetailsState> stream();
+
+  Future<void> uploadAttachment({required String path});
 }
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<UiRoomState>>

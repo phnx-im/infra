@@ -18,6 +18,7 @@ pub use traits::{
 };
 
 use aes_gcm::Aes256Gcm;
+pub use aes_gcm::aead::Payload;
 use serde::{Deserialize, Serialize};
 
 /// This type determines the AEAD scheme used for encryption at rest (EAR) by

@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::infra_service::{InfraService, ServiceCreationError};
 pub use grpc::GrpcDs;
 
+mod attachments;
 mod delete_group;
 mod group_operation;
 pub mod group_state;
