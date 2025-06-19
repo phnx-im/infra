@@ -4613,6 +4613,10 @@ fn wire__crate__api__types__ui_user_handle_validation_error_impl(
 #[allow(clippy::unnecessary_literal_unwrap)]
 const _: fn() = || {
     {
+        let AttachmentId = None::<crate::api::message_content::AttachmentId>.unwrap();
+        let _: uuid::Uuid = AttachmentId.uuid;
+    }
+    {
         let ConversationId = None::<crate::api::types::ConversationId>.unwrap();
         let _: uuid::Uuid = ConversationId.uuid;
     }
@@ -5197,6 +5201,14 @@ impl SseDecode for crate::api::user_cubit::AppState {
     }
 }
 
+impl SseDecode for crate::api::message_content::AttachmentId {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_uuid = <uuid::Uuid>::sse_decode(deserializer);
+        return crate::api::message_content::AttachmentId { uuid: var_uuid };
+    }
+}
+
 impl SseDecode for crate::api::markdown::BlockElement {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5594,6 +5606,20 @@ impl SseDecode for Vec<crate::api::markdown::RangedInlineElement> {
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
             ans_.push(<crate::api::markdown::RangedInlineElement>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::message_content::UiAttachment> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::message_content::UiAttachment>::sse_decode(
                 deserializer,
             ));
         }
@@ -6019,6 +6045,25 @@ impl SseDecode for u8 {
     }
 }
 
+impl SseDecode for crate::api::message_content::UiAttachment {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_attachmentId =
+            <crate::api::message_content::AttachmentId>::sse_decode(deserializer);
+        let mut var_filename = <String>::sse_decode(deserializer);
+        let mut var_contentType = <String>::sse_decode(deserializer);
+        let mut var_blurhash = <Option<String>>::sse_decode(deserializer);
+        let mut var_discription = <Option<String>>::sse_decode(deserializer);
+        return crate::api::message_content::UiAttachment {
+            attachment_id: var_attachmentId,
+            filename: var_filename,
+            content_type: var_contentType,
+            blurhash: var_blurhash,
+            discription: var_discription,
+        };
+    }
+}
+
 impl SseDecode for crate::api::types::UiClientRecord {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6050,7 +6095,8 @@ impl SseDecode for crate::api::types::UiContentMessage {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_sender = <crate::api::types::UiUserId>::sse_decode(deserializer);
         let mut var_sent = <bool>::sse_decode(deserializer);
-        let mut var_content = <crate::api::types::UiMimiContent>::sse_decode(deserializer);
+        let mut var_content =
+            <crate::api::message_content::UiMimiContent>::sse_decode(deserializer);
         return crate::api::types::UiContentMessage {
             sender: var_sender,
             sent: var_sent,
@@ -6234,7 +6280,7 @@ impl SseDecode for crate::api::types::UiMessage {
     }
 }
 
-impl SseDecode for crate::api::types::UiMimiContent {
+impl SseDecode for crate::api::message_content::UiMimiContent {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_replaces = <Option<Vec<u8>>>::sse_decode(deserializer);
@@ -6242,12 +6288,15 @@ impl SseDecode for crate::api::types::UiMimiContent {
         let mut var_inReplyTo = <Option<Vec<u8>>>::sse_decode(deserializer);
         let mut var_plainBody = <String>::sse_decode(deserializer);
         let mut var_content = <crate::api::markdown::MessageContent>::sse_decode(deserializer);
-        return crate::api::types::UiMimiContent {
+        let mut var_attachments =
+            <Vec<crate::api::message_content::UiAttachment>>::sse_decode(deserializer);
+        return crate::api::message_content::UiMimiContent {
             replaces: var_replaces,
             topic_id: var_topicId,
             in_reply_to: var_inReplyTo,
             plain_body: var_plainBody,
             content: var_content,
+            attachments: var_attachments,
         };
     }
 }
@@ -6709,6 +6758,23 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::user_cubit::AppState>
 {
     fn into_into_dart(self) -> crate::api::user_cubit::AppState {
         self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::api::message_content::AttachmentId> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [self.0.uuid.into_into_dart().into_dart()].into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<crate::api::message_content::AttachmentId>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<crate::api::message_content::AttachmentId>>
+    for crate::api::message_content::AttachmentId
+{
+    fn into_into_dart(self) -> FrbWrapper<crate::api::message_content::AttachmentId> {
+        self.into()
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -7248,6 +7314,30 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::RangedInlineElement
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::message_content::UiAttachment {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.attachment_id.into_into_dart().into_dart(),
+            self.filename.into_into_dart().into_dart(),
+            self.content_type.into_into_dart().into_dart(),
+            self.blurhash.into_into_dart().into_dart(),
+            self.discription.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::message_content::UiAttachment
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::message_content::UiAttachment>
+    for crate::api::message_content::UiAttachment
+{
+    fn into_into_dart(self) -> crate::api::message_content::UiAttachment {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::UiClientRecord {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -7540,7 +7630,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMessage>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::types::UiMimiContent {
+impl flutter_rust_bridge::IntoDart for crate::api::message_content::UiMimiContent {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.replaces.into_into_dart().into_dart(),
@@ -7548,18 +7638,19 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::UiMimiContent {
             self.in_reply_to.into_into_dart().into_dart(),
             self.plain_body.into_into_dart().into_dart(),
             self.content.into_into_dart().into_dart(),
+            self.attachments.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::types::UiMimiContent
+    for crate::api::message_content::UiMimiContent
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMimiContent>
-    for crate::api::types::UiMimiContent
+impl flutter_rust_bridge::IntoIntoDart<crate::api::message_content::UiMimiContent>
+    for crate::api::message_content::UiMimiContent
 {
-    fn into_into_dart(self) -> crate::api::types::UiMimiContent {
+    fn into_into_dart(self) -> crate::api::message_content::UiMimiContent {
         self
     }
 }
@@ -8082,6 +8173,13 @@ impl SseEncode for crate::api::user_cubit::AppState {
     }
 }
 
+impl SseEncode for crate::api::message_content::AttachmentId {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <uuid::Uuid>::sse_encode(self.uuid, serializer);
+    }
+}
+
 impl SseEncode for crate::api::markdown::BlockElement {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -8411,6 +8509,16 @@ impl SseEncode for Vec<crate::api::markdown::RangedInlineElement> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::markdown::RangedInlineElement>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::message_content::UiAttachment> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::message_content::UiAttachment>::sse_encode(item, serializer);
         }
     }
 }
@@ -8753,6 +8861,17 @@ impl SseEncode for u8 {
     }
 }
 
+impl SseEncode for crate::api::message_content::UiAttachment {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::api::message_content::AttachmentId>::sse_encode(self.attachment_id, serializer);
+        <String>::sse_encode(self.filename, serializer);
+        <String>::sse_encode(self.content_type, serializer);
+        <Option<String>>::sse_encode(self.blurhash, serializer);
+        <Option<String>>::sse_encode(self.discription, serializer);
+    }
+}
+
 impl SseEncode for crate::api::types::UiClientRecord {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -8775,7 +8894,7 @@ impl SseEncode for crate::api::types::UiContentMessage {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <crate::api::types::UiUserId>::sse_encode(self.sender, serializer);
         <bool>::sse_encode(self.sent, serializer);
-        <crate::api::types::UiMimiContent>::sse_encode(self.content, serializer);
+        <crate::api::message_content::UiMimiContent>::sse_encode(self.content, serializer);
     }
 }
 
@@ -8925,7 +9044,7 @@ impl SseEncode for crate::api::types::UiMessage {
     }
 }
 
-impl SseEncode for crate::api::types::UiMimiContent {
+impl SseEncode for crate::api::message_content::UiMimiContent {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Option<Vec<u8>>>::sse_encode(self.replaces, serializer);
@@ -8933,6 +9052,7 @@ impl SseEncode for crate::api::types::UiMimiContent {
         <Option<Vec<u8>>>::sse_encode(self.in_reply_to, serializer);
         <String>::sse_encode(self.plain_body, serializer);
         <crate::api::markdown::MessageContent>::sse_encode(self.content, serializer);
+        <Vec<crate::api::message_content::UiAttachment>>::sse_encode(self.attachments, serializer);
     }
 }
 

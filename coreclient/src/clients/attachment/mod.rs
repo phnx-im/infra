@@ -36,6 +36,31 @@ use crate::{
 mod ear;
 mod persistence;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct AttachmentId {
+    pub uuid: Uuid,
+}
+
+impl AttachmentId {
+    pub fn new(uuid: Uuid) -> Self {
+        Self { uuid }
+    }
+
+    pub fn url(&self) -> String {
+        format!("phnx://attachment/{}", self.uuid)
+    }
+
+    pub fn from_url(url: &str) -> Option<Self> {
+        let suffix = url.strip_prefix("phnx://attachment/")?;
+        let uuid = suffix.parse().ok()?;
+        Some(Self { uuid })
+    }
+
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
+    }
+}
+
 /// In-memory loaded and processed attachment
 ///
 /// If it is an image, it will contain additional image data, like a thumbnail and blurhash.
@@ -113,7 +138,7 @@ impl Attachment {
             language: String::new(),
             part: NestedPartContent::ExternalPart {
                 content_type: self.mime_type().to_owned(),
-                url: metadata.attachment_url(),
+                url: metadata.attachment_id.url(),
                 expires: 0,
                 size: metadata.size,
                 enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
@@ -186,13 +211,13 @@ impl CoreUser {
 
         // store attachment locally
         let record = AttachmentRecord {
-            attachment_id: attachment_metadata.attachment_id,
+            attachment_id: attachment_metadata.attachment_id.uuid(),
             conversation_id: conversation.id(),
             content_type: attachment.mime_type().to_owned(),
         };
         let image_record = if let Some(image_data) = attachment.image_data.as_ref() {
             Some(AttachmentImageRecord {
-                attachment_id: attachment_metadata.attachment_id,
+                attachment_id: attachment_metadata.attachment_id.uuid(),
                 blurhash: image_data.blurhash.clone(),
                 width: image_data.width,
                 height: image_data.height,
@@ -237,17 +262,11 @@ impl CoreUser {
 
 /// Metadata of an encrypted and uploaded attachment
 struct AttachmentMetadata {
-    attachment_id: Uuid,
+    attachment_id: AttachmentId,
     key: AttachmentEarKey,
     content_hash: Vec<u8>,
     size: u64,
     nonce: [u8; 12],
-}
-
-impl AttachmentMetadata {
-    fn attachment_url(&self) -> String {
-        format!("phnx://attachment/{}", self.attachment_id)
-    }
 }
 
 async fn encrypt_and_upload(
@@ -276,7 +295,8 @@ async fn encrypt_and_upload(
             group.own_index(),
         )
         .await?;
-    let attachment_id: Uuid = response.attachment_id.context("no attachment id")?.into();
+    let attachment_id =
+        AttachmentId::new(response.attachment_id.context("no attachment id")?.into());
 
     // upload encrypted content
     let mut request = http_client.put(response.upload_url);

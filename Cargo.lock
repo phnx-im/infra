@@ -4229,6 +4229,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blake3",
+ "blurhash",
  "bytes",
  "chrono",
  "derive_more 0.99.20",

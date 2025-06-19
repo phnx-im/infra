@@ -8,6 +8,7 @@ import 'package:convert/convert.dart';
 
 import '../frb_generated.dart';
 import 'markdown.dart';
+import 'message_content.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
 import 'types.dart';

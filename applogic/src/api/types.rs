@@ -11,7 +11,6 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::MimiContent;
 pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
@@ -22,7 +21,7 @@ use phnxcoreclient::{
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
 
-use super::markdown::MessageContent;
+use crate::api::message_content::UiMimiContent;
 
 /// Mirror of the [`ConversationId`] type
 #[doc(hidden)]
@@ -242,44 +241,6 @@ impl From<Message> for UiMessage {
             Message::Event(display_message) => {
                 UiMessage::Display(UiEventMessage::from(display_message))
             }
-        }
-    }
-}
-
-/// The actual content of a message
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb(dart_metadata = ("freezed"))]
-pub struct UiMimiContent {
-    pub replaces: Option<Vec<u8>>,
-    pub topic_id: Vec<u8>,
-    pub in_reply_to: Option<Vec<u8>>,
-    pub plain_body: String,
-    pub content: MessageContent,
-}
-
-impl From<MimiContent> for UiMimiContent {
-    fn from(mimi_content: MimiContent) -> Self {
-        let plain_body = match mimi_content.string_rendering() {
-            Ok(plain_body) => plain_body,
-            Err(e) => {
-                return Self {
-                    plain_body: format!("Invalid message: {e}"),
-                    replaces: mimi_content.replaces.map(|v| v.into_vec()),
-                    topic_id: mimi_content.topic_id.into_vec(),
-                    in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
-                    content: MessageContent::error(format!("Invalid message: {e}")),
-                };
-            }
-        };
-
-        let parsed_message = MessageContent::parse_markdown(&plain_body);
-
-        Self {
-            plain_body,
-            replaces: mimi_content.replaces.map(|v| v.into_vec()),
-            topic_id: mimi_content.topic_id.into_vec(),
-            in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
-            content: parsed_message,
         }
     }
 }

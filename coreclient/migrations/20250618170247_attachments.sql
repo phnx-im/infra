@@ -20,3 +20,12 @@ CREATE TABLE IF NOT EXISTS attachment_images (
     height INTEGER NOT NULL,
     FOREIGN KEY (attachment_id) REFERENCES attachments (attachment_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS attachment_thumbnails (
+    attachment_id BLOB PRIMARY KEY,
+    content_type TEXT NOT NULL,
+    content BLOB NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    FOREIGN KEY (attachment_id) REFERENCES attachments (attachment_id) ON DELETE CASCADE
+);

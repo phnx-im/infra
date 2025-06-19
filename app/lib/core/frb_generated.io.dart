@@ -10,6 +10,7 @@ import 'api/conversation_details_cubit.dart';
 import 'api/conversation_list_cubit.dart';
 import 'api/logging.dart';
 import 'api/markdown.dart';
+import 'api/message_content.dart';
 import 'api/message_cubit.dart';
 import 'api/message_list_cubit.dart';
 import 'api/navigation_cubit.dart';
@@ -460,6 +461,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppState dco_decode_app_state(dynamic raw);
 
   @protected
+  AttachmentId dco_decode_attachment_id(dynamic raw);
+
+  @protected
   BlockElement dco_decode_block_element(dynamic raw);
 
   @protected
@@ -617,6 +621,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RangedInlineElement> dco_decode_list_ranged_inline_element(dynamic raw);
 
   @protected
+  List<UiAttachment> dco_decode_list_ui_attachment(dynamic raw);
+
+  @protected
   List<UiClientRecord> dco_decode_list_ui_client_record(dynamic raw);
 
   @protected
@@ -731,6 +738,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int dco_decode_u_8(dynamic raw);
+
+  @protected
+  UiAttachment dco_decode_ui_attachment(dynamic raw);
 
   @protected
   UiClientRecord dco_decode_ui_client_record(dynamic raw);
@@ -1156,6 +1166,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppState sse_decode_app_state(SseDeserializer deserializer);
 
   @protected
+  AttachmentId sse_decode_attachment_id(SseDeserializer deserializer);
+
+  @protected
   BlockElement sse_decode_block_element(SseDeserializer deserializer);
 
   @protected
@@ -1357,6 +1370,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<UiAttachment> sse_decode_list_ui_attachment(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<UiClientRecord> sse_decode_list_ui_client_record(
     SseDeserializer deserializer,
   );
@@ -1491,6 +1509,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
+
+  @protected
+  UiAttachment sse_decode_ui_attachment(SseDeserializer deserializer);
 
   @protected
   UiClientRecord sse_decode_ui_client_record(SseDeserializer deserializer);
@@ -2009,6 +2030,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_app_state(AppState self, SseSerializer serializer);
 
   @protected
+  void sse_encode_attachment_id(AttachmentId self, SseSerializer serializer);
+
+  @protected
   void sse_encode_block_element(BlockElement self, SseSerializer serializer);
 
   @protected
@@ -2257,6 +2281,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_ui_attachment(
+    List<UiAttachment> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_ui_client_record(
     List<UiClientRecord> self,
     SseSerializer serializer,
@@ -2434,6 +2464,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ui_attachment(UiAttachment self, SseSerializer serializer);
 
   @protected
   void sse_encode_ui_client_record(

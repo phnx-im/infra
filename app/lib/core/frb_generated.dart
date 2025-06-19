@@ -10,6 +10,7 @@ import 'api/conversation_details_cubit.dart';
 import 'api/conversation_list_cubit.dart';
 import 'api/logging.dart';
 import 'api/markdown.dart';
+import 'api/message_content.dart';
 import 'api/message_cubit.dart';
 import 'api/message_list_cubit.dart';
 import 'api/navigation_cubit.dart';
@@ -4804,6 +4805,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AttachmentId dco_decode_attachment_id(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return AttachmentId(uuid: dco_decode_Uuid(arr[0]));
+  }
+
+  @protected
   BlockElement dco_decode_block_element(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     switch (raw[0]) {
@@ -5229,6 +5239,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<UiAttachment> dco_decode_list_ui_attachment(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_ui_attachment).toList();
+  }
+
+  @protected
   List<UiClientRecord> dco_decode_list_ui_client_record(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_ui_client_record).toList();
@@ -5534,6 +5550,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiAttachment dco_decode_ui_attachment(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return UiAttachment(
+      attachmentId: dco_decode_attachment_id(arr[0]),
+      filename: dco_decode_String(arr[1]),
+      contentType: dco_decode_String(arr[2]),
+      blurhash: dco_decode_opt_String(arr[3]),
+      discription: dco_decode_opt_String(arr[4]),
+    );
+  }
+
+  @protected
   UiClientRecord dco_decode_ui_client_record(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -5710,14 +5741,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiMimiContent dco_decode_ui_mimi_content(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return UiMimiContent(
       replaces: dco_decode_opt_list_prim_u_8_strict(arr[0]),
       topicId: dco_decode_list_prim_u_8_strict(arr[1]),
       inReplyTo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
       plainBody: dco_decode_String(arr[3]),
       content: dco_decode_message_content(arr[4]),
+      attachments: dco_decode_list_ui_attachment(arr[5]),
     );
   }
 
@@ -6499,6 +6531,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AttachmentId sse_decode_attachment_id(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_uuid = sse_decode_Uuid(deserializer);
+    return AttachmentId(uuid: var_uuid);
+  }
+
+  @protected
   BlockElement sse_decode_block_element(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -7016,6 +7055,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<UiAttachment> sse_decode_list_ui_attachment(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <UiAttachment>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_ui_attachment(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<UiClientRecord> sse_decode_list_ui_client_record(
     SseDeserializer deserializer,
   ) {
@@ -7426,6 +7479,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiAttachment sse_decode_ui_attachment(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_attachmentId = sse_decode_attachment_id(deserializer);
+    var var_filename = sse_decode_String(deserializer);
+    var var_contentType = sse_decode_String(deserializer);
+    var var_blurhash = sse_decode_opt_String(deserializer);
+    var var_discription = sse_decode_opt_String(deserializer);
+    return UiAttachment(
+      attachmentId: var_attachmentId,
+      filename: var_filename,
+      contentType: var_contentType,
+      blurhash: var_blurhash,
+      discription: var_discription,
+    );
+  }
+
+  @protected
   UiClientRecord sse_decode_ui_client_record(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_userId = sse_decode_ui_user_id(deserializer);
@@ -7622,12 +7692,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_inReplyTo = sse_decode_opt_list_prim_u_8_strict(deserializer);
     var var_plainBody = sse_decode_String(deserializer);
     var var_content = sse_decode_message_content(deserializer);
+    var var_attachments = sse_decode_list_ui_attachment(deserializer);
     return UiMimiContent(
       replaces: var_replaces,
       topicId: var_topicId,
       inReplyTo: var_inReplyTo,
       plainBody: var_plainBody,
       content: var_content,
+      attachments: var_attachments,
     );
   }
 
@@ -8590,6 +8662,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_attachment_id(AttachmentId self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_Uuid(self.uuid, serializer);
+  }
+
+  @protected
   void sse_encode_block_element(BlockElement self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     switch (self) {
@@ -9099,6 +9177,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_ui_attachment(
+    List<UiAttachment> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_ui_attachment(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_ui_client_record(
     List<UiClientRecord> self,
     SseSerializer serializer,
@@ -9480,6 +9570,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_ui_attachment(UiAttachment self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_attachment_id(self.attachmentId, serializer);
+    sse_encode_String(self.filename, serializer);
+    sse_encode_String(self.contentType, serializer);
+    sse_encode_opt_String(self.blurhash, serializer);
+    sse_encode_opt_String(self.discription, serializer);
+  }
+
+  @protected
   void sse_encode_ui_client_record(
     UiClientRecord self,
     SseSerializer serializer,
@@ -9650,6 +9750,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_list_prim_u_8_strict(self.inReplyTo, serializer);
     sse_encode_String(self.plainBody, serializer);
     sse_encode_message_content(self.content, serializer);
+    sse_encode_list_ui_attachment(self.attachments, serializer);
   }
 
   @protected
