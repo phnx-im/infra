@@ -353,7 +353,7 @@ mod tests {
         let hash = ConnectionPackageHash::random();
         let cep = cep_payload
             .clone()
-            .sign(&client_sk, user_handle.clone(), hash.clone())
+            .sign(&client_sk, user_handle.clone(), hash)
             .unwrap();
         let cep_in =
             ConnectionOfferIn::tls_deserialize_exact_bytes(&cep.tls_serialize_detached().unwrap())
