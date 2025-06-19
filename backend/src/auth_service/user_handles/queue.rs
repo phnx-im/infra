@@ -375,7 +375,7 @@ mod test {
                 kem_output: b"kem_output".to_vec(),
                 ciphertext: payload_str.as_bytes().to_vec(),
             }),
-            connection_package_hash: vec![1; 32].into(),
+            connection_package_hash: vec![1; 32],
         })
     }
 
