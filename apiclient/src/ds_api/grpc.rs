@@ -28,7 +28,8 @@ use phnxprotos::{
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
         ExternalCommitInfoRequest, GroupOperationPayload, JoinConnectionGroupRequest,
-        RequestGroupIdRequest, ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
+        ProvisionAttachmentPayload, ProvisionAttachmentResponse, RequestGroupIdRequest,
+        ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
         UpdateProfileKeyPayload, WelcomeInfoPayload,
         delivery_service_client::DeliveryServiceClient,
     },
@@ -399,5 +400,28 @@ impl DsGrpcClient {
         let request = payload.sign(signing_key)?;
         self.client.clone().update_profile_key(request).await?;
         Ok(())
+    }
+
+    pub(crate) async fn provision_attachment(
+        &self,
+        signing_key: &ClientSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+        group_id: &GroupId,
+        sender_index: LeafNodeIndex,
+    ) -> Result<ProvisionAttachmentResponse, DsRequestError> {
+        let gqid: QualifiedGroupId = group_id.try_into()?;
+        let payload = ProvisionAttachmentPayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            group_id: Some(gqid.ref_into()),
+            sender: Some(sender_index.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .client
+            .clone()
+            .provision_attachment(request)
+            .await?
+            .into_inner();
+        Ok(response)
     }
 }

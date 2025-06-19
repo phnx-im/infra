@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use chrono::{DateTime, Duration, Utc};
 use exif::{Reader, Tag};
 use openmls::prelude::Ciphersuite;
@@ -47,8 +47,11 @@ use tracing::{error, info};
 use url::Url;
 
 use crate::{
-    Asset, contacts::HandleContact, groups::Group, store::Store,
-    utils::persistence::delete_client_database,
+    Asset,
+    contacts::HandleContact,
+    groups::Group,
+    store::Store,
+    utils::{image::resize_profile_image, persistence::delete_client_database},
 };
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
@@ -71,6 +74,7 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 
 mod add_contact;
 pub(crate) mod api_clients;
+mod attachment;
 pub(crate) mod connection_offer;
 pub mod conversations;
 mod create_user;
@@ -102,6 +106,7 @@ pub struct CoreUser {
 struct CoreUserInner {
     pool: SqlitePool,
     api_clients: ApiClients,
+    http_client: reqwest::Client,
     _qs_user_id: QsUserId,
     qs_client_id: QsClientId,
     key_store: MemoryUserKeyStore,
@@ -252,6 +257,10 @@ impl CoreUser {
         Ok(self.inner.api_clients.default_client()?)
     }
 
+    pub(crate) fn http_client(&self) -> reqwest::Client {
+        self.inner.http_client.clone()
+    }
+
     pub(crate) fn key_store(&self) -> &MemoryUserKeyStore {
         &self.inner.key_store
     }
@@ -301,64 +310,18 @@ impl CoreUser {
     }
 
     pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<UserProfile> {
-        if &user_profile.user_id != self.user_id() {
-            bail!("Can't set user profile for users other than the current user.",);
-        }
+        ensure!(
+            &user_profile.user_id == self.user_id(),
+            "Can't set user profile for users other than the current user"
+        );
         if let Some(profile_picture) = user_profile.profile_picture {
             let new_image = match profile_picture {
-                Asset::Value(image_bytes) => self.resize_image(&image_bytes)?,
+                Asset::Value(image_bytes) => resize_profile_image(&image_bytes)?,
             };
             user_profile.profile_picture = Some(Asset::Value(new_image));
         }
         self.update_user_profile(user_profile.clone()).await?;
         Ok(user_profile)
-    }
-
-    fn resize_image(&self, mut image_bytes: &[u8]) -> Result<Vec<u8>> {
-        let image = image::load_from_memory(image_bytes)?;
-
-        // Read EXIF data
-        let exif_reader = Reader::new();
-        let mut image_bytes_cursor = std::io::Cursor::new(&mut image_bytes);
-        let exif = exif_reader
-            .read_from_container(&mut image_bytes_cursor)
-            .ok();
-
-        // Resize the image
-        let image = image.resize(256, 256, image::imageops::FilterType::Nearest);
-
-        // Rotate/flip the image according to the orientation if necessary
-        let image = if let Some(exif) = exif {
-            let orientation = exif
-                .get_field(Tag::Orientation, exif::In::PRIMARY)
-                .and_then(|field| field.value.get_uint(0))
-                .unwrap_or(1);
-            match orientation {
-                1 => image,
-                2 => image.fliph(),
-                3 => image.rotate180(),
-                4 => image.flipv(),
-                5 => image.rotate90().fliph(),
-                6 => image.rotate90(),
-                7 => image.rotate270().fliph(),
-                8 => image.rotate270(),
-                _ => image,
-            }
-        } else {
-            image
-        };
-
-        // Save the resized image
-        let mut buf = Vec::new();
-        let mut cursor = std::io::Cursor::new(&mut buf);
-        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 90);
-        encoder.encode_image(&image)?;
-        info!(
-            from_bytes = image_bytes.len(),
-            to_bytes = buf.len(),
-            "Resized profile picture",
-        );
-        Ok(buf)
     }
 
     /// Get the user profile of the user with the given [`AsClientId`].

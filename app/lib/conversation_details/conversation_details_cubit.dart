@@ -43,6 +43,8 @@ class ConversationDetailsCubit
   void sendMessage(String messageText) =>
       _impl.sendMessage(messageText: messageText);
 
+  void uploadAttachment(String path) => _impl.uploadAttachment(path: path);
+
   Future<void> markAsRead({
     required ConversationMessageId untilMessageId,
     required DateTime untilTimestamp,

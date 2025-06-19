@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
 use std::sync::Arc;
+use std::{collections::HashSet, path::Path};
 
 use mimi_room_policy::VerifiedRoomState;
 use phnxcommon::identifiers::{UserHandle, UserId};
@@ -194,6 +194,12 @@ pub trait Store {
         &self,
         conversation_id: ConversationId,
         content: mimi_content::MimiContent,
+    ) -> StoreResult<ConversationMessage>;
+
+    async fn upload_attachment(
+        &self,
+        conversation_id: ConversationId,
+        path: &Path,
     ) -> StoreResult<ConversationMessage>;
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;

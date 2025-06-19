@@ -35,6 +35,20 @@ service DeliveryService {
   rpc GroupOperation(GroupOperationRequest) returns (GroupOperationResponse);
 
   rpc UpdateProfileKey(UpdateProfileKeyRequest) returns (UpdateProfileKeyResponse);
+
+  // Generates an attachment ID and returns a pre-signed URL for uploading an attachment.
+  //
+  // The actual upload is done by the client.
+  //
+  // Note: An attachment is always provisioned relative to a specific group.
+  rpc ProvisionAttachment(ProvisionAttachmentRequest) returns (ProvisionAttachmentResponse);
+
+  // Returns a URL for downloading attachment.
+  //
+  // The actual download is done by the client.
+  //
+  // Note: An attachment is always retrieved relative to a specific group.
+  rpc GetAttachment(GetAttachmentRequest) returns (GetAttachmentResponse);
 }
 
 // common messages
@@ -298,3 +312,47 @@ message UpdateProfileKeyPayload {
 }
 
 message UpdateProfileKeyResponse {}
+
+// provision attachment
+
+message ProvisionAttachmentRequest {
+  ProvisionAttachmentPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message ProvisionAttachmentPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  common.v1.QualifiedGroupId group_id = 2;
+  LeafNodeIndex sender = 3;
+}
+
+message ProvisionAttachmentResponse {
+  common.v1.Uuid attachment_id = 1;
+  common.v1.ExpirationData upload_url_expiration = 2;
+  string upload_url = 4; // non-empty
+  repeated HeaderEntry upload_headers = 5; // can be empty
+}
+
+message HeaderEntry {
+  string key = 1;
+  string value = 2;
+}
+
+// get attachment
+
+message GetAttachmentRequest {
+  GetAttachmentPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message GetAttachmentPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  common.v1.QualifiedGroupId group_id = 2;
+  LeafNodeIndex sender = 3;
+  common.v1.Uuid attachment_id = 4;
+}
+
+message GetAttachmentResponse {
+  string download_url = 1;
+  common.v1.ExpirationData expiration = 2;
+}

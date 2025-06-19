@@ -193,4 +193,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String newConnectionDialog_error(Object error, Object username) {
     return 'Failed to add user with Username $username: $error';
   }
+
+  @override
+  String get composer_error_attachment =>
+      'Failed to upload attachment. Please try again.';
 }

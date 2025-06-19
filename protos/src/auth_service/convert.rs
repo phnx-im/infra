@@ -8,13 +8,15 @@ use phnxcommon::{
     credentials::{self, keys},
     crypto, identifiers,
     messages::{self, client_as},
-    time,
 };
 use thiserror::Error;
 use tonic::Status;
 
 use crate::{
-    common::{convert::InvalidIndexedCiphertext, v1::Signature},
+    common::{
+        convert::{ExpirationDataError, InvalidIndexedCiphertext},
+        v1::Signature,
+    },
     convert::TryRefInto,
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -24,8 +26,8 @@ use super::v1::{
     AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
-    CredentialFingerprint, EncryptedConnectionOffer, EncryptedUserProfile, ExpirationData,
-    HandleSignature, HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
+    CredentialFingerprint, EncryptedConnectionOffer, EncryptedUserProfile, HandleSignature,
+    HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -176,32 +178,6 @@ impl TryFrom<MlsInfraVersion> for messages::MlsInfraVersion {
         match value.version {
             0 => Ok(messages::MlsInfraVersion::Alpha),
             _ => Err(UnsupportedMlsVersion(value.version)),
-        }
-    }
-}
-
-impl TryFrom<ExpirationData> for time::ExpirationData {
-    type Error = ExpirationDataError;
-
-    fn try_from(value: ExpirationData) -> Result<Self, Self::Error> {
-        Ok(Self::from_parts(
-            value.not_before.ok_or_missing_field("not_before")?.into(),
-            value.not_after.ok_or_missing_field("not_after")?.into(),
-        ))
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ExpirationDataError {
-    #[error(transparent)]
-    MissingField(#[from] MissingFieldError<&'static str>),
-}
-
-impl From<time::ExpirationData> for ExpirationData {
-    fn from(value: time::ExpirationData) -> Self {
-        Self {
-            not_before: Some(value.not_before().into()),
-            not_after: Some(value.not_after().into()),
         }
     }
 }

@@ -758,7 +758,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         let verifying_key: LeafVerifyingKeyRef = group_state
             .group()
             .leaf(sender_index)
-            .ok_or(Status::invalid_argument("unknown sender"))?
+            .ok_or_else(|| Status::invalid_argument("unknown sender"))?
             .signature_key()
             .into();
         let payload: UpdateProfileKeyPayload =
@@ -797,6 +797,68 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         }
 
         Ok(Response::new(UpdateProfileKeyResponse {}))
+    }
+
+    async fn provision_attachment(
+        &self,
+        request: Request<ProvisionAttachmentRequest>,
+    ) -> Result<Response<ProvisionAttachmentResponse>, Status> {
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+
+        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
+
+        let ear_key = request.ear_key()?;
+        let qgid = payload.validated_qgid(self.ds.own_domain())?;
+        let sender_index = payload.sender.ok_or_missing_field("sender")?.into();
+
+        let (_group_data, group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        // verify signature
+        let verifying_key: LeafVerifyingKeyRef = group_state
+            .group()
+            .leaf(sender_index)
+            .ok_or_else(|| Status::invalid_argument("unknown sender"))?
+            .signature_key()
+            .into();
+        let payload = request.verify(verifying_key).map_err(InvalidSignature)?;
+
+        Ok(self.ds.provision_attachment(payload).await?)
+    }
+
+    async fn get_attachment(
+        &self,
+        request: Request<GetAttachmentRequest>,
+    ) -> Result<Response<GetAttachmentResponse>, Status> {
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+
+        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
+
+        let ear_key = request.ear_key()?;
+        let qgid = payload.validated_qgid(self.ds.own_domain())?;
+        let sender_index = payload.sender.ok_or_missing_field("sender")?.into();
+
+        let (_group_data, group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        // verify signature
+        let verifying_key: LeafVerifyingKeyRef = group_state
+            .group()
+            .leaf(sender_index)
+            .ok_or_else(|| Status::invalid_argument("unknown sender"))?
+            .signature_key()
+            .into();
+        let payload = request.verify(verifying_key).map_err(InvalidSignature)?;
+
+        self.ds.get_attachment(payload).await
     }
 }
 
@@ -890,6 +952,26 @@ impl WithQualifiedGroupId for UpdateProfileKeyPayload {
     }
 }
 
+impl WithQualifiedGroupId for ProvisionAttachmentPayload {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status> {
+        self.group_id
+            .as_ref()
+            .ok_or_missing_field("group_id")?
+            .try_ref_into()
+            .map_err(From::from)
+    }
+}
+
+impl WithQualifiedGroupId for GetAttachmentPayload {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status> {
+        self.group_id
+            .as_ref()
+            .ok_or_missing_field("group_id")?
+            .try_ref_into()
+            .map_err(From::from)
+    }
+}
+
 /// Protobuf containing a group state ear key
 trait WithGroupStateEarKey {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
@@ -952,6 +1034,18 @@ impl WithGroupStateEarKey for ResyncRequest {
 }
 
 impl WithGroupStateEarKey for UpdateProfileKeyRequest {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
+impl WithGroupStateEarKey for ProvisionAttachmentRequest {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
+impl WithGroupStateEarKey for GetAttachmentRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.payload.as_ref()?.group_state_ear_key.as_ref()
     }
