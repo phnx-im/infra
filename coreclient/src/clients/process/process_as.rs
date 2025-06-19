@@ -152,9 +152,9 @@ impl CoreUser {
         user_handle: UserHandle,
     ) -> Result<ConnectionOfferPayload> {
         // TODO: Fetch the right key based on the hash in the ConnectionOfferMessage.
-        let (ecep, hash) = com.into_parts();
+        let (eco, hash) = com.into_parts();
         let cep_in = ConnectionOfferIn::decrypt(
-            ecep,
+            eco,
             &self.inner.key_store.connection_decryption_key,
             &[],
             &[],
