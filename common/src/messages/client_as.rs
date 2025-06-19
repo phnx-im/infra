@@ -8,6 +8,7 @@ use mls_assist::{
     openmls_traits::{crypto::OpenMlsCrypto, types::HpkeCiphertext},
 };
 
+use thiserror::Error;
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use serde::{Deserialize, Serialize};
@@ -65,27 +66,36 @@ impl ConnectionPackageTbs {
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
 )]
 #[serde(transparent)]
-pub struct ConnectionPackageHash(Vec<u8>);
+pub struct ConnectionPackageHash([u8; 32]);
 
-impl From<Vec<u8>> for ConnectionPackageHash {
-    fn from(value: Vec<u8>) -> Self {
-        debug_assert_eq!(value.len(), 32);
-        Self(value)
+#[derive(Debug, Error)]
+pub enum ConnectionPackageHashError {
+    #[error("Invalid length: expected 32 bytes, got {actual} bytes")]
+    InvalidLength { actual: usize },
+}
+
+impl TryFrom<Vec<u8>> for ConnectionPackageHash {
+    type Error = ConnectionPackageHashError;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        let value_len = value.len();
+        let array = value
+            .try_into()
+            .map_err(|_| ConnectionPackageHashError::InvalidLength { actual: value_len })?;
+        Ok(Self(array))
     }
 }
 
-impl From<ConnectionPackageHash> for Vec<u8> {
-    fn from(value: ConnectionPackageHash) -> Self {
-        value.0
-    }
-}
-
-#[cfg(feature = "test_utils")]
 impl ConnectionPackageHash {
+    pub fn to_bytes(self) -> [u8; 32] {
+        self.0
+    }
+
+    #[cfg(feature = "test_utils")]
     pub fn random() -> Self {
         use rand::RngCore;
 
-        let mut bytes = vec![0u8; 32];
+        let mut bytes = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut bytes);
         Self(bytes)
     }
@@ -123,9 +133,12 @@ impl ConnectionPackage {
         let payload = self.tls_serialize_detached().unwrap_or_default();
         debug_assert!(!payload.is_empty());
         let input = [b"Connection Package".to_vec(), payload].concat();
-        let value = rust_crypto
+        let value: [u8; 32] = rust_crypto
             .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .try_into()
+            // Output length of `hash` is always 32 bytes
+            .unwrap();
         debug_assert!(!value.is_empty());
         ConnectionPackageHash(value)
     }

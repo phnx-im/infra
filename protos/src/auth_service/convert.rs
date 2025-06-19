@@ -9,7 +9,7 @@ use phnxcommon::{
     crypto, identifiers,
     messages::{
         self,
-        client_as::{self},
+        client_as::{self, ConnectionPackageHashError},
     },
     time,
 };
@@ -658,17 +658,25 @@ impl From<client_as::ConnectionOfferMessage> for ConnectionOfferMessage {
         let ciphertext: HpkeCiphertext = ciphertext.as_ref().clone();
         Self {
             ciphertext: Some(ciphertext.into()),
-            connection_package_hash: connection_package_hash.into(),
+            connection_package_hash: connection_package_hash.to_bytes().to_vec(),
         }
     }
 }
 
+#[derive(Debug, thiserror::Error, Display)]
+pub enum ConnectionOfferMessageError {
+    /// Missing ciphertext field
+    MissingCiphertext(#[from] MissingFieldError<&'static str>),
+    /// Invalid connection package hash
+    InvalidConnectionPackageHash(#[from] ConnectionPackageHashError),
+}
+
 impl TryFrom<ConnectionOfferMessage> for client_as::ConnectionOfferMessage {
-    type Error = MissingFieldError<&'static str>;
+    type Error = ConnectionOfferMessageError;
 
     fn try_from(proto: ConnectionOfferMessage) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
-        let connection_package_hash = proto.connection_package_hash.into();
+        let connection_package_hash = proto.connection_package_hash.try_into()?;
         Ok(Self::new(connection_package_hash, ciphertext.into()))
     }
 }
