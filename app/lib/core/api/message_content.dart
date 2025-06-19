@@ -36,39 +36,15 @@ class AttachmentId {
           uuid == other.uuid;
 }
 
-class UiAttachment {
-  final AttachmentId attachmentId;
-  final String filename;
-  final String contentType;
-  final String? blurhash;
-  final String? discription;
-
-  const UiAttachment({
-    required this.attachmentId,
-    required this.filename,
-    required this.contentType,
-    this.blurhash,
-    this.discription,
-  });
-
-  @override
-  int get hashCode =>
-      attachmentId.hashCode ^
-      filename.hashCode ^
-      contentType.hashCode ^
-      blurhash.hashCode ^
-      discription.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiAttachment &&
-          runtimeType == other.runtimeType &&
-          attachmentId == other.attachmentId &&
-          filename == other.filename &&
-          contentType == other.contentType &&
-          blurhash == other.blurhash &&
-          discription == other.discription;
+@freezed
+sealed class UiAttachment with _$UiAttachment {
+  const factory UiAttachment({
+    required AttachmentId attachmentId,
+    required String filename,
+    required String contentType,
+    String? blurhash,
+    String? discription,
+  }) = _UiAttachment;
 }
 
 /// The actual content of a message

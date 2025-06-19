@@ -13,6 +13,145 @@ part of 'message_content.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
+mixin _$UiAttachment {
+
+ AttachmentId get attachmentId; String get filename; String get contentType; String? get blurhash; String? get discription;
+/// Create a copy of UiAttachment
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$UiAttachmentCopyWith<UiAttachment> get copyWith => _$UiAttachmentCopyWithImpl<UiAttachment>(this as UiAttachment, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiAttachment&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.blurhash, blurhash) || other.blurhash == blurhash)&&(identical(other.discription, discription) || other.discription == discription));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,attachmentId,filename,contentType,blurhash,discription);
+
+@override
+String toString() {
+  return 'UiAttachment(attachmentId: $attachmentId, filename: $filename, contentType: $contentType, blurhash: $blurhash, discription: $discription)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $UiAttachmentCopyWith<$Res>  {
+  factory $UiAttachmentCopyWith(UiAttachment value, $Res Function(UiAttachment) _then) = _$UiAttachmentCopyWithImpl;
+@useResult
+$Res call({
+ AttachmentId attachmentId, String filename, String contentType, String? blurhash, String? discription
+});
+
+
+
+
+}
+/// @nodoc
+class _$UiAttachmentCopyWithImpl<$Res>
+    implements $UiAttachmentCopyWith<$Res> {
+  _$UiAttachmentCopyWithImpl(this._self, this._then);
+
+  final UiAttachment _self;
+  final $Res Function(UiAttachment) _then;
+
+/// Create a copy of UiAttachment
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? attachmentId = null,Object? filename = null,Object? contentType = null,Object? blurhash = freezed,Object? discription = freezed,}) {
+  return _then(_self.copyWith(
+attachmentId: null == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
+as AttachmentId,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
+as String,contentType: null == contentType ? _self.contentType : contentType // ignore: cast_nullable_to_non_nullable
+as String,blurhash: freezed == blurhash ? _self.blurhash : blurhash // ignore: cast_nullable_to_non_nullable
+as String?,discription: freezed == discription ? _self.discription : discription // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+}
+
+
+/// @nodoc
+
+
+class _UiAttachment implements UiAttachment {
+  const _UiAttachment({required this.attachmentId, required this.filename, required this.contentType, this.blurhash, this.discription});
+  
+
+@override final  AttachmentId attachmentId;
+@override final  String filename;
+@override final  String contentType;
+@override final  String? blurhash;
+@override final  String? discription;
+
+/// Create a copy of UiAttachment
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UiAttachmentCopyWith<_UiAttachment> get copyWith => __$UiAttachmentCopyWithImpl<_UiAttachment>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiAttachment&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.blurhash, blurhash) || other.blurhash == blurhash)&&(identical(other.discription, discription) || other.discription == discription));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,attachmentId,filename,contentType,blurhash,discription);
+
+@override
+String toString() {
+  return 'UiAttachment(attachmentId: $attachmentId, filename: $filename, contentType: $contentType, blurhash: $blurhash, discription: $discription)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$UiAttachmentCopyWith<$Res> implements $UiAttachmentCopyWith<$Res> {
+  factory _$UiAttachmentCopyWith(_UiAttachment value, $Res Function(_UiAttachment) _then) = __$UiAttachmentCopyWithImpl;
+@override @useResult
+$Res call({
+ AttachmentId attachmentId, String filename, String contentType, String? blurhash, String? discription
+});
+
+
+
+
+}
+/// @nodoc
+class __$UiAttachmentCopyWithImpl<$Res>
+    implements _$UiAttachmentCopyWith<$Res> {
+  __$UiAttachmentCopyWithImpl(this._self, this._then);
+
+  final _UiAttachment _self;
+  final $Res Function(_UiAttachment) _then;
+
+/// Create a copy of UiAttachment
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? attachmentId = null,Object? filename = null,Object? contentType = null,Object? blurhash = freezed,Object? discription = freezed,}) {
+  return _then(_UiAttachment(
+attachmentId: null == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
+as AttachmentId,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
+as String,contentType: null == contentType ? _self.contentType : contentType // ignore: cast_nullable_to_non_nullable
+as String,blurhash: freezed == blurhash ? _self.blurhash : blurhash // ignore: cast_nullable_to_non_nullable
+as String?,discription: freezed == discription ? _self.discription : discription // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$UiMimiContent {
 
  Uint8List? get replaces; Uint8List get topicId; Uint8List? get inReplyTo; String get plainBody; MessageContent get content; List<UiAttachment> get attachments;

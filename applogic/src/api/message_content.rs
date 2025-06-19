@@ -37,6 +37,7 @@ pub struct UiMimiContent {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub struct UiAttachment {
     pub attachment_id: AttachmentId,
     pub filename: String,
