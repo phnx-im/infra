@@ -10,8 +10,11 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    clients::CoreUser, contacts::HandleContact, user_handles::UserHandleRecord,
+    AttachmentId, Contact, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId,
+    clients::{CoreUser, attachment::AttachmentRecord},
+    contacts::HandleContact,
+    user_handles::UserHandleRecord,
     user_profiles::UserProfile,
 };
 
@@ -210,6 +213,18 @@ impl Store for CoreUser {
         path: &Path,
     ) -> StoreResult<ConversationMessage> {
         self.upload_attachment(conversation_id, path).await
+    }
+
+    async fn download_attachment(&self, attachment_id: AttachmentId) -> StoreResult<()> {
+        self.download_attachment(attachment_id).await
+    }
+
+    async fn pending_attachments(&self) -> StoreResult<Vec<AttachmentId>> {
+        Ok(AttachmentRecord::load_all_pending(self.pool()).await?)
+    }
+
+    async fn delete_attachment(&self, attachment_id: AttachmentId) -> StoreResult<()> {
+        Ok(AttachmentRecord::delete(self.pool(), attachment_id).await?)
     }
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()> {

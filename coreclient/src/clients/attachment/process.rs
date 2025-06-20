@@ -6,6 +6,7 @@
 
 use anyhow::{Context, ensure};
 use mimi_content::content_container::{NestedPart, NestedPartContent};
+use phnxcommon::time::TimeStamp;
 use sqlx::SqliteTransaction;
 use tracing::error;
 
@@ -50,8 +51,15 @@ impl CoreUser {
         let Some(content) = message.mimi_content() else {
             return Ok(());
         };
-        self.handle_nested_part(txn, notifier, conversation_id, &content.nested_part, 0)
-            .await
+        self.handle_nested_part(
+            txn,
+            notifier,
+            conversation_id,
+            message.timestamp(),
+            &content.nested_part,
+            0,
+        )
+        .await
     }
 
     async fn handle_nested_part(
@@ -59,6 +67,7 @@ impl CoreUser {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
+        timestamp: TimeStamp,
         nested_part: &NestedPart,
         recursion_depth: usize,
     ) -> anyhow::Result<()> {
@@ -79,6 +88,7 @@ impl CoreUser {
                     conversation_id,
                     content_type: content_type.to_owned(),
                     status: AttachmentStatus::Pending,
+                    created_at: timestamp.into(),
                 }
                 .store(txn.as_mut(), notifier, None)
                 .await?;
@@ -89,6 +99,7 @@ impl CoreUser {
                         txn,
                         notifier,
                         conversation_id,
+                        timestamp,
                         part,
                         recursion_depth + 1,
                     ))

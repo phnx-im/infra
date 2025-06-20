@@ -11,8 +11,9 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    contacts::HandleContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
+    AttachmentId, Contact, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId, contacts::HandleContact, user_handles::UserHandleRecord,
+    user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -196,13 +197,21 @@ pub trait Store {
         content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage>;
 
+    async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
+
+    // attachments
+
     async fn upload_attachment(
         &self,
         conversation_id: ConversationId,
         path: &Path,
     ) -> StoreResult<ConversationMessage>;
 
-    async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
+    async fn download_attachment(&self, attachment_id: AttachmentId) -> StoreResult<()>;
+
+    async fn pending_attachments(&self) -> StoreResult<Vec<AttachmentId>>;
+
+    async fn delete_attachment(&self, attachment_id: AttachmentId) -> StoreResult<()>;
 
     // observability
 

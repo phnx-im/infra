@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::{DateTime, Utc};
 use sqlx::{
     Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
+    query, query_scalar,
 };
 use uuid::Uuid;
 
@@ -34,11 +36,12 @@ impl<'r> Decode<'r, Sqlite> for AttachmentId {
 /// A record of an attachment.
 ///
 /// Content is intentially not included in this struct.
-pub(super) struct AttachmentRecord {
+pub(crate) struct AttachmentRecord {
     pub(super) attachment_id: AttachmentId,
     pub(super) conversation_id: ConversationId,
     pub(super) content_type: String,
     pub(super) status: AttachmentStatus,
+    pub(super) created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -107,32 +110,59 @@ impl AttachmentRecord {
         notifier: &mut StoreNotifier,
         content: Option<&[u8]>,
     ) -> anyhow::Result<()> {
-        sqlx::query!(
-            r#"
-                INSERT INTO attachments (
-                    attachment_id,
-                    conversation_id,
-                    content_type,
-                    content,
-                    status
-                ) VALUES (?, ?, ?, ?, ?)
-                "#,
+        query!(
+            "INSERT INTO attachments (
+                attachment_id,
+                conversation_id,
+                content_type,
+                content,
+                status,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)",
             self.attachment_id,
             self.conversation_id,
             self.content_type,
             content,
             self.status,
+            self.created_at,
         )
         .execute(executor)
         .await?;
         notifier.add(self.attachment_id);
         Ok(())
     }
+
+    pub(crate) async fn load_all_pending(
+        executor: impl SqliteExecutor<'_>,
+    ) -> sqlx::Result<Vec<AttachmentId>> {
+        query_scalar!(
+            r#"SELECT
+                attachment_id AS "attachment_id: AttachmentId"
+            FROM attachments
+            WHERE status = ?"#,
+            AttachmentStatus::Pending
+        )
+        .fetch_all(executor)
+        .await
+    }
+
+    pub(crate) async fn delete(
+        executor: impl SqliteExecutor<'_>,
+        attachment_id: AttachmentId,
+    ) -> sqlx::Result<()> {
+        query!(
+            "DELETE FROM attachments WHERE attachment_id = ?",
+            attachment_id
+        )
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
 }
 
 impl AttachmentImageRecord {
     pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> anyhow::Result<()> {
-        sqlx::query!(
+        query!(
             r#"
                 INSERT INTO attachment_images (
                     attachment_id,

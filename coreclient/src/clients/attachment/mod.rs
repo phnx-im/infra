@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::Context;
+use chrono::Utc;
 use infer::MatcherType;
 use mimi_content::{
     MimiContent,
@@ -26,13 +27,16 @@ use crate::{
         CoreUser,
         attachment::{
             ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
-            persistence::{AttachmentImageRecord, AttachmentRecord, AttachmentStatus},
+            persistence::{AttachmentImageRecord, AttachmentStatus},
         },
     },
     groups::Group,
     utils::image::{ReencodedAttachmentImage, reencode_attachment_image},
 };
 
+pub(crate) use persistence::AttachmentRecord;
+
+mod download;
 mod ear;
 mod persistence;
 mod process;
@@ -216,6 +220,7 @@ impl CoreUser {
             conversation_id: conversation.id(),
             content_type: attachment.mime_type().to_owned(),
             status: AttachmentStatus::Ready,
+            created_at: Utc::now(),
         };
         let image_record = if let Some(image_data) = attachment.image_data.as_ref() {
             Some(AttachmentImageRecord {
