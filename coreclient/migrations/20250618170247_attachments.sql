@@ -7,9 +7,8 @@ CREATE TABLE IF NOT EXISTS attachments (
     attachment_id BLOB PRIMARY KEY,
     conversation_id BLOB NOT NULL,
     content_type TEXT NOT NULL,
-    content BLOB NOT NULL,
-    filename TEXT,
-    description TEXT,
+    content BLOB,
+    status INTEGER NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) ON DELETE CASCADE
 );
 

@@ -11,7 +11,7 @@ use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};
 use tracing::{debug, error, warn};
 
-use crate::{ConversationId, ConversationMessageId};
+use crate::{ConversationId, ConversationMessageId, clients::attachment::AttachmentId};
 
 // 1024 * size_of::<Arc<StoreNotification>>() = 1024 * 8 = 8 KiB
 const NOTIFICATION_CHANNEL_SIZE: usize = 1024;
@@ -217,6 +217,7 @@ pub enum StoreEntityId {
     User(UserId),
     Conversation(ConversationId),
     Message(ConversationMessageId),
+    Attachment(AttachmentId),
 }
 
 impl StoreEntityId {
@@ -225,6 +226,7 @@ impl StoreEntityId {
             StoreEntityId::User(_) => StoreEntityKind::User,
             StoreEntityId::Conversation(_) => StoreEntityKind::Conversation,
             StoreEntityId::Message(_) => StoreEntityKind::Message,
+            StoreEntityId::Attachment(_) => StoreEntityKind::Attachment,
         }
     }
 }
@@ -234,6 +236,7 @@ pub(crate) enum StoreEntityKind {
     User = 0,
     Conversation = 1,
     Message = 2,
+    Attachment = 3,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -248,6 +251,7 @@ impl TryFrom<i64> for StoreEntityKind {
             0 => Ok(StoreEntityKind::User),
             1 => Ok(StoreEntityKind::Conversation),
             2 => Ok(StoreEntityKind::Message),
+            3 => Ok(StoreEntityKind::Attachment),
             _ => Err(InvalidStoreEntityKind(value)),
         }
     }

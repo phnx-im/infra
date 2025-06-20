@@ -26,7 +26,7 @@ use crate::{
         CoreUser,
         attachment::{
             ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
-            persistence::{AttachmentImageRecord, AttachmentRecord},
+            persistence::{AttachmentImageRecord, AttachmentRecord, AttachmentStatus},
         },
     },
     groups::Group,
@@ -35,8 +35,9 @@ use crate::{
 
 mod ear;
 mod persistence;
+mod process;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct AttachmentId {
     pub uuid: Uuid,
 }
@@ -211,9 +212,10 @@ impl CoreUser {
 
         // store attachment locally
         let record = AttachmentRecord {
-            attachment_id: attachment_metadata.attachment_id.uuid(),
+            attachment_id: attachment_metadata.attachment_id,
             conversation_id: conversation.id(),
             content_type: attachment.mime_type().to_owned(),
+            status: AttachmentStatus::Ready,
         };
         let image_record = if let Some(image_data) = attachment.image_data.as_ref() {
             Some(AttachmentImageRecord {
@@ -231,7 +233,13 @@ impl CoreUser {
         let mut txn = self.pool().begin().await?;
         let mut notifier = self.store_notifier();
 
-        record.store(txn.as_mut(), &attachment.content).await?;
+        record
+            .store(
+                txn.as_mut(),
+                &mut notifier,
+                Some(attachment.content.as_ref()),
+            )
+            .await?;
         if let Some(image_record) = image_record {
             image_record.store(txn.as_mut()).await?;
         }

@@ -69,6 +69,14 @@ impl TimestampedMessage {
             timestamp: ds_timestamp,
         }
     }
+
+    pub(crate) fn mimi_content(&self) -> Option<&MimiContent> {
+        if let Message::Content(content) = &self.message {
+            Some(content.content())
+        } else {
+            None
+        }
+    }
 }
 
 /// Identifier of a message in a conversation

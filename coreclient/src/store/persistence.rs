@@ -15,7 +15,7 @@ use tokio_stream::StreamExt;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::{ConversationId, ConversationMessageId};
+use crate::{AttachmentId, ConversationId, ConversationMessageId};
 
 use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 
@@ -43,6 +43,9 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
             }
             StoreEntityId::Message(conversation_message_id) => {
                 Encode::<Sqlite>::encode_by_ref(&conversation_message_id.uuid, buf)
+            }
+            StoreEntityId::Attachment(attachment_id) => {
+                Encode::<Sqlite>::encode_by_ref(&attachment_id.uuid, buf)
             }
         }
     }
@@ -97,6 +100,9 @@ impl SqlStoreNotification {
             }
             StoreEntityKind::Message => {
                 StoreEntityId::Message(ConversationMessageId::new(Uuid::from_slice(&entity_id)?))
+            }
+            StoreEntityKind::Attachment => {
+                StoreEntityId::Attachment(AttachmentId::new(Uuid::from_slice(&entity_id)?))
             }
         };
         let mut op: EnumSet<StoreOperation> = Default::default();
