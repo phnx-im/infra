@@ -17,8 +17,8 @@ use crate::{
     clients::{
         CoreUser,
         attachment::{
-            AttachmentBytes, AttachmentRecord, PHNX_BLAKE3_HASH_ID,
-            ear::EncryptedAttachment,
+            AttachmentBytes, AttachmentRecord,
+            ear::{EncryptedAttachment, PHNX_BLAKE3_HASH_ID},
             persistence::{AttachmentStatus, PendingAttachmentRecord},
         },
     },
