@@ -23,7 +23,7 @@ abstract class AttachmentsCubitBase implements RustOpaqueInterface {
   factory AttachmentsCubitBase({required UserCubitBase userCubit}) => RustLib
       .instance
       .api
-      .crateApiAttachmentCubitAttachmentsCubitBaseNew(userCubit: userCubit);
+      .crateApiAttachmentsCubitAttachmentsCubitBaseNew(userCubit: userCubit);
 
   AttachmentsState get state;
 

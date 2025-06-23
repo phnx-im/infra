@@ -24,6 +24,6 @@ extension AppLocalizationsExtension on AppLocalizations {
     i = min(i, byteUnits.length - 1);
     double value = bytes / pow(1000, i);
 
-    return this.attachmentSize(value, byteUnits[i]);
+    return attachmentSize(value, byteUnits[i]);
   }
 }

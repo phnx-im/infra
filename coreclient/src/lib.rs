@@ -15,7 +15,6 @@ mod user_profiles;
 mod utils;
 
 pub use crate::{
-    clients::attachment::AttachmentId,
     contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,

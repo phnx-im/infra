@@ -5,7 +5,10 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use enumset::EnumSet;
-use phnxcommon::{codec::PhnxCodec, identifiers::UserId};
+use phnxcommon::{
+    codec::PhnxCodec,
+    identifiers::{AttachmentId, UserId},
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
@@ -15,7 +18,7 @@ use tokio_stream::StreamExt;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::{AttachmentId, ConversationId, ConversationMessageId};
+use crate::{ConversationId, ConversationMessageId};
 
 use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 

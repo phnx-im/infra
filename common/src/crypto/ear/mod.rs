@@ -54,6 +54,12 @@ pub struct Ciphertext<CT> {
     pd: PhantomData<CT>,
 }
 
+impl<CT> Ciphertext<CT> {
+    pub fn aead_ciphertext(&self) -> &AeadCiphertext {
+        &self.ct
+    }
+}
+
 impl<CT> From<AeadCiphertext> for Ciphertext<CT> {
     fn from(aead_ciphertext: AeadCiphertext) -> Self {
         Self {

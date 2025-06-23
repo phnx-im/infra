@@ -7,7 +7,7 @@ use mimi_content::{
     MimiContent,
     content_container::{Disposition, NestedPart, NestedPartContent, PartSemantics},
 };
-pub use phnxcoreclient::clients::attachment::AttachmentId;
+pub use phnxcommon::identifiers::AttachmentId;
 use tracing::warn;
 use uuid::Uuid;
 

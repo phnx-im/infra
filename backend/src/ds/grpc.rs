@@ -11,17 +11,18 @@ use mls_assist::{
 };
 use phnxcommon::{
     credentials::{ClientCredential, keys::ClientVerifyingKey},
-    crypto::ear::keys::GroupStateEarKey,
-    crypto::signatures::signable::VerifiedStruct,
-    crypto::signatures::{
-        keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+    crypto::{
+        ear::keys::GroupStateEarKey,
+        signatures::{
+            keys::LeafVerifyingKeyRef,
+            private_keys::SignatureVerificationError,
+            signable::{Verifiable, VerifiedStruct},
+        },
     },
-    identifiers,
-    identifiers::{Fqdn, QualifiedGroupId},
-    messages::client_ds::QsQueueMessagePayload,
+    identifiers::{self, AttachmentId, Fqdn, QualifiedGroupId},
     messages::client_ds::{
-        GroupOperationParams, JoinConnectionGroupParams, UserProfileKeyUpdateParams,
-        WelcomeInfoParams,
+        GroupOperationParams, JoinConnectionGroupParams, QsQueueMessagePayload,
+        UserProfileKeyUpdateParams, WelcomeInfoParams,
     },
     time::TimeStamp,
 };
@@ -830,10 +831,10 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         Ok(self.ds.provision_attachment(payload).await?)
     }
 
-    async fn get_attachment(
+    async fn get_attachment_url(
         &self,
-        request: Request<GetAttachmentRequest>,
-    ) -> Result<Response<GetAttachmentResponse>, Status> {
+        request: Request<GetAttachmentUrlRequest>,
+    ) -> Result<Response<GetAttachmentUrlResponse>, Status> {
         let request = request.into_inner();
 
         request
@@ -856,9 +857,16 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .ok_or_else(|| Status::invalid_argument("unknown sender"))?
             .signature_key()
             .into();
-        let payload = request.verify(verifying_key).map_err(InvalidSignature)?;
+        let payload: GetAttachmentUrlPayload =
+            request.verify(verifying_key).map_err(InvalidSignature)?;
 
-        self.ds.get_attachment(payload).await
+        let attachment_id = payload
+            .attachment_id
+            .ok_or_missing_field("attachment_id")?
+            .into();
+        let attachment_id = AttachmentId::new(attachment_id);
+
+        Ok(self.ds.get_attachment_url(attachment_id).await?)
     }
 }
 
@@ -962,7 +970,7 @@ impl WithQualifiedGroupId for ProvisionAttachmentPayload {
     }
 }
 
-impl WithQualifiedGroupId for GetAttachmentPayload {
+impl WithQualifiedGroupId for GetAttachmentUrlPayload {
     fn qgid(&self) -> Result<QualifiedGroupId, Status> {
         self.group_id
             .as_ref()
@@ -1045,7 +1053,7 @@ impl WithGroupStateEarKey for ProvisionAttachmentRequest {
     }
 }
 
-impl WithGroupStateEarKey for GetAttachmentRequest {
+impl WithGroupStateEarKey for GetAttachmentUrlRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.payload.as_ref()?.group_state_ear_key.as_ref()
     }

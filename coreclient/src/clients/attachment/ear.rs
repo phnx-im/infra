@@ -7,9 +7,10 @@ use std::convert::Infallible;
 use mimi_content::content_container::EncryptionAlgorithm;
 use phnxcommon::crypto::{
     ear::{
-        Ciphertext, EarEncryptable, EarKey, GenericSerializable, Payload, keys::AttachmentEarKey,
+        Ciphertext, EarDecryptable, EarEncryptable, EarKey, GenericDeserializable,
+        GenericSerializable, Payload, keys::AttachmentEarKey,
     },
-    errors::EncryptionError,
+    errors::{DecryptionError, EncryptionError},
 };
 
 use super::AttachmentContent;
@@ -53,5 +54,36 @@ impl EarEncryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentCo
             aad: aad.as_slice(),
         };
         Ok(key.encrypt(payload)?.into())
+    }
+}
+
+impl GenericDeserializable for AttachmentContent {
+    type Error = Infallible;
+
+    fn deserialize(_bytes: &[u8]) -> Result<Self, Self::Error> {
+        unreachable!("attachment content is decrypted directly")
+    }
+}
+
+impl EarDecryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentContent {
+    fn decrypt(
+        ear_key: &AttachmentEarKey,
+        ciphertext: &EncryptedAttachment,
+    ) -> Result<Self, DecryptionError> {
+        let bytes = ear_key.decrypt(ciphertext.aead_ciphertext())?;
+        Ok(AttachmentContent::new(bytes))
+    }
+
+    fn decrypt_with_aad<Aad: GenericSerializable>(
+        ear_key: &AttachmentEarKey,
+        ciphertext: &Ciphertext<EncryptedAttachmentCtype>,
+        aad: &Aad,
+    ) -> Result<Self, DecryptionError> {
+        let aad = aad.serialize().map_err(|e| {
+            tracing::error!(error = %e, "Could not serialize aad");
+            DecryptionError::SerializationError
+        })?;
+        let plaintext = ear_key.decrypt_with_aad(ciphertext.aead_ciphertext(), aad.as_slice())?;
+        Self::deserialize(&plaintext).map_err(|_| DecryptionError::DeserializationError)
     }
 }

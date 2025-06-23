@@ -9,7 +9,7 @@ import 'package:convert/convert.dart';
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
-import 'api/attachment_cubit.dart';
+import 'api/attachments_cubit.dart';
 import 'api/conversation_details_cubit.dart';
 import 'api/conversation_list_cubit.dart';
 import 'api/logging.dart';

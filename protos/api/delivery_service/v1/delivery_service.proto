@@ -48,7 +48,7 @@ service DeliveryService {
   // The actual download is done by the client.
   //
   // Note: An attachment is always retrieved relative to a specific group.
-  rpc GetAttachment(GetAttachmentRequest) returns (GetAttachmentResponse);
+  rpc GetAttachmentUrl(GetAttachmentUrlRequest) returns (GetAttachmentUrlResponse);
 }
 
 // common messages
@@ -338,21 +338,22 @@ message HeaderEntry {
   string value = 2;
 }
 
-// get attachment
+// get attachment url
 
-message GetAttachmentRequest {
-  GetAttachmentPayload payload = 1;
+message GetAttachmentUrlRequest {
+  GetAttachmentUrlPayload payload = 1;
   common.v1.Signature signature = 2;
 }
 
-message GetAttachmentPayload {
+message GetAttachmentUrlPayload {
   GroupStateEarKey group_state_ear_key = 1;
   common.v1.QualifiedGroupId group_id = 2;
   LeafNodeIndex sender = 3;
   common.v1.Uuid attachment_id = 4;
 }
 
-message GetAttachmentResponse {
-  string download_url = 1;
-  common.v1.ExpirationData expiration = 2;
+message GetAttachmentUrlResponse {
+  common.v1.ExpirationData download_url_expiration = 1;
+  string download_url = 2;
+  repeated HeaderEntry download_headers = 3;
 }

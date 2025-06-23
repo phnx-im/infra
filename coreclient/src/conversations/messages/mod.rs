@@ -69,14 +69,6 @@ impl TimestampedMessage {
             timestamp: ds_timestamp,
         }
     }
-
-    pub(crate) fn mimi_content(&self) -> Option<&MimiContent> {
-        if let Message::Content(content) = &self.message {
-            Some(content.content())
-        } else {
-            None
-        }
-    }
 }
 
 /// Identifier of a message in a conversation
@@ -111,15 +103,32 @@ pub struct ConversationMessage {
 impl ConversationMessage {
     /// Create a new conversation message from a group message. New messages are
     /// marked as unread by default.
-    pub(crate) fn from_timestamped_message(
+    pub(crate) fn new(
         conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
         timestamped_message: TimestampedMessage,
     ) -> Self {
         Self {
             conversation_id,
-            conversation_message_id: ConversationMessageId::random(),
+            conversation_message_id,
             timestamped_message,
         }
+    }
+
+    /// Create a new conversation message from a group message. New messages are
+    /// marked as unread by default.
+    ///
+    /// The same as [`Self::new`], except that the message id is generated
+    /// randomly.
+    pub(crate) fn from_timestamped_message(
+        conversation_id: ConversationId,
+        timestamped_message: TimestampedMessage,
+    ) -> Self {
+        Self::new(
+            conversation_id,
+            ConversationMessageId::random(),
+            timestamped_message,
+        )
     }
 
     pub fn new_for_test(
@@ -138,6 +147,7 @@ impl ConversationMessage {
     pub(crate) fn new_unsent_message(
         sender: UserId,
         conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
         content: MimiContent,
     ) -> ConversationMessage {
         let message = Message::Content(Box::new(ContentMessage::new(sender, false, content)));
@@ -147,7 +157,7 @@ impl ConversationMessage {
         };
         ConversationMessage {
             conversation_id,
-            conversation_message_id: ConversationMessageId::random(),
+            conversation_message_id,
             timestamped_message,
         }
     }
@@ -190,6 +200,10 @@ impl ConversationMessage {
 
     pub fn message(&self) -> &Message {
         &self.timestamped_message.message
+    }
+
+    pub fn message_mut(&mut self) -> &mut Message {
+        &mut self.timestamped_message.message
     }
 }
 
@@ -247,6 +261,13 @@ impl Message {
             },
         }
     }
+
+    pub(crate) fn mimi_content_mut(&mut self) -> Option<&mut MimiContent> {
+        match self {
+            Message::Content(content_message) => Some(content_message.as_mut().content_mut()),
+            Message::Event(_) => None,
+        }
+    }
 }
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
@@ -281,6 +302,10 @@ impl ContentMessage {
 
     pub fn content(&self) -> &MimiContent {
         &self.content
+    }
+
+    pub fn content_mut(&mut self) -> &mut MimiContent {
+        &mut self.content
     }
 }
 

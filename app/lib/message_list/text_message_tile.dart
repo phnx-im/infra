@@ -2,11 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
-import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/timestamp.dart';

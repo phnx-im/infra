@@ -5,7 +5,7 @@
 use prost::Message;
 
 use crate::delivery_service::v1::{
-    GetAttachmentPayload, GetAttachmentRequest, ProvisionAttachmentPayload,
+    GetAttachmentUrlPayload, GetAttachmentUrlRequest, ProvisionAttachmentPayload,
     ProvisionAttachmentRequest,
 };
 
@@ -544,8 +544,8 @@ impl Verifiable for ProvisionAttachmentRequest {
 
 const GET_ATTACHMENT_PAYLOAD_LABEL: &str = "GetAttachmentPayload";
 
-impl SignedStruct<GetAttachmentPayload, ClientKeyType> for GetAttachmentRequest {
-    fn from_payload(payload: GetAttachmentPayload, signature: ClientSignature) -> Self {
+impl SignedStruct<GetAttachmentUrlPayload, ClientKeyType> for GetAttachmentUrlRequest {
+    fn from_payload(payload: GetAttachmentUrlPayload, signature: ClientSignature) -> Self {
         Self {
             payload: Some(payload),
             signature: Some(signature.into()),
@@ -553,8 +553,8 @@ impl SignedStruct<GetAttachmentPayload, ClientKeyType> for GetAttachmentRequest 
     }
 }
 
-impl Signable for GetAttachmentPayload {
-    type SignedOutput = GetAttachmentRequest;
+impl Signable for GetAttachmentUrlPayload {
+    type SignedOutput = GetAttachmentUrlRequest;
 
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         Ok(self.encode_to_vec())
@@ -565,15 +565,15 @@ impl Signable for GetAttachmentPayload {
     }
 }
 
-impl VerifiedStruct<GetAttachmentRequest> for GetAttachmentPayload {
+impl VerifiedStruct<GetAttachmentUrlRequest> for GetAttachmentUrlPayload {
     type SealingType = private_mod::Seal;
 
-    fn from_verifiable(verifiable: GetAttachmentRequest, _seal: Self::SealingType) -> Self {
+    fn from_verifiable(verifiable: GetAttachmentUrlRequest, _seal: Self::SealingType) -> Self {
         verifiable.payload.unwrap()
     }
 }
 
-impl Verifiable for GetAttachmentRequest {
+impl Verifiable for GetAttachmentUrlRequest {
     fn unsigned_payload(&self) -> Result<Vec<u8>, tls_codec::Error> {
         Ok(self
             .payload

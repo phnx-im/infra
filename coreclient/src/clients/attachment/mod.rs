@@ -18,11 +18,11 @@ use phnxapiclient::ApiClient;
 use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
+    identifiers::AttachmentId,
 };
-use uuid::Uuid;
 
 use crate::{
-    Conversation, ConversationId, ConversationMessage,
+    Conversation, ConversationId, ConversationMessage, ConversationMessageId,
     clients::{
         CoreUser,
         attachment::{
@@ -36,35 +36,11 @@ use crate::{
 
 pub(crate) use persistence::AttachmentRecord;
 
+mod content;
 mod download;
 mod ear;
 mod persistence;
 mod process;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct AttachmentId {
-    pub uuid: Uuid,
-}
-
-impl AttachmentId {
-    pub fn new(uuid: Uuid) -> Self {
-        Self { uuid }
-    }
-
-    pub fn url(&self) -> String {
-        format!("phnx://attachment/{}", self.uuid)
-    }
-
-    pub fn from_url(url: &str) -> Option<Self> {
-        let suffix = url.strip_prefix("phnx://attachment/")?;
-        let uuid = suffix.parse().ok()?;
-        Some(Self { uuid })
-    }
-
-    pub fn uuid(&self) -> Uuid {
-        self.uuid
-    }
-}
 
 /// In-memory loaded and processed attachment
 ///
@@ -79,6 +55,12 @@ struct Attachment {
 #[derive(derive_more::From)]
 struct AttachmentContent {
     bytes: Vec<u8>,
+}
+
+impl AttachmentContent {
+    fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
 }
 
 impl AsRef<[u8]> for AttachmentContent {
@@ -214,40 +196,10 @@ impl CoreUser {
         )
         .await?;
 
-        // store attachment locally
-        let record = AttachmentRecord {
-            attachment_id: attachment_metadata.attachment_id,
-            conversation_id: conversation.id(),
-            content_type: attachment.mime_type().to_owned(),
-            status: AttachmentStatus::Ready,
-            created_at: Utc::now(),
-        };
-        let image_record = if let Some(image_data) = attachment.image_data.as_ref() {
-            Some(AttachmentImageRecord {
-                attachment_id: attachment_metadata.attachment_id.uuid(),
-                blurhash: image_data.blurhash.clone(),
-                width: image_data.width,
-                height: image_data.height,
-            })
-        } else {
-            None
-        };
-
         // Note: Acquire a transaction here to ensure that the attachment will be deleted from the
         // local database in case of an error.
         let mut txn = self.pool().begin().await?;
         let mut notifier = self.store_notifier();
-
-        record
-            .store(
-                txn.as_mut(),
-                &mut notifier,
-                Some(attachment.content.as_ref()),
-            )
-            .await?;
-        if let Some(image_record) = image_record {
-            image_record.store(txn.as_mut()).await?;
-        }
 
         // send attachment message
         let content = MimiContent {
@@ -262,9 +214,47 @@ impl CoreUser {
             ..Default::default()
         };
 
+        let conversation_message_id = ConversationMessageId::random();
         let message = self
-            .send_message_transactional(&mut txn, &mut notifier, conversation_id, content)
+            .send_message_transactional(
+                &mut txn,
+                &mut notifier,
+                conversation_id,
+                conversation_message_id,
+                content,
+            )
             .await?;
+
+        // store attachment locally
+        // (must be done after the message is stored locally due to foreign key constraints)
+        let record = AttachmentRecord {
+            attachment_id: attachment_metadata.attachment_id,
+            conversation_id: conversation.id(),
+            conversation_message_id,
+            content_type: attachment.mime_type().to_owned(),
+            status: AttachmentStatus::Ready,
+            arrived_at: Utc::now(),
+        };
+        let image_record = if let Some(image_data) = attachment.image_data.as_ref() {
+            Some(AttachmentImageRecord {
+                attachment_id: attachment_metadata.attachment_id.uuid(),
+                blurhash: image_data.blurhash.clone(),
+                width: image_data.width,
+                height: image_data.height,
+            })
+        } else {
+            None
+        };
+        record
+            .store(
+                txn.as_mut(),
+                &mut notifier,
+                Some(attachment.content.as_ref()),
+            )
+            .await?;
+        if let Some(image_record) = image_record {
+            image_record.store(txn.as_mut()).await?;
+        }
 
         txn.commit().await?;
         notifier.notify();

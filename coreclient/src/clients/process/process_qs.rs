@@ -285,9 +285,6 @@ impl CoreUser {
                         }
                     };
 
-                    self.handle_attachments(txn, &mut notifier, conversation_id, &group_messages)
-                        .await;
-
                     // MLSMessage Phase 3: Store the updated group and the messages.
                     group.store_update(txn.as_mut()).await?;
 

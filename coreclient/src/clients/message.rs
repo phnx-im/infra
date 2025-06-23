@@ -30,6 +30,7 @@ impl CoreUser {
             .with_transaction_and_notifier(async |txn, notifier| {
                 UnsentContent {
                     conversation_id,
+                    conversation_message_id: ConversationMessageId::random(),
                     content,
                 }
                 .store_unsent_message(txn, notifier, self.user_id())
@@ -55,10 +56,12 @@ impl CoreUser {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
         content: MimiContent,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = UnsentContent {
             conversation_id,
+            conversation_message_id,
             content,
         }
         .store_unsent_message(txn, notifier, self.user_id())
@@ -102,6 +105,7 @@ impl CoreUser {
 
 struct UnsentContent {
     conversation_id: ConversationId,
+    conversation_message_id: ConversationMessageId,
     content: MimiContent,
 }
 
@@ -114,6 +118,7 @@ impl UnsentContent {
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
         let UnsentContent {
             conversation_id,
+            conversation_message_id,
             content,
         } = self;
 
@@ -125,6 +130,7 @@ impl UnsentContent {
         let conversation_message = ConversationMessage::new_unsent_message(
             sender.clone(),
             conversation_id,
+            conversation_message_id,
             content.clone(),
         );
         conversation_message.store(txn.as_mut(), notifier).await?;

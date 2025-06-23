@@ -25,7 +25,7 @@
 
 // Section: imports
 
-use crate::api::attachment_cubit::*;
+use crate::api::attachments_cubit::*;
 use crate::api::conversation_details_cubit::*;
 use crate::api::conversation_list_cubit::*;
 use crate::api::logging::*;
@@ -48,7 +48,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.10.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 494912207;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1707852239;
 
 // Section: executor
 
@@ -56,7 +56,7 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
-fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_close_impl(
+fn wire__crate__api__attachments_cubit__AttachmentsCubitBase_close_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -99,7 +99,7 @@ fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_close_impl(
                     }
                     let mut api_that_guard = api_that_guard.unwrap();
                     let output_ok = Result::<_, ()>::Ok({
-                        crate::api::attachment_cubit::AttachmentsCubitBase::close(
+                        crate::api::attachments_cubit::AttachmentsCubitBase::close(
                             &mut *api_that_guard,
                         );
                     })?;
@@ -109,7 +109,7 @@ fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_close_impl(
         },
     )
 }
-fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_is_closed_impl(
+fn wire__crate__api__attachments_cubit__AttachmentsCubitBase_is_closed_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
@@ -150,14 +150,16 @@ fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_is_closed_impl(
                 }
                 let api_that_guard = api_that_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::attachment_cubit::AttachmentsCubitBase::is_closed(&*api_that_guard),
+                    crate::api::attachments_cubit::AttachmentsCubitBase::is_closed(
+                        &*api_that_guard,
+                    ),
                 )?;
                 Ok(output_ok)
             })())
         },
     )
 }
-fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_new_impl(
+fn wire__crate__api__attachments_cubit__AttachmentsCubitBase_new_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
@@ -199,15 +201,16 @@ fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_new_impl(
                     }
                 }
                 let api_user_cubit_guard = api_user_cubit_guard.unwrap();
-                let output_ok = Result::<_, ()>::Ok(
-                    crate::api::attachment_cubit::AttachmentsCubitBase::new(&*api_user_cubit_guard),
-                )?;
+                let output_ok =
+                    Result::<_, ()>::Ok(crate::api::attachments_cubit::AttachmentsCubitBase::new(
+                        &*api_user_cubit_guard,
+                    ))?;
                 Ok(output_ok)
             })())
         },
     )
 }
-fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_state_impl(
+fn wire__crate__api__attachments_cubit__AttachmentsCubitBase_state_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
@@ -248,14 +251,14 @@ fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_state_impl(
                 }
                 let api_that_guard = api_that_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::attachment_cubit::AttachmentsCubitBase::state(&*api_that_guard),
+                    crate::api::attachments_cubit::AttachmentsCubitBase::state(&*api_that_guard),
                 )?;
                 Ok(output_ok)
             })())
         },
     )
 }
-fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_stream_impl(
+fn wire__crate__api__attachments_cubit__AttachmentsCubitBase_stream_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -306,7 +309,7 @@ fn wire__crate__api__attachment_cubit__AttachmentsCubitBase_stream_impl(
                         }
                         let mut api_that_guard = api_that_guard.unwrap();
                         let output_ok = Result::<_, ()>::Ok({
-                            crate::api::attachment_cubit::AttachmentsCubitBase::stream(
+                            crate::api::attachments_cubit::AttachmentsCubitBase::stream(
                                 &mut *api_that_guard,
                                 api_sink,
                             )
@@ -6729,8 +6732,8 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-                        1 => wire__crate__api__attachment_cubit__AttachmentsCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
-5 => wire__crate__api__attachment_cubit__AttachmentsCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
+                        1 => wire__crate__api__attachments_cubit__AttachmentsCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
+5 => wire__crate__api__attachments_cubit__AttachmentsCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
 6 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
 8 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_mark_as_read_impl(port, ptr, rust_vec_len, data_len),
 10 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_send_message_impl(port, ptr, rust_vec_len, data_len),
@@ -6802,9 +6805,9 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-                        2 => wire__crate__api__attachment_cubit__AttachmentsCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-3 => wire__crate__api__attachment_cubit__AttachmentsCubitBase_new_impl(ptr, rust_vec_len, data_len),
-4 => wire__crate__api__attachment_cubit__AttachmentsCubitBase_state_impl(ptr, rust_vec_len, data_len),
+                        2 => wire__crate__api__attachments_cubit__AttachmentsCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
+3 => wire__crate__api__attachments_cubit__AttachmentsCubitBase_new_impl(ptr, rust_vec_len, data_len),
+4 => wire__crate__api__attachments_cubit__AttachmentsCubitBase_state_impl(ptr, rust_vec_len, data_len),
 7 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
 9 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_new_impl(ptr, rust_vec_len, data_len),
 12 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_state_impl(ptr, rust_vec_len, data_len),
@@ -9574,7 +9577,7 @@ mod io {
     // Section: imports
 
     use super::*;
-    use crate::api::attachment_cubit::*;
+    use crate::api::attachments_cubit::*;
     use crate::api::conversation_details_cubit::*;
     use crate::api::conversation_list_cubit::*;
     use crate::api::logging::*;
@@ -9835,7 +9838,7 @@ mod web {
     // Section: imports
 
     use super::*;
-    use crate::api::attachment_cubit::*;
+    use crate::api::attachments_cubit::*;
     use crate::api::conversation_details_cubit::*;
     use crate::api::conversation_list_cubit::*;
     use crate::api::logging::*;

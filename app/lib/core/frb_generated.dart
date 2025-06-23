@@ -6,7 +6,7 @@ import 'package:convert/convert.dart';
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/attachment_cubit.dart';
+import 'api/attachments_cubit.dart';
 import 'api/conversation_details_cubit.dart';
 import 'api/conversation_list_cubit.dart';
 import 'api/logging.dart';
@@ -81,7 +81,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.10.0';
 
   @override
-  int get rustContentHash => 494912207;
+  int get rustContentHash => -1707852239;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -92,23 +92,23 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Future<void> crateApiAttachmentCubitAttachmentsCubitBaseClose({
+  Future<void> crateApiAttachmentsCubitAttachmentsCubitBaseClose({
     required AttachmentsCubitBase that,
   });
 
-  bool crateApiAttachmentCubitAttachmentsCubitBaseIsClosed({
+  bool crateApiAttachmentsCubitAttachmentsCubitBaseIsClosed({
     required AttachmentsCubitBase that,
   });
 
-  AttachmentsCubitBase crateApiAttachmentCubitAttachmentsCubitBaseNew({
+  AttachmentsCubitBase crateApiAttachmentsCubitAttachmentsCubitBaseNew({
     required UserCubitBase userCubit,
   });
 
-  AttachmentsState crateApiAttachmentCubitAttachmentsCubitBaseState({
+  AttachmentsState crateApiAttachmentsCubitAttachmentsCubitBaseState({
     required AttachmentsCubitBase that,
   });
 
-  Stream<AttachmentsState> crateApiAttachmentCubitAttachmentsCubitBaseStream({
+  Stream<AttachmentsState> crateApiAttachmentsCubitAttachmentsCubitBaseStream({
     required AttachmentsCubitBase that,
   });
 
@@ -658,7 +658,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  Future<void> crateApiAttachmentCubitAttachmentsCubitBaseClose({
+  Future<void> crateApiAttachmentsCubitAttachmentsCubitBaseClose({
     required AttachmentsCubitBase that,
   }) {
     return handler.executeNormal(
@@ -680,7 +680,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiAttachmentCubitAttachmentsCubitBaseCloseConstMeta,
+        constMeta: kCrateApiAttachmentsCubitAttachmentsCubitBaseCloseConstMeta,
         argValues: [that],
         apiImpl: this,
       ),
@@ -688,14 +688,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateApiAttachmentCubitAttachmentsCubitBaseCloseConstMeta =>
+  get kCrateApiAttachmentsCubitAttachmentsCubitBaseCloseConstMeta =>
       const TaskConstMeta(
         debugName: "AttachmentsCubitBase_close",
         argNames: ["that"],
       );
 
   @override
-  bool crateApiAttachmentCubitAttachmentsCubitBaseIsClosed({
+  bool crateApiAttachmentsCubitAttachmentsCubitBaseIsClosed({
     required AttachmentsCubitBase that,
   }) {
     return handler.executeSync(
@@ -713,7 +713,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta:
-            kCrateApiAttachmentCubitAttachmentsCubitBaseIsClosedConstMeta,
+            kCrateApiAttachmentsCubitAttachmentsCubitBaseIsClosedConstMeta,
         argValues: [that],
         apiImpl: this,
       ),
@@ -721,14 +721,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateApiAttachmentCubitAttachmentsCubitBaseIsClosedConstMeta =>
+  get kCrateApiAttachmentsCubitAttachmentsCubitBaseIsClosedConstMeta =>
       const TaskConstMeta(
         debugName: "AttachmentsCubitBase_is_closed",
         argNames: ["that"],
       );
 
   @override
-  AttachmentsCubitBase crateApiAttachmentCubitAttachmentsCubitBaseNew({
+  AttachmentsCubitBase crateApiAttachmentsCubitAttachmentsCubitBaseNew({
     required UserCubitBase userCubit,
   }) {
     return handler.executeSync(
@@ -746,21 +746,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerAttachmentsCubitBase,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiAttachmentCubitAttachmentsCubitBaseNewConstMeta,
+        constMeta: kCrateApiAttachmentsCubitAttachmentsCubitBaseNewConstMeta,
         argValues: [userCubit],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiAttachmentCubitAttachmentsCubitBaseNewConstMeta =>
+  TaskConstMeta get kCrateApiAttachmentsCubitAttachmentsCubitBaseNewConstMeta =>
       const TaskConstMeta(
         debugName: "AttachmentsCubitBase_new",
         argNames: ["userCubit"],
       );
 
   @override
-  AttachmentsState crateApiAttachmentCubitAttachmentsCubitBaseState({
+  AttachmentsState crateApiAttachmentsCubitAttachmentsCubitBaseState({
     required AttachmentsCubitBase that,
   }) {
     return handler.executeSync(
@@ -778,7 +778,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerAttachmentsState,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiAttachmentCubitAttachmentsCubitBaseStateConstMeta,
+        constMeta: kCrateApiAttachmentsCubitAttachmentsCubitBaseStateConstMeta,
         argValues: [that],
         apiImpl: this,
       ),
@@ -786,14 +786,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateApiAttachmentCubitAttachmentsCubitBaseStateConstMeta =>
+  get kCrateApiAttachmentsCubitAttachmentsCubitBaseStateConstMeta =>
       const TaskConstMeta(
         debugName: "AttachmentsCubitBase_state",
         argNames: ["that"],
       );
 
   @override
-  Stream<AttachmentsState> crateApiAttachmentCubitAttachmentsCubitBaseStream({
+  Stream<AttachmentsState> crateApiAttachmentsCubitAttachmentsCubitBaseStream({
     required AttachmentsCubitBase that,
   }) {
     final sink = RustStreamSink<AttachmentsState>();
@@ -822,7 +822,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             decodeErrorData: null,
           ),
           constMeta:
-              kCrateApiAttachmentCubitAttachmentsCubitBaseStreamConstMeta,
+              kCrateApiAttachmentsCubitAttachmentsCubitBaseStreamConstMeta,
           argValues: [that, sink],
           apiImpl: this,
         ),
@@ -832,7 +832,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateApiAttachmentCubitAttachmentsCubitBaseStreamConstMeta =>
+  get kCrateApiAttachmentsCubitAttachmentsCubitBaseStreamConstMeta =>
       const TaskConstMeta(
         debugName: "AttachmentsCubitBase_stream",
         argNames: ["that", "sink"],
@@ -10409,16 +10409,16 @@ class AttachmentsCubitBaseImpl extends RustOpaque
   );
 
   Future<void> close() => RustLib.instance.api
-      .crateApiAttachmentCubitAttachmentsCubitBaseClose(that: this);
+      .crateApiAttachmentsCubitAttachmentsCubitBaseClose(that: this);
 
   bool get isClosed => RustLib.instance.api
-      .crateApiAttachmentCubitAttachmentsCubitBaseIsClosed(that: this);
+      .crateApiAttachmentsCubitAttachmentsCubitBaseIsClosed(that: this);
 
   AttachmentsState get state => RustLib.instance.api
-      .crateApiAttachmentCubitAttachmentsCubitBaseState(that: this);
+      .crateApiAttachmentsCubitAttachmentsCubitBaseState(that: this);
 
   Stream<AttachmentsState> stream() => RustLib.instance.api
-      .crateApiAttachmentCubitAttachmentsCubitBaseStream(that: this);
+      .crateApiAttachmentsCubitAttachmentsCubitBaseStream(that: this);
 }
 
 @sealed

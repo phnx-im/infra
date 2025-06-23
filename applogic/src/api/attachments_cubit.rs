@@ -5,14 +5,14 @@
 use std::{pin::pin, sync::Arc};
 
 use flutter_rust_bridge::frb;
+use phnxcommon::identifiers::AttachmentId;
 use phnxcoreclient::{
-    AttachmentId,
     clients::CoreUser,
     store::{Store, StoreEntityId, StoreOperation},
 };
 use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};
-use tracing::error;
+use tracing::{debug, error, info};
 
 use crate::{
     StreamSink,
@@ -88,6 +88,8 @@ fn spawn_attachment_downloads(store: CoreUser, cancel: CancellationToken) {
 }
 
 async fn attachment_downloads_loop(store: CoreUser, cancel: CancellationToken) {
+    info!("Starting attachments download loop");
+
     let mut store_notifications = pin!(store.subscribe());
     loop {
         if cancel.is_cancelled() {
@@ -97,6 +99,10 @@ async fn attachment_downloads_loop(store: CoreUser, cancel: CancellationToken) {
         // download pending attachments
         match store.pending_attachments().await {
             Ok(pending_attachments) => {
+                debug!(
+                    ?pending_attachments,
+                    "Spawn download for pending attachments"
+                );
                 for attachment_id in pending_attachments {
                     spawn_download_task(store.clone(), cancel.clone(), attachment_id);
                 }
@@ -115,10 +121,13 @@ async fn attachment_downloads_loop(store: CoreUser, cancel: CancellationToken) {
             return;
         };
 
+        debug!(?notification, "Received store notification");
+
         // download newly added attachments
         for (id, ops) in &notification.ops {
             match id {
                 StoreEntityId::Attachment(attachment_id) if ops.contains(StoreOperation::Add) => {
+                    debug!(?attachment_id, "Spawn download for added attachment");
                     spawn_download_task(store.clone(), cancel.clone(), *attachment_id);
                 }
                 _ => (),
@@ -131,7 +140,11 @@ fn spawn_download_task(store: CoreUser, cancel: CancellationToken, attachment_id
     tokio::spawn(async move {
         tokio::select! {
             _ = cancel.cancelled() => {},
-            _ = store.download_attachment(attachment_id) => {}
+            res = store.download_attachment(attachment_id) => {
+                if let Err(error) = res {
+                    error!(%error, "Failed to download attachment");
+                }
+            }
         }
     });
 }

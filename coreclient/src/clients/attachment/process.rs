@@ -4,113 +4,92 @@
 
 //! Process incoming attachments.
 
-use anyhow::{Context, ensure};
-use mimi_content::content_container::{NestedPart, NestedPartContent};
-use phnxcommon::time::TimeStamp;
-use sqlx::SqliteTransaction;
+use std::mem;
+
+use mimi_content::content_container::NestedPartContent;
+use phnxcommon::identifiers::AttachmentId;
 use tracing::error;
 
+use super::{content::MimiContentExt, persistence::PendingAttachmentRecord};
+
 use crate::{
-    AttachmentId,
+    ConversationMessage,
     clients::{
         CoreUser,
         attachment::{AttachmentRecord, persistence::AttachmentStatus},
     },
-    conversations::{ConversationId, messages::TimestampedMessage},
-    store::StoreNotifier,
 };
 
-const MAX_RECURSION_DEPTH: usize = 3;
-
 impl CoreUser {
-    /// Collect attachments from messages and store them in the store as pending.
-    pub(crate) async fn handle_attachments(
-        &self,
-        txn: &mut SqliteTransaction<'_>,
-        notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        messages: &[TimestampedMessage],
-    ) {
-        for message in messages {
-            if let Err(error) = self
-                .handle_attachment(txn, notifier, conversation_id, message)
-                .await
-            {
-                error!(%error, "Failed to process attachment");
-            }
-        }
-    }
+    /// Extract attachments from message's mimi content and store them as pending.
+    ///
+    /// Note: This function cannot store the attachment records and pending attachment records
+    /// directly, because first the message needs to be stored due to foreign key constraints.
+    /// But this function also modifies the message's mimi content.
+    pub(crate) fn extract_attachments(
+        message: &mut ConversationMessage,
+    ) -> Vec<(AttachmentRecord, PendingAttachmentRecord)> {
+        let mut records = Vec::new();
 
-    async fn handle_attachment(
-        &self,
-        txn: &mut SqliteTransaction<'_>,
-        notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        message: &TimestampedMessage,
-    ) -> anyhow::Result<()> {
-        let Some(content) = message.mimi_content() else {
-            return Ok(());
+        let conversation_id = message.conversation_id();
+        let conversation_message_id = message.id();
+        let arrived_at = message.timestamp();
+
+        let Some(mimi_content) = message.message_mut().mimi_content_mut() else {
+            return Vec::new();
         };
-        self.handle_nested_part(
-            txn,
-            notifier,
-            conversation_id,
-            message.timestamp(),
-            &content.nested_part,
-            0,
-        )
-        .await
-    }
 
-    async fn handle_nested_part(
-        &self,
-        txn: &mut SqliteTransaction<'_>,
-        notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        timestamp: TimeStamp,
-        nested_part: &NestedPart,
-        recursion_depth: usize,
-    ) -> anyhow::Result<()> {
-        ensure!(
-            recursion_depth < MAX_RECURSION_DEPTH,
-            "Failed to handle attachment due to maximum recursion depth reached"
-        );
+        let visit_res = mimi_content.visit_attachments_mut(|part| {
+            let NestedPartContent::ExternalPart {
+                url,
+                content_type,
+                size,
+                enc_alg,
+                key,
+                nonce,
+                aad,
+                hash_alg,
+                content_hash,
+                ..
+            } = part
+            else {
+                error!("logic error: part is not an ExternalPart while visiting attachments");
+                return Ok(());
+            };
 
-        match &nested_part.part {
-            NestedPartContent::ExternalPart {
-                url, content_type, ..
-            } => {
-                let attachment_id = AttachmentId::from_url(url)
-                    .with_context(|| format!("invalid attachment url: {url}"))?;
+            let Some(attachment_id) = AttachmentId::from_url(url) else {
+                error!(%url, "invalid attachment url; dropping attachment");
+                let _ = mem::replace(part, NestedPartContent::NullPart);
+                return Ok(());
+            };
 
-                AttachmentRecord {
-                    attachment_id,
-                    conversation_id,
-                    content_type: content_type.to_owned(),
-                    status: AttachmentStatus::Pending,
-                    created_at: timestamp.into(),
-                }
-                .store(txn.as_mut(), notifier, None)
-                .await?;
-            }
-            NestedPartContent::MultiPart { parts, .. } => {
-                for part in parts {
-                    if let Err(error) = Box::pin(self.handle_nested_part(
-                        txn,
-                        notifier,
-                        conversation_id,
-                        timestamp,
-                        part,
-                        recursion_depth + 1,
-                    ))
-                    .await
-                    {
-                        error!(%error, "Failed to process attachment nested part");
-                    }
-                }
-            }
-            _ => (),
+            // Note: the encryption data and the hash are moved from the mimi content into
+            // pending attachment record.
+            let record = AttachmentRecord {
+                attachment_id,
+                conversation_id,
+                conversation_message_id,
+                content_type: content_type.clone(),
+                status: AttachmentStatus::Pending,
+                arrived_at,
+            };
+            let pending_record = PendingAttachmentRecord {
+                attachment_id,
+                size: *size,
+                enc_alg: *enc_alg,
+                enc_key: mem::take(key).into_vec(),
+                nonce: mem::take(nonce).into_vec(),
+                aad: mem::take(aad).into_vec(),
+                hash_alg: *hash_alg,
+                hash: mem::take(content_hash).into_vec(),
+            };
+            records.push((record, pending_record));
+
+            Ok(())
+        });
+        if let Err(error) = visit_res {
+            error!(%error, "Failed to visit attachment; continue");
         }
-        Ok(())
+        records
     }
 }

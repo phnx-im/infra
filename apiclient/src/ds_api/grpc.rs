@@ -13,7 +13,7 @@ use mls_assist::{
 use phnxcommon::{
     credentials::keys::ClientSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
-    identifiers::{QsReference, QualifiedGroupId},
+    identifiers::{AttachmentId, QsReference, QualifiedGroupId},
     messages::{
         client_ds::UserProfileKeyUpdateParams,
         client_ds_out::{
@@ -27,9 +27,9 @@ use phnxprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
-        ExternalCommitInfoRequest, GroupOperationPayload, JoinConnectionGroupRequest,
-        ProvisionAttachmentPayload, ProvisionAttachmentResponse, RequestGroupIdRequest,
-        ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
+        ExternalCommitInfoRequest, GetAttachmentUrlPayload, GroupOperationPayload,
+        JoinConnectionGroupRequest, ProvisionAttachmentPayload, ProvisionAttachmentResponse,
+        RequestGroupIdRequest, ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
         UpdateProfileKeyPayload, WelcomeInfoPayload,
         delivery_service_client::DeliveryServiceClient,
     },
@@ -409,10 +409,10 @@ impl DsGrpcClient {
         group_id: &GroupId,
         sender_index: LeafNodeIndex,
     ) -> Result<ProvisionAttachmentResponse, DsRequestError> {
-        let gqid: QualifiedGroupId = group_id.try_into()?;
+        let qgid: QualifiedGroupId = group_id.try_into()?;
         let payload = ProvisionAttachmentPayload {
             group_state_ear_key: Some(group_state_ear_key.ref_into()),
-            group_id: Some(gqid.ref_into()),
+            group_id: Some(qgid.ref_into()),
             sender: Some(sender_index.into()),
         };
         let request = payload.sign(signing_key)?;
@@ -423,5 +423,30 @@ impl DsGrpcClient {
             .await?
             .into_inner();
         Ok(response)
+    }
+
+    pub(crate) async fn get_attachment_url(
+        &self,
+        signing_key: &ClientSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+        group_id: &GroupId,
+        sender_index: LeafNodeIndex,
+        attachment_id: AttachmentId,
+    ) -> Result<String, DsRequestError> {
+        let qgid: QualifiedGroupId = group_id.try_into()?;
+        let payload = GetAttachmentUrlPayload {
+            group_state_ear_key: Some(group_state_ear_key.ref_into()),
+            group_id: Some(qgid.ref_into()),
+            sender: Some(sender_index.into()),
+            attachment_id: Some(attachment_id.uuid().into()),
+        };
+        let request = payload.sign(signing_key)?;
+        let response = self
+            .client
+            .clone()
+            .get_attachment_url(request)
+            .await?
+            .into_inner();
+        Ok(response.download_url)
     }
 }

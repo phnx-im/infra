@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:prototype/attachments/attachments_cubit.dart';
 import 'package:prototype/background_service.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
@@ -167,11 +168,23 @@ class LoadableUserCubitProvider extends StatelessWidget {
                           navigationCubit: context.read<NavigationCubit>(),
                           appStateStream: appStateController.stream,
                         ),
-                    child: BlocProvider<UsersCubit>(
-                      create:
-                          (context) =>
-                              UsersCubit(userCubit: context.read<UserCubit>()),
-
+                    child: MultiBlocProvider(
+                      providers: [
+                        BlocProvider<UsersCubit>(
+                          create:
+                              (context) => UsersCubit(
+                                userCubit: context.read<UserCubit>(),
+                              ),
+                        ),
+                        BlocProvider<AttachmentsCubit>(
+                          create:
+                              (context) => AttachmentsCubit(
+                                userCubit: context.read<UserCubit>(),
+                              ),
+                          // start background tasks downloading attachments
+                          lazy: false,
+                        ),
+                      ],
                       child: child,
                     ),
                   )

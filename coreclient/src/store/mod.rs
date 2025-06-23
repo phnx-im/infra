@@ -6,14 +6,13 @@ use std::sync::Arc;
 use std::{collections::HashSet, path::Path};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{UserHandle, UserId};
+use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    AttachmentId, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, contacts::HandleContact, user_handles::UserHandleRecord,
-    user_profiles::UserProfile,
+    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
+    contacts::HandleContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};

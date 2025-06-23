@@ -5,13 +5,12 @@
 use std::{collections::HashSet, path::Path, sync::Arc};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{UserHandle, UserId};
+use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    AttachmentId, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId,
+    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
     clients::{CoreUser, attachment::AttachmentRecord},
     contacts::HandleContact,
     user_handles::UserHandleRecord,
