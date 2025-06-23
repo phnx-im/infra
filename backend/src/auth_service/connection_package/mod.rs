@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::messages::client_as::ConnectionPackage;
+use phnxcommon::messages::connection_package::ConnectionPackage;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod persistence;

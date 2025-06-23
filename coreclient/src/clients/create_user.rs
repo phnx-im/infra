@@ -22,9 +22,9 @@ use phnxcommon::{
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
     messages::{
-        client_as::ConnectionPackage,
         client_as_out::EncryptedUserProfile,
         client_qs::CreateUserRecordResponse,
+        connection_package::ConnectionPackage,
         push_token::{EncryptedPushToken, PushToken},
     },
 };

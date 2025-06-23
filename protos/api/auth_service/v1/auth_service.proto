@@ -104,7 +104,8 @@ message ConnectionPackagePayload {
   MlsInfraVersion protocol_version = 1;
   ConnectionEncryptionKey encryption_key = 2;
   ExpirationData lifetime = 3;
-  ClientCredential client_credential = 4;
+  HandleVerifyingKey verifying_key = 4;
+  UserHandleHash user_handle_hash = 5;
 }
 
 message ConnectionEncryptionKey {
