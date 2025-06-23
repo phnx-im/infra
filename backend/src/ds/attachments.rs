@@ -2,10 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use aws_config::Region;
 use aws_sdk_s3::{
-    Client, Config,
-    config::{Credentials, http},
+    config::http,
     error::{BuildError, SdkError},
     operation::{get_object, put_object},
     presigning::{PresigningConfig, PresigningConfigError},
@@ -27,30 +25,13 @@ impl Ds {
         &self,
         _payload: ProvisionAttachmentPayload,
     ) -> Result<Response<ProvisionAttachmentResponse>, ProvisionAttachmentError> {
-        let minio_endpoint = "http://localhost:9000";
-        let minio_access_key_id = "minioaccesskey";
-        let minio_secret_access_key = "miniosecretkey";
-        let minio_region = "eu-west-1";
-
-        let credentials = Credentials::new(
-            minio_access_key_id,
-            minio_secret_access_key,
-            None,
-            None,
-            "minio",
-        );
-
-        let config = Config::builder()
-            .endpoint_url(minio_endpoint)
-            .region(Region::new(minio_region))
-            .credentials_provider(credentials.clone())
-            .force_path_style(true)
-            .behavior_version_latest()
-            .build();
+        let client = self
+            .storage
+            .as_ref()
+            .map(|s| s.client())
+            .ok_or(ProvisionAttachmentError::NoStorageConfigured)?;
 
         let attachment_id = Uuid::new_v4();
-
-        let client = Client::from_conf(config);
 
         let expiration = ExpirationData::now(Duration::minutes(5));
         let not_before: DateTime<Utc> = expiration.not_before().into();
@@ -91,28 +72,11 @@ impl Ds {
         &self,
         attachment_id: AttachmentId,
     ) -> Result<Response<GetAttachmentUrlResponse>, GetAttachmentUrlError> {
-        let minio_endpoint = "http://localhost:9000";
-        let minio_access_key_id = "minioaccesskey";
-        let minio_secret_access_key = "miniosecretkey";
-        let minio_region = "eu-west-1";
-
-        let credentials = Credentials::new(
-            minio_access_key_id,
-            minio_secret_access_key,
-            None,
-            None,
-            "minio",
-        );
-
-        let config = Config::builder()
-            .endpoint_url(minio_endpoint)
-            .region(Region::new(minio_region))
-            .credentials_provider(credentials.clone())
-            .force_path_style(true)
-            .behavior_version_latest()
-            .build();
-
-        let client = Client::from_conf(config);
+        let client = self
+            .storage
+            .as_ref()
+            .map(|s| s.client())
+            .ok_or(GetAttachmentUrlError::NoStorageConfigured)?;
 
         let expiration = ExpirationData::now(Duration::minutes(5));
         let not_before: DateTime<Utc> = expiration.not_before().into();
@@ -151,6 +115,8 @@ impl Ds {
 
 #[derive(Debug, thiserror::Error, Display)]
 pub(super) enum ProvisionAttachmentError {
+    /// Attachments are not supported
+    NoStorageConfigured,
     /// Internal error
     Build(#[from] BuildError),
     /// Internal error
@@ -165,6 +131,10 @@ impl From<ProvisionAttachmentError> for Status {
     fn from(error: ProvisionAttachmentError) -> Self {
         let msg = error.to_string();
         match error {
+            ProvisionAttachmentError::NoStorageConfigured => {
+                error!("Storage is not configured");
+                Status::internal(msg)
+            }
             ProvisionAttachmentError::Build(error) => {
                 error!(%error, "Failed to build S3 config");
                 Status::internal(msg)
@@ -187,6 +157,8 @@ impl From<ProvisionAttachmentError> for Status {
 
 #[derive(Debug, thiserror::Error, Display)]
 pub(super) enum GetAttachmentUrlError {
+    /// Attachments are not supported
+    NoStorageConfigured,
     /// Internal error
     Build(#[from] BuildError),
     /// Internal error
@@ -201,6 +173,10 @@ impl From<GetAttachmentUrlError> for Status {
     fn from(error: GetAttachmentUrlError) -> Self {
         let msg = error.to_string();
         match error {
+            GetAttachmentUrlError::NoStorageConfigured => {
+                error!("Storage is not configured");
+                Status::internal(msg)
+            }
             GetAttachmentUrlError::Build(error) => {
                 error!(%error, "Failed to build S3 config");
                 Status::internal(msg)

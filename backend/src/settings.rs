@@ -10,12 +10,14 @@ use serde::Deserialize;
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
-    // If this isn't present, the provider will not send push notifications to
-    // apple devices.
+    /// If this isn't present, the provider will not send push notifications to
+    /// apple devices.
     pub apns: Option<ApnsSettings>,
-    // If this isn't present, the provider will not send push notifications to
-    // android devices.
+    /// If this isn't present, the provider will not send push notifications to
+    /// android devices.
     pub fcm: Option<FcmSettings>,
+    /// If this isn't present, the support for attachments is disabled.
+    pub storage: Option<StorageSettings>,
 }
 
 /// Configuration for the application.
@@ -54,6 +56,21 @@ pub struct ApnsSettings {
     pub keyid: String,
     pub teamid: String,
     pub privatekeypath: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct StorageSettings {
+    /// Endpoint for the storage provider
+    pub endpoint: String,
+    /// Region for the storage provider
+    pub region: String,
+    /// Access key ID for the storage provider
+    pub access_key_id: String,
+    /// Secret access key for the storage provider
+    pub secret_access_key: String,
+    /// Force path style for the storage provider
+    #[serde(default)]
+    pub force_path_style: bool,
 }
 
 impl DatabaseSettings {
