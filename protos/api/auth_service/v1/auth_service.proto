@@ -395,11 +395,12 @@ message FetchConnectionPackageResponse {
 }
 
 message EnqueueConnectionOfferStep {
-  EncryptedConnectionOffer connection_offer = 2;
+  ConnectionOfferMessage connection_offer = 3;
 }
 
-message EncryptedConnectionOffer {
+message ConnectionOfferMessage {
   common.v1.HpkeCiphertext ciphertext = 1;
+  bytes connection_package_hash = 2;
 }
 
 message ConnectResponse {
@@ -443,6 +444,6 @@ message ListenHandleResponse {
 message HandleQueueMessage {
   common.v1.Uuid message_id = 1;
   oneof payload {
-    EncryptedConnectionOffer connection_offer = 2;
+    ConnectionOfferMessage connection_offer = 3;
   }
 }
