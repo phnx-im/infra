@@ -5,7 +5,7 @@
 use phnxcommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::UserHandleHash,
-    messages::client_as::ConnectionPackage,
+    messages::connection_package::ConnectionPackage,
 };
 use sqlx::{Arguments, PgExecutor, postgres::PgArguments};
 
@@ -93,46 +93,44 @@ impl StorableConnectionPackage {
 #[cfg(test)]
 pub(crate) mod tests {
     use phnxcommon::{
-        credentials::{ClientCredential, keys},
+        credentials::keys::{self, HandleVerifyingKey},
         crypto::{ConnectionDecryptionKey, signatures::signable::Signature},
-        identifiers::UserId,
-        messages::{MlsInfraVersion, client_as::ConnectionPackageTbs},
+        messages::{MlsInfraVersion, connection_package::ConnectionPackagePayload},
         time::{Duration, ExpirationData},
     };
     use sqlx::PgPool;
 
-    use crate::auth_service::{
-        client_record::persistence::tests::random_client_record, user_handles::UserHandleRecord,
-    };
+    use crate::auth_service::user_handles::UserHandleRecord;
 
     use super::*;
 
     async fn store_random_connection_packages_for_handle(
         pool: &PgPool,
         hash: &UserHandleHash,
-        client_credential: ClientCredential,
+        verifying_key: HandleVerifyingKey,
     ) -> anyhow::Result<Vec<ConnectionPackage>> {
         let pkgs = vec![
-            random_connection_package(client_credential.clone()),
-            random_connection_package(client_credential),
+            random_connection_package(verifying_key.clone()),
+            random_connection_package(verifying_key),
         ];
         StorableConnectionPackage::store_multiple_for_handle(pool, pkgs.iter(), hash).await?;
         Ok(pkgs)
     }
 
     pub(crate) fn random_connection_package(
-        client_credential: ClientCredential,
+        verifying_key: HandleVerifyingKey,
     ) -> ConnectionPackage {
         ConnectionPackage::new_for_test(
-            ConnectionPackageTbs::new(
-                MlsInfraVersion::default(),
-                ConnectionDecryptionKey::generate()
+            ConnectionPackagePayload {
+                verifying_key,
+                protocol_version: MlsInfraVersion::default(),
+                encryption_key: ConnectionDecryptionKey::generate()
                     .unwrap()
                     .encryption_key()
                     .clone(),
-                ExpirationData::new(Duration::days(90)),
-                client_credential,
-            ),
+                lifetime: ExpirationData::new(Duration::days(90)),
+                user_handle_hash: UserHandleHash::new([1; 32]),
+            },
             Signature::new_for_test(b"signature".to_vec()),
         )
     }
@@ -140,23 +138,17 @@ pub(crate) mod tests {
     #[sqlx::test]
     async fn handle_connection_packages(pool: PgPool) -> anyhow::Result<()> {
         let hash = UserHandleHash::new([1; 32]);
+        let verifying_key = keys::HandleVerifyingKey::from_bytes(vec![1, 2, 3, 4, 5]);
         UserHandleRecord {
             user_handle_hash: hash,
-            verifying_key: keys::HandleVerifyingKey::from_bytes(vec![1, 2, 3, 4, 5]),
+            verifying_key: verifying_key.clone(),
             expiration_data: ExpirationData::new(Duration::days(1)),
         }
         .store(&pool)
         .await?;
 
-        let user_id = UserId::random("example.com".parse()?);
-        let client_record = random_client_record(user_id.clone())?;
-
-        let mut pkgs = store_random_connection_packages_for_handle(
-            &pool,
-            &hash,
-            client_record.credential().clone(),
-        )
-        .await?;
+        let mut pkgs =
+            store_random_connection_packages_for_handle(&pool, &hash, verifying_key).await?;
 
         let loaded =
             StorableConnectionPackage::load_for_handle(pool.acquire().await?.as_mut(), &hash)

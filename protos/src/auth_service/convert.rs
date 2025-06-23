@@ -9,7 +9,8 @@ use phnxcommon::{
     crypto, identifiers,
     messages::{
         self,
-        client_as::{self, ConnectionPackageHashError},
+        client_as::{self},
+        connection_package::ConnectionPackageHashError,
     },
     time,
 };
@@ -295,8 +296,8 @@ impl From<ClientCredentialPayloadError> for Status {
     }
 }
 
-impl From<messages::client_as::ConnectionPackage> for ConnectionPackage {
-    fn from(value: messages::client_as::ConnectionPackage) -> Self {
+impl From<messages::connection_package::ConnectionPackage> for ConnectionPackage {
+    fn from(value: messages::connection_package::ConnectionPackage) -> Self {
         let (payload, signature) = value.into_parts();
         Self {
             payload: Some(payload.into()),
@@ -305,7 +306,7 @@ impl From<messages::client_as::ConnectionPackage> for ConnectionPackage {
     }
 }
 
-impl TryFrom<ConnectionPackage> for messages::client_as_out::ConnectionPackageIn {
+impl TryFrom<ConnectionPackage> for messages::connection_package::ConnectionPackageIn {
     type Error = ConnectionPackageError;
 
     fn try_from(proto: ConnectionPackage) -> Result<Self, Self::Error> {
@@ -330,18 +331,19 @@ impl From<ConnectionPackageError> for Status {
     }
 }
 
-impl From<messages::client_as::ConnectionPackageTbs> for ConnectionPackagePayload {
-    fn from(value: messages::client_as::ConnectionPackageTbs) -> Self {
+impl From<messages::connection_package::ConnectionPackagePayload> for ConnectionPackagePayload {
+    fn from(value: messages::connection_package::ConnectionPackagePayload) -> Self {
         Self {
             protocol_version: Some(value.protocol_version.into()),
             encryption_key: Some(value.encryption_key.into()),
             lifetime: Some(value.lifetime.into()),
-            client_credential: Some(value.client_credential.into()),
+            verifying_key: Some(value.verifying_key.into()),
+            user_handle_hash: Some(value.user_handle_hash.into()),
         }
     }
 }
 
-impl TryFrom<ConnectionPackagePayload> for messages::client_as_out::ConnectionPackageTbsIn {
+impl TryFrom<ConnectionPackagePayload> for messages::connection_package::ConnectionPackagePayload {
     type Error = ConnectionPackagePayloadError;
 
     fn try_from(proto: ConnectionPackagePayload) -> Result<Self, Self::Error> {
@@ -355,9 +357,13 @@ impl TryFrom<ConnectionPackagePayload> for messages::client_as_out::ConnectionPa
                 .ok_or_missing_field("encryption_key")?
                 .into(),
             lifetime: proto.lifetime.ok_or_missing_field("lifetime")?.try_into()?,
-            client_credential: proto
-                .client_credential
-                .ok_or_missing_field("client_credential")?
+            verifying_key: proto
+                .verifying_key
+                .ok_or_missing_field("verifying_key")?
+                .into(),
+            user_handle_hash: proto
+                .user_handle_hash
+                .ok_or_missing_field("user_handle_hash")?
                 .try_into()?,
         })
     }
@@ -373,6 +379,8 @@ pub enum ConnectionPackagePayloadError {
     Lifetime(#[from] ExpirationDataError),
     #[error(transparent)]
     ClientCredential(#[from] ClientCredentialError),
+    #[error(transparent)]
+    UserHandleHash(#[from] UserHandleHashError),
 }
 
 impl From<crypto::ConnectionEncryptionKey> for ConnectionEncryptionKey {
