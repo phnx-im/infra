@@ -58,10 +58,7 @@ mod payload {
 
     impl SignedStruct<ConnectionPackagePayload, HandleKeyType> for ConnectionPackage {
         fn from_payload(payload: ConnectionPackagePayload, signature: HandleSignature) -> Self {
-            Self {
-                payload: payload,
-                signature,
-            }
+            Self { payload, signature }
         }
     }
 
