@@ -8,13 +8,16 @@ use phnxcommon::{
     crypto::ear::{AeadCiphertext, EarDecryptable, keys::AttachmentEarKey},
     identifiers::AttachmentId,
 };
+use tokio::sync::watch;
+use tokio_stream::StreamExt;
 use tracing::{debug, info};
 
 use crate::{
+    AttachmentContent,
     clients::{
         CoreUser,
         attachment::{
-            AttachmentContent, AttachmentRecord, PHNX_BLAKE3_HASH_ID,
+            AttachmentBytes, AttachmentRecord, PHNX_BLAKE3_HASH_ID,
             ear::EncryptedAttachment,
             persistence::{AttachmentStatus, PendingAttachmentRecord},
         },
@@ -23,11 +26,27 @@ use crate::{
 };
 
 impl CoreUser {
-    pub(crate) async fn download_attachment(
+    pub(crate) fn download_attachment(
         &self,
         attachment_id: AttachmentId,
+    ) -> (
+        DownloadProgress,
+        impl Future<Output = anyhow::Result<()>> + use<>,
+    ) {
+        let (progress_tx, progress) = DownloadProgress::new();
+        let fut = self
+            .clone()
+            .download_attachment_impl(attachment_id, progress_tx);
+        (progress, fut)
+    }
+
+    async fn download_attachment_impl(
+        self,
+        attachment_id: AttachmentId,
+        mut progress_tx: DownloadProgressSender,
     ) -> anyhow::Result<()> {
         info!(?attachment_id, "downloading attachment");
+        progress_tx.report(0);
 
         // Load the pending attachment record and update the status to `Downloading`.
         let Some((pending_record, group)) = self
@@ -107,7 +126,17 @@ impl CoreUser {
             .send()
             .await?
             .error_for_status()?;
-        let bytes = response.bytes().await?;
+        let total_len = pending_record
+            .size
+            .try_into()
+            .context("Attachment size overflow")?;
+        let mut bytes = Vec::with_capacity(total_len);
+        let mut bytes_stream = response.bytes_stream();
+        while let Some(chunk) = bytes_stream.next().await.transpose()? {
+            bytes.extend_from_slice(&chunk);
+            let percent = (total_len * 100 / bytes.len()) as u8;
+            progress_tx.report(percent);
+        }
 
         // Verify hash
         debug!(?attachment_id, "Verifying hash");
@@ -118,16 +147,16 @@ impl CoreUser {
 
         // Decrypt the attachment
         debug!(?attachment_id, "Decrypting attachment");
-        let ciphertext = EncryptedAttachment::from(AeadCiphertext::new(bytes.into(), nonce));
-        let content: AttachmentContent = AttachmentContent::decrypt(&key, &ciphertext)?;
+        let ciphertext = EncryptedAttachment::from(AeadCiphertext::new(bytes, nonce));
+        let content: AttachmentBytes = AttachmentBytes::decrypt(&key, &ciphertext)?;
 
         // Store the attachment and mark it as downloaded
         self.with_transaction_and_notifier(async move |txn, notifier| {
-            AttachmentRecord::mark_as_ready(
+            AttachmentRecord::set_content(
                 txn.as_mut(),
                 notifier,
                 attachment_id,
-                content.as_ref(),
+                &AttachmentContent::Ready(content.bytes),
             )
             .await?;
             PendingAttachmentRecord::delete(txn.as_mut(), attachment_id).await?;
@@ -135,6 +164,71 @@ impl CoreUser {
         })
         .await?;
 
+        progress_tx.finish();
+
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DownloadProgress {
+    rx: watch::Receiver<DownloadProgressEvent>,
+}
+
+impl DownloadProgress {
+    fn new() -> (DownloadProgressSender, Self) {
+        let (tx, rx) = watch::channel(DownloadProgressEvent::Init);
+        (DownloadProgressSender { tx: Some(tx) }, Self { rx })
+    }
+
+    pub async fn wait_for_completion(&mut self) -> DownloadProgressEvent {
+        let _ = self
+            .rx
+            .wait_for(|value| {
+                matches!(
+                    value,
+                    DownloadProgressEvent::Completed | DownloadProgressEvent::Failed
+                )
+            })
+            .await;
+        self.value()
+    }
+
+    pub fn value(&mut self) -> DownloadProgressEvent {
+        self.rx.borrow_and_update().clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum DownloadProgressEvent {
+    Init,
+    Progress { percent: u8 },
+    Completed,
+    Failed,
+}
+
+struct DownloadProgressSender {
+    tx: Option<watch::Sender<DownloadProgressEvent>>,
+}
+
+impl DownloadProgressSender {
+    fn report(&mut self, percent: u8) {
+        if let Some(tx) = &mut self.tx {
+            let _ignore_closed = tx.send(DownloadProgressEvent::Progress { percent });
+        }
+    }
+
+    fn finish(&mut self) {
+        if let Some(tx) = self.tx.take() {
+            let _ignore_closed = tx.send(DownloadProgressEvent::Completed);
+        }
+    }
+}
+
+impl Drop for DownloadProgressSender {
+    fn drop(&mut self) {
+        if let Some(tx) = self.tx.take() {
+            let _ignore_closed = tx.send(DownloadProgressEvent::Failed);
+        }
     }
 }

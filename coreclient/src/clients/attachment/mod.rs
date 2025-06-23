@@ -27,14 +27,16 @@ use crate::{
         CoreUser,
         attachment::{
             ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
-            persistence::{AttachmentImageRecord, AttachmentStatus},
+            persistence::AttachmentImageRecord,
         },
     },
     groups::Group,
     utils::image::{ReencodedAttachmentImage, reencode_attachment_image},
 };
 
+pub use download::{DownloadProgress, DownloadProgressEvent};
 pub(crate) use persistence::AttachmentRecord;
+pub use persistence::{AttachmentContent, AttachmentStatus};
 
 mod content;
 mod download;
@@ -47,23 +49,23 @@ mod process;
 /// If it is an image, it will contain additional image data, like a thumbnail and blurhash.
 struct Attachment {
     filename: String,
-    content: AttachmentContent,
+    content: AttachmentBytes,
     mime: Option<infer::Type>,
     image_data: Option<AttachmentImageData>,
 }
 
 #[derive(derive_more::From)]
-struct AttachmentContent {
+struct AttachmentBytes {
     bytes: Vec<u8>,
 }
 
-impl AttachmentContent {
+impl AttachmentBytes {
     fn new(bytes: Vec<u8>) -> Self {
         Self { bytes }
     }
 }
 
-impl AsRef<[u8]> for AttachmentContent {
+impl AsRef<[u8]> for AttachmentBytes {
     fn as_ref(&self) -> &[u8] {
         &self.bytes
     }
@@ -276,7 +278,7 @@ async fn encrypt_and_upload(
     api_client: &ApiClient,
     http_client: &reqwest::Client,
     signing_key: &ClientSigningKey,
-    content: &AttachmentContent,
+    content: &AttachmentBytes,
     group: &Group,
 ) -> anyhow::Result<AttachmentMetadata> {
     // encrypt the content

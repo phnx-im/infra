@@ -30,7 +30,7 @@ pub(crate) struct AttachmentRecord {
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[repr(u8)]
-pub(crate) enum AttachmentStatus {
+pub enum AttachmentStatus {
     /// Unknown status
     Unknown = 0,
     /// The download has not started yet.
@@ -51,6 +51,51 @@ impl AttachmentStatus {
             3 => Self::Ready,
             4 => Self::Failed,
             _ => Self::Unknown,
+        }
+    }
+}
+
+pub enum AttachmentContent {
+    /// There no such attachment
+    None,
+    /// Fully downloaded
+    Ready(Vec<u8>),
+    /// Not yet started to download
+    Pending,
+    /// Currently downloading
+    Downloading,
+    /// Failed to download
+    Failed,
+    /// Unknown status
+    Unknown,
+}
+
+impl AttachmentContent {
+    pub fn into_bytes(self) -> Option<Vec<u8>> {
+        match self {
+            AttachmentContent::Ready(content) => Some(content),
+            _ => None,
+        }
+    }
+
+    fn parts(&self) -> (Option<&[u8]>, AttachmentStatus) {
+        match self {
+            AttachmentContent::None => (None, AttachmentStatus::Unknown),
+            AttachmentContent::Ready(content) => (Some(content), AttachmentStatus::Ready),
+            AttachmentContent::Pending => (None, AttachmentStatus::Pending),
+            AttachmentContent::Downloading => (None, AttachmentStatus::Downloading),
+            AttachmentContent::Failed => (None, AttachmentStatus::Failed),
+            AttachmentContent::Unknown => (None, AttachmentStatus::Unknown),
+        }
+    }
+
+    fn from_parts(content: Option<Vec<u8>>, status: AttachmentStatus) -> Self {
+        match (content, status) {
+            (Some(content), AttachmentStatus::Ready) => AttachmentContent::Ready(content),
+            (None, AttachmentStatus::Pending) => AttachmentContent::Pending,
+            (None, AttachmentStatus::Downloading) => AttachmentContent::Downloading,
+            (None, AttachmentStatus::Failed) => AttachmentContent::Failed,
+            (_, _) => AttachmentContent::Unknown,
         }
     }
 }
@@ -187,22 +232,47 @@ impl AttachmentRecord {
         Ok(())
     }
 
-    pub(crate) async fn mark_as_ready(
+    pub(crate) async fn set_content(
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         attachment_id: AttachmentId,
-        content: &[u8],
+        content: &AttachmentContent,
     ) -> sqlx::Result<()> {
+        let (bytes, status) = content.parts();
         query!(
             "UPDATE attachments SET status = ?, content = ? WHERE attachment_id = ?",
-            AttachmentStatus::Ready,
-            content,
+            status,
+            bytes,
             attachment_id,
         )
         .execute(executor)
         .await?;
         notifier.update(attachment_id);
         Ok(())
+    }
+
+    pub(crate) async fn load_content(
+        executor: impl SqliteExecutor<'_>,
+        attachment_id: AttachmentId,
+    ) -> sqlx::Result<AttachmentContent> {
+        struct SqlParts {
+            content: Option<Vec<u8>>,
+            status: AttachmentStatus,
+        }
+        let record = query_as!(
+            SqlParts,
+            r#"SELECT
+                content,
+                status AS "status: _"
+            FROM attachments WHERE attachment_id = ?"#,
+            attachment_id
+        )
+        .fetch_optional(executor)
+        .await?;
+        match record {
+            Some(record) => Ok(AttachmentContent::from_parts(record.content, record.status)),
+            None => Ok(AttachmentContent::None),
+        }
     }
 }
 

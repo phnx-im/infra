@@ -11,8 +11,9 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    contacts::HandleContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
+    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId, DownloadProgress, contacts::HandleContact,
+    user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -206,11 +207,19 @@ pub trait Store {
         path: &Path,
     ) -> StoreResult<ConversationMessage>;
 
-    async fn download_attachment(&self, attachment_id: AttachmentId) -> StoreResult<()>;
+    fn download_attachment(
+        &self,
+        attachment_id: AttachmentId,
+    ) -> (
+        DownloadProgress,
+        impl Future<Output = StoreResult<()>> + use<Self>,
+    );
 
     async fn pending_attachments(&self) -> StoreResult<Vec<AttachmentId>>;
 
     async fn delete_attachment(&self, attachment_id: AttachmentId) -> StoreResult<()>;
+
+    async fn load_attachment(&self, attachment_id: AttachmentId) -> StoreResult<AttachmentContent>;
 
     // observability
 

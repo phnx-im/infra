@@ -14,8 +14,7 @@ use chrono::{DateTime, Duration, Utc};
 use displaydoc::Display;
 use phnxcommon::{identifiers::AttachmentId, time::ExpirationData};
 use phnxprotos::delivery_service::v1::{
-    GetAttachmentUrlPayload, GetAttachmentUrlResponse, HeaderEntry, ProvisionAttachmentPayload,
-    ProvisionAttachmentResponse,
+    GetAttachmentUrlResponse, HeaderEntry, ProvisionAttachmentPayload, ProvisionAttachmentResponse,
 };
 use tonic::{Response, Status};
 use tracing::error;

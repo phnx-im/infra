@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
+import 'package:prototype/attachments/attachments.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/timestamp.dart';
@@ -270,7 +271,23 @@ class _ImageAttachmentContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 300,
-      child: AspectRatio(aspectRatio: 1.6, child: BlurHash(hash: blurhash)),
+      child: AspectRatio(
+        aspectRatio: 1.6,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            BlurHash(hash: blurhash),
+            Image(
+              image: AttachmentImageProvider(
+                attachment: attachment,
+                attachmentsCubit: context.read(),
+              ),
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

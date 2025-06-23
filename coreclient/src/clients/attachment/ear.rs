@@ -13,7 +13,7 @@ use phnxcommon::crypto::{
     errors::{DecryptionError, EncryptionError},
 };
 
-use super::AttachmentContent;
+use super::AttachmentBytes;
 
 pub(super) const PHNX_ATTACHMENT_ENCRYPTION_ALG: EncryptionAlgorithm =
     EncryptionAlgorithm::Aes256Gcm;
@@ -28,7 +28,7 @@ pub struct EncryptedAttachmentCtype;
 
 pub type EncryptedAttachment = Ciphertext<EncryptedAttachmentCtype>;
 
-impl GenericSerializable for AttachmentContent {
+impl GenericSerializable for AttachmentBytes {
     type Error = Infallible;
 
     fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
@@ -36,7 +36,7 @@ impl GenericSerializable for AttachmentContent {
     }
 }
 
-impl EarEncryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentContent {
+impl EarEncryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentBytes {
     fn encrypt(&self, key: &AttachmentEarKey) -> Result<EncryptedAttachment, EncryptionError> {
         Ok(key.encrypt(self.as_ref())?.into())
     }
@@ -57,7 +57,7 @@ impl EarEncryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentCo
     }
 }
 
-impl GenericDeserializable for AttachmentContent {
+impl GenericDeserializable for AttachmentBytes {
     type Error = Infallible;
 
     fn deserialize(_bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -65,13 +65,13 @@ impl GenericDeserializable for AttachmentContent {
     }
 }
 
-impl EarDecryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentContent {
+impl EarDecryptable<AttachmentEarKey, EncryptedAttachmentCtype> for AttachmentBytes {
     fn decrypt(
         ear_key: &AttachmentEarKey,
         ciphertext: &EncryptedAttachment,
     ) -> Result<Self, DecryptionError> {
         let bytes = ear_key.decrypt(ciphertext.aead_ciphertext())?;
-        Ok(AttachmentContent::new(bytes))
+        Ok(AttachmentBytes::new(bytes))
     }
 
     fn decrypt_with_aad<Aad: GenericSerializable>(

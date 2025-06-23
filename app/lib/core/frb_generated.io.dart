@@ -536,6 +536,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  AttachmentId dco_decode_box_autoadd_attachment_id(dynamic raw);
+
+  @protected
   ConversationId dco_decode_box_autoadd_conversation_id(dynamic raw);
 
   @protected
@@ -1288,6 +1291,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   User
   sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AttachmentId sse_decode_box_autoadd_attachment_id(
     SseDeserializer deserializer,
   );
 
@@ -2216,6 +2224,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     User self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_attachment_id(
+    AttachmentId self,
     SseSerializer serializer,
   );
 

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
@@ -26,4 +27,7 @@ class AttachmentsCubit implements StateStreamableSource<AttachmentsState> {
 
   @override
   Stream<AttachmentsState> get stream => _impl.stream();
+
+  Future<Uint8List> loadAttachment(AttachmentId attachmentId) =>
+      _impl.loadAttachment(attachmentId: attachmentId);
 }
