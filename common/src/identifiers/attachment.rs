@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use url::Url;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -19,7 +20,8 @@ impl AttachmentId {
     }
 
     pub fn from_url(url: &str) -> Option<Self> {
-        let suffix = url.strip_prefix("phnx://attachment/")?;
+        let url = Url::parse(url).ok()?;
+        let suffix = url.path().strip_prefix("phnx://attachment/")?;
         let uuid = suffix.parse().ok()?;
         Some(Self { uuid })
     }

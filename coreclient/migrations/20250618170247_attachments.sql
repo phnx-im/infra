@@ -31,20 +31,3 @@ CREATE TABLE IF NOT EXISTS pending_attachments (
     hash BLOB NOT NULL,
     FOREIGN KEY (attachment_id) REFERENCES attachments (attachment_id) ON DELETE CASCADE
 );
-
-CREATE TABLE IF NOT EXISTS attachment_images (
-    attachment_id BLOB NOT NULL PRIMARY KEY,
-    blurhash TEXT NOT NULL,
-    width INTEGER NOT NULL,
-    height INTEGER NOT NULL,
-    FOREIGN KEY (attachment_id) REFERENCES attachments (attachment_id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS attachment_thumbnails (
-    attachment_id BLOB NOT NULL PRIMARY KEY,
-    content_type TEXT NOT NULL,
-    content BLOB NOT NULL,
-    width INTEGER NOT NULL,
-    height INTEGER NOT NULL,
-    FOREIGN KEY (attachment_id) REFERENCES attachments (attachment_id) ON DELETE CASCADE
-);

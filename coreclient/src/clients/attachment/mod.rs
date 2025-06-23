@@ -20,15 +20,13 @@ use phnxcommon::{
     crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
     identifiers::AttachmentId,
 };
+use url::Url;
 
 use crate::{
     Conversation, ConversationId, ConversationMessage, ConversationMessageId,
     clients::{
         CoreUser,
-        attachment::{
-            ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
-            persistence::AttachmentImageRecord,
-        },
+        attachment::ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
     },
     groups::Group,
     utils::image::{ReencodedAttachmentImage, reencode_attachment_image},
@@ -121,13 +119,24 @@ impl Attachment {
             .unwrap_or("application/octet-stream")
     }
 
-    fn to_nested_parts(&self, metadata: &AttachmentMetadata) -> Vec<NestedPart> {
+    fn to_nested_parts(&self, metadata: &AttachmentMetadata) -> anyhow::Result<Vec<NestedPart>> {
+        let url = metadata.attachment_id.url();
+        let mut url = Url::parse(&url)?;
+        // TODO: Currently, there is no way to specify the image dimensions in the MIMI content.
+        // This is a workaround for that.
+        if let Some(image_data) = &self.image_data {
+            url.query_pairs_mut()
+                .append_pair("width", &image_data.width.to_string());
+            url.query_pairs_mut()
+                .append_pair("height", &image_data.height.to_string());
+        }
+
         let attachment = NestedPart {
             disposition: Disposition::Attachment,
             language: String::new(),
             part: NestedPartContent::ExternalPart {
                 content_type: self.mime_type().to_owned(),
-                url: metadata.attachment_id.url(),
+                url: url.to_string(),
                 expires: 0,
                 size: metadata.size,
                 enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
@@ -150,7 +159,7 @@ impl Attachment {
             },
         });
 
-        [Some(attachment), blurhash].into_iter().flatten().collect()
+        Ok([Some(attachment), blurhash].into_iter().flatten().collect())
     }
 }
 
@@ -209,7 +218,7 @@ impl CoreUser {
                 disposition: Disposition::Attachment,
                 part: NestedPartContent::MultiPart {
                     part_semantics: PartSemantics::ProcessAll,
-                    parts: attachment.to_nested_parts(&attachment_metadata),
+                    parts: attachment.to_nested_parts(&attachment_metadata)?,
                 },
                 ..Default::default()
             },
@@ -237,16 +246,6 @@ impl CoreUser {
             status: AttachmentStatus::Ready,
             arrived_at: Utc::now(),
         };
-        let image_record = if let Some(image_data) = attachment.image_data.as_ref() {
-            Some(AttachmentImageRecord {
-                attachment_id: attachment_metadata.attachment_id.uuid(),
-                blurhash: image_data.blurhash.clone(),
-                width: image_data.width,
-                height: image_data.height,
-            })
-        } else {
-            None
-        };
         record
             .store(
                 txn.as_mut(),
@@ -254,9 +253,6 @@ impl CoreUser {
                 Some(attachment.content.as_ref()),
             )
             .await?;
-        if let Some(image_record) = image_record {
-            image_record.store(txn.as_mut()).await?;
-        }
 
         txn.commit().await?;
         notifier.notify();

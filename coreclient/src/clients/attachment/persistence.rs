@@ -9,7 +9,6 @@ use sqlx::{
     Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
     query, query_as, query_scalar,
 };
-use uuid::Uuid;
 
 use crate::{ConversationId, ConversationMessageId, store::StoreNotifier};
 
@@ -124,16 +123,6 @@ impl<'r> Decode<'r, Sqlite> for AttachmentStatus {
         let idx: u32 = Decode::<Sqlite>::decode(value)?;
         Ok(Self::from_u32(idx))
     }
-}
-
-/// Additional information about an attachment when it is an image.
-///
-/// Thumbnail content is intentially not included in this struct.
-pub(super) struct AttachmentImageRecord {
-    pub(super) attachment_id: Uuid,
-    pub(super) blurhash: String,
-    pub(super) width: u32,
-    pub(super) height: u32,
 }
 
 impl AttachmentRecord {
@@ -276,28 +265,6 @@ impl AttachmentRecord {
     }
 }
 
-impl AttachmentImageRecord {
-    pub(super) async fn store(&self, executor: impl SqliteExecutor<'_>) -> anyhow::Result<()> {
-        query!(
-            r#"
-                INSERT INTO attachment_images (
-                    attachment_id,
-                    blurhash,
-                    width,
-                    height
-                ) VALUES (?, ?, ?, ?)
-                "#,
-            self.attachment_id,
-            self.blurhash,
-            self.width,
-            self.height,
-        )
-        .execute(executor)
-        .await?;
-        Ok(())
-    }
-}
-
 pub(crate) struct PendingAttachmentRecord {
     pub(super) attachment_id: AttachmentId,
     pub(super) size: u64,
@@ -419,6 +386,7 @@ impl PendingAttachmentRecord {
 mod test {
     use chrono::SubsecRound;
     use sqlx::Pool;
+    use uuid::Uuid;
 
     use crate::conversations::{
         messages::persistence::tests::test_conversation_message,
