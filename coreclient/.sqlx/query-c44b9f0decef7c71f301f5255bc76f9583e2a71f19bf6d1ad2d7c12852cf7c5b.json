@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT\n                    attachment_id AS \"attachment_id: _\",\n                    conversation_id AS \"conversation_id: _\",\n                    conversation_message_id AS \"conversation_message_id: _\",\n                    content_type AS \"content_type: _\",\n                    status AS \"status: _\",\n                    arrived_at AS \"arrived_at: _\"\n                FROM attachments\n                WHERE attachment_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "attachment_id: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "conversation_id: _",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "conversation_message_id: _",
+        "ordinal": 2,
+        "type_info": "Blob"
+      },
+      {
+        "name": "content_type: _",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "status: _",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "arrived_at: _",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c44b9f0decef7c71f301f5255bc76f9583e2a71f19bf6d1ad2d7c12852cf7c5b"
+}
