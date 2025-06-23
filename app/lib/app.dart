@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:prototype/attachments/attachments_cubit.dart';
 import 'package:prototype/background_service.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
@@ -158,37 +157,36 @@ class LoadableUserCubitProvider extends StatelessWidget {
       },
       builder:
           (context, loadableUser) =>
-              loadableUser.user != null
-                  // Logged-in user and contacts are accessible everywhere inside the app after
-                  // the user is loaded.
-                  ? BlocProvider<UserCubit>(
-                    create:
-                        (context) => UserCubit(
-                          coreClient: context.read<CoreClient>(),
-                          navigationCubit: context.read<NavigationCubit>(),
-                          appStateStream: appStateController.stream,
-                        ),
-                    child: MultiBlocProvider(
-                      providers: [
-                        BlocProvider<UsersCubit>(
-                          create:
-                              (context) => UsersCubit(
-                                userCubit: context.read<UserCubit>(),
-                              ),
-                        ),
-                        BlocProvider<AttachmentsCubit>(
-                          create:
-                              (context) => AttachmentsCubit(
-                                userCubit: context.read<UserCubit>(),
-                              ),
-                          // start background tasks downloading attachments
-                          lazy: false,
-                        ),
-                      ],
+              loadableUser.user == null
+                  ? child
+                  : MultiBlocProvider(
+                    providers: [
+                      // Logged-in user and contacts are accessible everywhere inside the app after
+                      // the user is loaded.
+                      BlocProvider<UserCubit>(
+                        create:
+                            (context) => UserCubit(
+                              coreClient: context.read<CoreClient>(),
+                              navigationCubit: context.read<NavigationCubit>(),
+                              appStateStream: appStateController.stream,
+                            ),
+                      ),
+                      BlocProvider<UsersCubit>(
+                        create:
+                            (context) => UsersCubit(
+                              userCubit: context.read<UserCubit>(),
+                            ),
+                      ),
+                    ],
+                    child: RepositoryProvider<AttachmentsRepository>(
+                      create:
+                          (context) => AttachmentsRepository(
+                            userCubit: context.read<UserCubit>().impl,
+                          ),
+                      lazy: false, // immediately download pending attachments
                       child: child,
                     ),
-                  )
-                  : child,
+                  ),
     );
   }
 }

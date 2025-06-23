@@ -42,7 +42,7 @@ sealed class UiAttachment with _$UiAttachment {
     required AttachmentId attachmentId,
     required String filename,
     required String contentType,
-    String? discription,
+    String? description,
     required int size,
     String? blurhash,
   }) = _UiAttachment;

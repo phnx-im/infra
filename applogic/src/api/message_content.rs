@@ -51,7 +51,7 @@ pub struct UiAttachment {
     pub attachment_id: AttachmentId,
     pub filename: String,
     pub content_type: String,
-    pub discription: Option<String>,
+    pub description: Option<String>,
     pub size: u64,
     pub blurhash: Option<String>,
 }
@@ -141,7 +141,7 @@ fn convert_attachment(parts: Vec<NestedPart>) -> Option<UiAttachment> {
                     attachment_id,
                     filename,
                     content_type,
-                    discription: Some(description).filter(|d| !d.is_empty()),
+                    description: Some(description).filter(|d| !d.is_empty()),
                     size,
                     blurhash: None,
                 });

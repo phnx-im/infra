@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:prototype/attachments/attachments.dart';
 import 'package:prototype/core/core.dart';
@@ -280,7 +281,7 @@ class _ImageAttachmentContent extends StatelessWidget {
             Image(
               image: AttachmentImageProvider(
                 attachment: attachment,
-                attachmentsCubit: context.read(),
+                attachmentsRepository: RepositoryProvider.of(context),
               ),
               fit: BoxFit.cover,
               alignment: Alignment.center,

@@ -21,84 +21,39 @@ use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, info};
 
-use crate::{
-    StreamSink,
-    api::user_cubit::UserCubitBase,
-    util::{Cubit, CubitCore, spawn_from_sync},
-};
-
-#[derive(Debug, Clone)]
-#[frb(opaque)]
-#[allow(dead_code)]
-pub struct AttachmentsState {
-    inner: Arc<AttachmentsStateInner>,
-}
-
-#[frb(ignore)]
-#[derive(Debug, Clone)]
-struct AttachmentsStateInner {}
-
-impl AttachmentsStateInner {
-    fn new() -> Self {
-        Self {}
-    }
-}
+use crate::{api::user_cubit::UserCubitBase, util::spawn_from_sync};
 
 type InProgressMap = Arc<Mutex<HashMap<AttachmentId, DownloadTaskHandle>>>;
 
+/// Repository managing attachments
+///
+/// * Listens to store notifications and spawns download tasks for attachments that are added or
+/// pending.
+/// * Provides access for loading attachments.
 #[frb(opaque)]
-pub struct AttachmentsCubitBase {
-    core: CubitCore<AttachmentsState>,
+pub struct AttachmentsRepository {
     store: CoreUser,
     cancel: CancellationToken,
     in_progress: InProgressMap,
     _cancel: DropGuard,
 }
 
-impl AttachmentsCubitBase {
+impl AttachmentsRepository {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
         let store = user_cubit.core_user().clone();
-
-        let inner = AttachmentsStateInner::new();
-        let core = CubitCore::with_initial_state(AttachmentsState {
-            inner: Arc::new(inner),
-        });
 
         let cancel = CancellationToken::new();
         let in_progress = InProgressMap::default();
         spawn_attachment_downloads(store.clone(), in_progress.clone(), cancel.clone());
 
         Self {
-            core,
             store,
             in_progress,
             cancel: cancel.clone(),
             _cancel: cancel.drop_guard(),
         }
     }
-
-    // Cubit interface
-
-    pub fn close(&mut self) {
-        self.core.close();
-    }
-
-    #[frb(getter, sync)]
-    pub fn is_closed(&self) -> bool {
-        self.core.is_closed()
-    }
-
-    #[frb(getter, sync)]
-    pub fn state(&self) -> AttachmentsState {
-        self.core.state()
-    }
-
-    pub async fn stream(&mut self, sink: StreamSink<AttachmentsState>) {
-        self.core.stream(sink).await;
-    }
-
-    // Cubit methods
 
     pub async fn load_attachment(&self, attachment_id: AttachmentId) -> anyhow::Result<Vec<u8>> {
         let mut content = None;

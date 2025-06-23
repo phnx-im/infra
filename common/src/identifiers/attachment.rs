@@ -16,12 +16,15 @@ impl AttachmentId {
     }
 
     pub fn url(&self) -> String {
-        format!("phnx://attachment/{}", self.uuid)
+        format!("phnx:///attachment/{}", self.uuid)
     }
 
     pub fn from_url(url: &str) -> Option<Self> {
         let url = Url::parse(url).ok()?;
-        let suffix = url.path().strip_prefix("phnx://attachment/")?;
+        if url.scheme() != "phnx" {
+            return None;
+        }
+        let suffix = url.path().strip_prefix("/attachment/")?;
         let uuid = suffix.parse().ok()?;
         Some(Self { uuid })
     }
@@ -56,5 +59,20 @@ mod sqlx_impls {
             let id: Uuid = Decode::<Sqlite>::decode(value)?;
             Ok(Self::new(id))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use uuid::Uuid;
+
+    #[test]
+    fn from_url() {
+        let url = "phnx:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09?width=1920&height=1080";
+        let attachment_id = super::AttachmentId::from_url(url).unwrap();
+        assert_eq!(
+            attachment_id.uuid,
+            Uuid::parse_str("b6a42a7a-62fa-4c10-acfb-6124d80aae09").unwrap()
+        );
     }
 }

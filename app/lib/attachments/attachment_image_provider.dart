@@ -9,17 +9,15 @@ import 'package:flutter/painting.dart';
 import 'package:prototype/core/core.dart';
 import 'dart:ui' as ui;
 
-import 'attachments_cubit.dart';
-
-/// Loads an attachment image from the database via the [AttachmentsCubit].
+/// Loads an attachment image from the database via an [AttachmentsRepository].
 class AttachmentImageProvider extends ImageProvider<UiAttachment> {
   const AttachmentImageProvider({
     required this.attachment,
-    required this.attachmentsCubit,
+    required this.attachmentsRepository,
   });
 
   final UiAttachment attachment;
-  final AttachmentsCubit attachmentsCubit;
+  final AttachmentsRepository attachmentsRepository;
 
   @override
   Future<UiAttachment> obtainKey(ImageConfiguration configuration) {
@@ -34,8 +32,8 @@ class AttachmentImageProvider extends ImageProvider<UiAttachment> {
     debugPrint("Loading attachment image '$key'...");
     final chunkEvents = StreamController<ImageChunkEvent>();
     return MultiFrameImageStreamCompleter(
-      codec: attachmentsCubit
-          .loadAttachment(key.attachmentId)
+      codec: attachmentsRepository
+          .loadAttachment(attachmentId: key.attachmentId)
           .catchError((Object e, StackTrace stack) {
             scheduleMicrotask(() {
               PaintingBinding.instance.imageCache.evict(key);
