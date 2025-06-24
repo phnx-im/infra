@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::Duration;
 use phnxcommon::DEFAULT_PORT_GRPC;
 use serde::Deserialize;
 
@@ -58,6 +59,7 @@ pub struct ApnsSettings {
     pub privatekeypath: String,
 }
 
+/// Settings for an external object storage provider
 #[derive(Debug, Deserialize, Clone)]
 pub struct StorageSettings {
     /// Endpoint for the storage provider
@@ -71,6 +73,16 @@ pub struct StorageSettings {
     /// Force path style for the storage provider
     #[serde(default)]
     pub force_path_style: bool,
+    /// Expiration for signed upload URLs
+    ///
+    /// Default is 5 minutes.
+    #[serde(default = "default_5min", with = "duration_seconds")]
+    pub upload_expiration: Duration,
+    /// Expiration for signed download URLs
+    ///
+    /// Default is 5 minutes.
+    #[serde(default = "default_5min", with = "duration_seconds")]
+    pub download_expiration: Duration,
 }
 
 impl DatabaseSettings {
@@ -108,5 +120,26 @@ impl DatabaseSettings {
     pub fn connection_string_without_database(&self) -> String {
         let connection_string = self.base_connection_string();
         self.add_tls_mode(connection_string)
+    }
+}
+
+fn default_5min() -> Duration {
+    Duration::seconds(5 * 60)
+}
+
+mod duration_seconds {
+    use serde::de;
+
+    use chrono::Duration;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Duration, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let seconds: u64 = serde::Deserialize::deserialize(d)?;
+        let seconds: i64 = seconds
+            .try_into()
+            .map_err(|_| de::Error::custom("out of range"))?;
+        Ok(Duration::seconds(seconds))
     }
 }
