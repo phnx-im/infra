@@ -5,3 +5,10 @@
 application:
   domain: localhost
   host: 127.0.0.1
+
+storage:
+  endpoint: http://localhost:9000
+  region: eu-west-1
+  access_key_id: minioaccesskey
+  secret_access_key: miniosecretkey
+  force_path_style: true
