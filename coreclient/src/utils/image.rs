@@ -106,7 +106,7 @@ fn rotate(exif: Option<Exif>, image: DynamicImage) -> DynamicImage {
             .get_field(Tag::Orientation, exif::In::PRIMARY)
             .and_then(|field| field.value.get_uint(0))
             .unwrap_or(1);
-        // TODO: roate and flip in-place
+        // TODO(#590): rotate and flip in-place
         match orientation {
             1 => image,
             2 => image.fliph(),
