@@ -23,7 +23,7 @@ pub(crate) struct AttachmentRecord {
     pub(super) conversation_message_id: ConversationMessageId,
     pub(super) content_type: String,
     pub(super) status: AttachmentStatus,
-    pub(super) arrived_at: DateTime<Utc>,
+    pub(super) created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,7 +140,7 @@ impl AttachmentRecord {
                 content_type,
                 content,
                 status,
-                arrived_at
+                created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?)",
             self.attachment_id,
             self.conversation_id,
@@ -148,7 +148,7 @@ impl AttachmentRecord {
             self.content_type,
             content,
             self.status,
-            self.arrived_at,
+            self.created_at,
         )
         .execute(executor)
         .await?;
@@ -164,7 +164,7 @@ impl AttachmentRecord {
                 attachment_id AS "attachment_id: AttachmentId"
             FROM attachments
             WHERE status = ?
-            ORDER BY arrived_at ASC"#,
+            ORDER BY created_at ASC"#,
             AttachmentStatus::Pending
         )
         .fetch_all(executor)
@@ -197,7 +197,7 @@ impl AttachmentRecord {
                     conversation_message_id AS "conversation_message_id: _",
                     content_type AS "content_type: _",
                     status AS "status: _",
-                    arrived_at AS "arrived_at: _"
+                    created_at AS "created_at: _"
                 FROM attachments
                 WHERE attachment_id = ?"#,
             attachment_id
@@ -283,8 +283,8 @@ impl PendingAttachmentRecord {
         notifier: &mut StoreNotifier,
     ) -> sqlx::Result<()> {
         let size = self.size as i64;
-        let enc_alg = self.enc_alg.as_u16() as i64;
-        let hash_alg = self.hash_alg.as_u8() as i64;
+        let enc_alg: i64 = self.enc_alg.repr().into();
+        let hash_alg: i64 = self.hash_alg.repr().into();
         query!(
             "INSERT INTO pending_attachments (
                 attachment_id,
@@ -357,11 +357,11 @@ impl PendingAttachmentRecord {
                 PendingAttachmentRecord {
                     attachment_id,
                     size,
-                    enc_alg: EncryptionAlgorithm::from_u16(enc_alg),
+                    enc_alg: EncryptionAlgorithm::from_repr(enc_alg),
                     enc_key,
                     nonce,
                     aad,
-                    hash_alg: HashAlgorithm::from_u8(hash_alg),
+                    hash_alg: HashAlgorithm::from_repr(hash_alg),
                     hash,
                 }
             },
@@ -407,7 +407,7 @@ mod test {
         message.store(&pool, &mut notifier).await?;
 
         let attachment_id = AttachmentId::new(Uuid::new_v4());
-        let arrived_at = Utc::now().round_subsecs(6);
+        let created_at = Utc::now().round_subsecs(6);
 
         let record = AttachmentRecord {
             attachment_id,
@@ -415,7 +415,7 @@ mod test {
             conversation_message_id: message.id(),
             content_type: "image/png".to_string(),
             status: AttachmentStatus::Pending,
-            arrived_at,
+            created_at,
         };
 
         let content = b"some_image_content".to_vec();
@@ -442,7 +442,7 @@ mod test {
         message.store(&pool, &mut notifier).await?;
 
         let attachment_id = AttachmentId::new(Uuid::new_v4());
-        let arrived_at = Utc::now().round_subsecs(6);
+        let created_at = Utc::now().round_subsecs(6);
 
         let record = AttachmentRecord {
             attachment_id,
@@ -450,7 +450,7 @@ mod test {
             conversation_message_id: message.id(),
             content_type: "image/png".to_string(),
             status: AttachmentStatus::Pending,
-            arrived_at,
+            created_at,
         };
 
         let content = b"some_image_content".to_vec();

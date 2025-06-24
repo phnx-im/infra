@@ -10,12 +10,12 @@ CREATE TABLE IF NOT EXISTS attachments (
     content_type TEXT NOT NULL,
     content BLOB,
     status INTEGER NOT NULL,
-    arrived_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) ON DELETE CASCADE,
     FOREIGN KEY (conversation_message_id) REFERENCES conversation_messages (message_id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS attachment_arrived_at_index ON attachments (arrived_at);
+CREATE INDEX IF NOT EXISTS attachment_created_at_index ON attachments (created_at);
 
 -- Additional data needed for downloading attachments.
 --

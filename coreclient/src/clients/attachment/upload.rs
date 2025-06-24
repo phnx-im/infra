@@ -36,6 +36,7 @@ use crate::{
 };
 
 impl CoreUser {
+    /// Uploads an attachment and sends a message containing it.
     pub(crate) async fn upload_attachment(
         &self,
         conversation_id: ConversationId,
@@ -58,7 +59,7 @@ impl CoreUser {
             .await?;
 
         // load the attachment data
-        let attachment = Attachment::from_file(path)?;
+        let attachment = ProcessedAttachment::from_file(path)?;
 
         // encrypt the content and upload the content
         let api_client = self.api_client()?;
@@ -73,11 +74,6 @@ impl CoreUser {
         )
         .await?;
 
-        // Note: Acquire a transaction here to ensure that the attachment will be deleted from the
-        // local database in case of an error.
-        let mut txn = self.pool().begin().await?;
-        let mut notifier = self.store_notifier();
-
         // send attachment message
         let content = MimiContent {
             nested_part: NestedPart {
@@ -91,53 +87,57 @@ impl CoreUser {
             ..Default::default()
         };
 
-        let conversation_message_id = ConversationMessageId::random();
-        let message = self
-            .send_message_transactional(
-                &mut txn,
-                &mut notifier,
-                conversation_id,
+        // Note: Acquire a transaction here to ensure that the attachment will be deleted from the
+        // local database in case of an error.
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            let conversation_message_id = ConversationMessageId::random();
+            let message = self
+                .send_message_transactional(
+                    txn,
+                    notifier,
+                    conversation_id,
+                    conversation_message_id,
+                    content,
+                )
+                .await?;
+
+            // store attachment locally
+            // (must be done after the message is stored locally due to foreign key constraints)
+            let record = AttachmentRecord {
+                attachment_id: attachment_metadata.attachment_id,
+                conversation_id: conversation.id(),
                 conversation_message_id,
-                content,
-            )
-            .await?;
+                content_type: attachment.mime_type().to_owned(),
+                status: AttachmentStatus::Ready,
+                created_at: Utc::now(),
+            };
+            record
+                .store(txn.as_mut(), notifier, Some(attachment.content.as_ref()))
+                .await?;
 
-        // store attachment locally
-        // (must be done after the message is stored locally due to foreign key constraints)
-        let record = AttachmentRecord {
-            attachment_id: attachment_metadata.attachment_id,
-            conversation_id: conversation.id(),
-            conversation_message_id,
-            content_type: attachment.mime_type().to_owned(),
-            status: AttachmentStatus::Ready,
-            arrived_at: Utc::now(),
-        };
-        record
-            .store(
-                txn.as_mut(),
-                &mut notifier,
-                Some(attachment.content.as_ref()),
-            )
-            .await?;
-
-        txn.commit().await?;
-        notifier.notify();
-
-        Ok(message)
+            Ok(message)
+        })
+        .await
     }
 }
 
 /// In-memory loaded and processed attachment
 ///
-/// If it is an image, it will contain additional image data, like a thumbnail and blurhash.
-struct Attachment {
+/// If it is an image, it will contain additional image data, like a blurhash.
+struct ProcessedAttachment {
     filename: String,
     content: AttachmentBytes,
     mime: Option<infer::Type>,
-    image_data: Option<AttachmentImageData>,
+    image_data: Option<ProcessedAttachmentImageData>,
 }
 
-impl Attachment {
+struct ProcessedAttachmentImageData {
+    blurhash: String,
+    width: u32,
+    height: u32,
+}
+
+impl ProcessedAttachment {
     fn from_file(path: &Path) -> anyhow::Result<Self> {
         // TODO: Avoid reading the whole file into memory when it is an image.
         // Instead, it should be re-encoded directly from the file.
@@ -154,7 +154,7 @@ impl Attachment {
                 image_dimensions: (width, height),
                 blurhash,
             } = reencode_attachment_image(content)?;
-            let image_data = AttachmentImageData {
+            let image_data = ProcessedAttachmentImageData {
                 blurhash,
                 width,
                 height,
@@ -229,12 +229,6 @@ impl Attachment {
 
         Ok([Some(attachment), blurhash].into_iter().flatten().collect())
     }
-}
-
-struct AttachmentImageData {
-    blurhash: String,
-    width: u32,
-    height: u32,
 }
 
 /// Metadata of an encrypted and uploaded attachment

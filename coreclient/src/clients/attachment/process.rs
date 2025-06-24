@@ -33,7 +33,7 @@ impl CoreUser {
 
         let conversation_id = message.conversation_id();
         let conversation_message_id = message.id();
-        let arrived_at = message.timestamp();
+        let created_at = message.timestamp();
 
         let Some(mimi_content) = message.message_mut().mimi_content_mut() else {
             return Vec::new();
@@ -71,7 +71,7 @@ impl CoreUser {
                 conversation_message_id,
                 content_type: content_type.clone(),
                 status: AttachmentStatus::Pending,
-                arrived_at,
+                created_at,
             };
             let pending_record = PendingAttachmentRecord {
                 attachment_id,

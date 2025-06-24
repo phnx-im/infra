@@ -16,11 +16,11 @@ use phnxcommon::crypto::{
 use super::AttachmentBytes;
 
 pub(super) const PHNX_ATTACHMENT_ENCRYPTION_ALG: EncryptionAlgorithm =
-    EncryptionAlgorithm::Aes256Gcm;
+    EncryptionAlgorithm::Aes256Gcm12;
 
 /// Custom hash algorithm
 ///
-///Unused value in IANA Hash Algorithm registry
+/// Unused value in IANA Hash Algorithm registry
 pub(super) const PHNX_BLAKE3_HASH_ID: u8 = 42;
 
 #[derive(Debug, Clone)]

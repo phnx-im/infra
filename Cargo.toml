@@ -61,13 +61,13 @@ tracing-subscriber = { version = "0.3", features = [
     "parking_lot",
 ] }
 
+
+mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "613510bbefb79f8f5328f9b8d14262f0661624aa" }
+
 tokio = { version = "1.18.2", features = ["macros"] }
 tokio-stream = "0.1.17"
 tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }
-
-mimi_content = { git = "https://github.com/boxdot/mimi-content", rev = "6156ba9" }
-
 insta = { version = "1.42.1", features = ["json"] }
 
 # grpc/protobuf

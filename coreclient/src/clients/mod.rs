@@ -73,7 +73,7 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 
 mod add_contact;
 pub(crate) mod api_clients;
-pub mod attachment;
+pub(crate) mod attachment;
 pub(crate) mod connection_offer;
 pub mod conversations;
 mod create_user;

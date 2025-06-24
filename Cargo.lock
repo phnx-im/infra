@@ -3246,7 +3246,7 @@ dependencies = [
 [[package]]
 name = "mimi_content"
 version = "0.1.0"
-source = "git+https://github.com/boxdot/mimi-content?rev=6156ba9#6156ba9d3ac1e9d422d9ee02d864cea286b5d6cd"
+source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
 dependencies = [
  "ciborium",
  "hex",
@@ -5161,7 +5161,7 @@ dependencies = [
 [[package]]
 name = "serde_list"
 version = "1.1.0"
-source = "git+https://github.com/boxdot/mimi-content?rev=6156ba9#6156ba9d3ac1e9d422d9ee02d864cea286b5d6cd"
+source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
 dependencies = [
  "serde",
  "serde_list_macros",
@@ -5170,7 +5170,7 @@ dependencies = [
 [[package]]
 name = "serde_list_macros"
 version = "0.1.0"
-source = "git+https://github.com/boxdot/mimi-content?rev=6156ba9#6156ba9d3ac1e9d422d9ee02d864cea286b5d6cd"
+source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
 dependencies = [
  "quote",
  "syn",
