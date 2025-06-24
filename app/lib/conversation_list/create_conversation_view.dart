@@ -10,6 +10,8 @@ class CreateConversationView extends StatefulWidget {
   final String prompt;
   final String hint;
   final String action;
+  final Future<String?> Function(String)? onAction;
+  final FormFieldValidator<String> validator;
 
   @override
   const CreateConversationView(
@@ -18,6 +20,8 @@ class CreateConversationView extends StatefulWidget {
     this.prompt,
     this.hint,
     this.action, {
+    this.onAction,
+    required this.validator,
     super.key,
   });
 
@@ -26,9 +30,18 @@ class CreateConversationView extends StatefulWidget {
 }
 
 class _CreateConversationViewState extends State<CreateConversationView> {
+  final _formKey = GlobalKey<FormState>();
+
   bool _isInputValid = false;
+  String? _customValidationError;
 
   final TextEditingController _controller = TextEditingController();
+
+  void _validateForm() {
+    setState(() {
+      _isInputValid = _formKey.currentState?.validate() ?? false;
+    });
+  }
 
   @override
   Widget build(context) {
@@ -57,19 +70,17 @@ class _CreateConversationViewState extends State<CreateConversationView> {
               ),
               const SizedBox(height: 20),
               Form(
-                autovalidateMode: AutovalidateMode.always,
+                key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: ConstrainedBox(
-                  constraints: BoxConstraints.tight(const Size(350, 80)),
+                  constraints: BoxConstraints.tight(const Size(380, 80)),
                   child: TextFormField(
                     style: inputTextStyle(context),
                     autofocus: true,
                     controller: _controller,
                     decoration: InputDecoration(hintText: widget.hint),
-                    onChanged: (String value) {
-                      setState(() {
-                        _isInputValid = value.isNotEmpty;
-                      });
-                    },
+                    validator: _validator,
+                    onChanged: (String value) => _validateForm(),
                   ),
                 ),
               ),
@@ -82,20 +93,39 @@ class _CreateConversationViewState extends State<CreateConversationView> {
           style: dynamicTextButtonStyle(context, true, false),
           child: const Text('Cancel'),
           onPressed: () {
-            Navigator.of(context).pop('');
+            Navigator.of(context).pop(null);
           },
         ),
         TextButton(
           style: dynamicTextButtonStyle(context, _isInputValid, true),
-          onPressed:
-              _controller.text.isNotEmpty
-                  ? () {
-                    Navigator.of(context).pop(_controller.text);
-                  }
-                  : null,
+          onPressed: _isInputValid ? _onAction : null,
           child: Text(widget.action),
         ),
       ],
     );
+  }
+
+  void _onAction() async {
+    if (widget.onAction != null) {
+      final error = await widget.onAction!(_controller.text);
+      if (error != null) {
+        setState(() {
+          _isInputValid = false;
+          _customValidationError = error;
+        });
+      }
+    } else {
+      Navigator.of(context).pop(_controller.text);
+    }
+  }
+
+  String? _validator(String? input) {
+    if (_customValidationError != null) {
+      final error = _customValidationError;
+      _customValidationError = null;
+      return error;
+    } else {
+      return widget.validator(input);
+    }
   }
 }

@@ -157,11 +157,57 @@ class _SettingsButtonState extends State<_SettingsButton> {
     );
   }
 
-  void _newContact(BuildContext context) async {
+  void _newContact(BuildContext context) {
     final conversationListCubit = context.read<ConversationListCubit>();
     final loc = AppLocalizations.of(context);
 
-    String? plaintextRes = await showDialog(
+    String? customError;
+
+    String? validator(String? value) {
+      final plaintext = value?.trim().toLowerCase();
+      if (plaintext == null || plaintext.isEmpty) {
+        return loc.newConnectionDialog_error_emptyHandle;
+      }
+      if (customError != null) {
+        final error = customError;
+        customError = null;
+        return error;
+      }
+      UiUserHandle handle = UiUserHandle(plaintext: plaintext);
+      return handle.validationError();
+    }
+
+    Future<String?> onAction(String input) async {
+      final handle = UiUserHandle(plaintext: input.trim().toLowerCase());
+      try {
+        final conversationId = await conversationListCubit.createConnection(
+          handle: handle,
+        );
+        if (context.mounted) {
+          if (conversationId == null) {
+            return loc.newConnectionDialog_error_handleNotFound(
+              handle.plaintext,
+            );
+          }
+          _log.info(
+            "A new 1:1 connection with user '${handle.plaintext}' was created: "
+            "conversationId = $conversationId",
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        _log.severe("Failed to create connection: $e");
+        if (context.mounted) {
+          showErrorBanner(
+            ScaffoldMessenger.of(context),
+            loc.newConnectionDialog_error(handle.plaintext),
+          );
+        }
+      }
+      return null;
+    }
+
+    showDialog(
       context: context,
       builder:
           (BuildContext context) => CreateConversationView(
@@ -170,34 +216,25 @@ class _SettingsButtonState extends State<_SettingsButton> {
             loc.newConnectionDialog_newConnectionDescription,
             loc.newConnectionDialog_usernamePlaceholder,
             loc.newConnectionDialog_actionButton,
+            validator: validator,
+            onAction: onAction,
           ),
     );
-    String plaintext = plaintextRes?.trim().toLowerCase() ?? "";
-
-    if (plaintext.isNotEmpty) {
-      try {
-        final conversationId = await conversationListCubit.createConnection(
-          handle: UiUserHandle(plaintext: plaintext),
-        );
-        _log.info(
-          "A new 1:1 connection with user '$plaintext' was created: "
-          "conversationId = $conversationId",
-        );
-      } catch (e) {
-        if (context.mounted) {
-          showErrorBanner(
-            ScaffoldMessenger.of(context),
-            loc.newConnectionDialog_error(plaintext, e),
-          );
-        }
-      }
-    }
   }
 
   void _newGroup(BuildContext context) async {
     final conversationListCubit = context.read<ConversationListCubit>();
     final loc = AppLocalizations.of(context);
-    String? groupNameRes = await showDialog(
+
+    validator(String? value) {
+      final plaintext = value?.trim().toLowerCase();
+      if (plaintext == null || plaintext.isEmpty) {
+        return loc.newConversationDialog_error_emptyGroupName;
+      }
+      return null;
+    }
+
+    String? input = await showDialog(
       context: context,
       builder:
           (BuildContext context) => CreateConversationView(
@@ -206,9 +243,10 @@ class _SettingsButtonState extends State<_SettingsButton> {
             loc.newConversationDialog_newConversationDescription,
             loc.newConversationDialog_conversationNamePlaceholder,
             loc.newConversationDialog_actionButton,
+            validator: validator,
           ),
     );
-    String groupName = groupNameRes?.trim() ?? "";
+    String groupName = input?.trim() ?? "";
     if (groupName.isNotEmpty) {
       try {
         final conversationId = await conversationListCubit.createConversation(
@@ -220,9 +258,10 @@ class _SettingsButtonState extends State<_SettingsButton> {
         );
       } catch (e) {
         if (context.mounted) {
+          _log.severe("Failed to create conversation: $e");
           showErrorBanner(
             ScaffoldMessenger.of(context),
-            loc.newConversationDialog_error(groupName, e),
+            loc.newConversationDialog_error(groupName),
           );
         }
       }
