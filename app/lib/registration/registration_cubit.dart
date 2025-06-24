@@ -33,7 +33,7 @@ sealed class RegistrationState with _$RegistrationState {
     @Default(false) bool isSigningUp,
   }) = _RegistrationState;
 
-  get isDomainValid => _domainRegex.hasMatch(domain);
+  bool get isDomainValid => _domainRegex.hasMatch(domain);
 }
 
 class RegistrationCubit extends Cubit<RegistrationState> {

@@ -374,21 +374,22 @@ impl CubitContext {
         cancel: CancellationToken,
     ) -> anyhow::Result<()> {
         loop {
-            let in_foreground = app_state.wait_for(|state| matches!(state, AppState::Foreground));
             tokio::select! {
                 _ = cancel.cancelled() => return Ok(()),
-                _ = in_foreground => {}
+                _ = app_state.changed() => {}
             };
 
-            match core_user.dequeue_notification().await {
-                Ok(store_notification) => {
-                    if !store_notification.is_empty() {
-                        core_user.notify(store_notification);
+            let state = *app_state.borrow_and_update();
+            if let AppState::Foreground = state {
+                match core_user.dequeue_notification().await {
+                    Ok(store_notification) => {
+                        if !store_notification.is_empty() {
+                            core_user.notify(store_notification);
+                        }
                     }
-                }
-                Err(error) => {
-                    error!(%error, "Failed to dequeue stored notifications");
-                    continue;
+                    Err(error) => {
+                        error!(%error, "Failed to dequeue stored notifications");
+                    }
                 }
             }
         }

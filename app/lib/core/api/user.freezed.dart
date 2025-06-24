@@ -1,3 +1,4 @@
+// dart format width=80
 // coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint
@@ -9,234 +10,199 @@ part of 'user.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// dart format off
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
-
 /// @nodoc
 mixin _$PlatformPushToken {
-  String get field0 => throw _privateConstructorUsedError;
 
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $PlatformPushTokenCopyWith<PlatformPushToken> get copyWith =>
-      throw _privateConstructorUsedError;
+ String get field0;
+/// Create a copy of PlatformPushToken
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PlatformPushTokenCopyWith<PlatformPushToken> get copyWith => _$PlatformPushTokenCopyWithImpl<PlatformPushToken>(this as PlatformPushToken, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlatformPushToken&&(identical(other.field0, field0) || other.field0 == field0));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,field0);
+
+@override
+String toString() {
+  return 'PlatformPushToken(field0: $field0)';
+}
+
+
 }
 
 /// @nodoc
-abstract class $PlatformPushTokenCopyWith<$Res> {
-  factory $PlatformPushTokenCopyWith(
-    PlatformPushToken value,
-    $Res Function(PlatformPushToken) then,
-  ) = _$PlatformPushTokenCopyWithImpl<$Res, PlatformPushToken>;
-  @useResult
-  $Res call({String field0});
-}
+abstract mixin class $PlatformPushTokenCopyWith<$Res>  {
+  factory $PlatformPushTokenCopyWith(PlatformPushToken value, $Res Function(PlatformPushToken) _then) = _$PlatformPushTokenCopyWithImpl;
+@useResult
+$Res call({
+ String field0
+});
 
+
+
+
+}
 /// @nodoc
-class _$PlatformPushTokenCopyWithImpl<$Res, $Val extends PlatformPushToken>
+class _$PlatformPushTokenCopyWithImpl<$Res>
     implements $PlatformPushTokenCopyWith<$Res> {
-  _$PlatformPushTokenCopyWithImpl(this._value, this._then);
+  _$PlatformPushTokenCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final PlatformPushToken _self;
+  final $Res Function(PlatformPushToken) _then;
 
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? field0 = null}) {
-    return _then(
-      _value.copyWith(
-            field0:
-                null == field0
-                    ? _value.field0
-                    : field0 // ignore: cast_nullable_to_non_nullable
-                        as String,
-          )
-          as $Val,
-    );
-  }
+/// Create a copy of PlatformPushToken
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? field0 = null,}) {
+  return _then(_self.copyWith(
+field0: null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
 }
 
-/// @nodoc
-abstract class _$$PlatformPushToken_AppleImplCopyWith<$Res>
-    implements $PlatformPushTokenCopyWith<$Res> {
-  factory _$$PlatformPushToken_AppleImplCopyWith(
-    _$PlatformPushToken_AppleImpl value,
-    $Res Function(_$PlatformPushToken_AppleImpl) then,
-  ) = __$$PlatformPushToken_AppleImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({String field0});
 }
 
-/// @nodoc
-class __$$PlatformPushToken_AppleImplCopyWithImpl<$Res>
-    extends _$PlatformPushTokenCopyWithImpl<$Res, _$PlatformPushToken_AppleImpl>
-    implements _$$PlatformPushToken_AppleImplCopyWith<$Res> {
-  __$$PlatformPushToken_AppleImplCopyWithImpl(
-    _$PlatformPushToken_AppleImpl _value,
-    $Res Function(_$PlatformPushToken_AppleImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? field0 = null}) {
-    return _then(
-      _$PlatformPushToken_AppleImpl(
-        null == field0
-            ? _value.field0
-            : field0 // ignore: cast_nullable_to_non_nullable
-                as String,
-      ),
-    );
-  }
-}
 
 /// @nodoc
 
-class _$PlatformPushToken_AppleImpl extends PlatformPushToken_Apple {
-  const _$PlatformPushToken_AppleImpl(this.field0) : super._();
 
-  @override
-  final String field0;
+class PlatformPushToken_Apple extends PlatformPushToken {
+  const PlatformPushToken_Apple(this.field0): super._();
+  
 
-  @override
-  String toString() {
-    return 'PlatformPushToken.apple(field0: $field0)';
-  }
+@override final  String field0;
 
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$PlatformPushToken_AppleImpl &&
-            (identical(other.field0, field0) || other.field0 == field0));
-  }
+/// Create a copy of PlatformPushToken
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PlatformPushToken_AppleCopyWith<PlatformPushToken_Apple> get copyWith => _$PlatformPushToken_AppleCopyWithImpl<PlatformPushToken_Apple>(this, _$identity);
 
-  @override
-  int get hashCode => Object.hash(runtimeType, field0);
 
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$PlatformPushToken_AppleImplCopyWith<_$PlatformPushToken_AppleImpl>
-  get copyWith => __$$PlatformPushToken_AppleImplCopyWithImpl<
-    _$PlatformPushToken_AppleImpl
-  >(this, _$identity);
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlatformPushToken_Apple&&(identical(other.field0, field0) || other.field0 == field0));
 }
 
-abstract class PlatformPushToken_Apple extends PlatformPushToken {
-  const factory PlatformPushToken_Apple(final String field0) =
-      _$PlatformPushToken_AppleImpl;
-  const PlatformPushToken_Apple._() : super._();
 
-  @override
-  String get field0;
+@override
+int get hashCode => Object.hash(runtimeType,field0);
 
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$PlatformPushToken_AppleImplCopyWith<_$PlatformPushToken_AppleImpl>
-  get copyWith => throw _privateConstructorUsedError;
+@override
+String toString() {
+  return 'PlatformPushToken.apple(field0: $field0)';
+}
+
+
 }
 
 /// @nodoc
-abstract class _$$PlatformPushToken_GoogleImplCopyWith<$Res>
-    implements $PlatformPushTokenCopyWith<$Res> {
-  factory _$$PlatformPushToken_GoogleImplCopyWith(
-    _$PlatformPushToken_GoogleImpl value,
-    $Res Function(_$PlatformPushToken_GoogleImpl) then,
-  ) = __$$PlatformPushToken_GoogleImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({String field0});
+abstract mixin class $PlatformPushToken_AppleCopyWith<$Res> implements $PlatformPushTokenCopyWith<$Res> {
+  factory $PlatformPushToken_AppleCopyWith(PlatformPushToken_Apple value, $Res Function(PlatformPushToken_Apple) _then) = _$PlatformPushToken_AppleCopyWithImpl;
+@override @useResult
+$Res call({
+ String field0
+});
+
+
+
+
+}
+/// @nodoc
+class _$PlatformPushToken_AppleCopyWithImpl<$Res>
+    implements $PlatformPushToken_AppleCopyWith<$Res> {
+  _$PlatformPushToken_AppleCopyWithImpl(this._self, this._then);
+
+  final PlatformPushToken_Apple _self;
+  final $Res Function(PlatformPushToken_Apple) _then;
+
+/// Create a copy of PlatformPushToken
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
+  return _then(PlatformPushToken_Apple(
+null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
 }
 
-/// @nodoc
-class __$$PlatformPushToken_GoogleImplCopyWithImpl<$Res>
-    extends
-        _$PlatformPushTokenCopyWithImpl<$Res, _$PlatformPushToken_GoogleImpl>
-    implements _$$PlatformPushToken_GoogleImplCopyWith<$Res> {
-  __$$PlatformPushToken_GoogleImplCopyWithImpl(
-    _$PlatformPushToken_GoogleImpl _value,
-    $Res Function(_$PlatformPushToken_GoogleImpl) _then,
-  ) : super(_value, _then);
 
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? field0 = null}) {
-    return _then(
-      _$PlatformPushToken_GoogleImpl(
-        null == field0
-            ? _value.field0
-            : field0 // ignore: cast_nullable_to_non_nullable
-                as String,
-      ),
-    );
-  }
 }
 
 /// @nodoc
 
-class _$PlatformPushToken_GoogleImpl extends PlatformPushToken_Google {
-  const _$PlatformPushToken_GoogleImpl(this.field0) : super._();
 
-  @override
-  final String field0;
+class PlatformPushToken_Google extends PlatformPushToken {
+  const PlatformPushToken_Google(this.field0): super._();
+  
 
-  @override
-  String toString() {
-    return 'PlatformPushToken.google(field0: $field0)';
-  }
+@override final  String field0;
 
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$PlatformPushToken_GoogleImpl &&
-            (identical(other.field0, field0) || other.field0 == field0));
-  }
+/// Create a copy of PlatformPushToken
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PlatformPushToken_GoogleCopyWith<PlatformPushToken_Google> get copyWith => _$PlatformPushToken_GoogleCopyWithImpl<PlatformPushToken_Google>(this, _$identity);
 
-  @override
-  int get hashCode => Object.hash(runtimeType, field0);
 
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$PlatformPushToken_GoogleImplCopyWith<_$PlatformPushToken_GoogleImpl>
-  get copyWith => __$$PlatformPushToken_GoogleImplCopyWithImpl<
-    _$PlatformPushToken_GoogleImpl
-  >(this, _$identity);
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlatformPushToken_Google&&(identical(other.field0, field0) || other.field0 == field0));
 }
 
-abstract class PlatformPushToken_Google extends PlatformPushToken {
-  const factory PlatformPushToken_Google(final String field0) =
-      _$PlatformPushToken_GoogleImpl;
-  const PlatformPushToken_Google._() : super._();
 
-  @override
-  String get field0;
+@override
+int get hashCode => Object.hash(runtimeType,field0);
 
-  /// Create a copy of PlatformPushToken
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$PlatformPushToken_GoogleImplCopyWith<_$PlatformPushToken_GoogleImpl>
-  get copyWith => throw _privateConstructorUsedError;
+@override
+String toString() {
+  return 'PlatformPushToken.google(field0: $field0)';
 }
+
+
+}
+
+/// @nodoc
+abstract mixin class $PlatformPushToken_GoogleCopyWith<$Res> implements $PlatformPushTokenCopyWith<$Res> {
+  factory $PlatformPushToken_GoogleCopyWith(PlatformPushToken_Google value, $Res Function(PlatformPushToken_Google) _then) = _$PlatformPushToken_GoogleCopyWithImpl;
+@override @useResult
+$Res call({
+ String field0
+});
+
+
+
+
+}
+/// @nodoc
+class _$PlatformPushToken_GoogleCopyWithImpl<$Res>
+    implements $PlatformPushToken_GoogleCopyWith<$Res> {
+  _$PlatformPushToken_GoogleCopyWithImpl(this._self, this._then);
+
+  final PlatformPushToken_Google _self;
+  final $Res Function(PlatformPushToken_Google) _then;
+
+/// Create a copy of PlatformPushToken
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
+  return _then(PlatformPushToken_Google(
+null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+// dart format on

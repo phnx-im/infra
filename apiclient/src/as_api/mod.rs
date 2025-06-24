@@ -14,7 +14,7 @@ use phnxcommon::{
     crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Signable},
     identifiers::{UserHandle, UserHandleHash, UserId},
     messages::{
-        client_as::{ConnectionPackage, EncryptedConnectionOffer},
+        client_as::{ConnectionOfferMessage, ConnectionPackage},
         client_as_out::{
             AsCredentialsResponseIn, ConnectionPackageIn, EncryptedUserProfile,
             GetUserProfileResponse, RegisterUserResponseIn,
@@ -209,7 +209,7 @@ impl ApiClient {
 
         // Step 2: Enqueue connection offer
         let (connection_offer_tx, connection_offer_rx) =
-            oneshot::channel::<EncryptedConnectionOffer>();
+            oneshot::channel::<ConnectionOfferMessage>();
         let connection_offer_fut = async move {
             let connection_offer = connection_offer_rx.await.ok()?;
             Some(ConnectRequest {
@@ -408,13 +408,13 @@ impl ListenHandleResponder {
 }
 
 pub struct ConnectionOfferResponder {
-    tx: oneshot::Sender<EncryptedConnectionOffer>,
+    tx: oneshot::Sender<ConnectionOfferMessage>,
     response: BoxFuture<'static, Result<(), AsRequestError>>,
 }
 
 impl ConnectionOfferResponder {
     pub fn new(
-        tx: oneshot::Sender<EncryptedConnectionOffer>,
+        tx: oneshot::Sender<ConnectionOfferMessage>,
         response: impl Future<Output = Result<(), AsRequestError>> + Send + 'static,
     ) -> Self {
         Self {
@@ -423,7 +423,7 @@ impl ConnectionOfferResponder {
         }
     }
 
-    pub async fn send(self, offer: EncryptedConnectionOffer) -> Result<(), AsRequestError> {
+    pub async fn send(self, offer: ConnectionOfferMessage) -> Result<(), AsRequestError> {
         self.tx.send(offer).map_err(|_| {
             error!("failed to send connection offer: connection closed");
             AsRequestError::UnexpectedResponse
