@@ -4,7 +4,7 @@
 
 use std::convert::Infallible;
 
-use mimi_content::content_container::EncryptionAlgorithm;
+use mimi_content::content_container::{EncryptionAlgorithm, HashAlgorithm};
 use phnxcommon::crypto::{
     ear::{
         Ciphertext, EarDecryptable, EarEncryptable, EarKey, GenericDeserializable,
@@ -18,10 +18,7 @@ use super::AttachmentBytes;
 pub(super) const PHNX_ATTACHMENT_ENCRYPTION_ALG: EncryptionAlgorithm =
     EncryptionAlgorithm::Aes256Gcm12;
 
-/// Custom hash algorithm
-///
-/// Unused value in IANA Hash Algorithm registry
-pub(super) const PHNX_BLAKE3_HASH_ID: u8 = 42;
+pub(super) const PHNX_ATTACHMENT_HASH_ALG: HashAlgorithm = HashAlgorithm::Sha256;
 
 #[derive(Debug, Clone)]
 pub struct EncryptedAttachmentCtype;

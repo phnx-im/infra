@@ -46,6 +46,7 @@ reqwest = { version = "^0.12", features = [
 chrono = { version = "0.4.38", features = ["serde"] }
 thiserror = "2.0"
 blake3 = { version = "1.8.2", features = ["neon"] }
+sha2 = "0.10.9"
 
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }

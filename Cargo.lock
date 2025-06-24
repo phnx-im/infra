@@ -3971,7 +3971,6 @@ name = "phnxcoreclient"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "blake3",
  "blurhash",
  "chrono",
  "derive_more 0.99.20",
@@ -3996,6 +3995,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "thiserror 2.0.12",
  "tls_codec",
