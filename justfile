@@ -13,7 +13,8 @@ docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } els
 # run postgres via docker compose and apply migrations
 init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
     if {{docker-is-podman}} == "true"; then \
-        podman-compose --podman-run-args=--replace up -d; \
+        podman-compose --podman-run-args=--replace up -d postgres; \
+        sleep 2; \
     else \
         docker compose up --wait; \
     fi
@@ -154,3 +155,12 @@ run-backend: init-db
 [working-directory: 'app']
 build-windows:
      flutter build windows
+
+# Run app
+[working-directory: 'app']
+run-app *args='':
+    flutter run {{args}}
+
+# Run app on Linux
+run-app-linux *args='':
+    just run-app -d linux {{args}}

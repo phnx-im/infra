@@ -103,13 +103,14 @@ pub struct ConversationMessage {
 impl ConversationMessage {
     /// Create a new conversation message from a group message. New messages are
     /// marked as unread by default.
-    pub(crate) fn from_timestamped_message(
+    pub(crate) fn new(
         conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
         timestamped_message: TimestampedMessage,
     ) -> Self {
         Self {
             conversation_id,
-            conversation_message_id: ConversationMessageId::random(),
+            conversation_message_id,
             timestamped_message,
         }
     }
@@ -130,6 +131,7 @@ impl ConversationMessage {
     pub(crate) fn new_unsent_message(
         sender: UserId,
         conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
         content: MimiContent,
     ) -> ConversationMessage {
         let message = Message::Content(Box::new(ContentMessage::new(sender, false, content)));
@@ -139,7 +141,7 @@ impl ConversationMessage {
         };
         ConversationMessage {
             conversation_id,
-            conversation_message_id: ConversationMessageId::random(),
+            conversation_message_id,
             timestamped_message,
         }
     }

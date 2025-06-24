@@ -946,6 +946,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "blurhash"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e79769241dcd44edf79a732545e8b5cec84c247ac060f5252cd51885d093a8fc"
+
+[[package]]
 name = "brotli"
 version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1040,6 +1046,17 @@ name = "cesu8"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
+
+[[package]]
+name = "cfb"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d38f2da7a0a2c4ccf0065be06397cc26a81f4e528be095826eee9d4adbb8c60f"
+dependencies = [
+ "byteorder",
+ "fnv",
+ "uuid",
+]
 
 [[package]]
 name = "cfg-expr"
@@ -2292,6 +2309,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
+name = "glob"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
+
+[[package]]
 name = "governor"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2819,6 +2842,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "infer"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
+dependencies = [
+ "cfb",
+]
+
+[[package]]
 name = "inout"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3062,6 +3094,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libwebp-sys"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54cd30df7c7165ce74a456e4ca9732c603e8dc5e60784558c1c6dc047f876733"
+dependencies = [
+ "cc",
+ "glob",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3204,11 +3246,10 @@ dependencies = [
 [[package]]
 name = "mimi_content"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=71495dc8fc794111c381649c4c6cbc6e258a0135#71495dc8fc794111c381649c4c6cbc6e258a0135"
+source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
 dependencies = [
  "ciborium",
  "hex",
- "pulldown-cmark",
  "serde",
  "serde_bytes",
  "serde_list",
@@ -3930,10 +3971,12 @@ name = "phnxcoreclient"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "blurhash",
  "chrono",
  "derive_more 0.99.20",
  "enumset",
  "image",
+ "infer",
  "insta",
  "kamadak-exif",
  "mimi-room-policy",
@@ -3949,8 +3992,10 @@ dependencies = [
  "phnxserver_test_harness",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "thiserror 2.0.12",
  "tls_codec",
@@ -3960,6 +4005,7 @@ dependencies = [
  "trait-variant",
  "url",
  "uuid",
+ "webp",
 ]
 
 [[package]]
@@ -4845,6 +4891,7 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "webpki-roots 1.0.0",
 ]
@@ -5114,7 +5161,7 @@ dependencies = [
 [[package]]
 name = "serde_list"
 version = "1.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=71495dc8fc794111c381649c4c6cbc6e258a0135#71495dc8fc794111c381649c4c6cbc6e258a0135"
+source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
 dependencies = [
  "serde",
  "serde_list_macros",
@@ -5123,7 +5170,7 @@ dependencies = [
 [[package]]
 name = "serde_list_macros"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=71495dc8fc794111c381649c4c6cbc6e258a0135#71495dc8fc794111c381649c4c6cbc6e258a0135"
+source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
 dependencies = [
  "quote",
  "syn",
@@ -6467,6 +6514,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "web-sys"
 version = "0.3.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6484,6 +6544,16 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webp"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f53152f51fb5af0c08484c33d16cca96175881d1f3dec068c23b31a158c2d99"
+dependencies = [
+ "image",
+ "libwebp-sys",
 ]
 
 [[package]]

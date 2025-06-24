@@ -7,6 +7,7 @@
 use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
 use phnxcommon::identifiers::UserId;
 
+use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
@@ -151,6 +152,15 @@ impl ConversationDetailsCubitBase {
             .await
             .inspect_err(|error| error!(%error, "Failed to send message"))?;
 
+        Ok(())
+    }
+
+    pub async fn upload_attachment(&self, path: String) -> anyhow::Result<()> {
+        let path = PathBuf::from(path);
+        self.context
+            .store
+            .upload_attachment(self.context.conversation_id, &path)
+            .await?;
         Ok(())
     }
 
