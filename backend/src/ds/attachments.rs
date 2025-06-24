@@ -8,7 +8,7 @@ use aws_sdk_s3::{
     operation::{get_object, put_object},
     presigning::{PresigningConfig, PresigningConfigError},
 };
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use displaydoc::Display;
 use phnxcommon::{identifiers::AttachmentId, time::ExpirationData};
 use phnxprotos::delivery_service::v1::{
@@ -25,15 +25,13 @@ impl Ds {
         &self,
         _payload: ProvisionAttachmentPayload,
     ) -> Result<Response<ProvisionAttachmentResponse>, ProvisionAttachmentError> {
-        let client = self
-            .storage
-            .as_ref()
-            .map(|s| s.client())
-            .ok_or(ProvisionAttachmentError::NoStorageConfigured)?;
+        let Some(storage) = self.storage.as_ref() else {
+            return Err(ProvisionAttachmentError::NoStorageConfigured);
+        };
 
         let attachment_id = Uuid::new_v4();
 
-        let expiration = ExpirationData::now(Duration::minutes(5));
+        let expiration = ExpirationData::now(storage.upload_expiration());
         let not_before: DateTime<Utc> = expiration.not_before().into();
         let not_after: DateTime<Utc> = expiration.not_after().into();
         let duration = not_after - not_before;
@@ -43,7 +41,8 @@ impl Ds {
         presigning_config.set_expires_in(Some(duration.to_std()?));
         let presigning_config = presigning_config.build()?;
 
-        let request = client
+        let request = storage
+            .client()
             .put_object()
             .bucket("data")
             .key(attachment_id.as_simple().to_string())
@@ -72,13 +71,11 @@ impl Ds {
         &self,
         attachment_id: AttachmentId,
     ) -> Result<Response<GetAttachmentUrlResponse>, GetAttachmentUrlError> {
-        let client = self
-            .storage
-            .as_ref()
-            .map(|s| s.client())
-            .ok_or(GetAttachmentUrlError::NoStorageConfigured)?;
+        let Some(storage) = self.storage.as_ref() else {
+            return Err(GetAttachmentUrlError::NoStorageConfigured);
+        };
 
-        let expiration = ExpirationData::now(Duration::minutes(5));
+        let expiration = ExpirationData::now(storage.download_expiration());
         let not_before: DateTime<Utc> = expiration.not_before().into();
         let not_after: DateTime<Utc> = expiration.not_after().into();
         let duration = not_after - not_before;
@@ -88,7 +85,8 @@ impl Ds {
         presigning_config.set_expires_in(Some(duration.to_std()?));
         let presigning_config = presigning_config.build()?;
 
-        let request = client
+        let request = storage
+            .client()
             .get_object()
             .bucket("data")
             .key(attachment_id.uuid().as_simple().to_string())

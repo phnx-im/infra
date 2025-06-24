@@ -10,6 +10,11 @@ use super::*;
 
 pub use chrono::Duration;
 
+/// Number of digits to round when constructing a [`TimeStamp`].
+///
+/// Note: Databases only support microsecond precision.
+const ROUND_SUBSECS_DIGITS: u16 = 6;
+
 /// A time stamp that can be used to represent a point in time.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, Copy, sqlx::Type)]
 #[sqlx(transparent)]
@@ -101,7 +106,7 @@ impl TimeStamp {
     /// Same as [`Utc::now`], but rounded to microsecond precision.
     pub fn now() -> Self {
         // Note: databases only support microsecond precision.
-        Utc::now().round_subsecs(6).into()
+        Utc::now().round_subsecs(ROUND_SUBSECS_DIGITS).into()
     }
 
     /// Checks if this time stamp is more than `expiration` in the past.
@@ -162,8 +167,7 @@ impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts 15 minutes before the current time.
     pub fn new(lifetime: Duration) -> Self {
-        // Note: databases only support microsecond precision.
-        let not_before = Utc::now().round_subsecs(6) - Duration::minutes(15);
+        let not_before = Utc::now().round_subsecs(ROUND_SUBSECS_DIGITS) - Duration::minutes(15);
         Self {
             not_before: TimeStamp::from(not_before),
             not_after: TimeStamp::from(not_before + lifetime),
@@ -173,7 +177,7 @@ impl ExpirationData {
     /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
     /// days and the validity of which starts now.
     pub fn now(lifetime: Duration) -> Self {
-        let not_before = Utc::now().round_subsecs(6);
+        let not_before = Utc::now().round_subsecs(ROUND_SUBSECS_DIGITS);
         Self {
             not_before: TimeStamp::from(not_before),
             not_after: TimeStamp::from(not_before + lifetime),
