@@ -44,9 +44,6 @@ jobs:
         with:
           path: 'app/.fvmrc'
 
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Analyze dart code
         run: just analyze-dart
 
