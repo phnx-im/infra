@@ -201,6 +201,10 @@ impl ConversationMessage {
     pub fn message(&self) -> &Message {
         &self.timestamped_message.message
     }
+
+    pub fn message_mut(&mut self) -> &mut Message {
+        &mut self.timestamped_message.message
+    }
 }
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
@@ -257,6 +261,13 @@ impl Message {
             },
         }
     }
+
+    pub(crate) fn mimi_content_mut(&mut self) -> Option<&mut MimiContent> {
+        match self {
+            Message::Content(content_message) => Some(content_message.as_mut().content_mut()),
+            Message::Event(_) => None,
+        }
+    }
 }
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
@@ -291,6 +302,10 @@ impl ContentMessage {
 
     pub fn content(&self) -> &MimiContent {
         &self.content
+    }
+
+    pub fn content_mut(&mut self) -> &mut MimiContent {
+        &mut self.content
     }
 }
 
