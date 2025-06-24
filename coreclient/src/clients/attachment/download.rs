@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, anyhow, bail};
-use mimi_content::content_container::{EncryptionAlgorithm, HashAlgorithm};
+use anyhow::{Context, anyhow, bail, ensure};
 use phnxcommon::{
     crypto::ear::{AeadCiphertext, EarDecryptable, keys::AttachmentEarKey},
     identifiers::AttachmentId,
 };
+use sha2::{Digest, Sha256};
 use tokio::sync::watch;
 use tokio_stream::StreamExt;
 use tracing::{debug, info};
@@ -17,7 +17,7 @@ use crate::{
         CoreUser,
         attachment::{
             AttachmentBytes, AttachmentRecord,
-            ear::{EncryptedAttachment, PHNX_BLAKE3_HASH_ID},
+            ear::{EncryptedAttachment, PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_ATTACHMENT_HASH_ALG},
             persistence::{AttachmentStatus, PendingAttachmentRecord},
         },
     },
@@ -83,10 +83,11 @@ impl CoreUser {
 
         // Check encryption parameters
         debug!(?attachment_id, "Checking encryption parameters");
-        match pending_record.enc_alg {
-            EncryptionAlgorithm::Aes256Gcm => (),
-            other => bail!("unsupported encryption algorithm: {other:?}"),
-        };
+        ensure!(
+            pending_record.enc_alg == PHNX_ATTACHMENT_ENCRYPTION_ALG,
+            "unsupported encryption algorithm: {:?}",
+            pending_record.enc_alg
+        );
         let nonce: [u8; 12] = pending_record
             .nonce
             .try_into()
@@ -97,10 +98,11 @@ impl CoreUser {
                 .try_into()
                 .map_err(|_| anyhow!("invalid key length"))?,
         );
-        match pending_record.hash_alg {
-            HashAlgorithm::Custom(value) if value == PHNX_BLAKE3_HASH_ID => (),
-            other => bail!("unsupported hash algorithm: {other:?}"),
-        };
+        ensure!(
+            pending_record.hash_alg == PHNX_ATTACHMENT_HASH_ALG,
+            "unsupported hash algorithm: {:?}",
+            pending_record.hash_alg
+        );
 
         // TODO: Retries and marking as failed
 
@@ -137,17 +139,15 @@ impl CoreUser {
             progress_tx.report(percent);
         }
 
-        // Verify hash
-        debug!(?attachment_id, "Verifying hash");
-        let hash = blake3::hash(&bytes);
-        if hash.as_bytes().as_slice() != pending_record.hash {
-            bail!("hash mismatch");
-        }
-
         // Decrypt the attachment
         debug!(?attachment_id, "Decrypting attachment");
         let ciphertext = EncryptedAttachment::from(AeadCiphertext::new(bytes, nonce));
         let content: AttachmentBytes = AttachmentBytes::decrypt(&key, &ciphertext)?;
+
+        // Verify hash
+        debug!(?attachment_id, "Verifying hash");
+        let hash = Sha256::digest(&content.bytes);
+        ensure!(hash.as_slice() == pending_record.hash, "hash mismatch");
 
         // Store the attachment and mark it as downloaded
         self.with_transaction_and_notifier(async move |txn, notifier| {

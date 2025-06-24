@@ -115,22 +115,6 @@ impl ConversationMessage {
         }
     }
 
-    /// Create a new conversation message from a group message. New messages are
-    /// marked as unread by default.
-    ///
-    /// The same as [`Self::new`], except that the message id is generated
-    /// randomly.
-    pub(crate) fn from_timestamped_message(
-        conversation_id: ConversationId,
-        timestamped_message: TimestampedMessage,
-    ) -> Self {
-        Self::new(
-            conversation_id,
-            ConversationMessageId::random(),
-            timestamped_message,
-        )
-    }
-
     pub fn new_for_test(
         conversation_id: ConversationId,
         conversation_message_id: ConversationMessageId,

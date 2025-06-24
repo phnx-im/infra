@@ -8,6 +8,9 @@ use exif::{Exif, Tag};
 use image::{DynamicImage, GenericImageView};
 use tracing::info;
 
+const MAX_PROFILE_IMAGE_WIDTH: u32 = 256;
+const MAX_PROFILE_IMAGE_HEIGHT: u32 = 256;
+
 pub(crate) fn resize_profile_image(mut image_bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     let image = image::load_from_memory(image_bytes)?;
 
@@ -18,9 +21,7 @@ pub(crate) fn resize_profile_image(mut image_bytes: &[u8]) -> anyhow::Result<Vec
         .read_from_container(&mut image_bytes_cursor)
         .ok();
 
-    // Resize the image
-    let image = image.resize(256, 256, image::imageops::FilterType::Nearest);
-
+    let image = resize(image, MAX_PROFILE_IMAGE_WIDTH, MAX_PROFILE_IMAGE_HEIGHT);
     let image = rotate(exif, image);
 
     // Save the resized image
@@ -65,8 +66,12 @@ pub(crate) fn reencode_attachment_image(
         .read_from_container(&mut image_bytes_cursor)
         .ok();
 
+    let image = resize(
+        image,
+        MAX_ATTACHMENT_IMAGE_WIDTH,
+        MAX_ATTACHMENT_IMAGE_HEIGHT,
+    );
     let image = rotate(exif, image);
-    let image = resize(image);
 
     // TODO: Preserve format instead of converting to WebP
 
@@ -101,7 +106,7 @@ fn rotate(exif: Option<Exif>, image: DynamicImage) -> DynamicImage {
             .get_field(Tag::Orientation, exif::In::PRIMARY)
             .and_then(|field| field.value.get_uint(0))
             .unwrap_or(1);
-        // TODO: roate and flip in-place
+        // TODO(#590): rotate and flip in-place
         match orientation {
             1 => image,
             2 => image.fliph(),
@@ -118,14 +123,13 @@ fn rotate(exif: Option<Exif>, image: DynamicImage) -> DynamicImage {
     }
 }
 
-fn resize(image: DynamicImage) -> DynamicImage {
+/// Resizes the image to fit within the given dimensions.
+///
+/// If the image is already smaller than the given dimensions, it is returned
+fn resize(image: DynamicImage, max_width: u32, max_height: u32) -> DynamicImage {
     let (width, height) = image.dimensions();
-    if width <= MAX_ATTACHMENT_IMAGE_WIDTH && height <= MAX_ATTACHMENT_IMAGE_HEIGHT {
+    if width <= max_width && height <= max_height {
         return image;
     }
-    image.resize(
-        MAX_ATTACHMENT_IMAGE_WIDTH,
-        MAX_ATTACHMENT_IMAGE_HEIGHT,
-        image::imageops::FilterType::Lanczos3,
-    )
+    image.resize(max_width, max_height, image::imageops::FilterType::Lanczos3)
 }

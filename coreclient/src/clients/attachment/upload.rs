@@ -4,6 +4,7 @@
 
 use std::{
     ffi::OsStr,
+    mem,
     path::{Path, PathBuf},
 };
 
@@ -12,7 +13,7 @@ use chrono::Utc;
 use infer::MatcherType;
 use mimi_content::{
     MimiContent,
-    content_container::{Disposition, HashAlgorithm, NestedPart, NestedPartContent, PartSemantics},
+    content_container::{Disposition, NestedPart, NestedPartContent, PartSemantics},
 };
 use phnxapiclient::ApiClient;
 use phnxcommon::{
@@ -20,6 +21,7 @@ use phnxcommon::{
     crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
     identifiers::AttachmentId,
 };
+use sha2::{Digest, Sha256};
 use url::Url;
 
 use crate::{
@@ -28,7 +30,7 @@ use crate::{
         CoreUser,
         attachment::{
             AttachmentBytes, AttachmentRecord,
-            ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_BLAKE3_HASH_ID},
+            ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_ATTACHMENT_HASH_ALG},
         },
     },
     groups::Group,
@@ -59,7 +61,7 @@ impl CoreUser {
             .await?;
 
         // load the attachment data
-        let attachment = ProcessedAttachment::from_file(path)?;
+        let mut attachment = ProcessedAttachment::from_file(path)?;
 
         // encrypt the content and upload the content
         let api_client = self.api_client()?;
@@ -75,12 +77,16 @@ impl CoreUser {
         .await?;
 
         // send attachment message
+        let attachment_id = attachment_metadata.attachment_id;
+        let content_bytes = mem::take(&mut attachment.content.bytes);
+        let content_type = attachment.mime_type();
+
         let content = MimiContent {
             nested_part: NestedPart {
                 disposition: Disposition::Attachment,
                 part: NestedPartContent::MultiPart {
                     part_semantics: PartSemantics::ProcessAll,
-                    parts: attachment.to_nested_parts(&attachment_metadata)?,
+                    parts: attachment.into_nested_parts(attachment_metadata)?,
                 },
                 ..Default::default()
             },
@@ -104,15 +110,15 @@ impl CoreUser {
             // store attachment locally
             // (must be done after the message is stored locally due to foreign key constraints)
             let record = AttachmentRecord {
-                attachment_id: attachment_metadata.attachment_id,
+                attachment_id,
                 conversation_id: conversation.id(),
                 conversation_message_id,
-                content_type: attachment.mime_type().to_owned(),
+                content_type: content_type.to_owned(),
                 status: AttachmentStatus::Ready,
                 created_at: Utc::now(),
             };
             record
-                .store(txn.as_mut(), notifier, Some(attachment.content.as_ref()))
+                .store(txn.as_mut(), notifier, Some(&content_bytes))
                 .await?;
 
             Ok(message)
@@ -127,6 +133,7 @@ impl CoreUser {
 struct ProcessedAttachment {
     filename: String,
     content: AttachmentBytes,
+    content_hash: Vec<u8>,
     mime: Option<infer::Type>,
     image_data: Option<ProcessedAttachmentImageData>,
 }
@@ -139,11 +146,13 @@ struct ProcessedAttachmentImageData {
 
 impl ProcessedAttachment {
     fn from_file(path: &Path) -> anyhow::Result<Self> {
-        // TODO: Avoid reading the whole file into memory when it is an image.
+        // TODO(#589): Avoid reading the whole file into memory when it is an image.
         // Instead, it should be re-encoded directly from the file.
         let content = std::fs::read(path)
             .with_context(|| format!("Failed to read file at {}", path.display()))?;
         let mime = infer::get(&content);
+
+        let content_hash = Sha256::digest(&content).to_vec();
 
         let (content, image_data) = if mime
             .map(|mime| mime.matcher_type() == MatcherType::Image)
@@ -175,6 +184,7 @@ impl ProcessedAttachment {
         Ok(Self {
             filename: filename.to_string_lossy().to_string(),
             content,
+            content_hash,
             mime,
             image_data,
         })
@@ -187,7 +197,7 @@ impl ProcessedAttachment {
             .unwrap_or("application/octet-stream")
     }
 
-    fn to_nested_parts(&self, metadata: &AttachmentMetadata) -> anyhow::Result<Vec<NestedPart>> {
+    fn into_nested_parts(self, metadata: AttachmentMetadata) -> anyhow::Result<Vec<NestedPart>> {
         let url = metadata.attachment_id.url();
         let mut url = Url::parse(&url)?;
         // TODO: Currently, there is no way to specify the image dimensions in the MIMI content.
@@ -208,22 +218,22 @@ impl ProcessedAttachment {
                 expires: 0,
                 size: metadata.size,
                 enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
-                key: metadata.key.clone().into_bytes().to_vec().into(),
+                key: metadata.key.into_bytes().to_vec().into(),
                 nonce: metadata.nonce.to_vec().into(),
                 aad: Default::default(),
-                hash_alg: HashAlgorithm::Custom(PHNX_BLAKE3_HASH_ID),
-                content_hash: metadata.content_hash.clone().into(),
+                hash_alg: PHNX_ATTACHMENT_HASH_ALG,
+                content_hash: self.content_hash.into(),
                 description: Default::default(),
-                filename: self.filename.clone(),
+                filename: self.filename,
             },
         };
 
-        let blurhash = self.image_data.as_ref().map(|data| NestedPart {
+        let blurhash = self.image_data.map(|data| NestedPart {
             disposition: Disposition::Preview,
             language: String::new(),
             part: NestedPartContent::SinglePart {
                 content_type: "text/blurhash".to_owned(),
-                content: data.blurhash.clone().into_bytes().into(),
+                content: data.blurhash.into_bytes().into(),
             },
         });
 
@@ -235,7 +245,6 @@ impl ProcessedAttachment {
 struct AttachmentMetadata {
     attachment_id: AttachmentId,
     key: AttachmentEarKey,
-    content_hash: Vec<u8>,
     size: u64,
     nonce: [u8; 12],
 }
@@ -255,7 +264,6 @@ async fn encrypt_and_upload(
         .len()
         .try_into()
         .context("attachment size overflow")?;
-    let content_hash = blake3::hash(&ciphertext).as_bytes().to_vec();
 
     // provision attachment
     let response = api_client
@@ -279,7 +287,6 @@ async fn encrypt_and_upload(
     Ok(AttachmentMetadata {
         attachment_id,
         key,
-        content_hash,
         size,
         nonce,
     })
