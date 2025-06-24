@@ -162,5 +162,5 @@ run-app *args='':
     flutter run {{args}}
 
 # Run app on Linux
-run-app-linux:
-    just run-app -d linux
+run-app-linux *args='':
+    just run-app -d linux {{args}}
