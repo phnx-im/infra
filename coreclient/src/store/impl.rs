@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, path::Path, sync::Arc};
 
 use mimi_room_policy::VerifiedRoomState;
 use phnxcommon::identifiers::{UserHandle, UserId};
@@ -202,6 +202,14 @@ impl Store for CoreUser {
         content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage> {
         self.send_message(conversation_id, content).await
+    }
+
+    async fn upload_attachment(
+        &self,
+        conversation_id: ConversationId,
+        path: &Path,
+    ) -> StoreResult<ConversationMessage> {
+        self.upload_attachment(conversation_id, path).await
     }
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()> {
