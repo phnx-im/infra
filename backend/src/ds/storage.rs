@@ -4,12 +4,15 @@
 
 use aws_config::Region;
 use aws_sdk_s3::{Client, Config, config::Credentials};
+use chrono::Duration;
 
 use crate::settings::StorageSettings;
 
 #[derive(Debug, Clone)]
 pub struct Storage {
-    pub(crate) config: Config,
+    client: Client,
+    upload_expiration: Duration,
+    download_expiration: Duration,
 }
 
 impl Storage {
@@ -28,10 +31,24 @@ impl Storage {
             .force_path_style(settings.force_path_style)
             .behavior_version_latest()
             .build();
-        Self { config }
+        let client = Client::from_conf(config.clone());
+
+        Self {
+            client,
+            upload_expiration: settings.upload_expiration,
+            download_expiration: settings.download_expiration,
+        }
     }
 
     pub(crate) fn client(&self) -> Client {
-        Client::from_conf(self.config.clone())
+        self.client.clone()
+    }
+
+    pub(crate) fn upload_expiration(&self) -> Duration {
+        self.upload_expiration
+    }
+
+    pub(crate) fn download_expiration(&self) -> Duration {
+        self.download_expiration
     }
 }
