@@ -146,7 +146,7 @@ struct ProcessedAttachmentImageData {
 
 impl ProcessedAttachment {
     fn from_file(path: &Path) -> anyhow::Result<Self> {
-        // TODO: Avoid reading the whole file into memory when it is an image.
+        // TODO(#589): Avoid reading the whole file into memory when it is an image.
         // Instead, it should be re-encoded directly from the file.
         let content = std::fs::read(path)
             .with_context(|| format!("Failed to read file at {}", path.display()))?;

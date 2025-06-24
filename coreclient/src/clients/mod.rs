@@ -622,8 +622,9 @@ impl CoreUser {
     ) -> Result<Vec<ConversationMessage>> {
         let mut stored_messages = Vec::with_capacity(group_messages.len());
         for timestamped_message in group_messages.into_iter() {
+            let message_id = ConversationMessageId::random();
             let message =
-                ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
+                ConversationMessage::new(conversation_id, message_id, timestamped_message);
             message.store(&mut *connection, notifier).await?;
             stored_messages.push(message);
         }
