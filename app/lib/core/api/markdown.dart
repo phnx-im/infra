@@ -70,7 +70,7 @@ sealed class InlineElement with _$InlineElement {
 @freezed
 sealed class MessageContent with _$MessageContent {
   const MessageContent._();
-  const factory MessageContent({required List<RangedBlockElement> content}) =
+  const factory MessageContent({required List<RangedBlockElement> elements}) =
       _MessageContent;
   static Future<MessageContent> error({required String message}) => RustLib
       .instance

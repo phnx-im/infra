@@ -200,4 +200,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get composer_error_attachment =>
       'Failed to upload attachment. Please try again.';
+
+  @override
+  String attachmentSize(double size, Object byteUnit) {
+    final intl.NumberFormat sizeNumberFormat = intl
+        .NumberFormat.decimalPatternDigits(
+      locale: localeName,
+      decimalDigits: 2,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return '$sizeString $byteUnit';
+  }
 }

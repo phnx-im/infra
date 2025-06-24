@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -34,6 +35,7 @@ final messages = [
           plainBody: 'Hello Alice from Bob',
           topicId: Uint8List(0),
           content: simpleMessage('Hello Alice from Bob'),
+          attachments: [],
         ),
       ),
     ),
@@ -54,6 +56,7 @@ final messages = [
           content: simpleMessage(
             'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           ),
+          attachments: [],
         ),
       ),
     ),
@@ -71,13 +74,14 @@ final messages = [
           plainBody: 'Hello Bob and Eve',
           topicId: Uint8List(0),
           content: simpleMessage('Hello Bob and Eve'),
+          attachments: [],
         ),
       ),
     ),
     position: UiFlightPosition.start,
   ),
   UiConversationMessage(
-    id: 5.conversationMessageId(),
+    id: 4.conversationMessageId(),
     conversationId: conversationId,
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
@@ -88,13 +92,14 @@ final messages = [
           plainBody: 'How are you doing?',
           topicId: Uint8List(0),
           content: simpleMessage('How are you doing?'),
+          attachments: [],
         ),
       ),
     ),
     position: UiFlightPosition.middle,
   ),
   UiConversationMessage(
-    id: 4.conversationMessageId(),
+    id: 5.conversationMessageId(),
     conversationId: conversationId,
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
@@ -111,10 +116,67 @@ This is a message with multiple lines. It should be properly displayed in the me
 
 This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
           ),
+          attachments: [],
         ),
       ),
     ),
     position: UiFlightPosition.end,
+  ),
+];
+
+final attachmentMessages = [
+  UiConversationMessage(
+    id: 6.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:00.000Z',
+    position: UiFlightPosition.start,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "A File Attachment",
+          content: simpleMessage('A File Attachment'),
+          attachments: [
+            UiAttachment(
+              attachmentId: 1.attachmentId(),
+              filename: "file.zip",
+              contentType: "application/zip",
+              size: 1024,
+              description: "Failing golden tests",
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+  UiConversationMessage(
+    id: 7.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:01.000Z',
+    position: UiFlightPosition.end,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "Look what I've got to eat",
+          content: simpleMessage("Look what I've got to eat"),
+          attachments: [
+            UiAttachment(
+              attachmentId: 2.attachmentId(),
+              filename: "image.png",
+              size: 10 * 1024 * 1024,
+              contentType: 'image/png',
+              blurhash: "LEHLk~WB2yk8pyo0adR*.7kCMdnj",
+              description: "A woman eating a donut",
+            ),
+          ],
+        ),
+      ),
+    ),
   ),
 ];
 
@@ -167,6 +229,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(
               body: MessageListView(createMessageCubit: createMockMessageCubit),
             ),
@@ -198,6 +261,21 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/message_list.png'),
+      );
+    });
+
+    testWidgets('renders correctly with attachments', (tester) async {
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages + attachmentMessages));
+
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+      await tester.pumpWidget(buildSubject());
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/message_list_attachments.png'),
       );
     });
   });
