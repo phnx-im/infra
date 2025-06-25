@@ -226,7 +226,7 @@ packages:
     source: hosted
     version: "3.0.6"
   dart_style:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: dart_style
       sha256: "5b236382b47ee411741447c1f1e111459c941ea1b3f2b540dde54c210a3662af"
