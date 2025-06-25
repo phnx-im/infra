@@ -43,6 +43,7 @@ aws-sdk-s3 = { version = "1.92.0", default-features = false, features = [
 ] }
 aws-config = { version = "1.8.0", default-features = false, features = [
     "behavior-version-latest",
+    "rt-tokio",
 ] }
 
 [dev-dependencies]

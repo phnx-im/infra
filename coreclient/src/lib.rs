@@ -15,7 +15,9 @@ mod user_profiles;
 mod utils;
 
 pub use crate::{
-    clients::attachment::{AttachmentContent, AttachmentStatus},
+    clients::attachment::{
+        AttachmentContent, AttachmentStatus, DownloadProgress, DownloadProgressEvent,
+    },
     contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,

@@ -623,9 +623,19 @@ impl CoreUser {
         let mut stored_messages = Vec::with_capacity(group_messages.len());
         for timestamped_message in group_messages.into_iter() {
             let message_id = ConversationMessageId::random();
-            let message =
+            let mut message =
                 ConversationMessage::new(conversation_id, message_id, timestamped_message);
+            let attachment_records = Self::extract_attachments(&mut message);
             message.store(&mut *connection, notifier).await?;
+            for (record, pending_record) in attachment_records {
+                if let Err(error) = record.store(&mut *connection, notifier, None).await {
+                    error!(%error, "Failed to store attachment");
+                    continue;
+                }
+                if let Err(error) = pending_record.store(&mut *connection, notifier).await {
+                    error!(%error, "Failed to store pending attachment");
+                }
+            }
             stored_messages.push(message);
         }
         Ok(stored_messages)

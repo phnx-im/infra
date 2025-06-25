@@ -124,6 +124,15 @@ This is a message with multiple lines. It should be properly displayed in the me
   ),
 ];
 
+final imageAttachment = UiAttachment(
+  attachmentId: 2.attachmentId(),
+  filename: "image.png",
+  size: 10 * 1024 * 1024,
+  contentType: 'image/png',
+  blurhash: "LEHLk~WB2yk8pyo0adR*.7kCMdnj",
+  description: "A woman eating a donut",
+);
+
 final attachmentMessages = [
   UiConversationMessage(
     id: 6.conversationMessageId(),
@@ -164,16 +173,7 @@ final attachmentMessages = [
           topicId: Uint8List(0),
           plainBody: "Look what I've got to eat",
           content: simpleMessage("Look what I've got to eat"),
-          attachments: [
-            UiAttachment(
-              attachmentId: 2.attachmentId(),
-              filename: "image.png",
-              size: 10 * 1024 * 1024,
-              contentType: 'image/png',
-              blurhash: "LEHLk~WB2yk8pyo0adR*.7kCMdnj",
-              description: "A woman eating a donut",
-            ),
-          ],
+          attachments: [imageAttachment],
         ),
       ),
     ),
@@ -196,12 +196,14 @@ void main() {
     late MockUsersCubit contactsCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
+    late MockAttachmentsRepository attachmentsRepository;
 
     setUp(() async {
       userCubit = MockUserCubit();
       contactsCubit = MockUsersCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
+      attachmentsRepository = MockAttachmentsRepository();
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
@@ -215,26 +217,31 @@ void main() {
       ).thenAnswer((_) => Future.value());
     });
 
-    Widget buildSubject() => MultiBlocProvider(
-      providers: [
-        BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ConversationDetailsCubit>.value(
-          value: conversationDetailsCubit,
+    Widget buildSubject() => RepositoryProvider<AttachmentsRepository>.value(
+      value: attachmentsRepository,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<UserCubit>.value(value: userCubit),
+          BlocProvider<UsersCubit>.value(value: contactsCubit),
+          BlocProvider<ConversationDetailsCubit>.value(
+            value: conversationDetailsCubit,
+          ),
+          BlocProvider<MessageListCubit>.value(value: messageListCubit),
+        ],
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: themeData(context),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              home: const Scaffold(
+                body: MessageListView(
+                  createMessageCubit: createMockMessageCubit,
+                ),
+              ),
+            );
+          },
         ),
-        BlocProvider<MessageListCubit>.value(value: messageListCubit),
-      ],
-      child: Builder(
-        builder: (context) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: themeData(context),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: const Scaffold(
-              body: MessageListView(createMessageCubit: createMockMessageCubit),
-            ),
-          );
-        },
       ),
     );
 
@@ -268,6 +275,11 @@ void main() {
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages + attachmentMessages));
+      when(
+        () => attachmentsRepository.loadAttachment(
+          attachmentId: imageAttachment.attachmentId,
+        ),
+      ).thenAnswer((_) async => Future.any([]));
 
       VisibilityDetectorController.instance.updateInterval = Duration.zero;
 

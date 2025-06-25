@@ -152,8 +152,6 @@ impl ProcessedAttachment {
             .with_context(|| format!("Failed to read file at {}", path.display()))?;
         let mime = infer::get(&content);
 
-        let content_hash = Sha256::digest(&content).to_vec();
-
         let (content, image_data) = if mime
             .map(|mime| mime.matcher_type() == MatcherType::Image)
             .unwrap_or(false)
@@ -172,6 +170,8 @@ impl ProcessedAttachment {
         } else {
             (content.into(), None)
         };
+
+        let content_hash = Sha256::digest(&content).to_vec();
 
         let mut filename = PathBuf::from(
             path.file_name()

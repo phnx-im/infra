@@ -2,11 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+pub use download::{DownloadProgress, DownloadProgressEvent};
 pub(crate) use persistence::AttachmentRecord;
 pub use persistence::{AttachmentContent, AttachmentStatus};
 
+mod content;
+mod download;
 mod ear;
 mod persistence;
+mod process;
 mod upload;
 
 #[derive(derive_more::From)]

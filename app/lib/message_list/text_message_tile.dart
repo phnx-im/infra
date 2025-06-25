@@ -5,13 +5,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
+import 'package:prototype/attachments/attachments.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/timestamp.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
-import 'package:provider/provider.dart';
 
 import 'message_renderer.dart';
 
@@ -275,7 +275,17 @@ class _ImageAttachmentContent extends StatelessWidget {
         aspectRatio: 1.6,
         child: Stack(
           fit: StackFit.expand,
-          children: [BlurHash(hash: blurhash)],
+          children: [
+            BlurHash(hash: blurhash),
+            Image(
+              image: AttachmentImageProvider(
+                attachment: attachment,
+                attachmentsRepository: RepositoryProvider.of(context),
+              ),
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+          ],
         ),
       ),
     );
