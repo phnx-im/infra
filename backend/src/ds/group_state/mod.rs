@@ -29,10 +29,9 @@ use phnxcommon::{
     messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
 };
-use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 use thiserror::Error;
-use tls_codec::Serialize as _;
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
 use tracing::error;
 use uuid::Uuid;
 
@@ -42,7 +41,7 @@ use super::{GROUP_STATE_EXPIRATION, ReservedGroupId, process::ExternalCommitInfo
 
 pub(super) mod persistence;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, TlsSize, TlsDeserializeBytes, TlsSerialize)]
 pub(super) struct MemberProfile {
     pub(super) leaf_index: LeafNodeIndex,
     pub(super) client_queue_config: QsReference,
@@ -260,14 +259,14 @@ impl StorableDsGroupData {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(TlsSize, TlsDeserializeBytes, TlsSerialize)]
 pub(crate) struct SerializableDsGroupStateV1 {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(TlsSize, TlsDeserializeBytes, TlsSerialize)]
 pub(crate) struct SerializableDsGroupStateV2 {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
@@ -341,7 +340,8 @@ impl SerializableDsGroupStateV2 {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(TlsSize, TlsDeserializeBytes, TlsSerialize)]
+#[repr(u8)]
 pub(super) enum EncryptableDsGroupState {
     V1(SerializableDsGroupStateV1),
     V2(SerializableDsGroupStateV2),
