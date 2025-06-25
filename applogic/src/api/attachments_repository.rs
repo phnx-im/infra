@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, bail, ensure};
+use anyhow::{Context, bail};
 use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::AttachmentId;
 use phnxcoreclient::{
