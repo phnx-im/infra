@@ -340,6 +340,7 @@ class _ImagePreview extends StatelessWidget {
           child: Column(
             children: [
               AppBar(
+                leading: const SizedBox.shrink(),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -357,8 +358,8 @@ class _ImagePreview extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(
                       bottom: Spacings.l,
-                      left: Spacings.l,
-                      right: Spacings.l,
+                      left: Spacings.s,
+                      right: Spacings.s,
                     ),
                     child: _ImageStack(
                       attachment: attachment,
