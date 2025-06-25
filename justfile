@@ -90,18 +90,19 @@ flutter-pub-get:
 
 # check that the Flutter lockfile is up to date
 [working-directory: 'app']
-check-flutter-lockfile: flutter-pub-get
+check-flutter-lockfile: flutter-pub-get dart-format
     cd rust_builder/cargokit/build_tool && flutter pub get
     just check-clean-repo "just flutter-pub-get"
 
 # format dart code
 [working-directory: 'app']
 dart-format:
-    dart format .
+    dart format . --verbose
 
 # check that dart code is formatted
 [working-directory: 'app']
 check-dart-format: dart-format
+    git status
     just check-clean-repo "just dart-format"
 
 # generate localization files
