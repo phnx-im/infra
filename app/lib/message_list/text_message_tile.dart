@@ -351,14 +351,15 @@ class _ImagePreview extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 50.0),
-                    child: AspectRatio(
-                      aspectRatio: 1.6,
-                      child: _ImageStack(
-                        attachment: attachment,
-                        blurhash: blurhash,
-                        isSender: isSender,
-                      ),
+                    padding: const EdgeInsets.only(
+                      bottom: Spacings.l,
+                      left: Spacings.l,
+                      right: Spacings.l,
+                    ),
+                    child: _ImageStack(
+                      attachment: attachment,
+                      blurhash: blurhash,
+                      isSender: isSender,
                     ),
                   ),
                 ),
