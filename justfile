@@ -97,7 +97,7 @@ check-flutter-lockfile: flutter-pub-get dart-format
 # format dart code
 [working-directory: 'app']
 dart-format:
-    dart format --verbose .
+    dart format .
 
 # check that dart code is formatted
 [working-directory: 'app']
