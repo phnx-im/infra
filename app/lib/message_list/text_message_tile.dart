@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
+import 'package:logging/logging.dart';
 import 'package:prototype/attachments/attachments.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
@@ -19,6 +20,8 @@ const double largeCornerRadius = Spacings.s;
 const double smallCornerRadius = Spacings.xxxs;
 const double messageHorizontalPadding = Spacings.xs;
 const double messageVerticalPadding = Spacings.xxs;
+
+final _log = Logger('TextMessageTile');
 
 class TextMessageTile extends StatelessWidget {
   const TextMessageTile({
@@ -284,6 +287,10 @@ class _ImageAttachmentContent extends StatelessWidget {
               ),
               fit: BoxFit.cover,
               alignment: Alignment.center,
+              errorBuilder: (context, error, stackTrace) {
+                _log.severe('Failed to load attachment', error, stackTrace);
+                return const Icon(Icons.error);
+              },
             ),
           ],
         ),

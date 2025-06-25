@@ -8,11 +8,11 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::bail;
+use anyhow::{Context, bail, ensure};
 use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::AttachmentId;
 use phnxcoreclient::{
-    AttachmentContent, DownloadProgress,
+    AttachmentContent, DownloadProgress, DownloadProgressEvent,
     clients::CoreUser,
     store::{Store, StoreEntityId, StoreOperation},
 };
@@ -56,34 +56,55 @@ impl AttachmentsRepository {
     }
 
     pub async fn load_attachment(&self, attachment_id: AttachmentId) -> anyhow::Result<Vec<u8>> {
-        let mut content = None;
-        loop {
-            let loaded_content = match content.take() {
-                Some(loaded_content) => loaded_content,
-                None => self.store.load_attachment(attachment_id).await?,
-            };
-            match loaded_content {
-                AttachmentContent::None => bail!("Attachment not found"),
-                AttachmentContent::Ready(bytes) => return Ok(bytes),
-                AttachmentContent::Pending => {
-                    spawn_download_task(
-                        &self.store,
-                        &mut *self.in_progress.lock().await,
-                        &self.cancel,
-                        attachment_id,
-                    );
-                    content = Some(AttachmentContent::Downloading);
-                }
-                AttachmentContent::Downloading => {
-                    // wait for download to complete
-                    let handle = self.in_progress.lock().await.get(&attachment_id).cloned();
-                    if let Some(mut handle) = handle {
-                        handle.progress.wait_for_completion().await;
+        match self.store.load_attachment(attachment_id).await? {
+            AttachmentContent::Ready(bytes) => Ok(bytes),
+            AttachmentContent::Pending => {
+                debug!(?attachment_id, "Attachment is pending; spawn download task");
+                let handle = spawn_download_task(
+                    &self.store,
+                    &mut *self.in_progress.lock().await,
+                    &self.cancel,
+                    attachment_id,
+                );
+                self.track_attachment_download(attachment_id, handle).await
+            }
+            AttachmentContent::Downloading => {
+                let handle = self.in_progress.lock().await.get(&attachment_id).cloned();
+                if let Some(handle) = handle {
+                    self.track_attachment_download(attachment_id, handle).await
+                } else {
+                    match self.store.load_attachment(attachment_id).await? {
+                        AttachmentContent::Ready(bytes) => Ok(bytes),
+                        _ => bail!("Attachment download failed"),
                     }
                 }
-                AttachmentContent::Failed | AttachmentContent::Unknown => {
-                    bail!("Attachment download failed")
-                }
+            }
+            AttachmentContent::None => bail!("Attachment not found"),
+            AttachmentContent::Failed | AttachmentContent::Unknown => {
+                bail!("Attachment download failed")
+            }
+        }
+    }
+
+    async fn track_attachment_download(
+        &self,
+        attachment_id: AttachmentId,
+        mut handle: DownloadTaskHandle,
+    ) -> anyhow::Result<Vec<u8>> {
+        debug!(
+            ?attachment_id,
+            "Waiting for attachment download to complete"
+        );
+        match handle.progress.wait_for_completion().await {
+            DownloadProgressEvent::Completed => self
+                .store
+                .load_attachment(attachment_id)
+                .await?
+                .into_bytes()
+                .context("Attachment download failed"),
+            DownloadProgressEvent::Failed => bail!("Attachment download failed"),
+            status => {
+                bail!("logic error: download task completed with unexpected status: {status:?}")
             }
         }
     }
@@ -158,29 +179,33 @@ fn spawn_download_task(
     in_progress: &mut HashMap<AttachmentId, DownloadTaskHandle>,
     cancel: &CancellationToken,
     attachment_id: AttachmentId,
-) {
-    let (task, cancel) = match in_progress.entry(attachment_id) {
+) -> DownloadTaskHandle {
+    let (task, cancel, handle) = match in_progress.entry(attachment_id) {
         hash_map::Entry::Occupied(mut entry) if entry.get().cancel.is_cancelled() => {
             let (progress, task) = store.download_attachment(attachment_id);
             let cancel = cancel.child_token();
-            entry.insert(DownloadTaskHandle {
+            let handle = DownloadTaskHandle {
                 progress,
                 cancel: cancel.clone(),
                 _drop_guard: Arc::new(cancel.clone().drop_guard()),
-            });
-            (task, cancel)
+            };
+            entry.insert(handle.clone());
+            (task, cancel, handle)
+        }
+        hash_map::Entry::Occupied(entry) => {
+            return entry.get().clone();
         }
         hash_map::Entry::Vacant(entry) => {
             let (progress, task) = store.download_attachment(attachment_id);
             let cancel = cancel.child_token();
-            entry.insert(DownloadTaskHandle {
+            let handle = DownloadTaskHandle {
                 progress,
                 cancel: cancel.clone(),
                 _drop_guard: Arc::new(cancel.clone().drop_guard()),
-            });
-            (task, cancel)
+            };
+            entry.insert(handle.clone());
+            (task, cancel, handle)
         }
-        _ => return, // already in progress
     };
 
     tokio::spawn(async move {
@@ -194,6 +219,8 @@ fn spawn_download_task(
             }
         }
     });
+
+    handle
 }
 
 #[derive(Debug, Clone)]
