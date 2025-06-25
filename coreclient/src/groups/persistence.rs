@@ -115,7 +115,7 @@ impl Group {
 
         ensure!(
             group.mls_group.pending_commit().is_none(),
-            "Room already had a staging commit"
+            "Room already had a pending commit"
         );
 
         Ok(Some(group))
@@ -132,7 +132,7 @@ impl Group {
 
         ensure!(
             group.mls_group.pending_commit().is_none(),
-            "Room already had a staging commit"
+            "Room already had a pending commit"
         );
 
         Ok(Some(group))
