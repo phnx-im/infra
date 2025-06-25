@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: phnx-backend-config
+type: Opaque
+data:
+  production.yaml: <base64 encoded production config yaml>
