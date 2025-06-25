@@ -8,6 +8,7 @@ import 'package:convert/convert.dart';
 
 import '../frb_generated.dart';
 import 'markdown.dart';
+import 'message_content.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
@@ -15,7 +16,7 @@ part 'types.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_user_id`, `load_from_conversation_type`, `timestamp`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiConversation`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 
 /// Mirror of the [`ConversationId`] type
 class ConversationId {
@@ -362,18 +363,6 @@ sealed class UiMessage with _$UiMessage {
 
   const factory UiMessage.content(UiContentMessage field0) = UiMessage_Content;
   const factory UiMessage.display(UiEventMessage field0) = UiMessage_Display;
-}
-
-/// The actual content of a message
-@freezed
-sealed class UiMimiContent with _$UiMimiContent {
-  const factory UiMimiContent({
-    Uint8List? replaces,
-    required Uint8List topicId,
-    Uint8List? inReplyTo,
-    required String plainBody,
-    required MessageContent content,
-  }) = _UiMimiContent;
 }
 
 @freezed

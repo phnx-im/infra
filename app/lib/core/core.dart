@@ -5,6 +5,7 @@
 export 'api/conversation_details_cubit.dart';
 export 'api/conversation_list_cubit.dart';
 export 'api/logging.dart';
+export 'api/message_content.dart';
 export 'api/message_cubit.dart';
 export 'api/message_list_cubit.dart';
 export 'api/navigation_cubit.dart';

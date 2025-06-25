@@ -91,6 +91,8 @@ flutter-pub-get:
 # check that the Flutter lockfile is up to date
 [working-directory: 'app']
 check-flutter-lockfile: flutter-pub-get
+    # getting the Flutter dependencies may change the formatting
+    just dart-format
     just check-clean-repo "just flutter-pub-get"
 
 # format dart code
