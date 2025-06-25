@@ -275,6 +275,7 @@ class _ImageAttachmentContent extends StatelessWidget {
         aspectRatio: 1.6,
         child: Stack(
           fit: StackFit.expand,
+<<<<<<< HEAD
           children: [
             BlurHash(hash: blurhash),
             Image(
@@ -286,6 +287,9 @@ class _ImageAttachmentContent extends StatelessWidget {
               alignment: Alignment.center,
             ),
           ],
+=======
+          children: [BlurHash(hash: blurhash)],
+>>>>>>> origin/main
         ),
       ),
     );

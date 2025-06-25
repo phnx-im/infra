@@ -67,18 +67,43 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
 # `flutter_rust_bridge_codegen` runs the `dart run build_runner build` command,
 # which updates the generated files.
 check-frb: frb-generate
-    #!/usr/bin/env -S bash -eu
-    if [ -n "$(git status --porcelain)" ]; then
-        git add -N .
-        git --no-pager diff
-        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run 'just frb-generate'?"
-        exit 1
-    fi
+    just check-clean-repo "just frb-generate"
 
 # same as check-generated-frb (with all prerequisite steps for running in CI)
 check-frb-ci: install-cargo-binstall
     cargo binstall flutter_rust_bridge_codegen@2.10.0 cargo-expand
     just check-frb
+
+check-clean-repo command:
+    #!/usr/bin/env -S bash -eu
+    if [ -n "$(git status --porcelain)" ]; then
+        git add -N .
+        git --no-pager diff
+        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run '{{command}}'?"
+        exit 1
+    fi
+
+# update the Flutter dependencies
+[working-directory: 'app']
+flutter-pub-get:
+    flutter pub get
+
+# check that the Flutter lockfile is up to date
+[working-directory: 'app']
+check-flutter-lockfile: flutter-pub-get
+    # getting the Flutter dependencies may change the formatting
+    just dart-format
+    just check-clean-repo "just flutter-pub-get"
+
+# format dart code
+[working-directory: 'app']
+dart-format:
+    dart format .
+
+# check that dart code is formatted
+[working-directory: 'app']
+check-dart-format: dart-format
+    just check-clean-repo "just dart-format"
 
 # generate localization files
 [working-directory: 'app']
@@ -88,14 +113,7 @@ gen-l10n:
 # check that the localization files are up to date
 [working-directory: 'app']
 check-l10n: gen-l10n
-    #!/usr/bin/env -S bash -eu
-    if [ -n "$(git status --porcelain)" ]; then
-        git add -N .
-        git --no-pager diff
-        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to check in generated localization?"
-        echo -e "\x1b[1;31mConsider to run 'just gen-l10n' manually."
-        exit 1
-    fi
+    just check-clean-repo "just gen-l10n"
 
 # set up the CI environment for the app
 install-cargo-binstall:
