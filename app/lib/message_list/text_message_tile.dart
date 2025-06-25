@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:prototype/attachments/attachments.dart';
@@ -257,7 +258,121 @@ class _FileAttachmentContent extends StatelessWidget {
 }
 
 class _ImageAttachmentContent extends StatelessWidget {
-  const _ImageAttachmentContent({
+  _ImageAttachmentContent({
+    required this.attachment,
+    required this.blurhash,
+    required this.isSender,
+  });
+
+  final UiAttachment attachment;
+  final String blurhash;
+  final bool isSender;
+
+  final overlayController = OverlayPortalController();
+
+  @override
+  Widget build(BuildContext context) {
+    return OverlayPortal(
+      controller: overlayController,
+      overlayChildBuilder: (BuildContext context) {
+        return _ImagePreview(
+          attachment: attachment,
+          blurhash: blurhash,
+          isSender: isSender,
+          overlayController: overlayController,
+        );
+      },
+      child: GestureDetector(
+        onTap: () {
+          overlayController.show();
+        },
+        child: SizedBox(
+          height: 300,
+          child: AspectRatio(
+            aspectRatio: 1.6,
+            child: _ImageStack(
+              attachment: attachment,
+              blurhash: blurhash,
+              isSender: isSender,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImagePreview extends StatelessWidget {
+  const _ImagePreview({
+    required this.attachment,
+    required this.blurhash,
+    required this.isSender,
+    required this.overlayController,
+  });
+
+  final UiAttachment attachment;
+  final String blurhash;
+  final bool isSender;
+  final OverlayPortalController overlayController;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.escape &&
+            event is KeyDownEvent) {
+          overlayController.hide();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        child: Container(
+          height: MediaQuery.of(context).size.height,
+          width: MediaQuery.of(context).size.width,
+          color: Colors.white,
+          child: Column(
+            children: [
+              AppBar(
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      overlayController.hide();
+                    },
+                  ),
+                  const SizedBox(width: Spacings.s),
+                ],
+                title: Text(attachment.filename),
+                centerTitle: true,
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 50.0),
+                    child: AspectRatio(
+                      aspectRatio: 1.6,
+                      child: _ImageStack(
+                        attachment: attachment,
+                        blurhash: blurhash,
+                        isSender: isSender,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageStack extends StatelessWidget {
+  const _ImageStack({
     required this.attachment,
     required this.blurhash,
     required this.isSender,
@@ -269,25 +384,19 @@ class _ImageAttachmentContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 300,
-      child: AspectRatio(
-        aspectRatio: 1.6,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            BlurHash(hash: blurhash),
-            Image(
-              image: AttachmentImageProvider(
-                attachment: attachment,
-                attachmentsRepository: RepositoryProvider.of(context),
-              ),
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-            ),
-          ],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        BlurHash(hash: blurhash),
+        Image(
+          image: AttachmentImageProvider(
+            attachment: attachment,
+            attachmentsRepository: RepositoryProvider.of(context),
+          ),
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
         ),
-      ),
+      ],
     );
   }
 }
