@@ -294,6 +294,7 @@ class _ImageAttachmentContent extends StatelessWidget {
               attachment: attachment,
               blurhash: blurhash,
               isSender: isSender,
+              fit: BoxFit.cover,
             ),
           ),
         ),
@@ -360,6 +361,7 @@ class _ImagePreview extends StatelessWidget {
                       attachment: attachment,
                       blurhash: blurhash,
                       isSender: isSender,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
@@ -377,11 +379,13 @@ class _ImageStack extends StatelessWidget {
     required this.attachment,
     required this.blurhash,
     required this.isSender,
+    required this.fit,
   });
 
   final UiAttachment attachment;
   final String blurhash;
   final bool isSender;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -394,7 +398,7 @@ class _ImageStack extends StatelessWidget {
             attachment: attachment,
             attachmentsRepository: RepositoryProvider.of(context),
           ),
-          fit: BoxFit.cover,
+          fit: fit,
           alignment: Alignment.center,
         ),
       ],
