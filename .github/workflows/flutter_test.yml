@@ -16,17 +16,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  flutter-check-localizations:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v2
-      - name: Set up Flutter FVM
-        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
-        with:
-          path: 'app/.fvmrc'
-      - run: just check-l10n
-
   flutter-test:
     runs-on: ubuntu-latest
 
@@ -43,6 +32,17 @@ jobs:
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
+
+      - name: Check Flutter lockfile
+        run: just check-flutter-lockfile
+
+      # Note: for formatting to use the correct style, we need to run `flutter
+      # pub get` first. This is done in the `check-dart-format` step.
+      - name: Check dart format
+        run: just check-dart-format
+
+      - name: Check localization
+        run: just check-l10n
 
       - name: Analyze dart code
         run: just analyze-dart
