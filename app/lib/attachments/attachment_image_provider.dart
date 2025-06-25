@@ -29,7 +29,6 @@ class AttachmentImageProvider extends ImageProvider<UiAttachment> {
     UiAttachment key,
     ImageDecoderCallback decode,
   ) {
-    debugPrint("Loading attachment image '$key'...");
     final chunkEvents = StreamController<ImageChunkEvent>();
     return MultiFrameImageStreamCompleter(
       codec: attachmentsRepository
