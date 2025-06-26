@@ -21,7 +21,7 @@ use super::*;
 
 mod tls_codec_impls;
 
-pub use attachment::AttachmentId;
+pub use attachment::{AttachmentId, AttachmentIdParseError};
 pub use user_handle::{
     USER_HANDLE_VALIDITY_PERIOD, UserHandle, UserHandleHash, UserHandleHashError,
     UserHandleValidationError,

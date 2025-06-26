@@ -559,6 +559,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiEventMessage dco_decode_box_autoadd_ui_event_message(dynamic raw);
 
   @protected
+  UiImageMetadata dco_decode_box_autoadd_ui_image_metadata(dynamic raw);
+
+  @protected
   UiInactiveConversation dco_decode_box_autoadd_ui_inactive_conversation(
     dynamic raw,
   );
@@ -745,6 +748,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiImageMetadata? dco_decode_opt_box_autoadd_ui_image_metadata(dynamic raw);
+
+  @protected
   UiUserId? dco_decode_opt_box_autoadd_ui_user_id(dynamic raw);
 
   @protected
@@ -811,6 +817,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiFlightPosition dco_decode_ui_flight_position(dynamic raw);
+
+  @protected
+  UiImageMetadata dco_decode_ui_image_metadata(dynamic raw);
 
   @protected
   UiInactiveConversation dco_decode_ui_inactive_conversation(dynamic raw);
@@ -1314,6 +1323,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiImageMetadata sse_decode_box_autoadd_ui_image_metadata(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   UiInactiveConversation sse_decode_box_autoadd_ui_inactive_conversation(
     SseDeserializer deserializer,
   );
@@ -1546,6 +1560,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiImageMetadata? sse_decode_opt_box_autoadd_ui_image_metadata(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   UiUserId? sse_decode_opt_box_autoadd_ui_user_id(SseDeserializer deserializer);
 
   @protected
@@ -1628,6 +1647,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiFlightPosition sse_decode_ui_flight_position(SseDeserializer deserializer);
+
+  @protected
+  UiImageMetadata sse_decode_ui_image_metadata(SseDeserializer deserializer);
 
   @protected
   UiInactiveConversation sse_decode_ui_inactive_conversation(
@@ -2234,6 +2256,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_ui_image_metadata(
+    UiImageMetadata self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_ui_inactive_conversation(
     UiInactiveConversation self,
     SseSerializer serializer,
@@ -2530,6 +2558,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_ui_image_metadata(
+    UiImageMetadata? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_ui_user_id(
     UiUserId? self,
     SseSerializer serializer,
@@ -2643,6 +2677,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_ui_flight_position(
     UiFlightPosition self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_ui_image_metadata(
+    UiImageMetadata self,
     SseSerializer serializer,
   );
 

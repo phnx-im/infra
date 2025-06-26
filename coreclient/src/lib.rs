@@ -16,7 +16,8 @@ mod utils;
 
 pub use crate::{
     clients::attachment::{
-        AttachmentContent, AttachmentStatus, DownloadProgress, DownloadProgressEvent,
+        AttachmentContent, AttachmentStatus, AttachmentUrl, AttachmentUrlParseError,
+        DownloadProgress, DownloadProgressEvent,
     },
     contacts::Contact,
     conversations::{

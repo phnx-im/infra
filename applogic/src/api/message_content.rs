@@ -8,6 +8,7 @@ use mimi_content::{
     content_container::{Disposition, NestedPart, NestedPartContent, PartSemantics},
 };
 pub use phnxcommon::identifiers::AttachmentId;
+use phnxcoreclient::AttachmentUrl;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -53,7 +54,15 @@ pub struct UiAttachment {
     pub content_type: String,
     pub description: Option<String>,
     pub size: u64,
-    pub blurhash: Option<String>,
+    pub image_metadata: Option<UiImageMetadata>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
+pub struct UiImageMetadata {
+    pub blurhash: String,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl From<MimiContent> for UiMimiContent {
@@ -112,6 +121,7 @@ impl From<MimiContent> for UiMimiContent {
 fn convert_attachment(parts: Vec<NestedPart>) -> Option<UiAttachment> {
     let mut attachment: Option<UiAttachment> = None;
     let mut blurhash: Option<String> = None;
+    let mut dimensions: Option<(u32, u32)> = None;
 
     for part in parts {
         match (part.disposition, part.part) {
@@ -132,18 +142,23 @@ fn convert_attachment(parts: Vec<NestedPart>) -> Option<UiAttachment> {
                     continue;
                 }
 
-                let Some(attachment_id) = AttachmentId::from_url(&url) else {
-                    warn!(url, "Skipping attachment part with invalid url");
-                    continue;
+                let attachment_url: AttachmentUrl = match url.parse() {
+                    Ok(url) => url,
+                    Err(error) => {
+                        warn!(%error, url, "Skipping attachment part with invalid url");
+                        continue;
+                    }
                 };
 
+                dimensions = attachment_url.dimensions();
+
                 attachment = Some(UiAttachment {
-                    attachment_id,
+                    attachment_id: attachment_url.attachment_id(),
                     filename,
                     content_type,
                     description: Some(description).filter(|d| !d.is_empty()),
                     size,
-                    blurhash: None,
+                    image_metadata: None,
                 });
             }
 
@@ -174,7 +189,22 @@ fn convert_attachment(parts: Vec<NestedPart>) -> Option<UiAttachment> {
     }
 
     if let Some(attachment) = &mut attachment {
-        attachment.blurhash = blurhash;
+        match (blurhash, dimensions) {
+            (Some(blurhash), Some((width, height))) => {
+                attachment.image_metadata = Some(UiImageMetadata {
+                    blurhash,
+                    width,
+                    height,
+                })
+            }
+            (None, Some(_)) => {
+                warn!("Invalid image attachment: missing blurhash, but dimensions are present")
+            }
+            (Some(_), None) => {
+                warn!("Invalid image attachment: missing dimensions, but blurhash is present")
+            }
+            (None, None) => (),
+        }
     }
 
     attachment
