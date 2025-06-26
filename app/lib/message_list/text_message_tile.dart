@@ -22,6 +22,11 @@ const double smallCornerRadius = Spacings.xxxs;
 const double messageHorizontalPadding = Spacings.xs;
 const double messageVerticalPadding = Spacings.xxs;
 
+const _messagePadding = EdgeInsets.symmetric(
+  horizontal: messageHorizontalPadding,
+  vertical: messageVerticalPadding,
+);
+
 final _log = Logger('TextMessageTile');
 
 class TextMessageTile extends StatelessWidget {
@@ -120,11 +125,6 @@ class _MessageContent extends StatelessWidget {
   final bool isSender;
   final UiFlightPosition flightPosition;
 
-  // Calculate radii
-  Radius _r(bool b) {
-    return Radius.circular(b ? largeCornerRadius : smallCornerRadius);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -135,17 +135,8 @@ class _MessageContent extends StatelessWidget {
                 ? AlignmentDirectional.topEnd
                 : AlignmentDirectional.topStart,
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: messageHorizontalPadding,
-            vertical: messageVerticalPadding,
-          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.only(
-              topLeft: _r(isSender || flightPosition.isFirst),
-              topRight: _r(!isSender || flightPosition.isFirst),
-              bottomLeft: _r(isSender || flightPosition.isLast),
-              bottomRight: _r(!isSender || flightPosition.isLast),
-            ),
+            borderRadius: _messageBorderRadius(isSender, flightPosition),
             color: isSender ? colorDMB : colorDMBSuperLight,
           ),
           child: DefaultTextStyle.merge(
@@ -153,19 +144,25 @@ class _MessageContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (content.attachments.firstOrNull != null)
-                  content.attachments.first.blurhash == null
-                      ? _FileAttachmentContent(
-                        attachment: content.attachments.first,
-                        isSender: isSender,
-                      )
-                      : _ImageAttachmentContent(
-                        attachment: content.attachments.first,
-                        blurhash: content.attachments.first.blurhash!,
-                        isSender: isSender,
-                      ),
+                if (content.attachments.firstOrNull case final attachment?)
+                  switch (attachment.imageMetadata) {
+                    null => _FileAttachmentContent(
+                      attachment: attachment,
+                      isSender: isSender,
+                    ),
+                    final imageMetadata => _ImageAttachmentContent(
+                      attachment: attachment,
+                      imageMetadata: imageMetadata,
+                      isSender: isSender,
+                      flightPosition: flightPosition,
+                      hasMessage: content.content?.elements.isNotEmpty ?? false,
+                    ),
+                  },
                 ...(content.content?.elements ?? []).map(
-                  (inner) => buildBlockElement(inner.element, isSender),
+                  (inner) => Padding(
+                    padding: _messagePadding,
+                    child: buildBlockElement(inner.element, isSender),
+                  ),
                 ),
               ],
             ),
@@ -239,23 +236,26 @@ class _FileAttachmentContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.file_present_sharp,
-          size: 46,
-          color: isSender ? Colors.white : Colors.black,
-        ),
-        const SizedBox(width: Spacings.xxs),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(attachment.filename),
-            Text(loc.bytesToHumanReadable(attachment.size)),
-          ],
-        ),
-      ],
+    return Padding(
+      padding: _messagePadding,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.file_present_sharp,
+            size: 46,
+            color: isSender ? Colors.white : Colors.black,
+          ),
+          const SizedBox(width: Spacings.xxs),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(attachment.filename),
+              Text(loc.bytesToHumanReadable(attachment.size)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -263,13 +263,17 @@ class _FileAttachmentContent extends StatelessWidget {
 class _ImageAttachmentContent extends StatelessWidget {
   _ImageAttachmentContent({
     required this.attachment,
-    required this.blurhash,
+    required this.imageMetadata,
     required this.isSender,
+    required this.flightPosition,
+    required this.hasMessage,
   });
 
   final UiAttachment attachment;
-  final String blurhash;
+  final UiImageMetadata imageMetadata;
   final bool isSender;
+  final UiFlightPosition flightPosition;
+  final bool hasMessage;
 
   final overlayController = OverlayPortalController();
 
@@ -277,28 +281,28 @@ class _ImageAttachmentContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return OverlayPortal(
       controller: overlayController,
-      overlayChildBuilder: (BuildContext context) {
-        return _ImagePreview(
-          attachment: attachment,
-          blurhash: blurhash,
-          isSender: isSender,
-          overlayController: overlayController,
-        );
-      },
+      overlayChildBuilder:
+          (BuildContext context) => _ImagePreview(
+            attachment: attachment,
+            imageMetadata: imageMetadata,
+            isSender: isSender,
+            overlayController: overlayController,
+          ),
       child: GestureDetector(
         onTap: () {
           overlayController.show();
         },
-        child: SizedBox(
-          height: 300,
-          child: AspectRatio(
-            aspectRatio: 1.6,
-            child: _ImageStack(
-              attachment: attachment,
-              blurhash: blurhash,
-              isSender: isSender,
-              fit: BoxFit.cover,
-            ),
+        child: ClipRRect(
+          borderRadius: _messageBorderRadius(
+            isSender,
+            flightPosition,
+            stackedOnTop: hasMessage,
+          ),
+          child: _ImageStack(
+            attachment: attachment,
+            imageMetadata: imageMetadata,
+            isSender: isSender,
+            fit: BoxFit.cover,
           ),
         ),
       ),
@@ -309,13 +313,13 @@ class _ImageAttachmentContent extends StatelessWidget {
 class _ImagePreview extends StatelessWidget {
   const _ImagePreview({
     required this.attachment,
-    required this.blurhash,
+    required this.imageMetadata,
     required this.isSender,
     required this.overlayController,
   });
 
   final UiAttachment attachment;
-  final String blurhash;
+  final UiImageMetadata imageMetadata;
   final bool isSender;
   final OverlayPortalController overlayController;
 
@@ -363,7 +367,7 @@ class _ImagePreview extends StatelessWidget {
                     ),
                     child: _ImageStack(
                       attachment: attachment,
-                      blurhash: blurhash,
+                      imageMetadata: imageMetadata,
                       isSender: isSender,
                       fit: BoxFit.contain,
                     ),
@@ -381,35 +385,57 @@ class _ImagePreview extends StatelessWidget {
 class _ImageStack extends StatelessWidget {
   const _ImageStack({
     required this.attachment,
-    required this.blurhash,
+    required this.imageMetadata,
     required this.isSender,
     required this.fit,
   });
 
   final UiAttachment attachment;
-  final String blurhash;
+  final UiImageMetadata imageMetadata;
   final bool isSender;
   final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        BlurHash(hash: blurhash),
-        Image(
-          image: AttachmentImageProvider(
-            attachment: attachment,
-            attachmentsRepository: RepositoryProvider.of(context),
+    return AspectRatio(
+      aspectRatio: imageMetadata.width / imageMetadata.height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          BlurHash(hash: imageMetadata.blurhash),
+          Image(
+            image: AttachmentImageProvider(
+              attachment: attachment,
+              attachmentsRepository: RepositoryProvider.of(context),
+            ),
+            fit: fit,
+            alignment: Alignment.center,
+            errorBuilder: (context, error, stackTrace) {
+              _log.severe('Failed to load attachment', error, stackTrace);
+              return const Icon(Icons.error);
+            },
           ),
-          fit: fit,
-          alignment: Alignment.center,
-          errorBuilder: (context, error, stackTrace) {
-            _log.severe('Failed to load attachment', error, stackTrace);
-            return const Icon(Icons.error);
-          },
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
+
+BorderRadius _messageBorderRadius(
+  bool isSender,
+  UiFlightPosition flightPosition, {
+  bool stackedOnTop = false,
+}) {
+  // Calculate radii
+  Radius r(bool b) =>
+      Radius.circular(b ? largeCornerRadius : smallCornerRadius);
+
+  return BorderRadius.only(
+    topLeft: r(isSender || flightPosition.isFirst),
+    topRight: r(!isSender || flightPosition.isFirst),
+    bottomLeft:
+        !stackedOnTop ? r(isSender || flightPosition.isLast) : Radius.zero,
+    bottomRight:
+        !stackedOnTop ? r(!isSender || flightPosition.isLast) : Radius.zero,
+  );
 }

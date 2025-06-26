@@ -129,8 +129,12 @@ final imageAttachment = UiAttachment(
   filename: "image.png",
   size: 10 * 1024 * 1024,
   contentType: 'image/png',
-  blurhash: "LEHLk~WB2yk8pyo0adR*.7kCMdnj",
   description: "A woman eating a donut",
+  imageMetadata: const UiImageMetadata(
+    blurhash: "LEHLk~WB2yk8pyo0adR*.7kCMdnj",
+    width: 100,
+    height: 50,
+  ),
 );
 
 final attachmentMessages = [
@@ -174,6 +178,47 @@ final attachmentMessages = [
           plainBody: "Look what I've got to eat",
           content: simpleMessage("Look what I've got to eat"),
           attachments: [imageAttachment],
+        ),
+      ),
+    ),
+  ),
+  UiConversationMessage(
+    id: 8.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:02.000Z',
+    position: UiFlightPosition.single,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          attachments: [imageAttachment],
+        ),
+      ),
+    ),
+  ),
+  UiConversationMessage(
+    id: 9.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:03.000Z',
+    position: UiFlightPosition.single,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "Small image",
+          content: simpleMessage("Small image"),
+          attachments: [
+            imageAttachment.copyWith(
+              imageMetadata: imageAttachment.imageMetadata!.copyWith(
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ],
         ),
       ),
     ),

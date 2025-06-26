@@ -5114,6 +5114,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiImageMetadata dco_decode_box_autoadd_ui_image_metadata(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_ui_image_metadata(raw);
+  }
+
+  @protected
   UiInactiveConversation dco_decode_box_autoadd_ui_inactive_conversation(
     dynamic raw,
   ) {
@@ -5614,6 +5620,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiImageMetadata? dco_decode_opt_box_autoadd_ui_image_metadata(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_ui_image_metadata(raw);
+  }
+
+  @protected
   UiUserId? dco_decode_opt_box_autoadd_ui_user_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_ui_user_id(raw);
@@ -5717,7 +5729,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       contentType: dco_decode_String(arr[2]),
       description: dco_decode_opt_String(arr[3]),
       size: dco_decode_CastedPrimitive_u_64(arr[4]),
-      blurhash: dco_decode_opt_String(arr[5]),
+      imageMetadata: dco_decode_opt_box_autoadd_ui_image_metadata(arr[5]),
     );
   }
 
@@ -5866,6 +5878,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiFlightPosition dco_decode_ui_flight_position(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return UiFlightPosition.values[raw as int];
+  }
+
+  @protected
+  UiImageMetadata dco_decode_ui_image_metadata(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return UiImageMetadata(
+      blurhash: dco_decode_String(arr[0]),
+      width: dco_decode_u_32(arr[1]),
+      height: dco_decode_u_32(arr[2]),
+    );
   }
 
   @protected
@@ -6922,6 +6947,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiImageMetadata sse_decode_box_autoadd_ui_image_metadata(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_ui_image_metadata(deserializer));
+  }
+
+  @protected
   UiInactiveConversation sse_decode_box_autoadd_ui_inactive_conversation(
     SseDeserializer deserializer,
   ) {
@@ -7595,6 +7628,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiImageMetadata? sse_decode_opt_box_autoadd_ui_image_metadata(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_ui_image_metadata(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   UiUserId? sse_decode_opt_box_autoadd_ui_user_id(
     SseDeserializer deserializer,
   ) {
@@ -7715,14 +7761,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_contentType = sse_decode_String(deserializer);
     var var_description = sse_decode_opt_String(deserializer);
     var var_size = sse_decode_CastedPrimitive_u_64(deserializer);
-    var var_blurhash = sse_decode_opt_String(deserializer);
+    var var_imageMetadata = sse_decode_opt_box_autoadd_ui_image_metadata(
+      deserializer,
+    );
     return UiAttachment(
       attachmentId: var_attachmentId,
       filename: var_filename,
       contentType: var_contentType,
       description: var_description,
       size: var_size,
-      blurhash: var_blurhash,
+      imageMetadata: var_imageMetadata,
     );
   }
 
@@ -7887,6 +7935,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return UiFlightPosition.values[inner];
+  }
+
+  @protected
+  UiImageMetadata sse_decode_ui_image_metadata(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_blurhash = sse_decode_String(deserializer);
+    var var_width = sse_decode_u_32(deserializer);
+    var var_height = sse_decode_u_32(deserializer);
+    return UiImageMetadata(
+      blurhash: var_blurhash,
+      width: var_width,
+      height: var_height,
+    );
   }
 
   @protected
@@ -9137,6 +9198,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_ui_image_metadata(
+    UiImageMetadata self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_ui_image_metadata(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_ui_inactive_conversation(
     UiInactiveConversation self,
     SseSerializer serializer,
@@ -9771,6 +9841,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_ui_image_metadata(
+    UiImageMetadata? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_ui_image_metadata(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_ui_user_id(
     UiUserId? self,
     SseSerializer serializer,
@@ -9884,7 +9967,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.contentType, serializer);
     sse_encode_opt_String(self.description, serializer);
     sse_encode_CastedPrimitive_u_64(self.size, serializer);
-    sse_encode_opt_String(self.blurhash, serializer);
+    sse_encode_opt_box_autoadd_ui_image_metadata(
+      self.imageMetadata,
+      serializer,
+    );
   }
 
   @protected
@@ -10023,6 +10109,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_ui_image_metadata(
+    UiImageMetadata self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.blurhash, serializer);
+    sse_encode_u_32(self.width, serializer);
+    sse_encode_u_32(self.height, serializer);
   }
 
   @protected

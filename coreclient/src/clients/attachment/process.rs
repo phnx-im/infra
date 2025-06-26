@@ -57,10 +57,13 @@ impl CoreUser {
                 return Ok(());
             };
 
-            let Some(attachment_id) = AttachmentId::from_url(url) else {
-                error!(%url, "invalid attachment url; dropping attachment");
-                let _ = mem::replace(part, NestedPartContent::NullPart);
-                return Ok(());
+            let attachment_id: AttachmentId = match url.parse() {
+                Ok(id) => id,
+                Err(error) => {
+                    error!(%url, %error, "invalid attachment url; dropping attachment");
+                    let _ = mem::replace(part, NestedPartContent::NullPart);
+                    return Ok(());
+                }
             };
 
             // Note: the encryption data and the hash are moved from the mimi content into

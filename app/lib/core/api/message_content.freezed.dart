@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$UiAttachment {
 
- AttachmentId get attachmentId; String get filename; String get contentType; String? get description; int get size; String? get blurhash;
+ AttachmentId get attachmentId; String get filename; String get contentType; String? get description; int get size; UiImageMetadata? get imageMetadata;
 /// Create a copy of UiAttachment
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -26,16 +26,16 @@ $UiAttachmentCopyWith<UiAttachment> get copyWith => _$UiAttachmentCopyWithImpl<U
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiAttachment&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.description, description) || other.description == description)&&(identical(other.size, size) || other.size == size)&&(identical(other.blurhash, blurhash) || other.blurhash == blurhash));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiAttachment&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.description, description) || other.description == description)&&(identical(other.size, size) || other.size == size)&&(identical(other.imageMetadata, imageMetadata) || other.imageMetadata == imageMetadata));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,attachmentId,filename,contentType,description,size,blurhash);
+int get hashCode => Object.hash(runtimeType,attachmentId,filename,contentType,description,size,imageMetadata);
 
 @override
 String toString() {
-  return 'UiAttachment(attachmentId: $attachmentId, filename: $filename, contentType: $contentType, description: $description, size: $size, blurhash: $blurhash)';
+  return 'UiAttachment(attachmentId: $attachmentId, filename: $filename, contentType: $contentType, description: $description, size: $size, imageMetadata: $imageMetadata)';
 }
 
 
@@ -46,11 +46,11 @@ abstract mixin class $UiAttachmentCopyWith<$Res>  {
   factory $UiAttachmentCopyWith(UiAttachment value, $Res Function(UiAttachment) _then) = _$UiAttachmentCopyWithImpl;
 @useResult
 $Res call({
- AttachmentId attachmentId, String filename, String contentType, String? description, int size, String? blurhash
+ AttachmentId attachmentId, String filename, String contentType, String? description, int size, UiImageMetadata? imageMetadata
 });
 
 
-
+$UiImageMetadataCopyWith<$Res>? get imageMetadata;
 
 }
 /// @nodoc
@@ -63,18 +63,30 @@ class _$UiAttachmentCopyWithImpl<$Res>
 
 /// Create a copy of UiAttachment
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? attachmentId = null,Object? filename = null,Object? contentType = null,Object? description = freezed,Object? size = null,Object? blurhash = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? attachmentId = null,Object? filename = null,Object? contentType = null,Object? description = freezed,Object? size = null,Object? imageMetadata = freezed,}) {
   return _then(_self.copyWith(
 attachmentId: null == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
 as AttachmentId,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
 as String,contentType: null == contentType ? _self.contentType : contentType // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,size: null == size ? _self.size : size // ignore: cast_nullable_to_non_nullable
-as int,blurhash: freezed == blurhash ? _self.blurhash : blurhash // ignore: cast_nullable_to_non_nullable
-as String?,
+as int,imageMetadata: freezed == imageMetadata ? _self.imageMetadata : imageMetadata // ignore: cast_nullable_to_non_nullable
+as UiImageMetadata?,
   ));
 }
+/// Create a copy of UiAttachment
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiImageMetadataCopyWith<$Res>? get imageMetadata {
+    if (_self.imageMetadata == null) {
+    return null;
+  }
 
+  return $UiImageMetadataCopyWith<$Res>(_self.imageMetadata!, (value) {
+    return _then(_self.copyWith(imageMetadata: value));
+  });
+}
 }
 
 
@@ -82,7 +94,7 @@ as String?,
 
 
 class _UiAttachment implements UiAttachment {
-  const _UiAttachment({required this.attachmentId, required this.filename, required this.contentType, this.description, required this.size, this.blurhash});
+  const _UiAttachment({required this.attachmentId, required this.filename, required this.contentType, this.description, required this.size, this.imageMetadata});
   
 
 @override final  AttachmentId attachmentId;
@@ -90,7 +102,7 @@ class _UiAttachment implements UiAttachment {
 @override final  String contentType;
 @override final  String? description;
 @override final  int size;
-@override final  String? blurhash;
+@override final  UiImageMetadata? imageMetadata;
 
 /// Create a copy of UiAttachment
 /// with the given fields replaced by the non-null parameter values.
@@ -102,16 +114,16 @@ _$UiAttachmentCopyWith<_UiAttachment> get copyWith => __$UiAttachmentCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiAttachment&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.description, description) || other.description == description)&&(identical(other.size, size) || other.size == size)&&(identical(other.blurhash, blurhash) || other.blurhash == blurhash));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiAttachment&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.description, description) || other.description == description)&&(identical(other.size, size) || other.size == size)&&(identical(other.imageMetadata, imageMetadata) || other.imageMetadata == imageMetadata));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,attachmentId,filename,contentType,description,size,blurhash);
+int get hashCode => Object.hash(runtimeType,attachmentId,filename,contentType,description,size,imageMetadata);
 
 @override
 String toString() {
-  return 'UiAttachment(attachmentId: $attachmentId, filename: $filename, contentType: $contentType, description: $description, size: $size, blurhash: $blurhash)';
+  return 'UiAttachment(attachmentId: $attachmentId, filename: $filename, contentType: $contentType, description: $description, size: $size, imageMetadata: $imageMetadata)';
 }
 
 
@@ -122,11 +134,11 @@ abstract mixin class _$UiAttachmentCopyWith<$Res> implements $UiAttachmentCopyWi
   factory _$UiAttachmentCopyWith(_UiAttachment value, $Res Function(_UiAttachment) _then) = __$UiAttachmentCopyWithImpl;
 @override @useResult
 $Res call({
- AttachmentId attachmentId, String filename, String contentType, String? description, int size, String? blurhash
+ AttachmentId attachmentId, String filename, String contentType, String? description, int size, UiImageMetadata? imageMetadata
 });
 
 
-
+@override $UiImageMetadataCopyWith<$Res>? get imageMetadata;
 
 }
 /// @nodoc
@@ -139,15 +151,160 @@ class __$UiAttachmentCopyWithImpl<$Res>
 
 /// Create a copy of UiAttachment
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? attachmentId = null,Object? filename = null,Object? contentType = null,Object? description = freezed,Object? size = null,Object? blurhash = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? attachmentId = null,Object? filename = null,Object? contentType = null,Object? description = freezed,Object? size = null,Object? imageMetadata = freezed,}) {
   return _then(_UiAttachment(
 attachmentId: null == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
 as AttachmentId,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
 as String,contentType: null == contentType ? _self.contentType : contentType // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,size: null == size ? _self.size : size // ignore: cast_nullable_to_non_nullable
-as int,blurhash: freezed == blurhash ? _self.blurhash : blurhash // ignore: cast_nullable_to_non_nullable
-as String?,
+as int,imageMetadata: freezed == imageMetadata ? _self.imageMetadata : imageMetadata // ignore: cast_nullable_to_non_nullable
+as UiImageMetadata?,
+  ));
+}
+
+/// Create a copy of UiAttachment
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiImageMetadataCopyWith<$Res>? get imageMetadata {
+    if (_self.imageMetadata == null) {
+    return null;
+  }
+
+  return $UiImageMetadataCopyWith<$Res>(_self.imageMetadata!, (value) {
+    return _then(_self.copyWith(imageMetadata: value));
+  });
+}
+}
+
+/// @nodoc
+mixin _$UiImageMetadata {
+
+ String get blurhash; int get width; int get height;
+/// Create a copy of UiImageMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$UiImageMetadataCopyWith<UiImageMetadata> get copyWith => _$UiImageMetadataCopyWithImpl<UiImageMetadata>(this as UiImageMetadata, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiImageMetadata&&(identical(other.blurhash, blurhash) || other.blurhash == blurhash)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,blurhash,width,height);
+
+@override
+String toString() {
+  return 'UiImageMetadata(blurhash: $blurhash, width: $width, height: $height)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $UiImageMetadataCopyWith<$Res>  {
+  factory $UiImageMetadataCopyWith(UiImageMetadata value, $Res Function(UiImageMetadata) _then) = _$UiImageMetadataCopyWithImpl;
+@useResult
+$Res call({
+ String blurhash, int width, int height
+});
+
+
+
+
+}
+/// @nodoc
+class _$UiImageMetadataCopyWithImpl<$Res>
+    implements $UiImageMetadataCopyWith<$Res> {
+  _$UiImageMetadataCopyWithImpl(this._self, this._then);
+
+  final UiImageMetadata _self;
+  final $Res Function(UiImageMetadata) _then;
+
+/// Create a copy of UiImageMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? blurhash = null,Object? width = null,Object? height = null,}) {
+  return _then(_self.copyWith(
+blurhash: null == blurhash ? _self.blurhash : blurhash // ignore: cast_nullable_to_non_nullable
+as String,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
+as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// @nodoc
+
+
+class _UiImageMetadata implements UiImageMetadata {
+  const _UiImageMetadata({required this.blurhash, required this.width, required this.height});
+  
+
+@override final  String blurhash;
+@override final  int width;
+@override final  int height;
+
+/// Create a copy of UiImageMetadata
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UiImageMetadataCopyWith<_UiImageMetadata> get copyWith => __$UiImageMetadataCopyWithImpl<_UiImageMetadata>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiImageMetadata&&(identical(other.blurhash, blurhash) || other.blurhash == blurhash)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,blurhash,width,height);
+
+@override
+String toString() {
+  return 'UiImageMetadata(blurhash: $blurhash, width: $width, height: $height)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$UiImageMetadataCopyWith<$Res> implements $UiImageMetadataCopyWith<$Res> {
+  factory _$UiImageMetadataCopyWith(_UiImageMetadata value, $Res Function(_UiImageMetadata) _then) = __$UiImageMetadataCopyWithImpl;
+@override @useResult
+$Res call({
+ String blurhash, int width, int height
+});
+
+
+
+
+}
+/// @nodoc
+class __$UiImageMetadataCopyWithImpl<$Res>
+    implements _$UiImageMetadataCopyWith<$Res> {
+  __$UiImageMetadataCopyWithImpl(this._self, this._then);
+
+  final _UiImageMetadata _self;
+  final $Res Function(_UiImageMetadata) _then;
+
+/// Create a copy of UiImageMetadata
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? blurhash = null,Object? width = null,Object? height = null,}) {
+  return _then(_UiImageMetadata(
+blurhash: null == blurhash ? _self.blurhash : blurhash // ignore: cast_nullable_to_non_nullable
+as String,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
+as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

@@ -14,7 +14,7 @@ import 'package:uuid/uuid.dart';
 part 'message_content.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `convert_attachment`, `error_message`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `from`, `hash`, `hash`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `from`, `hash`, `hash`, `hash`
 
 /// Mirror of the [`AttachmentId`] type
 class AttachmentId {
@@ -44,8 +44,17 @@ sealed class UiAttachment with _$UiAttachment {
     required String contentType,
     String? description,
     required int size,
-    String? blurhash,
+    UiImageMetadata? imageMetadata,
   }) = _UiAttachment;
+}
+
+@freezed
+sealed class UiImageMetadata with _$UiImageMetadata {
+  const factory UiImageMetadata({
+    required String blurhash,
+    required int width,
+    required int height,
+  }) = _UiImageMetadata;
 }
 
 /// The actual content of a message

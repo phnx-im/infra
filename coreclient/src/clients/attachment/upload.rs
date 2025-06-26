@@ -22,10 +22,10 @@ use phnxcommon::{
     identifiers::AttachmentId,
 };
 use sha2::{Digest, Sha256};
-use url::Url;
 
 use crate::{
-    AttachmentStatus, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
+    AttachmentStatus, AttachmentUrl, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId,
     clients::{
         CoreUser,
         attachment::{
@@ -198,16 +198,12 @@ impl ProcessedAttachment {
     }
 
     fn into_nested_parts(self, metadata: AttachmentMetadata) -> anyhow::Result<Vec<NestedPart>> {
-        let url = metadata.attachment_id.url();
-        let mut url = Url::parse(&url)?;
-        // TODO: Currently, there is no way to specify the image dimensions in the MIMI content.
-        // This is a workaround for that.
-        if let Some(image_data) = &self.image_data {
-            url.query_pairs_mut()
-                .append_pair("width", &image_data.width.to_string());
-            url.query_pairs_mut()
-                .append_pair("height", &image_data.height.to_string());
-        }
+        let url = AttachmentUrl::new(
+            metadata.attachment_id,
+            self.image_data
+                .as_ref()
+                .map(|data| (data.width, data.height)),
+        );
 
         let attachment = NestedPart {
             disposition: Disposition::Attachment,
