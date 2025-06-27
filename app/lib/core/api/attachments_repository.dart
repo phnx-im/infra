@@ -18,7 +18,10 @@ import 'user_cubit.dart';
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<AttachmentsRepository>>
 abstract class AttachmentsRepository implements RustOpaqueInterface {
-  Future<Uint8List> loadAttachment({required AttachmentId attachmentId});
+  Future<Uint8List> loadImageAttachment({
+    required AttachmentId attachmentId,
+    required FutureOr<void> Function(BigInt) chunkEventCallback,
+  });
 
   factory AttachmentsRepository({required UserCubitBase userCubit}) => RustLib
       .instance

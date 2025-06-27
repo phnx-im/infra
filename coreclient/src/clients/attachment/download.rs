@@ -9,7 +9,7 @@ use phnxcommon::{
 };
 use sha2::{Digest, Sha256};
 use tokio::sync::watch;
-use tokio_stream::StreamExt;
+use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tracing::{debug, info};
 
 use crate::{
@@ -135,8 +135,7 @@ impl CoreUser {
         let mut bytes_stream = response.bytes_stream();
         while let Some(chunk) = bytes_stream.next().await.transpose()? {
             bytes.extend_from_slice(&chunk);
-            let percent = (total_len * 100 / bytes.len()) as u8;
-            progress_tx.report(percent);
+            progress_tx.report(bytes.len());
         }
 
         // Decrypt the attachment
@@ -191,12 +190,20 @@ impl DownloadProgress {
     pub fn value(&mut self) -> DownloadProgressEvent {
         self.rx.borrow_and_update().clone()
     }
+
+    pub async fn changed(&mut self) -> bool {
+        self.rx.changed().await.is_ok()
+    }
+
+    pub fn stream(&mut self) -> impl Stream<Item = DownloadProgressEvent> {
+        WatchStream::new(self.rx.clone())
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum DownloadProgressEvent {
     Init,
-    Progress { percent: u8 },
+    Progress { bytes_loaded: usize },
     Completed,
     Failed,
 }
@@ -206,9 +213,9 @@ struct DownloadProgressSender {
 }
 
 impl DownloadProgressSender {
-    fn report(&mut self, percent: u8) {
+    fn report(&mut self, bytes_loaded: usize) {
         if let Some(tx) = &mut self.tx {
-            let _ignore_closed = tx.send(DownloadProgressEvent::Progress { percent });
+            let _ignore_closed = tx.send(DownloadProgressEvent::Progress { bytes_loaded });
         }
     }
 

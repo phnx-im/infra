@@ -321,8 +321,9 @@ void main() {
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages + attachmentMessages));
       when(
-        () => attachmentsRepository.loadAttachment(
+        () => attachmentsRepository.loadImageAttachment(
           attachmentId: imageAttachment.attachmentId,
+          chunkEventCallback: any(named: "chunkEventCallback"),
         ),
       ).thenAnswer((_) async => Future.any([]));
 
