@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:prototype/conversation_list/conversation_list.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/user/user.dart';
+import 'package:prototype/util/resizable_panel.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -37,11 +40,25 @@ class HomeScreenDesktopLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(width: 300, child: conversationList),
-        Expanded(child: conversation),
-      ],
+    return Container(
+      color: Colors.white,
+      child: Row(
+        children: [
+          ResizablePanel(
+            initialWidth: context.read<UserSettingsCubit>().state.sidebarWidth,
+            onResizeEnd: (width) => onResizeEnd(context, width),
+            child: conversationList,
+          ),
+          Expanded(child: conversation),
+        ],
+      ),
+    );
+  }
+
+  void onResizeEnd(BuildContext context, double panelWidth) {
+    context.read<UserSettingsCubit>().setSidebarWidth(
+      userCubit: context.read(),
+      value: panelWidth,
     );
   }
 }

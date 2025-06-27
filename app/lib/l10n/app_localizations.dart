@@ -128,6 +128,12 @@ abstract class AppLocalizations {
   /// **'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.'**
   String get userSettingsScreen_userNamesDescription;
 
+  /// No description provided for @userSettingsScreen_interfaceScale.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface scale'**
+  String get userSettingsScreen_interfaceScale;
+
   /// No description provided for @removeUsernameDialog_title.
   ///
   /// In en, this message translates to:

@@ -30,6 +30,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.';
 
   @override
+  String get userSettingsScreen_interfaceScale => 'Interface scale';
+
+  @override
   String get removeUsernameDialog_title => 'Remove Username';
 
   @override
