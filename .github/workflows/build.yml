@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.87.0
       - run: cargo metadata --locked
 
   rust-check-fmt:
@@ -41,9 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.87.0
         with:
-          toolchain: stable
           components: rustfmt
       - run: cargo fmt -- --check
 
@@ -52,9 +51,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.87.0
         with:
-          toolchain: stable
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --locked --all-targets -- -D warnings
@@ -64,7 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.87.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --verbose
 
@@ -100,7 +98,7 @@ jobs:
           sleep 5
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.87.0
 
       - uses: Swatinem/rust-cache@v2
 
