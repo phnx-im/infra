@@ -106,6 +106,7 @@ where
                 match self.context.create_stream().await {
                     Ok(stream) => {
                         info!(name = %self.name, id = %self.id, "background stream started");
+                        self.backoff.reset();
                         State::Running {
                             stream: Box::pin(stream),
                             started_at,
