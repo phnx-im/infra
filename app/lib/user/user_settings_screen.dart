@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,6 +25,8 @@ class UserSettingsScreen extends StatelessWidget {
     final profile = context.select((UsersCubit cubit) => cubit.state.profile());
 
     final loc = AppLocalizations.of(context);
+    final isDesktopPlatform =
+        Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
     return Scaffold(
       appBar: AppBar(
@@ -54,6 +58,14 @@ class UserSettingsScreen extends StatelessWidget {
                   const SizedBox(height: Spacings.xs),
 
                   const _UserHandles(),
+
+                  if (isDesktopPlatform) ...[
+                    const SizedBox(height: Spacings.xs),
+                    Divider(color: Theme.of(context).hintColor),
+                    const SizedBox(height: Spacings.xs),
+
+                    const _DesktopSettings(),
+                  ],
                 ],
               ),
             ),
@@ -232,6 +244,59 @@ class _UserHandlePlaceholder extends StatelessWidget {
           () => context.read<NavigationCubit>().openUserSettings(
             screen: UserSettingsScreenType.addUserHandle,
           ),
+    );
+  }
+}
+
+class _DesktopSettings extends StatefulWidget {
+  const _DesktopSettings();
+
+  @override
+  State<_DesktopSettings> createState() => _DesktopSettingsState();
+}
+
+class _DesktopSettingsState extends State<_DesktopSettings> {
+  double _interfaceScaleSliderValue = 100.0;
+
+  @override
+  void initState() {
+    super.initState();
+    setState(() {
+      _interfaceScaleSliderValue =
+          context.read<UserSettingsCubit>().state.interfaceScale * 100;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.visibility, size: _listIconSize),
+          titleAlignment: ListTileTitleAlignment.top,
+          title: Text(loc.userSettingsScreen_interfaceScale),
+          subtitle: Slider(
+            min: 50,
+            max: 300,
+            divisions: ((300 - 50) / 5).truncate(),
+            value: _interfaceScaleSliderValue,
+            label: _interfaceScaleSliderValue.truncate().toString(),
+            activeColor: colorDMB,
+            onChanged:
+                (value) => setState(() => _interfaceScaleSliderValue = value),
+            onChangeEnd: (value) {
+              context.read<UserSettingsCubit>().setInterfaceScale(
+                userCubit: context.read(),
+                value: value / 100,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: Spacings.s),
+      ],
     );
   }
 }

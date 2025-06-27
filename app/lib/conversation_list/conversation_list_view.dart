@@ -35,10 +35,6 @@ class ConversationListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        shape: BoxShape.rectangle,
-        border: Border(right: BorderSide(width: 1, color: colorGreyLight)),
-      ),
       child: Scaffold(
         backgroundColor:
             isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
