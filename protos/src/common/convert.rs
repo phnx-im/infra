@@ -181,7 +181,7 @@ pub enum InvalidIndexedCiphertext {
 
 impl From<InvalidIndexedCiphertext> for Status {
     fn from(e: InvalidIndexedCiphertext) -> Self {
-        Status::invalid_argument(format!("invalid indexed ciphertext: {}", e))
+        Status::invalid_argument(format!("invalid indexed ciphertext: {e}"))
     }
 }
 
