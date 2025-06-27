@@ -36,7 +36,7 @@ jobs:
           path: 'app/.fvmrc'
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.87.0
 
       - name: Set up macOS CI
         env:
