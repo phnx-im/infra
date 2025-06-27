@@ -6043,6 +6043,19 @@ impl SseDecode for Option<crate::api::types::UiConversationMessage> {
     }
 }
 
+impl SseDecode for Option<crate::api::message_content::UiImageMetadata> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::message_content::UiImageMetadata>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::types::UiUserId> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6170,14 +6183,15 @@ impl SseDecode for crate::api::message_content::UiAttachment {
         let mut var_contentType = <String>::sse_decode(deserializer);
         let mut var_description = <Option<String>>::sse_decode(deserializer);
         let mut var_size = <u64>::sse_decode(deserializer);
-        let mut var_blurhash = <Option<String>>::sse_decode(deserializer);
+        let mut var_imageMetadata =
+            <Option<crate::api::message_content::UiImageMetadata>>::sse_decode(deserializer);
         return crate::api::message_content::UiAttachment {
             attachment_id: var_attachmentId,
             filename: var_filename,
             content_type: var_contentType,
             description: var_description,
             size: var_size,
-            blurhash: var_blurhash,
+            image_metadata: var_imageMetadata,
         };
     }
 }
@@ -6363,6 +6377,20 @@ impl SseDecode for crate::api::types::UiFlightPosition {
             2 => crate::api::types::UiFlightPosition::Middle,
             3 => crate::api::types::UiFlightPosition::End,
             _ => unreachable!("Invalid variant for UiFlightPosition: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::api::message_content::UiImageMetadata {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_blurhash = <String>::sse_decode(deserializer);
+        let mut var_width = <u32>::sse_decode(deserializer);
+        let mut var_height = <u32>::sse_decode(deserializer);
+        return crate::api::message_content::UiImageMetadata {
+            blurhash: var_blurhash,
+            width: var_width,
+            height: var_height,
         };
     }
 }
@@ -7463,7 +7491,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::message_content::UiAttachment
             self.content_type.into_into_dart().into_dart(),
             self.description.into_into_dart().into_dart(),
             self.size.into_into_dart().into_dart(),
-            self.blurhash.into_into_dart().into_dart(),
+            self.image_metadata.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -7727,6 +7755,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiFlightPosition>
     for crate::api::types::UiFlightPosition
 {
     fn into_into_dart(self) -> crate::api::types::UiFlightPosition {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::message_content::UiImageMetadata {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.blurhash.into_into_dart().into_dart(),
+            self.width.into_into_dart().into_dart(),
+            self.height.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::message_content::UiImageMetadata
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::message_content::UiImageMetadata>
+    for crate::api::message_content::UiImageMetadata
+{
+    fn into_into_dart(self) -> crate::api::message_content::UiImageMetadata {
         self
     }
 }
@@ -8941,6 +8991,16 @@ impl SseEncode for Option<crate::api::types::UiConversationMessage> {
     }
 }
 
+impl SseEncode for Option<crate::api::message_content::UiImageMetadata> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::message_content::UiImageMetadata>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::types::UiUserId> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -9046,7 +9106,10 @@ impl SseEncode for crate::api::message_content::UiAttachment {
         <String>::sse_encode(self.content_type, serializer);
         <Option<String>>::sse_encode(self.description, serializer);
         <u64>::sse_encode(self.size, serializer);
-        <Option<String>>::sse_encode(self.blurhash, serializer);
+        <Option<crate::api::message_content::UiImageMetadata>>::sse_encode(
+            self.image_metadata,
+            serializer,
+        );
     }
 }
 
@@ -9193,6 +9256,15 @@ impl SseEncode for crate::api::types::UiFlightPosition {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::api::message_content::UiImageMetadata {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.blurhash, serializer);
+        <u32>::sse_encode(self.width, serializer);
+        <u32>::sse_encode(self.height, serializer);
     }
 }
 

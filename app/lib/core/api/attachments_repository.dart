@@ -12,7 +12,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
 import 'user_cubit.dart';
 
-// These functions are ignored because they are not marked as `pub`: `attachment_downloads_loop`, `spawn_attachment_downloads`, `spawn_download_task`
+// These functions are ignored because they are not marked as `pub`: `attachment_downloads_loop`, `spawn_attachment_downloads`, `spawn_download_task`, `track_attachment_download`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `DownloadTaskHandle`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 

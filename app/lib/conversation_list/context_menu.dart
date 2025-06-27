@@ -62,8 +62,6 @@ class _ContextMenuState extends State<ContextMenu> {
         });
       }
     }
-
-    WidgetsBinding.instance.scheduleFrameCallback(_checkChildPosition);
   }
 
   Offset _relativePosition() {

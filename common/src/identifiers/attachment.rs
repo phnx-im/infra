@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::str::FromStr;
+
+use displaydoc::Display;
+use thiserror::Error;
 use url::Url;
 use uuid::Uuid;
 
@@ -15,23 +19,43 @@ impl AttachmentId {
         Self { uuid }
     }
 
-    pub fn url(&self) -> String {
-        format!("phnx:///attachment/{}", self.uuid)
-    }
-
-    pub fn from_url(url: &str) -> Option<Self> {
-        let url = Url::parse(url).ok()?;
+    pub fn from_url(url: &Url) -> Result<Self, AttachmentIdParseError> {
         if url.scheme() != "phnx" {
-            return None;
+            return Err(AttachmentIdParseError::InvalidScheme);
         }
-        let suffix = url.path().strip_prefix("/attachment/")?;
-        let uuid = suffix.parse().ok()?;
-        Some(Self { uuid })
+        let suffix = url
+            .path()
+            .strip_prefix("/attachment/")
+            .ok_or(AttachmentIdParseError::InvalidPrefix)?;
+        let uuid = suffix
+            .parse()
+            .map_err(|_| AttachmentIdParseError::InvalidUuid)?;
+        Ok(Self { uuid })
     }
 
     pub fn uuid(&self) -> Uuid {
         self.uuid
     }
+}
+
+impl FromStr for AttachmentId {
+    type Err = AttachmentIdParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_url(&s.parse()?)
+    }
+}
+
+#[derive(Debug, Display, Error)]
+pub enum AttachmentIdParseError {
+    /// {0}
+    Url(#[from] url::ParseError),
+    /// The UUID is invalid
+    InvalidUuid,
+    /// The URL scheme is invalid
+    InvalidScheme,
+    /// The URL prefix is invalid
+    InvalidPrefix,
 }
 
 mod sqlx_impls {
@@ -68,8 +92,10 @@ mod test {
 
     #[test]
     fn from_url() {
-        let url = "phnx:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09?width=1920&height=1080";
-        let attachment_id = super::AttachmentId::from_url(url).unwrap();
+        let url = "phnx:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09?width=1920&height=1080"
+            .parse()
+            .unwrap();
+        let attachment_id = super::AttachmentId::from_url(&url).unwrap();
         assert_eq!(
             attachment_id.uuid,
             Uuid::parse_str("b6a42a7a-62fa-4c10-acfb-6124d80aae09").unwrap()
