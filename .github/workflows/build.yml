@@ -43,7 +43,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.87.0
         with:
-          toolchain: stable
           components: rustfmt
       - run: cargo fmt -- --check
 
@@ -54,7 +53,6 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.87.0
         with:
-          toolchain: stable
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --locked --all-targets -- -D warnings

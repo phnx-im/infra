@@ -33,6 +33,7 @@ jobs:
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.87.0
-        components: rustfmt
+        with:
+          components: rustfmt
 
       - run: just check-frb-ci
