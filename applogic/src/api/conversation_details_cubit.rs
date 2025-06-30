@@ -143,7 +143,12 @@ impl ConversationDetailsCubitBase {
     /// The not yet sent message is immediately stored in the local store and then the message is
     /// send to the DS.
     pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
-        let content = MimiContent::simple_markdown_message(message_text);
+        let content = MimiContent::simple_markdown_message(
+            message_text,
+            phnxcommon::crypto::secrets::Secret::<16>::random()
+                .unwrap()
+                .secret(),
+        );
 
         self.context
             .store

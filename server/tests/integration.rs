@@ -90,7 +90,7 @@ async fn rate_limit() {
             .user
             .send_message(
                 conversation_id,
-                MimiContent::simple_markdown_message("Hello bob".into()),
+                MimiContent::simple_markdown_message("Hello bob".into(), b"test_salt"),
             )
             .await;
 
@@ -118,7 +118,7 @@ async fn rate_limit() {
         .user
         .send_message(
             conversation_id,
-            MimiContent::simple_markdown_message("Hello bob".into()),
+            MimiContent::simple_markdown_message("Hello bob".into(), b"test_salt"),
         )
         .await;
 
@@ -469,7 +469,7 @@ async fn retrieve_conversation_messages() {
             .take(32)
             .map(char::from)
             .collect();
-        let message_content = MimiContent::simple_markdown_message(message);
+        let message_content = MimiContent::simple_markdown_message(message, b"test_salt");
         let message = alice
             .send_message(conversation_id, message_content)
             .await
@@ -518,7 +518,7 @@ async fn mark_as_read() {
                 .take(32)
                 .map(char::from)
                 .collect();
-            let message_content = MimiContent::simple_markdown_message(message);
+            let message_content = MimiContent::simple_markdown_message(message, b"test_salt");
             let message = user
                 .send_message(conversation_id, message_content)
                 .await

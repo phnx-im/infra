@@ -312,7 +312,12 @@ impl CoreUser {
                     if let Err(e) = self
                         .send_message(
                             conversation_id,
-                            MimiContent::simple_delivery_receipt(&[content_message.mimi_id()]),
+                            MimiContent::simple_delivery_receipt(
+                                &[content_message.mimi_id()],
+                                phnxcommon::crypto::secrets::Secret::<16>::random()
+                                    .unwrap()
+                                    .secret(),
+                            ),
                         )
                         .await
                     {

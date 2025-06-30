@@ -601,12 +601,12 @@ pub async fn persist_message_status_report(
     let (sender_uuid, sender_domain) = sender.clone().into_parts();
 
     for update in &report.statuses {
-        let mimi_id = &update.mimi_id;
-        let discriminant = update.status.discriminant();
+        let mimi_id = &update.mimi_id.to_vec();
+        let repr = update.status.repr();
         query!(
             "INSERT INTO conversation_message_status (mimi_id, status, sender_user_domain, sender_user_uuid) VALUES (?, ?, ?, ?)",
             mimi_id,
-            discriminant,
+            repr,
             sender_domain,
             sender_uuid,
         )
@@ -622,7 +622,7 @@ pub async fn load_message_status(
     mimi_id: &[u8],
     status: MessageStatus,
 ) -> sqlx::Result<Vec<UserId>> {
-    let discriminant = status.discriminant();
+    let repr = status.repr();
 
     let users = query_as!(
         SqlPastMember,
@@ -632,7 +632,7 @@ pub async fn load_message_status(
         FROM conversation_message_status
         WHERE mimi_id = ? AND status = ?"#,
         mimi_id,
-        discriminant,
+        repr,
     )
     .map(|row| UserId::from(row))
     .fetch_all(&mut *connection)

@@ -313,7 +313,7 @@ mod tests {
                 Message::with_content(ContentMessage::new(
                     sender.clone(),
                     true,
-                    MimiContent::simple_markdown_message("some content".into()),
+                    MimiContent::simple_markdown_message("some content".into(), b"test_salt"),
                     &GroupId::from_slice(&[0]),
                 )),
             ),

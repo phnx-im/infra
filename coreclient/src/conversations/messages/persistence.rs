@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
-use mimi_content::MimiContent;
+use mimi_content::{MimiContent, content_container::MimiContentV1};
 use phnxcommon::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
     identifiers::{Fqdn, UserId},
@@ -20,7 +20,7 @@ use crate::{ContentMessage, ConversationId, ConversationMessage, Message, store:
 use super::{ErrorMessage, EventMessage};
 
 const UNKNOWN_MESSAGE_VERSION: u16 = 0;
-const CURRENT_MESSAGE_VERSION: u16 = 1;
+const CURRENT_MESSAGE_VERSION: u16 = 2;
 
 #[derive(Serialize, Deserialize)]
 struct VersionedMessage {
@@ -48,6 +48,10 @@ impl VersionedMessage {
 
     fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
         match self.version {
+            1 => {
+                let old = PhnxCodec::from_slice::<MimiContentV1>(&self.content)?;
+                Ok(old.upgrade())
+            }
             CURRENT_MESSAGE_VERSION => Ok(PhnxCodec::from_slice::<MimiContent>(&self.content)?),
             other => bail!("unknown mimi content message version: {other}"),
         }
@@ -418,7 +422,7 @@ pub(crate) mod tests {
         let message = Message::Content(Box::new(ContentMessage::new(
             UserId::random("localhost".parse().unwrap()),
             false,
-            MimiContent::simple_markdown_message("Hello world!".to_string()),
+            MimiContent::simple_markdown_message("Hello world!".to_string(), b"test_salt"),
             &GroupId::from_slice(&[0]),
         )));
         let timestamped_message = TimestampedMessage { timestamp, message };
@@ -589,6 +593,7 @@ pub(crate) mod tests {
     static VERSIONED_MESSAGE: LazyLock<VersionedMessage> = LazyLock::new(|| {
         VersionedMessage::from_mimi_content(&MimiContent::simple_markdown_message(
             "Hello world!".to_string(),
+            b"test_salt",
         ))
         .unwrap()
     });
