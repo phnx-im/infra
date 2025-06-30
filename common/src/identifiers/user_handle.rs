@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn test_user_handle_debug_redacted() {
         let handle = UserHandle::new(valid_user_handle_string()).unwrap();
-        let debug_output = format!("{:?}", handle);
+        let debug_output = format!("{handle:?}");
         assert!(debug_output.contains("<redacted>"));
         assert!(!debug_output.contains("test_user_123")); // Ensure original plaintext is not visible
     }
