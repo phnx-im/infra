@@ -7962,7 +7962,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::navigation_cubit::UserSetting
 impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(format!("{self:?}"), serializer);
+        <String>::sse_encode(format!("{:?}", self), serializer);
     }
 }
 
