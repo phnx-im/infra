@@ -4,10 +4,10 @@ platform :android do
       # Package name
       package_name = "im.phnx.prototype"
       track = "internal"
-  
+
       # Determine if we should deploy to the Play Store
       upload_to_play_store = options[:upload_to_play_store]
-  
+
       # We need to wrap the whole process in a begin/rescue block to ensure that we clean up the temporary files
       begin
         # We prepare the keystore and the Play Store key
@@ -19,7 +19,7 @@ platform :android do
           File.open(keystore_path, "wb") do |file|
             file.write(Base64.decode64(base64_keystore))
           end
-  
+
           # Decode the Play Store key from the base64 string and save it to a temporary file
           playstore_key_path = "playstorekey.json"
           base64_playstore_key = ENV["ANDROID_PLAYSTORE_KEY_JSON"]
@@ -27,7 +27,7 @@ platform :android do
           File.open(playstore_key_path, "wb") do |file|
             file.write(Base64.decode64(base64_playstore_key))
           end
-          
+
           # Get the previous build number
           previous_build_number = google_play_track_version_codes(
             track: track,
@@ -35,21 +35,21 @@ platform :android do
             json_key: "fastlane/" + playstore_key_path,
           )[0]
           current_build_number = previous_build_number + 1
-  
+
           # Increment the build number in the gradle file
           increment_version_code(
             gradle_file_path: "android/app/build.gradle",
             version_code: current_build_number
           )
         end
-  
+
         # We build the app with Flutter first to set up gradle
         if upload_to_play_store
-          sh "flutter build appbundle --release"
+          sh "flutter build appbundle --release --verbose"
         else
-          sh "flutter build appbundle --target-platform android-arm64"
+          sh "flutter build appbundle --target-platform android-arm64 --verbose"
         end
-  
+
         if upload_to_play_store
           # Prepare the signing properties
           gradle_propperties = {
@@ -58,7 +58,7 @@ platform :android do
             "android.injected.signing.key.alias" => "upload",
             "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
           }
-  
+
           # Build the bundle in release mode and sign it
           gradle(
             task: "bundle",
@@ -66,7 +66,7 @@ platform :android do
             project_dir: File.expand_path("../android"),
             properties: gradle_propperties
           )
-  
+
           # Upload to Google Play Store
           supply(
             validate_only: false,
@@ -78,7 +78,7 @@ platform :android do
             package_name: package_name,
          )
         end
-  
+
       rescue => e
         UI.error(e)
         raise
