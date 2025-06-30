@@ -4,7 +4,7 @@
 
 //! A single message feature
 
-use std::{pin::pin, sync::Arc};
+use std::sync::Arc;
 
 use flutter_rust_bridge::frb;
 use phnxcoreclient::{
@@ -105,7 +105,7 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
 
     fn spawn(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static,
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
@@ -136,10 +136,9 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
 
     async fn store_notifications_loop(
         &self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
+        mut store_notifications: impl Stream<Item = Arc<StoreNotification>> + Unpin,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,

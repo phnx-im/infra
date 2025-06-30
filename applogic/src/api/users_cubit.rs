@@ -4,7 +4,6 @@
 
 use std::{
     collections::{HashMap, hash_map},
-    pin::pin,
     sync::Arc,
 };
 
@@ -250,7 +249,7 @@ impl<S: Store + Sync + 'static> ProfileLoadingTask<S> {
     }
 
     async fn process(mut self) -> Option<()> {
-        let mut store_notifications = pin!(self.store.subscribe());
+        let mut store_notifications = self.store.subscribe();
         loop {
             // wait for the next store notification, explicit load profile request or cancellation
             let changed_profiles = tokio::select! {

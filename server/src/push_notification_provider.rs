@@ -357,7 +357,7 @@ impl ProductionPushNotificationProvider {
 
         // Create the headers and payload
         let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert("authorization", format!("bearer {}", jwt).parse().unwrap());
+        headers.insert("authorization", format!("bearer {jwt}").parse().unwrap());
         headers.insert("apns-topic", "im.phnx.prototype".parse().unwrap());
         headers.insert("apns-push-type", "alert".parse().unwrap());
         headers.insert("apns-priority", "10".parse().unwrap());
