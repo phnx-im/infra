@@ -45,6 +45,10 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.88.0
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: app/build/phnxapplogic/build
+
       - name: Set up Android CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
