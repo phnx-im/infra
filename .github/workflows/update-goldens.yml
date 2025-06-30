@@ -28,7 +28,7 @@ jobs:
           path: 'app/.fvmrc'
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.87.0
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Run Flutter tests and update goldens
         run: just test-flutter --update-goldens
