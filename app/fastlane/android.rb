@@ -64,7 +64,8 @@ platform :android do
             task: "bundle",
             build_type: "Release",
             project_dir: File.expand_path("../android"),
-            properties: gradle_propperties
+            properties: gradle_propperties,
+            flags: "--build-cache"
           )
 
           # Upload to Google Play Store
