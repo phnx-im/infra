@@ -208,4 +208,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String newConnectionDialog_error_handleNotFound(Object username) {
     return 'Username $username does not exist';
   }
+
+  @override
+  String get composer_error_attachment =>
+      'Failed to upload attachment. Please try again.';
+
+  @override
+  String attachmentSize(double size, Object byteUnit) {
+    final intl.NumberFormat sizeNumberFormat = intl
+        .NumberFormat.decimalPatternDigits(
+      locale: localeName,
+      decimalDigits: 2,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return '$sizeString $byteUnit';
+  }
 }

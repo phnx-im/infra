@@ -9,7 +9,7 @@ use phnxcommon::{
     credentials::keys::ClientSigningKey, identifiers::UserId,
     messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
 };
-use sqlx::SqliteConnection;
+use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
 use crate::{Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message};
@@ -27,15 +27,16 @@ impl CoreUser {
         content: MimiContent,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = self
-            .with_transaction_and_notifier(async |connection, notifier| {
+            .with_transaction_and_notifier(async |txn, notifier| {
                 UnsentContent {
                     conversation_id,
+                    conversation_message_id: ConversationMessageId::random(),
                     content,
                 }
-                .store_unsent_message(connection, notifier, self.user_id())
+                .store_unsent_message(txn, notifier, self.user_id())
                 .await?
-                .create_group_message(&PhnxOpenMlsProvider::new(connection), self.signing_key())?
-                .store_group_update(connection, notifier)
+                .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
+                .store_group_update(txn, notifier)
                 .await
             })
             .await?;
@@ -44,12 +45,36 @@ impl CoreUser {
             .send_message_to_ds(&self.inner.api_clients, self.signing_key())
             .await?;
 
-        self.with_transaction_and_notifier(async |connection, notifier| {
-            sent_message
-                .mark_as_sent_and_read(connection, notifier)
-                .await
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            sent_message.mark_as_sent_and_read(txn, notifier).await
         })
         .await
+    }
+
+    pub(crate) async fn send_message_transactional(
+        &self,
+        txn: &mut SqliteTransaction<'_>,
+        notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
+        content: MimiContent,
+    ) -> anyhow::Result<ConversationMessage> {
+        let unsent_group_message = UnsentContent {
+            conversation_id,
+            conversation_message_id,
+            content,
+        }
+        .store_unsent_message(txn, notifier, self.user_id())
+        .await?
+        .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
+        .store_group_update(txn, notifier)
+        .await?;
+
+        let sent_message = unsent_group_message
+            .send_message_to_ds(&self.inner.api_clients, self.signing_key())
+            .await?;
+
+        sent_message.mark_as_sent_and_read(txn, notifier).await
     }
 
     /// Re-try sending a message, where sending previously failed.
@@ -80,18 +105,20 @@ impl CoreUser {
 
 struct UnsentContent {
     conversation_id: ConversationId,
+    conversation_message_id: ConversationMessageId,
     content: MimiContent,
 }
 
 impl UnsentContent {
     async fn store_unsent_message(
         self,
-        txn: &mut sqlx::SqliteTransaction<'_>,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         sender: &UserId,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
         let UnsentContent {
             conversation_id,
+            conversation_message_id,
             content,
         } = self;
 
@@ -103,6 +130,7 @@ impl UnsentContent {
         let conversation_message = ConversationMessage::new_unsent_message(
             sender.clone(),
             conversation_id,
+            conversation_message_id,
             content.clone(),
         );
         conversation_message.store(txn.as_mut(), notifier).await?;

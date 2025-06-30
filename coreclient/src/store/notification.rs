@@ -5,7 +5,7 @@
 use std::{collections::BTreeMap, mem, sync::Arc};
 
 use enumset::{EnumSet, EnumSetType};
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{AttachmentId, UserId};
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};
@@ -133,10 +133,7 @@ impl StoreNotificationsSender {
     /// The stream will contain all notifications from the moment this function is called.
     pub(crate) fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + 'static {
         BroadcastStream::new(self.tx.subscribe()).filter_map(|res| match res {
-            Ok(notification) => {
-                debug!(?notification, "Received store notification");
-                Some(notification)
-            }
+            Ok(notification) => Some(notification),
             Err(BroadcastStreamRecvError::Lagged(n)) => {
                 error!(n, "store notifications lagged");
                 None
@@ -217,6 +214,7 @@ pub enum StoreEntityId {
     User(UserId),
     Conversation(ConversationId),
     Message(ConversationMessageId),
+    Attachment(AttachmentId),
 }
 
 impl StoreEntityId {
@@ -225,6 +223,7 @@ impl StoreEntityId {
             StoreEntityId::User(_) => StoreEntityKind::User,
             StoreEntityId::Conversation(_) => StoreEntityKind::Conversation,
             StoreEntityId::Message(_) => StoreEntityKind::Message,
+            StoreEntityId::Attachment(_) => StoreEntityKind::Attachment,
         }
     }
 }
@@ -234,6 +233,7 @@ pub(crate) enum StoreEntityKind {
     User = 0,
     Conversation = 1,
     Message = 2,
+    Attachment = 3,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -248,6 +248,7 @@ impl TryFrom<i64> for StoreEntityKind {
             0 => Ok(StoreEntityKind::User),
             1 => Ok(StoreEntityKind::Conversation),
             2 => Ok(StoreEntityKind::Message),
+            3 => Ok(StoreEntityKind::Attachment),
             _ => Err(InvalidStoreEntityKind(value)),
         }
     }

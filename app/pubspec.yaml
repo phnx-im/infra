@@ -47,6 +47,7 @@ dependencies:
   path: ^1.9.1
   share_plus: ^11.0.0
   file_selector: ^1.0.3
+  flutter_blurhash: ^0.9.1
 
 dev_dependencies:
   build_runner: ^2.4.9

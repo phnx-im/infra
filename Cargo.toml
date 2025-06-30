@@ -45,6 +45,8 @@ reqwest = { version = "^0.12", features = [
 ], default-features = false }
 chrono = { version = "0.4.38", features = ["serde"] }
 thiserror = "2.0"
+blake3 = "1.8.2"
+sha2 = "0.10.9"
 
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
@@ -65,7 +67,7 @@ tokio-stream = "0.1.17"
 tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }
 
-mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "71495dc8fc794111c381649c4c6cbc6e258a0135" }
+mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "613510bbefb79f8f5328f9b8d14262f0661624aa" }
 
 insta = { version = "1.42.1", features = ["json"] }
 

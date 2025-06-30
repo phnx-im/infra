@@ -43,7 +43,7 @@ jobs:
           java-version: '17'
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Set up Android CI
         env:

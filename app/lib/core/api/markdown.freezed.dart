@@ -1313,7 +1313,7 @@ as bool,
 /// @nodoc
 mixin _$MessageContent {
 
- List<RangedBlockElement> get content;
+ List<RangedBlockElement> get elements;
 /// Create a copy of MessageContent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1324,16 +1324,16 @@ $MessageContentCopyWith<MessageContent> get copyWith => _$MessageContentCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MessageContent&&const DeepCollectionEquality().equals(other.content, content));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MessageContent&&const DeepCollectionEquality().equals(other.elements, elements));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(content));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(elements));
 
 @override
 String toString() {
-  return 'MessageContent(content: $content)';
+  return 'MessageContent(elements: $elements)';
 }
 
 
@@ -1344,7 +1344,7 @@ abstract mixin class $MessageContentCopyWith<$Res>  {
   factory $MessageContentCopyWith(MessageContent value, $Res Function(MessageContent) _then) = _$MessageContentCopyWithImpl;
 @useResult
 $Res call({
- List<RangedBlockElement> content
+ List<RangedBlockElement> elements
 });
 
 
@@ -1361,9 +1361,9 @@ class _$MessageContentCopyWithImpl<$Res>
 
 /// Create a copy of MessageContent
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? content = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? elements = null,}) {
   return _then(_self.copyWith(
-content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
+elements: null == elements ? _self.elements : elements // ignore: cast_nullable_to_non_nullable
 as List<RangedBlockElement>,
   ));
 }
@@ -1375,14 +1375,14 @@ as List<RangedBlockElement>,
 
 
 class _MessageContent extends MessageContent {
-  const _MessageContent({required final  List<RangedBlockElement> content}): _content = content,super._();
+  const _MessageContent({required final  List<RangedBlockElement> elements}): _elements = elements,super._();
   
 
- final  List<RangedBlockElement> _content;
-@override List<RangedBlockElement> get content {
-  if (_content is EqualUnmodifiableListView) return _content;
+ final  List<RangedBlockElement> _elements;
+@override List<RangedBlockElement> get elements {
+  if (_elements is EqualUnmodifiableListView) return _elements;
   // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_content);
+  return EqualUnmodifiableListView(_elements);
 }
 
 
@@ -1396,16 +1396,16 @@ _$MessageContentCopyWith<_MessageContent> get copyWith => __$MessageContentCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MessageContent&&const DeepCollectionEquality().equals(other._content, _content));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MessageContent&&const DeepCollectionEquality().equals(other._elements, _elements));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_content));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_elements));
 
 @override
 String toString() {
-  return 'MessageContent(content: $content)';
+  return 'MessageContent(elements: $elements)';
 }
 
 
@@ -1416,7 +1416,7 @@ abstract mixin class _$MessageContentCopyWith<$Res> implements $MessageContentCo
   factory _$MessageContentCopyWith(_MessageContent value, $Res Function(_MessageContent) _then) = __$MessageContentCopyWithImpl;
 @override @useResult
 $Res call({
- List<RangedBlockElement> content
+ List<RangedBlockElement> elements
 });
 
 
@@ -1433,9 +1433,9 @@ class __$MessageContentCopyWithImpl<$Res>
 
 /// Create a copy of MessageContent
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? content = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? elements = null,}) {
   return _then(_MessageContent(
-content: null == content ? _self._content : content // ignore: cast_nullable_to_non_nullable
+elements: null == elements ? _self._elements : elements // ignore: cast_nullable_to_non_nullable
 as List<RangedBlockElement>,
   ));
 }

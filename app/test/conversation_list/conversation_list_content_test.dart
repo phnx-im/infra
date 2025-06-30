@@ -47,6 +47,7 @@ final conversations = [
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
             content: simpleMessage('Hello Alice'),
+            attachments: [],
           ),
         ),
       ),
@@ -78,6 +79,7 @@ final conversations = [
             content: simpleMessage(
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
             ),
+            attachments: [],
           ),
         ),
       ),
@@ -104,6 +106,7 @@ final conversations = [
             plainBody: 'Hello All',
             topicId: Uint8List(0),
             content: simpleMessage('Hello All'),
+            attachments: [],
           ),
         ),
       ),
@@ -114,7 +117,7 @@ final conversations = [
 
 MessageContent simpleMessage(String msg) {
   return MessageContent(
-    content: [
+    elements: [
       RangedBlockElement(
         start: 0,
         end: msg.length,
