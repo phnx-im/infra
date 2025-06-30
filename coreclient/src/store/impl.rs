@@ -2,16 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, path::Path, sync::Arc};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{UserHandle, UserId};
+use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    clients::CoreUser, contacts::HandleContact, user_handles::UserHandleRecord,
+    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId, DownloadProgress,
+    clients::{CoreUser, attachment::AttachmentRecord},
+    contacts::HandleContact,
+    user_handles::UserHandleRecord,
     user_profiles::UserProfile,
 };
 
@@ -202,6 +205,32 @@ impl Store for CoreUser {
         content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage> {
         self.send_message(conversation_id, content).await
+    }
+
+    async fn upload_attachment(
+        &self,
+        conversation_id: ConversationId,
+        path: &Path,
+    ) -> StoreResult<ConversationMessage> {
+        self.upload_attachment(conversation_id, path).await
+    }
+
+    fn download_attachment(
+        &self,
+        attachment_id: AttachmentId,
+    ) -> (
+        DownloadProgress,
+        impl Future<Output = StoreResult<()>> + use<>,
+    ) {
+        self.download_attachment(attachment_id)
+    }
+
+    async fn pending_attachments(&self) -> StoreResult<Vec<AttachmentId>> {
+        Ok(AttachmentRecord::load_all_pending(self.pool()).await?)
+    }
+
+    async fn load_attachment(&self, attachment_id: AttachmentId) -> StoreResult<AttachmentContent> {
+        Ok(AttachmentRecord::load_content(self.pool(), attachment_id).await?)
     }
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()> {

@@ -433,6 +433,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to add user with Username {username}: {error}'**
   String newConnectionDialog_error(Object error, Object username);
+
+  /// No description provided for @composer_error_attachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to upload attachment. Please try again.'**
+  String get composer_error_attachment;
+
+  /// No description provided for @attachmentSize.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} {byteUnit}'**
+  String attachmentSize(double size, Object byteUnit);
 }
 
 class _AppLocalizationsDelegate

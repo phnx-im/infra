@@ -18,6 +18,7 @@ use phnxcommon::{
 use tonic::Status;
 
 use crate::{
+    common::v1::ExpirationData,
     convert::{FromRef, TryFromRef, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -363,6 +364,32 @@ impl From<HpkeCiphertext> for openmls::prelude::HpkeCiphertext {
         Self {
             kem_output: proto.kem_output.into(),
             ciphertext: proto.ciphertext.into(),
+        }
+    }
+}
+
+impl TryFrom<ExpirationData> for time::ExpirationData {
+    type Error = ExpirationDataError;
+
+    fn try_from(value: ExpirationData) -> Result<Self, Self::Error> {
+        Ok(Self::from_parts(
+            value.not_before.ok_or_missing_field("not_before")?.into(),
+            value.not_after.ok_or_missing_field("not_after")?.into(),
+        ))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ExpirationDataError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+}
+
+impl From<time::ExpirationData> for ExpirationData {
+    fn from(value: time::ExpirationData) -> Self {
+        Self {
+            not_before: Some(value.not_before().into()),
+            not_after: Some(value.not_after().into()),
         }
     }
 }

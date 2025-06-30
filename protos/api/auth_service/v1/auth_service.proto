@@ -86,11 +86,6 @@ message MlsInfraVersion {
   uint32 version = 1;
 }
 
-message ExpirationData {
-  common.v1.Timestamp not_before = 1;
-  common.v1.Timestamp not_after = 2;
-}
-
 message EncryptedUserProfile {
   common.v1.IndexedCiphertext ciphertext = 1;
 }
@@ -103,7 +98,7 @@ message ConnectionPackage {
 message ConnectionPackagePayload {
   MlsInfraVersion protocol_version = 1;
   ConnectionEncryptionKey encryption_key = 2;
-  ExpirationData lifetime = 3;
+  common.v1.ExpirationData lifetime = 3;
   HandleVerifyingKey verifying_key = 5;
   UserHandleHash user_handle_hash = 6;
 }
@@ -119,7 +114,7 @@ message ClientCredential {
 
 message ClientCredentialPayload {
   ClientCredentialCsr csr = 1;
-  ExpirationData expiration_data = 2;
+  common.v1.ExpirationData expiration_data = 2;
   CredentialFingerprint credential_fingerprint = 3;
 }
 
@@ -275,7 +270,7 @@ message AsCredential {
 message AsCredentialBody {
   MlsInfraVersion version = 1;
   common.v1.Fqdn user_domain = 2;
-  ExpirationData expiration_data = 3;
+  common.v1.ExpirationData expiration_data = 3;
   SignatureScheme signature_scheme = 4;
   AsVerifyingKey verifying_key = 5;
 }
@@ -296,7 +291,7 @@ message AsIntermediateCredentialBody {
 
 message AsIntermediateCredentialPayload {
   AsIntermediateCredentialCsr csr = 1;
-  ExpirationData expiration_data = 2;
+  common.v1.ExpirationData expiration_data = 2;
   CredentialFingerprint signer_fingerprint = 3;
 }
 

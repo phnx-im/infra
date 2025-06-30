@@ -40,8 +40,11 @@ class ConversationDetailsCubit
   Future<void> setConversationPicture({required Uint8List? bytes}) =>
       _impl.setConversationPicture(bytes: bytes);
 
-  void sendMessage(String messageText) =>
+  Future<void> sendMessage(String messageText) =>
       _impl.sendMessage(messageText: messageText);
+
+  Future<void> uploadAttachment(String path) =>
+      _impl.uploadAttachment(path: path);
 
   Future<void> markAsRead({
     required ConversationMessageId untilMessageId,

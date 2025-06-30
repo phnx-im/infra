@@ -157,25 +157,36 @@ class LoadableUserCubitProvider extends StatelessWidget {
       },
       builder:
           (context, loadableUser) =>
-              loadableUser.user != null
-                  // Logged-in user and contacts are accessible everywhere inside the app after
-                  // the user is loaded.
-                  ? BlocProvider<UserCubit>(
-                    create:
-                        (context) => UserCubit(
-                          coreClient: context.read<CoreClient>(),
-                          navigationCubit: context.read<NavigationCubit>(),
-                          appStateStream: appStateController.stream,
-                        ),
-                    child: BlocProvider<UsersCubit>(
+              loadableUser.user == null
+                  ? child
+                  : MultiBlocProvider(
+                    providers: [
+                      // Logged-in user and contacts are accessible everywhere inside the app after
+                      // the user is loaded.
+                      BlocProvider<UserCubit>(
+                        create:
+                            (context) => UserCubit(
+                              coreClient: context.read<CoreClient>(),
+                              navigationCubit: context.read<NavigationCubit>(),
+                              appStateStream: appStateController.stream,
+                            ),
+                      ),
+                      BlocProvider<UsersCubit>(
+                        create:
+                            (context) => UsersCubit(
+                              userCubit: context.read<UserCubit>(),
+                            ),
+                      ),
+                    ],
+                    child: RepositoryProvider<AttachmentsRepository>(
                       create:
-                          (context) =>
-                              UsersCubit(userCubit: context.read<UserCubit>()),
-
+                          (context) => AttachmentsRepository(
+                            userCubit: context.read<UserCubit>().impl,
+                          ),
+                      lazy: false, // immediately download pending attachments
                       child: child,
                     ),
-                  )
-                  : child,
+                  ),
     );
   }
 }

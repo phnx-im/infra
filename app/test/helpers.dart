@@ -17,6 +17,8 @@ extension IntTestExtension on int {
   /// Convert an int to a [ClientId].
   UiUserId userId({String domain = "localhost"}) =>
       UiUserId(uuid: _intToUuidValue(this), domain: domain);
+
+  AttachmentId attachmentId() => AttachmentId(uuid: _intToUuidValue(this));
 }
 
 UuidValue _intToUuidValue(int value) {

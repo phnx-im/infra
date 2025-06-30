@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
 use std::sync::Arc;
+use std::{collections::HashSet, path::Path};
 
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{UserHandle, UserId};
+use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    contacts::HandleContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
+    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId, DownloadProgress, contacts::HandleContact,
+    user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -197,6 +198,26 @@ pub trait Store {
     ) -> StoreResult<ConversationMessage>;
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
+
+    // attachments
+
+    async fn upload_attachment(
+        &self,
+        conversation_id: ConversationId,
+        path: &Path,
+    ) -> StoreResult<ConversationMessage>;
+
+    fn download_attachment(
+        &self,
+        attachment_id: AttachmentId,
+    ) -> (
+        DownloadProgress,
+        impl Future<Output = StoreResult<()>> + use<Self>,
+    );
+
+    async fn pending_attachments(&self) -> StoreResult<Vec<AttachmentId>>;
+
+    async fn load_attachment(&self, attachment_id: AttachmentId) -> StoreResult<AttachmentContent>;
 
     // observability
 
