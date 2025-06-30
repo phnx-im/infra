@@ -57,10 +57,8 @@ impl NetworkProvider for MockNetworkProvider {
             TransportEncryption::On => ("s", DEFAULT_PORT_HTTPS),
             TransportEncryption::Off => ("", DEFAULT_PORT_HTTP),
         };
-        let url = format!(
-            "http{}://{}:{}{}",
-            transport_encryption, destination, port, ENDPOINT_QS_FEDERATION
-        );
+        let url =
+            format!("http{transport_encryption}://{destination}:{port}{ENDPOINT_QS_FEDERATION}");
         // Reqwest should resolve the hostname on its own.
         let result = match self.client.post(url).body(bytes).send().await {
             // For now we don't care about the response.
@@ -69,7 +67,7 @@ impl NetworkProvider for MockNetworkProvider {
             )
             .map_err(|_| MockNetworkError::MalformedResponse)?,
             // TODO: We only care about the happy path for now.
-            Err(e) => panic!("Error: {}", e),
+            Err(e) => panic!("Error: {e}"),
         };
         Ok(result)
     }
