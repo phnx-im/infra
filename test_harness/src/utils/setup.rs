@@ -349,8 +349,7 @@ impl TestBackend {
         user1.add_contact(user2_handle.clone()).await.unwrap();
         let mut user1_handle_contacts_after = user1.handle_contacts().await.unwrap();
         let error_msg = format!(
-            "User 2 should be in the handle contacts list of user 1. List: {:?}",
-            user1_handle_contacts_after,
+            "User 2 should be in the handle contacts list of user 1. List: {user1_handle_contacts_after:?}",
         );
         let new_user_position = user1_handle_contacts_after
             .iter()

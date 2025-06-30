@@ -66,7 +66,7 @@ impl DisplayName {
         ];
         let animal = animals[uuid.as_u128() as usize % animals.len()];
         let number = uuid.as_u128() % 1000;
-        let display_name = format!("{} {}", animal, number);
+        let display_name = format!("{animal} {number}");
         Self { display_name }
     }
 }
@@ -228,11 +228,7 @@ mod tests {
         let dn = DisplayName::from_str(input).unwrap();
 
         for c in DISALLOWED_CHARACTERS {
-            assert!(
-                !dn.display_name.contains(c),
-                "Found disallowed char: {:?}",
-                c
-            );
+            assert!(!dn.display_name.contains(c), "Found disallowed char: {c:?}");
         }
 
         assert_eq!(dn.display_name, expected);

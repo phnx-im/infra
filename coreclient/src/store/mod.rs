@@ -231,7 +231,7 @@ pub trait Store {
 
     fn notify(&self, notification: StoreNotification);
 
-    fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static;
+    fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static;
 
     fn subscribe_iter(&self) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static;
 

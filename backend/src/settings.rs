@@ -90,7 +90,7 @@ impl DatabaseSettings {
     /// set.
     fn add_tls_mode(&self, mut connection_string: String) -> String {
         if let Some(ref ca_cert_path) = self.cacertpath {
-            connection_string.push_str(&format!("?sslmode=verify-ca&sslrootcert={}", ca_cert_path));
+            connection_string.push_str(&format!("?sslmode=verify-ca&sslrootcert={ca_cert_path}"));
         } else {
             tracing::warn!(
                 "No CA certificate path set for database connection. TLS will not be enabled."

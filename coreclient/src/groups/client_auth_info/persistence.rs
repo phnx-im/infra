@@ -351,8 +351,7 @@ impl GroupMembership {
             .join(",");
         let query_string = format!(
             "SELECT leaf_index FROM group_membership
-            WHERE group_id = ? AND (user_uuid, user_domain) IN ({})",
-            placeholders
+            WHERE group_id = ? AND (user_uuid, user_domain) IN ({placeholders})"
         );
 
         let mut query = sqlx::query(&query_string).bind(GroupIdRefWrapper::from(group_id));

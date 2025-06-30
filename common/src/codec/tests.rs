@@ -61,7 +61,7 @@ fn serde_json() {
 fn functional_correctness() {
     let value = 42;
     let functional_correctness_inner = |codec: super::PhnxCodec| {
-        println!("Testing codec: {:?}", codec);
+        println!("Testing codec: {codec:?}");
         let serialized = codec.serialize(&value).unwrap();
         // The first byte should be the codec version
         assert!(serialized.first().copied() == Some(codec as u8));
