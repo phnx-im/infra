@@ -265,7 +265,7 @@ impl ConversationDetailsContext {
 
     fn spawn(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static,
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
@@ -336,10 +336,9 @@ impl ConversationDetailsContext {
     /// Returns only when `stop` is cancelled
     async fn store_notifications_loop(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
+        mut store_notifications: impl Stream<Item = Arc<StoreNotification>> + Unpin,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = std::pin::pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 notification = store_notifications.next() => notification,
