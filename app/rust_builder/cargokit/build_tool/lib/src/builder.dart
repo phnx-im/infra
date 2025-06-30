@@ -139,6 +139,8 @@ class RustBuilder {
   Future<String> build() async {
     final extraArgs = _buildOptions?.flags ?? [];
     final manifestPath = path.join(environment.manifestDir, 'Cargo.toml');
+    var env = await _buildEnvironment();
+    env["CARGO_LOG"] = "cargo::core::compiler::fingerprint=info";
     runCommand(
       'rustup',
       [
