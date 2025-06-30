@@ -57,7 +57,7 @@ impl StorableConnectionPackage {
         // This is to ensure that counting and deletion happen atomically. If we
         // don't do this, two concurrent queries might both count 2 and delete,
         // leaving us with 0 packages.
-        sqlx::query_scalar!(
+        let connection_package = sqlx::query_scalar!(
             r#"WITH next_connection_package AS (
                 SELECT id, connection_package
                 FROM handle_connection_packages
@@ -86,7 +86,8 @@ impl StorableConnectionPackage {
         )
         .fetch_one(connection)
         .await
-        .map(|BlobDecoded(connection_package)| connection_package.into())
+        .map(|BlobDecoded(connection_package)| connection_package)?;
+        Ok(connection_package.try_into()?)
     }
 }
 

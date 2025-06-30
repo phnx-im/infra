@@ -32,8 +32,8 @@ mod payload {
 
     #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
     pub struct ConnectionPackagePayload {
-        pub user_handle_hash: UserHandleHash,
         pub protocol_version: MlsInfraVersion,
+        pub user_handle_hash: UserHandleHash,
         pub encryption_key: ConnectionEncryptionKey,
         pub lifetime: ExpirationData,
         pub verifying_key: HandleVerifyingKey,
@@ -182,5 +182,29 @@ impl ConnectionPackage {
     #[cfg(feature = "test_utils")]
     pub fn new_for_test(payload: ConnectionPackagePayload, signature: HandleSignature) -> Self {
         Self { payload, signature }
+    }
+}
+
+pub mod legacy {
+    use super::*;
+
+    use crate::{
+        credentials::{ClientCredential, keys::ClientSignature},
+        messages::MlsInfraVersion,
+        time::ExpirationData,
+    };
+
+    #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
+    pub struct ConnectionPackagePayloadV1 {
+        pub protocol_version: MlsInfraVersion,
+        pub encryption_key: ConnectionEncryptionKey,
+        pub lifetime: ExpirationData,
+        pub client_credential: ClientCredential,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
+    pub struct ConnectionPackageV1 {
+        payload: ConnectionPackagePayloadV1,
+        signature: ClientSignature,
     }
 }
