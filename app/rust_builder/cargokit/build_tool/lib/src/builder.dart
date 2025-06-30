@@ -156,6 +156,7 @@ class RustBuilder {
         target.rust,
         '--target-dir',
         environment.targetTempDir,
+        '--verbose',
       ],
       environment: await _buildEnvironment(),
     );
