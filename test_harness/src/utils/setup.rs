@@ -673,7 +673,7 @@ impl TestBackend {
 
         let tmp_dir = TempDir::new().unwrap();
         let path = tmp_dir.path().join(filename);
-        std::fs::write(&path, &attachment).unwrap();
+        std::fs::write(&path, attachment).unwrap();
 
         let message = sender
             .upload_attachment(conversation_id, &path)
@@ -1478,12 +1478,3 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
         })
         .collect()
 }
-
-/// A base64 encoded blue PNG image 100x75 pixels.
-const SAMPLE_PNG_BASE64: &str =
-    "iVBORw0KGgoAAAANSUhEUgAAAGQAAABLAQMAAAC81rD0AAAABGdBTUEAALGPC/xhBQAAACBjSFJN
-AAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABlBMVEUAAP7////DYP5JAAAA
-AWJLR0QB/wIt3gAAAAlwSFlzAAALEgAACxIB0t1+/AAAAAd0SU1FB+QIGBcKN7/nP/UAAAASSURB
-VDjLY2AYBaNgFIwCdAAABBoAAaNglfsAAAAZdEVYdGNvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVDn
-r0DLAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDIwLTA4LTI0VDIzOjEwOjU1KzAzOjAwkHdeuQAAACV0
-RVh0ZGF0ZTptb2RpZnkAMjAyMC0wOC0yNFQyMzoxMDo1NSswMzowMOEq5gUAAAAASUVORK5CYII=";
