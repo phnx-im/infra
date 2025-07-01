@@ -14,11 +14,12 @@ use phnxcommon::{
     crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Signable},
     identifiers::{UserHandle, UserHandleHash, UserId},
     messages::{
-        client_as::{ConnectionOfferMessage, ConnectionPackage},
+        client_as::ConnectionOfferMessage,
         client_as_out::{
-            AsCredentialsResponseIn, ConnectionPackageIn, EncryptedUserProfile,
-            GetUserProfileResponse, RegisterUserResponseIn,
+            AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
+            RegisterUserResponseIn,
         },
+        connection_package::{ConnectionPackage, ConnectionPackageIn},
     },
 };
 use phnxprotos::auth_service::v1::{
