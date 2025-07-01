@@ -9,7 +9,7 @@ use phnxcommon::{
 };
 use sha2::{Digest, Sha256};
 use tokio::sync::watch;
-use tokio_stream::StreamExt;
+use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tracing::{debug, info};
 
 use crate::{
@@ -186,6 +186,10 @@ impl DownloadProgress {
             })
             .await;
         self.value()
+    }
+
+    pub fn stream(&self) -> impl Stream<Item = DownloadProgressEvent> + Send + use<> {
+        WatchStream::new(self.rx.clone())
     }
 
     pub fn value(&mut self) -> DownloadProgressEvent {

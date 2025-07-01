@@ -9,7 +9,10 @@ use std::{
 };
 
 use anyhow::Context;
-use mimi_content::MimiContent;
+use mimi_content::{
+    MimiContent,
+    content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
+};
 use phnxcommon::{
     DEFAULT_PORT_HTTP,
     identifiers::{Fqdn, UserHandle, UserId},
@@ -639,6 +642,118 @@ impl TestBackend {
             );
         }
         message.id()
+    }
+
+    pub async fn send_attachment(
+        &mut self,
+        conversation_id: ConversationId,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
+        attachment: &[u8],
+        filename: &str,
+    ) -> (ConversationMessageId, NestedPartContent) {
+        let recipient_strings = recipients
+            .iter()
+            .map(|n| format!("{n:?}"))
+            .collect::<Vec<_>>();
+        info!(
+            "{sender_id:?} sends a message to {}",
+            recipient_strings.join(", ")
+        );
+
+        let test_sender = self.users.get_mut(sender_id).unwrap();
+        let sender = &mut test_sender.user;
+
+        // Before sending a message, the sender must first fetch and process its QS messages.
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
+        sender
+            .fully_process_qs_messages(sender_qs_messages)
+            .await
+            .unwrap();
+
+        let tmp_dir = TempDir::new().unwrap();
+        let path = tmp_dir.path().join(filename);
+        std::fs::write(&path, &attachment).unwrap();
+
+        let message = sender
+            .upload_attachment(conversation_id, &path)
+            .await
+            .unwrap();
+
+        let mut external_part = None;
+        message
+            .message()
+            .mimi_content()
+            .unwrap()
+            .visit_attachments(|part| {
+                assert!(external_part.replace(part.clone()).is_none());
+                Ok(())
+            })
+            .unwrap();
+        let external_part = external_part.unwrap();
+        match &external_part {
+            NestedPartContent::ExternalPart {
+                enc_alg,
+                key,
+                nonce,
+                hash_alg,
+                ..
+            } => {
+                assert_eq!(*enc_alg, EncryptionAlgorithm::Aes256Gcm12);
+                assert_eq!(nonce.len(), 12);
+                assert_eq!(key.len(), 32);
+                assert_eq!(*hash_alg, HashAlgorithm::Sha256);
+            }
+            _ => panic!("unexpected attachment type"),
+        };
+
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
+            let recipient_user = &mut recipient.user;
+
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
+                .await
+                .unwrap();
+
+            let mut attachment_found_once = false;
+            messages
+                .new_messages
+                .last()
+                .unwrap()
+                .message()
+                .mimi_content()
+                .unwrap()
+                .visit_attachments(|part| {
+                    assert!(!attachment_found_once);
+
+                    // Removed cleared fields from the expected attachment.
+                    let mut expected = external_part.clone();
+                    if let NestedPartContent::ExternalPart {
+                        key,
+                        nonce,
+                        aad,
+                        content_hash,
+                        ..
+                    } = &mut expected
+                    {
+                        key.clear();
+                        nonce.clear();
+                        aad.clear();
+                        content_hash.clear();
+                    } else {
+                        panic!("Unexpected attachment type")
+                    }
+
+                    assert_eq!(part, &expected);
+                    attachment_found_once = true;
+                    Ok(())
+                })
+                .unwrap();
+        }
+
+        (message.id(), external_part)
     }
 
     pub async fn create_group(&mut self, user_id: &UserId) -> ConversationId {
@@ -1363,3 +1478,12 @@ fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) ->
         })
         .collect()
 }
+
+/// A base64 encoded blue PNG image 100x75 pixels.
+const SAMPLE_PNG_BASE64: &str =
+    "iVBORw0KGgoAAAANSUhEUgAAAGQAAABLAQMAAAC81rD0AAAABGdBTUEAALGPC/xhBQAAACBjSFJN
+AAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABlBMVEUAAP7////DYP5JAAAA
+AWJLR0QB/wIt3gAAAAlwSFlzAAALEgAACxIB0t1+/AAAAAd0SU1FB+QIGBcKN7/nP/UAAAASSURB
+VDjLY2AYBaNgFIwCdAAABBoAAaNglfsAAAAZdEVYdGNvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVDn
+r0DLAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDIwLTA4LTI0VDIzOjEwOjU1KzAzOjAwkHdeuQAAACV0
+RVh0ZGF0ZTptb2RpZnkAMjAyMC0wOC0yNFQyMzoxMDo1NSswMzowMOEq5gUAAAAASUVORK5CYII=";

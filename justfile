@@ -10,14 +10,19 @@ POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
 docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } else { "false" }
 
-# run postgres via docker compose and apply migrations
-init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
+# run docker compose services in the background
+run-services: generate-db-certs
     if {{docker-is-podman}} == "true"; then \
-        podman-compose --podman-run-args=--replace up -d postgres; \
+        podman-compose --podman-run-args=--replace up -d --wait --wait-timeout=300; \
         sleep 2; \
     else \
-        docker compose up --wait; \
+        docker compose up --wait --wait-timeout=300; \
     fi
+    cd backend && sqlx database create
+    cd backend && sqlx database setup
+
+# initialize the backend database and apply migrations
+init-backend-db $DATABASE_URL=(POSTGRES_DATABASE_URL):
     cd backend && sqlx database create
     cd backend && sqlx database setup
 
