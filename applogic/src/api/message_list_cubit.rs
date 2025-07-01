@@ -309,12 +309,15 @@ mod tests {
                 ConversationId::new(Uuid::from_u128(1)),
                 ConversationMessageId::new(Uuid::from_u128(1)),
                 TimeStamp::from(timestamp_secs * 1_000_000_000),
-                Message::with_content(ContentMessage::new(
-                    sender.clone(),
-                    true,
-                    MimiContent::simple_markdown_message("some content".into(), b"test_salt"),
-                    &GroupId::from_slice(&[0]),
-                )),
+                Message::with_content(
+                    ContentMessage::new(
+                        sender.clone(),
+                        true,
+                        MimiContent::simple_markdown_message("some content".into(), b"test_salt"),
+                        &GroupId::from_slice(&[0]),
+                    )
+                    .unwrap(),
+                ),
             ),
             delivery_status: Vec::new(),
         }

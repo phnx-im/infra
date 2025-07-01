@@ -133,7 +133,7 @@ impl UnsentContent {
             conversation_message_id,
             content.clone(),
             conversation.group_id(),
-        );
+        )?;
         conversation_message.store(txn.as_mut(), notifier).await?;
 
         let group_id = conversation.group_id();

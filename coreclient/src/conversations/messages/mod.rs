@@ -49,14 +49,14 @@ impl TimestampedMessage {
         ds_timestamp: TimeStamp,
         user_id: &UserId,
         group: &Group,
-    ) -> Self {
+    ) -> Result<Self, mimi_content::Error> {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
                 user_id.clone(),
                 true,
                 content,
                 group.group_id(),
-            ))),
+            )?)),
             Err(e) => {
                 warn!("Message parsing failed: {e}");
                 Message::Event(EventMessage::Error(ErrorMessage::new(
@@ -65,10 +65,10 @@ impl TimestampedMessage {
             }
         };
 
-        Self {
+        Ok(Self {
             timestamp: ds_timestamp,
             message,
-        }
+        })
     }
 
     pub(crate) fn system_message(system_message: SystemMessage, ds_timestamp: TimeStamp) -> Self {
@@ -143,19 +143,19 @@ impl ConversationMessage {
         conversation_message_id: ConversationMessageId,
         content: MimiContent,
         group_id: &GroupId,
-    ) -> ConversationMessage {
+    ) -> Result<ConversationMessage, mimi_content::Error> {
         let message = Message::Content(Box::new(ContentMessage::new(
             sender, false, content, group_id,
-        )));
+        )?));
         let timestamped_message = TimestampedMessage {
             message,
             timestamp: TimeStamp::now(),
         };
-        ConversationMessage {
+        Ok(ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message,
-        }
+        })
     }
 
     /// Mark the message as sent and update the timestamp.
@@ -277,15 +277,20 @@ pub struct ContentMessage {
 }
 
 impl ContentMessage {
-    pub fn new(sender: UserId, sent: bool, content: MimiContent, group_id: &GroupId) -> Self {
-        let mimi_id = content.message_id(sender.uuid().as_bytes(), group_id.as_slice());
+    pub fn new(
+        sender: UserId,
+        sent: bool,
+        content: MimiContent,
+        group_id: &GroupId,
+    ) -> Result<Self, mimi_content::Error> {
+        let mimi_id = content.message_id(sender.uuid().as_bytes(), group_id.as_slice())?;
 
-        Self {
+        Ok(Self {
             sender,
             sent,
             content,
             mimi_id,
-        }
+        })
     }
 
     pub fn into_parts(self) -> (UserId, bool, MimiContent) {

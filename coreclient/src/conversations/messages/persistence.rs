@@ -419,12 +419,15 @@ pub(crate) mod tests {
     ) -> ConversationMessage {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
-        let message = Message::Content(Box::new(ContentMessage::new(
-            UserId::random("localhost".parse().unwrap()),
-            false,
-            MimiContent::simple_markdown_message("Hello world!".to_string(), b"test_salt"),
-            &GroupId::from_slice(&[0]),
-        )));
+        let message = Message::Content(Box::new(
+            ContentMessage::new(
+                UserId::random("localhost".parse().unwrap()),
+                false,
+                MimiContent::simple_markdown_message("Hello world!".to_string(), b"test_salt"),
+                &GroupId::from_slice(&[0]),
+            )
+            .unwrap(),
+        ));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ConversationMessage {
             conversation_message_id,

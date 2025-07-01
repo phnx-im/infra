@@ -310,12 +310,16 @@ impl CoreUser {
         for message in &conversation_messages {
             if let Message::Content(content_message) = message.message() {
                 if content_message.content().nested_part.disposition == Disposition::Render {
-                    let (status_report, message) = MimiContent::simple_delivery_receipt(
+                    // Construct a delivery receipt for the message we just received
+                    let Ok((status_report, message)) = MimiContent::simple_delivery_receipt(
                         &[content_message.mimi_id()],
                         phnxcommon::crypto::secrets::Secret::<16>::random()
                             .unwrap()
                             .secret(),
-                    );
+                    ) else {
+                        // There was an error constructing this delivery receipt message
+                        continue;
+                    };
 
                     if let Err(e) = self.send_message(conversation_id, message).await {
                         error!(%e, "Could not send delivery receipt");
@@ -326,8 +330,6 @@ impl CoreUser {
                     })
                     .await?;
                 }
-            } else {
-                todo!()
             }
         }
 
@@ -362,7 +364,7 @@ impl CoreUser {
             ds_timestamp,
             sender_user_id,
             group,
-        );
+        )?;
 
         if let Message::Content(content_message) = message.message() {
             if let NestedPartContent::SinglePart {

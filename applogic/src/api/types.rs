@@ -11,7 +11,7 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::{NestedPart, NestedPartContent};
+use mimi_content::NestedPartContent;
 pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{

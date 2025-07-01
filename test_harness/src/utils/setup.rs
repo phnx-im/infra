@@ -612,12 +612,15 @@ impl TestBackend {
 
         assert_eq!(
             message.message(),
-            &Message::Content(Box::new(ContentMessage::new(
-                test_sender.user.user_id().clone(),
-                true,
-                orig_message.clone(),
-                &GroupId::from_slice(&[0]),
-            )))
+            &Message::Content(Box::new(
+                ContentMessage::new(
+                    test_sender.user.user_id().clone(),
+                    true,
+                    orig_message.clone(),
+                    &GroupId::from_slice(&[0]),
+                )
+                .unwrap()
+            ))
         );
 
         for recipient_id in &recipients {
@@ -633,12 +636,15 @@ impl TestBackend {
 
             assert_eq!(
                 messages.new_messages.last().unwrap().message(),
-                &Message::Content(Box::new(ContentMessage::new(
-                    sender_user_id.clone(),
-                    true,
-                    orig_message.clone(),
-                    &GroupId::from_slice(&[0])
-                )))
+                &Message::Content(Box::new(
+                    ContentMessage::new(
+                        sender_user_id.clone(),
+                        true,
+                        orig_message.clone(),
+                        &GroupId::from_slice(&[0])
+                    )
+                    .unwrap()
+                ))
             );
         }
         message.id()
