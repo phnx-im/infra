@@ -20,7 +20,7 @@ services:
       -c ssl_ca_file=/etc/postgresql/certs/root.crt
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -s"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       start_period: 10s
       interval: 2s
       timeout: 5s

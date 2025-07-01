@@ -13,7 +13,9 @@ docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } els
 # run docker compose services in the background
 run-services: generate-db-certs
     if {{docker-is-podman}} == "true"; then \
-        podman-compose --podman-run-args=--replace up -d --wait --wait-timeout=300; \
+        podman rm infra_minio-setup_1 -i; \
+        podman-compose --podman-run-args=--replace up -d; \
+        podman wait --condition healthy infra_postgres_1; \
     else \
         docker compose up --wait --wait-timeout=300; \
     fi
