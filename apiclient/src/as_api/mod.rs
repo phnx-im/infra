@@ -51,6 +51,15 @@ pub enum AsRequestError {
     Tonic(#[from] tonic::Status),
 }
 
+impl AsRequestError {
+    pub fn is_not_found(&self) -> bool {
+        match self {
+            AsRequestError::Tonic(status) => status.code() == tonic::Code::NotFound,
+            _ => false,
+        }
+    }
+}
+
 impl From<LibraryError> for AsRequestError {
     fn from(_: LibraryError) -> Self {
         AsRequestError::LibraryError
