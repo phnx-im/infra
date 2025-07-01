@@ -157,7 +157,7 @@ impl Store for CoreUser {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId> {
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ConversationId>> {
         self.add_contact_via_handle(handle).await
     }
 

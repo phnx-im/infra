@@ -623,7 +623,7 @@ async fn error_if_user_doesnt_exist() {
         .add_contact(UserHandle::new("non_existent".to_owned()).unwrap())
         .await;
 
-    assert!(res.is_err());
+    assert!(matches!(res, Ok(None)));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
