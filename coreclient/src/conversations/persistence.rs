@@ -5,12 +5,12 @@
 use chrono::{DateTime, Utc};
 use mimi_content::{MessageStatus, MessageStatusReport};
 use openmls::group::GroupId;
-use phnxcommon::identifiers::{Fqdn, UserId};
+use phnxcommon::identifiers::{Fqdn, UserHandle, UserId};
 use sqlx::{
     Connection, SqliteConnection, SqliteExecutor, SqliteTransaction, query, query_as, query_scalar,
 };
 use tokio_stream::StreamExt;
-use tracing::info;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -28,12 +28,13 @@ struct SqlConversation {
     last_read: DateTime<Utc>,
     connection_user_uuid: Option<Uuid>,
     connection_user_domain: Option<Fqdn>,
+    connection_user_handle: Option<UserHandle>,
     is_confirmed_connection: bool,
     is_active: bool,
 }
 
 impl SqlConversation {
-    fn convert(self, past_members: Vec<SqlPastMember>) -> Conversation {
+    fn convert(self, past_members: Vec<SqlPastMember>) -> Option<Conversation> {
         let Self {
             conversation_id,
             conversation_title,
@@ -42,19 +43,27 @@ impl SqlConversation {
             last_read,
             connection_user_uuid,
             connection_user_domain,
+            connection_user_handle,
             is_confirmed_connection,
             is_active,
         } = self;
 
-        let conversation_type = match (connection_user_uuid, connection_user_domain) {
-            (Some(user_uuid), Some(domain)) => {
+        let conversation_type = match (
+            connection_user_uuid,
+            connection_user_domain,
+            connection_user_handle,
+        ) {
+            (Some(user_uuid), Some(domain), _) => {
                 let connection_user_id = UserId::new(user_uuid, domain);
                 if is_confirmed_connection {
                     ConversationType::Connection(connection_user_id)
                 } else {
-                    ConversationType::UnconfirmedConnection(connection_user_id)
+                    warn!("Unconfirmed user connections are not supported anymore");
+                    return None;
                 }
             }
+
+            (None, None, Some(handle)) => ConversationType::HandleConnection(handle),
             _ => ConversationType::Group,
         };
 
@@ -66,7 +75,7 @@ impl SqlConversation {
             ))
         };
 
-        Conversation {
+        Some(Conversation {
             id: conversation_id,
             group_id,
             last_read,
@@ -76,7 +85,7 @@ impl SqlConversation {
                 title: conversation_title,
                 picture: conversation_picture,
             },
-        }
+        })
     }
 
     async fn load_past_members(
@@ -126,16 +135,21 @@ impl Conversation {
             }
             ConversationStatus::Active => (true, Vec::new()),
         };
-        let (is_confirmed_connection, connection_user_uuid, connection_user_domain) =
-            match self.conversation_type() {
-                ConversationType::UnconfirmedConnection(user_id) => {
-                    (false, Some(user_id.uuid()), Some(user_id.domain().clone()))
-                }
-                ConversationType::Connection(user_id) => {
-                    (true, Some(user_id.uuid()), Some(user_id.domain().clone()))
-                }
-                ConversationType::Group => (true, None, None),
-            };
+        let (
+            is_confirmed_connection,
+            connection_user_uuid,
+            connection_user_domain,
+            connection_user_handle,
+        ) = match self.conversation_type() {
+            ConversationType::HandleConnection(handle) => (false, None, None, Some(handle)),
+            ConversationType::Connection(user_id) => (
+                true,
+                Some(user_id.uuid()),
+                Some(user_id.domain().clone()),
+                None,
+            ),
+            ConversationType::Group => (true, None, None, None),
+        };
         query!(
             "INSERT INTO conversations (
                 conversation_id,
@@ -145,10 +159,11 @@ impl Conversation {
                 last_read,
                 connection_user_uuid,
                 connection_user_domain,
+                connection_user_handle,
                 is_confirmed_connection,
                 is_active
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             self.id,
             title,
             picture,
@@ -156,6 +171,7 @@ impl Conversation {
             self.last_read,
             connection_user_uuid,
             connection_user_domain,
+            connection_user_handle,
             is_confirmed_connection,
             is_active,
         )
@@ -198,6 +214,7 @@ impl Conversation {
                 last_read AS "last_read: _",
                 connection_user_uuid AS "connection_user_uuid: _",
                 connection_user_domain AS "connection_user_domain: _",
+                connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations
@@ -211,7 +228,7 @@ impl Conversation {
         };
         let members = conversation.load_past_members(&mut transaction).await?;
         transaction.commit().await?;
-        Ok(Some(conversation.convert(members)))
+        Ok(conversation.convert(members))
     }
 
     pub(crate) async fn load_by_group_id(
@@ -230,6 +247,7 @@ impl Conversation {
                 last_read AS "last_read: _",
                 connection_user_uuid AS "connection_user_uuid: _",
                 connection_user_domain AS "connection_user_domain: _",
+                connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations WHERE group_id = ?"#,
@@ -242,7 +260,7 @@ impl Conversation {
         };
         let members = conversation.load_past_members(&mut transaction).await?;
         transaction.commit().await?;
-        Ok(Some(conversation.convert(members)))
+        Ok(conversation.convert(members))
     }
 
     pub(crate) async fn load_all(
@@ -259,12 +277,16 @@ impl Conversation {
                 last_read AS "last_read: _",
                 connection_user_uuid AS "connection_user_uuid: _",
                 connection_user_domain AS "connection_user_domain: _",
+                connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
             FROM conversations"#,
         )
         .fetch(&mut *transaction)
-        .map(|res| res.map(|conversation| conversation.convert(Vec::new())))
+        .filter_map(|res| {
+            res.map(|conversation| conversation.convert(Vec::new()))
+                .transpose()
+        })
         .collect::<sqlx::Result<Vec<Conversation>>>()
         .await?;
         for conversation in &mut conversations {
@@ -520,17 +542,15 @@ impl Conversation {
         conversation_type: &ConversationType,
     ) -> sqlx::Result<()> {
         match conversation_type {
-            ConversationType::UnconfirmedConnection(user_id) => {
-                let uuid = user_id.uuid();
-                let domain = user_id.domain();
+            ConversationType::HandleConnection(handle) => {
                 query!(
                     "UPDATE conversations SET
-                        connection_user_uuid = ?,
-                        connection_user_domain = ?,
+                        connection_user_uuid = NULL,
+                        connection_user_domain = NULL,
+                        connection_user_handle = ?,
                         is_confirmed_connection = false
                     WHERE conversation_id = ?",
-                    uuid,
-                    domain,
+                    handle,
                     self.id,
                 )
                 .execute(executor)

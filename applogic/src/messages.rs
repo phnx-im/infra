@@ -4,53 +4,30 @@
 
 use anyhow::Result;
 use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
-use tracing::{debug, error};
+use tracing::debug;
 
 use crate::{api::user::User, notifications::NotificationContent};
 
 #[derive(Debug, Default)]
-pub(crate) struct FetchedMessages {
+pub(crate) struct ProcessedMessages {
     pub(crate) notifications_content: Vec<NotificationContent>,
 }
 
 impl User {
-    /// Fetch AS messages
-    async fn fetch_as_messages(&self) -> Result<Vec<ConversationId>> {
-        let as_messages = self.user.as_fetch_messages().await?;
-
-        // Process each as message individually and dispatch conversation
-        // notifications to the UI in case a new conversation is created.
-        let mut new_connections = vec![];
-        for as_message in as_messages {
-            let as_message_plaintext = match self.user.decrypt_as_queue_message(as_message).await {
-                Ok(plaintext) => plaintext,
-                Err(error) => {
-                    error!(%error, "failed to decrypt AS message; ignoring");
-                    continue;
-                }
-            };
-            let conversation_id = self.user.process_as_message(as_message_plaintext).await?;
-            new_connections.push(conversation_id);
-        }
-
-        Ok(new_connections)
+    /// Fetch and process AS messages
+    async fn fetch_and_process_as_messages(&self) -> Result<Vec<ConversationId>> {
+        self.user.fetch_and_process_as_messages().await
     }
 
-    /// Fetch QS messages
-    async fn fetch_qs_messages(&self) -> Result<ProcessedQsMessages> {
+    /// Fetch and process QS messages
+    pub(crate) async fn fetch_and_process_qs_messages(&self) -> Result<ProcessedQsMessages> {
         let qs_messages = self.user.qs_fetch_messages().await?;
         self.user.fully_process_qs_messages(qs_messages).await
     }
 
-    /// Fetch both AS and QS messages
-    pub(crate) async fn fetch_all_messages(&self) -> Result<FetchedMessages> {
+    /// Fetch and process both QS and AS messages
+    pub(crate) async fn fetch_and_process_all_messages(&self) -> Result<ProcessedMessages> {
         let mut notifications = Vec::new();
-
-        // Fetch AS connection requests
-        debug!("fetch AS messages");
-        let new_connections = self.fetch_as_messages().await?;
-        self.new_connection_request_notifications(&new_connections, &mut notifications)
-            .await;
 
         // Fetch QS messages
         debug!("fetch QS messages");
@@ -59,13 +36,19 @@ impl User {
             changed_conversations: _,
             new_messages,
             errors: _,
-        } = self.fetch_qs_messages().await?;
+        } = self.fetch_and_process_qs_messages().await?;
         self.new_conversation_notifications(&new_conversations, &mut notifications)
             .await;
         self.new_message_notifications(&new_messages, &mut notifications)
             .await;
 
-        Ok(FetchedMessages {
+        // Fetch AS connection requests
+        debug!("fetch AS messages");
+        let new_connections = self.fetch_and_process_as_messages().await?;
+        self.new_connection_request_notifications(&new_connections, &mut notifications)
+            .await;
+
+        Ok(ProcessedMessages {
             notifications_content: notifications,
         })
     }

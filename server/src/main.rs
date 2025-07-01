@@ -4,7 +4,12 @@
 
 use std::time::Duration;
 
-use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
+use phnxbackend::{
+    auth_service::AuthService,
+    ds::{Ds, storage::Storage},
+    infra_service::InfraService,
+    qs::Qs,
+};
 use phnxcommon::identifiers::Fqdn;
 use phnxserver::{
     RateLimitsConfig, ServerRunParams,
@@ -69,17 +74,21 @@ async fn main() -> anyhow::Result<()> {
         }
         ds_result = Ds::new(&configuration.database, domain.clone()).await;
     }
-    let ds = ds_result.unwrap();
+    let mut ds = ds_result.unwrap();
+    if let Some(storage_settings) = &configuration.storage {
+        let storage = Storage::new(storage_settings.clone());
+        ds.set_storage(storage);
+    }
 
     // New database name for the QS provider
-    configuration.database.name = format!("{}_qs", base_db_name);
+    configuration.database.name = format!("{base_db_name}_qs");
     // QS storage provider
     let qs = Qs::new(&configuration.database, domain.clone())
         .await
         .expect("Failed to connect to database.");
 
     // New database name for the AS provider
-    configuration.database.name = format!("{}_as", base_db_name);
+    configuration.database.name = format!("{base_db_name}_as");
     let auth_service = AuthService::new(&configuration.database, domain.clone())
         .await
         .expect("Failed to connect to database.");

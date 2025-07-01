@@ -15,7 +15,10 @@ use sqlx::{SqliteExecutor, query, query_as};
 use tls_codec::Serialize as _;
 use tracing::error;
 
-use crate::utils::persistence::{GroupIdRefWrapper, GroupIdWrapper};
+use crate::{
+    ConversationId,
+    utils::persistence::{GroupIdRefWrapper, GroupIdWrapper},
+};
 
 use super::{Group, diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider};
 
@@ -112,7 +115,24 @@ impl Group {
 
         ensure!(
             group.mls_group.pending_commit().is_none(),
-            "Room already had a staging commit"
+            "Room already had a pending commit"
+        );
+
+        Ok(Some(group))
+    }
+
+    pub async fn load_with_conversation_id_clean(
+        connection: &mut sqlx::SqliteConnection,
+        conversation_id: ConversationId,
+    ) -> anyhow::Result<Option<Self>> {
+        let Some(group) = Group::load_with_conversation_id(connection, conversation_id).await?
+        else {
+            return Ok(None);
+        };
+
+        ensure!(
+            group.mls_group.pending_commit().is_none(),
+            "Room already had a pending commit"
         );
 
         Ok(Some(group))
@@ -142,6 +162,40 @@ impl Group {
         .fetch_optional(connection)
         .await
         .map(|res| res.map(|group| SqlGroup::into_group(group, mls_group)))
+    }
+
+    /// Same as [`Self::load()`], but load the group via the corresponding conversation.
+    pub(crate) async fn load_with_conversation_id(
+        connection: &mut sqlx::SqliteConnection,
+        conversation_id: ConversationId,
+    ) -> sqlx::Result<Option<Self>> {
+        let Some(sql_group) = query_as!(
+            SqlGroup,
+            r#"SELECT
+                g.group_id AS "group_id: _",
+                g.identity_link_wrapper_key AS "identity_link_wrapper_key: _",
+                g.group_state_ear_key AS "group_state_ear_key: _",
+                g.pending_diff AS "pending_diff: _",
+                g.room_state AS "room_state: _"
+            FROM groups g
+            INNER JOIN conversations c ON c.group_id = g.group_id
+            WHERE c.conversation_id = ?
+            "#,
+            conversation_id
+        )
+        .fetch_optional(&mut *connection)
+        .await?
+        else {
+            return Ok(None);
+        };
+        let Some(mls_group) = MlsGroup::load(
+            PhnxOpenMlsProvider::new(connection).storage(),
+            &sql_group.group_id.0,
+        )?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(SqlGroup::into_group(sql_group, mls_group)))
     }
 
     pub(crate) async fn store_update(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {

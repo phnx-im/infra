@@ -11,7 +11,7 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::MimiContent;
+use mimi_content::{NestedPart, NestedPartContent};
 pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
@@ -23,7 +23,7 @@ use phnxcoreclient::{
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
 
-use super::markdown::MessageContent;
+use crate::api::message_content::UiMimiContent;
 
 /// Mirror of the [`ConversationId`] type
 #[doc(hidden)]
@@ -129,10 +129,11 @@ impl From<InactiveConversation> for UiInactiveConversation {
 }
 
 /// Type of a conversation
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiConversationType {
-    /// A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UiUserProfile),
+    /// A connection conversation which was established via a handle and is not yet confirmed by
+    /// the other party.
+    HandleConnection(UiUserHandle),
     /// A connection conversation that is confirmed by the other party and for which we have
     /// received the necessary secrets.
     Connection(UiUserProfile),
@@ -151,15 +152,15 @@ impl UiConversationType {
         store: &impl Store,
         conversation_type: ConversationType,
     ) -> Self {
-        let load_profile = async |user_id| {
-            let user_profile = store.user_profile(&user_id).await;
-            UiUserProfile::from_profile(user_profile)
-        };
         match conversation_type {
-            ConversationType::UnconfirmedConnection(user_id) => {
-                Self::UnconfirmedConnection(load_profile(user_id).await)
+            ConversationType::HandleConnection(handle) => {
+                Self::HandleConnection(UiUserHandle::from(handle))
             }
-            ConversationType::Connection(user_id) => Self::Connection(load_profile(user_id).await),
+            ConversationType::Connection(user_id) => {
+                let user_profile = store.user_profile(&user_id).await;
+                let profile = UiUserProfile::from_profile(user_profile);
+                Self::Connection(profile)
+            }
             ConversationType::Group => Self::Group,
         }
     }
@@ -208,6 +209,14 @@ pub struct UiConversationMessage {
 }
 
 impl UiConversationMessage {
+    #[frb(sync)]
+    pub fn is_hidden(&self) -> bool {
+        match &self.message {
+            UiMessage::Content(ui_content_message) => ui_content_message.hidden,
+            UiMessage::Display(_ui_event_message) => false,
+        }
+    }
+
     pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp.parse().ok()
     }
@@ -259,56 +268,26 @@ impl From<Message> for UiMessage {
     }
 }
 
-/// The actual content of a message
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb(dart_metadata = ("freezed"))]
-pub struct UiMimiContent {
-    pub replaces: Option<Vec<u8>>,
-    pub topic_id: Vec<u8>,
-    pub in_reply_to: Option<Vec<u8>>,
-    pub plain_body: String,
-    pub content: MessageContent,
-}
-
-impl From<MimiContent> for UiMimiContent {
-    fn from(mimi_content: MimiContent) -> Self {
-        let plain_body = match mimi_content.string_rendering() {
-            Ok(plain_body) => plain_body,
-            Err(e) => {
-                return Self {
-                    plain_body: format!("Invalid message: {e}"),
-                    replaces: mimi_content.replaces.map(|v| v.into_vec()),
-                    topic_id: mimi_content.topic_id.into_vec(),
-                    in_reply_to: mimi_content.in_reply_to.map(|v| v.into_vec()),
-                    content: MessageContent::error(format!("Invalid message: {e}")),
-                };
-            }
-        };
-
-        let parsed_message = MessageContent::parse_markdown(&plain_body);
-
-        Self {
-            plain_body,
-            replaces: mimi_content.replaces.map(|v| v.into_vec()),
-            topic_id: mimi_content.topic_id.into_vec(),
-            in_reply_to: mimi_content.in_reply_to.map(|v| v.into_vec()),
-            content: parsed_message,
-        }
-    }
-}
-
 /// Content of a message including the sender and whether it was sent
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiContentMessage {
     pub sender: UiUserId,
     pub sent: bool,
     pub content: UiMimiContent,
+    pub hidden: bool,
 }
 
 impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         let (sender, sent, content) = content_message.into_parts();
         Self {
+            hidden: if let NestedPartContent::SinglePart { content_type, .. } =
+                &content.nested_part.part
+            {
+                content_type == "application/mimi-message-status"
+            } else {
+                false
+            },
             sender: sender.into(),
             sent,
             content: UiMimiContent::from(content),
@@ -334,22 +313,21 @@ impl From<EventMessage> for UiEventMessage {
 
 /// System message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct UiSystemMessage {
-    pub message: String,
+pub enum UiSystemMessage {
+    Add(UiUserId, UiUserId),
+    Remove(UiUserId, UiUserId),
 }
 
 impl From<SystemMessage> for UiSystemMessage {
     fn from(system_message: SystemMessage) -> Self {
-        // TODO: Use display names here
-        let message = match system_message {
-            SystemMessage::Add(adder, added) => {
-                format!("{adder:?} added {added:?} to the conversation")
+        match system_message {
+            SystemMessage::Add(user_id, contact_id) => {
+                UiSystemMessage::Add(user_id.into(), contact_id.into())
             }
-            SystemMessage::Remove(remover, removed) => {
-                format!("{remover:?} removed {removed:?} from the conversation")
+            SystemMessage::Remove(user_id, contact_id) => {
+                UiSystemMessage::Remove(user_id.into(), contact_id.into())
             }
-        };
-        Self { message }
+        }
     }
 }
 
@@ -539,7 +517,7 @@ pub struct UiClientRecord {
     pub(crate) is_finished: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(dart_metadata = ("freezed"))]
 pub struct UiUserHandle {
     pub(crate) plaintext: String,

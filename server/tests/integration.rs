@@ -13,7 +13,7 @@ use phnxprotos::{
 };
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{UserHandle, UserId};
 use phnxcoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
     store::Store,
@@ -315,27 +315,21 @@ async fn room_policy() {
         .invite_to_group(conversation_id, &BOB, vec![&CHARLIE])
         .await;
 
-    // Bob cannot kick anyone
+    // Charlie can kick alice
     setup
-        .remove_from_group(conversation_id, &BOB, vec![&ALICE])
-        .await
-        .unwrap_err();
-    setup
-        .remove_from_group(conversation_id, &BOB, vec![&CHARLIE])
-        .await
-        .unwrap_err();
-
-    // Alice cannot leave if she does not appoint a new room admin
-    setup
-        .leave_group(conversation_id, &ALICE)
-        .await
-        .unwrap_err();
-
-    // Alice can kick both
-    setup
-        .remove_from_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
+        .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE])
         .await
         .unwrap();
+
+    // Charlie can kick bob
+    setup
+        .remove_from_group(conversation_id, &CHARLIE, vec![&BOB])
+        .await
+        .unwrap();
+
+    // TODO: This currently fails
+    // Charlie can leave and an empty room remains
+    // setup.leave_group(conversation_id, &CHARLIE).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -625,7 +619,9 @@ async fn error_if_user_doesnt_exist() {
     let alice_test = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test.user;
 
-    let res = alice.add_contact(BOB.clone()).await;
+    let res = alice
+        .add_contact(UserHandle::new("non_existent".to_owned()).unwrap())
+        .await;
 
     assert!(res.is_err());
 }

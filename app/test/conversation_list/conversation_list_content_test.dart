@@ -12,6 +12,7 @@ import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -46,6 +47,7 @@ final conversations = [
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
             content: simpleMessage('Hello Alice'),
+            attachments: [],
           ),
         ),
       ),
@@ -55,7 +57,9 @@ final conversations = [
   UiConversationDetails(
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_UnconfirmedConnection(userProfiles[2]),
+    conversationType: const UiConversationType_HandleConnection(
+      UiUserHandle(plaintext: "eve_03"),
+    ),
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiConversationAttributes(title: 'Eve', picture: null),
@@ -75,6 +79,7 @@ final conversations = [
             content: simpleMessage(
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
             ),
+            attachments: [],
           ),
         ),
       ),
@@ -101,6 +106,7 @@ final conversations = [
             plainBody: 'Hello All',
             topicId: Uint8List(0),
             content: simpleMessage('Hello All'),
+            attachments: [],
           ),
         ),
       ),
@@ -111,7 +117,7 @@ final conversations = [
 
 MessageContent simpleMessage(String msg) {
   return MessageContent(
-    content: [
+    elements: [
       RangedBlockElement(
         start: 0,
         end: msg.length,
@@ -155,6 +161,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(body: ConversationListContent()),
           );
         },

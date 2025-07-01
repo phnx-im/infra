@@ -30,7 +30,7 @@ class ConnectionDetails extends StatelessWidget {
         children: [
           const SizedBox(height: Spacings.l),
           UserAvatar(
-            size: 64,
+            size: 96,
             displayName: conversation.title,
             image: conversation.picture,
           ),

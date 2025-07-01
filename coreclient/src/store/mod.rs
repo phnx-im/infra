@@ -2,18 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::collections::HashSet;
 use std::sync::Arc;
+use std::{collections::HashSet, path::Path};
 
 use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    PartialContact, user_profiles::UserProfile,
+    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId, DownloadProgress, contacts::HandleContact,
+    user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -38,8 +39,8 @@ pub struct MessageWithStatus {
 /// the messages. Additionaly, it is used to listen to changes in the client data via the
 /// [`Self::subscribe`] method and the [`StoreNotification`] type.
 #[allow(async_fn_in_trait, reason = "trait is only used in the workspace")]
-#[trait_variant::make(Store: Send)]
-pub trait LocalStore {
+#[trait_variant::make(Send)]
+pub trait Store {
     // user
 
     fn user_id(&self) -> &UserId;
@@ -47,6 +48,19 @@ pub trait LocalStore {
     async fn own_user_profile(&self) -> StoreResult<UserProfile>;
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile>;
+
+    // user handles
+
+    async fn user_handles(&self) -> StoreResult<Vec<UserHandle>>;
+
+    async fn user_handle_records(&self) -> StoreResult<Vec<UserHandleRecord>>;
+
+    async fn add_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<Option<UserHandleRecord>>;
+
+    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()>;
 
     // conversations
 
@@ -136,17 +150,17 @@ pub trait LocalStore {
 
     // contacts
 
-    /// Create a connection with a new user.
+    /// Create a connection with a new user via their user handle.
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation.
-    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId>;
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
     async fn contact(&self, user_id: &UserId) -> StoreResult<Option<Contact>>;
 
-    async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>>;
+    async fn handle_contacts(&self) -> StoreResult<Vec<HandleContact>>;
 
     async fn user_profile(&self, user_id: &UserId) -> UserProfile;
 
@@ -209,11 +223,31 @@ pub trait LocalStore {
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
 
+    // attachments
+
+    async fn upload_attachment(
+        &self,
+        conversation_id: ConversationId,
+        path: &Path,
+    ) -> StoreResult<ConversationMessage>;
+
+    fn download_attachment(
+        &self,
+        attachment_id: AttachmentId,
+    ) -> (
+        DownloadProgress,
+        impl Future<Output = StoreResult<()>> + use<Self>,
+    );
+
+    async fn pending_attachments(&self) -> StoreResult<Vec<AttachmentId>>;
+
+    async fn load_attachment(&self, attachment_id: AttachmentId) -> StoreResult<AttachmentContent>;
+
     // observability
 
     fn notify(&self, notification: StoreNotification);
 
-    fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + 'static;
+    fn subscribe(&self) -> impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static;
 
     fn subscribe_iter(&self) -> impl Iterator<Item = Arc<StoreNotification>> + Send + 'static;
 

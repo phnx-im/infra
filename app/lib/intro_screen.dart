@@ -56,7 +56,7 @@ class IntroScreen extends StatelessWidget {
                     () =>
                         context.read<NavigationCubit>().openDeveloperSettings(),
                 style: textButtonStyle(context),
-                child: Text(loc.introScreen_developerSettings),
+                child: Text(loc.settings_developerSettings),
               ),
               if (!isUserLoading)
                 Column(

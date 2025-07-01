@@ -7,15 +7,17 @@ use openmls::prelude::HpkeCiphertext;
 use phnxcommon::{
     credentials::{self, keys},
     crypto, identifiers,
-    messages::{self, client_as},
-    time,
+    messages::{
+        self,
+        client_as::{self, ConnectionPackageHashError},
+    },
 };
 use thiserror::Error;
 use tonic::Status;
 
 use crate::{
     common::{
-        convert::{InvalidIndexedCiphertext, InvalidNonceLen},
+        convert::{ExpirationDataError, InvalidIndexedCiphertext},
         v1::Signature,
     },
     convert::TryRefInto,
@@ -26,10 +28,9 @@ use super::v1::{
     AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
     AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
-    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
-    CredentialFingerprint, EncryptedConnectionOffer, EncryptedUserProfile, ExpirationData,
-    HandleSignature, HandleVerifyingKey, MlsInfraVersion, QueueMessage, SignatureScheme,
-    UserHandleHash, UserId,
+    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionOfferMessage, ConnectionPackage,
+    ConnectionPackagePayload, CredentialFingerprint, EncryptedUserProfile, HandleSignature,
+    HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -180,32 +181,6 @@ impl TryFrom<MlsInfraVersion> for messages::MlsInfraVersion {
         match value.version {
             0 => Ok(messages::MlsInfraVersion::Alpha),
             _ => Err(UnsupportedMlsVersion(value.version)),
-        }
-    }
-}
-
-impl TryFrom<ExpirationData> for time::ExpirationData {
-    type Error = ExpirationDataError;
-
-    fn try_from(value: ExpirationData) -> Result<Self, Self::Error> {
-        Ok(Self::from_parts(
-            value.not_before.ok_or_missing_field("not_before")?.into(),
-            value.not_after.ok_or_missing_field("not_after")?.into(),
-        ))
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ExpirationDataError {
-    #[error(transparent)]
-    MissingField(#[from] MissingFieldError<&'static str>),
-}
-
-impl From<time::ExpirationData> for ExpirationData {
-    fn from(value: time::ExpirationData) -> Self {
-        Self {
-            not_before: Some(value.not_before().into()),
-            not_after: Some(value.not_after().into()),
         }
     }
 }
@@ -653,40 +628,32 @@ impl From<AsIntermediateVerifyingKey> for credentials::keys::AsIntermediateVerif
     }
 }
 
-impl From<client_as::EncryptedConnectionOffer> for EncryptedConnectionOffer {
-    fn from(value: client_as::EncryptedConnectionOffer) -> Self {
+impl From<client_as::ConnectionOfferMessage> for ConnectionOfferMessage {
+    fn from(value: client_as::ConnectionOfferMessage) -> Self {
+        let (ciphertext, connection_package_hash) = value.into_parts();
+        let ciphertext: HpkeCiphertext = ciphertext.as_ref().clone();
         Self {
-            ciphertext: Some(value.into_ciphertext().into()),
+            ciphertext: Some(ciphertext.into()),
+            connection_package_hash: connection_package_hash.to_bytes().to_vec(),
         }
     }
 }
 
-impl TryFrom<EncryptedConnectionOffer> for client_as::EncryptedConnectionOffer {
-    type Error = MissingFieldError<&'static str>;
+#[derive(Debug, thiserror::Error, Display)]
+pub enum ConnectionOfferMessageError {
+    /// Missing ciphertext field
+    MissingCiphertext(#[from] MissingFieldError<&'static str>),
+    /// Invalid connection package hash
+    InvalidConnectionPackageHash(#[from] ConnectionPackageHashError),
+}
 
-    fn try_from(proto: EncryptedConnectionOffer) -> Result<Self, Self::Error> {
+impl TryFrom<ConnectionOfferMessage> for client_as::ConnectionOfferMessage {
+    type Error = ConnectionOfferMessageError;
+
+    fn try_from(proto: ConnectionOfferMessage) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
-        Ok(ciphertext.into())
-    }
-}
-
-impl From<messages::QueueMessage> for QueueMessage {
-    fn from(value: messages::QueueMessage) -> Self {
-        Self {
-            sequence_number: value.sequence_number,
-            ciphertext: Some(value.ciphertext.into()),
-        }
-    }
-}
-
-impl TryFrom<QueueMessage> for messages::QueueMessage {
-    type Error = InvalidNonceLen;
-
-    fn try_from(proto: QueueMessage) -> Result<Self, Self::Error> {
-        Ok(Self {
-            sequence_number: proto.sequence_number,
-            ciphertext: proto.ciphertext.unwrap_or_default().try_into()?,
-        })
+        let connection_package_hash = proto.connection_package_hash.try_into()?;
+        Ok(Self::new(connection_package_hash, ciphertext.into()))
     }
 }
 

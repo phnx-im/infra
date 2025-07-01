@@ -112,13 +112,14 @@ pub struct ConversationMessage {
 impl ConversationMessage {
     /// Create a new conversation message from a group message. New messages are
     /// marked as unread by default.
-    pub(crate) fn from_timestamped_message(
+    pub(crate) fn new(
         conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
         timestamped_message: TimestampedMessage,
     ) -> Self {
         Self {
             conversation_id,
-            conversation_message_id: ConversationMessageId::random(),
+            conversation_message_id,
             timestamped_message,
         }
     }
@@ -139,6 +140,7 @@ impl ConversationMessage {
     pub(crate) fn new_unsent_message(
         sender: UserId,
         conversation_id: ConversationId,
+        conversation_message_id: ConversationMessageId,
         content: MimiContent,
         group_id: &GroupId,
     ) -> ConversationMessage {
@@ -151,7 +153,7 @@ impl ConversationMessage {
         };
         ConversationMessage {
             conversation_id,
-            conversation_message_id: ConversationMessageId::random(),
+            conversation_message_id,
             timestamped_message,
         }
     }
@@ -195,6 +197,10 @@ impl ConversationMessage {
     pub fn message(&self) -> &Message {
         &self.timestamped_message.message
     }
+
+    pub fn message_mut(&mut self) -> &mut Message {
+        &mut self.timestamped_message.message
+    }
 }
 
 // WARNING: If this type is changed, a new `VersionedMessage` variant must be
@@ -230,7 +236,14 @@ impl Message {
                         .unwrap_or_else(|e| format!("Error: {e}"));
                     format!("{display_name}: {content}")
                 }
-                ConversationType::Connection(_) | ConversationType::UnconfirmedConnection(_) => {
+                ConversationType::HandleConnection(handle) => {
+                    let content = content_message
+                        .content
+                        .string_rendering() // TODO: Better error handling
+                        .unwrap_or_else(|e| format!("Error: {e}"));
+                    format!("{handle}: {content}", handle = handle.plaintext())
+                }
+                ConversationType::Connection(_) => {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
@@ -242,6 +255,13 @@ impl Message {
                 EventMessage::System(system) => system.string_representation(store).await,
                 EventMessage::Error(error) => error.message().to_string(),
             },
+        }
+    }
+
+    pub(crate) fn mimi_content_mut(&mut self) -> Option<&mut MimiContent> {
+        match self {
+            Message::Content(content_message) => Some(content_message.as_mut().content_mut()),
+            Message::Event(_) => None,
         }
     }
 }
@@ -286,6 +306,10 @@ impl ContentMessage {
 
     pub fn content(&self) -> &MimiContent {
         &self.content
+    }
+
+    pub fn content_mut(&mut self) -> &mut MimiContent {
+        &mut self.content
     }
 }
 

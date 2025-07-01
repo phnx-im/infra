@@ -80,10 +80,10 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
     // capture store notification in below store calls
     let pending_store_notifications = user.user.subscribe_iter();
 
-    let notifications = match user.fetch_all_messages().await {
-        Ok(fetched_messages) => {
-            info!("All messages fetched");
-            fetched_messages.notifications_content
+    let notifications = match user.fetch_and_process_all_messages().await {
+        Ok(processed_messages) => {
+            info!("All messages fetched and processed");
+            processed_messages.notifications_content
         }
         Err(e) => {
             error!(?e, "Failed to fetch messages");

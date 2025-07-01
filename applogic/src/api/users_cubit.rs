@@ -4,7 +4,6 @@
 
 use std::{
     collections::{HashMap, hash_map},
-    pin::pin,
     sync::Arc,
 };
 
@@ -173,7 +172,7 @@ pub struct UsersCubitBase {
 impl UsersCubitBase {
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
-        let store = user_cubit.core_user.clone();
+        let store = user_cubit.core_user().clone();
 
         let (load_profile_tx, load_profile_rx) = mpsc::channel(1024);
         let inner = UsersStateInner::new(store.user_id().clone(), load_profile_tx);
@@ -250,7 +249,7 @@ impl<S: Store + Sync + 'static> ProfileLoadingTask<S> {
     }
 
     async fn process(mut self) -> Option<()> {
-        let mut store_notifications = pin!(self.store.subscribe());
+        let mut store_notifications = self.store.subscribe();
         loop {
             // wait for the next store notification, explicit load profile request or cancellation
             let changed_profiles = tokio::select! {

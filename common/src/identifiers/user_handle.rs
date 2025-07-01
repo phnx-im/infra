@@ -7,17 +7,20 @@ use argon2::Argon2;
 use chrono::Duration;
 use displaydoc::Display;
 use thiserror::Error;
+use tls_codec::{TlsSerialize, TlsSize};
 
-const MIN_USER_HANDLE_LENGTH: usize = 6;
-const MAX_USER_HANDLE_LENGTH: usize = 64;
+use super::TlsString;
+
+const MIN_USER_HANDLE_LENGTH: usize = 5;
+const MAX_USER_HANDLE_LENGTH: usize = 63;
 const USER_HANDLE_CHARSET: &[u8] = b"_0123456789abcdefghijklmnopqrstuvwxyz";
 
 pub const USER_HANDLE_VALIDITY_PERIOD: Duration = Duration::days(30);
 
 /// Validated plaintext user handle
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash, TlsSize, TlsSerialize)]
 pub struct UserHandle {
-    plaintext: String,
+    plaintext: TlsString,
 }
 
 impl fmt::Debug for UserHandle {
@@ -31,7 +34,9 @@ impl fmt::Debug for UserHandle {
 impl UserHandle {
     pub fn new(plaintext: String) -> Result<Self, UserHandleValidationError> {
         Self::validate(&plaintext)?;
-        Ok(Self { plaintext })
+        Ok(Self {
+            plaintext: TlsString(plaintext),
+        })
     }
 
     fn validate(plaintext: &str) -> Result<(), UserHandleValidationError> {
@@ -58,12 +63,16 @@ impl UserHandle {
         let argon2 = Argon2::default();
         let const_salt = b"user handle salt"; // TODO(security): this is not what we want
         let mut hash = [0u8; 32];
-        argon2.hash_password_into(self.plaintext.as_bytes(), const_salt, &mut hash)?;
+        argon2.hash_password_into(self.plaintext.0.as_bytes(), const_salt, &mut hash)?;
         Ok(UserHandleHash { hash })
     }
 
+    pub fn plaintext(&self) -> &str {
+        &self.plaintext.0
+    }
+
     pub fn into_plaintext(self) -> String {
-        self.plaintext
+        self.plaintext.0
     }
 }
 
@@ -104,6 +113,74 @@ pub enum UserHandleHashError {
     Argon2(#[from] argon2::Error),
 }
 
+mod sqlx_impls {
+    use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
+
+    use super::*;
+
+    // `UserHandle` is only persisted in the client database, so we only implement the sqlx traits
+    // for Sqlite.
+
+    impl Type<Sqlite> for UserHandle {
+        fn type_info() -> <Sqlite as Database>::TypeInfo {
+            <String as Type<Sqlite>>::type_info()
+        }
+    }
+
+    impl Encode<'_, Sqlite> for UserHandle {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+        ) -> Result<IsNull, BoxDynError> {
+            Encode::<Sqlite>::encode(self.plaintext().to_owned(), buf)
+        }
+    }
+
+    impl Decode<'_, Sqlite> for UserHandle {
+        fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+            let plaintext: String = Decode::<Sqlite>::decode(value)?;
+            let value = UserHandle::new(plaintext)?;
+            Ok(value)
+        }
+    }
+
+    impl<DB> Type<DB> for UserHandleHash
+    where
+        DB: Database,
+        Vec<u8>: Type<DB>,
+    {
+        fn type_info() -> <DB as Database>::TypeInfo {
+            <Vec<u8> as Type<DB>>::type_info()
+        }
+    }
+
+    impl<'q, DB> Encode<'q, DB> for UserHandleHash
+    where
+        DB: Database,
+        Vec<u8>: Encode<'q, DB>,
+    {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <DB as Database>::ArgumentBuffer<'q>,
+        ) -> Result<IsNull, BoxDynError> {
+            let bytes = self.as_bytes().to_vec();
+            Encode::<DB>::encode(bytes, buf)
+        }
+    }
+
+    impl<'r, DB> Decode<'r, DB> for UserHandleHash
+    where
+        DB: Database,
+        for<'a> &'a [u8]: Decode<'a, DB>,
+    {
+        fn decode(value: <DB as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+            let bytes: &[u8] = Decode::<DB>::decode(value)?;
+            let value = UserHandleHash::new(bytes.try_into()?);
+            Ok(value)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -116,12 +193,12 @@ mod tests {
     fn test_user_handle_new_valid() {
         let handle_str = valid_user_handle_string();
         let handle = UserHandle::new(handle_str.clone());
-        assert_eq!(handle.unwrap().plaintext, handle_str);
+        assert_eq!(handle.unwrap().plaintext(), handle_str);
     }
 
     #[test]
     fn test_user_handle_new_too_short() {
-        let handle_str = "abcde".to_string(); // Length 5, MIN_USER_HANDLE_LENGTH is 6
+        let handle_str = "abcd".to_string(); // Length 4, MIN_USER_HANDLE_LENGTH is 5
         let handle = UserHandle::new(handle_str);
         assert!(matches!(
             handle.unwrap_err(),
@@ -186,7 +263,7 @@ mod tests {
     #[test]
     fn test_user_handle_debug_redacted() {
         let handle = UserHandle::new(valid_user_handle_string()).unwrap();
-        let debug_output = format!("{:?}", handle);
+        let debug_output = format!("{handle:?}");
         assert!(debug_output.contains("<redacted>"));
         assert!(!debug_output.contains("test_user_123")); // Ensure original plaintext is not visible
     }

@@ -7,6 +7,7 @@
 use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
 use phnxcommon::identifiers::UserId;
 
+use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
@@ -87,7 +88,7 @@ impl ConversationDetailsCubitBase {
     /// to the changes in the conversation and update the state accordingly.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
-        let store = user_cubit.core_user.clone();
+        let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::new();
@@ -156,6 +157,15 @@ impl ConversationDetailsCubitBase {
             .await
             .inspect_err(|error| error!(%error, "Failed to send message"))?;
 
+        Ok(())
+    }
+
+    pub async fn upload_attachment(&self, path: String) -> anyhow::Result<()> {
+        let path = PathBuf::from(path);
+        self.context
+            .store
+            .upload_attachment(self.context.conversation_id, &path)
+            .await?;
         Ok(())
     }
 
@@ -260,7 +270,7 @@ impl ConversationDetailsContext {
 
     fn spawn(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static,
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
@@ -331,10 +341,9 @@ impl ConversationDetailsContext {
     /// Returns only when `stop` is cancelled
     async fn store_notifications_loop(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
+        mut store_notifications: impl Stream<Item = Arc<StoreNotification>> + Unpin,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = std::pin::pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 notification = store_notifications.next() => notification,

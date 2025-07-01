@@ -92,9 +92,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUserButton_text => 'Remove user';
 
   @override
-  String get introScreen_developerSettings => 'Developer Settings';
-
-  @override
   String get introScreen_signUp => 'Sign up';
 
   @override
@@ -126,4 +123,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editDisplayNameScreen_save => 'Save';
+
+  @override
+  String get systemMessage_userAddedUser_prefix => '';
+
+  @override
+  String get systemMessage_userAddedUser_infix => ' added ';
+
+  @override
+  String get systemMessage_userAddedUser_suffix => '';
+
+  @override
+  String get systemMessage_userRemovedUser_prefix => '';
+
+  @override
+  String get systemMessage_userRemovedUser_infix => ' removed ';
+
+  @override
+  String get systemMessage_userRemovedUser_suffix => '';
+
+  @override
+  String get timestamp_now => 'Now';
+
+  @override
+  String get timestamp_yesterday => 'Yesterday';
+
+  @override
+  String get conversationList_newContact => 'New contact';
+
+  @override
+  String get conversationList_newGroup => 'New group';
+
+  @override
+  String get settings_profile => 'Profile';
+
+  @override
+  String get settings_developerSettings => 'Settings (developer)';
+
+  @override
+  String get newConversationDialog_newConversationTitle => 'New conversation';
+
+  @override
+  String get newConversationDialog_newConversationDescription =>
+      'Choose a name for the new conversation';
+
+  @override
+  String get newConversationDialog_conversationNamePlaceholder =>
+      'Conversation name';
+
+  @override
+  String get newConversationDialog_actionButton => 'Create conversation';
+
+  @override
+  String newConversationDialog_error(Object conversationName, Object error) {
+    return 'Failed to add conversation with name $conversationName: $error';
+  }
+
+  @override
+  String get newConnectionDialog_newConnectionTitle => 'New connection';
+
+  @override
+  String get newConnectionDialog_newConnectionDescription =>
+      'Enter the Username of the user you want to connect to';
+
+  @override
+  String get newConnectionDialog_usernamePlaceholder => 'Username';
+
+  @override
+  String get newConnectionDialog_actionButton => 'Connect';
+
+  @override
+  String newConnectionDialog_error(Object error, Object username) {
+    return 'Failed to add user with Username $username: $error';
+  }
+
+  @override
+  String get composer_error_attachment =>
+      'Failed to upload attachment. Please try again.';
+
+  @override
+  String attachmentSize(double size, Object byteUnit) {
+    final intl.NumberFormat sizeNumberFormat = intl
+        .NumberFormat.decimalPatternDigits(
+      locale: localeName,
+      decimalDigits: 2,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return '$sizeString $byteUnit';
+  }
 }

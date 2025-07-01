@@ -242,12 +242,6 @@ abstract class AppLocalizations {
   /// **'Remove user'**
   String get removeUserButton_text;
 
-  /// No description provided for @introScreen_developerSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Developer Settings'**
-  String get introScreen_developerSettings;
-
   /// No description provided for @introScreen_signUp.
   ///
   /// In en, this message translates to:
@@ -307,6 +301,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get editDisplayNameScreen_save;
+
+  /// No description provided for @systemMessage_userAddedUser_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userAddedUser_prefix;
+
+  /// No description provided for @systemMessage_userAddedUser_infix.
+  ///
+  /// In en, this message translates to:
+  /// **' added '**
+  String get systemMessage_userAddedUser_infix;
+
+  /// No description provided for @systemMessage_userAddedUser_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userAddedUser_suffix;
+
+  /// No description provided for @systemMessage_userRemovedUser_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userRemovedUser_prefix;
+
+  /// No description provided for @systemMessage_userRemovedUser_infix.
+  ///
+  /// In en, this message translates to:
+  /// **' removed '**
+  String get systemMessage_userRemovedUser_infix;
+
+  /// No description provided for @systemMessage_userRemovedUser_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get systemMessage_userRemovedUser_suffix;
+
+  /// No description provided for @timestamp_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get timestamp_now;
+
+  /// No description provided for @timestamp_yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get timestamp_yesterday;
+
+  /// No description provided for @conversationList_newContact.
+  ///
+  /// In en, this message translates to:
+  /// **'New contact'**
+  String get conversationList_newContact;
+
+  /// No description provided for @conversationList_newGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get conversationList_newGroup;
+
+  /// No description provided for @settings_profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get settings_profile;
+
+  /// No description provided for @settings_developerSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings (developer)'**
+  String get settings_developerSettings;
+
+  /// No description provided for @newConversationDialog_newConversationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New conversation'**
+  String get newConversationDialog_newConversationTitle;
+
+  /// No description provided for @newConversationDialog_newConversationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a name for the new conversation'**
+  String get newConversationDialog_newConversationDescription;
+
+  /// No description provided for @newConversationDialog_conversationNamePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation name'**
+  String get newConversationDialog_conversationNamePlaceholder;
+
+  /// No description provided for @newConversationDialog_actionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create conversation'**
+  String get newConversationDialog_actionButton;
+
+  /// No description provided for @newConversationDialog_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add conversation with name {conversationName}: {error}'**
+  String newConversationDialog_error(Object conversationName, Object error);
+
+  /// No description provided for @newConnectionDialog_newConnectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New connection'**
+  String get newConnectionDialog_newConnectionTitle;
+
+  /// No description provided for @newConnectionDialog_newConnectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the Username of the user you want to connect to'**
+  String get newConnectionDialog_newConnectionDescription;
+
+  /// No description provided for @newConnectionDialog_usernamePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get newConnectionDialog_usernamePlaceholder;
+
+  /// No description provided for @newConnectionDialog_actionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get newConnectionDialog_actionButton;
+
+  /// No description provided for @newConnectionDialog_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add user with Username {username}: {error}'**
+  String newConnectionDialog_error(Object error, Object username);
+
+  /// No description provided for @composer_error_attachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to upload attachment. Please try again.'**
+  String get composer_error_attachment;
+
+  /// No description provided for @attachmentSize.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} {byteUnit}'**
+  String attachmentSize(double size, Object byteUnit);
 }
 
 class _AppLocalizationsDelegate

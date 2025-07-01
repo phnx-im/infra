@@ -4,9 +4,10 @@
 
 //! List of conversations feature
 
-use std::{pin::pin, sync::Arc};
+use std::sync::Arc;
 
 use flutter_rust_bridge::frb;
+use phnxcommon::identifiers::UserHandle;
 use phnxcoreclient::{
     Conversation,
     clients::CoreUser,
@@ -22,7 +23,7 @@ use crate::StreamSink;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
-    types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserId},
+    types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserHandle},
     user_cubit::UserCubitBase,
 };
 
@@ -47,7 +48,7 @@ impl ConversationListCubitBase {
     /// conversations.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
-        let store = user_cubit.core_user.clone();
+        let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::new();
@@ -82,11 +83,10 @@ impl ConversationListCubitBase {
 
     // Cubit methods
 
-    /// Creates a new 1:1 connection with the given user.
-    pub async fn create_connection(&self, user_id: UiUserId) -> anyhow::Result<ConversationId> {
-        let id = self.context.store.add_contact(user_id.into()).await?;
-        self.context.load_and_emit_state().await;
-        Ok(id)
+    /// Creates a new 1:1 connection with the given user via a user handle.
+    pub async fn create_connection(&self, handle: UiUserHandle) -> anyhow::Result<ConversationId> {
+        let handle = UserHandle::new(handle.plaintext)?;
+        self.context.store.add_contact(handle).await
     }
 
     /// Creates a new group conversation with the given name.
@@ -121,7 +121,7 @@ where
 
     fn spawn(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static,
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
@@ -140,10 +140,9 @@ where
 
     async fn store_notifications_loop(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
+        mut store_notifications: impl Stream<Item = Arc<StoreNotification>> + Unpin,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,

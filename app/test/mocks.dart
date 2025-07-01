@@ -76,8 +76,6 @@ class MockUsersState implements UsersState {
 class MockConversationDetailsCubit extends MockCubit<ConversationDetailsState>
     implements ConversationDetailsCubit {}
 
-class MockConversationListState extends Mock implements ConversationListState {}
-
 class MockConversationListCubit extends MockCubit<ConversationListState>
     implements ConversationListCubit {}
 
@@ -122,3 +120,5 @@ class MockUser extends Mock implements User {}
 
 class MockRegistrationCubit extends MockCubit<RegistrationState>
     implements RegistrationCubit {}
+
+class MockAttachmentsRepository extends Mock implements AttachmentsRepository {}

@@ -2,18 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, path::Path, sync::Arc};
 
 use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::UserId;
+use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    Contact, Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message,
-    PartialContact, clients::CoreUser, conversations::persistence::load_message_status,
-    store::MessageWithStatus, user_profiles::UserProfile,
+    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
+    ConversationMessageId, DownloadProgress, Message,
+    clients::{CoreUser, attachment::AttachmentRecord},
+    contacts::HandleContact,
+    conversations::persistence::load_message_status,
+    store::MessageWithStatus,
+    user_handles::UserHandleRecord,
+    user_profiles::UserProfile,
 };
 
 use super::{Store, StoreNotification, StoreResult};
@@ -29,6 +34,25 @@ impl Store for CoreUser {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
+    }
+
+    async fn user_handles(&self) -> StoreResult<Vec<UserHandle>> {
+        Ok(UserHandleRecord::load_all_handles(self.pool()).await?)
+    }
+
+    async fn user_handle_records(&self) -> StoreResult<Vec<UserHandleRecord>> {
+        Ok(UserHandleRecord::load_all(self.pool()).await?)
+    }
+
+    async fn add_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<Option<UserHandleRecord>> {
+        self.add_user_handle(user_handle).await
+    }
+
+    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()> {
+        self.remove_user_handle(user_handle).await
     }
 
     async fn create_conversation(
@@ -100,8 +124,8 @@ impl Store for CoreUser {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact(&self, user_id: UserId) -> StoreResult<ConversationId> {
-        self.add_contact(user_id).await
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId> {
+        self.add_contact_via_handle(handle).await
     }
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
@@ -112,8 +136,8 @@ impl Store for CoreUser {
         Ok(self.try_contact(user_id).await?)
     }
 
-    async fn partial_contacts(&self) -> StoreResult<Vec<PartialContact>> {
-        Ok(self.partial_contacts().await?)
+    async fn handle_contacts(&self) -> StoreResult<Vec<HandleContact>> {
+        Ok(self.handle_contacts().await?)
     }
 
     async fn user_profile(&self, user_id: &UserId) -> UserProfile {
@@ -255,6 +279,32 @@ impl Store for CoreUser {
         content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage> {
         self.send_message(conversation_id, content).await
+    }
+
+    async fn upload_attachment(
+        &self,
+        conversation_id: ConversationId,
+        path: &Path,
+    ) -> StoreResult<ConversationMessage> {
+        self.upload_attachment(conversation_id, path).await
+    }
+
+    fn download_attachment(
+        &self,
+        attachment_id: AttachmentId,
+    ) -> (
+        DownloadProgress,
+        impl Future<Output = StoreResult<()>> + use<>,
+    ) {
+        self.download_attachment(attachment_id)
+    }
+
+    async fn pending_attachments(&self) -> StoreResult<Vec<AttachmentId>> {
+        Ok(AttachmentRecord::load_all_pending(self.pool()).await?)
+    }
+
+    async fn load_attachment(&self, attachment_id: AttachmentId) -> StoreResult<AttachmentContent> {
+        Ok(AttachmentRecord::load_content(self.pool(), attachment_id).await?)
     }
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()> {

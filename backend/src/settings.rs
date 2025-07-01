@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::Duration;
 use phnxcommon::DEFAULT_PORT_GRPC;
 use serde::Deserialize;
 
@@ -10,12 +11,14 @@ use serde::Deserialize;
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
-    // If this isn't present, the provider will not send push notifications to
-    // apple devices.
+    /// If this isn't present, the provider will not send push notifications to
+    /// apple devices.
     pub apns: Option<ApnsSettings>,
-    // If this isn't present, the provider will not send push notifications to
-    // android devices.
+    /// If this isn't present, the provider will not send push notifications to
+    /// android devices.
     pub fcm: Option<FcmSettings>,
+    /// If this isn't present, the support for attachments is disabled.
+    pub storage: Option<StorageSettings>,
 }
 
 /// Configuration for the application.
@@ -56,12 +59,38 @@ pub struct ApnsSettings {
     pub privatekeypath: String,
 }
 
+/// Settings for an external object storage provider
+#[derive(Debug, Deserialize, Clone)]
+pub struct StorageSettings {
+    /// Endpoint for the storage provider
+    pub endpoint: String,
+    /// Region for the storage provider
+    pub region: String,
+    /// Access key ID for the storage provider
+    pub access_key_id: String,
+    /// Secret access key for the storage provider
+    pub secret_access_key: String,
+    /// Force path style for the storage provider
+    #[serde(default)]
+    pub force_path_style: bool,
+    /// Expiration for signed upload URLs
+    ///
+    /// Default is 5 minutes.
+    #[serde(default = "default_5min", with = "duration_seconds")]
+    pub upload_expiration: Duration,
+    /// Expiration for signed download URLs
+    ///
+    /// Default is 5 minutes.
+    #[serde(default = "default_5min", with = "duration_seconds")]
+    pub download_expiration: Duration,
+}
+
 impl DatabaseSettings {
     /// Add the TLS mode to the connection string if the CA certificate path is
     /// set.
     fn add_tls_mode(&self, mut connection_string: String) -> String {
         if let Some(ref ca_cert_path) = self.cacertpath {
-            connection_string.push_str(&format!("?sslmode=verify-ca&sslrootcert={}", ca_cert_path));
+            connection_string.push_str(&format!("?sslmode=verify-ca&sslrootcert={ca_cert_path}"));
         } else {
             tracing::warn!(
                 "No CA certificate path set for database connection. TLS will not be enabled."
@@ -91,5 +120,26 @@ impl DatabaseSettings {
     pub fn connection_string_without_database(&self) -> String {
         let connection_string = self.base_connection_string();
         self.add_tls_mode(connection_string)
+    }
+}
+
+fn default_5min() -> Duration {
+    Duration::seconds(5 * 60)
+}
+
+mod duration_seconds {
+    use serde::de;
+
+    use chrono::Duration;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Duration, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let seconds: u64 = serde::Deserialize::deserialize(d)?;
+        let seconds: i64 = seconds
+            .try_into()
+            .map_err(|_| de::Error::custom("out of range"))?;
+        Ok(Duration::seconds(seconds))
     }
 }
