@@ -81,14 +81,14 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // New database name for the QS provider
-    configuration.database.name = format!("{}_qs", base_db_name);
+    configuration.database.name = format!("{base_db_name}_qs");
     // QS storage provider
     let qs = Qs::new(&configuration.database, domain.clone())
         .await
         .expect("Failed to connect to database.");
 
     // New database name for the AS provider
-    configuration.database.name = format!("{}_as", base_db_name);
+    configuration.database.name = format!("{base_db_name}_as");
     let auth_service = AuthService::new(&configuration.database, domain.clone())
         .await
         .expect("Failed to connect to database.");

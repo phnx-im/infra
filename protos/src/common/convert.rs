@@ -4,7 +4,7 @@
 
 use chrono::DateTime;
 use phnxcommon::{
-    credentials::keys::{AsIntermediateSignature, AsSignature, ClientSignature},
+    credentials::keys::{AsIntermediateSignature, AsSignature, ClientSignature, HandleSignature},
     crypto::{
         self,
         ear::{self, AeadCiphertext},
@@ -181,7 +181,7 @@ pub enum InvalidIndexedCiphertext {
 
 impl From<InvalidIndexedCiphertext> for Status {
     fn from(e: InvalidIndexedCiphertext) -> Self {
-        Status::invalid_argument(format!("invalid indexed ciphertext: {}", e))
+        Status::invalid_argument(format!("invalid indexed ciphertext: {e}"))
     }
 }
 
@@ -256,6 +256,20 @@ impl From<ClientSignature> for Signature {
 }
 
 impl From<Signature> for ClientSignature {
+    fn from(value: Signature) -> Self {
+        signable::Signature::from_bytes(value.value)
+    }
+}
+
+impl From<HandleSignature> for Signature {
+    fn from(value: HandleSignature) -> Self {
+        Self {
+            value: value.into_bytes(),
+        }
+    }
+}
+
+impl From<Signature> for HandleSignature {
     fn from(value: Signature) -> Self {
         signable::Signature::from_bytes(value.value)
     }

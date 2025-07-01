@@ -4,7 +4,7 @@
 
 //! List of conversations feature
 
-use std::{pin::pin, sync::Arc};
+use std::sync::Arc;
 
 use flutter_rust_bridge::frb;
 use phnxcommon::identifiers::UserHandle;
@@ -84,7 +84,12 @@ impl ConversationListCubitBase {
     // Cubit methods
 
     /// Creates a new 1:1 connection with the given user via a user handle.
-    pub async fn create_connection(&self, handle: UiUserHandle) -> anyhow::Result<ConversationId> {
+    ///
+    /// Returns `None` if the provided handle does not exist.
+    pub async fn create_connection(
+        &self,
+        handle: UiUserHandle,
+    ) -> anyhow::Result<Option<ConversationId>> {
         let handle = UserHandle::new(handle.plaintext)?;
         self.context.store.add_contact(handle).await
     }
@@ -121,7 +126,7 @@ where
 
     fn spawn(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static,
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
@@ -140,10 +145,9 @@ where
 
     async fn store_notifications_loop(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
+        mut store_notifications: impl Stream<Item = Arc<StoreNotification>> + Unpin,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,

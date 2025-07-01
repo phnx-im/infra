@@ -23,7 +23,7 @@ pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
 pub(crate) async fn open_phnx_db(db_path: &str) -> sqlx::Result<SqlitePool> {
-    let db_url = format!("sqlite://{}/{}", db_path, PHNX_DB_NAME);
+    let db_url = format!("sqlite://{db_path}/{PHNX_DB_NAME}");
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts
         .journal_mode(SqliteJournalMode::Wal)
@@ -116,7 +116,7 @@ fn client_db_name(user_id: &UserId) -> String {
 
 pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Result<SqlitePool> {
     let client_db_name = client_db_name(user_id);
-    let db_url = format!("sqlite://{}/{}", client_db_path, client_db_name);
+    let db_url = format!("sqlite://{client_db_path}/{client_db_name}");
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts
         .journal_mode(SqliteJournalMode::Wal)

@@ -4,7 +4,6 @@
 
 use std::{
     collections::{HashMap, hash_map},
-    pin::pin,
     sync::Arc,
 };
 
@@ -139,7 +138,7 @@ async fn attachment_downloads_loop(
 ) {
     info!("Starting attachments download loop");
 
-    let mut store_notifications = pin!(store.subscribe());
+    let mut store_notifications = store.subscribe();
     loop {
         if cancel.is_cancelled() {
             return;

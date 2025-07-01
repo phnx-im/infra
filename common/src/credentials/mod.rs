@@ -67,7 +67,7 @@ pub struct CredentialFingerprint(Vec<u8>);
 impl std::fmt::Display for CredentialFingerprint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let fp = hex::encode(&self.0);
-        write!(f, "{}", fp)
+        write!(f, "{fp}")
     }
 }
 
@@ -78,7 +78,7 @@ impl CredentialFingerprint {
     }
 
     fn with_label(credential: &impl TlsSerialize, label: &str) -> Self {
-        let hash_label = format!("Infra Credential Fingerprint {}", label);
+        let hash_label = format!("Infra Credential Fingerprint {label}");
         let rust_crypto = OpenMlsRustCrypto::default();
         let payload = credential.tls_serialize_detached().unwrap_or_default();
         let input = [hash_label.as_bytes().to_vec(), payload].concat();
