@@ -67,7 +67,7 @@ impl CoreUser {
         let mut connection_packages = Vec::with_capacity(connection_package_bundles.len());
         for (decryption_key, connection_package) in connection_package_bundles {
             connection_package
-                .store_for_handle(&mut *txn, handle, &decryption_key)
+                .store_for_handle(&mut txn, handle, &decryption_key)
                 .await?;
             connection_packages.push(connection_package);
         }
