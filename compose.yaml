@@ -29,9 +29,7 @@ services:
       - ${COMPOSE_BIND_HOST:-127.0.0.1}:5432:5432
     volumes:
       - postgres_data:/var/lib/postgresql/data:z
-      - ./backend/test_certs/server.crt:/etc/postgresql/certs/server.crt:ro,z
-      - ./backend/test_certs/server.key:/etc/postgresql/certs/server.key:ro,z
-      - ./backend/test_certs/root.crt:/etc/postgresql/certs/root.crt:ro,z
+      - ./backend/test_certs:/etc/postgresql/certs:Z
 
   minio:
     image: minio/minio:latest
