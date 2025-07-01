@@ -48,6 +48,7 @@ use url::Url;
 use crate::{
     Asset,
     contacts::HandleContact,
+    conversations::persistence::persist_message_status_report,
     groups::Group,
     store::Store,
     utils::{image::resize_profile_image, persistence::delete_client_database},
@@ -530,7 +531,7 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> sqlx::Result<bool> {
+    ) -> sqlx::Result<(bool, Vec<Vec<u8>>)> {
         let mut notifier = self.store_notifier();
         let marked_as_read = Conversation::mark_as_read_until_message_id(
             self.pool().acquire().await?.as_mut(),
@@ -688,5 +689,18 @@ impl CoreUser {
         let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
+    }
+
+    pub async fn persist_message_status_report(
+        &self,
+        sender: &UserId,
+        status_report: &mimi_content::MessageStatusReport,
+    ) -> anyhow::Result<()> {
+        self.with_transaction(async |txn| {
+            persist_message_status_report(txn, sender, status_report).await
+        })
+        .await?;
+
+        Ok(())
     }
 }

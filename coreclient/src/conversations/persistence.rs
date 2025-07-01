@@ -437,7 +437,7 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
         until_message_id: ConversationMessageId,
-    ) -> sqlx::Result<bool> {
+    ) -> sqlx::Result<(bool, Vec<Vec<u8>>)> {
         let timestamp: Option<DateTime<Utc>> = query_scalar!(
             r#"SELECT
                 timestamp AS "timestamp: _"
@@ -448,21 +448,43 @@ impl Conversation {
         .await?;
 
         let Some(timestamp) = timestamp else {
-            return Ok(false);
+            return Ok((false, Vec::new()));
         };
+
+        let old_timestamp = query!(
+            "SELECT last_read FROM conversations
+            WHERE conversation_id = ?",
+            conversation_id,
+        )
+        .fetch_one(&mut *connection)
+        .await?
+        .last_read;
+
+        let new_marked_as_read = query!(
+            "SELECT mimi_id FROM conversation_messages
+            WHERE conversation_id = ? AND timestamp > ?",
+            conversation_id,
+            old_timestamp,
+        )
+        .fetch(&mut *connection)
+        .filter_map(|record| record.unwrap().mimi_id)
+        .collect::<Vec<_>>()
+        .await;
+
         let updated = query!(
             "UPDATE conversations SET last_read = ?1
             WHERE conversation_id = ?2 AND last_read != ?1",
             timestamp,
             conversation_id,
         )
-        .execute(connection)
+        .execute(&mut *connection)
         .await?;
+
         let marked_as_read = updated.rows_affected() == 1;
         if marked_as_read {
             notifier.update(conversation_id);
         }
-        Ok(marked_as_read)
+        Ok((marked_as_read, new_marked_as_read))
     }
 
     pub(crate) async fn global_unread_message_count(
@@ -619,6 +641,9 @@ pub async fn persist_message_status_report(
     report: &MessageStatusReport,
 ) -> anyhow::Result<()> {
     let (sender_uuid, sender_domain) = sender.clone().into_parts();
+
+    dbg!(sender);
+    dbg!(report);
 
     for update in &report.statuses {
         let mimi_id = &update.mimi_id.to_vec();

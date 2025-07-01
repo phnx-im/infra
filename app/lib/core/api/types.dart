@@ -246,6 +246,7 @@ class UiConversationMessage {
   final UiMessage message;
   final UiFlightPosition position;
   final List<UiUserId> deliveryStatus;
+  final List<UiUserId> readStatus;
 
   const UiConversationMessage({
     required this.conversationId,
@@ -254,6 +255,7 @@ class UiConversationMessage {
     required this.message,
     required this.position,
     required this.deliveryStatus,
+    required this.readStatus,
   });
 
   bool isHidden() => RustLib.instance.api
@@ -266,7 +268,8 @@ class UiConversationMessage {
       timestamp.hashCode ^
       message.hashCode ^
       position.hashCode ^
-      deliveryStatus.hashCode;
+      deliveryStatus.hashCode ^
+      readStatus.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -278,7 +281,8 @@ class UiConversationMessage {
           timestamp == other.timestamp &&
           message == other.message &&
           position == other.position &&
-          deliveryStatus == other.deliveryStatus;
+          deliveryStatus == other.deliveryStatus &&
+          readStatus == other.readStatus;
 }
 
 @freezed

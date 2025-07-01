@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{Context, Result, bail, ensure};
-use mimi_content::{Disposition, MessageStatusReport, MimiContent, NestedPartContent};
+use mimi_content::{
+    Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPartContent,
+};
 use openmls::{
     group::QueuedProposal,
     prelude::{MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage, Sender},
@@ -311,11 +313,12 @@ impl CoreUser {
             if let Message::Content(content_message) = message.message() {
                 if content_message.content().nested_part.disposition == Disposition::Render {
                     // Construct a delivery receipt for the message we just received
-                    let Ok((status_report, message)) = MimiContent::simple_delivery_receipt(
+                    let Ok((status_report, message)) = MimiContent::simple_receipt(
                         &[content_message.mimi_id()],
                         phnxcommon::crypto::secrets::Secret::<16>::random()
                             .unwrap()
                             .secret(),
+                        MessageStatus::Delivered,
                     ) else {
                         // There was an error constructing this delivery receipt message
                         continue;

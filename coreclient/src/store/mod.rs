@@ -31,6 +31,7 @@ pub type StoreResult<T> = anyhow::Result<T>;
 pub struct MessageWithStatus {
     pub message: ConversationMessage,
     pub delivery_status: Vec<UserId>,
+    pub read_status: Vec<UserId>,
 }
 
 /// Unified access to the client data
@@ -90,7 +91,7 @@ pub trait Store {
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> StoreResult<bool>;
+    ) -> StoreResult<(bool, Vec<Vec<u8>>)>;
 
     /// Delete the conversation with the given [`ConversationId`].
     ///

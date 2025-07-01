@@ -12,7 +12,7 @@ use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::MimiContent;
+use mimi_content::{MessageStatus, MimiContent};
 use phnxcoreclient::{ConversationId, store::StoreNotification};
 use phnxcoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
 use tls_codec::Serialize;
@@ -177,6 +177,7 @@ impl ConversationDetailsCubitBase {
         until_message_id: ConversationMessageId,
         until_timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
+        dbg!();
         let scheduled = self
             .context
             .mark_as_read_tx
@@ -203,9 +204,11 @@ impl ConversationDetailsCubitBase {
                     false // already scheduled at a later timestamp
                 }
             });
+        dbg!();
         if !scheduled {
             return Ok(());
         }
+        dbg!();
 
         // debounce
         const MARK_AS_READ_DEBOUNCE: Duration = Duration::from_secs(2);
@@ -215,6 +218,7 @@ impl ConversationDetailsCubitBase {
             _ = sleep(MARK_AS_READ_DEBOUNCE) => {},
         };
 
+        dbg!();
         // check if the scheduled state is still valid and if so, mark it as read
         let scheduled = self
             .context
@@ -231,14 +235,45 @@ impl ConversationDetailsCubitBase {
                 }
                 _ => false,
             });
+        dbg!();
         if !scheduled {
             return Ok(());
+        }
+        dbg!();
+
+        let marked_as_read = self
+            .context
+            .store
+            .mark_conversation_as_read(self.context.conversation_id, until_message_id)
+            .await?;
+        dbg!();
+
+        let Ok((status_report, message)) = MimiContent::simple_receipt(
+            &marked_as_read.1.iter().map(|v| &**v).collect::<Vec<_>>(),
+            phnxcommon::crypto::secrets::Secret::<16>::random()
+                .unwrap()
+                .secret(),
+            MessageStatus::Read,
+        ) else {
+            // There was an error constructing this delivery receipt message
+            return Ok(());
+        };
+        dbg!();
+
+        if let Err(e) = self
+            .context
+            .store
+            .send_message(self.context.conversation_id, message)
+            .await
+        {
+            error!(%e, "Could not send delivery receipt");
         }
 
         self.context
             .store
-            .mark_conversation_as_read(self.context.conversation_id, until_message_id)
+            .persist_message_status_report(self.context.store.user_id(), &status_report)
             .await?;
+
         Ok(())
     }
 }

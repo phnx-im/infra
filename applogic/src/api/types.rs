@@ -206,6 +206,7 @@ pub struct UiConversationMessage {
     pub message: UiMessage,
     pub position: UiFlightPosition,
     pub delivery_status: Vec<UiUserId>,
+    pub read_status: Vec<UiUserId>,
 }
 
 impl UiConversationMessage {
@@ -226,6 +227,7 @@ impl UiConversationMessage {
         Self::with_status(MessageWithStatus {
             message: conversation_message,
             delivery_status: Vec::new(),
+            read_status: Vec::new(),
         })
     }
 
@@ -239,6 +241,11 @@ impl UiConversationMessage {
             position: UiFlightPosition::Single,
             delivery_status: message
                 .delivery_status
+                .into_iter()
+                .map(|u| UiUserId::from(u))
+                .collect(),
+            read_status: message
+                .read_status
                 .into_iter()
                 .map(|u| UiUserId::from(u))
                 .collect(),

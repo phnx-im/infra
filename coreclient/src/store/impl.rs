@@ -177,14 +177,23 @@ impl Store for CoreUser {
                 )
                 .await?;
 
+                let read_status = load_message_status(
+                    &mut connection,
+                    content_message.mimi_id(),
+                    MessageStatus::Delivered,
+                )
+                .await?;
+
                 result.push(MessageWithStatus {
                     message,
                     delivery_status,
+                    read_status,
                 });
             } else {
                 result.push(MessageWithStatus {
                     message,
                     delivery_status: Vec::new(),
+                    read_status: Vec::new(),
                 });
             }
         }
@@ -210,14 +219,23 @@ impl Store for CoreUser {
             )
             .await?;
 
+            let read_status = load_message_status(
+                &mut connection,
+                content_message.mimi_id(),
+                MessageStatus::Read,
+            )
+            .await?;
+
             Ok(Some(MessageWithStatus {
                 message,
                 delivery_status,
+                read_status,
             }))
         } else {
             Ok(Some(MessageWithStatus {
                 message,
                 delivery_status: Vec::new(),
+                read_status: Vec::new(),
             }))
         }
     }
@@ -267,7 +285,7 @@ impl Store for CoreUser {
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> StoreResult<bool> {
+    ) -> StoreResult<(bool, Vec<Vec<u8>>)> {
         Ok(self
             .mark_conversation_as_read(conversation_id, until)
             .await?)

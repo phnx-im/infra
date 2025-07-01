@@ -5836,8 +5836,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiConversationMessage dco_decode_ui_conversation_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return UiConversationMessage(
       conversationId: dco_decode_conversation_id(arr[0]),
       id: dco_decode_conversation_message_id(arr[1]),
@@ -5845,6 +5845,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       message: dco_decode_ui_message(arr[3]),
       position: dco_decode_ui_flight_position(arr[4]),
       deliveryStatus: dco_decode_list_ui_user_id(arr[5]),
+      readStatus: dco_decode_list_ui_user_id(arr[6]),
     );
   }
 
@@ -7893,6 +7894,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_message = sse_decode_ui_message(deserializer);
     var var_position = sse_decode_ui_flight_position(deserializer);
     var var_deliveryStatus = sse_decode_list_ui_user_id(deserializer);
+    var var_readStatus = sse_decode_list_ui_user_id(deserializer);
     return UiConversationMessage(
       conversationId: var_conversationId,
       id: var_id,
@@ -7900,6 +7902,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       message: var_message,
       position: var_position,
       deliveryStatus: var_deliveryStatus,
+      readStatus: var_readStatus,
     );
   }
 
@@ -10082,6 +10085,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_ui_message(self.message, serializer);
     sse_encode_ui_flight_position(self.position, serializer);
     sse_encode_list_ui_user_id(self.deliveryStatus, serializer);
+    sse_encode_list_ui_user_id(self.readStatus, serializer);
   }
 
   @protected
