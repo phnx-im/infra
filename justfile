@@ -15,7 +15,6 @@ run-services: generate-db-certs
     if {{docker-is-podman}} == "true"; then \
         podman rm infra_minio-setup_1 -i; \
         podman-compose --podman-run-args=--replace up -d; \
-        podman wait --condition healthy infra_postgres_1; \
     else \
         docker compose up --wait --wait-timeout=300; \
     fi
