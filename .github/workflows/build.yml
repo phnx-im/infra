@@ -67,6 +67,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Podman Compose
+        run: sudo apt-get update && sudo apt-get install podman podman-compose -y
+
       - name: Set up Just
         uses: extractions/setup-just@v2
 
