@@ -13,7 +13,7 @@ docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } els
 # run docker compose services in the background
 run-services: generate-db-certs
     if {{docker-is-podman}} == "true"; then \
-        podman rm infra_minio-setup_1 -i; \
+        podman rm infra_minio-setup_1 -i 2>&1 /dev/null; \
         podman-compose --podman-run-args=--replace up -d; \
         podman-compose ps; \
         podman logs infra_postgres_1; \

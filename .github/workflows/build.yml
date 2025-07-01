@@ -14,9 +14,6 @@ on:
 
 env:
   SQLX_OFFLINE: true
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: password
-  POSTGRES_DB: phnx_db
 
 jobs:
   rust-check-dependencies:
