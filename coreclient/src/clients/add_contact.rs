@@ -13,8 +13,8 @@ use phnxcommon::{
     },
     identifiers::{QsReference, UserHandle, UserId},
     messages::{
-        client_as::{ConnectionOfferMessage, ConnectionPackage},
-        client_ds_out::CreateGroupParamsOut,
+        client_as::ConnectionOfferMessage, client_ds_out::CreateGroupParamsOut,
+        connection_package::ConnectionPackage,
     },
 };
 use sqlx::SqliteTransaction;
@@ -25,9 +25,7 @@ use crate::{
     clients::connection_offer::FriendshipPackage,
     contacts::HandleContact,
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
-    key_stores::{
-        MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
-    },
+    key_stores::{MemoryUserKeyStore, indexed_keys::StorableIndexedKey},
     store::StoreNotifier,
 };
 
@@ -55,15 +53,7 @@ impl CoreUser {
             };
 
         // Phase 2: Verify the connection package
-        let as_intermediate_credential = AsCredentials::get(
-            self.pool().acquire().await?.as_mut(),
-            &self.inner.api_clients,
-            self.user_id().domain(),
-            connection_package.client_credential_signer_fingerprint(),
-        )
-        .await?;
-        let verifying_key = as_intermediate_credential.verifying_key();
-        let verified_connection_package = connection_package.verify(verifying_key)?;
+        let verified_connection_package = connection_package.verify()?;
 
         // Phase 3: Prepare the connection locally
         let group_id = client.ds_request_group_id().await?;

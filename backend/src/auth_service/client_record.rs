@@ -32,11 +32,6 @@ impl ClientRecord {
     }
 
     #[cfg(test)]
-    pub(super) fn credential(&self) -> &ClientCredential {
-        &self.credential
-    }
-
-    #[cfg(test)]
     fn user_id(&self) -> &UserId {
         self.credential.identity()
     }
