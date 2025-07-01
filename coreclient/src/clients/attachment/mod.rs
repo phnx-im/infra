@@ -98,7 +98,7 @@ impl fmt::Display for AttachmentUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "phnx:///attachment/{}", self.attachment_id.uuid)?;
         if let Some((width, height)) = self.dimensions {
-            write!(f, "?width={}&height={}", width, height)?;
+            write!(f, "?width={width}&height={height}")?;
         }
         Ok(())
     }

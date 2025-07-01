@@ -4,12 +4,11 @@
 
 use std::{
     collections::{HashMap, hash_map},
-    pin::pin,
     sync::Arc,
 };
 
 use anyhow::{Context, bail};
-use flutter_rust_bridge::frb;
+use flutter_rust_bridge::{DartFnFuture, frb};
 use phnxcommon::identifiers::AttachmentId;
 use phnxcoreclient::{
     AttachmentContent, DownloadProgress, DownloadProgressEvent,
@@ -55,7 +54,11 @@ impl AttachmentsRepository {
         }
     }
 
-    pub async fn load_attachment(&self, attachment_id: AttachmentId) -> anyhow::Result<Vec<u8>> {
+    pub async fn load_image_attachment(
+        &self,
+        attachment_id: AttachmentId,
+        chunk_event_callback: impl Fn(u64) -> DartFnFuture<()> + Send + 'static,
+    ) -> anyhow::Result<Vec<u8>> {
         match self.store.load_attachment(attachment_id).await? {
             AttachmentContent::Ready(bytes) => Ok(bytes),
             AttachmentContent::Pending => {
@@ -66,12 +69,14 @@ impl AttachmentsRepository {
                     &self.cancel,
                     attachment_id,
                 );
-                self.track_attachment_download(attachment_id, handle).await
+                self.track_attachment_download(attachment_id, handle, chunk_event_callback)
+                    .await
             }
             AttachmentContent::Downloading => {
                 let handle = self.in_progress.lock().await.get(&attachment_id).cloned();
                 if let Some(handle) = handle {
-                    self.track_attachment_download(attachment_id, handle).await
+                    self.track_attachment_download(attachment_id, handle, chunk_event_callback)
+                        .await
                 } else {
                     match self.store.load_attachment(attachment_id).await? {
                         AttachmentContent::Ready(bytes) => Ok(bytes),
@@ -90,23 +95,30 @@ impl AttachmentsRepository {
         &self,
         attachment_id: AttachmentId,
         mut handle: DownloadTaskHandle,
+        chunk_event_callback: impl Fn(u64) -> DartFnFuture<()> + Send + 'static,
     ) -> anyhow::Result<Vec<u8>> {
-        debug!(
-            ?attachment_id,
-            "Waiting for attachment download to complete"
-        );
-        match handle.progress.wait_for_completion().await {
-            DownloadProgressEvent::Completed => self
-                .store
-                .load_attachment(attachment_id)
-                .await?
-                .into_bytes()
-                .context("Attachment download failed"),
-            DownloadProgressEvent::Failed => bail!("Attachment download failed"),
-            status => {
-                bail!("logic error: download task completed with unexpected status: {status:?}")
+        debug!(?attachment_id, "Tracking attachment download");
+        let mut events_stream = handle.progress.stream();
+        while let Some(event) = events_stream.next().await {
+            match event {
+                DownloadProgressEvent::Init => {
+                    chunk_event_callback(0).await;
+                }
+                DownloadProgressEvent::Progress { bytes_loaded } => {
+                    chunk_event_callback(bytes_loaded.try_into()?).await;
+                }
+                DownloadProgressEvent::Completed => {
+                    return self
+                        .store
+                        .load_attachment(attachment_id)
+                        .await?
+                        .into_bytes()
+                        .context("Attachment download failed");
+                }
+                DownloadProgressEvent::Failed => bail!("Attachment download failed"),
             }
         }
+        bail!("Attachment download aborted")
     }
 }
 
@@ -126,7 +138,7 @@ async fn attachment_downloads_loop(
 ) {
     info!("Starting attachments download loop");
 
-    let mut store_notifications = pin!(store.subscribe());
+    let mut store_notifications = store.subscribe();
     loop {
         if cancel.is_cancelled() {
             return;
