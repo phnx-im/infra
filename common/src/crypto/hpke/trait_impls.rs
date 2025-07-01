@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use sqlx::{
-    Database, Postgres, Type,
+    Database, Postgres, Sqlite, Type,
     decode::Decode,
     encode::{Encode, IsNull},
     error::BoxDynError,
@@ -11,9 +11,10 @@ use sqlx::{
         PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef,
         types::{PgRecordDecoder, PgRecordEncoder},
     },
+    sqlite::SqliteTypeInfo,
 };
 
-use crate::crypto::secrets::SecretBytes;
+use crate::{codec::PhnxCodec, crypto::secrets::SecretBytes};
 
 use super::{DecryptionKey, EncryptionKey};
 
@@ -87,6 +88,29 @@ impl<KT> Type<Postgres> for DecryptionKey<KT> {
 impl<KT> PgHasArrayType for DecryptionKey<KT> {
     fn array_type_info() -> PgTypeInfo {
         PgTypeInfo::array_of("decryption_key_data")
+    }
+}
+
+impl<KT> Type<Sqlite> for DecryptionKey<KT> {
+    fn type_info() -> SqliteTypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+impl<KT> Encode<'_, Sqlite> for DecryptionKey<KT> {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+    ) -> Result<IsNull, BoxDynError> {
+        let bytes = PhnxCodec::to_vec(self).map_err(BoxDynError::from)?;
+        <Vec<u8> as Encode<'_, Sqlite>>::encode_by_ref(&bytes, buf)
+    }
+}
+
+impl<'r, KT> Decode<'r, Sqlite> for DecryptionKey<KT> {
+    fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes = <Vec<u8> as Decode<'r, Sqlite>>::decode(value)?;
+        PhnxCodec::from_slice(&bytes).map_err(BoxDynError::from)
     }
 }
 

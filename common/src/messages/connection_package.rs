@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use chrono::Duration;
 use mls_assist::{
     openmls::prelude::HashType, openmls_rust_crypto::RustCrypto,
     openmls_traits::crypto::OpenMlsCrypto,
@@ -10,9 +11,21 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{credentials::keys::HandleSignature, crypto::ConnectionEncryptionKey};
+use crate::{
+    LibraryError,
+    credentials::keys::{HandleSignature, HandleSigningKey},
+    crypto::{
+        ConnectionDecryptionKey, ConnectionEncryptionKey, errors::RandomnessError,
+        signatures::signable::Signable,
+    },
+    identifiers::UserHandleHash,
+    messages::MlsInfraVersion,
+    time::{ExpirationData, TimeStamp},
+};
 
 pub use payload::{ConnectionPackageIn, ConnectionPackagePayload};
+
+pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 mod payload {
     use super::*;
@@ -151,8 +164,32 @@ pub struct ConnectionPackage {
     signature: HandleSignature,
 }
 
+#[derive(Debug, Error)]
+pub enum ConnectionPackageError {
+    #[error(transparent)]
+    LibraryError(#[from] LibraryError),
+    #[error("Error generating decryption key: {0}")]
+    DecryptionKeyError(#[from] RandomnessError),
+}
+
 impl ConnectionPackage {
-    pub fn new(payload: ConnectionPackagePayload, signature: HandleSignature) -> Self {
+    pub fn new(
+        user_handle_hash: UserHandleHash,
+        signing_key: &HandleSigningKey,
+    ) -> Result<(ConnectionDecryptionKey, Self), ConnectionPackageError> {
+        let decryption_key = ConnectionDecryptionKey::generate()?;
+        let payload = ConnectionPackagePayload {
+            protocol_version: MlsInfraVersion::default(),
+            user_handle_hash,
+            encryption_key: decryption_key.encryption_key().clone(),
+            lifetime: ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION),
+            verifying_key: signing_key.verifying_key().clone(),
+        };
+        let connection_package = payload.sign(signing_key)?;
+        Ok((decryption_key, connection_package))
+    }
+
+    pub fn from_parts(payload: ConnectionPackagePayload, signature: HandleSignature) -> Self {
         Self { payload, signature }
     }
 
@@ -179,12 +216,44 @@ impl ConnectionPackage {
         ConnectionPackageHash(value)
     }
 
+    pub fn expires_at(&self) -> TimeStamp {
+        self.payload.lifetime.not_after()
+    }
+
     #[cfg(feature = "test_utils")]
     pub fn new_for_test(payload: ConnectionPackagePayload, signature: HandleSignature) -> Self {
         Self { payload, signature }
     }
 }
 
+mod sqlx_impls {
+    use sqlx::{Database, Decode, Encode, Sqlite, Type, error::BoxDynError};
+
+    use super::*;
+
+    impl Type<Sqlite> for ConnectionPackageHash {
+        fn type_info() -> <Sqlite as Database>::TypeInfo {
+            <Vec<u8> as Type<Sqlite>>::type_info()
+        }
+    }
+
+    impl Encode<'_, Sqlite> for ConnectionPackageHash {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
+        ) -> Result<sqlx::encode::IsNull, BoxDynError> {
+            let bytes = self.to_bytes().to_vec();
+            <Vec<u8> as Encode<Sqlite>>::encode_by_ref(&bytes, buf)
+        }
+    }
+
+    impl Decode<'_, Sqlite> for ConnectionPackageHash {
+        fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
+            let bytes: Vec<u8> = <Vec<u8> as Decode<Sqlite>>::decode(value)?;
+            Self::try_from(bytes).map_err(BoxDynError::from)
+        }
+    }
+}
 pub mod legacy {
     use super::*;
 
