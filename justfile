@@ -171,7 +171,7 @@ test-flutter *args='':
     flutter test {{args}}
 
 # run backend server (at localhost)
-run-backend: init-db
+run-backend: init-backend-db
     cargo run --bin phnxserver
 
 # Build Windows app
