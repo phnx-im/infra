@@ -12,8 +12,9 @@ pub(crate) mod persistence;
 pub(in crate::auth_service) enum StorableConnectionPackage {
     // This is here so we successfully deserialize old connection packages.
     #[allow(dead_code)]
+    #[serde(rename = "CurrentVersion")]
     V1(ConnectionPackageV1),
-    CurrentVersion(ConnectionPackage),
+    V2(ConnectionPackage),
 }
 
 #[derive(Debug, Error)]
@@ -33,7 +34,7 @@ impl TryFrom<StorableConnectionPackage> for ConnectionPackage {
 
     fn try_from(connection_package: StorableConnectionPackage) -> Result<Self, Self::Error> {
         match connection_package {
-            StorableConnectionPackage::CurrentVersion(connection_package) => Ok(connection_package),
+            StorableConnectionPackage::V2(connection_package) => Ok(connection_package),
             StorableConnectionPackage::V1(_) => {
                 Err(ConnectionPackageStorageError::InvalidVersion {
                     actual: "V1".to_string(),
@@ -45,17 +46,17 @@ impl TryFrom<StorableConnectionPackage> for ConnectionPackage {
 
 impl From<ConnectionPackage> for StorableConnectionPackage {
     fn from(connection_package: ConnectionPackage) -> Self {
-        StorableConnectionPackage::CurrentVersion(connection_package)
+        StorableConnectionPackage::V2(connection_package)
     }
 }
 
 #[derive(Serialize)]
 pub(in crate::auth_service) enum StorableConnectionPackageRef<'a> {
-    CurrentVersion(&'a ConnectionPackage),
+    V2(&'a ConnectionPackage),
 }
 
 impl<'a> From<&'a ConnectionPackage> for StorableConnectionPackageRef<'a> {
     fn from(connection_package: &'a ConnectionPackage) -> Self {
-        StorableConnectionPackageRef::CurrentVersion(connection_package)
+        StorableConnectionPackageRef::V2(connection_package)
     }
 }
