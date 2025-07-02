@@ -39,7 +39,7 @@ impl StorableConnectionPackage for ConnectionPackage {
         let not_after = self.expires_at();
         query!(
             "INSERT INTO connection_packages
-                 (connection_package_hash, handle, decryption_key, expires_at) 
+                 (connection_package_hash, handle, decryption_key, expires_at)
                  VALUES ($1, $2, $3, $4)",
             hash,
             handle,
@@ -57,9 +57,9 @@ impl StorableConnectionPackage for ConnectionPackage {
         hash: &ConnectionPackageHash,
     ) -> Result<Option<ConnectionDecryptionKey>> {
         query_scalar!(
-            r#"SELECT decryption_key 
-                AS "decryption_key: _" 
-            FROM connection_packages 
+            r#"SELECT decryption_key
+                AS "decryption_key: _"
+            FROM connection_packages
             WHERE connection_package_hash = $1"#,
             hash
         )
