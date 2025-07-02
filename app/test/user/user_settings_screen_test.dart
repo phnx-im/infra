@@ -18,22 +18,26 @@ void main() {
   group('UserSettingsScreenTest', () {
     late MockUserCubit userCubit;
     late MockUsersCubit contactsCubit;
+    late MockUserSettingsCubit userSettingsCubit;
 
     setUp(() async {
       userCubit = MockUserCubit();
       contactsCubit = MockUsersCubit();
+      userSettingsCubit = MockUserSettingsCubit();
 
       when(() => contactsCubit.state).thenReturn(
         MockUsersState(
           profiles: [UiUserProfile(userId: 1.userId(), displayName: "ellie")],
         ),
       );
+      when(() => userSettingsCubit.state).thenReturn(const UserSettings());
     });
 
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<UserCubit>.value(value: userCubit),
         BlocProvider<UsersCubit>.value(value: contactsCubit),
+        BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
       ],
       child: Builder(
         builder: (context) {
