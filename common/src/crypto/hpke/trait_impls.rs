@@ -110,7 +110,7 @@ impl<KT> Encode<'_, Sqlite> for DecryptionKey<KT> {
 impl<'r, KT> Decode<'r, Sqlite> for DecryptionKey<KT> {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        PhnxCodec::from_slice(&bytes).map_err(BoxDynError::from)
+        PhnxCodec::from_slice(bytes).map_err(BoxDynError::from)
     }
 }
 
