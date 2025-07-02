@@ -4,15 +4,11 @@
 
 use phnxcommon::{
     identifiers::UserHandleHash,
-    messages::{client_as::ConnectionPackage, client_as_out::ConnectionPackageIn},
+    messages::connection_package::{ConnectionPackage, ConnectionPackageIn},
 };
-use tracing::error;
 
 use crate::{
-    auth_service::{
-        AuthService, connection_package::StorableConnectionPackage,
-        credentials::intermediate_signing_key::IntermediateCredential,
-    },
+    auth_service::{AuthService, connection_package::StorableConnectionPackage},
     errors::auth_service::PublishConnectionPackageError,
 };
 
@@ -22,22 +18,11 @@ impl AuthService {
         hash: &UserHandleHash,
         connection_packages: Vec<ConnectionPackageIn>,
     ) -> Result<(), PublishConnectionPackageError> {
-        let as_intermediate_credentials = IntermediateCredential::load_all(&self.db_pool)
-            .await
-            .map_err(|error| {
-                error!(%error, "Error loading intermediate credentials");
-                PublishConnectionPackageError::StorageError
-            })?;
-
         // TODO(#496): Last resort connection package
         let connection_packages = connection_packages
             .into_iter()
             .map(|cp| {
-                let verifying_credential = as_intermediate_credentials
-                    .iter()
-                    .find(|aic| aic.fingerprint() == cp.client_credential_signer_fingerprint())
-                    .ok_or(PublishConnectionPackageError::InvalidKeyPackage)?;
-                cp.verify(verifying_credential.verifying_key())
+                cp.verify()
                     .map_err(|_| PublishConnectionPackageError::InvalidKeyPackage)
             })
             .collect::<Result<Vec<ConnectionPackage>, PublishConnectionPackageError>>()?;

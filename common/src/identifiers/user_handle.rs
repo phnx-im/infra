@@ -6,8 +6,9 @@ use std::fmt;
 use argon2::Argon2;
 use chrono::Duration;
 use displaydoc::Display;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tls_codec::{TlsSerialize, TlsSize};
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use super::TlsString;
 
@@ -18,7 +19,7 @@ const USER_HANDLE_CHARSET: &[u8] = b"_0123456789abcdefghijklmnopqrstuvwxyz";
 pub const USER_HANDLE_VALIDITY_PERIOD: Duration = Duration::days(30);
 
 /// Validated plaintext user handle
-#[derive(Clone, PartialEq, Eq, Hash, TlsSize, TlsSerialize)]
+#[derive(Clone, PartialEq, Eq, Hash, TlsSize, TlsSerialize, TlsDeserializeBytes)]
 pub struct UserHandle {
     plaintext: TlsString,
 }
@@ -76,7 +77,9 @@ impl UserHandle {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, TlsSerialize, TlsSize, Serialize, Deserialize,
+)]
 pub struct UserHandleHash {
     hash: [u8; 32],
 }
