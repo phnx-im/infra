@@ -212,7 +212,6 @@ impl ConnectionPackage {
             .try_into()
             // Output length of `hash` is always 32 bytes
             .unwrap();
-        debug_assert!(!value.is_empty());
         ConnectionPackageHash(value)
     }
 
