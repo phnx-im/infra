@@ -4,6 +4,7 @@
 
 use mimi_content::MimiContent;
 use openmls::framing::ApplicationMessage;
+use tls_codec::Serialize;
 use tracing::warn;
 
 use crate::{
@@ -49,7 +50,7 @@ impl TimestampedMessage {
         ds_timestamp: TimeStamp,
         user_id: &UserId,
         group: &Group,
-    ) -> Result<Self, mimi_content::Error> {
+    ) -> anyhow::Result<Self> {
         let message = match MimiContent::deserialize(&application_message.into_bytes()) {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
                 user_id.clone(),
@@ -143,7 +144,7 @@ impl ConversationMessage {
         conversation_message_id: ConversationMessageId,
         content: MimiContent,
         group_id: &GroupId,
-    ) -> Result<ConversationMessage, mimi_content::Error> {
+    ) -> anyhow::Result<ConversationMessage> {
         let message = Message::Content(Box::new(ContentMessage::new(
             sender, false, content, group_id,
         )?));
@@ -282,8 +283,8 @@ impl ContentMessage {
         sent: bool,
         content: MimiContent,
         group_id: &GroupId,
-    ) -> Result<Self, mimi_content::Error> {
-        let mimi_id = content.message_id(sender.uuid().as_bytes(), group_id.as_slice())?;
+    ) -> anyhow::Result<Self> {
+        let mimi_id = content.message_id(&sender.tls_serialize_detached()?, group_id.as_slice())?;
 
         Ok(Self {
             sender,

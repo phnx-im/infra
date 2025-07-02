@@ -264,9 +264,7 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
         group.store_update(&mut *connection).await?;
 
         // Also, mark the message (and all messages preceeding it) as read.
-        dbg!();
         if mark_as_read {
-            dbg!();
             Conversation::mark_as_read_until_message_id(
                 connection,
                 notifier,

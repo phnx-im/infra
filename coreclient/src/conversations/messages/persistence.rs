@@ -423,7 +423,7 @@ pub(crate) mod tests {
             ContentMessage::new(
                 UserId::random("localhost".parse().unwrap()),
                 false,
-                MimiContent::simple_markdown_message("Hello world!".to_string(), b"test_salt"),
+                MimiContent::simple_markdown_message("Hello world!".to_string(), [0; 16]), // simple salt for testing
                 &GroupId::from_slice(&[0]),
             )
             .unwrap(),
@@ -596,7 +596,7 @@ pub(crate) mod tests {
     static VERSIONED_MESSAGE: LazyLock<VersionedMessage> = LazyLock::new(|| {
         VersionedMessage::from_mimi_content(&MimiContent::simple_markdown_message(
             "Hello world!".to_string(),
-            b"test_salt",
+            [0; 16], // simple salt for testing
         ))
         .unwrap()
     });

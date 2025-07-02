@@ -213,7 +213,6 @@ impl CoreUser {
         mls_message: MlsMessageIn,
         ds_timestamp: TimeStamp,
     ) -> Result<ProcessQsMessageResult> {
-        dbg!("HANDLE MLS MESSAGE");
         let protocol_message: ProtocolMessage = match mls_message.extract() {
             MlsMessageBodyIn::PublicMessage(handshake_message) =>
                 handshake_message.into(),
@@ -318,7 +317,7 @@ impl CoreUser {
                     // Construct a delivery receipt for the message we just received
                     let Ok((status_report, message)) = MimiContent::simple_receipt(
                         &[content_message.mimi_id()],
-                        phnxcommon::crypto::secrets::Secret::<16>::random()
+                        *phnxcommon::crypto::secrets::Secret::<16>::random()
                             .unwrap()
                             .secret(),
                         MessageStatus::Delivered,
@@ -355,7 +354,6 @@ impl CoreUser {
 
         notifier.notify();
 
-        dbg!("HANDLE MLS MESSAGE DONE");
         Ok(res)
     }
 

@@ -590,7 +590,7 @@ impl TestBackend {
             .take(32)
             .map(char::from)
             .collect();
-        let orig_message = MimiContent::simple_markdown_message(message, b"test_salt");
+        let orig_message = MimiContent::simple_markdown_message(message, [0; 16]); // we use a simple salt for tests
         let test_sender = self.users.get_mut(sender_id).unwrap();
         let sender = &mut test_sender.user;
 

@@ -313,13 +313,14 @@ mod tests {
                     ContentMessage::new(
                         sender.clone(),
                         true,
-                        MimiContent::simple_markdown_message("some content".into(), b"test_salt"),
+                        MimiContent::simple_markdown_message("some content".into(), [0; 16]), // simple seed for testing
                         &GroupId::from_slice(&[0]),
                     )
                     .unwrap(),
                 ),
             ),
             delivery_status: Vec::new(),
+            read_status: Vec::new(),
         }
     }
 
