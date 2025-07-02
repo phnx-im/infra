@@ -14,9 +14,9 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 part 'types.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_user_id`, `load_from_conversation_type`, `timestamp`
+// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_user_id`, `is_empty`, `load_from_conversation_type`, `new`, `timestamp`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiConversation`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 
 /// Mirror of the [`ConversationId`] type
 class ConversationId {
@@ -195,6 +195,7 @@ class UiConversationDetails {
   final int messagesCount;
   final int unreadMessages;
   final UiConversationMessage? lastMessage;
+  final UiMessageDraft? draft;
 
   const UiConversationDetails({
     required this.id,
@@ -205,6 +206,7 @@ class UiConversationDetails {
     required this.messagesCount,
     required this.unreadMessages,
     this.lastMessage,
+    this.draft,
   });
 
   @override
@@ -216,7 +218,8 @@ class UiConversationDetails {
       attributes.hashCode ^
       messagesCount.hashCode ^
       unreadMessages.hashCode ^
-      lastMessage.hashCode;
+      lastMessage.hashCode ^
+      draft.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -230,7 +233,8 @@ class UiConversationDetails {
           attributes == other.attributes &&
           messagesCount == other.messagesCount &&
           unreadMessages == other.unreadMessages &&
-          lastMessage == other.lastMessage;
+          lastMessage == other.lastMessage &&
+          draft == other.draft;
 }
 
 /// A message in a conversation
@@ -363,6 +367,16 @@ sealed class UiMessage with _$UiMessage {
 
   const factory UiMessage.content(UiContentMessage field0) = UiMessage_Content;
   const factory UiMessage.display(UiEventMessage field0) = UiMessage_Display;
+}
+
+/// Draft of a message in a conversation
+@freezed
+sealed class UiMessageDraft with _$UiMessageDraft {
+  const factory UiMessageDraft({
+    required String message,
+    ConversationMessageId? editingId,
+    required DateTime updatedAt,
+  }) = _UiMessageDraft;
 }
 
 @freezed

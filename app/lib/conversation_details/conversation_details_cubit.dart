@@ -53,4 +53,7 @@ class ConversationDetailsCubit
     untilMessageId: untilMessageId,
     untilTimestamp: untilTimestamp,
   );
+
+  Future<void> storeDraft({required String draftMessage}) =>
+      _impl.storeDraft(draftMessage: draftMessage);
 }

@@ -2,15 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:file_selector/file_selector.dart';
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:logging/logging.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart' show AppLocalizations;
 import 'package:prototype/main.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/util/debouncer.dart';
 import 'package:provider/provider.dart';
 
 import 'message_renderer.dart';
@@ -26,8 +29,13 @@ class MessageComposer extends StatefulWidget {
 
 class _MessageComposerState extends State<MessageComposer>
     with WidgetsBindingObserver {
-  final TextEditingController _controller = CustomTextEditingController();
+  final TextEditingController _inputController = CustomTextEditingController();
+  final Debouncer _storeDraftDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 500),
+  );
+  StreamSubscription<ConversationDetailsState>? _draftLoadingSubscription;
   final _focusNode = FocusNode();
+  late ConversationDetailsCubit _conversationDetailsCubit;
   bool _keyboardVisible = false;
   bool _inputIsEmpty = true;
 
@@ -37,12 +45,35 @@ class _MessageComposerState extends State<MessageComposer>
     WidgetsBinding.instance.addObserver(this);
     _focusNode.onKeyEvent =
         (focusNode, event) => _onKeyEvent(context.read(), focusNode, event);
-    _controller.addListener(_onTextChanged);
+    _inputController.addListener(_onTextChanged);
+
+    _conversationDetailsCubit = context.read<ConversationDetailsCubit>();
+
+    // Wait until the conversation is fully loaded and set draft message if any.
+    _draftLoadingSubscription = _conversationDetailsCubit.stream.listen((
+      state,
+    ) {
+      if (state.conversation case final conversation?) {
+        // state is fully loaded
+        if (conversation.draft?.message case final draft?) {
+          _inputController.text = draft;
+        }
+        _draftLoadingSubscription?.cancel();
+        _draftLoadingSubscription = null;
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _storeDraftDebouncer.dispose();
+
+    _conversationDetailsCubit.storeDraft(draftMessage: _inputController.text);
+    _inputController.dispose();
+
+    _draftLoadingSubscription?.cancel();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -50,11 +81,11 @@ class _MessageComposerState extends State<MessageComposer>
   void didChangeMetrics() {
     final view = View.of(context);
     final bottomInset = view.viewInsets.bottom;
-    final newValue = bottomInset > 0.0;
+    final keyboardVisible = bottomInset > 0.0;
 
-    if (_keyboardVisible != newValue) {
+    if (_keyboardVisible != keyboardVisible) {
       setState(() {
-        _keyboardVisible = newValue;
+        _keyboardVisible = keyboardVisible;
       });
     }
   }
@@ -97,7 +128,7 @@ class _MessageComposerState extends State<MessageComposer>
                 ),
                 child: _MessageInput(
                   focusNode: _focusNode,
-                  controller: _controller,
+                  controller: _inputController,
                   conversationTitle: conversationTitle,
                 ),
               ),
@@ -149,7 +180,7 @@ class _MessageComposerState extends State<MessageComposer>
   }
 
   void _submitMessage(ConversationDetailsCubit conversationDetailsCubit) async {
-    final messageText = _controller.text.trim();
+    final messageText = _inputController.text.trim();
     if (messageText.isEmpty) {
       return;
     }
@@ -158,13 +189,15 @@ class _MessageComposerState extends State<MessageComposer>
     conversationDetailsCubit.sendMessage(messageText);
 
     setState(() {
-      _controller.clear();
+      _inputController.clear();
       _focusNode.requestFocus();
     });
   }
 
   void _uploadAttachment(BuildContext context) async {
-    final file = await openFile();
+    final ImagePicker picker = ImagePicker();
+    final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+
     if (file == null) {
       return;
     }
@@ -190,7 +223,10 @@ class _MessageComposerState extends State<MessageComposer>
 
   void _onTextChanged() {
     setState(() {
-      _inputIsEmpty = _controller.text.trim().isEmpty;
+      _inputIsEmpty = _inputController.text.trim().isEmpty;
+    });
+    _storeDraftDebouncer.run(() {
+      _conversationDetailsCubit.storeDraft(draftMessage: _inputController.text);
     });
   }
 }
