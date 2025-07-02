@@ -152,7 +152,7 @@ build-ios:
 # Build Linux app
 [working-directory: 'app']
 build-linux:
-     flutter build linux --verbose
+     env CARGO_LOG=cargo::core::compiler::fingerprint=trace flutter build linux --verbose
 
 # analyze Dart code
 [working-directory: 'app']
