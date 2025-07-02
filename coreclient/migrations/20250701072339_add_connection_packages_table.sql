@@ -7,7 +7,7 @@
 -- Connection packages uploaded to the AS.
 CREATE TABLE IF NOT EXISTS connection_packages (
     connection_package_hash BLOB NOT NULL PRIMARY KEY,
-    handle BLOB NOT NULL,
+    handle TEXT NOT NULL,
     decryption_key BLOB NOT NULL,
     expires_at TEXT NOT NULL,
     FOREIGN KEY (handle) REFERENCES user_handles (handle) ON DELETE CASCADE
