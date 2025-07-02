@@ -28,9 +28,8 @@ use phnxcommon::{
     identifiers::{Fqdn, UserHandle},
     messages::{
         FriendshipToken,
-        client_as::{
-            ConnectionPackageHash, EncryptedConnectionOffer, EncryptedFriendshipPackageCtype,
-        },
+        client_as::{EncryptedConnectionOffer, EncryptedFriendshipPackageCtype},
+        connection_package::ConnectionPackageHash,
     },
 };
 use tbs::{ConnectionOfferTbs, VerifiableConnectionOffer};
@@ -41,7 +40,7 @@ use tls_codec::{
 pub(crate) mod payload {
     use phnxcommon::{
         LibraryError, credentials::keys::ClientSigningKey, identifiers::UserHandle,
-        messages::client_as::ConnectionPackageHash,
+        messages::connection_package::ConnectionPackageHash,
     };
 
     use super::*;
@@ -130,7 +129,7 @@ mod tbs {
     use phnxcommon::{
         credentials::keys::{ClientKeyType, ClientSignature},
         identifiers::UserHandle,
-        messages::client_as::ConnectionPackageHash,
+        messages::connection_package::ConnectionPackageHash,
     };
 
     use super::payload::ConnectionOfferPayload;
@@ -338,7 +337,7 @@ mod tests {
         credentials::test_utils::create_test_credentials,
         crypto::signatures::private_keys::SignatureVerificationError,
         identifiers::{UserHandle, UserId},
-        messages::client_as::ConnectionPackageHash,
+        messages::connection_package::ConnectionPackageHash,
     };
     use tls_codec::{DeserializeBytes as _, Serialize};
 

@@ -30,6 +30,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.';
 
   @override
+  String get userSettingsScreen_interfaceScale => 'Interface scale';
+
+  @override
   String get removeUsernameDialog_title => 'Remove Username';
 
   @override
@@ -101,8 +104,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userHandleScreen_inputHint => 'Username';
 
   @override
-  String get userHandleScreen_error_emptyHandle =>
-      'User handle cannot be empty';
+  String get userHandleScreen_error_emptyHandle => 'Username cannot be empty';
 
   @override
   String get userHandleScreen_description =>
@@ -175,9 +177,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newConversationDialog_actionButton => 'Create conversation';
 
   @override
-  String newConversationDialog_error(Object conversationName, Object error) {
-    return 'Failed to add conversation with name $conversationName: $error';
+  String newConversationDialog_error(Object conversationName) {
+    return 'Failed to add conversation with name $conversationName';
   }
+
+  @override
+  String get newConversationDialog_error_emptyGroupName =>
+      'Conversation name cannot be empty';
 
   @override
   String get newConnectionDialog_newConnectionTitle => 'New connection';
@@ -193,8 +199,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newConnectionDialog_actionButton => 'Connect';
 
   @override
-  String newConnectionDialog_error(Object error, Object username) {
-    return 'Failed to add user with Username $username: $error';
+  String newConnectionDialog_error(Object username) {
+    return 'Failed to add user with Username $username. Please try again.';
+  }
+
+  @override
+  String get newConnectionDialog_error_emptyHandle =>
+      'Username cannot be empty';
+
+  @override
+  String newConnectionDialog_error_handleNotFound(Object username) {
+    return 'Username $username does not exist';
   }
 
   @override

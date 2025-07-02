@@ -84,7 +84,12 @@ impl ConversationListCubitBase {
     // Cubit methods
 
     /// Creates a new 1:1 connection with the given user via a user handle.
-    pub async fn create_connection(&self, handle: UiUserHandle) -> anyhow::Result<ConversationId> {
+    ///
+    /// Returns `None` if the provided handle does not exist.
+    pub async fn create_connection(
+        &self,
+        handle: UiUserHandle,
+    ) -> anyhow::Result<Option<ConversationId>> {
         let handle = UserHandle::new(handle.plaintext)?;
         self.context.store.add_contact(handle).await
     }

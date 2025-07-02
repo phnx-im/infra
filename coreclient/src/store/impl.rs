@@ -7,13 +7,15 @@ use std::{collections::HashSet, path::Path, sync::Arc};
 use mimi_room_policy::VerifiedRoomState;
 use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
     AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
     ConversationMessageId, DownloadProgress,
-    clients::{CoreUser, attachment::AttachmentRecord},
+    clients::{CoreUser, attachment::AttachmentRecord, user_settings::UserSettingRecord},
     contacts::HandleContact,
+    store::UserSetting,
     user_handles::UserHandleRecord,
     user_profiles::UserProfile,
 };
@@ -31,6 +33,40 @@ impl Store for CoreUser {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
+    }
+
+    async fn user_setting<T: UserSetting>(&self) -> T {
+        match UserSettingRecord::load(self.pool(), T::KEY).await {
+            Ok(Some(bytes)) => match T::decode(bytes) {
+                Ok(value) => value,
+                Err(error) => {
+                    error!(%error, "Failed to decode user setting; resetting to default");
+                    self.set_user_setting(&T::DEFAULT)
+                        .await
+                        .inspect_err(|error| {
+                            error!(%error, "Failed to reset user setting to default");
+                        })
+                        .ok();
+                    T::DEFAULT
+                }
+            },
+            Ok(None) => T::DEFAULT,
+            Err(error) => {
+                error!(%error, "Failed to load user setting; resetting to default");
+                self.set_user_setting(&T::DEFAULT)
+                    .await
+                    .inspect_err(|error| {
+                        error!(%error, "Failed to reset user setting to default");
+                    })
+                    .ok();
+                T::DEFAULT
+            }
+        }
+    }
+
+    async fn set_user_setting<T: UserSetting>(&self, value: &T) -> StoreResult<()> {
+        UserSettingRecord::store(self.pool(), T::KEY, T::encode(value)?).await?;
+        Ok(())
     }
 
     async fn user_handles(&self) -> StoreResult<Vec<UserHandle>> {
@@ -121,7 +157,7 @@ impl Store for CoreUser {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId> {
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ConversationId>> {
         self.add_contact_via_handle(handle).await
     }
 
