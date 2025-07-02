@@ -9,7 +9,7 @@ use phnxcommon::{
 };
 use sqlx::{Result, SqliteConnection, query, query_scalar};
 
-pub trait StorableConnectionPackage: Sized {
+pub(crate) trait StorableConnectionPackage: Sized {
     /// Store the connection package in the database.
     ///
     /// Returns an error if the storage fails.
