@@ -19,6 +19,7 @@ ThemeData themeData(BuildContext context) => ThemeData(
       letterSpacing: _defaultLetterSpacing,
     ).merge(VariableFontWeight.bold),
   ),
+  scaffoldBackgroundColor: Colors.white,
   fontFamily: fontFamily,
   textTheme: TextTheme(
     displayLarge: const TextStyle(

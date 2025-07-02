@@ -2,4 +2,5 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+export "attachment_image.dart";
 export "attachment_image_provider.dart";

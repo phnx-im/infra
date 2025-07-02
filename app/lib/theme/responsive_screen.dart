@@ -58,7 +58,7 @@ class ResponsiveScreen extends StatefulWidget {
       context.responsiveScreenType == ResponsiveScreenType.mobile;
   static bool isTablet(BuildContext context) =>
       context.responsiveScreenType == ResponsiveScreenType.tablet;
-  static bool isDekstop(BuildContext context) =>
+  static bool isDesktop(BuildContext context) =>
       context.responsiveScreenType == ResponsiveScreenType.desktop;
 
   static bool isTouch = Platform.isIOS || Platform.isAndroid;

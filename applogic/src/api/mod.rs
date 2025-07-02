@@ -29,5 +29,6 @@ pub mod notifications;
 pub mod types;
 pub mod user;
 pub mod user_cubit;
+pub mod user_settings_cubit;
 pub mod users_cubit;
 pub mod utils;

@@ -6,8 +6,9 @@
 library;
 
 export 'add_user_handle_screen.dart';
-export 'users_cubit.dart';
 export 'edit_display_name_screen.dart';
 export 'loadable_user_cubit.dart';
 export 'user_cubit.dart';
+export 'user_settings_cubit.dart';
 export 'user_settings_screen.dart';
+export 'users_cubit.dart';
