@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT decryption_key \n                AS \"decryption_key: _\" \n            FROM connection_packages \n            WHERE connection_package_hash = $1",
+  "query": "SELECT decryption_key\n                AS \"decryption_key: _\"\n            FROM connection_packages\n            WHERE connection_package_hash = $1",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "ceb34049f1b583befbd47d14fb04ee96b47792e6bb5c0d9136ba5a0cecbf8b4f"
+  "hash": "33e8c6822cf5aa27d2f928f5366cf53f63566d4fb213bcaa30a37a152f731a19"
 }
