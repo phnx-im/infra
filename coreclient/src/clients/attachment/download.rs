@@ -174,32 +174,7 @@ impl DownloadProgress {
         (DownloadProgressSender { tx: Some(tx) }, Self { rx })
     }
 
-    pub async fn wait_for_completion(&mut self) -> DownloadProgressEvent {
-        let _ = self
-            .rx
-            .wait_for(|value| {
-                matches!(
-                    value,
-                    DownloadProgressEvent::Completed | DownloadProgressEvent::Failed
-                )
-            })
-            .await;
-        self.value()
-    }
-
     pub fn stream(&self) -> impl Stream<Item = DownloadProgressEvent> + Send + use<> {
-        WatchStream::new(self.rx.clone())
-    }
-
-    pub fn value(&mut self) -> DownloadProgressEvent {
-        self.rx.borrow_and_update().clone()
-    }
-
-    pub async fn changed(&mut self) -> bool {
-        self.rx.changed().await.is_ok()
-    }
-
-    pub fn stream(&mut self) -> impl Stream<Item = DownloadProgressEvent> {
         WatchStream::new(self.rx.clone())
     }
 }
