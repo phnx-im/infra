@@ -4,7 +4,7 @@
 
 use phnxcommon::{
     crypto::ConnectionDecryptionKey,
-    identifiers::UserHandle,
+    identifiers::{UserHandle, UserHandleHash},
     messages::connection_package::{ConnectionPackage, ConnectionPackageHash},
 };
 use sqlx::{Result, SqliteConnection, query, query_scalar};
@@ -17,6 +17,7 @@ pub(crate) trait StorableConnectionPackage: Sized {
         &self,
         connection: &mut SqliteConnection,
         handle: &UserHandle,
+        hash: &UserHandleHash,
         decryption_key: &ConnectionDecryptionKey,
     ) -> Result<()>;
 
@@ -33,9 +34,9 @@ impl StorableConnectionPackage for ConnectionPackage {
         &self,
         connection: &mut SqliteConnection,
         handle: &UserHandle,
+        hash: &UserHandleHash,
         decryption_key: &ConnectionDecryptionKey,
     ) -> Result<()> {
-        let hash = self.hash();
         let not_after = self.expires_at();
         query!(
             "INSERT INTO connection_packages
@@ -100,7 +101,12 @@ mod tests {
 
         let mut connection = pool.acquire().await.unwrap();
         connection_package
-            .store_for_handle(&mut connection, &record.handle, &decryption_key)
+            .store_for_handle(
+                &mut connection,
+                &record.handle,
+                &record.hash,
+                &decryption_key,
+            )
             .await
             .unwrap();
 
