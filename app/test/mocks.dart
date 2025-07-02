@@ -122,3 +122,6 @@ class MockRegistrationCubit extends MockCubit<RegistrationState>
     implements RegistrationCubit {}
 
 class MockAttachmentsRepository extends Mock implements AttachmentsRepository {}
+
+class MockUserSettingsCubit extends MockCubit<UserSettings>
+    implements UserSettingsCubit {}

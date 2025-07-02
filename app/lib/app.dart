@@ -14,6 +14,7 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/user/user.dart';
+import 'package:prototype/util/interface_scale.dart';
 import 'package:prototype/util/platform.dart';
 import 'package:provider/provider.dart';
 
@@ -109,19 +110,24 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               ),
           lazy: false, // immediately try to load the user
         ),
+        BlocProvider<UserSettingsCubit>(
+          create: (context) => UserSettingsCubit(),
+        ),
       ],
-      child: MaterialApp.router(
-        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        debugShowCheckedModeBanner: false,
-        theme: themeData(context),
-        routerConfig: _appRouter,
-        builder:
-            (context, router) => LoadableUserCubitProvider(
-              appStateController: _appStateController,
-              child: ConversationDetailsCubitProvider(child: router!),
-            ),
+      child: InterfaceScale(
+        child: MaterialApp.router(
+          onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          debugShowCheckedModeBanner: false,
+          theme: themeData(context),
+          routerConfig: _appRouter,
+          builder:
+              (context, router) => LoadableUserCubitProvider(
+                appStateController: _appStateController,
+                child: ConversationDetailsCubitProvider(child: router!),
+              ),
+        ),
       ),
     );
   }
@@ -149,10 +155,12 @@ class LoadableUserCubitProvider extends StatelessWidget {
         // Side Effect: navigate to the home screen or away to the intro
         // screen, depending on whether the user was loaded or unloaded.
         switch (loadableUser) {
-          case LoadedUser(user: final _?):
+          case LoadedUser(user: final user?):
             context.read<NavigationCubit>().openHome();
+            context.read<UserSettingsCubit>().loadState(user: user);
           case LoadingUser() || LoadedUser(user: null):
             context.read<NavigationCubit>().openIntro();
+            context.read<UserSettingsCubit>().reset();
         }
       },
       builder:
