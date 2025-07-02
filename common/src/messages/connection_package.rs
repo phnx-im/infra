@@ -243,14 +243,14 @@ mod sqlx_impls {
             buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
         ) -> Result<sqlx::encode::IsNull, BoxDynError> {
             let bytes = self.to_bytes().to_vec();
-            <Vec<u8> as Encode<Sqlite>>::encode_by_ref(&bytes, buf)
+            Encode::<Sqlite>::encode(bytes, buf)
         }
     }
 
     impl Decode<'_, Sqlite> for ConnectionPackageHash {
         fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
-            let bytes: Vec<u8> = <Vec<u8> as Decode<Sqlite>>::decode(value)?;
-            Self::try_from(bytes).map_err(BoxDynError::from)
+            let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
+            Ok(Self(bytes.try_into()?))
         }
     }
 }

@@ -103,13 +103,13 @@ impl<KT> Encode<'_, Sqlite> for DecryptionKey<KT> {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
         let bytes = PhnxCodec::to_vec(self).map_err(BoxDynError::from)?;
-        <Vec<u8> as Encode<'_, Sqlite>>::encode_by_ref(&bytes, buf)
+        Encode::<Sqlite>::encode(bytes, buf)
     }
 }
 
 impl<'r, KT> Decode<'r, Sqlite> for DecryptionKey<KT> {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let bytes = <Vec<u8> as Decode<'r, Sqlite>>::decode(value)?;
+        let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
         PhnxCodec::from_slice(&bytes).map_err(BoxDynError::from)
     }
 }
