@@ -32,12 +32,11 @@ pub(crate) async fn open_phnx_db(db_path: &str) -> sqlx::Result<SqlitePool> {
 
     // Delete the old migration table if it exists
     const FIRST_MIGRATION: i64 = 20250115104336;
-    if sqlx::query_scalar::<_, i64>(&format!(
+    if let Ok(Some(_)) = sqlx::query_scalar::<_, i64>(&format!(
         "SELECT 1 FROM _sqlx_migrations WHERE version = {FIRST_MIGRATION}"
     ))
     .fetch_optional(&pool)
-    .await?
-    .is_some()
+    .await
     {
         // The database is based on old migration
         sqlx::query("DROP TABLE IF EXISTS _sqlx_migrations")
