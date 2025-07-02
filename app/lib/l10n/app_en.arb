@@ -56,6 +56,11 @@
   "conversationList_newContact": "New contact",
   "conversationList_newGroup": "New group",
 
+  "conversationList_draft": "Draft",
+  "conversationList_you": "You",
+  "conversationList_imageEmoji": "🖼️",
+  "conversationList_fileEmoji": "📎",
+
   "settings_profile": "Profile",
   "settings_developerSettings": "Settings (developer)",
 

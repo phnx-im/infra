@@ -22,7 +22,7 @@ pub use crate::{
     contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
-        InactiveConversation,
+        InactiveConversation, MessageDraft,
         messages::{
             ContentMessage, ConversationMessage, ConversationMessageId, ErrorMessage, EventMessage,
             Message, NotificationType, SystemMessage,

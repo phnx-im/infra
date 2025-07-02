@@ -16,7 +16,7 @@ import 'types.dart';
 import 'user_cubit.dart';
 part 'conversation_list_cubit.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `converation_into_ui_details`, `conversation_details`, `load_and_emit_state`, `new`, `process_store_notification`, `spawn`, `store_notifications_loop`
+// These functions are ignored because they are not marked as `pub`: `conversation_details`, `load_and_emit_state`, `load_conversation_details`, `new`, `process_store_notification`, `spawn`, `store_notifications_loop`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ConversationListContext`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `clone`, `clone`, `eq`, `fmt`, `hash`
 

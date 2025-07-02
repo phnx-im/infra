@@ -61,6 +61,8 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
 
   ConversationDetailsState get state;
 
+  Future<void> storeDraft({required String draftMessage});
+
   Stream<ConversationDetailsState> stream();
 
   Future<void> uploadAttachment({required String path});

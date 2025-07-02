@@ -154,6 +154,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conversationList_newGroup => 'New group';
 
   @override
+  String get conversationList_draft => 'Draft';
+
+  @override
+  String get conversationList_you => 'You';
+
+  @override
+  String get conversationList_imageEmoji => '🖼️';
+
+  @override
+  String get conversationList_fileEmoji => '📎';
+
+  @override
   String get settings_profile => 'Profile';
 
   @override
