@@ -8,7 +8,12 @@ use std::{net::SocketAddr, time::Duration};
 
 pub mod setup;
 
-use phnxbackend::{auth_service::AuthService, ds::Ds, infra_service::InfraService, qs::Qs};
+use phnxbackend::{
+    auth_service::AuthService,
+    ds::{Ds, storage::Storage},
+    infra_service::InfraService,
+    qs::Qs,
+};
 use phnxcommon::identifiers::Fqdn;
 use phnxserver::{
     RateLimitsConfig, ServerRunParams, configurations::get_configuration_from_str,
@@ -65,9 +70,15 @@ pub async fn spawn_app_with_rate_limits(
     let dispatch_notifier = DispatchNotifier::new();
 
     // DS storage provider
-    let ds = Ds::new(&configuration.database, domain.clone())
+    let mut ds = Ds::new(&configuration.database, domain.clone())
         .await
         .expect("Failed to connect to database.");
+    ds.set_storage(Storage::new(
+        configuration
+            .storage
+            .clone()
+            .expect("no storage configuration"),
+    ));
 
     // New database name for the AS provider
     configuration.database.name = Uuid::new_v4().to_string();

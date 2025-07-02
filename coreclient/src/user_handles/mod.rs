@@ -6,22 +6,19 @@ use anyhow::Context;
 pub use persistence::UserHandleRecord;
 use phnxcommon::{
     credentials::keys::HandleSigningKey,
-    crypto::signatures::signable::Signable,
+    crypto::ConnectionDecryptionKey,
     identifiers::{UserHandle, UserHandleHash},
-    messages::{
-        MlsInfraVersion,
-        connection_package::{ConnectionPackage, ConnectionPackagePayload},
-    },
-    time::ExpirationData,
+    messages::connection_package::ConnectionPackage,
 };
 use tracing::error;
 
 use crate::{
-    clients::{CONNECTION_PACKAGE_EXPIRATION, CONNECTION_PACKAGES, CoreUser},
-    key_stores::MemoryUserKeyStore,
+    clients::{CONNECTION_PACKAGES, CoreUser},
     store::StoreResult,
+    user_handles::connection_packages::StorableConnectionPackage,
 };
 
+pub(crate) mod connection_packages;
 mod persistence;
 
 impl CoreUser {
@@ -55,15 +52,27 @@ impl CoreUser {
                 .ok();
         };
 
-        if let Err(error) = record.store(self.pool()).await {
+        let mut txn = self.pool().begin().await?;
+        if let Err(error) = record.store(&mut *txn).await {
             error!(%error, "failed to store user handle; rollback on the server");
             rollback().await;
             return Err(error.into());
         }
 
         // Publish connection packages
-        let connection_packages =
-            generate_connection_packages(self.key_store(), &record.signing_key, record.hash)?;
+        let connection_package_bundles =
+            generate_connection_packages(&record.signing_key, record.hash)?;
+
+        // Store connection packages in the database
+        let mut connection_packages = Vec::with_capacity(connection_package_bundles.len());
+        for (decryption_key, connection_package) in connection_package_bundles {
+            connection_package
+                .store_for_handle(&mut txn, handle, &decryption_key)
+                .await?;
+            connection_packages.push(connection_package);
+        }
+        txn.commit().await?;
+
         if let Err(error) = api_client
             .as_publish_connection_packages_for_handle(
                 hash,
@@ -97,23 +106,12 @@ impl CoreUser {
 }
 
 fn generate_connection_packages(
-    key_store: &MemoryUserKeyStore,
     signing_key: &HandleSigningKey,
     hash: UserHandleHash,
-) -> anyhow::Result<Vec<ConnectionPackage>> {
-    // TODO: For now, we use the same ConnectionDecryptionKey for all
-    // connection packages.
+) -> anyhow::Result<Vec<(ConnectionDecryptionKey, ConnectionPackage)>> {
     let mut connection_packages = Vec::with_capacity(CONNECTION_PACKAGES);
     for _ in 0..CONNECTION_PACKAGES {
-        let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
-        let connection_package_payload = ConnectionPackagePayload {
-            user_handle_hash: hash,
-            verifying_key: signing_key.verifying_key().clone(),
-            protocol_version: MlsInfraVersion::default(),
-            encryption_key: key_store.connection_decryption_key.encryption_key().clone(),
-            lifetime,
-        };
-        let connection_package = connection_package_payload.sign(signing_key)?;
+        let connection_package = ConnectionPackage::new(hash, signing_key)?;
         connection_packages.push(connection_package);
     }
     Ok(connection_packages)
