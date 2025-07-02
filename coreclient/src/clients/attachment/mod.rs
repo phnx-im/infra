@@ -4,6 +4,7 @@
 
 use std::{fmt, str::FromStr};
 
+pub use content::MimiContentExt;
 pub use download::{DownloadProgress, DownloadProgressEvent};
 pub(crate) use persistence::AttachmentRecord;
 pub use persistence::{AttachmentContent, AttachmentStatus};

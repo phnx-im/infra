@@ -94,7 +94,7 @@ impl AttachmentsRepository {
     async fn track_attachment_download(
         &self,
         attachment_id: AttachmentId,
-        mut handle: DownloadTaskHandle,
+        handle: DownloadTaskHandle,
         chunk_event_callback: impl Fn(u64) -> DartFnFuture<()> + Send + 'static,
     ) -> anyhow::Result<Vec<u8>> {
         debug!(?attachment_id, "Tracking attachment download");
