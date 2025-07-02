@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Borrow;
+
 use phnxcommon::{
     crypto::ConnectionDecryptionKey,
     identifiers::{UserHandle, UserHandleHash},
@@ -9,7 +11,7 @@ use phnxcommon::{
 };
 use sqlx::{Result, SqliteConnection, query, query_scalar};
 
-pub(crate) trait StorableConnectionPackage: Sized {
+pub(crate) trait StorableConnectionPackage: Sized + Borrow<ConnectionPackage> {
     /// Store the connection package in the database.
     ///
     /// Returns an error if the storage fails.
@@ -19,25 +21,9 @@ pub(crate) trait StorableConnectionPackage: Sized {
         handle: &UserHandle,
         hash: &UserHandleHash,
         decryption_key: &ConnectionDecryptionKey,
-    ) -> Result<()>;
-
-    async fn load_decryption_key(
-        connection: &mut SqliteConnection,
-        hash: &ConnectionPackageHash,
-    ) -> Result<Option<ConnectionDecryptionKey>>;
-
-    async fn delete(connection: &mut SqliteConnection, hash: &ConnectionPackageHash) -> Result<()>;
-}
-
-impl StorableConnectionPackage for ConnectionPackage {
-    async fn store_for_handle(
-        &self,
-        connection: &mut SqliteConnection,
-        handle: &UserHandle,
-        hash: &UserHandleHash,
-        decryption_key: &ConnectionDecryptionKey,
     ) -> Result<()> {
-        let not_after = self.expires_at();
+        let cp = self.borrow();
+        let not_after = cp.expires_at();
         query!(
             "INSERT INTO connection_packages
                  (connection_package_hash, handle, decryption_key, expires_at)
@@ -78,6 +64,8 @@ impl StorableConnectionPackage for ConnectionPackage {
         Ok(())
     }
 }
+
+impl StorableConnectionPackage for ConnectionPackage {}
 
 #[cfg(test)]
 mod tests {
