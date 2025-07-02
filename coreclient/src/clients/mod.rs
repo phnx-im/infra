@@ -5,7 +5,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, ensure};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 pub use phnxapiclient::as_api::ListenHandleResponder;
@@ -95,7 +95,6 @@ pub(crate) const CIPHERSUITE: Ciphersuite =
 
 pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const KEY_PACKAGES: usize = 50;
-pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 #[derive(Debug, Clone)]
 pub struct CoreUser {
@@ -259,10 +258,6 @@ impl CoreUser {
 
     pub(crate) fn http_client(&self) -> reqwest::Client {
         self.inner.http_client.clone()
-    }
-
-    pub(crate) fn key_store(&self) -> &MemoryUserKeyStore {
-        &self.inner.key_store
     }
 
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
