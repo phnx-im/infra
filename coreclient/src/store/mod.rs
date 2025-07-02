@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress, contacts::HandleContact,
+    ConversationMessageId, DownloadProgress, MessageDraft, contacts::HandleContact,
     user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
@@ -49,6 +49,14 @@ pub trait Store {
     async fn own_user_profile(&self) -> StoreResult<UserProfile>;
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile>;
+
+    /// Loads a user setting
+    ///
+    /// If the setting is not found, the default value is returned. If loading or decoding failed,
+    /// the default value is stored and returned.
+    async fn user_setting<T: UserSetting>(&self) -> T;
+
+    async fn set_user_setting<T: UserSetting>(&self, value: &T) -> StoreResult<()>;
 
     // user handles
 
@@ -210,6 +218,17 @@ pub trait Store {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
+    async fn message_draft(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Option<MessageDraft>>;
+
+    async fn store_message_draft(
+        &self,
+        conversation_id: ConversationId,
+        message_draft: Option<&MessageDraft>,
+    ) -> StoreResult<()>;
+
     async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
 
     async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
@@ -255,4 +274,15 @@ pub trait Store {
     async fn enqueue_notification(&self, notification: &StoreNotification) -> StoreResult<()>;
 
     async fn dequeue_notification(&self) -> StoreResult<StoreNotification>;
+}
+
+pub trait UserSetting: Send + Sync {
+    const KEY: &'static str;
+
+    const DEFAULT: Self;
+
+    fn encode(&self) -> StoreResult<Vec<u8>>;
+    fn decode(bytes: Vec<u8>) -> StoreResult<Self>
+    where
+        Self: Sized;
 }

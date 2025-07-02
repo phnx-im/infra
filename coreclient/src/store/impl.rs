@@ -8,15 +8,17 @@ use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
 use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
     AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress,
-    clients::{CoreUser, attachment::AttachmentRecord},
+    ConversationMessageId, DownloadProgress, MessageDraft,
+    clients::{CoreUser, attachment::AttachmentRecord, user_settings::UserSettingRecord},
     contacts::HandleContact,
     conversations::persistence::load_message_status,
     store::MessageWithStatus,
+    store::UserSetting,
     user_handles::UserHandleRecord,
     user_profiles::UserProfile,
 };
@@ -34,6 +36,40 @@ impl Store for CoreUser {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
+    }
+
+    async fn user_setting<T: UserSetting>(&self) -> T {
+        match UserSettingRecord::load(self.pool(), T::KEY).await {
+            Ok(Some(bytes)) => match T::decode(bytes) {
+                Ok(value) => value,
+                Err(error) => {
+                    error!(%error, "Failed to decode user setting; resetting to default");
+                    self.set_user_setting(&T::DEFAULT)
+                        .await
+                        .inspect_err(|error| {
+                            error!(%error, "Failed to reset user setting to default");
+                        })
+                        .ok();
+                    T::DEFAULT
+                }
+            },
+            Ok(None) => T::DEFAULT,
+            Err(error) => {
+                error!(%error, "Failed to load user setting; resetting to default");
+                self.set_user_setting(&T::DEFAULT)
+                    .await
+                    .inspect_err(|error| {
+                        error!(%error, "Failed to reset user setting to default");
+                    })
+                    .ok();
+                T::DEFAULT
+            }
+        }
+    }
+
+    async fn set_user_setting<T: UserSetting>(&self, value: &T) -> StoreResult<()> {
+        UserSettingRecord::store(self.pool(), T::KEY, T::encode(value)?).await?;
+        Ok(())
     }
 
     async fn user_handles(&self) -> StoreResult<Vec<UserHandle>> {
@@ -234,6 +270,30 @@ impl Store for CoreUser {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>> {
         Ok(self.try_last_message(conversation_id).await?)
+    }
+
+    async fn message_draft(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Option<MessageDraft>> {
+        Ok(MessageDraft::load(self.pool(), conversation_id).await?)
+    }
+
+    async fn store_message_draft(
+        &self,
+        conversation_id: ConversationId,
+        message_draft: Option<&MessageDraft>,
+    ) -> StoreResult<()> {
+        let mut notifier = self.store_notifier();
+        if let Some(message_draft) = message_draft {
+            message_draft
+                .store(self.pool(), &mut notifier, conversation_id)
+                .await?;
+        } else {
+            MessageDraft::delete(self.pool(), &mut notifier, conversation_id).await?;
+        }
+        notifier.notify();
+        Ok(())
     }
 
     async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {

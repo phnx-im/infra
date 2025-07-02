@@ -30,6 +30,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.';
 
   @override
+  String get userSettingsScreen_interfaceScale => 'Interface scale';
+
+  @override
   String get removeUsernameDialog_title => 'Remove Username';
 
   @override
@@ -152,6 +155,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get conversationList_newGroup => 'New group';
+
+  @override
+  String get conversationList_draft => 'Draft';
+
+  @override
+  String get conversationList_you => 'You';
+
+  @override
+  String get conversationList_imageEmoji => '🖼️';
+
+  @override
+  String get conversationList_fileEmoji => '📎';
 
   @override
   String get settings_profile => 'Profile';

@@ -128,6 +128,12 @@ abstract class AppLocalizations {
   /// **'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.'**
   String get userSettingsScreen_userNamesDescription;
 
+  /// No description provided for @userSettingsScreen_interfaceScale.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface scale'**
+  String get userSettingsScreen_interfaceScale;
+
   /// No description provided for @removeUsernameDialog_title.
   ///
   /// In en, this message translates to:
@@ -361,6 +367,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New group'**
   String get conversationList_newGroup;
+
+  /// No description provided for @conversationList_draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get conversationList_draft;
+
+  /// No description provided for @conversationList_you.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get conversationList_you;
+
+  /// No description provided for @conversationList_imageEmoji.
+  ///
+  /// In en, this message translates to:
+  /// **'🖼️'**
+  String get conversationList_imageEmoji;
+
+  /// No description provided for @conversationList_fileEmoji.
+  ///
+  /// In en, this message translates to:
+  /// **'📎'**
+  String get conversationList_fileEmoji;
 
   /// No description provided for @settings_profile.
   ///

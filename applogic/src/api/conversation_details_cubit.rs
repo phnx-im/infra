@@ -22,10 +22,11 @@ use tokio_util::sync::CancellationToken;
 use tracing::error;
 
 use crate::StreamSink;
+use crate::api::types::UiMessageDraft;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
 
 use super::{
-    conversation_list_cubit::converation_into_ui_details,
+    conversation_list_cubit::load_conversation_details,
     types::{UiConversationDetails, UiUserId},
     user_cubit::UserCubitBase,
 };
@@ -264,6 +265,42 @@ impl ConversationDetailsCubitBase {
 
         Ok(())
     }
+
+    pub async fn store_draft(&self, draft_message: String) -> anyhow::Result<()> {
+        let changed = self.core.state_tx().send_if_modified(|state| {
+            let Some(conversation) = state.conversation.as_mut() else {
+                return false;
+            };
+            match &mut conversation.draft {
+                Some(draft) if draft.message != draft_message => {
+                    draft.message = draft_message;
+                    draft.updated_at = Utc::now();
+                    true
+                }
+                Some(_) => false,
+                None => {
+                    conversation
+                        .draft
+                        .replace(UiMessageDraft::new(draft_message));
+                    true
+                }
+            }
+        });
+        if changed {
+            let draft = self
+                .core
+                .state_tx()
+                .borrow()
+                .conversation
+                .as_ref()
+                .and_then(|c| c.draft.clone());
+            self.context
+                .store
+                .store_message_draft(self.context.conversation_id, draft.map(From::from).as_ref())
+                .await?;
+        }
+        Ok(())
+    }
 }
 
 /// Loads the initial state and listen to the changes
@@ -344,10 +381,8 @@ impl ConversationDetailsContext {
     async fn load_conversation_details(&self) -> Option<(UiConversationDetails, DateTime<Utc>)> {
         let conversation = self.store.conversation(&self.conversation_id).await?;
         let last_read = conversation.last_read();
-        Some((
-            converation_into_ui_details(&self.store, conversation).await,
-            last_read,
-        ))
+        let details = load_conversation_details(&self.store, conversation).await;
+        Some((details, last_read))
     }
 
     async fn members_of_conversation(&self) -> anyhow::Result<Vec<UiUserId>> {

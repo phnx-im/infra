@@ -18,9 +18,10 @@ services:
       -c ssl_cert_file=/etc/postgresql/certs/server.crt
       -c ssl_key_file=/etc/postgresql/certs/server.key
       -c ssl_ca_file=/etc/postgresql/certs/root.crt
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      start_period: 1s
+      start_period: 10s
       interval: 2s
       timeout: 5s
       retries: 10
@@ -28,9 +29,7 @@ services:
       - ${COMPOSE_BIND_HOST:-127.0.0.1}:5432:5432
     volumes:
       - postgres_data:/var/lib/postgresql/data:z
-      - ./backend/test_certs/server.crt:/etc/postgresql/certs/server.crt:ro,z
-      - ./backend/test_certs/server.key:/etc/postgresql/certs/server.key:ro,z
-      - ./backend/test_certs/root.crt:/etc/postgresql/certs/root.crt:ro,z
+      - ./backend/test_certs:/etc/postgresql/certs:Z
 
   minio:
     image: minio/minio:latest
@@ -45,7 +44,7 @@ services:
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      start_period: 1s
+      start_period: 10s
       interval: 2s
       timeout: 5s
       retries: 10

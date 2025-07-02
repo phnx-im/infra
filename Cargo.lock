@@ -4035,8 +4035,10 @@ name = "phnxserver"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.21.7",
  "config",
  "criterion 0.5.1",
+ "hex",
  "image",
  "jsonwebtoken",
  "mimi_content",
@@ -4052,6 +4054,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.12",
  "tls_codec",
  "tokio",

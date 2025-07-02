@@ -5,6 +5,7 @@
   "userSettingsScreen_idCopied": "User ID copied to clipboard",
   "userSettingsScreen_profileDescription": "Others will see your picture and name when you communicate with them.",
   "userSettingsScreen_userNamesDescription": "Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.",
+  "userSettingsScreen_interfaceScale": "Interface scale",
   "removeUsernameDialog_title": "Remove Username",
   "removeUsernameDialog_content": "If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.",
   "removeUsernameDialog_cancel": "Cancel",
@@ -55,6 +56,11 @@
 
   "conversationList_newContact": "New contact",
   "conversationList_newGroup": "New group",
+
+  "conversationList_draft": "Draft",
+  "conversationList_you": "You",
+  "conversationList_imageEmoji": "🖼️",
+  "conversationList_fileEmoji": "📎",
 
   "settings_profile": "Profile",
   "settings_developerSettings": "Settings (developer)",

@@ -16,6 +16,9 @@ use uuid::Uuid;
 
 use crate::store::StoreNotifier;
 
+pub use draft::MessageDraft;
+
+mod draft;
 pub(crate) mod messages;
 pub(crate) mod persistence;
 mod sqlx_support;

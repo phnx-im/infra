@@ -113,6 +113,38 @@ final conversations = [
       position: UiFlightPosition.single,
     ),
   ),
+  UiConversationDetails(
+    id: 4.conversationId(),
+    status: const UiConversationStatus.active(),
+    conversationType: const UiConversationType_Group(),
+    unreadMessages: 0,
+    messagesCount: 10,
+    attributes: const UiConversationAttributes(title: 'Group', picture: null),
+    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastMessage: UiConversationMessage(
+      id: 3.conversationMessageId(),
+      conversationId: 3.conversationId(),
+      timestamp: '2023-01-01T00:00:00.000Z',
+      message: UiMessage_Content(
+        UiContentMessage(
+          sender: 4.userId(),
+          sent: true,
+          content: UiMimiContent(
+            plainBody: 'Hello All',
+            topicId: Uint8List(0),
+            content: simpleMessage('Hello All'),
+            attachments: [],
+          ),
+        ),
+      ),
+      position: UiFlightPosition.single,
+    ),
+    draft: UiMessageDraft(
+      message: 'Some draft message',
+      editingId: null,
+      updatedAt: DateTime.now(),
+    ),
+  ),
 ];
 
 MessageContent simpleMessage(String msg) {

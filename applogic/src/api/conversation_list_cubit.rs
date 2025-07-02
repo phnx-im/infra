@@ -19,8 +19,10 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::StreamSink;
-use crate::util::{Cubit, CubitCore, spawn_from_sync};
+use crate::{
+    StreamSink,
+    util::{Cubit, CubitCore, spawn_from_sync},
+};
 
 use super::{
     types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserHandle},
@@ -179,17 +181,30 @@ async fn conversation_details(store: &impl Store) -> Vec<UiConversationDetails> 
     let conversations = store.conversations().await.unwrap_or_default();
     let mut conversation_details = Vec::with_capacity(conversations.len());
     for conversation in conversations {
-        let details = converation_into_ui_details(store, conversation).await;
+        let details = load_conversation_details(store, conversation).await;
         conversation_details.push(details);
     }
-    // Sort the conversations by last used timestamp in descending order
-    conversation_details.sort_unstable_by(|a, b| b.last_used.cmp(&a.last_used));
+    // Sort the conversations first by last updated draft if any, then by last used timestamp in
+    // descending order
+    conversation_details.sort_unstable_by(|a, b| {
+        b.draft
+            .as_ref()
+            .filter(|draft| !draft.is_empty())
+            .map(|draft| draft.updated_at)
+            .cmp(
+                &a.draft
+                    .as_ref()
+                    .filter(|draft| !draft.is_empty())
+                    .map(|draft| draft.updated_at),
+            )
+            .then(b.last_used.cmp(&a.last_used))
+    });
     conversation_details
 }
 
 /// Loads additional details for a conversation and converts it into a
 /// [`UiConversationDetails`]
-pub(super) async fn converation_into_ui_details(
+pub(super) async fn load_conversation_details(
     store: &impl Store,
     conversation: Conversation,
 ) -> UiConversationDetails {
@@ -217,6 +232,12 @@ pub(super) async fn converation_into_ui_details(
         UiConversationType::load_from_conversation_type(store, conversation.conversation_type)
             .await;
 
+    let draft = store
+        .message_draft(conversation.id)
+        .await
+        .unwrap_or_default()
+        .map(From::from);
+
     UiConversationDetails {
         id: conversation.id,
         status: conversation.status.into(),
@@ -226,5 +247,6 @@ pub(super) async fn converation_into_ui_details(
         messages_count,
         unread_messages,
         last_message,
+        draft,
     }
 }
