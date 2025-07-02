@@ -146,9 +146,7 @@ impl ConversationDetailsCubitBase {
     pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
         let content = MimiContent::simple_markdown_message(
             message_text,
-            *phnxcommon::crypto::secrets::Secret::<16>::random()
-                .unwrap()
-                .secret(),
+            *phnxcommon::crypto::secrets::Secret::<16>::random()?.secret(),
         );
 
         self.context
@@ -243,9 +241,7 @@ impl ConversationDetailsCubitBase {
 
         let Ok((status_report, message)) = MimiContent::simple_receipt(
             &marked_as_read.1.iter().map(|v| &**v).collect::<Vec<_>>(),
-            *phnxcommon::crypto::secrets::Secret::<16>::random()
-                .unwrap()
-                .secret(),
+            *phnxcommon::crypto::secrets::Secret::<16>::random()?.secret(),
             MessageStatus::Read,
         ) else {
             // There was an error constructing this delivery receipt message

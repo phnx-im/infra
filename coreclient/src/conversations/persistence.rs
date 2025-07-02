@@ -473,9 +473,9 @@ impl Conversation {
             our_user_domain,
         )
         .fetch(&mut *connection)
-        .filter_map(|record| record.unwrap().mimi_id)
-        .collect::<Vec<_>>()
-        .await;
+        .filter_map(|record| record.map(|r| r.mimi_id).transpose())
+        .collect::<Result<Vec<_>, _>>()
+        .await?;
 
         let updated = query!(
             "UPDATE conversations SET last_read = ?1

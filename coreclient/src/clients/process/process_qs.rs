@@ -260,7 +260,6 @@ impl CoreUser {
                     let (group_messages, conversation_changed) =
                         match processed_message.into_content() {
                             ProcessedMessageContent::ApplicationMessage(application_message) => {
-                                // This only returns messages, if they should be shown in the timeline
                                 self.handle_application_message(
                                     txn,
                                     &mut notifier,
@@ -317,9 +316,7 @@ impl CoreUser {
                     // Construct a delivery receipt for the message we just received
                     let Ok((status_report, message)) = MimiContent::simple_receipt(
                         &[content_message.mimi_id()],
-                        *phnxcommon::crypto::secrets::Secret::<16>::random()
-                            .unwrap()
-                            .secret(),
+                        *phnxcommon::crypto::secrets::Secret::<16>::random()?.secret(),
                         MessageStatus::Delivered,
                     ) else {
                         // There was an error constructing this delivery receipt message
