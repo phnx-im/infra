@@ -34,6 +34,7 @@ use crate::{
     conversations::{ConversationType, persistence::persist_message_status_report},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
+    store::StoreNotifier,
     utils::connection_ext::ConnectionExt,
 };
 
@@ -212,6 +213,7 @@ impl CoreUser {
         mls_message: MlsMessageIn,
         ds_timestamp: TimeStamp,
     ) -> Result<ProcessQsMessageResult> {
+        dbg!("HANDLE MLS MESSAGE");
         let protocol_message: ProtocolMessage = match mls_message.extract() {
             MlsMessageBodyIn::PublicMessage(handshake_message) =>
                 handshake_message.into(),
@@ -262,6 +264,7 @@ impl CoreUser {
                                 // This only returns messages, if they should be shown in the timeline
                                 self.handle_application_message(
                                     txn,
+                                    &mut notifier,
                                     &group,
                                     application_message,
                                     ds_timestamp,
@@ -328,8 +331,9 @@ impl CoreUser {
                         error!(%e, "Could not send delivery receipt");
                     }
 
-                    self.with_transaction(async |txn| {
-                        persist_message_status_report(txn, self.user_id(), &status_report).await
+                    self.with_transaction_and_notifier(async |txn, notifier| {
+                        persist_message_status_report(txn, notifier, self.user_id(), &status_report)
+                            .await
                     })
                     .await?;
                 }
@@ -351,12 +355,14 @@ impl CoreUser {
 
         notifier.notify();
 
+        dbg!("HANDLE MLS MESSAGE DONE");
         Ok(res)
     }
 
     async fn handle_application_message(
         &self,
         txn: &mut SqliteTransaction<'_>,
+        notifier: &mut StoreNotifier,
         group: &Group,
         application_message: openmls::prelude::ApplicationMessage,
         ds_timestamp: TimeStamp,
@@ -377,7 +383,8 @@ impl CoreUser {
             {
                 if content_type == "application/mimi-message-status" {
                     if let Ok(report) = MessageStatusReport::deserialize(content) {
-                        persist_message_status_report(txn, sender_user_id, &report).await?;
+                        persist_message_status_report(txn, notifier, sender_user_id, &report)
+                            .await?;
                     }
                 }
             }
@@ -460,7 +467,7 @@ impl CoreUser {
     async fn handle_unconfirmed_conversation(
         &self,
         txn: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-        notifier: &mut crate::store::StoreNotifier,
+        notifier: &mut StoreNotifier,
         aad: Vec<u8>,
         sender: &Sender,
         sender_client_credential: &ClientCredential,

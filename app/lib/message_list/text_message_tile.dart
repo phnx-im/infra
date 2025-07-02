@@ -5,8 +5,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_blurhash/flutter_blurhash.dart';
-import 'package:logging/logging.dart';
 import 'package:prototype/attachments/attachments.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
@@ -26,8 +24,6 @@ const _messagePadding = EdgeInsets.symmetric(
   horizontal: messageHorizontalPadding,
   vertical: messageVerticalPadding,
 );
-
-final _log = Logger('TextMessageTile');
 
 class TextMessageTile extends StatelessWidget {
   const TextMessageTile({
@@ -310,11 +306,14 @@ class _ImageAttachmentContent extends StatelessWidget {
             flightPosition,
             stackedOnTop: hasMessage,
           ),
-          child: _ImageStack(
-            attachment: attachment,
-            imageMetadata: imageMetadata,
-            isSender: isSender,
-            fit: BoxFit.cover,
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: AttachmentImage(
+              attachment: attachment,
+              imageMetadata: imageMetadata,
+              isSender: isSender,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       ),
@@ -377,7 +376,7 @@ class _ImagePreview extends StatelessWidget {
                       left: Spacings.s,
                       right: Spacings.s,
                     ),
-                    child: _ImageStack(
+                    child: AttachmentImage(
                       attachment: attachment,
                       imageMetadata: imageMetadata,
                       isSender: isSender,
@@ -389,45 +388,6 @@ class _ImagePreview extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ImageStack extends StatelessWidget {
-  const _ImageStack({
-    required this.attachment,
-    required this.imageMetadata,
-    required this.isSender,
-    required this.fit,
-  });
-
-  final UiAttachment attachment;
-  final UiImageMetadata imageMetadata;
-  final bool isSender;
-  final BoxFit fit;
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: imageMetadata.width / imageMetadata.height,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          BlurHash(hash: imageMetadata.blurhash),
-          Image(
-            image: AttachmentImageProvider(
-              attachment: attachment,
-              attachmentsRepository: RepositoryProvider.of(context),
-            ),
-            fit: fit,
-            alignment: Alignment.center,
-            errorBuilder: (context, error, stackTrace) {
-              _log.severe('Failed to load attachment', error, stackTrace);
-              return const Icon(Icons.error);
-            },
-          ),
-        ],
       ),
     );
   }

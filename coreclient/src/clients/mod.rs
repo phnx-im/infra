@@ -538,6 +538,7 @@ impl CoreUser {
             &mut notifier,
             conversation_id,
             until,
+            self.user_id(),
         )
         .await?;
         notifier.notify();
@@ -696,8 +697,8 @@ impl CoreUser {
         sender: &UserId,
         status_report: &mimi_content::MessageStatusReport,
     ) -> anyhow::Result<()> {
-        self.with_transaction(async |txn| {
-            persist_message_status_report(txn, sender, status_report).await
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            persist_message_status_report(txn, notifier, sender, status_report).await
         })
         .await?;
 

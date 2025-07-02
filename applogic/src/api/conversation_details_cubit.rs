@@ -177,11 +177,10 @@ impl ConversationDetailsCubitBase {
         until_message_id: ConversationMessageId,
         until_timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
-        dbg!();
         let scheduled = self
             .context
             .mark_as_read_tx
-            .send_if_modified(|state| match state {
+            .send_if_modified(|state| match &state {
                 MarkAsReadState::NotLoaded => {
                     error!("Marking as read while conversation is not loaded");
                     false
@@ -204,7 +203,6 @@ impl ConversationDetailsCubitBase {
                     false // already scheduled at a later timestamp
                 }
             });
-        dbg!();
         if !scheduled {
             return Ok(());
         }
@@ -246,7 +244,7 @@ impl ConversationDetailsCubitBase {
             .store
             .mark_conversation_as_read(self.context.conversation_id, until_message_id)
             .await?;
-        dbg!();
+        dbg!(&marked_as_read.1);
 
         let Ok((status_report, message)) = MimiContent::simple_receipt(
             &marked_as_read.1.iter().map(|v| &**v).collect::<Vec<_>>(),
@@ -258,7 +256,8 @@ impl ConversationDetailsCubitBase {
             // There was an error constructing this delivery receipt message
             return Ok(());
         };
-        dbg!();
+
+        dbg!(&message);
 
         if let Err(e) = self
             .context
@@ -269,6 +268,7 @@ impl ConversationDetailsCubitBase {
             error!(%e, "Could not send delivery receipt");
         }
 
+        dbg!(&status_report);
         self.context
             .store
             .persist_message_status_report(self.context.store.user_id(), &status_report)

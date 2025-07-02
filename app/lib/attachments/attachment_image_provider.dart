@@ -32,7 +32,17 @@ class AttachmentImageProvider extends ImageProvider<UiAttachment> {
     final chunkEvents = StreamController<ImageChunkEvent>();
     return MultiFrameImageStreamCompleter(
       codec: attachmentsRepository
-          .loadAttachment(attachmentId: key.attachmentId)
+          .loadImageAttachment(
+            attachmentId: key.attachmentId,
+            chunkEventCallback: (cumulativeBytesLoaded) {
+              chunkEvents.add(
+                ImageChunkEvent(
+                  cumulativeBytesLoaded: cumulativeBytesLoaded.toInt(),
+                  expectedTotalBytes: key.size,
+                ),
+              );
+            },
+          )
           .catchError((Object e, StackTrace stack) {
             scheduleMicrotask(() {
               PaintingBinding.instance.imageCache.evict(key);

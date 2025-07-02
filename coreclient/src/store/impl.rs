@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress, Message,
+    ConversationMessageId, DownloadProgress,
     clients::{CoreUser, attachment::AttachmentRecord},
     contacts::HandleContact,
     conversations::persistence::load_message_status,
@@ -124,7 +124,7 @@ impl Store for CoreUser {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact(&self, handle: UserHandle) -> StoreResult<ConversationId> {
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ConversationId>> {
         self.add_contact_via_handle(handle).await
     }
 
@@ -169,33 +169,17 @@ impl Store for CoreUser {
 
         let mut connection = self.pool().acquire().await?;
         for message in messages {
-            if let Message::Content(content_message) = message.message() {
-                let delivery_status = load_message_status(
-                    &mut connection,
-                    content_message.mimi_id(),
-                    MessageStatus::Delivered,
-                )
-                .await?;
+            let delivery_status =
+                load_message_status(&mut connection, message.id(), MessageStatus::Delivered)
+                    .await?;
+            let read_status =
+                load_message_status(&mut connection, message.id(), MessageStatus::Read).await?;
 
-                let read_status = load_message_status(
-                    &mut connection,
-                    content_message.mimi_id(),
-                    MessageStatus::Delivered,
-                )
-                .await?;
-
-                result.push(MessageWithStatus {
-                    message,
-                    delivery_status,
-                    read_status,
-                });
-            } else {
-                result.push(MessageWithStatus {
-                    message,
-                    delivery_status: Vec::new(),
-                    read_status: Vec::new(),
-                });
-            }
+            result.push(MessageWithStatus {
+                message,
+                delivery_status,
+                read_status,
+            });
         }
 
         Ok(result)
@@ -211,41 +195,24 @@ impl Store for CoreUser {
 
         let mut connection = self.pool().acquire().await?;
 
-        if let Message::Content(content_message) = message.message() {
-            let delivery_status = load_message_status(
-                &mut connection,
-                content_message.mimi_id(),
-                MessageStatus::Delivered,
-            )
-            .await?;
+        let delivery_status =
+            load_message_status(&mut connection, message_id, MessageStatus::Delivered).await?;
+        let read_status =
+            load_message_status(&mut connection, message_id, MessageStatus::Read).await?;
 
-            let read_status = load_message_status(
-                &mut connection,
-                content_message.mimi_id(),
-                MessageStatus::Read,
-            )
-            .await?;
-
-            Ok(Some(MessageWithStatus {
-                message,
-                delivery_status,
-                read_status,
-            }))
-        } else {
-            Ok(Some(MessageWithStatus {
-                message,
-                delivery_status: Vec::new(),
-                read_status: Vec::new(),
-            }))
-        }
+        Ok(Some(MessageWithStatus {
+            message,
+            delivery_status,
+            read_status,
+        }))
     }
     async fn load_message_status(
         &self,
-        mimi_id: &[u8],
+        message_id: ConversationMessageId,
         status: MessageStatus,
     ) -> StoreResult<Vec<UserId>> {
         let mut connection = self.pool().acquire().await?;
-        Ok(load_message_status(&mut connection, mimi_id, status).await?)
+        Ok(load_message_status(&mut connection, message_id, status).await?)
     }
 
     async fn prev_message(

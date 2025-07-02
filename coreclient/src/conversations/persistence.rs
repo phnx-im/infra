@@ -437,7 +437,12 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
         until_message_id: ConversationMessageId,
+        own_user: &UserId,
     ) -> sqlx::Result<(bool, Vec<Vec<u8>>)> {
+        let (our_user_uuid, our_user_domain) = own_user.clone().into_parts();
+
+        dbg!(until_message_id);
+
         let timestamp: Option<DateTime<Utc>> = query_scalar!(
             r#"SELECT
                 timestamp AS "timestamp: _"
@@ -447,7 +452,10 @@ impl Conversation {
         .fetch_optional(&mut *connection)
         .await?;
 
+        dbg!(&timestamp);
+
         let Some(timestamp) = timestamp else {
+            dbg!();
             return Ok((false, Vec::new()));
         };
 
@@ -459,17 +467,23 @@ impl Conversation {
         .fetch_one(&mut *connection)
         .await?
         .last_read;
+        dbg!(&old_timestamp);
 
         let new_marked_as_read = query!(
             "SELECT mimi_id FROM conversation_messages
-            WHERE conversation_id = ? AND timestamp > ?",
+            WHERE conversation_id = ? AND timestamp > ?
+            AND sender_user_uuid != ? AND sender_user_domain != ?",
             conversation_id,
             old_timestamp,
+            our_user_uuid,
+            our_user_domain,
         )
         .fetch(&mut *connection)
         .filter_map(|record| record.unwrap().mimi_id)
         .collect::<Vec<_>>()
         .await;
+
+        dbg!(new_marked_as_read.len());
 
         let updated = query!(
             "UPDATE conversations SET last_read = ?1
@@ -637,6 +651,7 @@ impl Conversation {
 
 pub async fn persist_message_status_report(
     txn: &mut SqliteTransaction<'_>,
+    notifier: &mut StoreNotifier,
     sender: &UserId,
     report: &MessageStatusReport,
 ) -> anyhow::Result<()> {
@@ -648,15 +663,29 @@ pub async fn persist_message_status_report(
     for update in &report.statuses {
         let mimi_id = &update.mimi_id.to_vec();
         let repr = update.status.repr();
-        query!(
-            "INSERT INTO conversation_message_status (mimi_id, status, sender_user_domain, sender_user_uuid) VALUES (?, ?, ?, ?)",
+        let Some(message_id): Option<ConversationMessageId> = query_scalar!(
+            r#"SELECT message_id AS "message_id: _" FROM conversation_messages
+            WHERE mimi_id = ?"#,
             mimi_id,
+        )
+        .fetch_optional(&mut **txn)
+        .await?
+        else {
+            continue;
+        };
+        dbg!(&message_id);
+
+        query!(
+            "INSERT INTO conversation_message_status (message_id, status, sender_user_domain, sender_user_uuid) VALUES (?, ?, ?, ?)",
+            message_id,
             repr,
             sender_domain,
             sender_uuid,
         )
         .execute(&mut **txn)
         .await?;
+
+        notifier.update(message_id);
     }
 
     Ok(())
@@ -664,7 +693,7 @@ pub async fn persist_message_status_report(
 
 pub async fn load_message_status(
     connection: &mut SqliteConnection,
-    mimi_id: &[u8],
+    message_id: ConversationMessageId,
     status: MessageStatus,
 ) -> sqlx::Result<Vec<UserId>> {
     let repr = status.repr();
@@ -675,8 +704,8 @@ pub async fn load_message_status(
         sender_user_uuid AS "member_user_uuid: _",
         sender_user_domain AS "member_user_domain: _"
         FROM conversation_message_status
-        WHERE mimi_id = ? AND status = ?"#,
-        mimi_id,
+        WHERE message_id = ? AND status = ?"#,
+        message_id,
         repr,
     )
     .map(|row| UserId::from(row))

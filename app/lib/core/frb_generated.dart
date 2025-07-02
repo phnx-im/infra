@@ -81,7 +81,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.10.0';
 
   @override
-  int get rustContentHash => -754285848;
+  int get rustContentHash => -1305621815;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -93,9 +93,10 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
 abstract class RustLibApi extends BaseApi {
   Future<Uint8List>
-  crateApiAttachmentsRepositoryAttachmentsRepositoryLoadAttachment({
+  crateApiAttachmentsRepositoryAttachmentsRepositoryLoadImageAttachment({
     required AttachmentsRepository that,
     required AttachmentId attachmentId,
+    required FutureOr<void> Function(BigInt) chunkEventCallback,
   });
 
   AttachmentsRepository crateApiAttachmentsRepositoryAttachmentsRepositoryNew({
@@ -156,7 +157,7 @@ abstract class RustLibApi extends BaseApi {
     required ConversationListCubitBase that,
   });
 
-  Future<ConversationId>
+  Future<ConversationId?>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
@@ -644,9 +645,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<Uint8List>
-  crateApiAttachmentsRepositoryAttachmentsRepositoryLoadAttachment({
+  crateApiAttachmentsRepositoryAttachmentsRepositoryLoadImageAttachment({
     required AttachmentsRepository that,
     required AttachmentId attachmentId,
+    required FutureOr<void> Function(BigInt) chunkEventCallback,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -657,6 +659,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_attachment_id(attachmentId, serializer);
+          sse_encode_DartFn_Inputs_u_64_Output_unit_AnyhowException(
+            chunkEventCallback,
+            serializer,
+          );
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -669,18 +675,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
-            kCrateApiAttachmentsRepositoryAttachmentsRepositoryLoadAttachmentConstMeta,
-        argValues: [that, attachmentId],
+            kCrateApiAttachmentsRepositoryAttachmentsRepositoryLoadImageAttachmentConstMeta,
+        argValues: [that, attachmentId, chunkEventCallback],
         apiImpl: this,
       ),
     );
   }
 
   TaskConstMeta
-  get kCrateApiAttachmentsRepositoryAttachmentsRepositoryLoadAttachmentConstMeta =>
+  get kCrateApiAttachmentsRepositoryAttachmentsRepositoryLoadImageAttachmentConstMeta =>
       const TaskConstMeta(
-        debugName: "AttachmentsRepository_load_attachment",
-        argNames: ["that", "attachmentId"],
+        debugName: "AttachmentsRepository_load_image_attachment",
+        argNames: ["that", "attachmentId", "chunkEventCallback"],
       );
 
   @override
@@ -1115,7 +1121,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<ConversationId>
+  Future<ConversationId?>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
@@ -1137,7 +1143,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_conversation_id,
+          decodeSuccessData: sse_decode_opt_box_autoadd_conversation_id,
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
@@ -4224,6 +4230,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     };
   }
 
+  Future<void> Function(int, dynamic)
+  encode_DartFn_Inputs_u_64_Output_unit_AnyhowException(
+    FutureOr<void> Function(BigInt) raw,
+  ) {
+    return (callId, rawArg0) async {
+      final arg0 = dco_decode_u_64(rawArg0);
+
+      Box<void>? rawOutput;
+      Box<AnyhowException>? rawError;
+      try {
+        rawOutput = Box(await raw(arg0));
+      } catch (e, s) {
+        rawError = Box(AnyhowException("$e\n\n$s"));
+      }
+
+      final serializer = SseSerializer(generalizedFrbRustBinding);
+      assert((rawOutput != null) ^ (rawError != null));
+      if (rawOutput != null) {
+        serializer.buffer.putUint8(0);
+        sse_encode_unit(rawOutput.value, serializer);
+      } else {
+        serializer.buffer.putUint8(1);
+        sse_encode_AnyhowException(rawError!.value, serializer);
+      }
+      final output = serializer.intoRaw();
+
+      generalizedFrbRustBinding.dartFnDeliverOutput(
+        callId: callId,
+        ptr: output.ptr,
+        rustVecLen: output.rustVecLen,
+        dataLen: output.dataLen,
+      );
+    };
+  }
+
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_AttachmentsRepository =>
       wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerAttachmentsRepository;
@@ -4742,6 +4783,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   dco_decode_DartFn_Inputs_notification_content_Output_unit_AnyhowException(
     dynamic raw,
   ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError('');
+  }
+
+  @protected
+  FutureOr<void> Function(BigInt)
+  dco_decode_DartFn_Inputs_u_64_Output_unit_AnyhowException(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     throw UnimplementedError('');
   }
@@ -8668,6 +8716,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_DartFn_Inputs_u_64_Output_unit_AnyhowException(
+    FutureOr<void> Function(BigInt) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_DartOpaque(
+      encode_DartFn_Inputs_u_64_Output_unit_AnyhowException(self),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_DartOpaque(Object self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_isize(
@@ -10296,12 +10356,15 @@ class AttachmentsRepositoryImpl extends RustOpaque
             .rust_arc_decrement_strong_count_AttachmentsRepositoryPtr,
   );
 
-  Future<Uint8List> loadAttachment({required AttachmentId attachmentId}) =>
-      RustLib.instance.api
-          .crateApiAttachmentsRepositoryAttachmentsRepositoryLoadAttachment(
-            that: this,
-            attachmentId: attachmentId,
-          );
+  Future<Uint8List> loadImageAttachment({
+    required AttachmentId attachmentId,
+    required FutureOr<void> Function(BigInt) chunkEventCallback,
+  }) => RustLib.instance.api
+      .crateApiAttachmentsRepositoryAttachmentsRepositoryLoadImageAttachment(
+        that: this,
+        attachmentId: attachmentId,
+        chunkEventCallback: chunkEventCallback,
+      );
 }
 
 @sealed
@@ -10433,7 +10496,9 @@ class ConversationListCubitBaseImpl extends RustOpaque
       .crateApiConversationListCubitConversationListCubitBaseClose(that: this);
 
   /// Creates a new 1:1 connection with the given user via a user handle.
-  Future<ConversationId> createConnection({
+  ///
+  /// Returns `None` if the provided handle does not exist.
+  Future<ConversationId?> createConnection({
     required UiUserHandle handle,
   }) => RustLib.instance.api
       .crateApiConversationListCubitConversationListCubitBaseCreateConnection(

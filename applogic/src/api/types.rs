@@ -11,7 +11,6 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::NestedPartContent;
 pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
@@ -288,13 +287,7 @@ impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         let (sender, sent, content) = content_message.into_parts();
         Self {
-            hidden: if let NestedPartContent::SinglePart { content_type, .. } =
-                &content.nested_part.part
-            {
-                content_type == "application/mimi-message-status"
-            } else {
-                false
-            },
+            hidden: content.is_status_update(),
             sender: sender.into(),
             sent,
             content: UiMimiContent::from(content),
