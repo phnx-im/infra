@@ -16,16 +16,14 @@ class ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (message, timestamp, position, deliveryStatus, readStatus) = context
-        .select(
-          (MessageCubit cubit) => (
-            cubit.state.message.message,
-            cubit.state.message.timestamp,
-            cubit.state.message.position,
-            cubit.state.message.deliveryStatus,
-            cubit.state.message.readStatus,
-          ),
-        );
+    final (message, timestamp, position, status) = context.select(
+      (MessageCubit cubit) => (
+        cubit.state.message.message,
+        cubit.state.message.timestamp,
+        cubit.state.message.position,
+        cubit.state.message.status,
+      ),
+    );
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: Spacings.s),
@@ -39,8 +37,7 @@ class ConversationTile extends StatelessWidget {
             contentMessage: content,
             timestamp: timestamp,
             flightPosition: position,
-            deliveryStatus: deliveryStatus,
-            readStatus: readStatus,
+            status: status,
           ),
           UiMessage_Display(field0: final display) => DisplayMessageTile(
             display,

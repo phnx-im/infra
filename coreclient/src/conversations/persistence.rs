@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::{DateTime, Utc};
-use mimi_content::{MessageStatus, MessageStatusReport};
+use mimi_content::MessageStatus;
 use openmls::group::GroupId;
-use phnxcommon::identifiers::{Fqdn, UserHandle, UserId};
+use phnxcommon::identifiers::{Fqdn, MimiId, UserHandle, UserId};
 use sqlx::{
     Connection, SqliteConnection, SqliteExecutor, SqliteTransaction, query, query_as, query_scalar,
 };
@@ -432,13 +432,16 @@ impl Conversation {
     }
 
     /// Mark all messages in the conversation as read until including the given message id.
+    ///
+    /// Returns whether the conversation was marked as read and the mimi ids of the messages that
+    /// were marked as read.
     pub(crate) async fn mark_as_read_until_message_id(
-        connection: &mut sqlx::SqliteConnection,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
         until_message_id: ConversationMessageId,
         own_user: &UserId,
-    ) -> sqlx::Result<(bool, Vec<Vec<u8>>)> {
+    ) -> sqlx::Result<(bool, Vec<MimiId>)> {
         let (our_user_uuid, our_user_domain) = own_user.clone().into_parts();
 
         let timestamp: Option<DateTime<Utc>> = query_scalar!(
@@ -447,7 +450,7 @@ impl Conversation {
             FROM conversation_messages WHERE message_id = ?"#,
             until_message_id
         )
-        .fetch_optional(&mut *connection)
+        .fetch_optional(txn.as_mut())
         .await?;
 
         let Some(timestamp) = timestamp else {
@@ -459,22 +462,31 @@ impl Conversation {
             WHERE conversation_id = ?",
             conversation_id,
         )
-        .fetch_one(&mut *connection)
+        .fetch_one(txn.as_mut())
         .await?
         .last_read;
 
-        let new_marked_as_read = query!(
-            "SELECT mimi_id FROM conversation_messages
-            WHERE conversation_id = ? AND timestamp > ?
-            AND sender_user_uuid != ? AND sender_user_domain != ?",
+        let read_status = MessageStatus::Read.repr();
+        let new_marked_as_read: Vec<MimiId> = query_scalar!(
+            r#"SELECT
+                m.mimi_id AS "mimi_id!: _"
+            FROM conversation_messages m
+            LEFT JOIN conversation_message_status s
+                ON s.message_id = m.message_id
+                AND s.sender_user_uuid = ?2
+                AND s.sender_user_domain = ?3
+            WHERE conversation_id = ?1
+                AND m.timestamp > ?2
+                AND (m.sender_user_uuid != ?3 OR m.sender_user_domain != ?4)
+                AND mimi_id IS NOT NULL
+                AND (s.status IS NULL OR s.status != ?5)"#,
             conversation_id,
             old_timestamp,
             our_user_uuid,
             our_user_domain,
+            read_status,
         )
-        .fetch(&mut *connection)
-        .filter_map(|record| record.map(|r| r.mimi_id).transpose())
-        .collect::<Result<Vec<_>, _>>()
+        .fetch_all(txn.as_mut())
         .await?;
 
         let updated = query!(
@@ -483,7 +495,7 @@ impl Conversation {
             timestamp,
             conversation_id,
         )
-        .execute(&mut *connection)
+        .execute(txn.as_mut())
         .await?;
 
         let marked_as_read = updated.rows_affected() == 1;
@@ -641,45 +653,7 @@ impl Conversation {
     }
 }
 
-pub async fn persist_message_status_report(
-    txn: &mut SqliteTransaction<'_>,
-    notifier: &mut StoreNotifier,
-    sender: &UserId,
-    report: &MessageStatusReport,
-) -> anyhow::Result<()> {
-    let (sender_uuid, sender_domain) = sender.clone().into_parts();
-
-    for update in &report.statuses {
-        let mimi_id = &update.mimi_id.to_vec();
-        let repr = update.status.repr();
-        let Some(message_id): Option<ConversationMessageId> = query_scalar!(
-            r#"SELECT message_id AS "message_id: _" FROM conversation_messages
-            WHERE mimi_id = ?"#,
-            mimi_id,
-        )
-        .fetch_optional(&mut **txn)
-        .await?
-        else {
-            continue;
-        };
-
-        query!(
-            "INSERT INTO conversation_message_status (message_id, status, sender_user_domain, sender_user_uuid) VALUES (?, ?, ?, ?)",
-            message_id,
-            repr,
-            sender_domain,
-            sender_uuid,
-        )
-        .execute(&mut **txn)
-        .await?;
-
-        notifier.update(message_id);
-    }
-
-    Ok(())
-}
-
-pub async fn load_message_status(
+pub(crate) async fn load_message_status(
     connection: &mut SqliteConnection,
     message_id: ConversationMessageId,
     status: MessageStatus,
@@ -904,8 +878,9 @@ pub mod tests {
         let n = Conversation::global_unread_message_count(&mut *connection).await?;
         assert_eq!(n, 2);
 
+        let mut txn = connection.begin().await?;
         Conversation::mark_as_read(
-            &mut connection,
+            &mut txn,
             &mut store_notifier,
             [(
                 conversation_a.id(),
@@ -913,37 +888,44 @@ pub mod tests {
             )],
         )
         .await?;
+        txn.commit().await?;
         let n = Conversation::unread_messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
+        let mut txn = connection.begin().await?;
         Conversation::mark_as_read(
-            &mut connection,
+            &mut txn,
             &mut store_notifier,
             [(conversation_a.id(), Utc::now())],
         )
         .await?;
+        txn.commit().await?;
         let n = Conversation::unread_messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 0);
 
+        let mut txn = connection.begin().await?;
         Conversation::mark_as_read_until_message_id(
-            &mut connection,
+            &mut txn,
             &mut store_notifier,
             conversation_b.id(),
             ConversationMessageId::random(),
             &UserId::random("localhost".parse().unwrap()),
         )
         .await?;
+        txn.commit().await?;
         let n = Conversation::unread_messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 1);
 
+        let mut txn = connection.begin().await?;
         Conversation::mark_as_read_until_message_id(
-            &mut connection,
+            &mut txn,
             &mut store_notifier,
             conversation_b.id(),
             message_b.id(),
             &UserId::random("localhost".parse().unwrap()),
         )
         .await?;
+        txn.commit().await?;
         let n = Conversation::unread_messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 0);
 

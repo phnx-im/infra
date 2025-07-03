@@ -49,7 +49,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.10.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 887936894;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1834138887;
 
 // Section: executor
 
@@ -5120,39 +5120,6 @@ fn wire__crate__api__logging__tar_logs_impl(
         },
     )
 }
-fn wire__crate__api__types__ui_conversation_message_is_hidden_impl(
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ui_conversation_message_is_hidden",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that =
-                <crate::api::types::UiConversationMessage>::sse_decode(&mut deserializer);
-            deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Result::<_, ()>::Ok(
-                    crate::api::types::UiConversationMessage::is_hidden(&api_that),
-                )?;
-                Ok(output_ok)
-            })())
-        },
-    )
-}
 fn wire__crate__api__types__ui_user_handle_validation_error_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -6832,12 +6799,10 @@ impl SseDecode for crate::api::types::UiContentMessage {
         let mut var_sent = <bool>::sse_decode(deserializer);
         let mut var_content =
             <crate::api::message_content::UiMimiContent>::sse_decode(deserializer);
-        let mut var_hidden = <bool>::sse_decode(deserializer);
         return crate::api::types::UiContentMessage {
             sender: var_sender,
             sent: var_sent,
             content: var_content,
-            hidden: var_hidden,
         };
     }
 }
@@ -6891,16 +6856,14 @@ impl SseDecode for crate::api::types::UiConversationMessage {
         let mut var_timestamp = <String>::sse_decode(deserializer);
         let mut var_message = <crate::api::types::UiMessage>::sse_decode(deserializer);
         let mut var_position = <crate::api::types::UiFlightPosition>::sse_decode(deserializer);
-        let mut var_deliveryStatus = <Vec<crate::api::types::UiUserId>>::sse_decode(deserializer);
-        let mut var_readStatus = <Vec<crate::api::types::UiUserId>>::sse_decode(deserializer);
+        let mut var_status = <crate::api::types::UiMessageStatus>::sse_decode(deserializer);
         return crate::api::types::UiConversationMessage {
             conversation_id: var_conversationId,
             id: var_id,
             timestamp: var_timestamp,
             message: var_message,
             position: var_position,
-            delivery_status: var_deliveryStatus,
-            read_status: var_readStatus,
+            status: var_status,
         };
     }
 }
@@ -7048,6 +7011,20 @@ impl SseDecode for crate::api::types::UiMessageDraft {
             message: var_message,
             editing_id: var_editingId,
             updated_at: var_updatedAt,
+        };
+    }
+}
+
+impl SseDecode for crate::api::types::UiMessageStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::api::types::UiMessageStatus::Sending,
+            1 => crate::api::types::UiMessageStatus::Sent,
+            2 => crate::api::types::UiMessageStatus::Delivered,
+            3 => crate::api::types::UiMessageStatus::Read,
+            _ => unreachable!("Invalid variant for UiMessageStatus: {}", inner),
         };
     }
 }
@@ -7298,8 +7275,7 @@ fn pde_ffi_dispatcher_sync_impl(
 100 => wire__crate__api__types__image_data_compute_hash_impl(ptr, rust_vec_len, data_len),
 101 => wire__crate__api__logging__init_rust_logging_impl(ptr, rust_vec_len, data_len),
 104 => wire__crate__api__markdown__message_content_parse_markdown_raw_impl(ptr, rust_vec_len, data_len),
-108 => wire__crate__api__types__ui_conversation_message_is_hidden_impl(ptr, rust_vec_len, data_len),
-109 => wire__crate__api__types__ui_user_handle_validation_error_impl(ptr, rust_vec_len, data_len),
+108 => wire__crate__api__types__ui_user_handle_validation_error_impl(ptr, rust_vec_len, data_len),
                         _ => unreachable!(),
                     }
 }
@@ -8220,7 +8196,6 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::UiContentMessage {
             self.sender.into_into_dart().into_dart(),
             self.sent.into_into_dart().into_dart(),
             self.content.into_into_dart().into_dart(),
-            self.hidden.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -8294,8 +8269,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::UiConversationMessage 
             self.timestamp.into_into_dart().into_dart(),
             self.message.into_into_dart().into_dart(),
             self.position.into_into_dart().into_dart(),
-            self.delivery_status.into_into_dart().into_dart(),
-            self.read_status.into_into_dart().into_dart(),
+            self.status.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -8513,6 +8487,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMessageDraft>
     for crate::api::types::UiMessageDraft
 {
     fn into_into_dart(self) -> crate::api::types::UiMessageDraft {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::UiMessageStatus {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Sending => 0.into_dart(),
+            Self::Sent => 1.into_dart(),
+            Self::Delivered => 2.into_dart(),
+            Self::Read => 3.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::UiMessageStatus
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::UiMessageStatus>
+    for crate::api::types::UiMessageStatus
+{
+    fn into_into_dart(self) -> crate::api::types::UiMessageStatus {
         self
     }
 }
@@ -9916,7 +9913,6 @@ impl SseEncode for crate::api::types::UiContentMessage {
         <crate::api::types::UiUserId>::sse_encode(self.sender, serializer);
         <bool>::sse_encode(self.sent, serializer);
         <crate::api::message_content::UiMimiContent>::sse_encode(self.content, serializer);
-        <bool>::sse_encode(self.hidden, serializer);
     }
 }
 
@@ -9954,8 +9950,7 @@ impl SseEncode for crate::api::types::UiConversationMessage {
         <String>::sse_encode(self.timestamp, serializer);
         <crate::api::types::UiMessage>::sse_encode(self.message, serializer);
         <crate::api::types::UiFlightPosition>::sse_encode(self.position, serializer);
-        <Vec<crate::api::types::UiUserId>>::sse_encode(self.delivery_status, serializer);
-        <Vec<crate::api::types::UiUserId>>::sse_encode(self.read_status, serializer);
+        <crate::api::types::UiMessageStatus>::sse_encode(self.status, serializer);
     }
 }
 
@@ -10084,6 +10079,24 @@ impl SseEncode for crate::api::types::UiMessageDraft {
         <String>::sse_encode(self.message, serializer);
         <Option<crate::api::types::ConversationMessageId>>::sse_encode(self.editing_id, serializer);
         <chrono::DateTime<chrono::Utc>>::sse_encode(self.updated_at, serializer);
+    }
+}
+
+impl SseEncode for crate::api::types::UiMessageStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::api::types::UiMessageStatus::Sending => 0,
+                crate::api::types::UiMessageStatus::Sent => 1,
+                crate::api::types::UiMessageStatus::Delivered => 2,
+                crate::api::types::UiMessageStatus::Read => 3,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 

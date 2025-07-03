@@ -30,16 +30,14 @@ class TextMessageTile extends StatelessWidget {
     required this.contentMessage,
     required this.timestamp,
     required this.flightPosition,
-    required this.deliveryStatus,
-    required this.readStatus,
+    required this.status,
     super.key,
   });
 
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
-  final List<UiUserId> deliveryStatus;
-  final List<UiUserId> readStatus;
+  final UiMessageStatus status;
 
   @override
   Widget build(BuildContext context) {
@@ -55,8 +53,7 @@ class TextMessageTile extends StatelessWidget {
           timestamp: timestamp,
           isSender: isSender,
           flightPosition: flightPosition,
-          deliveryStatus: deliveryStatus,
-          readStatus: readStatus,
+          status: status,
         ),
       ],
     );
@@ -69,21 +66,22 @@ class _MessageView extends StatelessWidget {
     required this.timestamp,
     required this.flightPosition,
     required this.isSender,
-    required this.deliveryStatus,
-    required this.readStatus,
+    required this.status,
   });
 
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
   final bool isSender;
-  final List<UiUserId> deliveryStatus;
-  final List<UiUserId> readStatus;
+  final UiMessageStatus status;
 
   @override
   Widget build(BuildContext context) {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox.shrink());
+
+    final showMessageStatus =
+        isSender && flightPosition.isLast && status != UiMessageStatus.sending;
 
     return Row(
       mainAxisAlignment:
@@ -106,11 +104,29 @@ class _MessageView extends StatelessWidget {
                   isSender: isSender,
                   flightPosition: flightPosition,
                 ),
-                Text.rich(TextSpan(text: deliveryStatus.length.toString())),
-                Text.rich(TextSpan(text: readStatus.length.toString())),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 2),
-                  Timestamp(timestamp),
+                  Row(
+                    mainAxisAlignment:
+                        isSender
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                    children: [
+                      const SizedBox(width: Spacings.s),
+                      Timestamp(timestamp),
+                      if (showMessageStatus)
+                        const SizedBox(width: Spacings.xxxs),
+                      if (showMessageStatus)
+                        DoubleCheckIcon(
+                          size: status == UiMessageStatus.read ? 13 : 12,
+                          singleCheckIcon: status == UiMessageStatus.sent,
+                          backgroundColor: Colors.white,
+                          color: colorGreyDark,
+                          inverted: status == UiMessageStatus.read,
+                        ),
+                      const SizedBox(width: Spacings.xs),
+                    ],
+                  ),
                 ],
               ],
             ),

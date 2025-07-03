@@ -234,34 +234,23 @@ impl ConversationDetailsCubitBase {
             return Ok(());
         }
 
-        let marked_as_read = self
+        let (_, read_mimi_ids) = self
             .context
             .store
             .mark_conversation_as_read(self.context.conversation_id, until_message_id)
             .await?;
 
-        let Ok((status_report, message)) = MimiContent::simple_receipt(
-            &marked_as_read.1.iter().map(|v| &**v).collect::<Vec<_>>(),
-            *phnxcommon::crypto::secrets::Secret::<16>::random()?.secret(),
-            MessageStatus::Read,
-        ) else {
-            // There was an error constructing this delivery receipt message
-            return Ok(());
-        };
-
-        if let Err(e) = self
+        let statuses = read_mimi_ids
+            .iter()
+            .map(|mimi_id| (mimi_id, MessageStatus::Read));
+        if let Err(error) = self
             .context
             .store
-            .send_message(self.context.conversation_id, message)
+            .send_delivery_receipts(self.context.conversation_id, statuses)
             .await
         {
-            error!(%e, "Could not send delivery receipt");
+            error!(%error, "Failed to send delivery receipt");
         }
-
-        self.context
-            .store
-            .persist_message_status_report(self.context.store.user_id(), &status_report)
-            .await?;
 
         Ok(())
     }

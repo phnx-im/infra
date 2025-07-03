@@ -3952,6 +3952,7 @@ dependencies = [
  "hkdf",
  "insta",
  "mimi-room-policy",
+ "mimi_content",
  "mls-assist",
  "rand 0.8.5",
  "rand_chacha 0.3.1",

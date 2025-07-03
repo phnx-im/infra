@@ -31,7 +31,7 @@ use tracing::error;
 use crate::{
     ConversationMessage, Message,
     contacts::HandleContact,
-    conversations::{ConversationType, persistence::persist_message_status_report},
+    conversations::{ConversationType, StatusRecord},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
@@ -309,32 +309,64 @@ impl CoreUser {
                 })
                 .await?;
 
+        // Send delivery receipts for incoming messages
         // TODO: Queue this and run the network requests batched together in a background task
-        for message in &conversation_messages {
-            if let Message::Content(content_message) = message.message() {
-                if content_message.content().nested_part.disposition == Disposition::Render {
-                    // Construct a delivery receipt for the message we just received
-                    let Ok((status_report, message)) = MimiContent::simple_receipt(
-                        &[content_message.mimi_id()],
-                        *phnxcommon::crypto::secrets::Secret::<16>::random()?.secret(),
-                        MessageStatus::Delivered,
-                    ) else {
-                        // There was an error constructing this delivery receipt message
-                        continue;
-                    };
 
-                    if let Err(e) = self.send_message(conversation_id, message).await {
-                        error!(%e, "Could not send delivery receipt");
-                    }
-
-                    self.with_transaction_and_notifier(async |txn, notifier| {
-                        persist_message_status_report(txn, notifier, self.user_id(), &status_report)
-                            .await
-                    })
-                    .await?;
-                }
+        let delivered_receipts = conversation_messages.iter().filter_map(|message| {
+            if let Message::Content(content_message) = message.message()
+                && [Disposition::Render, Disposition::Attachment]
+                    .contains(&content_message.content().nested_part.disposition)
+                && let Some(mimi_id) = content_message.mimi_id()
+            {
+                Some((mimi_id, MessageStatus::Delivered))
+            } else {
+                None
             }
-        }
+        });
+        self.send_delivery_receipts(conversation_id, delivered_receipts)
+            .await?;
+
+        // for message in &conversation_messages {
+        //     if let Message::Content(content_message) = message.message()
+        //         && [Disposition::Render, Disposition::Attachment]
+        //             .contains(&content_message.content().nested_part.disposition)
+        //         && let Some(mimi_id) = content_message.mimi_id()
+        //     {
+        //         // Construct a delivery receipt for the message we just received
+        //         // let salt = RustCrypto::default().random_array()?;
+        //         // let (status_report, message) = match MimiContent::simple_receipt(
+        //         //     &[mimi_id.as_slice()],
+        //         //     salt,
+        //         //     MessageStatus::Delivered,
+        //         // ) {
+        //         //     Ok(res) => res,
+        //         //     Err(error) => {
+        //         //         error!(%error, "Could not construct delivery receipt; skipping");
+        //         //         continue;
+        //         //     }
+        //         // };
+        //
+        //         if let Err(e) = self
+        //             .send_delivery_receipts(conversation_id, [(mimi_id, MessageStatus::Delivered)])
+        //             .await
+        //         {
+        //             error!(%e, "Could not send delivery receipt");
+        //         }
+        //
+        //         // self.with_transaction_and_notifier(async |txn, notifier| {
+        //         //     StatusRecord::store_report(
+        //         //         txn,
+        //         //         notifier,
+        //         //         self.user_id(),
+        //         //         status_report,
+        //         //         TimeStamp::now(),
+        //         //     )
+        //         //     .await
+        //         //     .map_err(From::from)
+        //         // })
+        //         // .await?;
+        //     }
+        // }
 
         let res = match (conversation_messages, conversation_changed) {
             (messages, true) => {
@@ -354,6 +386,9 @@ impl CoreUser {
         Ok(res)
     }
 
+    /// Returns a conversation message if it should be stored, otherwise an empty vec.
+    ///
+    /// Also returns whether the conversation should be notified as updated.
     async fn handle_application_message(
         &self,
         txn: &mut SqliteTransaction<'_>,
@@ -361,33 +396,27 @@ impl CoreUser {
         group: &Group,
         application_message: openmls::prelude::ApplicationMessage,
         ds_timestamp: TimeStamp,
-        sender_user_id: &UserId,
+        sender: &UserId,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
-        let message = TimestampedMessage::from_application_message(
-            application_message,
-            ds_timestamp,
-            sender_user_id,
-            group,
-        )?;
+        let content = MimiContent::deserialize(&application_message.into_bytes());
 
-        if let Message::Content(content_message) = message.message() {
-            if let NestedPartContent::SinglePart {
+        // Delivery receipt
+        if let Ok(content) = &content
+            && let NestedPartContent::SinglePart {
                 content_type,
-                content,
-            } = &content_message.content().nested_part.part
-            {
-                if content_type == "application/mimi-message-status" {
-                    if let Ok(report) = MessageStatusReport::deserialize(content) {
-                        persist_message_status_report(txn, notifier, sender_user_id, &report)
-                            .await?;
-                    }
-                }
-            }
+                content: report_content,
+            } = &content.nested_part.part
+            && content_type == "application/mimi-message-status"
+        {
+            let report = MessageStatusReport::deserialize(report_content)?;
+            StatusRecord::store_report(txn, notifier, sender, report, ds_timestamp).await?;
+            // Delivery receipt messages are not stored
+            return Ok((Vec::new(), false));
         }
 
-        let group_messages = vec![message];
-
-        Ok((group_messages, false))
+        let message =
+            TimestampedMessage::from_mimi_content_result(content, ds_timestamp, sender, group);
+        Ok((vec![message], false))
     }
 
     async fn handle_proposal_message(

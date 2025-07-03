@@ -6,7 +6,7 @@ use anyhow::bail;
 use mimi_content::{MimiContent, content_container::MimiContentV1};
 use phnxcommon::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
-    identifiers::{Fqdn, UserId},
+    identifiers::{Fqdn, MimiId, UserId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,7 @@ use super::{ConversationMessageId, TimestampedMessage};
 
 struct SqlConversationMessage {
     message_id: ConversationMessageId,
-    mimi_id: Option<Vec<u8>>,
+    mimi_id: Option<MimiId>,
     conversation_id: ConversationId,
     timestamp: TimeStamp,
     sender_user_uuid: Option<Uuid>,
@@ -128,7 +128,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
                             sender,
                             sent,
                             content,
-                            mimi_id: mimi_id.unwrap_or(vec![]), // Fallback to [] for old messages
+                            mimi_id,
                         }))
                     })
                     .unwrap_or_else(|e| {
@@ -419,15 +419,12 @@ pub(crate) mod tests {
     ) -> ConversationMessage {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
-        let message = Message::Content(Box::new(
-            ContentMessage::new(
-                UserId::random("localhost".parse().unwrap()),
-                false,
-                MimiContent::simple_markdown_message("Hello world!".to_string(), [0; 16]), // simple salt for testing
-                &GroupId::from_slice(&[0]),
-            )
-            .unwrap(),
-        ));
+        let message = Message::Content(Box::new(ContentMessage::new(
+            UserId::random("localhost".parse().unwrap()),
+            false,
+            MimiContent::simple_markdown_message("Hello world!".to_string(), [0; 16]), // simple salt for testing
+            &GroupId::from_slice(&[0]),
+        )));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ConversationMessage {
             conversation_message_id,

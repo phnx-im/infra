@@ -48,7 +48,6 @@ use url::Url;
 use crate::{
     Asset,
     contacts::HandleContact,
-    conversations::persistence::persist_message_status_report,
     groups::Group,
     store::Store,
     utils::{image::resize_profile_image, persistence::delete_client_database},
@@ -521,25 +520,25 @@ impl CoreUser {
         Ok(())
     }
 
-    /// Mark all messages in the conversation with the given conversation id and
-    /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_conversation_as_read(
-        &self,
-        conversation_id: ConversationId,
-        until: ConversationMessageId,
-    ) -> sqlx::Result<(bool, Vec<Vec<u8>>)> {
-        let mut notifier = self.store_notifier();
-        let marked_as_read = Conversation::mark_as_read_until_message_id(
-            self.pool().acquire().await?.as_mut(),
-            &mut notifier,
-            conversation_id,
-            until,
-            self.user_id(),
-        )
-        .await?;
-        notifier.notify();
-        Ok(marked_as_read)
-    }
+    // /// Mark all messages in the conversation with the given conversation id and
+    // /// with a timestamp older than the given timestamp as read.
+    // pub async fn mark_conversation_as_read(
+    //     &self,
+    //     conversation_id: ConversationId,
+    //     until: ConversationMessageId,
+    // ) -> sqlx::Result<(bool, Vec<MimiId>)> {
+    //     let mut notifier = self.store_notifier();
+    //     let marked_as_read = Conversation::mark_as_read_until_message_id(
+    //         self.pool().acquire().await?.as_mut(),
+    //         &mut notifier,
+    //         conversation_id,
+    //         until,
+    //         self.user_id(),
+    //     )
+    //     .await?;
+    //     notifier.notify();
+    //     Ok(marked_as_read)
+    // }
 
     /// Returns how many messages are marked as unread across all conversations.
     pub async fn global_unread_messages_count(&self) -> sqlx::Result<usize> {
@@ -686,18 +685,5 @@ impl CoreUser {
         let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
-    }
-
-    pub async fn persist_message_status_report(
-        &self,
-        sender: &UserId,
-        status_report: &mimi_content::MessageStatusReport,
-    ) -> anyhow::Result<()> {
-        self.with_transaction_and_notifier(async |txn, notifier| {
-            persist_message_status_report(txn, notifier, sender, status_report).await
-        })
-        .await?;
-
-        Ok(())
     }
 }

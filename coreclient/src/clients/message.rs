@@ -3,16 +3,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{Context, bail};
-use mimi_content::MimiContent;
+use mimi_content::{
+    Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPart, NestedPartContent,
+    PerMessageStatus,
+};
 use openmls::storage::OpenMlsProvider;
+use phnxcommon::OpenMlsRand;
 use phnxcommon::{
-    credentials::keys::ClientSigningKey, identifiers::UserId,
-    messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
+    RustCrypto,
+    credentials::keys::ClientSigningKey,
+    identifiers::{MimiId, UserId},
+    messages::client_ds_out::SendMessageParamsOut,
+    time::TimeStamp,
 };
 use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
-use crate::{Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message};
+use crate::{
+    Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message,
+    conversations::StatusRecord,
+};
 
 use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
 
@@ -26,7 +36,6 @@ impl CoreUser {
         conversation_id: ConversationId,
         content: MimiContent,
     ) -> anyhow::Result<ConversationMessage> {
-        let is_status_update = content.is_status_update();
         let unsent_group_message = self
             .with_transaction_and_notifier(async |txn, notifier| {
                 UnsentContent {
@@ -37,7 +46,7 @@ impl CoreUser {
                 .store_unsent_message(txn, notifier, self.user_id())
                 .await?
                 .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
-                .store_group_update(txn, notifier, !is_status_update, self.user_id())
+                .store_group_update(txn, notifier, self.user_id())
                 .await
             })
             .await?;
@@ -60,8 +69,6 @@ impl CoreUser {
         conversation_message_id: ConversationMessageId,
         content: MimiContent,
     ) -> anyhow::Result<ConversationMessage> {
-        let is_status_update = content.is_status_update();
-
         let unsent_group_message = UnsentContent {
             conversation_id,
             conversation_message_id,
@@ -70,7 +77,7 @@ impl CoreUser {
         .store_unsent_message(txn, notifier, self.user_id())
         .await?
         .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
-        .store_group_update(txn, notifier, !is_status_update, self.user_id())
+        .store_group_update(txn, notifier, self.user_id())
         .await?;
 
         let sent_message = unsent_group_message
@@ -98,6 +105,58 @@ impl CoreUser {
         self.with_transaction_and_notifier(async |connection, notifier| {
             // Do not mark as read, because the user might have missed messages
             sent_message.mark_as_sent(connection, notifier).await
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn send_delivery_receipts(
+        &self,
+        conversation_id: ConversationId,
+        statuses: impl IntoIterator<Item = (&MimiId, MessageStatus)>,
+    ) -> anyhow::Result<()> {
+        let Some(unsent_receipt) = UnsentReceipt::new(statuses)? else {
+            return Ok(()); // Nothing to send
+        };
+
+        let (conversation, group, params) = self
+            .with_transaction(async |txn| {
+                let conversation = Conversation::load(&mut *txn, &conversation_id)
+                    .await?
+                    .with_context(|| {
+                        format!("Can't find conversation with id {conversation_id}")
+                    })?;
+                let group_id = conversation.group_id();
+                let mut group = Group::load_clean(txn, group_id)
+                    .await?
+                    .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+                let params = group.create_message(
+                    &PhnxOpenMlsProvider::new(txn),
+                    self.signing_key(),
+                    unsent_receipt.content,
+                )?;
+                group.store_update(txn.as_mut()).await?;
+                Ok((conversation, group, params))
+            })
+            .await?;
+
+        self.inner
+            .api_clients
+            .get(&conversation.owner_domain())?
+            .ds_send_message(params, self.signing_key(), group.group_state_ear_key())
+            .await?;
+
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            StatusRecord::store_report(
+                txn,
+                notifier,
+                self.user_id(),
+                unsent_receipt.report,
+                TimeStamp::now(),
+            )
+            .await?;
+            Ok(())
         })
         .await?;
 
@@ -135,7 +194,7 @@ impl UnsentContent {
             conversation_message_id,
             content.clone(),
             conversation.group_id(),
-        )?;
+        );
         conversation_message.store(txn.as_mut(), notifier).await?;
 
         let group_id = conversation.group_id();
@@ -246,9 +305,8 @@ impl<GroupUpdate> UnsentMessage<WithContent, GroupUpdate> {
 impl UnsentMessage<WithParams, GroupUpdateNeeded> {
     async fn store_group_update(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
-        mark_as_read: bool,
         own_user: &UserId,
     ) -> anyhow::Result<UnsentMessage<WithParams, GroupUpdated>> {
         let Self {
@@ -261,19 +319,17 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
 
         // Immediately write the group back. No need to wait for the DS to
         // confirm as this is just an application message.
-        group.store_update(&mut *connection).await?;
+        group.store_update(txn.as_mut()).await?;
 
         // Also, mark the message (and all messages preceeding it) as read.
-        if mark_as_read {
-            Conversation::mark_as_read_until_message_id(
-                connection,
-                notifier,
-                conversation.id(),
-                conversation_message.id(),
-                own_user,
-            )
-            .await?;
-        }
+        Conversation::mark_as_read_until_message_id(
+            txn,
+            notifier,
+            conversation.id(),
+            conversation_message.id(),
+            own_user,
+        )
+        .await?;
 
         Ok(UnsentMessage {
             conversation,
@@ -332,5 +388,46 @@ impl SentMessage {
             .await?;
 
         Ok(conversation_message)
+    }
+}
+
+struct UnsentReceipt {
+    report: MessageStatusReport,
+    content: MimiContent,
+}
+
+impl UnsentReceipt {
+    fn new<'a>(
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)>,
+    ) -> anyhow::Result<Option<Self>> {
+        let report = MessageStatusReport {
+            statuses: statuses
+                .into_iter()
+                .map(|(id, status)| PerMessageStatus {
+                    mimi_id: id.as_ref().to_vec().into(),
+                    status,
+                })
+                .collect(),
+        };
+
+        if report.statuses.is_empty() {
+            return Ok(None);
+        }
+
+        let salt: [u8; 16] = RustCrypto::default().random_array()?;
+        let content = MimiContent {
+            salt: salt.to_vec().into(),
+            nested_part: NestedPart {
+                disposition: Disposition::Unspecified,
+                part: NestedPartContent::SinglePart {
+                    content_type: "application/mimi-message-status".to_owned(),
+                    content: report.serialize()?.into(),
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        Ok(Some(Self { report, content }))
     }
 }

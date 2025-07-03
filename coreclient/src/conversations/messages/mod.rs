@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mimi_content::MimiContent;
-use openmls::framing::ApplicationMessage;
-use tls_codec::Serialize;
-use tracing::warn;
+use phnxcommon::identifiers::MimiId;
+use tracing::{error, warn};
 
 use crate::{
     groups::Group,
@@ -30,10 +29,6 @@ impl TimestampedMessage {
         self.timestamp
     }
 
-    pub(crate) fn message(&self) -> &Message {
-        &self.message
-    }
-
     /// Mark the message as sent and update the timestamp. If the message was
     /// already marked as sent, nothing happens.
     pub(super) fn mark_as_sent(&mut self, ds_timestamp: TimeStamp) {
@@ -43,33 +38,31 @@ impl TimestampedMessage {
         }
     }
 
-    /// Create a new timestamped message from an incoming application message.
-    /// The message is marked as sent.
-    pub(crate) fn from_application_message(
-        application_message: ApplicationMessage,
-        ds_timestamp: TimeStamp,
+    /// Creates a new timestamped message from a MimiContent.
+    ///
+    /// If content is an error, a conversation message containing an error event is created
+    /// instead.
+    pub(crate) fn from_mimi_content_result(
+        content: mimi_content::Result<MimiContent>,
+        timestamp: TimeStamp,
         user_id: &UserId,
         group: &Group,
-    ) -> anyhow::Result<Self> {
-        let message = match MimiContent::deserialize(&application_message.into_bytes()) {
+    ) -> Self {
+        let message = match content {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
                 user_id.clone(),
                 true,
                 content,
                 group.group_id(),
-            )?)),
-            Err(e) => {
-                warn!("Message parsing failed: {e}");
+            ))),
+            Err(error) => {
+                warn!(%error, "Invalid message content");
                 Message::Event(EventMessage::Error(ErrorMessage::new(
-                    "Message parsing failed".to_owned(),
+                    "Invalid message content".to_owned(),
                 )))
             }
         };
-
-        Ok(Self {
-            timestamp: ds_timestamp,
-            message,
-        })
+        Self { timestamp, message }
     }
 
     pub(crate) fn system_message(system_message: SystemMessage, ds_timestamp: TimeStamp) -> Self {
@@ -144,19 +137,19 @@ impl ConversationMessage {
         conversation_message_id: ConversationMessageId,
         content: MimiContent,
         group_id: &GroupId,
-    ) -> anyhow::Result<ConversationMessage> {
+    ) -> Self {
         let message = Message::Content(Box::new(ContentMessage::new(
             sender, false, content, group_id,
-        )?));
+        )));
         let timestamped_message = TimestampedMessage {
             message,
             timestamp: TimeStamp::now(),
         };
-        Ok(ConversationMessage {
+        Self {
             conversation_id,
             conversation_message_id,
             timestamped_message,
-        })
+        }
     }
 
     /// Mark the message as sent and update the timestamp.
@@ -278,27 +271,23 @@ impl Message {
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
+    pub(super) mimi_id: Option<MimiId>,
     pub(super) sender: UserId,
     pub(super) sent: bool,
     pub(super) content: MimiContent,
-    pub(super) mimi_id: Vec<u8>,
 }
 
 impl ContentMessage {
-    pub fn new(
-        sender: UserId,
-        sent: bool,
-        content: MimiContent,
-        group_id: &GroupId,
-    ) -> anyhow::Result<Self> {
-        let mimi_id = content.message_id(&sender.tls_serialize_detached()?, group_id.as_slice())?;
-
-        Ok(Self {
+    pub fn new(sender: UserId, sent: bool, content: MimiContent, group_id: &GroupId) -> Self {
+        let mimi_id = MimiId::calculate(group_id, &sender, &content)
+            .inspect_err(|error| error!(%error, "Failed to calculate Mimi ID"))
+            .ok();
+        Self {
+            mimi_id,
             sender,
             sent,
             content,
-            mimi_id,
-        })
+        }
     }
 
     pub fn into_parts(self) -> (UserId, bool, MimiContent) {
@@ -309,8 +298,11 @@ impl ContentMessage {
         &self.sender
     }
 
-    pub fn mimi_id(&self) -> &[u8] {
-        &self.mimi_id
+    /// Mimi ID of the message
+    ///
+    /// Might be missing if it could not be calculated. Or it was not calculated for this message.
+    pub fn mimi_id(&self) -> Option<&MimiId> {
+        self.mimi_id.as_ref()
     }
 
     pub fn was_sent(&self) -> bool {

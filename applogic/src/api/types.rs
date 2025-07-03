@@ -260,25 +260,27 @@ pub struct UiConversationMessage {
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub position: UiFlightPosition,
-    pub delivery_status: Vec<UiUserId>,
-    pub read_status: Vec<UiUserId>,
+    pub status: UiMessageStatus,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum UiMessageStatus {
+    Sending,
+    /// The message was sent to the server.
+    Sent,
+    /// The message was received by at least one user in the conversation.
+    Delivered,
+    /// The message was read by at least one user in the conversation.
+    Read,
 }
 
 impl UiConversationMessage {
-    #[frb(sync)]
-    pub fn is_hidden(&self) -> bool {
-        match &self.message {
-            UiMessage::Content(ui_content_message) => ui_content_message.hidden,
-            UiMessage::Display(_ui_event_message) => false,
-        }
-    }
-
     pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp.parse().ok()
     }
 
     #[frb(ignore)]
-    pub fn from_simple(conversation_message: ConversationMessage) -> Self {
+    pub(crate) fn from_simple(conversation_message: ConversationMessage) -> Self {
         Self::with_status(MessageWithStatus {
             message: conversation_message,
             delivery_status: Vec::new(),
@@ -287,23 +289,23 @@ impl UiConversationMessage {
     }
 
     #[frb(ignore)]
-    pub fn with_status(message: MessageWithStatus) -> Self {
+    pub(crate) fn with_status(message: MessageWithStatus) -> Self {
+        let status = if !message.message.is_sent() {
+            UiMessageStatus::Sending
+        } else if message.delivery_status.is_empty() && message.read_status.is_empty() {
+            UiMessageStatus::Sent
+        } else if !message.delivery_status.is_empty() && message.read_status.is_empty() {
+            UiMessageStatus::Delivered
+        } else {
+            UiMessageStatus::Read
+        };
         Self {
             conversation_id: message.message.conversation_id(),
             id: message.message.id(),
             timestamp: message.message.timestamp().to_rfc3339(),
             message: UiMessage::from(message.message.message().clone()),
             position: UiFlightPosition::Single,
-            delivery_status: message
-                .delivery_status
-                .into_iter()
-                .map(|u| UiUserId::from(u))
-                .collect(),
-            read_status: message
-                .read_status
-                .into_iter()
-                .map(|u| UiUserId::from(u))
-                .collect(),
+            status,
         }
     }
 }
@@ -336,14 +338,12 @@ pub struct UiContentMessage {
     pub sender: UiUserId,
     pub sent: bool,
     pub content: UiMimiContent,
-    pub hidden: bool,
 }
 
 impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
         let (sender, sent, content) = content_message.into_parts();
         Self {
-            hidden: content.is_status_update(),
             sender: sender.into(),
             sent,
             content: UiMimiContent::from(content),

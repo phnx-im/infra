@@ -44,7 +44,7 @@ class MessageListView extends StatelessWidget {
           (context, reverseIndex) {
             final index = state.loadedMessagesCount - reverseIndex - 1;
             final message = state.messageAt(index);
-            return message != null && !message.isHidden()
+            return message != null
                 ? BlocProvider(
                   key: ValueKey(message.id),
                   create: (context) {
