@@ -24,12 +24,14 @@ void main() {
     late MockConversationListCubit conversationListCubit;
     late MockUserCubit userCubit;
     late MockUsersCubit contactsCubit;
+    late MockConversationDetailsCubit conversationDetailsCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
       contactsCubit = MockUsersCubit();
+      conversationDetailsCubit = MockConversationDetailsCubit();
 
       when(
         () => navigationCubit.state,
@@ -38,6 +40,12 @@ void main() {
       when(() => contactsCubit.state).thenReturn(
         MockUsersState(
           profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+        ),
+      );
+      when(() => conversationDetailsCubit.state).thenReturn(
+        ConversationDetailsState(
+          conversation: conversations[1],
+          members: [1.userId()],
         ),
       );
     });

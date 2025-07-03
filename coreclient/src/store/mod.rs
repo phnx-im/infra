@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress, contacts::HandleContact,
+    ConversationMessageId, DownloadProgress, MessageDraft, contacts::HandleContact,
     user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
@@ -192,6 +192,17 @@ pub trait Store {
         &self,
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>>;
+
+    async fn message_draft(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Option<MessageDraft>>;
+
+    async fn store_message_draft(
+        &self,
+        conversation_id: ConversationId,
+        message_draft: Option<&MessageDraft>,
+    ) -> StoreResult<()>;
 
     async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
 

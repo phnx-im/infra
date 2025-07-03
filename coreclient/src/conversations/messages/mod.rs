@@ -246,6 +246,13 @@ impl Message {
         }
     }
 
+    pub fn mimi_content(&self) -> Option<&MimiContent> {
+        match self {
+            Message::Content(content_message) => Some(content_message.content()),
+            Message::Event(_) => None,
+        }
+    }
+
     pub(crate) fn mimi_content_mut(&mut self) -> Option<&mut MimiContent> {
         match self {
             Message::Content(content_message) => Some(content_message.as_mut().content_mut()),

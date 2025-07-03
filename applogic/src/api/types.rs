@@ -16,7 +16,7 @@ use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
-    InactiveConversation, Message, SystemMessage, UserProfile, store::Store,
+    InactiveConversation, Message, MessageDraft, SystemMessage, UserProfile, store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
@@ -85,6 +85,62 @@ pub struct UiConversationDetails {
     pub messages_count: usize,
     pub unread_messages: usize,
     pub last_message: Option<UiConversationMessage>,
+    pub draft: Option<UiMessageDraft>,
+}
+
+/// Draft of a message in a conversation
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
+pub struct UiMessageDraft {
+    pub message: String,
+    pub editing_id: Option<ConversationMessageId>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl UiMessageDraft {
+    pub(crate) fn new(message: String) -> Self {
+        Self {
+            message,
+            editing_id: None,
+            updated_at: Utc::now(),
+        }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.message.trim().is_empty() && self.editing_id.is_none()
+    }
+}
+
+impl From<MessageDraft> for UiMessageDraft {
+    fn from(
+        MessageDraft {
+            message,
+            editing_id,
+            updated_at,
+        }: MessageDraft,
+    ) -> Self {
+        Self {
+            message,
+            editing_id,
+            updated_at,
+        }
+    }
+}
+
+impl From<UiMessageDraft> for MessageDraft {
+    fn from(
+        UiMessageDraft {
+            message,
+            editing_id,
+            updated_at,
+        }: UiMessageDraft,
+    ) -> Self {
+        Self {
+            message,
+            editing_id,
+            updated_at,
+        }
+    }
 }
 
 /// Status of a conversation
