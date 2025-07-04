@@ -30,6 +30,7 @@ argon2 = { version = "0.5.3", features = ["std"] }
 
 # Workspace dependencies
 mimi-room-policy = { workspace = true }
+mimi_content = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "postgres"] }

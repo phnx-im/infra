@@ -40,6 +40,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 2.conversationMessageId(),
@@ -61,6 +62,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 3.conversationMessageId(),
@@ -79,6 +81,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.start,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 4.conversationMessageId(),
@@ -97,6 +100,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.middle,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 5.conversationMessageId(),
@@ -121,6 +125,45 @@ This is a message with multiple lines. It should be properly displayed in the me
       ),
     ),
     position: UiFlightPosition.end,
+    status: UiMessageStatus.sent,
+  ),
+  UiConversationMessage(
+    id: 7.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:01.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "This is a delivered message",
+          content: simpleMessage("This is a delivered message"),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.delivered,
+  ),
+  UiConversationMessage(
+    id: 8.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:02.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "This is a read message",
+          content: simpleMessage("This is a read message"),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.read,
   ),
 ];
 
@@ -163,6 +206,7 @@ final attachmentMessages = [
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 7.conversationMessageId(),
@@ -181,6 +225,7 @@ final attachmentMessages = [
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 8.conversationMessageId(),
@@ -197,6 +242,7 @@ final attachmentMessages = [
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 9.conversationMessageId(),
@@ -222,6 +268,7 @@ final attachmentMessages = [
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
 ];
 

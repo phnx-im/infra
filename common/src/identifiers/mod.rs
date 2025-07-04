@@ -17,18 +17,19 @@ use crate::crypto::{
     hpke::{ClientIdKeyType, HpkeDecryptable, HpkeEncryptable},
 };
 
-use super::*;
-
-mod tls_codec_impls;
-
 pub use attachment::{AttachmentId, AttachmentIdParseError};
+pub use mimi_id::{MimiId, MimiIdCalculationError};
+pub use tls_codec_impls::{TlsStr, TlsString};
 pub use user_handle::{
     USER_HANDLE_VALIDITY_PERIOD, UserHandle, UserHandleHash, UserHandleHashError,
     UserHandleValidationError,
 };
 
-pub use tls_codec_impls::{TlsStr, TlsString};
+use super::*;
+
 mod attachment;
+mod mimi_id;
+mod tls_codec_impls;
 mod user_handle;
 
 pub const QS_CLIENT_REFERENCE_EXTENSION_TYPE: u16 = 0xff00;

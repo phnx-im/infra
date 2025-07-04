@@ -4,8 +4,9 @@
 
 use std::{collections::HashSet, path::Path, sync::Arc};
 
+use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
+use phnxcommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
 use tokio_stream::Stream;
 use tracing::error;
 use uuid::Uuid;
@@ -15,6 +16,8 @@ use crate::{
     ConversationMessageId, DownloadProgress, MessageDraft,
     clients::{CoreUser, attachment::AttachmentRecord, user_settings::UserSettingRecord},
     contacts::HandleContact,
+    conversations::persistence::load_message_status,
+    store::MessageWithStatus,
     store::UserSetting,
     user_handles::UserHandleRecord,
     user_profiles::UserProfile,
@@ -192,6 +195,62 @@ impl Store for CoreUser {
         Ok(self.message(message_id).await?)
     }
 
+    async fn messages_with_status(
+        &self,
+        conversation_id: ConversationId,
+        limit: usize,
+    ) -> StoreResult<Vec<MessageWithStatus>> {
+        let messages = self.messages(conversation_id, limit).await?;
+        let mut result = Vec::new();
+
+        let mut connection = self.pool().acquire().await?;
+        for message in messages {
+            let delivery_status =
+                load_message_status(&mut connection, message.id(), MessageStatus::Delivered)
+                    .await?;
+            let read_status =
+                load_message_status(&mut connection, message.id(), MessageStatus::Read).await?;
+
+            result.push(MessageWithStatus {
+                message,
+                delivery_status,
+                read_status,
+            });
+        }
+
+        Ok(result)
+    }
+
+    async fn message_with_status(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<MessageWithStatus>> {
+        let Some(message) = self.message(message_id).await? else {
+            return Ok(None);
+        };
+
+        let mut connection = self.pool().acquire().await?;
+
+        let delivery_status =
+            load_message_status(&mut connection, message_id, MessageStatus::Delivered).await?;
+        let read_status =
+            load_message_status(&mut connection, message_id, MessageStatus::Read).await?;
+
+        Ok(Some(MessageWithStatus {
+            message,
+            delivery_status,
+            read_status,
+        }))
+    }
+    async fn load_message_status(
+        &self,
+        message_id: ConversationMessageId,
+        status: MessageStatus,
+    ) -> StoreResult<Vec<UserId>> {
+        let mut connection = self.pool().acquire().await?;
+        Ok(load_message_status(&mut connection, message_id, status).await?)
+    }
+
     async fn prev_message(
         &self,
         message_id: ConversationMessageId,
@@ -253,10 +312,19 @@ impl Store for CoreUser {
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> StoreResult<bool> {
-        Ok(self
-            .mark_conversation_as_read(conversation_id, until)
-            .await?)
+    ) -> StoreResult<(bool, Vec<MimiId>)> {
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            Conversation::mark_as_read_until_message_id(
+                txn,
+                notifier,
+                conversation_id,
+                until,
+                self.user_id(),
+            )
+            .await
+            .map_err(From::from)
+        })
+        .await
     }
 
     async fn send_message(
@@ -265,6 +333,14 @@ impl Store for CoreUser {
         content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage> {
         self.send_message(conversation_id, content).await
+    }
+
+    async fn send_delivery_receipts<'a>(
+        &self,
+        conversation_id: ConversationId,
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
+    ) -> StoreResult<()> {
+        self.send_delivery_receipts(conversation_id, statuses).await
     }
 
     async fn upload_attachment(

@@ -16,7 +16,8 @@ use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
-    InactiveConversation, Message, MessageDraft, SystemMessage, UserProfile, store::Store,
+    InactiveConversation, Message, MessageDraft, SystemMessage, UserProfile,
+    store::{MessageWithStatus, Store},
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
@@ -259,22 +260,52 @@ pub struct UiConversationMessage {
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub position: UiFlightPosition,
+    pub status: UiMessageStatus,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum UiMessageStatus {
+    Sending,
+    /// The message was sent to the server.
+    Sent,
+    /// The message was received by at least one user in the conversation.
+    Delivered,
+    /// The message was read by at least one user in the conversation.
+    Read,
 }
 
 impl UiConversationMessage {
     pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp.parse().ok()
     }
-}
 
-impl From<ConversationMessage> for UiConversationMessage {
-    fn from(conversation_message: ConversationMessage) -> Self {
+    #[frb(ignore)]
+    pub(crate) fn from_simple(conversation_message: ConversationMessage) -> Self {
+        Self::with_status(MessageWithStatus {
+            message: conversation_message,
+            delivery_status: Vec::new(),
+            read_status: Vec::new(),
+        })
+    }
+
+    #[frb(ignore)]
+    pub(crate) fn with_status(message: MessageWithStatus) -> Self {
+        let status = if !message.message.is_sent() {
+            UiMessageStatus::Sending
+        } else if message.delivery_status.is_empty() && message.read_status.is_empty() {
+            UiMessageStatus::Sent
+        } else if !message.delivery_status.is_empty() && message.read_status.is_empty() {
+            UiMessageStatus::Delivered
+        } else {
+            UiMessageStatus::Read
+        };
         Self {
-            conversation_id: conversation_message.conversation_id(),
-            id: conversation_message.id(),
-            timestamp: conversation_message.timestamp().to_rfc3339(),
-            message: UiMessage::from(conversation_message.message().clone()),
+            conversation_id: message.message.conversation_id(),
+            id: message.message.id(),
+            timestamp: message.message.timestamp().to_rfc3339(),
+            message: UiMessage::from(message.message.message().clone()),
             position: UiFlightPosition::Single,
+            status,
         }
     }
 }

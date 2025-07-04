@@ -3246,13 +3246,14 @@ dependencies = [
 [[package]]
 name = "mimi_content"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
+source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
 dependencies = [
  "ciborium",
  "hex",
  "serde",
  "serde_bytes",
  "serde_list",
+ "sha2",
  "thiserror 2.0.12",
 ]
 
@@ -3877,6 +3878,7 @@ dependencies = [
  "mimi-room-policy",
  "mimi_content",
  "notify-rust",
+ "openmls",
  "parking_lot",
  "phnxcommon",
  "phnxcoreclient",
@@ -3950,6 +3952,7 @@ dependencies = [
  "hkdf",
  "insta",
  "mimi-room-policy",
+ "mimi_content",
  "mls-assist",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -5164,7 +5167,7 @@ dependencies = [
 [[package]]
 name = "serde_list"
 version = "1.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
+source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
 dependencies = [
  "serde",
  "serde_list_macros",
@@ -5173,7 +5176,7 @@ dependencies = [
 [[package]]
 name = "serde_list_macros"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
+source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
 dependencies = [
  "quote",
  "syn",

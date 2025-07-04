@@ -5,8 +5,9 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::Path};
 
+use mimi_content::{MessageStatus, MimiContent};
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
+use phnxcommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -25,6 +26,13 @@ mod persistence;
 
 /// The result type of a failable [`Store`] method
 pub type StoreResult<T> = anyhow::Result<T>;
+
+#[derive(Clone, Debug)]
+pub struct MessageWithStatus {
+    pub message: ConversationMessage,
+    pub delivery_status: Vec<UserId>,
+    pub read_status: Vec<UserId>,
+}
 
 /// Unified access to the client data
 ///
@@ -87,11 +95,16 @@ pub trait Store {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<HashSet<UserId>>>;
 
+    /// Mark the conversation with the given [`ConversationId`] as read until the given message id
+    /// (including).
+    ///
+    /// Returns whether the conversation was marked as read and the mimi ids of the messages that
+    /// were marked as read.
     async fn mark_conversation_as_read(
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> StoreResult<bool>;
+    ) -> StoreResult<(bool, Vec<MimiId>)>;
 
     /// Delete the conversation with the given [`ConversationId`].
     ///
@@ -178,6 +191,23 @@ pub trait Store {
         message_id: ConversationMessageId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
+    async fn messages_with_status(
+        &self,
+        conversation_id: ConversationId,
+        limit: usize,
+    ) -> StoreResult<Vec<MessageWithStatus>>;
+
+    async fn message_with_status(
+        &self,
+        message_id: ConversationMessageId,
+    ) -> StoreResult<Option<MessageWithStatus>>;
+
+    async fn load_message_status(
+        &self,
+        message_id: ConversationMessageId,
+        status: MessageStatus,
+    ) -> StoreResult<Vec<UserId>>;
+
     async fn prev_message(
         &self,
         message_id: ConversationMessageId,
@@ -213,8 +243,17 @@ pub trait Store {
     async fn send_message(
         &self,
         conversation_id: ConversationId,
-        content: mimi_content::MimiContent,
+        content: MimiContent,
     ) -> StoreResult<ConversationMessage>;
+
+    /// Sends a delivery receipt for the message with the given MimiId.
+    ///
+    /// Also stores the message status report locally.
+    async fn send_delivery_receipts<'a>(
+        &self,
+        conversation_id: ConversationId,
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
+    ) -> StoreResult<()>;
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
 

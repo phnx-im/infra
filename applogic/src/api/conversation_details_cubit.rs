@@ -12,7 +12,7 @@ use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::MimiContent;
+use mimi_content::{MessageStatus, MimiContent};
 use phnxcoreclient::{ConversationId, store::StoreNotification};
 use phnxcoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
 use tls_codec::Serialize;
@@ -21,8 +21,9 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
+use crate::StreamSink;
+use crate::api::types::UiMessageDraft;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
-use crate::{StreamSink, api::types::UiMessageDraft};
 
 use super::{
     conversation_list_cubit::load_conversation_details,
@@ -144,7 +145,10 @@ impl ConversationDetailsCubitBase {
     /// The not yet sent message is immediately stored in the local store and then the message is
     /// send to the DS.
     pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
-        let content = MimiContent::simple_markdown_message(message_text);
+        let content = MimiContent::simple_markdown_message(
+            message_text,
+            *phnxcommon::crypto::secrets::Secret::<16>::random()?.secret(),
+        );
 
         self.context
             .store
@@ -175,7 +179,7 @@ impl ConversationDetailsCubitBase {
         let scheduled = self
             .context
             .mark_as_read_tx
-            .send_if_modified(|state| match state {
+            .send_if_modified(|state| match &state {
                 MarkAsReadState::NotLoaded => {
                     error!("Marking as read while conversation is not loaded");
                     false
@@ -230,10 +234,24 @@ impl ConversationDetailsCubitBase {
             return Ok(());
         }
 
-        self.context
+        let (_, read_mimi_ids) = self
+            .context
             .store
             .mark_conversation_as_read(self.context.conversation_id, until_message_id)
             .await?;
+
+        let statuses = read_mimi_ids
+            .iter()
+            .map(|mimi_id| (mimi_id, MessageStatus::Read));
+        if let Err(error) = self
+            .context
+            .store
+            .send_delivery_receipts(self.context.conversation_id, statuses)
+            .await
+        {
+            error!(%error, "Failed to send delivery receipt");
+        }
+
         Ok(())
     }
 

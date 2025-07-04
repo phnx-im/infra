@@ -19,8 +19,10 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::StreamSink;
-use crate::util::{Cubit, CubitCore, spawn_from_sync};
+use crate::{
+    StreamSink,
+    util::{Cubit, CubitCore, spawn_from_sync},
+};
 
 use super::{
     types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserHandle},
@@ -219,7 +221,7 @@ pub(super) async fn load_conversation_details(
         .await
         .ok()
         .flatten()
-        .map(From::from);
+        .map(UiConversationMessage::from_simple);
     let last_used = last_message
         .as_ref()
         .map(|m: &UiConversationMessage| m.timestamp.clone())

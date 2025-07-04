@@ -67,7 +67,7 @@ tokio-stream = "0.1.17"
 tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }
 
-mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "613510bbefb79f8f5328f9b8d14262f0661624aa" }
+mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89" }
 
 insta = { version = "1.42.1", features = ["json"] }
 

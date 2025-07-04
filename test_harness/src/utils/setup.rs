@@ -592,7 +592,7 @@ impl TestBackend {
             .take(32)
             .map(char::from)
             .collect();
-        let orig_message = MimiContent::simple_markdown_message(message);
+        let orig_message = MimiContent::simple_markdown_message(message, [0; 16]); // we use a simple salt for tests
         let test_sender = self.users.get_mut(sender_id).unwrap();
         let sender = &mut test_sender.user;
 
@@ -612,12 +612,20 @@ impl TestBackend {
             .unwrap();
         let sender_user_id = test_sender.user.user_id().clone();
 
+        let conversation = test_sender
+            .user
+            .conversation(&conversation_id)
+            .await
+            .unwrap();
+        let group_id = conversation.group_id();
+
         assert_eq!(
             message.message(),
             &Message::Content(Box::new(ContentMessage::new(
                 test_sender.user.user_id().clone(),
                 true,
-                orig_message.clone()
+                orig_message.clone(),
+                group_id,
             )))
         );
 
@@ -632,12 +640,20 @@ impl TestBackend {
                 .await
                 .unwrap();
 
+            let message = messages.new_messages.last().unwrap();
+            let conversaion = recipient_user
+                .conversation(&message.conversation_id())
+                .await
+                .unwrap();
+            let group_id = conversaion.group_id();
+
             assert_eq!(
-                messages.new_messages.last().unwrap().message(),
+                message.message(),
                 &Message::Content(Box::new(ContentMessage::new(
                     sender_user_id.clone(),
                     true,
-                    orig_message.clone()
+                    orig_message.clone(),
+                    group_id
                 )))
             );
         }

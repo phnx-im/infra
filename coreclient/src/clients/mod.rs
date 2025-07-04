@@ -520,25 +520,6 @@ impl CoreUser {
         Ok(())
     }
 
-    /// Mark all messages in the conversation with the given conversation id and
-    /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_conversation_as_read(
-        &self,
-        conversation_id: ConversationId,
-        until: ConversationMessageId,
-    ) -> sqlx::Result<bool> {
-        let mut notifier = self.store_notifier();
-        let marked_as_read = Conversation::mark_as_read_until_message_id(
-            self.pool().acquire().await?.as_mut(),
-            &mut notifier,
-            conversation_id,
-            until,
-        )
-        .await?;
-        notifier.notify();
-        Ok(marked_as_read)
-    }
-
     /// Returns how many messages are marked as unread across all conversations.
     pub async fn global_unread_messages_count(&self) -> sqlx::Result<usize> {
         Conversation::global_unread_message_count(self.pool()).await

@@ -54,17 +54,14 @@ class TimestampState extends State<Timestamp> {
   @override
   Widget build(BuildContext context) {
     final localizedTimestamp = _localizedTimeString(_displayTimestamp, context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
-      child: SelectionContainer.disabled(
-        child: Text(
-          localizedTimestamp,
-          style: TextStyle(
-            color: colorGreyDark,
-            fontSize: isLargeScreen(context) ? 10 : 12,
-            letterSpacing: -0.1,
-          ).merge(VariableFontWeight.medium),
-        ),
+    return SelectionContainer.disabled(
+      child: Text(
+        localizedTimestamp,
+        style: TextStyle(
+          color: colorGreyDark,
+          fontSize: isLargeScreen(context) ? 10 : 12,
+          letterSpacing: -0.1,
+        ).merge(VariableFontWeight.medium),
       ),
     );
   }

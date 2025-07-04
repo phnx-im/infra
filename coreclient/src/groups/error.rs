@@ -24,4 +24,6 @@ pub enum GroupOperationError {
     TlsCodecError(#[from] tls_codec::Error),
     #[error(transparent)]
     AssistedMessageError(#[from] AssistedMessageError),
+    #[error(transparent)]
+    MimiContentError(#[from] mimi_content::Error),
 }

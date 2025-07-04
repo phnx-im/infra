@@ -71,7 +71,7 @@ impl From<MimiContent> for UiMimiContent {
             plain_body: None,
             replaces: mimi_content.replaces.map(|v| v.into_vec()),
             topic_id: mimi_content.topic_id.into_vec(),
-            in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
+            in_reply_to: mimi_content.in_reply_to.map(|v| v.into_vec()),
             content: None,
             attachments: Default::default(),
         };

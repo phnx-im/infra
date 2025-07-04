@@ -14,9 +14,9 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 part 'types.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_user_id`, `is_empty`, `load_from_conversation_type`, `new`, `timestamp`
+// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_profile`, `from_simple`, `from_user_id`, `is_empty`, `load_from_conversation_type`, `new`, `timestamp`, `with_status`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiConversation`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 
 /// Mirror of the [`ConversationId`] type
 class ConversationId {
@@ -244,6 +244,7 @@ class UiConversationMessage {
   final String timestamp;
   final UiMessage message;
   final UiFlightPosition position;
+  final UiMessageStatus status;
 
   const UiConversationMessage({
     required this.conversationId,
@@ -251,6 +252,7 @@ class UiConversationMessage {
     required this.timestamp,
     required this.message,
     required this.position,
+    required this.status,
   });
 
   @override
@@ -259,7 +261,8 @@ class UiConversationMessage {
       id.hashCode ^
       timestamp.hashCode ^
       message.hashCode ^
-      position.hashCode;
+      position.hashCode ^
+      status.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -270,7 +273,8 @@ class UiConversationMessage {
           id == other.id &&
           timestamp == other.timestamp &&
           message == other.message &&
-          position == other.position;
+          position == other.position &&
+          status == other.status;
 }
 
 @freezed
@@ -377,6 +381,19 @@ sealed class UiMessageDraft with _$UiMessageDraft {
     ConversationMessageId? editingId,
     required DateTime updatedAt,
   }) = _UiMessageDraft;
+}
+
+enum UiMessageStatus {
+  sending,
+
+  /// The message was sent to the server.
+  sent,
+
+  /// The message was received by at least one user in the conversation.
+  delivered,
+
+  /// The message was read by at least one user in the conversation.
+  read,
 }
 
 @freezed
