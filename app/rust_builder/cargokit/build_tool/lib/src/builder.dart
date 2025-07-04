@@ -139,14 +139,12 @@ class RustBuilder {
   Future<String> build() async {
     final extraArgs = _buildOptions?.flags ?? [];
     final manifestPath = path.join(environment.manifestDir, 'Cargo.toml');
-
-    final res = runCommand('cargo', ['--version']);
-    print(res.stdout);
-    print(res.stderr);
-
     runCommand(
-      'cargo',
+      'rustup',
       [
+        'run',
+        _toolchain,
+        'cargo',
         'build',
         ...extraArgs,
         '--manifest-path',
