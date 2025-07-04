@@ -88,8 +88,11 @@ class BuildEnvironment {
     final manifestDir = Environment.manifestDir;
     final crateOptions = CargokitCrateOptions.load(
       manifestDir: manifestDir,
+      buildConfiguration: buildConfiguration,
+      toolchainToml: Environment.toolchainToml,
     );
     final crateInfo = CrateInfo.load(manifestDir);
+
     return BuildEnvironment(
       configuration: buildConfiguration,
       crateOptions: crateOptions,
