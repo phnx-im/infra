@@ -52,5 +52,6 @@ android {
 apply from: "../cargokit/gradle/plugin.gradle"
 cargokit {
     manifestDir = "../../../applogic"
+    toolchainToml = "../../../rust-toolchain.toml"
     libname = "phnxapplogic"
 }

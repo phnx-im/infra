@@ -28,6 +28,9 @@ class Environment {
   /// not resolved on purpose.
   static String get rootProjectDir => _getEnv('CARGOKIT_ROOT_PROJECT_DIR');
 
+  /// Path to the rust-toolchain.toml file.
+  static String get toolchainToml => _getEnvPath('CARGOKIT_TOOLCHAIN_TOML');
+
   // Pod
 
   /// Platform name (macosx, iphoneos, iphonesimulator).

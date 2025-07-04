@@ -9,6 +9,7 @@ import 'package:hex/hex.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as path;
 import 'package:source_span/source_span.dart';
+import 'package:toml/toml.dart';
 import 'package:yaml/yaml.dart';
 
 import 'builder.dart';
@@ -47,10 +48,92 @@ class SourceSpanException implements Exception {
   }
 }
 
-enum Toolchain {
-  stable,
-  beta,
-  nightly,
+class ToolchainTomlException implements Exception {
+  ToolchainTomlException(this.message, {required this.fileName});
+
+  final String fileName;
+  final String message;
+
+  @override
+  String toString() =>
+      'Failed to parse toolchain configuration at $fileName: $message';
+}
+
+sealed class Toolchain {
+  const Toolchain();
+
+  factory Toolchain.stable() = Stable;
+  factory Toolchain.beta() = Beta;
+  factory Toolchain.nigthly() = Nightly;
+
+  factory Toolchain._fromToolchainToml(String toolchainToml) {
+    final toolchainFile = File(toolchainToml);
+    final toolchainContent = toolchainFile.readAsStringSync();
+    final toml = TomlDocument.parse(toolchainContent);
+
+    final toolchain = toml.toMap()['toolchain'];
+    if (toolchain == null) {
+      throw ToolchainTomlException(
+        'Missing toolchain section',
+        fileName: toolchainToml,
+      );
+    }
+
+    final channel = toolchain['channel'];
+    if (channel == null) {
+      throw ToolchainTomlException(
+        'Missing channel entry',
+        fileName: toolchainToml,
+      );
+    }
+
+    if (channel == 'stable') {
+      return Stable();
+    } else if (channel == 'beta') {
+      return Beta();
+    } else if (channel == 'nightly') {
+      return Nightly();
+    } else {
+      return Custom(channel);
+    }
+  }
+
+  String get name;
+
+  static List<Toolchain> get values => [Stable(), Beta(), Nightly()];
+
+  @override
+  String toString() => "Toolchain($name)";
+}
+
+class Stable extends Toolchain {
+  const Stable();
+
+  @override
+  String get name => 'stable';
+}
+
+class Beta extends Toolchain {
+  const Beta();
+
+  @override
+  String get name => 'beta';
+}
+
+class Nightly extends Toolchain {
+  const Nightly();
+
+  @override
+  String get name => 'nightly';
+}
+
+class Custom extends Toolchain {
+  final String _name;
+
+  const Custom(String name) : _name = name;
+
+  @override
+  String get name => _name;
 }
 
 class CargoBuildOptions {
@@ -75,11 +158,11 @@ class CargoBuildOptions {
         node.span);
   }
 
-  static CargoBuildOptions parse(YamlNode node) {
+  static CargoBuildOptions parse(YamlNode node, String? toolchainToml) {
     if (node is! YamlMap) {
       throw SourceSpanException('Cargo options must be a map', node.span);
     }
-    Toolchain toolchain = Toolchain.stable;
+    Toolchain toolchain = Toolchain.stable();
     List<String> flags = [];
     for (final MapEntry(:key, :value) in node.nodes.entries) {
       if (key case YamlScalar(value: 'toolchain')) {
@@ -104,6 +187,12 @@ class CargoBuildOptions {
             key.span);
       }
     }
+
+    if (toolchainToml != null) {
+      // override toolchain from rust-toolchain.toml
+      toolchain = Toolchain._fromToolchainToml(toolchainToml);
+    }
+
     return CargoBuildOptions(toolchain: toolchain, flags: flags);
   }
 }
@@ -173,7 +262,7 @@ class CargokitCrateOptions {
   final Map<BuildConfiguration, CargoBuildOptions> cargo;
   final PrecompiledBinaries? precompiledBinaries;
 
-  static CargokitCrateOptions parse(YamlNode node) {
+  static CargokitCrateOptions parse(YamlNode node, String? toolchainToml) {
     if (node is! YamlMap) {
       throw SourceSpanException('Cargokit options must be a map', node.span);
     }
@@ -194,7 +283,8 @@ class CargokitCrateOptions {
             final configuration = BuildConfiguration.values
                 .firstWhereOrNull((element) => element.name == name);
             if (configuration != null) {
-              options[configuration] = CargoBuildOptions.parse(value);
+              options[configuration] =
+                  CargoBuildOptions.parse(value, toolchainToml);
               continue;
             }
           }
@@ -218,12 +308,24 @@ class CargokitCrateOptions {
 
   static CargokitCrateOptions load({
     required String manifestDir,
+    BuildConfiguration? buildConfiguration,
+    String? toolchainToml,
   }) {
     final uri = Uri.file(path.join(manifestDir, "cargokit.yaml"));
     final file = File.fromUri(uri);
     if (file.existsSync()) {
       final contents = loadYamlNode(file.readAsStringSync(), sourceUrl: uri);
-      return parse(contents);
+      return parse(contents, toolchainToml);
+    } else if (buildConfiguration != null && toolchainToml != null) {
+      final toolchain = Toolchain._fromToolchainToml(toolchainToml);
+      return CargokitCrateOptions(
+        cargo: {
+          buildConfiguration: CargoBuildOptions(
+            toolchain: toolchain,
+            flags: [],
+          ),
+        },
+      );
     } else {
       return CargokitCrateOptions();
     }
