@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress,
+    ConversationMessageId, DownloadProgress, MessageDraft,
     clients::{CoreUser, attachment::AttachmentRecord, user_settings::UserSettingRecord},
     contacts::HandleContact,
     store::UserSetting,
@@ -211,6 +211,30 @@ impl Store for CoreUser {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>> {
         Ok(self.try_last_message(conversation_id).await?)
+    }
+
+    async fn message_draft(
+        &self,
+        conversation_id: ConversationId,
+    ) -> StoreResult<Option<MessageDraft>> {
+        Ok(MessageDraft::load(self.pool(), conversation_id).await?)
+    }
+
+    async fn store_message_draft(
+        &self,
+        conversation_id: ConversationId,
+        message_draft: Option<&MessageDraft>,
+    ) -> StoreResult<()> {
+        let mut notifier = self.store_notifier();
+        if let Some(message_draft) = message_draft {
+            message_draft
+                .store(self.pool(), &mut notifier, conversation_id)
+                .await?;
+        } else {
+            MessageDraft::delete(self.pool(), &mut notifier, conversation_id).await?;
+        }
+        notifier.notify();
+        Ok(())
     }
 
     async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {

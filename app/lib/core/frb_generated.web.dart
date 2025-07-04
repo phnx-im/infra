@@ -605,6 +605,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiMessageDraft dco_decode_box_autoadd_ui_message_draft(dynamic raw);
+
+  @protected
   UiSystemMessage dco_decode_box_autoadd_ui_system_message(dynamic raw);
 
   @protected
@@ -764,6 +767,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConversationId? dco_decode_opt_box_autoadd_conversation_id(dynamic raw);
 
   @protected
+  ConversationMessageId? dco_decode_opt_box_autoadd_conversation_message_id(
+    dynamic raw,
+  );
+
+  @protected
   DeveloperSettingsScreenType?
   dco_decode_opt_box_autoadd_developer_settings_screen_type(dynamic raw);
 
@@ -790,6 +798,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiImageMetadata? dco_decode_opt_box_autoadd_ui_image_metadata(dynamic raw);
+
+  @protected
+  UiMessageDraft? dco_decode_opt_box_autoadd_ui_message_draft(dynamic raw);
 
   @protected
   UiUserId? dco_decode_opt_box_autoadd_ui_user_id(dynamic raw);
@@ -867,6 +878,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiMessage dco_decode_ui_message(dynamic raw);
+
+  @protected
+  UiMessageDraft dco_decode_ui_message_draft(dynamic raw);
 
   @protected
   UiMimiContent dco_decode_ui_mimi_content(dynamic raw);
@@ -1406,6 +1420,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  UiMessageDraft sse_decode_box_autoadd_ui_message_draft(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   UiSystemMessage sse_decode_box_autoadd_ui_system_message(
     SseDeserializer deserializer,
   );
@@ -1605,6 +1624,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ConversationMessageId? sse_decode_opt_box_autoadd_conversation_message_id(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   DeveloperSettingsScreenType?
   sse_decode_opt_box_autoadd_developer_settings_screen_type(
     SseDeserializer deserializer,
@@ -1637,6 +1661,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiImageMetadata? sse_decode_opt_box_autoadd_ui_image_metadata(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UiMessageDraft? sse_decode_opt_box_autoadd_ui_message_draft(
     SseDeserializer deserializer,
   );
 
@@ -1734,6 +1763,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiMessage sse_decode_ui_message(SseDeserializer deserializer);
+
+  @protected
+  UiMessageDraft sse_decode_ui_message_draft(SseDeserializer deserializer);
 
   @protected
   UiMimiContent sse_decode_ui_mimi_content(SseDeserializer deserializer);
@@ -2387,6 +2419,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_ui_message_draft(
+    UiMessageDraft self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_ui_system_message(
     UiSystemMessage self,
     SseSerializer serializer,
@@ -2644,6 +2682,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_conversation_message_id(
+    ConversationMessageId? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_developer_settings_screen_type(
     DeveloperSettingsScreenType? self,
     SseSerializer serializer,
@@ -2682,6 +2726,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_ui_image_metadata(
     UiImageMetadata? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_ui_message_draft(
+    UiMessageDraft? self,
     SseSerializer serializer,
   );
 
@@ -2816,6 +2866,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_ui_message(UiMessage self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ui_message_draft(
+    UiMessageDraft self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ui_mimi_content(UiMimiContent self, SseSerializer serializer);

@@ -61,6 +61,11 @@ void main() {
           untilTimestamp: any(named: "untilTimestamp"),
         ),
       ).thenAnswer((_) => Future.value());
+      when(
+        () => conversationDetailsCubit.storeDraft(
+          draftMessage: any(named: "draftMessage"),
+        ),
+      ).thenAnswer((_) async => Future.value());
       when(() => userSettingsCubit.state).thenReturn(const UserSettings());
     });
 
