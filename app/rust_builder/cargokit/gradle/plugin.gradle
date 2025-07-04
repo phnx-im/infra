@@ -53,10 +53,16 @@ abstract class CargoKitBuildTask extends DefaultTask {
             throw new GradleException("Property 'libname' must be set on cargokit extension");
         }
 
+        if (project.cargokit.toolchainToml == null) {
+            throw new GradleException("Property 'toolchainToml' must be set on cargokit extension");
+        }
+
         def executableName = Os.isFamily(Os.FAMILY_WINDOWS) ? "run_build_tool.cmd" : "run_build_tool.sh"
         def path = Paths.get(new File(pluginFile).parent, "..", executableName);
 
         def manifestDir = Paths.get(project.buildscript.sourceFile.parent, project.cargokit.manifestDir)
+
+        def toolchainToml = Paths.get(project.buildscript.sourceFile.parent, project.cargokit.toolchainToml)
 
         def rootProjectDir = project.rootProject.projectDir
 
