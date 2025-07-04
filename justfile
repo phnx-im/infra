@@ -158,7 +158,8 @@ build-ios:
 # Build Linux app
 [working-directory: 'app']
 build-linux:
-     flutter build linux
+     ls -la build/linux/x64/release/plugins/phnxapplogic/cargokit_build/x86_64-unknown-linux-gnu/release/.fingerprint
+     env CARGO_LOG=cargo::core::compiler::fingerprint=trace flutter build linux --verbose
 
 # analyze Dart code
 [working-directory: 'app']

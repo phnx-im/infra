@@ -139,6 +139,8 @@ class RustBuilder {
   Future<String> build() async {
     final extraArgs = _buildOptions?.flags ?? [];
     final manifestPath = path.join(environment.manifestDir, 'Cargo.toml');
+    var env = await _buildEnvironment();
+    env["CARGO_LOG"] = "cargo::core::compiler::fingerprint=trace";
     runCommand(
       'rustup',
       [
@@ -156,8 +158,9 @@ class RustBuilder {
         target.rust,
         '--target-dir',
         environment.targetTempDir,
+        '--verbose',
       ],
-      environment: await _buildEnvironment(),
+      environment: env,
     );
     return path.join(
       environment.targetTempDir,
