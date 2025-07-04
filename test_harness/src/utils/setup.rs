@@ -13,7 +13,6 @@ use mimi_content::{
     MimiContent,
     content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
 };
-use openmls::group::GroupId;
 use phnxcommon::{
     DEFAULT_PORT_HTTP,
     identifiers::{Fqdn, UserHandle, UserId},
@@ -613,13 +612,20 @@ impl TestBackend {
             .unwrap();
         let sender_user_id = test_sender.user.user_id().clone();
 
+        let conversation = test_sender
+            .user
+            .conversation(&conversation_id)
+            .await
+            .unwrap();
+        let group_id = conversation.group_id();
+
         assert_eq!(
             message.message(),
             &Message::Content(Box::new(ContentMessage::new(
                 test_sender.user.user_id().clone(),
                 true,
                 orig_message.clone(),
-                &GroupId::from_slice(&[0]),
+                group_id,
             )))
         );
 
@@ -634,13 +640,20 @@ impl TestBackend {
                 .await
                 .unwrap();
 
+            let message = messages.new_messages.last().unwrap();
+            let conversaion = recipient_user
+                .conversation(&message.conversation_id())
+                .await
+                .unwrap();
+            let group_id = conversaion.group_id();
+
             assert_eq!(
-                messages.new_messages.last().unwrap().message(),
+                message.message(),
                 &Message::Content(Box::new(ContentMessage::new(
                     sender_user_id.clone(),
                     true,
                     orig_message.clone(),
-                    &GroupId::from_slice(&[0])
+                    group_id
                 )))
             );
         }

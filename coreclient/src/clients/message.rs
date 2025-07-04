@@ -56,7 +56,9 @@ impl CoreUser {
             .await?;
 
         self.with_transaction_and_notifier(async |txn, notifier| {
-            sent_message.mark_as_sent(txn, notifier).await
+            sent_message
+                .mark_as_sent(txn, notifier, self.user_id())
+                .await
         })
         .await
     }
@@ -84,7 +86,9 @@ impl CoreUser {
             .send_message_to_ds(&self.inner.api_clients, self.signing_key())
             .await?;
 
-        sent_message.mark_as_sent(txn, notifier).await
+        sent_message
+            .mark_as_sent(txn, notifier, self.user_id())
+            .await
     }
 
     /// Re-try sending a message, where sending previously failed.
@@ -104,7 +108,9 @@ impl CoreUser {
 
         self.with_transaction_and_notifier(async |connection, notifier| {
             // Do not mark as read, because the user might have missed messages
-            sent_message.mark_as_sent(connection, notifier).await
+            sent_message
+                .mark_as_sent(connection, notifier, self.user_id())
+                .await
         })
         .await?;
 
@@ -375,8 +381,9 @@ struct SentMessage {
 impl SentMessage {
     async fn mark_as_sent(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
+        own_user: &UserId,
     ) -> anyhow::Result<ConversationMessage> {
         let Self {
             mut conversation_message,
@@ -384,8 +391,20 @@ impl SentMessage {
         } = self;
 
         conversation_message
-            .mark_as_sent(connection, notifier, ds_timestamp)
+            .mark_as_sent(&mut *txn, notifier, ds_timestamp)
             .await?;
+
+        // Note: even though the message was already marked as read, we still need to move the last
+        // read timestamp down. After a message was sent to DS, it is marked as read, which updates
+        // its timestamp to the timestamp returned by DS.
+        Conversation::mark_as_read_until_message_id(
+            txn,
+            notifier,
+            conversation_message.conversation_id(),
+            conversation_message.id(),
+            own_user,
+        )
+        .await?;
 
         Ok(conversation_message)
     }
