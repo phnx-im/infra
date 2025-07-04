@@ -8,7 +8,12 @@ use mimi_content::{
     content_container::{NestedPart, NestedPartContent, PartSemantics},
 };
 
-pub(super) trait MimiContentExt {
+pub trait MimiContentExt {
+    fn visit_attachments(
+        &self,
+        visitor: impl FnMut(&NestedPartContent) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()>;
+
     fn visit_attachments_mut(
         &mut self,
         visitor: impl FnMut(&mut NestedPartContent) -> anyhow::Result<()>,
@@ -16,6 +21,13 @@ pub(super) trait MimiContentExt {
 }
 
 impl MimiContentExt for MimiContent {
+    fn visit_attachments(
+        &self,
+        mut visitor: impl FnMut(&NestedPartContent) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        visit_attachments_impl(&self.nested_part, &mut visitor, 0)
+    }
+
     fn visit_attachments_mut(
         &mut self,
         mut visitor: impl FnMut(&mut NestedPartContent) -> anyhow::Result<()>,
@@ -25,6 +37,34 @@ impl MimiContentExt for MimiContent {
 }
 
 const MAX_RECURSION_DEPTH: usize = 3;
+
+fn visit_attachments_impl(
+    part: &NestedPart,
+    visitor: &mut impl FnMut(&NestedPartContent) -> anyhow::Result<()>,
+    recursion_depth: usize,
+) -> anyhow::Result<()> {
+    ensure!(
+        recursion_depth < MAX_RECURSION_DEPTH,
+        "Failed to handle attachment due to maximum recursion depth reached"
+    );
+
+    match &part.part {
+        external_part @ NestedPartContent::ExternalPart { .. } => {
+            visitor(external_part)?;
+        }
+        NestedPartContent::MultiPart {
+            part_semantics: PartSemantics::ProcessAll,
+            parts,
+        } => {
+            for part in parts {
+                visit_attachments_impl(part, visitor, recursion_depth + 1)?;
+            }
+        }
+        _ => (),
+    }
+
+    Ok(())
+}
 
 fn visit_attachments_mut_impl(
     part: &mut NestedPart,

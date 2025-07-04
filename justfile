@@ -10,14 +10,20 @@ POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
 docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } else { "false" }
 
-# run postgres via docker compose and apply migrations
-init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
+# run docker compose services in the background
+run-services: generate-db-certs
     if {{docker-is-podman}} == "true"; then \
-        podman-compose --podman-run-args=--replace up -d postgres; \
-        sleep 2; \
+        podman rm infra_minio-setup_1 -i 2>&1 /dev/null; \
+        podman-compose --podman-run-args=--replace up -d; \
+        podman-compose ps; \
+        podman logs infra_postgres_1; \
     else \
-        docker compose up --wait; \
+        docker compose up --wait --wait-timeout=300; \
+        docker compose ps; \
     fi
+
+# initialize the backend database and apply migrations
+init-backend-db $DATABASE_URL=(POSTGRES_DATABASE_URL):
     cd backend && sqlx database create
     cd backend && sqlx database setup
 
@@ -167,7 +173,7 @@ test-flutter *args='':
     flutter test {{args}}
 
 # run backend server (at localhost)
-run-backend: init-db
+run-backend: init-backend-db
     cargo run --bin phnxserver
 
 # Build Windows app

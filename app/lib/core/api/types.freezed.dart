@@ -686,6 +686,139 @@ $UiEventMessageCopyWith<$Res> get field0 {
 }
 
 /// @nodoc
+mixin _$UiMessageDraft {
+
+ String get message; ConversationMessageId? get editingId; DateTime get updatedAt;
+/// Create a copy of UiMessageDraft
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$UiMessageDraftCopyWith<UiMessageDraft> get copyWith => _$UiMessageDraftCopyWithImpl<UiMessageDraft>(this as UiMessageDraft, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt);
+
+@override
+String toString() {
+  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $UiMessageDraftCopyWith<$Res>  {
+  factory $UiMessageDraftCopyWith(UiMessageDraft value, $Res Function(UiMessageDraft) _then) = _$UiMessageDraftCopyWithImpl;
+@useResult
+$Res call({
+ String message, ConversationMessageId? editingId, DateTime updatedAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$UiMessageDraftCopyWithImpl<$Res>
+    implements $UiMessageDraftCopyWith<$Res> {
+  _$UiMessageDraftCopyWithImpl(this._self, this._then);
+
+  final UiMessageDraft _self;
+  final $Res Function(UiMessageDraft) _then;
+
+/// Create a copy of UiMessageDraft
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,}) {
+  return _then(_self.copyWith(
+message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
+as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,
+  ));
+}
+
+}
+
+
+/// @nodoc
+
+
+class _UiMessageDraft implements UiMessageDraft {
+  const _UiMessageDraft({required this.message, this.editingId, required this.updatedAt});
+  
+
+@override final  String message;
+@override final  ConversationMessageId? editingId;
+@override final  DateTime updatedAt;
+
+/// Create a copy of UiMessageDraft
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UiMessageDraftCopyWith<_UiMessageDraft> get copyWith => __$UiMessageDraftCopyWithImpl<_UiMessageDraft>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt);
+
+@override
+String toString() {
+  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$UiMessageDraftCopyWith<$Res> implements $UiMessageDraftCopyWith<$Res> {
+  factory _$UiMessageDraftCopyWith(_UiMessageDraft value, $Res Function(_UiMessageDraft) _then) = __$UiMessageDraftCopyWithImpl;
+@override @useResult
+$Res call({
+ String message, ConversationMessageId? editingId, DateTime updatedAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$UiMessageDraftCopyWithImpl<$Res>
+    implements _$UiMessageDraftCopyWith<$Res> {
+  __$UiMessageDraftCopyWithImpl(this._self, this._then);
+
+  final _UiMessageDraft _self;
+  final $Res Function(_UiMessageDraft) _then;
+
+/// Create a copy of UiMessageDraft
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,}) {
+  return _then(_UiMessageDraft(
+message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
+as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$UiSystemMessage {
 
  UiUserId get field0; UiUserId get field1;

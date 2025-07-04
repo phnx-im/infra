@@ -79,7 +79,7 @@ impl CoreUser {
         // send attachment message
         let attachment_id = attachment_metadata.attachment_id;
         let content_bytes = mem::take(&mut attachment.content.bytes);
-        let content_type = attachment.mime_type();
+        let content_type = attachment.content_type;
 
         let content = MimiContent {
             nested_part: NestedPart {
@@ -134,8 +134,9 @@ struct ProcessedAttachment {
     filename: String,
     content: AttachmentBytes,
     content_hash: Vec<u8>,
-    mime: Option<infer::Type>,
+    content_type: &'static str,
     image_data: Option<ProcessedAttachmentImageData>,
+    size: u64,
 }
 
 struct ProcessedAttachmentImageData {
@@ -152,7 +153,7 @@ impl ProcessedAttachment {
             .with_context(|| format!("Failed to read file at {}", path.display()))?;
         let mime = infer::get(&content);
 
-        let (content, image_data) = if mime
+        let (content, content_type, image_data): (AttachmentBytes, _, _) = if mime
             .map(|mime| mime.matcher_type() == MatcherType::Image)
             .unwrap_or(false)
         {
@@ -166,9 +167,13 @@ impl ProcessedAttachment {
                 width,
                 height,
             };
-            (webp_image.into(), Some(image_data))
+            (webp_image.into(), "image/webp", Some(image_data))
         } else {
-            (content.into(), None)
+            let content_type = mime
+                .as_ref()
+                .map(|mime| mime.mime_type())
+                .unwrap_or("application/octet-stream");
+            (content.into(), content_type, None)
         };
 
         let content_hash = Sha256::digest(&content).to_vec();
@@ -181,20 +186,20 @@ impl ProcessedAttachment {
             filename.set_extension("webp");
         }
 
+        let size = content
+            .as_ref()
+            .len()
+            .try_into()
+            .context("attachment size overflow")?;
+
         Ok(Self {
             filename: filename.to_string_lossy().to_string(),
             content,
+            content_type,
             content_hash,
-            mime,
             image_data,
+            size,
         })
-    }
-
-    fn mime_type(&self) -> &'static str {
-        self.mime
-            .as_ref()
-            .map(|mime| mime.mime_type())
-            .unwrap_or("application/octet-stream")
     }
 
     fn into_nested_parts(self, metadata: AttachmentMetadata) -> anyhow::Result<Vec<NestedPart>> {
@@ -209,10 +214,10 @@ impl ProcessedAttachment {
             disposition: Disposition::Attachment,
             language: String::new(),
             part: NestedPartContent::ExternalPart {
-                content_type: self.mime_type().to_owned(),
+                content_type: self.content_type.to_owned(),
                 url: url.to_string(),
                 expires: 0,
-                size: metadata.size,
+                size: self.size,
                 enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
                 key: metadata.key.into_bytes().to_vec().into(),
                 nonce: metadata.nonce.to_vec().into(),
@@ -241,7 +246,6 @@ impl ProcessedAttachment {
 struct AttachmentMetadata {
     attachment_id: AttachmentId,
     key: AttachmentEarKey,
-    size: u64,
     nonce: [u8; 12],
 }
 
@@ -256,10 +260,6 @@ async fn encrypt_and_upload(
     let key = AttachmentEarKey::random()?;
     let ciphertext: AeadCiphertext = content.encrypt(&key)?.into();
     let (ciphertext, nonce) = ciphertext.into_parts();
-    let size: u64 = ciphertext
-        .len()
-        .try_into()
-        .context("attachment size overflow")?;
 
     // provision attachment
     let response = api_client
@@ -283,7 +283,6 @@ async fn encrypt_and_upload(
     Ok(AttachmentMetadata {
         attachment_id,
         key,
-        size,
         nonce,
     })
 }
