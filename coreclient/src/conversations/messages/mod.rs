@@ -132,7 +132,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message: TimestampedMessage { timestamp, message },
-            status: MessageStatusBit::Unread.into(),
+            status: Default::default(),
         }
     }
 
@@ -154,7 +154,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message,
-            status: MessageStatusBit::Unread.into(),
+            status: Default::default(),
         }
     }
 
