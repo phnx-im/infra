@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                m.mimi_id AS \"mimi_id!: _\"\n            FROM conversation_messages m\n            LEFT JOIN conversation_message_status s\n                ON s.message_id = m.message_id\n                AND s.sender_user_uuid = ?2\n                AND s.sender_user_domain = ?3\n            WHERE conversation_id = ?1\n                AND m.timestamp > ?2\n                AND (m.sender_user_uuid != ?3 OR m.sender_user_domain != ?4)\n                AND mimi_id IS NOT NULL\n                AND (s.status_bitset IS NULL OR s.status_bitset & ?5 != 0)",
+  "describe": {
+    "columns": [
+      {
+        "name": "mimi_id!: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "f6568dcdea1334d3e61ce32c0abc871f0a71d4d51d23056b2b918d81bc3d965c"
+}
