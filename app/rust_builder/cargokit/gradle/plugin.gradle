@@ -11,6 +11,7 @@ apply plugin: CargoKitPlugin
 class CargoKitExtension {
     String manifestDir; // Relative path to folder containing Cargo.toml
     String libname; // Library name within Cargo.toml. Must be a cdylib
+    String toolchainToml; // Relative path to rust-toolchain.toml
 }
 
 abstract class CargoKitBuildTask extends DefaultTask {
@@ -52,10 +53,16 @@ abstract class CargoKitBuildTask extends DefaultTask {
             throw new GradleException("Property 'libname' must be set on cargokit extension");
         }
 
+        if (project.cargokit.toolchainToml == null) {
+            throw new GradleException("Property 'toolchainToml' must be set on cargokit extension");
+        }
+
         def executableName = Os.isFamily(Os.FAMILY_WINDOWS) ? "run_build_tool.cmd" : "run_build_tool.sh"
         def path = Paths.get(new File(pluginFile).parent, "..", executableName);
 
         def manifestDir = Paths.get(project.buildscript.sourceFile.parent, project.cargokit.manifestDir)
+
+        def toolchainToml = Paths.get(project.buildscript.sourceFile.parent, project.cargokit.toolchainToml)
 
         def rootProjectDir = project.rootProject.projectDir
 
@@ -72,6 +79,7 @@ abstract class CargoKitBuildTask extends DefaultTask {
             environment "CARGOKIT_TOOL_TEMP_DIR", "${buildDir}/build_tool"
             environment "CARGOKIT_MANIFEST_DIR", manifestDir
             environment "CARGOKIT_CONFIGURATION", buildMode
+            environment "CARGOKIT_TOOLCHAIN_TOML", toolchainToml
             environment "CARGOKIT_TARGET_TEMP_DIR", buildDir
             environment "CARGOKIT_OUTPUT_DIR", outputDir
             environment "CARGOKIT_NDK_VERSION", ndkVersion
