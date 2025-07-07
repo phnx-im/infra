@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use enumset::EnumSet;
 use mimi_content::MimiContent;
 use phnxcommon::identifiers::MimiId;
 use tracing::{error, warn};
 
 use crate::{
+    conversations::status::MessageStatusBit,
     groups::Group,
     store::{Store, StoreNotifier},
 };
@@ -15,7 +17,7 @@ use super::*;
 
 pub(crate) mod persistence;
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) struct TimestampedMessage {
     timestamp: TimeStamp,
     message: Message,
@@ -75,7 +77,7 @@ impl TimestampedMessage {
 }
 
 /// Identifier of a message in a conversation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ConversationMessageId {
     pub uuid: Uuid,
 }
@@ -96,11 +98,12 @@ impl ConversationMessageId {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ConversationMessage {
     pub(super) conversation_id: ConversationId,
     pub(super) conversation_message_id: ConversationMessageId,
     pub(super) timestamped_message: TimestampedMessage,
+    pub(super) status: EnumSet<MessageStatusBit>,
 }
 
 impl ConversationMessage {
@@ -115,6 +118,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message,
+            status: MessageStatusBit::Unread.into(),
         }
     }
 
@@ -128,6 +132,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message: TimestampedMessage { timestamp, message },
+            status: MessageStatusBit::Unread.into(),
         }
     }
 
@@ -149,6 +154,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message,
+            status: MessageStatusBit::Unread.into(),
         }
     }
 
@@ -182,6 +188,10 @@ impl ConversationMessage {
         } else {
             true
         }
+    }
+
+    pub fn status(&self) -> EnumSet<MessageStatusBit> {
+        self.status
     }
 
     pub fn conversation_id(&self) -> ConversationId {
@@ -249,6 +259,14 @@ impl Message {
                 EventMessage::System(system) => system.string_representation(store).await,
                 EventMessage::Error(error) => error.message().to_string(),
             },
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn mimi_id(&self) -> Option<&MimiId> {
+        match self {
+            Message::Content(content_message) => content_message.mimi_id(),
+            Message::Event(_) => None,
         }
     }
 

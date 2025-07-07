@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::{DateTime, Utc};
-use mimi_content::MessageStatus;
+use enumset::EnumSet;
 use openmls::group::GroupId;
 use phnxcommon::identifiers::{Fqdn, MimiId, UserHandle, UserId};
 use sqlx::{
@@ -15,7 +15,8 @@ use uuid::Uuid;
 
 use crate::{
     Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
-    ConversationStatus, ConversationType, store::StoreNotifier, utils::persistence::GroupIdWrapper,
+    ConversationStatus, ConversationType, MessageStatusBit, store::StoreNotifier,
+    utils::persistence::GroupIdWrapper,
 };
 
 use super::InactiveConversation;
@@ -466,7 +467,7 @@ impl Conversation {
         .await?
         .last_read;
 
-        let read_status = MessageStatus::Read.repr();
+        let read_status_bitset = EnumSet::from(MessageStatusBit::Read).as_u32();
         let new_marked_as_read: Vec<MimiId> = query_scalar!(
             r#"SELECT
                 m.mimi_id AS "mimi_id!: _"
@@ -479,12 +480,12 @@ impl Conversation {
                 AND m.timestamp > ?2
                 AND (m.sender_user_uuid != ?3 OR m.sender_user_domain != ?4)
                 AND mimi_id IS NOT NULL
-                AND (s.status IS NULL OR s.status != ?5)"#,
+                AND (s.status_bitset IS NULL OR s.status_bitset & ?5 != 0)"#,
             conversation_id,
             old_timestamp,
             our_user_uuid,
             our_user_domain,
-            read_status,
+            read_status_bitset,
         )
         .fetch_all(txn.as_mut())
         .await?;
@@ -651,30 +652,6 @@ impl Conversation {
         });
         Ok(members)
     }
-}
-
-pub(crate) async fn load_message_status(
-    connection: &mut SqliteConnection,
-    message_id: ConversationMessageId,
-    status: MessageStatus,
-) -> sqlx::Result<Vec<UserId>> {
-    let repr = status.repr();
-
-    let users = query_as!(
-        SqlPastMember,
-        r#"SELECT
-        sender_user_uuid AS "member_user_uuid: _",
-        sender_user_domain AS "member_user_domain: _"
-        FROM conversation_message_status
-        WHERE message_id = ? AND status = ?"#,
-        message_id,
-        repr,
-    )
-    .map(UserId::from)
-    .fetch_all(&mut *connection)
-    .await?;
-
-    Ok(users)
 }
 
 #[cfg(test)]

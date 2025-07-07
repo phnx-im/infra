@@ -16,8 +16,8 @@ use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
-    InactiveConversation, Message, MessageDraft, SystemMessage, UserProfile,
-    store::{MessageWithStatus, Store},
+    InactiveConversation, Message, MessageDraft, MessageStatusBit, SystemMessage, UserProfile,
+    store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
@@ -274,39 +274,36 @@ pub enum UiMessageStatus {
     Read,
 }
 
-impl UiConversationMessage {
-    pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
-        self.timestamp.parse().ok()
-    }
-
+impl From<ConversationMessage> for UiConversationMessage {
     #[frb(ignore)]
-    pub(crate) fn from_simple(conversation_message: ConversationMessage) -> Self {
-        Self::with_status(MessageWithStatus {
-            message: conversation_message,
-            delivery_status: Vec::new(),
-            read_status: Vec::new(),
-        })
-    }
-
-    #[frb(ignore)]
-    pub(crate) fn with_status(message: MessageWithStatus) -> Self {
-        let status = if !message.message.is_sent() {
+    fn from(message: ConversationMessage) -> Self {
+        let status = if !message.is_sent() {
             UiMessageStatus::Sending
-        } else if message.delivery_status.is_empty() && message.read_status.is_empty() {
+        } else if !message.status().contains(MessageStatusBit::Delivered)
+            && !message.status().contains(MessageStatusBit::Read)
+        {
             UiMessageStatus::Sent
-        } else if !message.delivery_status.is_empty() && message.read_status.is_empty() {
+        } else if message.status().contains(MessageStatusBit::Delivered)
+            && !message.status().contains(MessageStatusBit::Read)
+        {
             UiMessageStatus::Delivered
         } else {
             UiMessageStatus::Read
         };
         Self {
-            conversation_id: message.message.conversation_id(),
-            id: message.message.id(),
-            timestamp: message.message.timestamp().to_rfc3339(),
-            message: UiMessage::from(message.message.message().clone()),
+            conversation_id: message.conversation_id(),
+            id: message.id(),
+            timestamp: message.timestamp().to_rfc3339(),
+            message: UiMessage::from(message.message().clone()),
             position: UiFlightPosition::Single,
             status,
         }
+    }
+}
+
+impl UiConversationMessage {
+    pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
+        self.timestamp.parse().ok()
     }
 }
 

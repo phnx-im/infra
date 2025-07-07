@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
+use enumset::EnumSet;
 use mimi_content::{MimiContent, content_container::MimiContentV1};
 use phnxcommon::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
@@ -87,6 +88,7 @@ struct SqlConversationMessage {
     sender_user_domain: Option<Fqdn>,
     content: BlobDecoded<VersionedMessage>,
     sent: bool,
+    status_bitset: Option<i64>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -114,6 +116,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             sender_user_domain,
             content,
             sent,
+            status_bitset,
         }: SqlConversationMessage,
     ) -> Result<Self, Self::Error> {
         let message = match (sender_user_uuid, sender_user_domain) {
@@ -150,6 +153,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             conversation_message_id: message_id,
             conversation_id,
             timestamped_message,
+            status: EnumSet::from_u32_truncated(status_bitset.unwrap_or(0) as u32),
         })
     }
 }
@@ -168,9 +172,12 @@ impl ConversationMessage {
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
-                content As "content: _",
-                sent
-            FROM conversation_messages WHERE message_id = ?"#,
+                content AS "content: _",
+                sent,
+                status_bitset
+            FROM conversation_messages
+            WHERE message_id = ?
+            "#,
             message_id,
         )
         .fetch_optional(executor)
@@ -198,7 +205,8 @@ impl ConversationMessage {
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status_bitset
             FROM conversation_messages
             WHERE conversation_id = ?
             ORDER BY timestamp DESC
@@ -315,7 +323,8 @@ impl ConversationMessage {
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status_bitset
             FROM conversation_messages
             WHERE conversation_id = ?
                 AND sender_user_uuid IS NOT NULL
@@ -347,7 +356,8 @@ impl ConversationMessage {
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status_bitset
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp <= (SELECT timestamp FROM conversation_messages
@@ -380,7 +390,8 @@ impl ConversationMessage {
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status_bitset
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp >= (SELECT timestamp FROM conversation_messages
@@ -417,12 +428,19 @@ pub(crate) mod tests {
     pub(crate) fn test_conversation_message(
         conversation_id: ConversationId,
     ) -> ConversationMessage {
+        test_conversation_message_with_salt(conversation_id, [0; 16])
+    }
+
+    pub(crate) fn test_conversation_message_with_salt(
+        conversation_id: ConversationId,
+        salt: [u8; 16],
+    ) -> ConversationMessage {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
         let message = Message::Content(Box::new(ContentMessage::new(
             UserId::random("localhost".parse().unwrap()),
             false,
-            MimiContent::simple_markdown_message("Hello world!".to_string(), [0; 16]), // simple salt for testing
+            MimiContent::simple_markdown_message("Hello world!".to_string(), salt),
             &GroupId::from_slice(&[0]),
         )));
         let timestamped_message = TimestampedMessage { timestamp, message };
@@ -430,6 +448,7 @@ pub(crate) mod tests {
             conversation_message_id,
             conversation_id,
             timestamped_message,
+            status: Default::default(),
         }
     }
 
@@ -538,6 +557,7 @@ pub(crate) mod tests {
                     UserId::random("localhost".parse()?),
                 ))),
             },
+            status: Default::default(),
         }
         .store(&pool, &mut store_notifier)
         .await?;

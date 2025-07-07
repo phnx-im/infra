@@ -115,12 +115,12 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn load_and_emit_state(&self) {
-        let conversation_message = self.store.message_with_status(self.message_id).await;
+        let conversation_message = self.store.message(self.message_id).await;
 
         debug!(?conversation_message, "load_and_emit_state");
         match conversation_message {
             Ok(Some(message)) => {
-                let mut message = UiConversationMessage::with_status(message);
+                let mut message = UiConversationMessage::from(message);
                 message.position = calculate_flight_position(&self.store, &message)
                     .await
                     .inspect_err(|error| error!(?error, "Failed to calculate flight position"))
@@ -170,14 +170,8 @@ async fn calculate_flight_position(
     store: &impl Store,
     message: &UiConversationMessage,
 ) -> StoreResult<UiFlightPosition> {
-    let prev_message = store
-        .prev_message(message.id)
-        .await?
-        .map(UiConversationMessage::from_simple);
-    let next_message = store
-        .next_message(message.id)
-        .await?
-        .map(UiConversationMessage::from_simple);
+    let prev_message = store.prev_message(message.id).await?.map(From::from);
+    let next_message = store.next_message(message.id).await?.map(From::from);
     Ok(UiFlightPosition::calculate(
         message,
         prev_message.as_ref(),

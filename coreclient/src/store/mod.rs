@@ -27,13 +27,6 @@ mod persistence;
 /// The result type of a failable [`Store`] method
 pub type StoreResult<T> = anyhow::Result<T>;
 
-#[derive(Clone, Debug)]
-pub struct MessageWithStatus {
-    pub message: ConversationMessage,
-    pub delivery_status: Vec<UserId>,
-    pub read_status: Vec<UserId>,
-}
-
 /// Unified access to the client data
 ///
 /// This trait is used to access the client data, e.g. the user profile, the conversations or
@@ -190,23 +183,6 @@ pub trait Store {
         &self,
         message_id: ConversationMessageId,
     ) -> StoreResult<Option<ConversationMessage>>;
-
-    async fn messages_with_status(
-        &self,
-        conversation_id: ConversationId,
-        limit: usize,
-    ) -> StoreResult<Vec<MessageWithStatus>>;
-
-    async fn message_with_status(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<MessageWithStatus>>;
-
-    async fn load_message_status(
-        &self,
-        message_id: ConversationMessageId,
-        status: MessageStatus,
-    ) -> StoreResult<Vec<UserId>>;
 
     async fn prev_message(
         &self,

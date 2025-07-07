@@ -221,7 +221,7 @@ pub(super) async fn load_conversation_details(
         .await
         .ok()
         .flatten()
-        .map(UiConversationMessage::from_simple);
+        .map(From::from);
     let last_used = last_message
         .as_ref()
         .map(|m: &UiConversationMessage| m.timestamp.clone())
