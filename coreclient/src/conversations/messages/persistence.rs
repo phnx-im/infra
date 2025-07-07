@@ -24,13 +24,13 @@ const UNKNOWN_MESSAGE_VERSION: u16 = 0;
 const CURRENT_MESSAGE_VERSION: u16 = 2;
 
 #[derive(Serialize, Deserialize)]
-struct VersionedMessage {
+pub(crate) struct VersionedMessage {
     #[serde(default = "VersionedMessage::unknown_message_version")]
-    version: u16,
+    pub(crate) version: u16,
     // We store the message as bytes, because deserialization depends on
     // other parameters.
     #[serde(default)]
-    content: Vec<u8>,
+    pub(crate) content: Vec<u8>,
 }
 
 impl VersionedMessage {
