@@ -16,8 +16,11 @@ const MESSAGE_STATUS_MIGRATION_VERSION: i64 = 20250703133517;
 
 /// Migrate data in the database that cannot be expressed in SQL.
 pub(crate) async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-    let migrations = pool.acquire().await?.list_applied_migrations().await?;
-    dbg!(&migrations);
+    let Some(migrations) = pool.acquire().await?.list_applied_migrations().await.ok() else {
+        // The migrations might not yet exist
+        return Ok(());
+    };
+
     let has_message_status = migrations
         .iter()
         .any(|m| m.version == MESSAGE_STATUS_MIGRATION_VERSION);
@@ -26,6 +29,7 @@ pub(crate) async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
             error!(%error, "Failed to convert messages from version 1 to version 2");
         }
     }
+
     Ok(())
 }
 
