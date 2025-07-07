@@ -42,20 +42,28 @@ impl CoreUser {
 
         let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
 
-        let rollback = async || {
+        let rollback = async |delete_locally: bool| {
             api_client
                 .as_delete_handle(record.hash, &record.signing_key)
                 .await
                 .inspect_err(|error| {
-                    error!(%error, "failed to delete user handle in rollback");
+                    error!(%error, "failed to delete user handle on the server in rollback");
                 })
                 .ok();
+            if delete_locally {
+                UserHandleRecord::delete(self.pool(), &record.handle)
+                    .await
+                    .inspect_err(|error| {
+                        error!(%error, "failed to delete user handle locally in rollback");
+                    })
+                    .ok();
+            }
         };
 
         let mut txn = self.pool().begin().await?;
         if let Err(error) = record.store(&mut *txn).await {
-            error!(%error, "failed to store user handle; rollback on the server");
-            rollback().await;
+            error!(%error, "failed to store user handle; rollback");
+            rollback(false).await;
             return Err(error.into());
         }
 
@@ -81,8 +89,8 @@ impl CoreUser {
             )
             .await
         {
-            error!(%error, "failed to publish connection packages; rollback on the server");
-            rollback().await;
+            error!(%error, "failed to publish connection packages; rollback");
+            rollback(true).await;
             return Err(error.into());
         }
 
