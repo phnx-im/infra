@@ -67,7 +67,7 @@ impl VersionedMessage {
         })
     }
 
-    fn from_mimi_content(
+    pub(crate) fn from_mimi_content(
         content: &MimiContent,
     ) -> Result<VersionedMessage, phnxcommon::codec::Error> {
         Ok(VersionedMessage {

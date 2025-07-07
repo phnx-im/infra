@@ -17,6 +17,7 @@ const MESSAGE_STATUS_MIGRATION_VERSION: i64 = 20250703133517;
 /// Migrate data in the database that cannot be expressed in SQL.
 pub(crate) async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     let migrations = pool.acquire().await?.list_applied_migrations().await?;
+    dbg!(&migrations);
     let has_message_status = migrations
         .iter()
         .any(|m| m.version == MESSAGE_STATUS_MIGRATION_VERSION);
@@ -30,6 +31,8 @@ pub(crate) async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 
 /// Convert all versioned v1 messages to v2 messages in the database.
 async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<()> {
+    info!("Data migration: Converting messages from version 1 to version 2");
+
     let mut write_connection = pool.acquire().await?;
     let mut read_connection = pool.acquire().await?;
 
@@ -56,10 +59,18 @@ async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<()> {
         && version == 1
     {
         let content_v1: MimiContentV1 = PhnxCodec::from_slice(&content)?;
-        let content_v2 = BlobEncoded(content_v1.upgrade());
+        let content_v2 = content_v1.upgrade();
+        let Ok(message) = VersionedMessage::from_mimi_content(&content_v2) else {
+            error!(
+                ?message_id,
+                "Failed to convert message from version 1 to version 2; skip"
+            );
+            continue;
+        };
+        let message = BlobEncoded(message);
         query!(
             "UPDATE conversation_messages SET content = ? WHERE message_id = ?",
-            content_v2,
+            message,
             message_id,
         )
         .execute(&mut *write_connection)
@@ -68,12 +79,10 @@ async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<()> {
         num_messages += 1;
     }
 
-    if num_messages > 0 {
-        info!(
-            num_messages,
-            "Converted messages from version 1 to version 2",
-        );
-    }
+    info!(
+        num_messages,
+        "Converted messages from version 1 to version 2",
+    );
 
     Ok(())
 }
