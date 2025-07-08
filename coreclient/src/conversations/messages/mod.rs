@@ -297,6 +297,9 @@ pub struct ContentMessage {
 
 impl ContentMessage {
     pub fn new(sender: UserId, sent: bool, content: MimiContent, group_id: &GroupId) -> Self {
+        // Calculating Mimi ID should never fail, however, since it is calculated partially from
+        // the input from the user, we don't want to rely on panicking. Instead, the message does
+        // not have a valid Mimi ID.
         let mimi_id = MimiId::calculate(group_id, &sender, &content)
             .inspect_err(|error| error!(%error, "Failed to calculate Mimi ID"))
             .ok();

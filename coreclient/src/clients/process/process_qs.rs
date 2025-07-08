@@ -306,8 +306,8 @@ impl CoreUser {
 
         let delivered_receipts = conversation_messages.iter().filter_map(|message| {
             if let Message::Content(content_message) = message.message()
-                && [Disposition::Render, Disposition::Attachment]
-                    .contains(&content_message.content().nested_part.disposition)
+                && let Disposition::Render | Disposition::Attachment =
+                    content_message.content().nested_part.disposition
                 && let Some(mimi_id) = content_message.mimi_id()
             {
                 Some((mimi_id, MessageStatus::Delivered))
@@ -361,7 +361,9 @@ impl CoreUser {
             && content_type == "application/mimi-message-status"
         {
             let report = MessageStatusReport::deserialize(report_content)?;
-            StatusRecord::store_report(txn, notifier, sender, report, ds_timestamp).await?;
+            StatusRecord::borrowed(sender, report, ds_timestamp)
+                .store_report(txn, notifier)
+                .await?;
             // Delivery receipt messages are not stored
             return Ok((Vec::new(), false));
         }

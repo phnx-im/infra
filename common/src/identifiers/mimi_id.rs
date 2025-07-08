@@ -13,7 +13,7 @@ use tls_codec::Serialize as _;
 
 use crate::identifiers::UserId;
 
-/// Message Identifier calculated from the Group ID, sender's Uder ID and Mimi Content.
+/// Message Identifier calculated from the Group ID, sender's User ID and Mimi Content.
 ///
 /// The identifier is stable between different devices and is used to identify distributed
 /// messages.

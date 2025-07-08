@@ -2,10 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use enumset::EnumSetType;
-use mimi_content::MessageStatus;
+use std::borrow::Cow;
 
-pub(crate) struct StatusRecord {}
+use enumset::EnumSetType;
+use mimi_content::{MessageStatus, MessageStatusReport};
+use phnxcommon::{identifiers::UserId, time::TimeStamp};
+
+pub(crate) struct StatusRecord<'a> {
+    sender: Cow<'a, UserId>,
+    report: MessageStatusReport,
+    created_at: TimeStamp,
+}
 
 #[derive(Debug, EnumSetType)]
 pub enum MessageStatusBit {
@@ -53,8 +60,7 @@ mod persistence {
     use std::collections::HashMap;
 
     use enumset::EnumSet;
-    use mimi_content::{MessageStatusReport, PerMessageStatus};
-    use phnxcommon::{identifiers::UserId, time::TimeStamp};
+    use mimi_content::PerMessageStatus;
     use sqlx::{SqliteTransaction, query, query_scalar};
     use tracing::warn;
 
@@ -62,20 +68,30 @@ mod persistence {
 
     use super::*;
 
-    impl StatusRecord {
-        pub(crate) async fn store_report(
-            txn: &mut SqliteTransaction<'_>,
-            notifier: &mut StoreNotifier,
-            sender: &UserId,
+    impl<'a> StatusRecord<'a> {
+        pub(crate) fn borrowed(
+            sender: &'a UserId,
             report: MessageStatusReport,
             created_at: TimeStamp,
+        ) -> Self {
+            Self {
+                sender: Cow::Borrowed(sender),
+                report,
+                created_at,
+            }
+        }
+
+        pub(crate) async fn store_report(
+            &self,
+            txn: &mut SqliteTransaction<'_>,
+            notifier: &mut StoreNotifier,
         ) -> sqlx::Result<()> {
-            let sender_uuid = sender.uuid();
-            let sender_domain = sender.domain();
+            let sender_uuid = self.sender.uuid();
+            let sender_domain = self.sender.domain();
 
             // Group statuses by mimi id into an enum set
             let mut statuses: HashMap<&[u8], EnumSet<MessageStatusBit>> = Default::default();
-            for PerMessageStatus { mimi_id, status } in &report.statuses {
+            for PerMessageStatus { mimi_id, status } in &self.report.statuses {
                 let mimi_id = mimi_id.as_slice();
                 let Ok(bit) = (*status).try_into() else {
                     warn!(?status, "Unsupported message status");
@@ -112,7 +128,7 @@ mod persistence {
                     sender_uuid,
                     sender_domain,
                     bitset,
-                    created_at,
+                    self.created_at,
                 )
                 .execute(&mut **txn)
                 .await?;
@@ -198,7 +214,8 @@ mod persistence {
             report.statuses.shuffle(&mut rand::thread_rng());
 
             let mut txn = pool.begin().await?;
-            StatusRecord::store_report(&mut txn, &mut notifier, &alice, report, Utc::now().into())
+            StatusRecord::borrowed(&alice, report, Utc::now().into())
+                .store_report(&mut txn, &mut notifier)
                 .await?;
             txn.commit().await?;
 

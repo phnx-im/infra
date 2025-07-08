@@ -34,7 +34,7 @@ pub(crate) async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 }
 
 /// Convert all versioned v1 messages to v2 messages in the database.
-async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<()> {
+async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<usize> {
     info!("Data migration: Converting messages from version 1 to version 2");
 
     let mut write_connection = pool.acquire().await?;
@@ -88,5 +88,111 @@ async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<()> {
         "Converted messages from version 1 to version 2",
     );
 
-    Ok(())
+    Ok(num_messages)
+}
+
+#[cfg(test)]
+mod test {
+    use phnxcommon::{assert_matches, identifiers::UserId, time::TimeStamp};
+    use sqlx::{SqliteConnection, migrate::Migrate};
+
+    use crate::{
+        ConversationId,
+        conversations::{
+            messages::persistence::tests::test_conversation_message,
+            persistence::tests::test_conversation,
+        },
+        store::StoreNotifier,
+    };
+
+    use super::*;
+
+    async fn store_raw_test_message_v1(
+        connection: &mut SqliteConnection,
+        converation_id: ConversationId,
+    ) -> anyhow::Result<()> {
+        let message_id = ConversationMessageId::random();
+        let user_id = UserId::random("localhost".parse().unwrap());
+        let user_uuid = user_id.uuid();
+        let user_domain = user_id.domain();
+        let timestamp = TimeStamp::now();
+        let mimi_content = MimiContentV1 {
+            topic_id: vec![1; 32].into(),
+            ..Default::default()
+        };
+        let mimi_content_bytes = PhnxCodec::to_vec(&mimi_content).unwrap();
+        let content = VersionedMessage {
+            version: 1,
+            content: mimi_content_bytes,
+        };
+
+        sqlx::query(
+            "INSERT INTO conversation_messages (
+                message_id,
+                conversation_id,
+                sender_user_uuid,
+                sender_user_domain,
+                timestamp,
+                content,
+                sent
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(message_id)
+        .bind(converation_id)
+        .bind(user_uuid)
+        .bind(user_domain)
+        .bind(timestamp)
+        .bind(BlobEncoded(content))
+        .bind(false)
+        .execute(connection)
+        .await?;
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = false)]
+    async fn convert_messages_v1_to_v2_some_messages(pool: SqlitePool) -> anyhow::Result<()> {
+        let mut connection = pool.acquire().await?;
+        connection.ensure_migrations_table().await?;
+        let migrator = sqlx::migrate!();
+
+        let itx = migrator
+            .iter()
+            .position(|m| m.version == MESSAGE_STATUS_MIGRATION_VERSION)
+            .unwrap();
+
+        // apply migrations up to the message status migration
+        for migration in migrator.iter().take(itx) {
+            connection.apply(migration).await?;
+        }
+
+        let mut notifier = StoreNotifier::noop();
+        let conversation = test_conversation();
+        conversation.store(&mut connection, &mut notifier).await?;
+
+        // Store v1 messages
+        store_raw_test_message_v1(&mut connection, conversation.id()).await?;
+        store_raw_test_message_v1(&mut connection, conversation.id()).await?;
+        store_raw_test_message_v1(&mut connection, conversation.id()).await?;
+
+        // finish migration
+        for migration in migrator.iter().skip(itx) {
+            connection.apply(migration).await?;
+        }
+
+        // Store v2 messages
+        test_conversation_message(conversation.id())
+            .store(connection.as_mut(), &mut notifier)
+            .await?;
+        test_conversation_message(conversation.id())
+            .store(connection.as_mut(), &mut notifier)
+            .await?;
+        test_conversation_message(conversation.id())
+            .store(connection.as_mut(), &mut notifier)
+            .await?;
+
+        assert_matches!(convert_messages_v1_to_v2(&pool).await, Ok(3));
+
+        Ok(())
+    }
 }

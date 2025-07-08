@@ -154,14 +154,9 @@ impl CoreUser {
             .await?;
 
         self.with_transaction_and_notifier(async |txn, notifier| {
-            StatusRecord::store_report(
-                txn,
-                notifier,
-                self.user_id(),
-                unsent_receipt.report,
-                TimeStamp::now(),
-            )
-            .await?;
+            StatusRecord::borrowed(self.user_id(), unsent_receipt.report, TimeStamp::now())
+                .store_report(txn, notifier)
+                .await?;
             Ok(())
         })
         .await?;
@@ -410,6 +405,8 @@ impl SentMessage {
     }
 }
 
+/// Not yet sent receipt message consisting of the content to send and a local message status
+/// report.
 struct UnsentReceipt {
     report: MessageStatusReport,
     content: MimiContent,
