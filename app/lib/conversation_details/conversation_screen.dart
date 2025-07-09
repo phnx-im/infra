@@ -82,17 +82,13 @@ class ConversationScreenView extends StatelessWidget {
     }
 
     return Scaffold(
-      body: Stack(
-        children: <Widget>[
-          Column(
-            children: [
-              const _ConversationHeader(),
-              Expanded(
-                child: MessageListView(createMessageCubit: createMessageCubit),
-              ),
-              const MessageComposer(),
-            ],
+      body: Column(
+        children: [
+          const _ConversationHeader(),
+          Expanded(
+            child: MessageListView(createMessageCubit: createMessageCubit),
           ),
+          const MessageComposer(),
         ],
       ),
     );

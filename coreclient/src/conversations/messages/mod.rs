@@ -13,6 +13,7 @@ use crate::{
 
 use super::*;
 
+pub(crate) mod edit;
 pub(crate) mod persistence;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -180,6 +181,20 @@ impl ConversationMessage {
         *self.timestamped_message.timestamp()
     }
 
+    pub fn edited_at(&self) -> Option<TimeStamp> {
+        if let Message::Content(content_message) = &self.timestamped_message.message {
+            content_message.edited_at
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn set_edited_at(&mut self, edit_created_at: TimeStamp) {
+        if let Message::Content(content_message) = &mut self.timestamped_message.message {
+            content_message.edited_at = Some(edit_created_at)
+        }
+    }
+
     pub fn is_sent(&self) -> bool {
         if let Message::Content(content) = &self.timestamped_message.message {
             content.was_sent()
@@ -192,12 +207,20 @@ impl ConversationMessage {
         self.status
     }
 
+    pub fn set_status(&mut self, status: MessageStatus) {
+        self.status = status;
+    }
+
     pub fn conversation_id(&self) -> ConversationId {
         self.conversation_id
     }
 
     pub fn message(&self) -> &Message {
         &self.timestamped_message.message
+    }
+
+    pub fn set_content_message(&mut self, message: ContentMessage) {
+        self.timestamped_message.message = Message::Content(Box::new(message));
     }
 
     pub fn message_mut(&mut self) -> &mut Message {
@@ -260,7 +283,6 @@ impl Message {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn mimi_id(&self) -> Option<&MimiId> {
         match self {
             Message::Content(content_message) => content_message.mimi_id(),
@@ -291,6 +313,7 @@ pub struct ContentMessage {
     pub(super) sender: UserId,
     pub(super) sent: bool,
     pub(super) content: MimiContent,
+    pub(super) edited_at: Option<TimeStamp>,
 }
 
 impl ContentMessage {
@@ -306,11 +329,12 @@ impl ContentMessage {
             sender,
             sent,
             content,
+            edited_at: None,
         }
     }
 
-    pub fn into_parts(self) -> (UserId, bool, MimiContent) {
-        (self.sender, self.sent, self.content)
+    pub fn into_sender_and_content(self) -> (UserId, MimiContent) {
+        (self.sender, self.content)
     }
 
     pub fn sender(&self) -> &UserId {
@@ -334,6 +358,10 @@ impl ContentMessage {
 
     pub fn content_mut(&mut self) -> &mut MimiContent {
         &mut self.content
+    }
+
+    pub fn edited_at(&self) -> Option<TimeStamp> {
+        self.edited_at
     }
 }
 

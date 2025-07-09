@@ -264,6 +264,11 @@ impl UserId {
     pub fn into_parts(self) -> (Uuid, Fqdn) {
         (*self.uuid, self.domain)
     }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.tls_serialize_detached()
+            .expect("user id serialization is infallible")
+    }
 }
 
 #[derive(

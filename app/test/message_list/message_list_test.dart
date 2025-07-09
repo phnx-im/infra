@@ -31,6 +31,7 @@ final messages = [
       UiContentMessage(
         sender: 2.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: 'Hello Alice from Bob',
           topicId: Uint8List(0),
@@ -50,6 +51,7 @@ final messages = [
       UiContentMessage(
         sender: 3.userId(),
         sent: true,
+        edited: true,
         content: UiMimiContent(
           plainBody:
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
@@ -72,6 +74,7 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: true,
         content: UiMimiContent(
           plainBody: 'Hello Bob and Eve',
           topicId: Uint8List(0),
@@ -91,6 +94,7 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: 'How are you doing?',
           topicId: Uint8List(0),
@@ -110,6 +114,7 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: '''Nice to see you both here! 👋
 
@@ -135,6 +140,7 @@ This is a message with multiple lines. It should be properly displayed in the me
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "This is a delivered message",
@@ -154,6 +160,7 @@ This is a message with multiple lines. It should be properly displayed in the me
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "This is a read message",
@@ -190,6 +197,7 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "A File Attachment",
@@ -217,6 +225,7 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "Look what I've got to eat",
@@ -236,6 +245,7 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           attachments: [imageAttachment],
@@ -253,6 +263,7 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "Small image",

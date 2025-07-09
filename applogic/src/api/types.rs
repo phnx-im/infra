@@ -96,51 +96,48 @@ pub struct UiMessageDraft {
     pub message: String,
     pub editing_id: Option<ConversationMessageId>,
     pub updated_at: DateTime<Utc>,
+    pub source: UiMessageDraftSource,
+}
+
+/// Makes it possible to distinguish whether the draft was created in Flutter by the user or loaded
+/// from the database or reset by the handle, that is, by the system.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum UiMessageDraftSource {
+    /// The draft was created/changed by the user.
+    User,
+    /// The draft was created/changed by the system.
+    System,
 }
 
 impl UiMessageDraft {
-    pub(crate) fn new(message: String) -> Self {
+    pub(crate) fn new(message: String, source: UiMessageDraftSource) -> Self {
         Self {
             message,
             editing_id: None,
             updated_at: Utc::now(),
+            source,
+        }
+    }
+
+    pub(crate) fn from_draft(draft: MessageDraft, source: UiMessageDraftSource) -> Self {
+        Self {
+            message: draft.message,
+            editing_id: draft.editing_id,
+            updated_at: Utc::now(),
+            source,
+        }
+    }
+
+    pub(crate) fn into_draft(self) -> MessageDraft {
+        MessageDraft {
+            message: self.message,
+            editing_id: self.editing_id,
+            updated_at: self.updated_at,
         }
     }
 
     pub(crate) fn is_empty(&self) -> bool {
         self.message.trim().is_empty() && self.editing_id.is_none()
-    }
-}
-
-impl From<MessageDraft> for UiMessageDraft {
-    fn from(
-        MessageDraft {
-            message,
-            editing_id,
-            updated_at,
-        }: MessageDraft,
-    ) -> Self {
-        Self {
-            message,
-            editing_id,
-            updated_at,
-        }
-    }
-}
-
-impl From<UiMessageDraft> for MessageDraft {
-    fn from(
-        UiMessageDraft {
-            message,
-            editing_id,
-            updated_at,
-        }: UiMessageDraft,
-    ) -> Self {
-        Self {
-            message,
-            editing_id,
-            updated_at,
-        }
     }
 }
 
@@ -332,14 +329,18 @@ pub struct UiContentMessage {
     pub sender: UiUserId,
     pub sent: bool,
     pub content: UiMimiContent,
+    pub edited: bool,
 }
 
 impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
-        let (sender, sent, content) = content_message.into_parts();
+        let sent = content_message.was_sent();
+        let edited = content_message.edited_at().is_some();
+        let (sender, content) = content_message.into_sender_and_content();
         Self {
             sender: sender.into(),
             sent,
+            edited,
             content: UiMimiContent::from(content),
         }
     }

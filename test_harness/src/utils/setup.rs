@@ -14,7 +14,7 @@ use mimi_content::{
     content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
 };
 use phnxcommon::{
-    DEFAULT_PORT_HTTP,
+    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
     identifiers::{Fqdn, UserHandle, UserId},
 };
 use phnxcoreclient::{
@@ -592,7 +592,8 @@ impl TestBackend {
             .take(32)
             .map(char::from)
             .collect();
-        let orig_message = MimiContent::simple_markdown_message(message, [0; 16]); // we use a simple salt for tests
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let orig_message = MimiContent::simple_markdown_message(message, salt);
         let test_sender = self.users.get_mut(sender_id).unwrap();
         let sender = &mut test_sender.user;
 
@@ -607,7 +608,7 @@ impl TestBackend {
 
         let message = test_sender
             .user
-            .send_message(conversation_id, orig_message.clone())
+            .send_message(conversation_id, orig_message.clone(), None)
             .await
             .unwrap();
         let sender_user_id = test_sender.user.user_id().clone();

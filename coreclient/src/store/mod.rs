@@ -199,6 +199,12 @@ pub trait Store {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
+    async fn last_message_by_user(
+        &self,
+        conversation_id: ConversationId,
+        user_id: &UserId,
+    ) -> StoreResult<Option<ConversationMessage>>;
+
     async fn message_draft(
         &self,
         conversation_id: ConversationId,
@@ -220,6 +226,7 @@ pub trait Store {
         &self,
         conversation_id: ConversationId,
         content: MimiContent,
+        replaces_id: Option<ConversationMessageId>,
     ) -> StoreResult<ConversationMessage>;
 
     /// Sends a delivery receipt for the message with the given MimiId.

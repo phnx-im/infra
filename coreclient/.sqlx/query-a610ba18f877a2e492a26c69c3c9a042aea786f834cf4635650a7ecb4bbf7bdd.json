@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status\n            FROM conversation_messages\n            WHERE conversation_id = ?\n                AND sender_user_uuid IS NOT NULL\n                AND sender_user_domain IS NOT NULL\n            ORDER BY timestamp DESC LIMIT 1",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status,\n                edited_at AS \"edited_at: _\"\n            FROM conversation_messages\n            WHERE conversation_id = ?\n                AND sender_user_uuid = ?\n                AND sender_user_domain = ?\n            ORDER BY timestamp DESC LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -9,12 +9,12 @@
         "type_info": "Blob"
       },
       {
-        "name": "mimi_id: _",
+        "name": "conversation_id: _",
         "ordinal": 1,
         "type_info": "Blob"
       },
       {
-        "name": "conversation_id: _",
+        "name": "mimi_id: _",
         "ordinal": 2,
         "type_info": "Blob"
       },
@@ -47,22 +47,28 @@
         "name": "status",
         "ordinal": 8,
         "type_info": "Integer"
+      },
+      {
+        "name": "edited_at: _",
+        "ordinal": 9,
+        "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 3
     },
     "nullable": [
       false,
+      false,
+      true,
+      false,
+      true,
       true,
       false,
       false,
-      true,
-      true,
       false,
-      false,
-      false
+      true
     ]
   },
-  "hash": "74c3d9acc170e7907c947e07d92eea0c834f3e1f216ca6ed12c56f69a577dd33"
+  "hash": "a610ba18f877a2e492a26c69c3c9a042aea786f834cf4635650a7ecb4bbf7bdd"
 }

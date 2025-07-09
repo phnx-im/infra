@@ -18,8 +18,9 @@ use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
 use crate::{
-    Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message,
-    conversations::StatusRecord,
+    ContentMessage, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
+    Message,
+    conversations::{StatusRecord, messages::edit::MessageEdit},
 };
 
 use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
@@ -33,6 +34,7 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
         content: MimiContent,
+        replaces_id: Option<ConversationMessageId>,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = self
             .with_transaction_and_notifier(async |txn, notifier| {
@@ -41,7 +43,7 @@ impl CoreUser {
                     conversation_message_id: ConversationMessageId::random(),
                     content,
                 }
-                .store_unsent_message(txn, notifier, self.user_id())
+                .store_unsent_message(txn, notifier, self.user_id(), replaces_id)
                 .await?
                 .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
                 .store_group_update(txn, notifier, self.user_id())
@@ -74,7 +76,7 @@ impl CoreUser {
             conversation_message_id,
             content,
         }
-        .store_unsent_message(txn, notifier, self.user_id())
+        .store_unsent_message(txn, notifier, self.user_id(), None)
         .await?
         .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
         .store_group_update(txn, notifier, self.user_id())
@@ -175,26 +177,70 @@ impl UnsentContent {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         sender: &UserId,
+        replaces_id: Option<ConversationMessageId>,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
         let UnsentContent {
             conversation_id,
             conversation_message_id,
-            content,
+            mut content,
         } = self;
 
         let conversation = Conversation::load(txn.as_mut(), &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
-        // Store the message as unsent so that we don't lose it in case
-        // something goes wrong.
-        let conversation_message = ConversationMessage::new_unsent_message(
-            sender.clone(),
-            conversation_id,
-            conversation_message_id,
-            content.clone(),
-            conversation.group_id(),
-        );
-        conversation_message.store(txn.as_mut(), notifier).await?;
+
+        let conversation_message = if let Some(replaces_id) = replaces_id {
+            // Load the original message and the Mimi ID of the original message
+            let mut original = ConversationMessage::load(txn.as_mut(), replaces_id)
+                .await?
+                .with_context(|| format!("Can't find message with id {replaces_id:?}"))?;
+            let original_mimi_content = original
+                .message()
+                .mimi_content()
+                .context("Replaced message does not have mimi content")?;
+            let original_mimi_id = original
+                .message()
+                .mimi_id()
+                .context("Replaced message does not have mimi id")?;
+            content.replaces = Some(original_mimi_id.as_slice().to_vec().into());
+            let edit_created_at = TimeStamp::now();
+
+            // Store the edit
+            let edit = MessageEdit::new(
+                original_mimi_id,
+                original.id(),
+                edit_created_at,
+                original_mimi_content,
+            );
+            edit.store(txn.as_mut()).await?;
+
+            // Edit the original message and clear its status
+            let is_sent = false;
+            original.set_content_message(ContentMessage::new(
+                sender.clone(),
+                is_sent,
+                content.clone(),
+                conversation.group_id(),
+            ));
+            original.set_status(MessageStatus::Unread);
+            original.set_edited_at(edit_created_at);
+            original.update(txn.as_mut(), notifier).await?;
+            StatusRecord::clear(txn.as_mut(), notifier, original.id()).await?;
+
+            original
+        } else {
+            // Store the message as unsent so that we don't lose it in case
+            // something goes wrong.
+            let conversation_message = ConversationMessage::new_unsent_message(
+                sender.clone(),
+                conversation_id,
+                conversation_message_id,
+                content.clone(),
+                conversation.group_id(),
+            );
+            conversation_message.store(txn.as_mut(), notifier).await?;
+            conversation_message
+        };
 
         let group_id = conversation.group_id();
         let group = Group::load_clean(txn, group_id)
@@ -383,8 +429,13 @@ impl SentMessage {
             ds_timestamp,
         } = self;
 
+        let new_timestamp = if conversation_message.edited_at().is_some() {
+            conversation_message.timestamp().into()
+        } else {
+            ds_timestamp
+        };
         conversation_message
-            .mark_as_sent(&mut *txn, notifier, ds_timestamp)
+            .mark_as_sent(&mut *txn, notifier, new_timestamp)
             .await?;
 
         // Note: even though the message was already marked as read, we still need to move the last

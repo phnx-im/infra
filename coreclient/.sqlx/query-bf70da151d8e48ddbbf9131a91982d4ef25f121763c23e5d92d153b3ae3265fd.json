@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status\n            FROM conversation_messages\n            WHERE message_id != ?1\n                AND timestamp >= (SELECT timestamp FROM conversation_messages\n                WHERE message_id = ?1)\n            ORDER BY timestamp ASC\n            LIMIT 1",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status,\n                edited_at AS \"edited_at: _\"\n            FROM conversation_messages\n            WHERE conversation_id = ?\n                AND sender_user_uuid IS NOT NULL\n                AND sender_user_domain IS NOT NULL\n            ORDER BY timestamp DESC LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -47,6 +47,11 @@
         "name": "status",
         "ordinal": 8,
         "type_info": "Integer"
+      },
+      {
+        "name": "edited_at: _",
+        "ordinal": 9,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -61,8 +66,9 @@
       true,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "84855279e782debf6d21504eb9dd474f72641df1a8e4ba70f9425cec238b784f"
+  "hash": "bf70da151d8e48ddbbf9131a91982d4ef25f121763c23e5d92d153b3ae3265fd"
 }

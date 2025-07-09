@@ -46,7 +46,7 @@ impl VersionedMessage {
         }
     }
 
-    fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
+    pub(crate) fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
         match self.version {
             1 => {
                 warn!("Old message version detected. Why was it not upgraded by a migration?");
@@ -89,6 +89,7 @@ struct SqlConversationMessage {
     content: BlobDecoded<VersionedMessage>,
     sent: bool,
     status: i64,
+    edited_at: Option<TimeStamp>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -117,6 +118,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             content,
             sent,
             status,
+            edited_at,
         }: SqlConversationMessage,
     ) -> Result<Self, Self::Error> {
         let message = match (sender_user_uuid, sender_user_domain) {
@@ -132,6 +134,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
                             sent,
                             content,
                             mimi_id,
+                            edited_at,
                         }))
                     })
                     .unwrap_or_else(|e| {
@@ -174,11 +177,44 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE message_id = ?
             "#,
             message_id,
+        )
+        .fetch_optional(executor)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
+    }
+
+    pub(crate) async fn load_by_mimi_id(
+        executor: impl SqliteExecutor<'_>,
+        mimi_id: &MimiId,
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                mimi_id AS "mimi_id: _",
+                conversation_id AS "conversation_id: _",
+                timestamp AS "timestamp: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
+                content AS "content: _",
+                sent,
+                status,
+                edited_at AS "edited_at: _"
+            FROM conversation_messages
+            WHERE mimi_id = ?
+            "#,
+            mimi_id,
         )
         .fetch_optional(executor)
         .await
@@ -206,7 +242,8 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE conversation_id = ?
             ORDER BY timestamp DESC
@@ -286,6 +323,52 @@ impl ConversationMessage {
         Ok(())
     }
 
+    pub(crate) async fn update(
+        &self,
+        executor: impl SqliteExecutor<'_>,
+        notifier: &mut StoreNotifier,
+    ) -> anyhow::Result<()> {
+        let mimi_id = self.message().mimi_id();
+        let content = match &self.timestamped_message.message {
+            Message::Content(content_message) => {
+                VersionedMessage::from_mimi_content(&content_message.content)?
+            }
+            Message::Event(event_message) => VersionedMessage::from_event_message(event_message)?,
+        };
+        let content = BlobEncoded(&content);
+        let sent = match &self.timestamped_message.message {
+            Message::Content(content_message) => content_message.sent,
+            Message::Event(_) => true,
+        };
+        let edited_at = self.edited_at();
+        let status = self.status().repr();
+        let message_id = self.id();
+
+        query!(
+            "UPDATE conversation_messages
+            SET
+                mimi_id = ?,
+                timestamp = ?,
+                content = ?,
+                sent = ?,
+                edited_at = ?,
+                status = ?
+            WHERE message_id = ?",
+            mimi_id,
+            self.timestamped_message.timestamp,
+            content,
+            sent,
+            edited_at,
+            status,
+            message_id,
+        )
+        .execute(executor)
+        .await?;
+        notifier.update(self.id());
+        notifier.update(self.conversation_id);
+        Ok(())
+    }
+
     /// Set the message's sent status in the database and update the message's timestamp.
     pub(super) async fn update_sent_status(
         executor: impl SqliteExecutor<'_>,
@@ -324,13 +407,54 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE conversation_id = ?
                 AND sender_user_uuid IS NOT NULL
                 AND sender_user_domain IS NOT NULL
             ORDER BY timestamp DESC LIMIT 1"#,
             conversation_id,
+        )
+        .fetch_optional(executor)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
+    }
+
+    /// Get the last content message in the conversation which is owned by the given user.
+    pub(crate) async fn last_content_message_by_user(
+        executor: impl SqliteExecutor<'_>,
+        conversation_id: ConversationId,
+        user_id: &UserId,
+    ) -> sqlx::Result<Option<Self>> {
+        let user_uuid = user_id.uuid();
+        let user_domain = user_id.domain();
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                conversation_id AS "conversation_id: _",
+                mimi_id AS "mimi_id: _",
+                timestamp AS "timestamp: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
+                content AS "content: _",
+                sent,
+                status,
+                edited_at AS "edited_at: _"
+            FROM conversation_messages
+            WHERE conversation_id = ?
+                AND sender_user_uuid = ?
+                AND sender_user_domain = ?
+            ORDER BY timestamp DESC LIMIT 1"#,
+            conversation_id,
+            user_uuid,
+            user_domain,
         )
         .fetch_optional(executor)
         .await
@@ -357,7 +481,8 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp <= (SELECT timestamp FROM conversation_messages
@@ -391,7 +516,8 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp >= (SELECT timestamp FROM conversation_messages

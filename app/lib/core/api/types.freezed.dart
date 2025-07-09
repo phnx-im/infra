@@ -688,7 +688,7 @@ $UiEventMessageCopyWith<$Res> get field0 {
 /// @nodoc
 mixin _$UiMessageDraft {
 
- String get message; ConversationMessageId? get editingId; DateTime get updatedAt;
+ String get message; ConversationMessageId? get editingId; DateTime get updatedAt; UiMessageDraftSource get source;
 /// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -699,16 +699,16 @@ $UiMessageDraftCopyWith<UiMessageDraft> get copyWith => _$UiMessageDraftCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt);
+int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt,source);
 
 @override
 String toString() {
-  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt)';
+  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt, source: $source)';
 }
 
 
@@ -719,7 +719,7 @@ abstract mixin class $UiMessageDraftCopyWith<$Res>  {
   factory $UiMessageDraftCopyWith(UiMessageDraft value, $Res Function(UiMessageDraft) _then) = _$UiMessageDraftCopyWithImpl;
 @useResult
 $Res call({
- String message, ConversationMessageId? editingId, DateTime updatedAt
+ String message, ConversationMessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
 });
 
 
@@ -736,12 +736,13 @@ class _$UiMessageDraftCopyWithImpl<$Res>
 
 /// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,Object? source = null,}) {
   return _then(_self.copyWith(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
 as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as UiMessageDraftSource,
   ));
 }
 
@@ -752,12 +753,13 @@ as DateTime,
 
 
 class _UiMessageDraft implements UiMessageDraft {
-  const _UiMessageDraft({required this.message, this.editingId, required this.updatedAt});
+  const _UiMessageDraft({required this.message, this.editingId, required this.updatedAt, required this.source});
   
 
 @override final  String message;
 @override final  ConversationMessageId? editingId;
 @override final  DateTime updatedAt;
+@override final  UiMessageDraftSource source;
 
 /// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
@@ -769,16 +771,16 @@ _$UiMessageDraftCopyWith<_UiMessageDraft> get copyWith => __$UiMessageDraftCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt);
+int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt,source);
 
 @override
 String toString() {
-  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt)';
+  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt, source: $source)';
 }
 
 
@@ -789,7 +791,7 @@ abstract mixin class _$UiMessageDraftCopyWith<$Res> implements $UiMessageDraftCo
   factory _$UiMessageDraftCopyWith(_UiMessageDraft value, $Res Function(_UiMessageDraft) _then) = __$UiMessageDraftCopyWithImpl;
 @override @useResult
 $Res call({
- String message, ConversationMessageId? editingId, DateTime updatedAt
+ String message, ConversationMessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
 });
 
 
@@ -806,12 +808,13 @@ class __$UiMessageDraftCopyWithImpl<$Res>
 
 /// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,Object? source = null,}) {
   return _then(_UiMessageDraft(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
 as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as UiMessageDraftSource,
   ));
 }
 

@@ -56,4 +56,9 @@ class ConversationDetailsCubit
 
   Future<void> storeDraft({required String draftMessage}) =>
       _impl.storeDraft(draftMessage: draftMessage);
+
+  Future<void> resetDraft() => _impl.resetDraft();
+
+  Future<void> editMessage({ConversationMessageId? messageId}) =>
+      _impl.editMessage(messageId: messageId);
 }
