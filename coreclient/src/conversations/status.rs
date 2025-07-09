@@ -14,7 +14,7 @@ pub(crate) struct StatusRecord<'a> {
 }
 
 mod persistence {
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeSet, HashSet};
 
     use mimi_content::PerMessageStatus;
     use sqlx::{SqliteTransaction, query, query_scalar};
@@ -46,7 +46,14 @@ mod persistence {
 
             // Store the message status for each mimi id
             // Note: A user could send multiple status updates for the same message. The last one is the final status.
-            for PerMessageStatus { mimi_id, status } in &self.report.statuses {
+            let mut already_handled: HashSet<&[u8]> = HashSet::new();
+
+            for PerMessageStatus { mimi_id, status } in self.report.statuses.iter().rev() {
+                if already_handled.contains(mimi_id.as_slice()) {
+                    continue;
+                }
+                already_handled.insert(mimi_id);
+
                 // Load the message id
                 let mimi_id = mimi_id.as_slice();
                 let status = status.repr();
