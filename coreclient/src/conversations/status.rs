@@ -173,7 +173,7 @@ mod persistence {
                 "SELECT status FROM conversation_message_status
                     WHERE message_id = ?",
             )
-            .bind(&message_a.id())
+            .bind(message_a.id())
             .fetch_one(&mut *pool.acquire().await?)
             .await?;
 
@@ -181,7 +181,7 @@ mod persistence {
                 "SELECT status FROM conversation_message_status
                     WHERE message_id = ?",
             )
-            .bind(&message_b.id())
+            .bind(message_b.id())
             .fetch_one(&mut *pool.acquire().await?)
             .await?;
 
