@@ -49,6 +49,7 @@ impl VersionedMessage {
     fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
         match self.version {
             1 => {
+                warn!("Old message version detected. Why was it not upgraded by a migration?");
                 let old = PhnxCodec::from_slice::<MimiContentV1>(&self.content)?;
                 Ok(old.upgrade())
             }

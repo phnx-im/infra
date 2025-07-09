@@ -4,13 +4,11 @@
 
 use anyhow::{Context, bail};
 use mimi_content::{
-    Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPart, NestedPartContent,
-    PerMessageStatus,
+    ByteBuf, Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPart,
+    NestedPartContent, PerMessageStatus,
 };
 use openmls::storage::OpenMlsProvider;
-use phnxcommon::OpenMlsRand;
 use phnxcommon::{
-    RustCrypto,
     credentials::keys::ClientSigningKey,
     identifiers::{MimiId, UserId},
     messages::client_ds_out::SendMessageParamsOut,
@@ -430,9 +428,8 @@ impl UnsentReceipt {
             return Ok(None);
         }
 
-        let salt: [u8; 16] = RustCrypto::default().random_array()?;
         let content = MimiContent {
-            salt: salt.to_vec().into(),
+            salt: ByteBuf::from(phnxcommon::crypto::secrets::Secret::<16>::random()?.secret()),
             nested_part: NestedPart {
                 disposition: Disposition::Unspecified,
                 part: NestedPartContent::SinglePart {
