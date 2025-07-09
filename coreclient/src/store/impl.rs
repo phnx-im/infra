@@ -4,8 +4,9 @@
 
 use std::{collections::HashSet, path::Path, sync::Arc};
 
+use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
+use phnxcommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
 use tokio_stream::Stream;
 use tracing::error;
 use uuid::Uuid;
@@ -253,10 +254,19 @@ impl Store for CoreUser {
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> StoreResult<bool> {
-        Ok(self
-            .mark_conversation_as_read(conversation_id, until)
-            .await?)
+    ) -> StoreResult<(bool, Vec<MimiId>)> {
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            Conversation::mark_as_read_until_message_id(
+                txn,
+                notifier,
+                conversation_id,
+                until,
+                self.user_id(),
+            )
+            .await
+            .map_err(From::from)
+        })
+        .await
     }
 
     async fn send_message(
@@ -265,6 +275,14 @@ impl Store for CoreUser {
         content: mimi_content::MimiContent,
     ) -> StoreResult<ConversationMessage> {
         self.send_message(conversation_id, content).await
+    }
+
+    async fn send_delivery_receipts<'a>(
+        &self,
+        conversation_id: ConversationId,
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
+    ) -> StoreResult<()> {
+        self.send_delivery_receipts(conversation_id, statuses).await
     }
 
     async fn upload_attachment(

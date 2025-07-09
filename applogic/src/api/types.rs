@@ -11,6 +11,7 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
+use mimi_content::MessageStatus;
 pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
@@ -259,23 +260,47 @@ pub struct UiConversationMessage {
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub position: UiFlightPosition,
+    pub status: UiMessageStatus,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum UiMessageStatus {
+    Sending,
+    /// The message was sent to the server.
+    Sent,
+    /// The message was received by at least one user in the conversation.
+    Delivered,
+    /// The message was read by at least one user in the conversation.
+    Read,
+}
+
+impl From<ConversationMessage> for UiConversationMessage {
+    #[frb(ignore)]
+    fn from(message: ConversationMessage) -> Self {
+        let status = if !message.is_sent() {
+            UiMessageStatus::Sending
+        } else if message.status() == MessageStatus::Read {
+            UiMessageStatus::Read
+        } else if message.status() == MessageStatus::Delivered {
+            UiMessageStatus::Delivered
+        } else {
+            UiMessageStatus::Sent
+        };
+
+        Self {
+            conversation_id: message.conversation_id(),
+            id: message.id(),
+            timestamp: message.timestamp().to_rfc3339(),
+            message: UiMessage::from(message.message().clone()),
+            position: UiFlightPosition::Single,
+            status,
+        }
+    }
 }
 
 impl UiConversationMessage {
     pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp.parse().ok()
-    }
-}
-
-impl From<ConversationMessage> for UiConversationMessage {
-    fn from(conversation_message: ConversationMessage) -> Self {
-        Self {
-            conversation_id: conversation_message.conversation_id(),
-            id: conversation_message.id(),
-            timestamp: conversation_message.timestamp().to_rfc3339(),
-            message: UiMessage::from(conversation_message.message().clone()),
-            position: UiFlightPosition::Single,
-        }
     }
 }
 

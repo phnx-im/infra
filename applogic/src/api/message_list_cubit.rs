@@ -296,6 +296,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 #[cfg(test)]
 mod tests {
     use mimi_content::MimiContent;
+    use openmls::group::GroupId;
     use phnxcommon::{identifiers::UserId, time::TimeStamp};
     use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
     use uuid::Uuid;
@@ -310,7 +311,8 @@ mod tests {
             Message::with_content(ContentMessage::new(
                 sender.clone(),
                 true,
-                MimiContent::simple_markdown_message("some content".into()),
+                MimiContent::simple_markdown_message("some content".into(), [0; 16]), // simple seed for testing
+                &GroupId::from_slice(&[0]),
             )),
         )
     }

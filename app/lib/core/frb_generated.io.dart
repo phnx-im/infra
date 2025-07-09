@@ -881,6 +881,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiMessageDraft dco_decode_ui_message_draft(dynamic raw);
 
   @protected
+  UiMessageStatus dco_decode_ui_message_status(dynamic raw);
+
+  @protected
   UiMimiContent dco_decode_ui_mimi_content(dynamic raw);
 
   @protected
@@ -1764,6 +1767,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiMessageDraft sse_decode_ui_message_draft(SseDeserializer deserializer);
+
+  @protected
+  UiMessageStatus sse_decode_ui_message_status(SseDeserializer deserializer);
 
   @protected
   UiMimiContent sse_decode_ui_mimi_content(SseDeserializer deserializer);
@@ -2868,6 +2874,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_ui_message_draft(
     UiMessageDraft self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_ui_message_status(
+    UiMessageStatus self,
     SseSerializer serializer,
   );
 

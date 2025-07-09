@@ -52,6 +52,7 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -84,6 +85,7 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -111,6 +113,7 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -138,6 +141,7 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
     draft: UiMessageDraft(
       message: 'Some draft message',

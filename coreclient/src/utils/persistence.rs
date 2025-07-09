@@ -16,7 +16,7 @@ use sqlx::{
 };
 use tracing::{error, info};
 
-use crate::clients::store::ClientRecord;
+use crate::{clients::store::ClientRecord, utils::data_migrations};
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
@@ -137,6 +137,7 @@ pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Res
         .create_if_missing(true);
     let pool = SqlitePoolOptions::default().connect_with(opts).await?;
 
+    data_migrations::migrate(&pool).await?;
     migrate!().run(&pool).await?;
 
     Ok(pool)

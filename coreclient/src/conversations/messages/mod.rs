@@ -2,17 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mimi_content::MimiContent;
-use openmls::framing::ApplicationMessage;
-use tracing::warn;
+use mimi_content::{MessageStatus, MimiContent};
+use phnxcommon::identifiers::MimiId;
+use tracing::{error, warn};
 
-use crate::store::{Store, StoreNotifier};
+use crate::{
+    groups::Group,
+    store::{Store, StoreNotifier},
+};
 
 use super::*;
 
 pub(crate) mod persistence;
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) struct TimestampedMessage {
     timestamp: TimeStamp,
     message: Message,
@@ -35,31 +38,31 @@ impl TimestampedMessage {
         }
     }
 
-    /// Create a new timestamped message from an incoming application message.
-    /// The message is marked as sent.
-    pub(crate) fn from_application_message(
-        application_message: ApplicationMessage,
-        ds_timestamp: TimeStamp,
+    /// Creates a new timestamped message from a MimiContent.
+    ///
+    /// If content is an error, a conversation message containing an error event is created
+    /// instead.
+    pub(crate) fn from_mimi_content_result(
+        content: mimi_content::Result<MimiContent>,
+        timestamp: TimeStamp,
         user_id: &UserId,
+        group: &Group,
     ) -> Self {
-        let message = match MimiContent::deserialize(&application_message.into_bytes()) {
+        let message = match content {
             Ok(content) => Message::Content(Box::new(ContentMessage::new(
                 user_id.clone(),
                 true,
                 content,
+                group.group_id(),
             ))),
-            Err(e) => {
-                warn!("Message parsing failed: {e}");
+            Err(error) => {
+                warn!(%error, "Invalid message content");
                 Message::Event(EventMessage::Error(ErrorMessage::new(
-                    "Message parsing failed".to_owned(),
+                    "Invalid message content".to_owned(),
                 )))
             }
         };
-
-        Self {
-            timestamp: ds_timestamp,
-            message,
-        }
+        Self { timestamp, message }
     }
 
     pub(crate) fn system_message(system_message: SystemMessage, ds_timestamp: TimeStamp) -> Self {
@@ -72,7 +75,7 @@ impl TimestampedMessage {
 }
 
 /// Identifier of a message in a conversation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ConversationMessageId {
     pub uuid: Uuid,
 }
@@ -93,11 +96,12 @@ impl ConversationMessageId {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ConversationMessage {
     pub(super) conversation_id: ConversationId,
     pub(super) conversation_message_id: ConversationMessageId,
     pub(super) timestamped_message: TimestampedMessage,
+    pub(super) status: MessageStatus,
 }
 
 impl ConversationMessage {
@@ -112,6 +116,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message,
+            status: MessageStatus::Unread,
         }
     }
 
@@ -125,6 +130,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message: TimestampedMessage { timestamp, message },
+            status: MessageStatus::Unread,
         }
     }
 
@@ -133,16 +139,20 @@ impl ConversationMessage {
         conversation_id: ConversationId,
         conversation_message_id: ConversationMessageId,
         content: MimiContent,
-    ) -> ConversationMessage {
-        let message = Message::Content(Box::new(ContentMessage::new(sender, false, content)));
+        group_id: &GroupId,
+    ) -> Self {
+        let message = Message::Content(Box::new(ContentMessage::new(
+            sender, false, content, group_id,
+        )));
         let timestamped_message = TimestampedMessage {
             message,
             timestamp: TimeStamp::now(),
         };
-        ConversationMessage {
+        Self {
             conversation_id,
             conversation_message_id,
             timestamped_message,
+            status: MessageStatus::Unread,
         }
     }
 
@@ -176,6 +186,10 @@ impl ConversationMessage {
         } else {
             true
         }
+    }
+
+    pub fn status(&self) -> MessageStatus {
+        self.status
     }
 
     pub fn conversation_id(&self) -> ConversationId {
@@ -246,6 +260,14 @@ impl Message {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn mimi_id(&self) -> Option<&MimiId> {
+        match self {
+            Message::Content(content_message) => content_message.mimi_id(),
+            Message::Event(_) => None,
+        }
+    }
+
     pub fn mimi_content(&self) -> Option<&MimiContent> {
         match self {
             Message::Content(content_message) => Some(content_message.content()),
@@ -265,14 +287,22 @@ impl Message {
 // introduced and the storage logic changed accordingly.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct ContentMessage {
+    pub(super) mimi_id: Option<MimiId>,
     pub(super) sender: UserId,
     pub(super) sent: bool,
     pub(super) content: MimiContent,
 }
 
 impl ContentMessage {
-    pub fn new(sender: UserId, sent: bool, content: MimiContent) -> Self {
+    pub fn new(sender: UserId, sent: bool, content: MimiContent, group_id: &GroupId) -> Self {
+        // Calculating Mimi ID should never fail, however, since it is calculated partially from
+        // the input from the user, we don't want to rely on panicking. Instead, the message does
+        // not have a valid Mimi ID.
+        let mimi_id = MimiId::calculate(group_id, &sender, &content)
+            .inspect_err(|error| error!(%error, "Failed to calculate Mimi ID"))
+            .ok();
         Self {
+            mimi_id,
             sender,
             sent,
             content,
@@ -285,6 +315,13 @@ impl ContentMessage {
 
     pub fn sender(&self) -> &UserId {
         &self.sender
+    }
+
+    /// Mimi ID of the message
+    ///
+    /// Might be missing if it could not be calculated. Or it was not calculated for this message.
+    pub fn mimi_id(&self) -> Option<&MimiId> {
+        self.mimi_id.as_ref()
     }
 
     pub fn was_sent(&self) -> bool {

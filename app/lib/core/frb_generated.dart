@@ -6386,14 +6386,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiConversationMessage dco_decode_ui_conversation_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return UiConversationMessage(
       conversationId: dco_decode_conversation_id(arr[0]),
       id: dco_decode_conversation_message_id(arr[1]),
       timestamp: dco_decode_String(arr[2]),
       message: dco_decode_ui_message(arr[3]),
       position: dco_decode_ui_flight_position(arr[4]),
+      status: dco_decode_ui_message_status(arr[5]),
     );
   }
 
@@ -6513,6 +6514,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       editingId: dco_decode_opt_box_autoadd_conversation_message_id(arr[1]),
       updatedAt: dco_decode_Chrono_Utc(arr[2]),
     );
+  }
+
+  @protected
+  UiMessageStatus dco_decode_ui_message_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiMessageStatus.values[raw as int];
   }
 
   @protected
@@ -8562,12 +8569,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_timestamp = sse_decode_String(deserializer);
     var var_message = sse_decode_ui_message(deserializer);
     var var_position = sse_decode_ui_flight_position(deserializer);
+    var var_status = sse_decode_ui_message_status(deserializer);
     return UiConversationMessage(
       conversationId: var_conversationId,
       id: var_id,
       timestamp: var_timestamp,
       message: var_message,
       position: var_position,
+      status: var_status,
     );
   }
 
@@ -8695,6 +8704,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       editingId: var_editingId,
       updatedAt: var_updatedAt,
     );
+  }
+
+  @protected
+  UiMessageStatus sse_decode_ui_message_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return UiMessageStatus.values[inner];
   }
 
   @protected
@@ -10897,6 +10913,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.timestamp, serializer);
     sse_encode_ui_message(self.message, serializer);
     sse_encode_ui_flight_position(self.position, serializer);
+    sse_encode_ui_message_status(self.status, serializer);
   }
 
   @protected
@@ -11011,6 +11028,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       serializer,
     );
     sse_encode_Chrono_Utc(self.updatedAt, serializer);
+  }
+
+  @protected
+  void sse_encode_ui_message_status(
+    UiMessageStatus self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected

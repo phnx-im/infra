@@ -1852,18 +1852,18 @@ dependencies = [
 
 [[package]]
 name = "enumset"
-version = "1.1.6"
+version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11a6b7c3d347de0a9f7bfd2f853be43fe32fa6fac30c70f6d6d67a1e936b87ee"
+checksum = "d6ee17054f550fd7400e1906e2f9356c7672643ed34008a9e8abe147ccd2d821"
 dependencies = [
  "enumset_derive",
 ]
 
 [[package]]
 name = "enumset_derive"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6da3ea9e1d1a3b1593e15781f930120e72aa7501610b2f82e5b6739c72e8eac5"
+checksum = "76d07902c93376f1e96c34abc4d507c0911df3816cef50b01f5a2ff3ad8c370d"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -3246,13 +3246,14 @@ dependencies = [
 [[package]]
 name = "mimi_content"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
+source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
 dependencies = [
  "ciborium",
  "hex",
  "serde",
  "serde_bytes",
  "serde_list",
+ "sha2",
  "thiserror 2.0.12",
 ]
 
@@ -3877,6 +3878,7 @@ dependencies = [
  "mimi-room-policy",
  "mimi_content",
  "notify-rust",
+ "openmls",
  "parking_lot",
  "phnxcommon",
  "phnxcoreclient",
@@ -3950,6 +3952,7 @@ dependencies = [
  "hkdf",
  "insta",
  "mimi-room-policy",
+ "mimi_content",
  "mls-assist",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -5164,7 +5167,7 @@ dependencies = [
 [[package]]
 name = "serde_list"
 version = "1.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
+source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
 dependencies = [
  "serde",
  "serde_list_macros",
@@ -5173,7 +5176,7 @@ dependencies = [
 [[package]]
 name = "serde_list_macros"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=613510bbefb79f8f5328f9b8d14262f0661624aa#613510bbefb79f8f5328f9b8d14262f0661624aa"
+source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
 dependencies = [
  "quote",
  "syn",
