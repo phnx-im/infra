@@ -226,7 +226,7 @@ class _MessageComposerState extends State<MessageComposer>
     }
 
     // FIXME: Handle errors
-    await conversationDetailsCubit.sendMessage(messageText);
+    conversationDetailsCubit.sendMessage(messageText);
 
     setState(() {
       _inputController.clear();
@@ -300,21 +300,23 @@ class _MessageInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final smallScreen = isSmallScreen(context);
 
+    final loc = AppLocalizations.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (isEditing)
-          const Padding(
-            padding: EdgeInsets.only(
+          Padding(
+            padding: const EdgeInsets.only(
               top: Spacings.xs,
               left: Spacings.xxs,
               right: Spacings.xxs,
             ),
             child: Row(
               children: [
-                Icon(Icons.edit_outlined),
-                SizedBox(width: Spacings.xxs),
-                Text("Edit Message"),
+                const Icon(Icons.edit_outlined),
+                const SizedBox(width: Spacings.xxs),
+                Text(loc.composer_editMessage),
               ],
             ),
           ),
@@ -325,7 +327,7 @@ class _MessageInput extends StatelessWidget {
           minLines: 1,
           maxLines: 10,
           decoration: InputDecoration(
-            hintText: "Message $conversationTitle",
+            hintText: loc.composer_inputHint(conversationTitle ?? ""),
             hintStyle: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: colorDMB),

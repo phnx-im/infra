@@ -54,8 +54,6 @@ class ConversationDetailsCubit
     untilTimestamp: untilTimestamp,
   );
 
-  Future<UiMessageDraft> loadDraft() => throw UnimplementedError();
-
   Future<void> storeDraft({required String draftMessage}) =>
       _impl.storeDraft(draftMessage: draftMessage);
 
