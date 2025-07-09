@@ -4,7 +4,7 @@
 
 use std::borrow::Cow;
 
-use mimi_content::{MessageStatus, MessageStatusReport};
+use mimi_content::MessageStatusReport;
 use phnxcommon::{identifiers::UserId, time::TimeStamp};
 
 pub(crate) struct StatusRecord<'a> {
@@ -14,7 +14,7 @@ pub(crate) struct StatusRecord<'a> {
 }
 
 mod persistence {
-    use std::collections::{BTreeSet, HashSet};
+    use std::collections::HashSet;
 
     use mimi_content::PerMessageStatus;
     use sqlx::{SqliteTransaction, query, query_scalar};
@@ -87,23 +87,14 @@ mod persistence {
 
                 // Now we go through statuses from all other users as well to build the final aggregated message status
 
-                let all_statuses = query_scalar!(
-                    "SELECT status FROM conversation_message_status WHERE message_id = ?1",
+                let final_status = query_scalar!(
+                    "SELECT COALESCE(MAX(status), 0) AS max
+                    FROM conversation_message_status
+                    WHERE message_id = ?1 AND (status = 1 OR status = 2)",
                     message_id,
                 )
-                .fetch_all(&mut **txn)
-                .await?
-                .into_iter()
-                .collect::<BTreeSet<_>>();
-
-                let final_status = if all_statuses.contains(&(MessageStatus::Read.repr().into())) {
-                    MessageStatus::Read
-                } else if all_statuses.contains(&(MessageStatus::Delivered.repr().into())) {
-                    MessageStatus::Delivered
-                } else {
-                    MessageStatus::Unread
-                }
-                .repr();
+                .fetch_one(&mut **txn)
+                .await?;
 
                 // Aggregate the status for the message
                 query!(
