@@ -43,6 +43,7 @@ final conversations = [
         UiContentMessage(
           sender: 2.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
@@ -73,6 +74,7 @@ final conversations = [
         UiContentMessage(
           sender: 3.userId(),
           sent: true,
+          edited: true,
           content: UiMimiContent(
             plainBody:
                 'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
@@ -104,6 +106,7 @@ final conversations = [
         UiContentMessage(
           sender: 4.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
@@ -132,6 +135,7 @@ final conversations = [
         UiContentMessage(
           sender: 4.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
