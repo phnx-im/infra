@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status_bitset\n            FROM conversation_messages\n            WHERE message_id != ?1\n                AND timestamp >= (SELECT timestamp FROM conversation_messages\n                WHERE message_id = ?1)\n            ORDER BY timestamp ASC\n            LIMIT 1",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                conversation_id AS \"conversation_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status\n            FROM conversation_messages\n            WHERE message_id != ?1\n                AND timestamp >= (SELECT timestamp FROM conversation_messages\n                WHERE message_id = ?1)\n            ORDER BY timestamp ASC\n            LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -44,7 +44,7 @@
         "type_info": "Bool"
       },
       {
-        "name": "status_bitset",
+        "name": "status",
         "ordinal": 8,
         "type_info": "Integer"
       }
@@ -64,5 +64,5 @@
       false
     ]
   },
-  "hash": "5b8cc290979f5f31615963c0f2ec732bf64a836d3bbd99e98f972d3346eff19e"
+  "hash": "84855279e782debf6d21504eb9dd474f72641df1a8e4ba70f9425cec238b784f"
 }

@@ -2,13 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use enumset::EnumSet;
-use mimi_content::MimiContent;
+use mimi_content::{MessageStatus, MimiContent};
 use phnxcommon::identifiers::MimiId;
 use tracing::{error, warn};
 
 use crate::{
-    conversations::status::MessageStatusBit,
     groups::Group,
     store::{Store, StoreNotifier},
 };
@@ -103,7 +101,7 @@ pub struct ConversationMessage {
     pub(super) conversation_id: ConversationId,
     pub(super) conversation_message_id: ConversationMessageId,
     pub(super) timestamped_message: TimestampedMessage,
-    pub(super) status: EnumSet<MessageStatusBit>,
+    pub(super) status: MessageStatus,
 }
 
 impl ConversationMessage {
@@ -118,7 +116,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message,
-            status: MessageStatusBit::Unread.into(),
+            status: MessageStatus::Unread,
         }
     }
 
@@ -132,7 +130,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message: TimestampedMessage { timestamp, message },
-            status: Default::default(),
+            status: MessageStatus::Unread,
         }
     }
 
@@ -154,7 +152,7 @@ impl ConversationMessage {
             conversation_id,
             conversation_message_id,
             timestamped_message,
-            status: Default::default(),
+            status: MessageStatus::Unread,
         }
     }
 
@@ -190,7 +188,7 @@ impl ConversationMessage {
         }
     }
 
-    pub fn status(&self) -> EnumSet<MessageStatusBit> {
+    pub fn status(&self) -> MessageStatus {
         self.status
     }
 

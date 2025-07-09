@@ -27,7 +27,6 @@ pub use crate::{
             ContentMessage, ConversationMessage, ConversationMessageId, ErrorMessage, EventMessage,
             Message, NotificationType, SystemMessage,
         },
-        status::MessageStatusBit,
     },
     user_handles::UserHandleRecord,
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},

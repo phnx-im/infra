@@ -11,13 +11,13 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
+use mimi_content::MessageStatus;
 pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
-    InactiveConversation, Message, MessageDraft, MessageStatusBit, SystemMessage, UserProfile,
-    store::Store,
+    InactiveConversation, Message, MessageDraft, SystemMessage, UserProfile, store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
@@ -279,17 +279,14 @@ impl From<ConversationMessage> for UiConversationMessage {
     fn from(message: ConversationMessage) -> Self {
         let status = if !message.is_sent() {
             UiMessageStatus::Sending
-        } else if !message.status().contains(MessageStatusBit::Delivered)
-            && !message.status().contains(MessageStatusBit::Read)
-        {
-            UiMessageStatus::Sent
-        } else if message.status().contains(MessageStatusBit::Delivered)
-            && !message.status().contains(MessageStatusBit::Read)
-        {
+        } else if message.status() == MessageStatus::Read {
+            UiMessageStatus::Read
+        } else if message.status() == MessageStatus::Delivered {
             UiMessageStatus::Delivered
         } else {
-            UiMessageStatus::Read
+            UiMessageStatus::Sent
         };
+
         Self {
             conversation_id: message.conversation_id(),
             id: message.id(),

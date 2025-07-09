@@ -4,7 +4,6 @@
 
 use std::borrow::Cow;
 
-use enumset::EnumSetType;
 use mimi_content::{MessageStatus, MessageStatusReport};
 use phnxcommon::{identifiers::UserId, time::TimeStamp};
 
@@ -14,55 +13,11 @@ pub(crate) struct StatusRecord<'a> {
     created_at: TimeStamp,
 }
 
-#[derive(Debug, EnumSetType)]
-pub enum MessageStatusBit {
-    Unread = 0,
-    Delivered = 1,
-    Read = 2,
-    Expired = 3,
-    Deleted = 4,
-    Hidden = 5,
-    Error = 6,
-}
-
-impl TryFrom<MessageStatus> for MessageStatusBit {
-    type Error = ();
-
-    fn try_from(value: MessageStatus) -> Result<Self, ()> {
-        match value {
-            MessageStatus::Unread => Ok(Self::Unread),
-            MessageStatus::Delivered => Ok(Self::Delivered),
-            MessageStatus::Read => Ok(Self::Read),
-            MessageStatus::Expired => Ok(Self::Expired),
-            MessageStatus::Deleted => Ok(Self::Deleted),
-            MessageStatus::Hidden => Ok(Self::Hidden),
-            MessageStatus::Error => Ok(Self::Error),
-            MessageStatus::Custom(_) => Err(()),
-        }
-    }
-}
-
-impl From<MessageStatusBit> for MessageStatus {
-    fn from(value: MessageStatusBit) -> Self {
-        match value {
-            MessageStatusBit::Unread => Self::Unread,
-            MessageStatusBit::Delivered => Self::Delivered,
-            MessageStatusBit::Read => Self::Read,
-            MessageStatusBit::Expired => Self::Expired,
-            MessageStatusBit::Deleted => Self::Deleted,
-            MessageStatusBit::Hidden => Self::Hidden,
-            MessageStatusBit::Error => Self::Error,
-        }
-    }
-}
-
 mod persistence {
-    use std::collections::HashMap;
+    use std::collections::BTreeSet;
 
-    use enumset::EnumSet;
     use mimi_content::PerMessageStatus;
     use sqlx::{SqliteTransaction, query, query_scalar};
-    use tracing::warn;
 
     use crate::{ConversationMessageId, store::StoreNotifier};
 
@@ -89,20 +44,12 @@ mod persistence {
             let sender_uuid = self.sender.uuid();
             let sender_domain = self.sender.domain();
 
-            // Group statuses by mimi id into an enum set
-            let mut statuses: HashMap<&[u8], EnumSet<MessageStatusBit>> = Default::default();
-            for PerMessageStatus { mimi_id, status } in &self.report.statuses {
-                let mimi_id = mimi_id.as_slice();
-                let Ok(bit) = (*status).try_into() else {
-                    warn!(?status, "Unsupported message status");
-                    continue;
-                };
-                statuses.entry(mimi_id).or_default().insert(bit);
-            }
-
             // Store the message status for each mimi id
-            for (mimi_id, status_bitset) in statuses {
+            // Note: A user could send multiple status updates for the same message. The last one is the final status.
+            for PerMessageStatus { mimi_id, status } in &self.report.statuses {
                 // Load the message id
+                let mimi_id = mimi_id.as_slice();
+                let status = status.repr();
                 let Some(message_id) = query_scalar!(
                     r#"SELECT message_id AS "message_id: ConversationMessageId"
                         FROM conversation_messages
@@ -115,30 +62,48 @@ mod persistence {
                     continue;
                 };
 
-                let bitset = status_bitset.as_u32();
-
                 // Set the statuses for the message and user
                 query!(
                     "INSERT INTO conversation_message_status
-                        (message_id,  sender_user_uuid, sender_user_domain, status_bitset, created_at)
+                        (message_id,  sender_user_uuid, sender_user_domain, status, created_at)
                     VALUES (?1, ?2, ?3, ?4, ?5)
                     ON CONFLICT (message_id, sender_user_domain, sender_user_uuid)
-                    DO UPDATE SET status_bitset = ?4, created_at = ?5",
+                    DO UPDATE SET status = ?4, created_at = ?5",
                     message_id,
                     sender_uuid,
                     sender_domain,
-                    bitset,
+                    status,
                     self.created_at,
                 )
                 .execute(&mut **txn)
                 .await?;
 
-                // Aggregate the status bitset for the message
+                // Now we go through statuses from all other users as well to build the final aggregated message status
+
+                let all_statuses = query_scalar!(
+                    "SELECT status FROM conversation_message_status WHERE message_id = ?1",
+                    message_id,
+                )
+                .fetch_all(&mut **txn)
+                .await?
+                .into_iter()
+                .collect::<BTreeSet<_>>();
+
+                let final_status = if all_statuses.contains(&(MessageStatus::Read.repr().into())) {
+                    MessageStatus::Read
+                } else if all_statuses.contains(&(MessageStatus::Delivered.repr().into())) {
+                    MessageStatus::Delivered
+                } else {
+                    MessageStatus::Unread
+                }
+                .repr();
+
+                // Aggregate the status for the message
                 query!(
                     "UPDATE conversation_messages
-                    SET status_bitset = status_bitset | ?1
+                    SET status = ?1
                     WHERE message_id = ?2",
-                    bitset,
+                    final_status,
                     message_id,
                 )
                 .execute(&mut **txn)
@@ -155,15 +120,11 @@ mod persistence {
     mod test {
         use chrono::Utc;
         use mimi_content::MessageStatus;
-        use rand::seq::SliceRandom;
         use sqlx::{SqlitePool, query_scalar};
 
-        use crate::{
-            ConversationMessage,
-            conversations::{
-                messages::persistence::tests::test_conversation_message_with_salt,
-                persistence::tests::test_conversation,
-            },
+        use crate::conversations::{
+            messages::persistence::tests::test_conversation_message_with_salt,
+            persistence::tests::test_conversation,
         };
 
         use super::*;
@@ -191,27 +152,18 @@ mod persistence {
                 statuses: Vec::new(),
             };
 
-            use MessageStatus::*;
-            for status in [
-                Unread,
-                Delivered,
-                Read,
-                Expired,
-                Deleted,
-                Hidden,
-                Error,
-                Custom(100),
-            ] {
-                report.statuses.push(PerMessageStatus {
-                    mimi_id: mimi_id_a.as_ref().to_vec().into(),
-                    status,
-                });
-                report.statuses.push(PerMessageStatus {
-                    mimi_id: mimi_id_b.as_ref().to_vec().into(),
-                    status,
-                });
-            }
-            report.statuses.shuffle(&mut rand::thread_rng());
+            report.statuses.push(PerMessageStatus {
+                mimi_id: mimi_id_a.as_ref().to_vec().into(),
+                status: MessageStatus::Delivered,
+            });
+            report.statuses.push(PerMessageStatus {
+                mimi_id: mimi_id_a.as_ref().to_vec().into(),
+                status: MessageStatus::Read,
+            });
+            report.statuses.push(PerMessageStatus {
+                mimi_id: mimi_id_b.as_ref().to_vec().into(),
+                status: MessageStatus::Deleted,
+            });
 
             let mut txn = pool.begin().await?;
             StatusRecord::borrowed(&alice, report, Utc::now().into())
@@ -219,23 +171,24 @@ mod persistence {
                 .await?;
             txn.commit().await?;
 
-            for message in [message_a, message_b] {
-                let message_id = message.id();
-                let bits: i64 = query_scalar(
-                    "SELECT status_bitset FROM conversation_message_status
+            let status_a: i64 = query_scalar(
+                "SELECT status FROM conversation_message_status
                     WHERE message_id = ?",
-                )
-                .bind(message_id)
-                .fetch_one(&mut *pool.acquire().await?)
-                .await?;
-                let bitset: EnumSet<MessageStatusBit> = EnumSet::from_u32_truncated(bits as u32);
-                assert_eq!(bitset, EnumSet::all());
+            )
+            .bind(&message_a.id())
+            .fetch_one(&mut *pool.acquire().await?)
+            .await?;
 
-                let message = ConversationMessage::load(&pool, message.id())
-                    .await?
-                    .unwrap();
-                assert_eq!(message.status(), EnumSet::all());
-            }
+            let status_b: i64 = query_scalar(
+                "SELECT status FROM conversation_message_status
+                    WHERE message_id = ?",
+            )
+            .bind(&message_b.id())
+            .fetch_one(&mut *pool.acquire().await?)
+            .await?;
+
+            assert_eq!(status_a, i64::from(MessageStatus::Read.repr()));
+            assert_eq!(status_b, i64::from(MessageStatus::Deleted.repr()));
 
             Ok(())
         }

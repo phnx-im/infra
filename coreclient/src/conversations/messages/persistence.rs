@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
-use enumset::EnumSet;
-use mimi_content::{MimiContent, content_container::MimiContentV1};
+use mimi_content::{MessageStatus, MimiContent, content_container::MimiContentV1};
 use phnxcommon::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
     identifiers::{Fqdn, MimiId, UserId},
@@ -88,7 +87,7 @@ struct SqlConversationMessage {
     sender_user_domain: Option<Fqdn>,
     content: BlobDecoded<VersionedMessage>,
     sent: bool,
-    status_bitset: Option<i64>,
+    status: i64,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -116,7 +115,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             sender_user_domain,
             content,
             sent,
-            status_bitset,
+            status,
         }: SqlConversationMessage,
     ) -> Result<Self, Self::Error> {
         let message = match (sender_user_uuid, sender_user_domain) {
@@ -153,7 +152,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             conversation_message_id: message_id,
             conversation_id,
             timestamped_message,
-            status: EnumSet::from_u32_truncated(status_bitset.unwrap_or(0) as u32),
+            status: u8::try_from(status).map_or(MessageStatus::Unread, MessageStatus::from_repr),
         })
     }
 }
@@ -174,7 +173,7 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status_bitset
+                status
             FROM conversation_messages
             WHERE message_id = ?
             "#,
@@ -206,7 +205,7 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status_bitset
+                status
             FROM conversation_messages
             WHERE conversation_id = ?
             ORDER BY timestamp DESC
@@ -324,7 +323,7 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status_bitset
+                status
             FROM conversation_messages
             WHERE conversation_id = ?
                 AND sender_user_uuid IS NOT NULL
@@ -357,7 +356,7 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status_bitset
+                status
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp <= (SELECT timestamp FROM conversation_messages
@@ -391,7 +390,7 @@ impl ConversationMessage {
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
                 sent,
-                status_bitset
+                status
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp >= (SELECT timestamp FROM conversation_messages
@@ -448,7 +447,7 @@ pub(crate) mod tests {
             conversation_message_id,
             conversation_id,
             timestamped_message,
-            status: Default::default(),
+            status: MessageStatus::Unread,
         }
     }
 
@@ -557,7 +556,7 @@ pub(crate) mod tests {
                     UserId::random("localhost".parse()?),
                 ))),
             },
-            status: Default::default(),
+            status: MessageStatus::Unread,
         }
         .store(&pool, &mut store_notifier)
         .await?;

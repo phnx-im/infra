@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::{DateTime, Utc};
-use enumset::EnumSet;
+use mimi_content::MessageStatus;
 use openmls::group::GroupId;
 use phnxcommon::identifiers::{Fqdn, MimiId, UserHandle, UserId};
 use sqlx::{
@@ -15,8 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
-    ConversationStatus, ConversationType, MessageStatusBit, store::StoreNotifier,
-    utils::persistence::GroupIdWrapper,
+    ConversationStatus, ConversationType, store::StoreNotifier, utils::persistence::GroupIdWrapper,
 };
 
 use super::InactiveConversation;
@@ -467,7 +466,8 @@ impl Conversation {
         .await?
         .last_read;
 
-        let read_status_bitset = EnumSet::from(MessageStatusBit::Read).as_u32();
+        let unread_status = MessageStatus::Unread.repr();
+        let delivered_status = MessageStatus::Delivered.repr();
         let new_marked_as_read: Vec<MimiId> = query_scalar!(
             r#"SELECT
                 m.mimi_id AS "mimi_id!: _"
@@ -480,12 +480,13 @@ impl Conversation {
                 AND m.timestamp > ?2
                 AND (m.sender_user_uuid != ?3 OR m.sender_user_domain != ?4)
                 AND mimi_id IS NOT NULL
-                AND (s.status_bitset IS NULL OR s.status_bitset & ?5 != 0)"#,
+                AND (s.status IS NULL OR s.status = ?5 OR s.status = ?6)"#,
             conversation_id,
             old_timestamp,
             our_user_uuid,
             our_user_domain,
-            read_status_bitset,
+            unread_status,
+            delivered_status,
         )
         .fetch_all(txn.as_mut())
         .await?;
