@@ -211,7 +211,22 @@ impl Store for CoreUser {
         &self,
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>> {
-        Ok(self.try_last_message(conversation_id).await?)
+        Ok(ConversationMessage::last_content_message(self.pool(), conversation_id).await?)
+    }
+
+    async fn last_message_by_user(
+        &self,
+        conversation_id: ConversationId,
+        user_id: &UserId,
+    ) -> StoreResult<Option<ConversationMessage>> {
+        Ok(
+            ConversationMessage::last_content_message_by_user(
+                self.pool(),
+                conversation_id,
+                user_id,
+            )
+            .await?,
+        )
     }
 
     async fn message_draft(
@@ -273,8 +288,10 @@ impl Store for CoreUser {
         &self,
         conversation_id: ConversationId,
         content: mimi_content::MimiContent,
+        replaces_id: Option<ConversationMessageId>,
     ) -> StoreResult<ConversationMessage> {
-        self.send_message(conversation_id, content).await
+        self.send_message(conversation_id, content, replaces_id)
+            .await
     }
 
     async fn send_delivery_receipts<'a>(

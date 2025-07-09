@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/attachments/attachments.dart';
+import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/timestamp.dart';
@@ -27,6 +28,7 @@ const _messagePadding = EdgeInsets.symmetric(
 
 class TextMessageTile extends StatelessWidget {
   const TextMessageTile({
+    required this.messageId,
     required this.contentMessage,
     required this.timestamp,
     required this.flightPosition,
@@ -34,6 +36,7 @@ class TextMessageTile extends StatelessWidget {
     super.key,
   });
 
+  final ConversationMessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
@@ -49,6 +52,7 @@ class TextMessageTile extends StatelessWidget {
         if (!isSender && flightPosition.isFirst)
           _Sender(sender: contentMessage.sender, isSender: false),
         _MessageView(
+          messageId: messageId,
           contentMessage: contentMessage,
           timestamp: timestamp,
           isSender: isSender,
@@ -62,6 +66,7 @@ class TextMessageTile extends StatelessWidget {
 
 class _MessageView extends StatelessWidget {
   const _MessageView({
+    required this.messageId,
     required this.contentMessage,
     required this.timestamp,
     required this.flightPosition,
@@ -69,6 +74,7 @@ class _MessageView extends StatelessWidget {
     required this.status,
   });
 
+  final ConversationMessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
@@ -99,10 +105,18 @@ class _MessageView extends StatelessWidget {
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _MessageContent(
-                  content: contentMessage.content,
-                  isSender: isSender,
-                  flightPosition: flightPosition,
+                InkWell(
+                  mouseCursor: SystemMouseCursors.basic,
+                  onLongPress:
+                      () => context
+                          .read<ConversationDetailsCubit>()
+                          .editMessage(messageId: messageId),
+                  child: _MessageContent(
+                    content: contentMessage.content,
+                    isSender: isSender,
+                    flightPosition: flightPosition,
+                    isEdited: contentMessage.edited,
+                  ),
                 ),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 2),
@@ -143,14 +157,18 @@ class _MessageContent extends StatelessWidget {
     required this.content,
     required this.isSender,
     required this.flightPosition,
+    required this.isEdited,
   });
 
   final UiMimiContent content;
   final bool isSender;
   final UiFlightPosition flightPosition;
+  final bool isEdited;
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.5),
       child: Container(
@@ -166,7 +184,7 @@ class _MessageContent extends StatelessWidget {
           child: DefaultTextStyle.merge(
             style: messageTextStyle(context, isSender),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (content.attachments.firstOrNull case final attachment?)
                   switch (attachment.imageMetadata) {
@@ -184,10 +202,22 @@ class _MessageContent extends StatelessWidget {
                   },
                 ...(content.content?.elements ?? []).map(
                   (inner) => Padding(
-                    padding: _messagePadding,
+                    padding: _messagePadding.copyWith(
+                      bottom: isEdited ? 0 : null,
+                    ),
                     child: buildBlockElement(inner.element, isSender),
                   ),
                 ),
+                if (isEdited)
+                  Padding(
+                    padding: _messagePadding.copyWith(top: 0),
+                    child: Text(
+                      loc.textMessage_edited,
+                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                        color: isSender ? colorGreyLight : colorGreyDark,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

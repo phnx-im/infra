@@ -145,7 +145,8 @@ mod remove_users_flow {
                 .merge_pending_commit(txn.as_mut(), None, ds_timestamp)
                 .await?;
             group.store_update(txn.as_mut()).await?;
-            CoreUser::store_messages(txn.as_mut(), notifier, conversation_id, group_messages).await
+            CoreUser::store_new_messages(txn.as_mut(), notifier, conversation_id, group_messages)
+                .await
         }
     }
 }

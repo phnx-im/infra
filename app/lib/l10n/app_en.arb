@@ -80,6 +80,8 @@
   "newConnectionDialog_error_emptyHandle": "Username cannot be empty",
   "newConnectionDialog_error_handleNotFound": "Username {username} does not exist",
 
+  "composer_inputHint": "Message {conversationTitle}",
+  "composer_editMessage": "Edit Message",
   "composer_error_attachment": "Failed to upload attachment. Please try again.",
 
   "attachmentSize": "{size} {byteUnit}",
@@ -93,5 +95,7 @@
         }
       }
     }
-  }
+  },
+
+  "textMessage_edited": "edited"
 }

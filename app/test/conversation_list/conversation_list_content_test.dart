@@ -147,6 +147,7 @@ final conversations = [
       message: 'Some draft message',
       editingId: null,
       updatedAt: DateTime.now(),
+      source: UiMessageDraftSource.system,
     ),
   ),
 ];
