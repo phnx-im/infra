@@ -368,6 +368,12 @@ abstract class AppLocalizations {
   /// **'New group'**
   String get conversationList_newGroup;
 
+  /// No description provided for @conversationList_emptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new connection to get started'**
+  String get conversationList_emptyMessage;
+
   /// No description provided for @conversationList_draft.
   ///
   /// In en, this message translates to:
