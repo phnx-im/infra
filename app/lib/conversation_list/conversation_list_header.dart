@@ -37,15 +37,8 @@ class ConversationListHeader extends StatelessWidget {
   }
 }
 
-class _Avatar extends StatefulWidget {
+class _Avatar extends StatelessWidget {
   const _Avatar();
-
-  @override
-  State<_Avatar> createState() => _AvatarState();
-}
-
-class _AvatarState extends State<_Avatar> {
-  final contextMenuController = OverlayPortalController();
 
   @override
   Widget build(BuildContext context) {
@@ -58,10 +51,7 @@ class _AvatarState extends State<_Avatar> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          ContextMenu(
-            direction: ContextMenuDirection.right,
-            width: 200,
-            controller: contextMenuController,
+          ContextMenuAnchor(
             menuItems: [
               ContextMenuItem(
                 label: loc.settings_profile,
@@ -80,9 +70,6 @@ class _AvatarState extends State<_Avatar> {
               displayName: profile.displayName,
               image: profile.profilePicture,
               size: Spacings.l,
-              onPressed: () {
-                contextMenuController.show();
-              },
             ),
           ),
         ],
@@ -126,10 +113,7 @@ class _SettingsButtonState extends State<_SettingsButton> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
-    return ContextMenu(
-      direction: ContextMenuDirection.left,
-      width: 200,
-      controller: contextMenuController,
+    return ContextMenuAnchor(
       menuItems: [
         ContextMenuItem(
           label: loc.conversationList_newContact,
@@ -144,16 +128,7 @@ class _SettingsButtonState extends State<_SettingsButton> {
           },
         ),
       ],
-      child: IconButton(
-        onPressed: () {
-          contextMenuController.show();
-        },
-        hoverColor: Colors.transparent,
-        focusColor: Colors.transparent,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        icon: const Icon(Icons.add_circle_rounded, size: 24, color: colorDMB),
-      ),
+      child: const Icon(Icons.add_circle_rounded, size: 24, color: colorDMB),
     );
   }
 
