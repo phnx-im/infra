@@ -15,12 +15,16 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const mobileLayout = ConversationListContainer();
+    final mobileLayout = Scaffold(
+      backgroundColor:
+          isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+      body: const ConversationListContainer(),
+    );
     const desktopLayout = HomeScreenDesktopLayout(
       conversationList: ConversationListContainer(),
       conversation: ConversationScreen(),
     );
-    return const ResponsiveScreen(
+    return ResponsiveScreen(
       mobile: mobileLayout,
       tablet: desktopLayout,
       desktop: desktopLayout,
@@ -40,17 +44,22 @@ class HomeScreenDesktopLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: Row(
-        children: [
-          ResizablePanel(
-            initialWidth: context.read<UserSettingsCubit>().state.sidebarWidth,
-            onResizeEnd: (width) => onResizeEnd(context, width),
-            child: conversationList,
-          ),
-          Expanded(child: conversation),
-        ],
+    return Scaffold(
+      backgroundColor:
+          isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+      body: Container(
+        color: Colors.white,
+        child: Row(
+          children: [
+            ResizablePanel(
+              initialWidth:
+                  context.read<UserSettingsCubit>().state.sidebarWidth,
+              onResizeEnd: (width) => onResizeEnd(context, width),
+              child: conversationList,
+            ),
+            Expanded(child: conversation),
+          ],
+        ),
       ),
     );
   }

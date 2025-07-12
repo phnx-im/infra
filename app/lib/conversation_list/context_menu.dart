@@ -8,158 +8,233 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prototype/theme/spacings.dart';
 import 'package:prototype/theme/styles.dart';
+import 'package:prototype/user/user.dart';
+import 'package:provider/provider.dart';
 
 enum ContextMenuDirection { left, right }
 
-class ContextMenu extends StatefulWidget {
-  const ContextMenu({
+class ContextMenuAnchor extends StatefulWidget {
+  const ContextMenuAnchor({
     super.key,
-    required this.direction,
-    this.offset = Offset.zero,
-    required this.width,
-    required this.controller,
+    this.direction = ContextMenuDirection.left,
     required this.menuItems,
-    this.child,
+    required this.child,
   });
 
-  //final ContextMenuCorner corner;
   final ContextMenuDirection direction;
-  final Offset offset;
-  final double width;
-  final OverlayPortalController controller;
   final List<ContextMenuItem> menuItems;
-  final Widget? child;
+  final Widget child;
 
   @override
-  State<ContextMenu> createState() => _ContextMenuState();
+  State<ContextMenuAnchor> createState() => _ContextMenuAnchorState();
 }
 
-class _ContextMenuState extends State<ContextMenu> {
-  final GlobalKey _childKey = GlobalKey();
-  Offset? _childPosition;
-  Size? _childSize;
+class _ContextMenuAnchorState extends State<ContextMenuAnchor> {
+  final _controller = ContextMenuController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.scheduleFrameCallback(_checkChildPosition);
+    _controller.attach(context);
   }
 
-  void _checkChildPosition(Duration timeStamp) {
-    if (!mounted) return;
-
-    final context = _childKey.currentContext;
-    final box = context?.findRenderObject() as RenderBox?;
-
-    if (box != null && box.hasSize) {
-      final newSize = box.size;
-      final newPosition = box.localToGlobal(Offset.zero);
-
-      if (newSize != _childSize || newPosition != _childPosition) {
-        setState(() {
-          _childSize = newSize;
-          _childPosition = newPosition;
-        });
-      }
-    }
-  }
-
-  Offset _relativePosition() {
-    final (position, size) = (_childPosition, _childSize);
-    if (position == null || size == null) {
-      return Offset.zero;
-    }
-
-    switch (widget.direction) {
-      case ContextMenuDirection.left:
-        return Offset(
-          position.dx - widget.width - widget.offset.dx,
-          position.dy + size.height + widget.offset.dy,
-        );
-      case ContextMenuDirection.right:
-        return Offset(
-          position.dx + size.width + widget.offset.dx,
-          position.dy + size.height + widget.offset.dy,
-        );
-    }
+  @override
+  void dispose() {
+    _controller.detach();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final relativePosition = _relativePosition();
+    return GestureDetector(
+      onTapDown: (details) {
+        final tapPosition = details.globalPosition;
+        _controller.showMenu(
+          direction: widget.direction,
+          menuItems: widget.menuItems,
+          position: tapPosition,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
 
-    return OverlayPortal(
-      controller: widget.controller,
-      child: KeyedSubtree(
-        key: _childKey,
-        child: widget.child ?? const SizedBox.shrink(),
-      ),
+class ContextMenuController extends ChangeNotifier {
+  BuildContext? _context;
 
-      overlayChildBuilder: (BuildContext context) {
-        return Focus(
-          autofocus: true,
-          onKeyEvent: (node, event) {
-            if (event.logicalKey == LogicalKeyboardKey.escape &&
-                event is KeyDownEvent) {
-              widget.controller.hide();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Stack(
+  OverlayEntry? _overlayEntry;
+
+  void attach(BuildContext context) {
+    _context = context;
+    ServicesBinding.instance.keyboard.addHandler(_onKeyEvent);
+  }
+
+  void detach() {
+    _context = null;
+    ServicesBinding.instance.keyboard.removeHandler(_onKeyEvent);
+  }
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      hideMenu();
+      return true;
+    }
+    return false;
+  }
+
+  /// Renders the menu in two passes:
+  ///
+  /// 1. Render the menu off screen to calculate the size of the menu.
+  /// 2. Render the menu at the calculated position.
+  ///
+  /// The menu anchor is the tap position attached to the top-left resp. top-right corner depending
+  /// on the direction.
+  void showMenu({
+    required Offset position,
+    required List<ContextMenuItem> menuItems,
+    ContextMenuDirection direction = ContextMenuDirection.left,
+  }) {
+    final menuKey = GlobalKey();
+
+    hideMenu();
+
+    assert(_context != null, "Context is not attached");
+    final context = _context!;
+
+    // Render the menu off screen to calculate the size of the menu.
+    _overlayEntry = _createOverlayEntry(
+      context,
+      const Offset(-10000, -10000),
+      menuKey,
+      menuItems,
+    );
+    Overlay.of(_context!).insert(_overlayEntry!);
+
+    // Schedule a post-frame callback to reposition the menu after the render pass.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final RenderBox? box =
+          menuKey.currentContext?.findRenderObject() as RenderBox?;
+      final Size widgetSize = box?.size ?? Size.zero;
+
+      final screenSize = MediaQuery.of(context).size;
+
+      // Based on the direction, take the left top or the right top corner as menu position.
+      var (dx, dy) = switch (direction) {
+        ContextMenuDirection.left => (position.dx, position.dy),
+        ContextMenuDirection.right => (
+          position.dx - widgetSize.width,
+          position.dy,
+        ),
+      };
+
+      // Make sure the menu does not overlap the screen edges.
+      if (dx + widgetSize.width > screenSize.width) {
+        dx = (screenSize.width - widgetSize.width).clamp(0.0, screenSize.width);
+      }
+      if (dy + widgetSize.height > screenSize.height) {
+        dy = (screenSize.height - widgetSize.height).clamp(
+          0.0,
+          screenSize.height,
+        );
+      }
+
+      // Take the scale into account.
+      final scale = context.read<UserSettingsCubit>().state.interfaceScale;
+      dx /= scale;
+      dy /= scale;
+
+      // Re-render the menu at the calculated position.
+      _overlayEntry?.remove();
+      _overlayEntry = _createOverlayEntry(
+        context,
+        Offset(dx, dy),
+        menuKey,
+        menuItems,
+      );
+      Overlay.of(context).insert(_overlayEntry!);
+    });
+  }
+
+  void hideMenu() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  OverlayEntry _createOverlayEntry(
+    BuildContext context,
+    Offset offset,
+    GlobalKey menuKey,
+    List<ContextMenuItem> menuItems,
+  ) {
+    return OverlayEntry(
+      builder:
+          (context) => Stack(
             children: [
+              // Fullscreen hit test area
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
-                  onTap: () => widget.controller.hide(),
+                  onTap: hideMenu,
                 ),
               ),
+
+              // Menu
               Positioned(
-                left: relativePosition.dx,
-                top: relativePosition.dy,
-                child: SizedBox(
-                  width: widget.width,
-                  child: Container(
-                    clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(
-                      color: convPaneBackgroundColor,
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black54,
-                          blurRadius: 64,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (i, item) in widget.menuItems.indexed) ...[
-                          ContextMenuItem(
-                            onPressed: () {
-                              item.onPressed();
-                              widget.controller.hide();
-                            },
-                            label: item.label,
-                          ),
-                          if (i < widget.menuItems.length - 1)
-                            const Divider(
-                              height: 0,
-                              thickness: 1,
-                              color: colorGreyLight,
-                            ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+                left: offset.dx,
+                top: offset.dy,
+                child: ContextMenu(menuItems: menuItems, hideMenu: hideMenu),
               ),
             ],
           ),
-        );
-      },
+    );
+  }
+}
+
+class ContextMenu extends StatelessWidget {
+  const ContextMenu({
+    super.key,
+    required this.menuItems,
+    required this.hideMenu,
+  });
+
+  final List<ContextMenuItem> menuItems;
+  final VoidCallback hideMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicWidth(
+      child: Container(
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: convPaneBackgroundColor,
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 64,
+              offset: Offset(0, 4),
+            ),
+          ],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, item) in menuItems.indexed) ...[
+              ContextMenuItem(
+                onPressed: () {
+                  item.onPressed();
+                  hideMenu();
+                },
+                label: item.label,
+              ),
+              if (i < menuItems.length - 1)
+                const Divider(height: 0, thickness: 1, color: colorGreyLight),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -167,12 +242,12 @@ class _ContextMenuState extends State<ContextMenu> {
 class ContextMenuItem extends StatelessWidget {
   const ContextMenuItem({
     super.key,
-    required this.onPressed,
     required this.label,
+    required this.onPressed,
   });
 
-  final VoidCallback onPressed;
   final String label;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {

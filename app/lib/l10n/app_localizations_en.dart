@@ -157,6 +157,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conversationList_newGroup => 'New group';
 
   @override
+  String get conversationList_emptyMessage =>
+      'Create a new connection to get started';
+
+  @override
   String get conversationList_draft => 'Draft';
 
   @override

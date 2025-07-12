@@ -47,10 +47,12 @@ class _NoConversations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Container(
       alignment: AlignmentDirectional.center,
+      padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       child: Text(
-        'Create a new connection to get started',
+        loc.conversationList_emptyMessage,
         style: TextStyle(
           fontSize: isLargeScreen(context) ? 14 : 15,
           color: Colors.black54,

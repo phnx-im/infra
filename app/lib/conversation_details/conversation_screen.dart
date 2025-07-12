@@ -50,14 +50,12 @@ class _EmptyConversationPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    return Scaffold(
-      body: Center(
-        child: Text(
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: colorDMB),
-          loc.conversationScreen_emptyConversation,
-        ),
+    return Center(
+      child: Text(
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: colorDMB),
+        loc.conversationScreen_emptyConversation,
       ),
     );
   }
@@ -81,20 +79,18 @@ class ConversationScreenView extends StatelessWidget {
       return const _EmptyConversationPane();
     }
 
-    return Scaffold(
-      body: Stack(
-        children: <Widget>[
-          Column(
-            children: [
-              const _ConversationHeader(),
-              Expanded(
-                child: MessageListView(createMessageCubit: createMessageCubit),
-              ),
-              const MessageComposer(),
-            ],
-          ),
-        ],
-      ),
+    return Stack(
+      children: <Widget>[
+        Column(
+          children: [
+            const _ConversationHeader(),
+            Expanded(
+              child: MessageListView(createMessageCubit: createMessageCubit),
+            ),
+            const MessageComposer(),
+          ],
+        ),
+      ],
     );
   }
 }
