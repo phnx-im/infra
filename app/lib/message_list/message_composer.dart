@@ -259,8 +259,7 @@ class _MessageInput extends StatelessWidget {
           context,
         ).textTheme.bodyMedium?.copyWith(color: colorDMB),
       ).copyWith(filled: false),
-      textInputAction:
-          smallScreen ? TextInputAction.send : TextInputAction.newline,
+      textInputAction: TextInputAction.newline,
       onEditingComplete: () => _focusNode.requestFocus(),
       keyboardType: TextInputType.multiline,
       textCapitalization: TextCapitalization.sentences,
