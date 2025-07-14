@@ -30,7 +30,7 @@ class ConversationListHeader extends StatelessWidget {
         children: [
           _Avatar(),
           Expanded(child: _DisplayNameSpace()),
-          _SettingsButton(),
+          _AddButton(),
         ],
       ),
     );
@@ -52,6 +52,7 @@ class _Avatar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           ContextMenuAnchor(
+            menuWidth: 200,
             menuItems: [
               ContextMenuItem(
                 label: loc.settings_profile,
@@ -99,14 +100,14 @@ class _DisplayNameSpace extends StatelessWidget {
   }
 }
 
-class _SettingsButton extends StatefulWidget {
-  const _SettingsButton();
+class _AddButton extends StatefulWidget {
+  const _AddButton();
 
   @override
-  State<_SettingsButton> createState() => _SettingsButtonState();
+  State<_AddButton> createState() => _AddButtonState();
 }
 
-class _SettingsButtonState extends State<_SettingsButton> {
+class _AddButtonState extends State<_AddButton> {
   final contextMenuController = OverlayPortalController();
 
   @override
@@ -114,6 +115,8 @@ class _SettingsButtonState extends State<_SettingsButton> {
     final loc = AppLocalizations.of(context);
 
     return ContextMenuAnchor(
+      menuWidth: 200,
+      direction: ContextMenuDirection.right,
       menuItems: [
         ContextMenuItem(
           label: loc.conversationList_newContact,

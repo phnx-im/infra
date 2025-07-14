@@ -18,11 +18,13 @@ class ContextMenuAnchor extends StatefulWidget {
     super.key,
     this.direction = ContextMenuDirection.left,
     required this.menuItems,
+    this.menuWidth,
     required this.child,
   });
 
   final ContextMenuDirection direction;
   final List<ContextMenuItem> menuItems;
+  final double? menuWidth;
   final Widget child;
 
   @override
@@ -52,6 +54,7 @@ class _ContextMenuAnchorState extends State<ContextMenuAnchor> {
         _controller.showMenu(
           direction: widget.direction,
           menuItems: widget.menuItems,
+          menuWidth: widget.menuWidth,
           position: tapPosition,
         );
       },
@@ -93,6 +96,7 @@ class ContextMenuController extends ChangeNotifier {
   void showMenu({
     required Offset position,
     required List<ContextMenuItem> menuItems,
+    double? menuWidth,
     ContextMenuDirection direction = ContextMenuDirection.left,
   }) {
     final menuKey = GlobalKey();
@@ -108,6 +112,7 @@ class ContextMenuController extends ChangeNotifier {
       const Offset(-10000, -10000),
       menuKey,
       menuItems,
+      menuWidth,
     );
     Overlay.of(_context!).insert(_overlayEntry!);
 
@@ -151,6 +156,7 @@ class ContextMenuController extends ChangeNotifier {
         Offset(dx, dy),
         menuKey,
         menuItems,
+        menuWidth,
       );
       Overlay.of(context).insert(_overlayEntry!);
     });
@@ -166,6 +172,7 @@ class ContextMenuController extends ChangeNotifier {
     Offset offset,
     GlobalKey menuKey,
     List<ContextMenuItem> menuItems,
+    double? menuWidth,
   ) {
     return OverlayEntry(
       builder:
@@ -183,7 +190,12 @@ class ContextMenuController extends ChangeNotifier {
               Positioned(
                 left: offset.dx,
                 top: offset.dy,
-                child: ContextMenu(menuItems: menuItems, hideMenu: hideMenu),
+                child: ContextMenu(
+                  key: menuKey,
+                  menuItems: menuItems,
+                  hideMenu: hideMenu,
+                  menuWidth: menuWidth,
+                ),
               ),
             ],
           ),
@@ -196,46 +208,49 @@ class ContextMenu extends StatelessWidget {
     super.key,
     required this.menuItems,
     required this.hideMenu,
+    this.menuWidth,
   });
 
   final List<ContextMenuItem> menuItems;
   final VoidCallback hideMenu;
+  final double? menuWidth;
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicWidth(
-      child: Container(
-        clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: convPaneBackgroundColor,
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black54,
-              blurRadius: 64,
-              offset: Offset(0, 4),
+    final menu = Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: convPaneBackgroundColor,
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 64,
+            offset: Offset(0, 4),
+          ),
+        ],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, item) in menuItems.indexed) ...[
+            ContextMenuItem(
+              onPressed: () {
+                item.onPressed();
+                hideMenu();
+              },
+              label: item.label,
             ),
+            if (i < menuItems.length - 1)
+              const Divider(height: 0, thickness: 1, color: colorGreyLight),
           ],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (i, item) in menuItems.indexed) ...[
-              ContextMenuItem(
-                onPressed: () {
-                  item.onPressed();
-                  hideMenu();
-                },
-                label: item.label,
-              ),
-              if (i < menuItems.length - 1)
-                const Divider(height: 0, thickness: 1, color: colorGreyLight),
-            ],
-          ],
-        ),
+        ],
       ),
     );
+    return menuWidth == null
+        ? IntrinsicWidth(child: menu)
+        : SizedBox(width: menuWidth, child: menu);
   }
 }
 
