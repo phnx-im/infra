@@ -168,13 +168,6 @@ impl CoreUser {
         Ok(ConversationMessage::next_message(self.pool(), message_id).await?)
     }
 
-    pub(crate) async fn try_last_message(
-        &self,
-        conversation_id: ConversationId,
-    ) -> sqlx::Result<Option<ConversationMessage>> {
-        ConversationMessage::last_content_message(self.pool(), conversation_id).await
-    }
-
     pub(crate) async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
         Conversation::load_all(self.pool().acquire().await?.as_mut()).await
     }
@@ -556,7 +549,8 @@ mod delete_conversation_flow {
                     past_members.into_iter().collect(),
                 )
                 .await?;
-            CoreUser::store_messages(&mut *connection, notifier, conversation_id, messages).await
+            CoreUser::store_new_messages(&mut *connection, notifier, conversation_id, messages)
+                .await
         }
     }
 }

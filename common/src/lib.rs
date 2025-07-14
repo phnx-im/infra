@@ -6,8 +6,8 @@
 
 use std::fmt::Display;
 
-pub use mls_assist::openmls::prelude::OpenMlsRand;
 pub use mls_assist::openmls_rust_crypto::RustCrypto;
+pub use mls_assist::openmls_traits::random::OpenMlsRand;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{

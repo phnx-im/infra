@@ -368,6 +368,12 @@ abstract class AppLocalizations {
   /// **'New group'**
   String get conversationList_newGroup;
 
+  /// No description provided for @conversationList_emptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new connection to get started'**
+  String get conversationList_emptyMessage;
+
   /// No description provided for @conversationList_draft.
   ///
   /// In en, this message translates to:
@@ -482,6 +488,18 @@ abstract class AppLocalizations {
   /// **'Username {username} does not exist'**
   String newConnectionDialog_error_handleNotFound(Object username);
 
+  /// No description provided for @composer_inputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message {conversationTitle}'**
+  String composer_inputHint(Object conversationTitle);
+
+  /// No description provided for @composer_editMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Message'**
+  String get composer_editMessage;
+
   /// No description provided for @composer_error_attachment.
   ///
   /// In en, this message translates to:
@@ -493,6 +511,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{size} {byteUnit}'**
   String attachmentSize(double size, Object byteUnit);
+
+  /// No description provided for @textMessage_edited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get textMessage_edited;
 }
 
 class _AppLocalizationsDelegate

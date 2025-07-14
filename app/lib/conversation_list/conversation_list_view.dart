@@ -34,18 +34,15 @@ class ConversationListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor:
-          isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
-      body: Padding(
-        padding: EdgeInsets.only(top: _topPadding()),
-        child: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ConversationListHeader(),
-            Expanded(child: ConversationListContent()),
-          ],
-        ),
+    return Container(
+      color: isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+      padding: EdgeInsets.only(top: _topPadding()),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ConversationListHeader(),
+          Expanded(child: ConversationListContent()),
+        ],
       ),
     );
   }
