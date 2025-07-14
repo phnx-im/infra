@@ -245,8 +245,6 @@ class _MessageInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final smallScreen = isSmallScreen(context);
-
     return TextField(
       focusNode: _focusNode,
       style: messageTextStyle(context, false),
