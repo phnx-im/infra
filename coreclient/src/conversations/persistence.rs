@@ -5,7 +5,10 @@
 use chrono::{DateTime, Utc};
 use mimi_content::MessageStatus;
 use openmls::group::GroupId;
-use phnxcommon::identifiers::{Fqdn, MimiId, UserHandle, UserId};
+use phnxcommon::{
+    identifiers::{Fqdn, MimiId, UserHandle, UserId},
+    time::TimeStamp,
+};
 use sqlx::{
     Connection, SqliteConnection, SqliteExecutor, SqliteTransaction, query, query_as, query_scalar,
 };
@@ -505,6 +508,42 @@ impl Conversation {
             notifier.update(conversation_id);
         }
         Ok((marked_as_read, new_marked_as_read))
+    }
+
+    pub(crate) async fn mark_as_unread(
+        txn: &mut SqliteTransaction<'_>,
+        notifier: &mut StoreNotifier,
+        conversation_id: ConversationId,
+        message_id: ConversationMessageId,
+    ) -> sqlx::Result<()> {
+        let timestamp: Option<TimeStamp> = query_scalar!(
+            r#"SELECT
+                timestamp AS "timestamp: _"
+            FROM conversation_messages
+            WHERE timestamp < (
+                SELECT timestamp
+                FROM conversation_messages
+                WHERE message_id = ?
+            )
+            ORDER BY timestamp DESC
+            LIMIT 1"#,
+            message_id
+        )
+        .fetch_optional(txn.as_mut())
+        .await?;
+
+        query!(
+            "UPDATE conversations SET last_read = ?1
+            WHERE conversation_id = ?2",
+            timestamp,
+            conversation_id,
+        )
+        .execute(txn.as_mut())
+        .await?;
+
+        notifier.update(message_id);
+
+        Ok(())
     }
 
     pub(crate) async fn global_unread_message_count(

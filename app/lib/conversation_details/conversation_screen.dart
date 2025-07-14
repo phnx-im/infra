@@ -79,18 +79,16 @@ class ConversationScreenView extends StatelessWidget {
       return const _EmptyConversationPane();
     }
 
-    return Stack(
-      children: <Widget>[
-        Column(
-          children: [
-            const _ConversationHeader(),
-            Expanded(
-              child: MessageListView(createMessageCubit: createMessageCubit),
-            ),
-            const MessageComposer(),
-          ],
-        ),
-      ],
+    return Scaffold(
+      body: Column(
+        children: [
+          const _ConversationHeader(),
+          Expanded(
+            child: MessageListView(createMessageCubit: createMessageCubit),
+          ),
+          const MessageComposer(),
+        ],
+      ),
     );
   }
 }

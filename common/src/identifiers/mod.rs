@@ -264,6 +264,10 @@ impl UserId {
     pub fn into_parts(self) -> (Uuid, Fqdn) {
         (*self.uuid, self.domain)
     }
+
+    pub fn to_bytes(&self) -> Result<Vec<u8>, tls_codec::Error> {
+        self.tls_serialize_detached()
+    }
 }
 
 #[derive(
