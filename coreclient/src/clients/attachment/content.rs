@@ -40,7 +40,7 @@ impl MimiContentExt for MimiContent {
     }
 
     fn mimi_id(&self, sender: &UserId, group_id: &GroupId) -> anyhow::Result<Vec<u8>> {
-        Ok(self.message_id(sender.to_bytes().as_slice(), group_id.as_slice())?)
+        Ok(self.message_id(sender.to_bytes()?.as_slice(), group_id.as_slice())?)
     }
 }
 

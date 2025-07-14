@@ -265,9 +265,8 @@ impl UserId {
         (*self.uuid, self.domain)
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>, tls_codec::Error> {
         self.tls_serialize_detached()
-            .expect("user id serialization is infallible")
     }
 }
 
