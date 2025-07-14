@@ -43,4 +43,9 @@ class UserSettingsCubit implements StateStreamableSource<UserSettings> {
     required UserCubit userCubit,
     required double value,
   }) => _impl.setSidebarWidth(userCubit: userCubit.impl, value: value);
+
+  Future<void> setSendOnEnter({
+    required UserCubit userCubit,
+    required bool value,
+  }) => _impl.setSendOnEnter(userCubit: userCubit.impl, value: value);
 }
