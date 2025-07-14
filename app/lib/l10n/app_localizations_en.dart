@@ -157,6 +157,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conversationList_newGroup => 'New group';
 
   @override
+  String get conversationList_emptyMessage =>
+      'Create a new connection to get started';
+
+  @override
   String get conversationList_draft => 'Draft';
 
   @override
@@ -225,6 +229,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String composer_inputHint(Object conversationTitle) {
+    return 'Message $conversationTitle';
+  }
+
+  @override
+  String get composer_editMessage => 'Edit Message';
+
+  @override
   String get composer_error_attachment =>
       'Failed to upload attachment. Please try again.';
 
@@ -239,4 +251,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
     return '$sizeString $byteUnit';
   }
+
+  @override
+  String get textMessage_edited => 'edited';
 }

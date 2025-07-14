@@ -188,3 +188,8 @@ run-app *args='':
 # Run app on Linux
 run-app-linux *args='':
     just run-app -d linux {{args}}
+
+# Add client migration
+[working-directory: 'coreclient']
+add-client-migration migration_name:
+    sqlx migrate add {{migration_name}}

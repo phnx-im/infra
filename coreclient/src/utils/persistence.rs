@@ -16,7 +16,8 @@ use sqlx::{
 };
 use tracing::{error, info};
 
-use crate::{clients::store::ClientRecord, utils::data_migrations};
+use crate::clients::store::ClientRecord;
+use crate::utils::data_migrations;
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
@@ -63,7 +64,7 @@ pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
         .acquire_timeout(Duration::from_secs(3))
         .connect_with(opts)
         .await?;
-    migrate!().run(&pool).await?;
+    sqlx::migrate!().run(&pool).await?;
     Ok(pool)
 }
 
