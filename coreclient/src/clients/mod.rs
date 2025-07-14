@@ -591,7 +591,7 @@ impl CoreUser {
         self.inner.key_store.signing_key.credential().identity()
     }
 
-    async fn store_messages(
+    async fn store_new_messages(
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,

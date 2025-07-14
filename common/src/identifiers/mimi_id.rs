@@ -50,6 +50,13 @@ impl MimiId {
             .map_err(|_| MimiIdCalculationError::InvalidIdLength)
     }
 
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, MimiIdCalculationError> {
+        bytes
+            .try_into()
+            .map(Self)
+            .map_err(|_| MimiIdCalculationError::InvalidIdLength)
+    }
+
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
     }

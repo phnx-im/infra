@@ -49,17 +49,31 @@ class _MessageComposerState extends State<MessageComposer>
 
     _conversationDetailsCubit = context.read<ConversationDetailsCubit>();
 
-    // Wait until the conversation is fully loaded and set draft message if any.
+    // Propagate draft changes to the text field.
+    // In particular, this sets the draft message on initial load, if any.
+
     _draftLoadingSubscription = _conversationDetailsCubit.stream.listen((
       state,
     ) {
-      if (state.conversation case final conversation?) {
+      if (state.conversation != null) {
         // state is fully loaded
-        if (conversation.draft?.message case final draft?) {
-          _inputController.text = draft;
+        if (state.conversation?.draft case final draft?) {
+          // We have a draft
+          // Ignore user drafts, those were input here and just reflect the change state.
+
+          switch (draft.source) {
+            case UiMessageDraftSource.system:
+              // If input controller is not empty, then the user already typed something,
+              // and we don't want to overwrite it.
+              if (_inputController.text.isEmpty) {
+                _inputController.text = draft.message;
+              }
+              break;
+            case UiMessageDraftSource.user:
+              // Ingore user drafts; they just reflect the past state of the input controller.
+              break;
+          }
         }
-        _draftLoadingSubscription?.cancel();
-        _draftLoadingSubscription = null;
       }
     });
   }
@@ -92,8 +106,11 @@ class _MessageComposerState extends State<MessageComposer>
 
   @override
   Widget build(BuildContext context) {
-    final conversationTitle = context.select(
-      (ConversationDetailsCubit cubit) => cubit.state.conversation?.title,
+    final (conversationTitle, editingId) = context.select(
+      (ConversationDetailsCubit cubit) => (
+        cubit.state.conversation?.title,
+        cubit.state.conversation?.draft?.editingId,
+      ),
     );
 
     if (conversationTitle == null) {
@@ -130,9 +147,29 @@ class _MessageComposerState extends State<MessageComposer>
                   focusNode: _focusNode,
                   controller: _inputController,
                   conversationTitle: conversationTitle,
+                  isEditing: editingId != null,
                 ),
               ),
             ),
+            if (editingId != null)
+              Container(
+                width: 50,
+                height: 50,
+                margin: const EdgeInsets.only(left: Spacings.xs),
+                decoration: BoxDecoration(
+                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(Spacings.m),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close),
+                  color: colorDMB,
+                  hoverColor: const Color(0x00FFFFFF),
+                  onPressed: () {
+                    context.read<ConversationDetailsCubit>().resetDraft();
+                    _inputController.clear();
+                  },
+                ),
+              ),
             Container(
               width: 50,
               height: 50,
@@ -166,14 +203,17 @@ class _MessageComposerState extends State<MessageComposer>
     FocusNode node,
     KeyEvent evt,
   ) {
-    if (!HardwareKeyboard.instance.isShiftPressed &&
-        !HardwareKeyboard.instance.isAltPressed &&
-        !HardwareKeyboard.instance.isMetaPressed &&
-        !HardwareKeyboard.instance.isControlPressed &&
-        (evt.logicalKey.keyLabel == "Enter") &&
-        (evt is KeyDownEvent)) {
+    if (evt.logicalKey == LogicalKeyboardKey.enter &&
+        evt is KeyDownEvent &&
+        HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
       _submitMessage(conversationDetailCubit);
       return KeyEventResult.handled;
+    } else if (evt.logicalKey == LogicalKeyboardKey.arrowUp &&
+        evt is KeyDownEvent &&
+        HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
+      return _editMessage(conversationDetailCubit)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
     } else {
       return KeyEventResult.ignored;
     }
@@ -192,6 +232,17 @@ class _MessageComposerState extends State<MessageComposer>
       _inputController.clear();
       _focusNode.requestFocus();
     });
+  }
+
+  bool _editMessage(ConversationDetailsCubit cubit) {
+    if (_inputController.text.trim().isNotEmpty) {
+      return false;
+    }
+    if (cubit.state.conversation?.draft?.editingId != null) {
+      return false;
+    }
+    cubit.editMessage();
+    return true;
   }
 
   void _uploadAttachment(BuildContext context) async {
@@ -236,31 +287,58 @@ class _MessageInput extends StatelessWidget {
     required FocusNode focusNode,
     required TextEditingController controller,
     required this.conversationTitle,
+    required this.isEditing,
   }) : _focusNode = focusNode,
        _controller = controller;
 
   final FocusNode _focusNode;
   final TextEditingController _controller;
   final String? conversationTitle;
+  final bool isEditing;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      focusNode: _focusNode,
-      style: messageTextStyle(context, false),
-      controller: _controller,
-      minLines: 1,
-      maxLines: 10,
-      decoration: InputDecoration(
-        hintText: "Message $conversationTitle",
-        hintStyle: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: colorDMB),
-      ).copyWith(filled: false),
-      textInputAction: TextInputAction.newline,
-      onEditingComplete: () => _focusNode.requestFocus(),
-      keyboardType: TextInputType.multiline,
-      textCapitalization: TextCapitalization.sentences,
+    final smallScreen = isSmallScreen(context);
+
+    final loc = AppLocalizations.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isEditing)
+          Padding(
+            padding: const EdgeInsets.only(
+              top: Spacings.xs,
+              left: Spacings.xxs,
+              right: Spacings.xxs,
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.edit_outlined),
+                const SizedBox(width: Spacings.xxs),
+                Text(loc.composer_editMessage),
+              ],
+            ),
+          ),
+        TextField(
+          focusNode: _focusNode,
+          style: messageTextStyle(context, false),
+          controller: _controller,
+          minLines: 1,
+          maxLines: 10,
+          decoration: InputDecoration(
+            hintText: loc.composer_inputHint(conversationTitle ?? ""),
+            hintStyle: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colorDMB),
+          ).copyWith(filled: false),
+          textInputAction:
+              smallScreen ? TextInputAction.send : TextInputAction.newline,
+          onEditingComplete: () => _focusNode.requestFocus(),
+          keyboardType: TextInputType.multiline,
+          textCapitalization: TextCapitalization.sentences,
+        ),
+      ],
     );
   }
 }

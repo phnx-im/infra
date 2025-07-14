@@ -21,6 +21,7 @@ use tracing::debug;
 
 use crate::{
     StreamSink,
+    api::types::{UiMessageDraft, UiMessageDraftSource},
     util::{Cubit, CubitCore, spawn_from_sync},
 };
 
@@ -236,7 +237,7 @@ pub(super) async fn load_conversation_details(
         .message_draft(conversation.id)
         .await
         .unwrap_or_default()
-        .map(From::from);
+        .map(|d| UiMessageDraft::from_draft(d, UiMessageDraftSource::System));
 
     UiConversationDetails {
         id: conversation.id,
