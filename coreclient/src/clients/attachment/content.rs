@@ -7,6 +7,8 @@ use mimi_content::{
     MimiContent,
     content_container::{NestedPart, NestedPartContent, PartSemantics},
 };
+use openmls::group::GroupId;
+use phnxcommon::identifiers::UserId;
 
 pub trait MimiContentExt {
     fn visit_attachments(
@@ -18,6 +20,8 @@ pub trait MimiContentExt {
         &mut self,
         visitor: impl FnMut(&mut NestedPartContent) -> anyhow::Result<()>,
     ) -> anyhow::Result<()>;
+
+    fn mimi_id(&self, sender: &UserId, group_id: &GroupId) -> anyhow::Result<Vec<u8>>;
 }
 
 impl MimiContentExt for MimiContent {
@@ -33,6 +37,10 @@ impl MimiContentExt for MimiContent {
         mut visitor: impl FnMut(&mut NestedPartContent) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         visit_attachments_mut_impl(&mut self.nested_part, &mut visitor, 0)
+    }
+
+    fn mimi_id(&self, sender: &UserId, group_id: &GroupId) -> anyhow::Result<Vec<u8>> {
+        Ok(self.message_id(sender.to_bytes()?.as_slice(), group_id.as_slice())?)
     }
 }
 

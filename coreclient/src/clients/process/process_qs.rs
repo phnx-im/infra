@@ -8,13 +8,16 @@ use mimi_content::{
 };
 use openmls::{
     group::QueuedProposal,
-    prelude::{MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, ProtocolMessage, Sender},
+    prelude::{
+        ApplicationMessage, MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent,
+        ProtocolMessage, Sender,
+    },
 };
 use phnxcommon::{
     codec::PhnxCodec,
     credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
-    identifiers::{QualifiedGroupId, UserHandle, UserId},
+    identifiers::{MimiId, QualifiedGroupId, UserHandle, UserId},
     messages::{
         QueueMessage,
         client_ds::{
@@ -24,14 +27,14 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
-use sqlx::SqliteTransaction;
+use sqlx::{Acquire, SqliteTransaction};
 use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    ConversationMessage, Message,
+    ContentMessage, ConversationMessage, Message,
     contacts::HandleContact,
-    conversations::{ConversationType, StatusRecord},
+    conversations::{ConversationType, StatusRecord, messages::edit::MessageEdit},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
@@ -56,6 +59,13 @@ pub struct ProcessedQsMessages {
     pub changed_conversations: Vec<ConversationId>,
     pub new_messages: Vec<ConversationMessage>,
     pub errors: Vec<anyhow::Error>,
+}
+
+#[derive(Default)]
+struct ApplicationMessagesHandlerResult {
+    new_messages: Vec<TimestampedMessage>,
+    updated_messages: Vec<ConversationMessage>,
+    conversation_changed: bool,
 }
 
 impl CoreUser {
@@ -250,47 +260,63 @@ impl CoreUser {
                 let aad = processed_message.aad().to_vec();
 
                 // `conversation_changed` indicates whether the state of the conversation was updated
-                let (group_messages, conversation_changed) = match processed_message.into_content()
-                {
-                    ProcessedMessageContent::ApplicationMessage(application_message) => {
-                        self.handle_application_message(
-                            txn,
-                            notifier,
-                            &group,
-                            application_message,
-                            ds_timestamp,
-                            sender_client_credential.identity(),
-                        )
-                        .await?
-                    }
-                    ProcessedMessageContent::ProposalMessage(proposal) => {
-                        self.handle_proposal_message(txn, &mut group, *proposal)
-                            .await?
-                    }
-                    ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                        self.handle_staged_commit_message(
-                            txn,
-                            &mut group,
-                            conversation,
-                            *staged_commit,
-                            aad,
-                            ds_timestamp,
-                            &sender,
-                            &sender_client_credential,
-                            we_were_removed,
-                        )
-                        .await?
-                    }
-                    ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-                        self.handle_external_join_proposal_message()?
-                    }
-                };
+                let (new_messages, updated_messages, conversation_changed) =
+                    match processed_message.into_content() {
+                        ProcessedMessageContent::ApplicationMessage(application_message) => {
+                            let ApplicationMessagesHandlerResult {
+                                new_messages,
+                                updated_messages,
+                                conversation_changed,
+                            } = self
+                                .handle_application_message(
+                                    txn,
+                                    notifier,
+                                    &group,
+                                    application_message,
+                                    ds_timestamp,
+                                    sender_client_credential.identity(),
+                                )
+                                .await?;
+                            (new_messages, updated_messages, conversation_changed)
+                        }
+                        ProcessedMessageContent::ProposalMessage(proposal) => {
+                            let (new_messages, updated) = self
+                                .handle_proposal_message(txn, &mut group, *proposal)
+                                .await?;
+                            (new_messages, Vec::new(), updated)
+                        }
+                        ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
+                            let (new_messages, updated) = self
+                                .handle_staged_commit_message(
+                                    txn,
+                                    &mut group,
+                                    conversation,
+                                    *staged_commit,
+                                    aad,
+                                    ds_timestamp,
+                                    &sender,
+                                    &sender_client_credential,
+                                    we_were_removed,
+                                )
+                                .await?;
+                            (new_messages, Vec::new(), updated)
+                        }
+                        ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
+                            let (new_messages, updated) =
+                                self.handle_external_join_proposal_message()?;
+                            (new_messages, Vec::new(), updated)
+                        }
+                    };
 
                 // MLSMessage Phase 3: Store the updated group and the messages.
                 group.store_update(txn.as_mut()).await?;
 
-                let conversation_messages =
-                    Self::store_messages(txn, notifier, conversation_id, group_messages).await?;
+                let mut conversation_messages =
+                    Self::store_new_messages(txn, notifier, conversation_id, new_messages).await?;
+                for updated_message in updated_messages {
+                    updated_message.update(txn.as_mut(), notifier).await?;
+                    conversation_messages.push(updated_message);
+                }
 
                 Ok((
                     conversation_messages,
@@ -346,11 +372,11 @@ impl CoreUser {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         group: &Group,
-        application_message: openmls::prelude::ApplicationMessage,
+        application_message: ApplicationMessage,
         ds_timestamp: TimeStamp,
         sender: &UserId,
-    ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
-        let content = MimiContent::deserialize(&application_message.into_bytes());
+    ) -> anyhow::Result<ApplicationMessagesHandlerResult> {
+        let mut content = MimiContent::deserialize(&application_message.into_bytes());
 
         // Delivery receipt
         if let Ok(content) = &content
@@ -365,12 +391,48 @@ impl CoreUser {
                 .store_report(txn, notifier)
                 .await?;
             // Delivery receipt messages are not stored
-            return Ok((Vec::new(), false));
+            return Ok(Default::default());
+        }
+
+        // Message edit
+        if let Ok(content) = &mut content
+            && let Some(replaces) = content.replaces.as_ref()
+            && let Ok(mimi_id) = MimiId::from_slice(replaces)
+        {
+            // Don't fail here, otherwise message processing of other messages will fail.
+            let mut savepoint_txn = txn.begin().await?;
+            let message = handle_message_edit(
+                &mut savepoint_txn,
+                notifier,
+                group,
+                ds_timestamp,
+                sender,
+                mimi_id,
+                std::mem::take(content),
+            )
+            .await
+            .inspect_err(|error| {
+                error!(%error, "Failed to handle message edit; skipping");
+            })
+            .ok();
+            if message.is_some() {
+                savepoint_txn.commit().await?;
+            }
+
+            return Ok(ApplicationMessagesHandlerResult {
+                updated_messages: message.into_iter().collect(),
+                conversation_changed: true,
+                ..Default::default()
+            });
         }
 
         let message =
             TimestampedMessage::from_mimi_content_result(content, ds_timestamp, sender, group);
-        Ok((vec![message], false))
+        Ok(ApplicationMessagesHandlerResult {
+            new_messages: vec![message],
+            conversation_changed: true,
+            ..Default::default()
+        })
     }
 
     async fn handle_proposal_message(
@@ -607,4 +669,70 @@ impl CoreUser {
             errors,
         })
     }
+}
+
+async fn handle_message_edit(
+    txn: &mut SqliteTransaction<'_>,
+    notifier: &mut StoreNotifier,
+    group: &Group,
+    ds_timestamp: TimeStamp,
+    sender: &UserId,
+    replaces: MimiId,
+    content: MimiContent,
+) -> anyhow::Result<ConversationMessage> {
+    // First try to directly load the original message by mimi id (non-edited message) and fallback
+    // to the history of edits otherwise.
+    let mut message = match ConversationMessage::load_by_mimi_id(txn.as_mut(), &replaces).await? {
+        Some(message) => message,
+        None => {
+            let message_id = MessageEdit::find_message_id(txn.as_mut(), &replaces)
+                .await?
+                .with_context(|| {
+                    format!("Original message id not found for editing; mimi_id = {replaces:?}")
+                })?;
+
+            ConversationMessage::load(txn.as_mut(), message_id)
+                .await?
+                .with_context(|| {
+                    format!("Original message not found for editing; message_id = {message_id:?}")
+                })?
+        }
+    };
+
+    let original_mimi_id = message
+        .message()
+        .mimi_id()
+        .context("Original message does not have mimi id")?;
+    let original_mimi_content = message
+        .message()
+        .mimi_content()
+        .context("Original message does not have mimi content")?;
+
+    // Store message edit
+    MessageEdit::new(
+        original_mimi_id,
+        message.id(),
+        ds_timestamp,
+        original_mimi_content,
+    )
+    .store(txn.as_mut())
+    .await?;
+
+    // Update the original message
+    let is_sent = true;
+    message.set_content_message(ContentMessage::new(
+        sender.clone(),
+        is_sent,
+        content,
+        group.group_id(),
+    ));
+    message.set_edited_at(ds_timestamp);
+    message.set_status(MessageStatus::Unread);
+
+    // Clear the status of the message
+    StatusRecord::clear(txn.as_mut(), notifier, message.id()).await?;
+
+    Conversation::mark_as_unread(txn, notifier, message.conversation_id(), message.id()).await?;
+
+    Ok(message)
 }
