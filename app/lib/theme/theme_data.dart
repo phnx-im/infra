@@ -92,6 +92,18 @@ ThemeData themeData(BuildContext context) => ThemeData(
     filled: true,
     fillColor: colorDMBSuperLight,
   ),
+  switchTheme: SwitchThemeData(
+    thumbColor: WidgetStateProperty.all(colorDMB),
+    trackOutlineColor: WidgetStateProperty.all(colorDMB),
+    trackColor: WidgetStateProperty.resolveWith(
+      (states) =>
+          states.contains(WidgetState.selected)
+              ? colorDMBSuperLight
+              : Colors.transparent,
+    ),
+
+    // trackColor: WidgetStateProperty.all(colorDMB),
+  ),
 );
 
 final _textInputBorder = OutlineInputBorder(
