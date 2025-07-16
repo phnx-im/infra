@@ -207,7 +207,7 @@ impl ConversationMessage {
         self.status
     }
 
-    pub fn set_status(&mut self, status: MessageStatus) {
+    pub(crate) fn set_status(&mut self, status: MessageStatus) {
         self.status = status;
     }
 
@@ -283,7 +283,7 @@ impl Message {
         }
     }
 
-    pub(crate) fn mimi_id(&self) -> Option<&MimiId> {
+    pub fn mimi_id(&self) -> Option<&MimiId> {
         match self {
             Message::Content(content_message) => content_message.mimi_id(),
             Message::Event(_) => None,
