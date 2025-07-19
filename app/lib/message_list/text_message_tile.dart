@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/attachments/attachments.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
+import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/timestamp.dart';
@@ -169,6 +170,8 @@ class _MessageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
+    final bool isDeleted = content.replaces != null && content.content == null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.5),
       child: Container(
@@ -186,6 +189,15 @@ class _MessageContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (isDeleted)
+                  Padding(
+                    padding: _messagePadding,
+                    child: buildBlockElement(
+                      const BlockElement.error("Deleted message"),
+                      isSender,
+                    ),
+                  ),
+
                 if (content.attachments.firstOrNull case final attachment?)
                   switch (attachment.imageMetadata) {
                     null => _FileAttachmentContent(
@@ -208,7 +220,7 @@ class _MessageContent extends StatelessWidget {
                     child: buildBlockElement(inner.element, isSender),
                   ),
                 ),
-                if (isEdited)
+                if (!isDeleted && isEdited)
                   Padding(
                     padding: _messagePadding.copyWith(top: 0),
                     child: Text(

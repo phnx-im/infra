@@ -680,6 +680,8 @@ async fn handle_message_edit(
     replaces: MimiId,
     content: MimiContent,
 ) -> anyhow::Result<ConversationMessage> {
+    let is_delete = content.nested_part.part == NestedPartContent::NullPart;
+
     // First try to directly load the original message by mimi id (non-edited message) and fallback
     // to the history of edits otherwise.
     let mut message = match ConversationMessage::load_by_mimi_id(txn.as_mut(), &replaces).await? {
@@ -708,15 +710,17 @@ async fn handle_message_edit(
         .mimi_content()
         .context("Original message does not have mimi content")?;
 
-    // Store message edit
-    MessageEdit::new(
-        original_mimi_id,
-        message.id(),
-        ds_timestamp,
-        original_mimi_content,
-    )
-    .store(txn.as_mut())
-    .await?;
+    if !is_delete {
+        // Store message edit
+        MessageEdit::new(
+            original_mimi_id,
+            message.id(),
+            ds_timestamp,
+            original_mimi_content,
+        )
+        .store(txn.as_mut())
+        .await?;
+    }
 
     // Update the original message
     let is_sent = true;

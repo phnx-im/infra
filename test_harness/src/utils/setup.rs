@@ -3,14 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::Path,
     time::Duration,
 };
 
 use anyhow::Context;
 use mimi_content::{
-    MimiContent,
+    ByteBuf, Disposition, MimiContent, NestedPart,
     content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
 };
 use phnxcommon::{
@@ -642,11 +642,11 @@ impl TestBackend {
                 .unwrap();
 
             let message = messages.new_messages.last().unwrap();
-            let conversaion = recipient_user
+            let conversation = recipient_user
                 .conversation(&message.conversation_id())
                 .await
                 .unwrap();
-            let group_id = conversaion.group_id();
+            let group_id = conversation.group_id();
 
             assert_eq!(
                 message.message(),
@@ -657,6 +657,198 @@ impl TestBackend {
                     group_id
                 )))
             );
+        }
+        message.id()
+    }
+
+    pub async fn edit_message(
+        &mut self,
+        conversation_id: ConversationId,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
+    ) -> ConversationMessageId {
+        let test_sender = self.users.get_mut(sender_id).unwrap();
+        let sender = &mut test_sender.user;
+
+        let last_messages = sender.messages(conversation_id, 1).await.unwrap();
+        assert_eq!(last_messages.len(), 1);
+        let last_message = &last_messages[0];
+
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let mut orig_message = MimiContent::simple_markdown_message("edited".to_owned(), salt);
+        orig_message.replaces = Some(ByteBuf::from(
+            last_message.message().mimi_id().unwrap().as_slice(),
+        ));
+        /*
+        let orig_message = MimiContent {
+            salt: ByteBuf::from(salt),
+            replaces: None, // Replaces is set by store_unsent_message
+            topic_id: ByteBuf::from(b""),
+            expires: None,
+            in_reply_to: None,
+            extensions: BTreeMap::new(),
+            nested_part: NestedPart {
+                disposition: Disposition::Render,
+                language: "".to_owned(),
+                part: NestedPartContent::NullPart,
+            },
+        };
+        */
+
+        // Before sending a message, the sender must first fetch and process its QS messages.
+
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
+
+        sender
+            .fully_process_qs_messages(sender_qs_messages)
+            .await
+            .unwrap();
+
+        let message = test_sender
+            .user
+            .send_message(
+                conversation_id,
+                orig_message.clone(),
+                Some(last_message.id()),
+            )
+            .await
+            .unwrap();
+        let sender_user_id = test_sender.user.user_id().clone();
+
+        let conversation = test_sender
+            .user
+            .conversation(&conversation_id)
+            .await
+            .unwrap();
+        let group_id = conversation.group_id();
+
+        let mut target_message = ConversationMessage::new_for_test(
+            conversation_id,
+            last_message.id(),
+            last_message.timestamp().into(),
+            Message::Content(Box::new(ContentMessage::new(
+                sender_user_id.clone(),
+                true,
+                orig_message.clone(),
+                group_id,
+            ))),
+        );
+        target_message.set_edited_at(message.edited_at().unwrap());
+
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
+            let recipient_user = &mut recipient.user;
+
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
+
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
+                .await
+                .unwrap();
+
+            let message = messages.new_messages.last().unwrap();
+            let conversation = recipient_user
+                .conversation(&message.conversation_id())
+                .await
+                .unwrap();
+            let group_id = conversation.group_id();
+
+            assert_eq!(message.message(), target_message.message());
+        }
+        message.id()
+    }
+
+    pub async fn delete_message(
+        &mut self,
+        conversation_id: ConversationId,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
+    ) -> ConversationMessageId {
+        let test_sender = self.users.get_mut(sender_id).unwrap();
+        let sender = &mut test_sender.user;
+
+        let last_messages = sender.messages(conversation_id, 1).await.unwrap();
+        assert_eq!(last_messages.len(), 1);
+        let last_message = &last_messages[0];
+
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let orig_message = MimiContent {
+            salt: ByteBuf::from(salt),
+            replaces: Some(ByteBuf::from(
+                last_message.message().mimi_id().unwrap().as_slice(),
+            )),
+            topic_id: ByteBuf::from(b""),
+            expires: None,
+            in_reply_to: None,
+            extensions: BTreeMap::new(),
+            nested_part: NestedPart {
+                disposition: Disposition::Render,
+                language: "".to_owned(),
+                part: NestedPartContent::NullPart,
+            },
+        };
+
+        // Before sending a message, the sender must first fetch and process its QS messages.
+
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
+
+        sender
+            .fully_process_qs_messages(sender_qs_messages)
+            .await
+            .unwrap();
+
+        let message = test_sender
+            .user
+            .send_message(
+                conversation_id,
+                orig_message.clone(),
+                Some(last_message.id()),
+            )
+            .await
+            .unwrap();
+
+        let sender_user_id = test_sender.user.user_id().clone();
+
+        let conversation = test_sender
+            .user
+            .conversation(&conversation_id)
+            .await
+            .unwrap();
+
+        let group_id = conversation.group_id();
+
+        let mut target_message = ConversationMessage::new_for_test(
+            conversation_id,
+            last_message.id(),
+            last_message.timestamp().into(),
+            Message::Content(Box::new(ContentMessage::new(
+                sender_user_id.clone(),
+                true,
+                orig_message.clone(),
+                group_id,
+            ))),
+        );
+        target_message.set_edited_at(message.edited_at().unwrap());
+
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
+            let recipient_user = &mut recipient.user;
+
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
+
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
+                .await
+                .unwrap();
+
+            let message = messages.new_messages.last().unwrap();
+            let conversation = recipient_user
+                .conversation(&message.conversation_id())
+                .await
+                .unwrap();
+            let group_id = conversation.group_id();
+
+            assert_eq!(message.message(), target_message.message());
         }
         message.id()
     }
@@ -771,6 +963,18 @@ impl TestBackend {
         }
 
         (message.id(), external_part)
+    }
+
+    pub async fn scan_database(&mut self, query: &str, users: Vec<&UserId>) -> Vec<String> {
+        let mut result = Vec::new();
+        for user_id in &users {
+            let user = self.users.get_mut(user_id).unwrap();
+            let user = &mut user.user;
+
+            result.append(&mut user.scan_database(query).await.unwrap());
+        }
+
+        result
     }
 
     pub async fn create_group(&mut self, user_id: &UserId) -> ConversationId {

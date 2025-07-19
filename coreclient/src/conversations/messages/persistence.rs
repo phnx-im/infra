@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
-use mimi_content::{MessageStatus, MimiContent, content_container::MimiContentV1};
+use mimi_content::{ByteBuf, MessageStatus, MimiContent, content_container::MimiContentV1};
 use phnxcommon::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
     identifiers::{Fqdn, MimiId, UserId},
@@ -29,7 +29,7 @@ pub(crate) struct VersionedMessage {
     // We store the message as bytes, because deserialization depends on
     // other parameters.
     #[serde(default)]
-    pub(crate) content: Vec<u8>,
+    pub(crate) content: ByteBuf,
 }
 
 impl VersionedMessage {
@@ -63,16 +63,18 @@ impl VersionedMessage {
     ) -> Result<VersionedMessage, phnxcommon::codec::Error> {
         Ok(VersionedMessage {
             version: CURRENT_MESSAGE_VERSION,
-            content: PhnxCodec::to_vec(&event)?,
+            content: ByteBuf::from(PhnxCodec::to_vec(&event)?),
         })
     }
 
     pub(crate) fn from_mimi_content(
         content: &MimiContent,
     ) -> Result<VersionedMessage, phnxcommon::codec::Error> {
+        dbg!(content);
+        dbg!(String::from_utf8_lossy(&content.serialize().unwrap()));
         Ok(VersionedMessage {
             version: CURRENT_MESSAGE_VERSION,
-            content: PhnxCodec::to_vec(&content)?,
+            content: ByteBuf::from(PhnxCodec::to_vec(&content)?),
         })
     }
 }

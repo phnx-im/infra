@@ -189,7 +189,7 @@ impl ConversationMessage {
         }
     }
 
-    pub(crate) fn set_edited_at(&mut self, edit_created_at: TimeStamp) {
+    pub fn set_edited_at(&mut self, edit_created_at: TimeStamp) {
         if let Message::Content(content_message) = &mut self.timestamped_message.message {
             content_message.edited_at = Some(edit_created_at)
         }

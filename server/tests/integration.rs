@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
+use std::{collections::BTreeMap, fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use base64::{Engine, prelude::BASE64_STANDARD};
 use image::{ImageBuffer, Rgba};
-use mimi_content::{MessageStatus, MimiContent, content_container::NestedPartContent};
+use mimi_content::{
+    ByteBuf, Disposition, MessageStatus, MimiContent, NestedPart,
+    content_container::NestedPartContent,
+};
 use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
 use phnxprotos::{
     auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
@@ -15,7 +18,7 @@ use phnxprotos::{
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcommon::{
-    assert_matches,
+    OpenMlsRand, RustCrypto, assert_matches,
     identifiers::{UserHandle, UserId},
 };
 use phnxcoreclient::{
@@ -295,6 +298,72 @@ async fn full_cycle() {
     setup
         .send_message(conversation_alice_bob, &BOB, vec![&ALICE])
         .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Edit message", skip_all)]
+async fn edit_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup
+        .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    setup
+        .edit_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Delete message", skip_all)]
+async fn delete_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup
+        .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
+    let last_message = alice
+        .last_message(conversation_alice_bob)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let string = last_message
+        .message()
+        .mimi_content()
+        .unwrap()
+        .string_rendering()
+        .unwrap();
+
+    assert!(
+        !setup
+            .scan_database(&string, vec![&ALICE, &BOB])
+            .await
+            .is_empty(),
+    );
+
+    setup
+        .delete_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    assert_eq!(
+        setup.scan_database(&string, vec![&ALICE, &BOB]).await,
+        Vec::<String>::new()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

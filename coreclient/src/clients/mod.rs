@@ -36,6 +36,10 @@ pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message}
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
+use sqlx::Value;
+use sqlx::ValueRef;
+use sqlx::{Row, sqlite::SqliteValue};
+use sqlx::{SqliteTransaction, query};
 
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
@@ -665,5 +669,46 @@ impl CoreUser {
         let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
+    }
+
+    pub async fn scan_database(&self, query: &str) -> anyhow::Result<Vec<String>> {
+        self.with_transaction(async |txn: &mut SqliteTransaction| {
+            let tables = query!("SELECT name FROM sqlite_schema WHERE type='table'")
+                .fetch_all(&mut **txn)
+                .await?;
+
+            let mut result = Vec::new();
+
+            for table in tables {
+                for row in sqlx::query(&format!("SELECT * FROM {}", table.name.unwrap()))
+                    .fetch_all(&mut **txn)
+                    .await?
+                {
+                    for i in 0..row.len() {
+                        let string = if let Ok(column) = row.try_get::<String, _>(i) {
+                            column
+                        } else if let Ok(column) = row.try_get::<Vec<u8>, _>(i) {
+                            // Drop 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
+                            let bytes = column
+                                .into_iter()
+                                .filter(|b| *b != 0x18)
+                                .collect::<Vec<_>>();
+
+                            String::from_utf8_lossy(&bytes).to_string()
+                        } else {
+                            // Unable to decode this type
+                            continue;
+                        };
+
+                        if string.contains(query) {
+                            result.push(string.to_string());
+                        }
+                    }
+                }
+            }
+
+            Ok(result)
+        })
+        .await
     }
 }
