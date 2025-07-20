@@ -290,6 +290,13 @@ impl Message {
         }
     }
 
+    pub fn sender(&self) -> Option<&UserId> {
+        match self {
+            Message::Content(content_message) => Some(content_message.sender()),
+            Message::Event(_) => None,
+        }
+    }
+
     pub fn mimi_content(&self) -> Option<&MimiContent> {
         match self {
             Message::Content(content_message) => Some(content_message.content()),

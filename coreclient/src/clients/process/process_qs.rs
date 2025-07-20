@@ -705,10 +705,20 @@ async fn handle_message_edit(
         .message()
         .mimi_id()
         .context("Original message does not have mimi id")?;
+    let original_sender = message
+        .message()
+        .sender()
+        .context("Original message does not have sender")?;
     let original_mimi_content = message
         .message()
         .mimi_content()
         .context("Original message does not have mimi content")?;
+
+    // TODO: Use mimi-room-policy for capabilities
+    ensure!(
+        original_sender == sender,
+        "Only edits and deletes from original users are allowed for now"
+    );
 
     if !is_delete {
         // Store message edit
@@ -725,7 +735,7 @@ async fn handle_message_edit(
     // Update the original message
     let is_sent = true;
     message.set_content_message(ContentMessage::new(
-        sender.clone(),
+        original_sender.clone(),
         is_sent,
         content,
         group.group_id(),
