@@ -298,6 +298,13 @@ async fn full_cycle() {
     setup
         .send_message(conversation_alice_bob, &BOB, vec![&ALICE])
         .await;
+
+    let count_18 = setup.scan_database(&"\x18", vec![&ALICE, &BOB]).await.len();
+    let count_19 = setup.scan_database(&"\x19", vec![&ALICE, &BOB]).await.len();
+    assert!(
+        count_18 < count_19 * 3 / 2,
+        "Having too many 0x18 is an indicator for using Vec<u8> instead of ByteBuf"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

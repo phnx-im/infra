@@ -688,13 +688,7 @@ impl CoreUser {
                         let string = if let Ok(column) = row.try_get::<String, _>(i) {
                             column
                         } else if let Ok(column) = row.try_get::<Vec<u8>, _>(i) {
-                            // Drop 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
-                            let bytes = column
-                                .into_iter()
-                                .filter(|b| *b != 0x18)
-                                .collect::<Vec<_>>();
-
-                            String::from_utf8_lossy(&bytes).to_string()
+                            String::from_utf8_lossy(&column).to_string()
                         } else {
                             // Unable to decode this type
                             continue;
@@ -702,6 +696,14 @@ impl CoreUser {
 
                         if string.contains(query) {
                             result.push(string.to_string());
+                            continue;
+                        }
+
+                        // Try again without 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
+                        let string2 = string.replace('\x18', "");
+                        if string2.contains(query) {
+                            result.push(string.to_string());
+                            continue;
                         }
                     }
                 }
