@@ -350,6 +350,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.1.1"
+  flutter_blurhash:
+    dependency: "direct main"
+    description:
+      name: flutter_blurhash
+      sha256: e97b9aff13b9930bbaa74d0d899fec76e3f320aba3190322dcc5d32104e3d25d
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.1"
   flutter_driver:
     dependency: "direct dev"
     description: flutter
@@ -388,10 +396,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_rust_bridge
-      sha256: b416ff56002789e636244fb4cc449f587656eff995e5a7169457eb0593fcaddb
+      sha256: "37ef40bc6f863652e865f0b2563ea07f0d3c58d8efad803cc01933a4b2ee067e"
       url: "https://pub.dev"
     source: hosted
-    version: "2.10.0"
+    version: "2.11.1"
   flutter_test:
     dependency: "direct dev"
     description: flutter

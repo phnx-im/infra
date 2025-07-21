@@ -64,3 +64,6 @@ criterion = { version = "0.5.1", features = [
 ] }
 rand = "0.8"
 uuid.workspace = true
+base64 = "0.21.7"
+sha2 = "0.10.9"
+hex = "0.4.3"

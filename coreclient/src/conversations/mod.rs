@@ -16,9 +16,14 @@ use uuid::Uuid;
 
 use crate::store::StoreNotifier;
 
+pub use draft::MessageDraft;
+pub(crate) use status::StatusRecord;
+
+mod draft;
 pub(crate) mod messages;
 pub(crate) mod persistence;
 mod sqlx_support;
+pub(crate) mod status;
 
 /// Id of a conversation
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

@@ -14,7 +14,7 @@ endif()
 # - lib_name: cargo package name
 # - any_symbol_name: name of any exported symbol from the library.
 #                    used on windows to force linking with library.
-function(apply_cargokit target manifest_dir lib_name any_symbol_name)
+function(apply_cargokit target manifest_dir toolchain_toml lib_name any_symbol_name)
 
     set(CARGOKIT_LIB_NAME "${lib_name}")
     set(CARGOKIT_LIB_FULL_NAME "${CMAKE_SHARED_MODULE_PREFIX}${CARGOKIT_LIB_NAME}${CMAKE_SHARED_MODULE_SUFFIX}")
@@ -37,6 +37,7 @@ function(apply_cargokit target manifest_dir lib_name any_symbol_name)
         "CARGOKIT_CMAKE=${CMAKE_COMMAND}"
         "CARGOKIT_CONFIGURATION=$<CONFIG>"
         "CARGOKIT_MANIFEST_DIR=${CMAKE_CURRENT_SOURCE_DIR}/${manifest_dir}"
+        "CARGOKIT_TOOLCHAIN_TOML=${CMAKE_CURRENT_SOURCE_DIR}/${toolchain_toml}"
         "CARGOKIT_TARGET_TEMP_DIR=${CARGOKIT_TEMP_DIR}"
         "CARGOKIT_OUTPUT_DIR=${CARGOKIT_OUTPUT_DIR}"
         "CARGOKIT_TARGET_PLATFORM=${CARGOKIT_TARGET_PLATFORM}"

@@ -887,7 +887,7 @@ impl Group {
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
         let mls_message = self
             .mls_group
-            .create_message(provider, signer, &content.serialize())?;
+            .create_message(provider, signer, &content.serialize()?)?;
 
         let message = AssistedMessageOut::new(mls_message, None)?;
 

@@ -42,7 +42,7 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(dart_metadata = ("freezed"))]
 pub struct MessageContent {
-    pub content: Vec<RangedBlockElement>,
+    pub elements: Vec<RangedBlockElement>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -124,7 +124,7 @@ pub enum InlineElement {
 impl MessageContent {
     pub fn error(message: String) -> Self {
         Self {
-            content: vec![RangedBlockElement {
+            elements: vec![RangedBlockElement {
                 start: 0,
                 end: u32::try_from(message.chars().count()).unwrap_or(u32::MAX),
                 element: BlockElement::Error(message),
@@ -162,7 +162,7 @@ impl MessageContent {
             result.push(parse_block_element(&mut iter, 1)?);
         }
 
-        Ok(Self { content: result })
+        Ok(Self { elements: result })
     }
 }
 

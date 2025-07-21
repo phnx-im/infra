@@ -16,10 +16,12 @@
 //! introduce a Dart wrapper for each cubit here. The wrappers have the same name as the cubit, but
 //! without the `Base` suffix.
 
+pub mod attachments_repository;
 pub mod conversation_details_cubit;
 pub mod conversation_list_cubit;
 pub mod logging;
 pub mod markdown;
+pub mod message_content;
 pub mod message_cubit;
 pub mod message_list_cubit;
 pub mod navigation_cubit;
@@ -27,5 +29,6 @@ pub mod notifications;
 pub mod types;
 pub mod user;
 pub mod user_cubit;
+pub mod user_settings_cubit;
 pub mod users_cubit;
 pub mod utils;

@@ -21,9 +21,9 @@ use phnxcommon::{
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
     messages::{
-        client_as::ConnectionPackage,
         client_as_out::EncryptedUserProfile,
         client_qs::CreateUserRecordResponse,
+        connection_package::ConnectionPackage,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
@@ -450,6 +450,7 @@ impl PersistedUserState {
             _qs_user_id: qs_user_id,
             qs_client_id,
             api_clients: api_clients.clone(),
+            http_client: reqwest::Client::new(),
             store_notifications_tx: Default::default(),
         });
         CoreUser { inner }

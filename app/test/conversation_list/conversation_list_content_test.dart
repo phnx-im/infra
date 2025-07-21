@@ -43,14 +43,17 @@ final conversations = [
         UiContentMessage(
           sender: 2.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
             content: simpleMessage('Hello Alice'),
+            attachments: [],
           ),
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -71,6 +74,7 @@ final conversations = [
         UiContentMessage(
           sender: 3.userId(),
           sent: true,
+          edited: true,
           content: UiMimiContent(
             plainBody:
                 'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
@@ -78,10 +82,12 @@ final conversations = [
             content: simpleMessage(
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
             ),
+            attachments: [],
           ),
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -100,21 +106,59 @@ final conversations = [
         UiContentMessage(
           sender: 4.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
             content: simpleMessage('Hello All'),
+            attachments: [],
           ),
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
+    ),
+  ),
+  UiConversationDetails(
+    id: 4.conversationId(),
+    status: const UiConversationStatus.active(),
+    conversationType: const UiConversationType_Group(),
+    unreadMessages: 0,
+    messagesCount: 10,
+    attributes: const UiConversationAttributes(title: 'Group', picture: null),
+    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastMessage: UiConversationMessage(
+      id: 3.conversationMessageId(),
+      conversationId: 3.conversationId(),
+      timestamp: '2023-01-01T00:00:00.000Z',
+      message: UiMessage_Content(
+        UiContentMessage(
+          sender: 4.userId(),
+          sent: true,
+          edited: false,
+          content: UiMimiContent(
+            plainBody: 'Hello All',
+            topicId: Uint8List(0),
+            content: simpleMessage('Hello All'),
+            attachments: [],
+          ),
+        ),
+      ),
+      position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
+    ),
+    draft: UiMessageDraft(
+      message: 'Some draft message',
+      editingId: null,
+      updatedAt: DateTime.now(),
+      source: UiMessageDraftSource.system,
     ),
   ),
 ];
 
 MessageContent simpleMessage(String msg) {
   return MessageContent(
-    content: [
+    elements: [
       RangedBlockElement(
         start: 0,
         end: msg.length,

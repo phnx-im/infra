@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Context;
 use openmls::group::GroupId;
 use phnxapiclient::{ApiClient, as_api::ConnectionOfferResponder};
 use phnxcommon::{
@@ -13,7 +12,10 @@ use phnxcommon::{
         indexed_aead::keys::UserProfileKey,
     },
     identifiers::{QsReference, UserHandle, UserId},
-    messages::{client_as::ConnectionPackage, client_ds_out::CreateGroupParamsOut},
+    messages::{
+        client_as::ConnectionOfferMessage, client_ds_out::CreateGroupParamsOut,
+        connection_package::ConnectionPackage,
+    },
 };
 use sqlx::SqliteTransaction;
 use tracing::info;
@@ -23,9 +25,7 @@ use crate::{
     clients::connection_offer::FriendshipPackage,
     contacts::HandleContact,
     groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
-    key_stores::{
-        MemoryUserKeyStore, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
-    },
+    key_stores::{MemoryUserKeyStore, indexed_keys::StorableIndexedKey},
     store::StoreNotifier,
 };
 
@@ -39,28 +39,26 @@ impl CoreUser {
     pub(crate) async fn add_contact_via_handle(
         &self,
         handle: UserHandle,
-    ) -> anyhow::Result<ConversationId> {
+    ) -> anyhow::Result<Option<ConversationId>> {
         let client = self.api_client()?;
 
         // Phase 1: Fetch a connection package from the AS
         let (connection_package, connection_offer_responder) =
-            client.as_connect_handle(&handle).await?;
+            match client.as_connect_handle(&handle).await {
+                Ok(res) => res,
+                Err(error) if error.is_not_found() => {
+                    return Ok(None);
+                }
+                Err(error) => return Err(error.into()),
+            };
 
         // Phase 2: Verify the connection package
-        let as_intermediate_credential = AsCredentials::get(
-            self.pool().acquire().await?.as_mut(),
-            &self.inner.api_clients,
-            self.user_id().domain(),
-            connection_package.client_credential_signer_fingerprint(),
-        )
-        .await?;
-        let verifying_key = as_intermediate_credential.verifying_key();
-        let connection_package = connection_package.verify(verifying_key)?;
+        let verified_connection_package = connection_package.verify()?;
 
         // Phase 3: Prepare the connection locally
         let group_id = client.ds_request_group_id().await?;
         let connection_package = VerifiedConnectionPackagesWithGroupId {
-            verified_connection_packages: vec![connection_package],
+            verified_connection_package,
             group_id,
         };
 
@@ -97,14 +95,14 @@ impl CoreUser {
                 )
                 .await?;
 
-            Ok(conversation_id)
+            Ok(Some(conversation_id))
         })
         .await
     }
 }
 
 struct VerifiedConnectionPackagesWithGroupId {
-    verified_connection_packages: Vec<ConnectionPackage>,
+    verified_connection_package: ConnectionPackage,
     group_id: GroupId,
 }
 
@@ -117,7 +115,7 @@ impl VerifiedConnectionPackagesWithGroupId {
         handle: UserHandle,
     ) -> anyhow::Result<LocalGroup> {
         let Self {
-            verified_connection_packages,
+            verified_connection_package,
             group_id,
         } = self;
 
@@ -147,7 +145,7 @@ impl VerifiedConnectionPackagesWithGroupId {
             group,
             partial_params,
             conversation_id: conversation.id(),
-            verified_connection_packages,
+            verified_connection_package,
         })
     }
 }
@@ -156,7 +154,7 @@ struct LocalGroup {
     group: Group,
     partial_params: PartialCreateGroupParams,
     conversation_id: ConversationId,
-    verified_connection_packages: Vec<ConnectionPackage>,
+    verified_connection_package: ConnectionPackage,
 }
 
 impl LocalGroup {
@@ -173,7 +171,7 @@ impl LocalGroup {
             group,
             partial_params,
             conversation_id,
-            verified_connection_packages,
+            verified_connection_package,
         } = self;
 
         let own_user_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
@@ -197,6 +195,7 @@ impl LocalGroup {
         .await?;
 
         // Create a connection offer
+        let connection_package_hash = verified_connection_package.hash();
         let connection_offer_payload = ConnectionOfferPayload {
             sender_client_credential: key_store.signing_key.credential().clone(),
             connection_group_id: group.group_id().clone(),
@@ -204,8 +203,13 @@ impl LocalGroup {
             connection_group_identity_link_wrapper_key: group.identity_link_wrapper_key().clone(),
             friendship_package_ear_key,
             friendship_package,
+            connection_package_hash,
         };
-        let connection_offer = connection_offer_payload.sign(&key_store.signing_key, handle)?;
+        let connection_offer = connection_offer_payload.sign(
+            &key_store.signing_key,
+            handle,
+            verified_connection_package.hash(),
+        )?;
 
         let encrypted_user_profile_key =
             own_user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
@@ -216,7 +220,7 @@ impl LocalGroup {
             connection_offer,
             params,
             conversation_id,
-            verified_connection_packages,
+            verified_connection_package,
         })
     }
 }
@@ -226,7 +230,7 @@ struct LocalHandleContact {
     connection_offer: ConnectionOffer,
     params: CreateGroupParamsOut,
     conversation_id: ConversationId,
-    verified_connection_packages: Vec<ConnectionPackage>,
+    verified_connection_package: ConnectionPackage,
 }
 
 impl LocalHandleContact {
@@ -241,7 +245,7 @@ impl LocalHandleContact {
             connection_offer,
             params,
             conversation_id,
-            verified_connection_packages,
+            verified_connection_package,
         } = self;
 
         info!("Creating connection group on DS");
@@ -250,16 +254,11 @@ impl LocalHandleContact {
             .await?;
 
         // Encrypt the connection offer and send it off.
-        debug_assert!(
-            verified_connection_packages.len() == 1,
-            "Only one connection package is supported for handle connections"
-        );
-        let connection_package = verified_connection_packages
-            .into_iter()
-            .next()
-            .context("logic error: no connection package")?;
-        let ciphertext = connection_offer.encrypt(connection_package.encryption_key(), &[], &[]);
-        responder.send(ciphertext).await?;
+        let ciphertext =
+            connection_offer.encrypt(verified_connection_package.encryption_key(), &[], &[]);
+        let hash = verified_connection_package.hash();
+        let message = ConnectionOfferMessage::new(hash, ciphertext);
+        responder.send(message).await?;
 
         Ok(conversation_id)
     }

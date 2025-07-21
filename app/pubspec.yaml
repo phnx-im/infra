@@ -30,7 +30,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   convert: ^3.0.0
-  flutter_rust_bridge: 2.10.0
+  flutter_rust_bridge: 2.11.1
   freezed_annotation: ^3.0.0
   path_provider: ^2.1.1
   image_picker: ^1.0.7
@@ -47,6 +47,7 @@ dependencies:
   path: ^1.9.1
   share_plus: ^11.0.0
   file_selector: ^1.0.3
+  flutter_blurhash: ^0.9.1
 
 dev_dependencies:
   build_runner: ^2.4.9
@@ -98,12 +99,12 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
   image_path: "assets/images/icon.png"
   windows:
     generate: true
     image_path: "assets/images/icon.png"
-    icon_size: 48 # min:48, max:256, default: 48
+    icon_size: 256 # min:48, max:256, default: 48
   macos:
-    generate: false
-    image_path: "assets/images/icon.png"
+    generate: true
+    image_path: "assets/images/mac-icon.png"

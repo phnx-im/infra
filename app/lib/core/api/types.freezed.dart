@@ -686,160 +686,139 @@ $UiEventMessageCopyWith<$Res> get field0 {
 }
 
 /// @nodoc
-mixin _$UiMimiContent {
+mixin _$UiMessageDraft {
 
- Uint8List? get replaces; Uint8List get topicId; Uint8List? get inReplyTo; String get plainBody; MessageContent get content;
-/// Create a copy of UiMimiContent
+ String get message; ConversationMessageId? get editingId; DateTime get updatedAt; UiMessageDraftSource get source;
+/// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$UiMimiContentCopyWith<UiMimiContent> get copyWith => _$UiMimiContentCopyWithImpl<UiMimiContent>(this as UiMimiContent, _$identity);
+$UiMessageDraftCopyWith<UiMessageDraft> get copyWith => _$UiMessageDraftCopyWithImpl<UiMessageDraft>(this as UiMessageDraft, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiMimiContent&&const DeepCollectionEquality().equals(other.replaces, replaces)&&const DeepCollectionEquality().equals(other.topicId, topicId)&&const DeepCollectionEquality().equals(other.inReplyTo, inReplyTo)&&(identical(other.plainBody, plainBody) || other.plainBody == plainBody)&&(identical(other.content, content) || other.content == content));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(replaces),const DeepCollectionEquality().hash(topicId),const DeepCollectionEquality().hash(inReplyTo),plainBody,content);
+int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt,source);
 
 @override
 String toString() {
-  return 'UiMimiContent(replaces: $replaces, topicId: $topicId, inReplyTo: $inReplyTo, plainBody: $plainBody, content: $content)';
+  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt, source: $source)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $UiMimiContentCopyWith<$Res>  {
-  factory $UiMimiContentCopyWith(UiMimiContent value, $Res Function(UiMimiContent) _then) = _$UiMimiContentCopyWithImpl;
+abstract mixin class $UiMessageDraftCopyWith<$Res>  {
+  factory $UiMessageDraftCopyWith(UiMessageDraft value, $Res Function(UiMessageDraft) _then) = _$UiMessageDraftCopyWithImpl;
 @useResult
 $Res call({
- Uint8List? replaces, Uint8List topicId, Uint8List? inReplyTo, String plainBody, MessageContent content
+ String message, ConversationMessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
 });
 
 
-$MessageContentCopyWith<$Res> get content;
+
 
 }
 /// @nodoc
-class _$UiMimiContentCopyWithImpl<$Res>
-    implements $UiMimiContentCopyWith<$Res> {
-  _$UiMimiContentCopyWithImpl(this._self, this._then);
+class _$UiMessageDraftCopyWithImpl<$Res>
+    implements $UiMessageDraftCopyWith<$Res> {
+  _$UiMessageDraftCopyWithImpl(this._self, this._then);
 
-  final UiMimiContent _self;
-  final $Res Function(UiMimiContent) _then;
+  final UiMessageDraft _self;
+  final $Res Function(UiMessageDraft) _then;
 
-/// Create a copy of UiMimiContent
+/// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? replaces = freezed,Object? topicId = null,Object? inReplyTo = freezed,Object? plainBody = null,Object? content = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,Object? source = null,}) {
   return _then(_self.copyWith(
-replaces: freezed == replaces ? _self.replaces : replaces // ignore: cast_nullable_to_non_nullable
-as Uint8List?,topicId: null == topicId ? _self.topicId : topicId // ignore: cast_nullable_to_non_nullable
-as Uint8List,inReplyTo: freezed == inReplyTo ? _self.inReplyTo : inReplyTo // ignore: cast_nullable_to_non_nullable
-as Uint8List?,plainBody: null == plainBody ? _self.plainBody : plainBody // ignore: cast_nullable_to_non_nullable
-as String,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
-as MessageContent,
+message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
+as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as UiMessageDraftSource,
   ));
 }
-/// Create a copy of UiMimiContent
-/// with the given fields replaced by the non-null parameter values.
-@override
-@pragma('vm:prefer-inline')
-$MessageContentCopyWith<$Res> get content {
-  
-  return $MessageContentCopyWith<$Res>(_self.content, (value) {
-    return _then(_self.copyWith(content: value));
-  });
-}
+
 }
 
 
 /// @nodoc
 
 
-class _UiMimiContent implements UiMimiContent {
-  const _UiMimiContent({this.replaces, required this.topicId, this.inReplyTo, required this.plainBody, required this.content});
+class _UiMessageDraft implements UiMessageDraft {
+  const _UiMessageDraft({required this.message, this.editingId, required this.updatedAt, required this.source});
   
 
-@override final  Uint8List? replaces;
-@override final  Uint8List topicId;
-@override final  Uint8List? inReplyTo;
-@override final  String plainBody;
-@override final  MessageContent content;
+@override final  String message;
+@override final  ConversationMessageId? editingId;
+@override final  DateTime updatedAt;
+@override final  UiMessageDraftSource source;
 
-/// Create a copy of UiMimiContent
+/// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
 @override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-_$UiMimiContentCopyWith<_UiMimiContent> get copyWith => __$UiMimiContentCopyWithImpl<_UiMimiContent>(this, _$identity);
+_$UiMessageDraftCopyWith<_UiMessageDraft> get copyWith => __$UiMessageDraftCopyWithImpl<_UiMessageDraft>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiMimiContent&&const DeepCollectionEquality().equals(other.replaces, replaces)&&const DeepCollectionEquality().equals(other.topicId, topicId)&&const DeepCollectionEquality().equals(other.inReplyTo, inReplyTo)&&(identical(other.plainBody, plainBody) || other.plainBody == plainBody)&&(identical(other.content, content) || other.content == content));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiMessageDraft&&(identical(other.message, message) || other.message == message)&&(identical(other.editingId, editingId) || other.editingId == editingId)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(replaces),const DeepCollectionEquality().hash(topicId),const DeepCollectionEquality().hash(inReplyTo),plainBody,content);
+int get hashCode => Object.hash(runtimeType,message,editingId,updatedAt,source);
 
 @override
 String toString() {
-  return 'UiMimiContent(replaces: $replaces, topicId: $topicId, inReplyTo: $inReplyTo, plainBody: $plainBody, content: $content)';
+  return 'UiMessageDraft(message: $message, editingId: $editingId, updatedAt: $updatedAt, source: $source)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class _$UiMimiContentCopyWith<$Res> implements $UiMimiContentCopyWith<$Res> {
-  factory _$UiMimiContentCopyWith(_UiMimiContent value, $Res Function(_UiMimiContent) _then) = __$UiMimiContentCopyWithImpl;
+abstract mixin class _$UiMessageDraftCopyWith<$Res> implements $UiMessageDraftCopyWith<$Res> {
+  factory _$UiMessageDraftCopyWith(_UiMessageDraft value, $Res Function(_UiMessageDraft) _then) = __$UiMessageDraftCopyWithImpl;
 @override @useResult
 $Res call({
- Uint8List? replaces, Uint8List topicId, Uint8List? inReplyTo, String plainBody, MessageContent content
+ String message, ConversationMessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
 });
 
 
-@override $MessageContentCopyWith<$Res> get content;
+
 
 }
 /// @nodoc
-class __$UiMimiContentCopyWithImpl<$Res>
-    implements _$UiMimiContentCopyWith<$Res> {
-  __$UiMimiContentCopyWithImpl(this._self, this._then);
+class __$UiMessageDraftCopyWithImpl<$Res>
+    implements _$UiMessageDraftCopyWith<$Res> {
+  __$UiMessageDraftCopyWithImpl(this._self, this._then);
 
-  final _UiMimiContent _self;
-  final $Res Function(_UiMimiContent) _then;
+  final _UiMessageDraft _self;
+  final $Res Function(_UiMessageDraft) _then;
 
-/// Create a copy of UiMimiContent
+/// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? replaces = freezed,Object? topicId = null,Object? inReplyTo = freezed,Object? plainBody = null,Object? content = null,}) {
-  return _then(_UiMimiContent(
-replaces: freezed == replaces ? _self.replaces : replaces // ignore: cast_nullable_to_non_nullable
-as Uint8List?,topicId: null == topicId ? _self.topicId : topicId // ignore: cast_nullable_to_non_nullable
-as Uint8List,inReplyTo: freezed == inReplyTo ? _self.inReplyTo : inReplyTo // ignore: cast_nullable_to_non_nullable
-as Uint8List?,plainBody: null == plainBody ? _self.plainBody : plainBody // ignore: cast_nullable_to_non_nullable
-as String,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
-as MessageContent,
+@override @pragma('vm:prefer-inline') $Res call({Object? message = null,Object? editingId = freezed,Object? updatedAt = null,Object? source = null,}) {
+  return _then(_UiMessageDraft(
+message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
+as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as UiMessageDraftSource,
   ));
 }
 
-/// Create a copy of UiMimiContent
-/// with the given fields replaced by the non-null parameter values.
-@override
-@pragma('vm:prefer-inline')
-$MessageContentCopyWith<$Res> get content {
-  
-  return $MessageContentCopyWith<$Res>(_self.content, (value) {
-    return _then(_self.copyWith(content: value));
-  });
-}
+
 }
 
 /// @nodoc

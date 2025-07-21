@@ -14,11 +14,12 @@ use phnxcommon::{
     crypto::{indexed_aead::keys::UserProfileKeyIndex, signatures::signable::Signable},
     identifiers::{UserHandle, UserHandleHash, UserId},
     messages::{
-        client_as::{ConnectionPackage, EncryptedConnectionOffer},
+        client_as::ConnectionOfferMessage,
         client_as_out::{
-            AsCredentialsResponseIn, ConnectionPackageIn, EncryptedUserProfile,
-            GetUserProfileResponse, RegisterUserResponseIn,
+            AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
+            RegisterUserResponseIn,
         },
+        connection_package::{ConnectionPackage, ConnectionPackageIn},
     },
 };
 use phnxprotos::auth_service::v1::{
@@ -48,6 +49,15 @@ pub enum AsRequestError {
     UnexpectedResponse,
     #[error(transparent)]
     Tonic(#[from] tonic::Status),
+}
+
+impl AsRequestError {
+    pub fn is_not_found(&self) -> bool {
+        match self {
+            AsRequestError::Tonic(status) => status.code() == tonic::Code::NotFound,
+            _ => false,
+        }
+    }
 }
 
 impl From<LibraryError> for AsRequestError {
@@ -200,7 +210,7 @@ impl ApiClient {
 
         // Step 2: Enqueue connection offer
         let (connection_offer_tx, connection_offer_rx) =
-            oneshot::channel::<EncryptedConnectionOffer>();
+            oneshot::channel::<ConnectionOfferMessage>();
         let connection_offer_fut = async move {
             let connection_offer = connection_offer_rx.await.ok()?;
             Some(ConnectRequest {
@@ -399,13 +409,13 @@ impl ListenHandleResponder {
 }
 
 pub struct ConnectionOfferResponder {
-    tx: oneshot::Sender<EncryptedConnectionOffer>,
+    tx: oneshot::Sender<ConnectionOfferMessage>,
     response: BoxFuture<'static, Result<(), AsRequestError>>,
 }
 
 impl ConnectionOfferResponder {
     pub fn new(
-        tx: oneshot::Sender<EncryptedConnectionOffer>,
+        tx: oneshot::Sender<ConnectionOfferMessage>,
         response: impl Future<Output = Result<(), AsRequestError>> + Send + 'static,
     ) -> Self {
         Self {
@@ -414,7 +424,7 @@ impl ConnectionOfferResponder {
         }
     }
 
-    pub async fn send(self, offer: EncryptedConnectionOffer) -> Result<(), AsRequestError> {
+    pub async fn send(self, offer: ConnectionOfferMessage) -> Result<(), AsRequestError> {
         self.tx.send(offer).map_err(|_| {
             error!("failed to send connection offer: connection closed");
             AsRequestError::UnexpectedResponse

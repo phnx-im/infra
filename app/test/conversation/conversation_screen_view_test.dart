@@ -63,6 +63,11 @@ void main() {
           untilTimestamp: any(named: "untilTimestamp"),
         ),
       ).thenAnswer((_) => Future.value());
+      when(
+        () => conversationDetailsCubit.storeDraft(
+          draftMessage: any(named: "draftMessage"),
+        ),
+      ).thenAnswer((_) async => Future.value());
     });
 
     Widget buildSubject() => MultiBlocProvider(
@@ -119,10 +124,13 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/conversation_screen.png'),
-      );
+      // Increase threshold because font rendering is differnt across different platforms.
+      await withThreshold(0.0222, () async {
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/conversation_screen.png'),
+        );
+      });
     });
   });
 }

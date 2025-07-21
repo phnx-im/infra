@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -30,14 +31,17 @@ final messages = [
       UiContentMessage(
         sender: 2.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: 'Hello Alice from Bob',
           topicId: Uint8List(0),
           content: simpleMessage('Hello Alice from Bob'),
+          attachments: [],
         ),
       ),
     ),
     position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 2.conversationMessageId(),
@@ -47,6 +51,7 @@ final messages = [
       UiContentMessage(
         sender: 3.userId(),
         sent: true,
+        edited: true,
         content: UiMimiContent(
           plainBody:
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
@@ -54,10 +59,12 @@ final messages = [
           content: simpleMessage(
             'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
           ),
+          attachments: [],
         ),
       ),
     ),
     position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 3.conversationMessageId(),
@@ -67,31 +74,17 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: true,
         content: UiMimiContent(
           plainBody: 'Hello Bob and Eve',
           topicId: Uint8List(0),
           content: simpleMessage('Hello Bob and Eve'),
+          attachments: [],
         ),
       ),
     ),
     position: UiFlightPosition.start,
-  ),
-  UiConversationMessage(
-    id: 5.conversationMessageId(),
-    conversationId: conversationId,
-    timestamp: '2023-01-01T00:03:00.000Z',
-    message: UiMessage_Content(
-      UiContentMessage(
-        sender: 1.userId(),
-        sent: true,
-        content: UiMimiContent(
-          plainBody: 'How are you doing?',
-          topicId: Uint8List(0),
-          content: simpleMessage('How are you doing?'),
-        ),
-      ),
-    ),
-    position: UiFlightPosition.middle,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 4.conversationMessageId(),
@@ -101,6 +94,27 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
+        content: UiMimiContent(
+          plainBody: 'How are you doing?',
+          topicId: Uint8List(0),
+          content: simpleMessage('How are you doing?'),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.middle,
+    status: UiMessageStatus.sent,
+  ),
+  UiConversationMessage(
+    id: 5.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:03:00.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: '''Nice to see you both here! 👋
 
@@ -111,10 +125,161 @@ This is a message with multiple lines. It should be properly displayed in the me
 
 This is a message with multiple lines. It should be properly displayed in the message bubble and split between multiple lines.''',
           ),
+          attachments: [],
         ),
       ),
     ),
     position: UiFlightPosition.end,
+    status: UiMessageStatus.sent,
+  ),
+  UiConversationMessage(
+    id: 7.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:01.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "This is a delivered message",
+          content: simpleMessage("This is a delivered message"),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.delivered,
+  ),
+  UiConversationMessage(
+    id: 8.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:02.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "This is a read message",
+          content: simpleMessage("This is a read message"),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.read,
+  ),
+];
+
+final imageAttachment = UiAttachment(
+  attachmentId: 2.attachmentId(),
+  filename: "image.png",
+  size: 10 * 1024 * 1024,
+  contentType: 'image/png',
+  description: "A woman eating a donut",
+  imageMetadata: const UiImageMetadata(
+    blurhash: "LEHLk~WB2yk8pyo0adR*.7kCMdnj",
+    width: 100,
+    height: 50,
+  ),
+);
+
+final attachmentMessages = [
+  UiConversationMessage(
+    id: 6.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:00.000Z',
+    position: UiFlightPosition.start,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "A File Attachment",
+          content: simpleMessage('A File Attachment'),
+          attachments: [
+            UiAttachment(
+              attachmentId: 1.attachmentId(),
+              filename: "file.zip",
+              contentType: "application/zip",
+              size: 1024,
+              description: "Failing golden tests",
+            ),
+          ],
+        ),
+      ),
+    ),
+    status: UiMessageStatus.sent,
+  ),
+  UiConversationMessage(
+    id: 7.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:01.000Z',
+    position: UiFlightPosition.end,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "Look what I've got to eat",
+          content: simpleMessage("Look what I've got to eat"),
+          attachments: [imageAttachment],
+        ),
+      ),
+    ),
+    status: UiMessageStatus.sent,
+  ),
+  UiConversationMessage(
+    id: 8.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:02.000Z',
+    position: UiFlightPosition.single,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          attachments: [imageAttachment],
+        ),
+      ),
+    ),
+    status: UiMessageStatus.sent,
+  ),
+  UiConversationMessage(
+    id: 9.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:03.000Z',
+    position: UiFlightPosition.single,
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "Small image",
+          content: simpleMessage("Small image"),
+          attachments: [
+            imageAttachment.copyWith(
+              imageMetadata: imageAttachment.imageMetadata!.copyWith(
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    status: UiMessageStatus.sent,
   ),
 ];
 
@@ -134,12 +299,14 @@ void main() {
     late MockUsersCubit contactsCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
+    late MockAttachmentsRepository attachmentsRepository;
 
     setUp(() async {
       userCubit = MockUserCubit();
       contactsCubit = MockUsersCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
+      attachmentsRepository = MockAttachmentsRepository();
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
@@ -153,25 +320,31 @@ void main() {
       ).thenAnswer((_) => Future.value());
     });
 
-    Widget buildSubject() => MultiBlocProvider(
-      providers: [
-        BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ConversationDetailsCubit>.value(
-          value: conversationDetailsCubit,
+    Widget buildSubject() => RepositoryProvider<AttachmentsRepository>.value(
+      value: attachmentsRepository,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<UserCubit>.value(value: userCubit),
+          BlocProvider<UsersCubit>.value(value: contactsCubit),
+          BlocProvider<ConversationDetailsCubit>.value(
+            value: conversationDetailsCubit,
+          ),
+          BlocProvider<MessageListCubit>.value(value: messageListCubit),
+        ],
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: themeData(context),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              home: const Scaffold(
+                body: MessageListView(
+                  createMessageCubit: createMockMessageCubit,
+                ),
+              ),
+            );
+          },
         ),
-        BlocProvider<MessageListCubit>.value(value: messageListCubit),
-      ],
-      child: Builder(
-        builder: (context) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: themeData(context),
-            home: const Scaffold(
-              body: MessageListView(createMessageCubit: createMockMessageCubit),
-            ),
-          );
-        },
       ),
     );
 
@@ -198,6 +371,27 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/message_list.png'),
+      );
+    });
+
+    testWidgets('renders correctly with attachments', (tester) async {
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages + attachmentMessages));
+      when(
+        () => attachmentsRepository.loadImageAttachment(
+          attachmentId: imageAttachment.attachmentId,
+          chunkEventCallback: any(named: "chunkEventCallback"),
+        ),
+      ).thenAnswer((_) async => Future.any([]));
+
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+      await tester.pumpWidget(buildSubject());
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/message_list_attachments.png'),
       );
     });
   });

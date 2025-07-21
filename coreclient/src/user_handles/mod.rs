@@ -6,22 +6,19 @@ use anyhow::Context;
 pub use persistence::UserHandleRecord;
 use phnxcommon::{
     credentials::keys::HandleSigningKey,
-    crypto::signatures::signable::Signable,
-    identifiers::UserHandle,
-    messages::{
-        MlsInfraVersion,
-        client_as::{ConnectionPackage, ConnectionPackageTbs},
-    },
-    time::ExpirationData,
+    crypto::ConnectionDecryptionKey,
+    identifiers::{UserHandle, UserHandleHash},
+    messages::connection_package::ConnectionPackage,
 };
 use tracing::error;
 
 use crate::{
-    clients::{CONNECTION_PACKAGE_EXPIRATION, CONNECTION_PACKAGES, CoreUser},
-    key_stores::MemoryUserKeyStore,
+    clients::{CONNECTION_PACKAGES, CoreUser},
     store::StoreResult,
+    user_handles::connection_packages::StorableConnectionPackage,
 };
 
+pub(crate) mod connection_packages;
 mod persistence;
 
 impl CoreUser {
@@ -45,24 +42,45 @@ impl CoreUser {
 
         let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
 
-        let rollback = async || {
+        let rollback = async |delete_locally: bool| {
             api_client
                 .as_delete_handle(record.hash, &record.signing_key)
                 .await
                 .inspect_err(|error| {
-                    error!(%error, "failed to delete user handle in rollback");
+                    error!(%error, "failed to delete user handle on the server in rollback");
                 })
                 .ok();
+            if delete_locally {
+                UserHandleRecord::delete(self.pool(), &record.handle)
+                    .await
+                    .inspect_err(|error| {
+                        error!(%error, "failed to delete user handle locally in rollback");
+                    })
+                    .ok();
+            }
         };
 
-        if let Err(error) = record.store(self.pool()).await {
-            error!(%error, "failed to store user handle; rollback on the server");
-            rollback().await;
+        let mut txn = self.pool().begin().await?;
+        if let Err(error) = record.store(&mut *txn).await {
+            error!(%error, "failed to store user handle; rollback");
+            rollback(false).await;
             return Err(error.into());
         }
 
         // Publish connection packages
-        let connection_packages = generate_connection_packages(self.key_store())?;
+        let connection_package_bundles =
+            generate_connection_packages(&record.signing_key, record.hash)?;
+
+        // Store connection packages in the database
+        let mut connection_packages = Vec::with_capacity(connection_package_bundles.len());
+        for (decryption_key, connection_package) in connection_package_bundles {
+            connection_package
+                .store_for_handle(&mut txn, handle, &decryption_key)
+                .await?;
+            connection_packages.push(connection_package);
+        }
+        txn.commit().await?;
+
         if let Err(error) = api_client
             .as_publish_connection_packages_for_handle(
                 hash,
@@ -71,8 +89,8 @@ impl CoreUser {
             )
             .await
         {
-            error!(%error, "failed to publish connection packages; rollback on the server");
-            rollback().await;
+            error!(%error, "failed to publish connection packages; rollback");
+            rollback(true).await;
             return Err(error.into());
         }
 
@@ -96,20 +114,12 @@ impl CoreUser {
 }
 
 fn generate_connection_packages(
-    key_store: &MemoryUserKeyStore,
-) -> anyhow::Result<Vec<ConnectionPackage>> {
-    // TODO: For now, we use the same ConnectionDecryptionKey for all
-    // connection packages.
+    signing_key: &HandleSigningKey,
+    hash: UserHandleHash,
+) -> anyhow::Result<Vec<(ConnectionDecryptionKey, ConnectionPackage)>> {
     let mut connection_packages = Vec::with_capacity(CONNECTION_PACKAGES);
     for _ in 0..CONNECTION_PACKAGES {
-        let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
-        let connection_package_tbs = ConnectionPackageTbs::new(
-            MlsInfraVersion::default(),
-            key_store.connection_decryption_key.encryption_key().clone(),
-            lifetime,
-            key_store.signing_key.credential().clone(),
-        );
-        let connection_package = connection_package_tbs.sign(&key_store.signing_key)?;
+        let connection_package = ConnectionPackage::new(hash, signing_key)?;
         connection_packages.push(connection_package);
     }
     Ok(connection_packages)

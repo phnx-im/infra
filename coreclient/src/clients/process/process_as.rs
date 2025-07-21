@@ -9,9 +9,10 @@ use phnxcommon::{
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{QualifiedGroupId, UserHandle},
     messages::{
-        client_as::EncryptedConnectionOffer,
+        client_as::ConnectionOfferMessage,
         client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
+        connection_package::{ConnectionPackage, ConnectionPackageHash},
     },
 };
 use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
@@ -25,6 +26,7 @@ use crate::{
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
+    user_handles::connection_packages::StorableConnectionPackage,
     utils::connection_ext::ConnectionExt,
 };
 
@@ -56,12 +58,12 @@ impl CoreUser {
     async fn process_connection_offer(
         &self,
         handle: UserHandle,
-        ecep: EncryptedConnectionOffer,
+        ecep: ConnectionOfferMessage,
     ) -> Result<ConversationId> {
         let mut connection = self.pool().acquire().await?;
 
         // Parse & verify connection offer
-        let cep_payload = self
+        let (cep_payload, hash) = self
             .parse_and_verify_connection_offer(&mut connection, ecep, handle.clone())
             .await?;
 
@@ -138,6 +140,11 @@ impl CoreUser {
         self.send_confirmation_to_ds(commit, group_info, &cep_payload, qgid)
             .await?;
 
+        // Delete the connection package
+        ConnectionPackage::delete(&mut connection, &hash)
+            .await
+            .context("Failed to delete connection package")?;
+
         notifier.notify();
 
         // Return the conversation ID
@@ -148,15 +155,17 @@ impl CoreUser {
     async fn parse_and_verify_connection_offer(
         &self,
         connection: &mut SqliteConnection,
-        ecep: EncryptedConnectionOffer,
+        com: ConnectionOfferMessage,
         user_handle: UserHandle,
-    ) -> Result<ConnectionOfferPayload> {
-        let cep_in = ConnectionOfferIn::decrypt(
-            ecep,
-            &self.inner.key_store.connection_decryption_key,
-            &[],
-            &[],
-        )?;
+    ) -> Result<(ConnectionOfferPayload, ConnectionPackageHash)> {
+        // TODO: Fetch the right key based on the hash in the ConnectionOfferMessage.
+        let (eco, hash) = com.into_parts();
+
+        let decryption_key = ConnectionPackage::load_decryption_key(connection, &hash)
+            .await?
+            .context("No decryption key found for incoming connection offer")?;
+
+        let cep_in = ConnectionOfferIn::decrypt(eco, &decryption_key, &[], &[])?;
         // Fetch authentication AS credentials of the sender if we don't have them already.
         let sender_domain = cep_in.sender_domain();
 
@@ -168,12 +177,18 @@ impl CoreUser {
             cep_in.signer_fingerprint(),
         )
         .await?;
-        cep_in
-            .verify(as_intermediate_credential.verifying_key(), user_handle)
+        let payload = cep_in
+            .verify(
+                as_intermediate_credential.verifying_key(),
+                user_handle,
+                hash,
+            )
             .map_err(|error| {
                 error!(%error, "Error verifying connection offer");
                 anyhow!("Error verifying connection offer")
-            })
+            })?;
+
+        Ok((payload, hash))
     }
 
     fn prepare_group(

@@ -9,9 +9,12 @@ use std::{
 };
 
 use anyhow::Context;
-use mimi_content::MimiContent;
+use mimi_content::{
+    MimiContent,
+    content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
+};
 use phnxcommon::{
-    DEFAULT_PORT_HTTP,
+    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
     identifiers::{Fqdn, UserHandle, UserId},
 };
 use phnxcoreclient::{
@@ -349,8 +352,7 @@ impl TestBackend {
         user1.add_contact(user2_handle.clone()).await.unwrap();
         let mut user1_handle_contacts_after = user1.handle_contacts().await.unwrap();
         let error_msg = format!(
-            "User 2 should be in the handle contacts list of user 1. List: {:?}",
-            user1_handle_contacts_after,
+            "User 2 should be in the handle contacts list of user 1. List: {user1_handle_contacts_after:?}",
         );
         let new_user_position = user1_handle_contacts_after
             .iter()
@@ -590,7 +592,8 @@ impl TestBackend {
             .take(32)
             .map(char::from)
             .collect();
-        let orig_message = MimiContent::simple_markdown_message(message);
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let orig_message = MimiContent::simple_markdown_message(message, salt);
         let test_sender = self.users.get_mut(sender_id).unwrap();
         let sender = &mut test_sender.user;
 
@@ -605,17 +608,25 @@ impl TestBackend {
 
         let message = test_sender
             .user
-            .send_message(conversation_id, orig_message.clone())
+            .send_message(conversation_id, orig_message.clone(), None)
             .await
             .unwrap();
         let sender_user_id = test_sender.user.user_id().clone();
+
+        let conversation = test_sender
+            .user
+            .conversation(&conversation_id)
+            .await
+            .unwrap();
+        let group_id = conversation.group_id();
 
         assert_eq!(
             message.message(),
             &Message::Content(Box::new(ContentMessage::new(
                 test_sender.user.user_id().clone(),
                 true,
-                orig_message.clone()
+                orig_message.clone(),
+                group_id,
             )))
         );
 
@@ -630,16 +641,136 @@ impl TestBackend {
                 .await
                 .unwrap();
 
+            let message = messages.new_messages.last().unwrap();
+            let conversaion = recipient_user
+                .conversation(&message.conversation_id())
+                .await
+                .unwrap();
+            let group_id = conversaion.group_id();
+
             assert_eq!(
-                messages.new_messages.last().unwrap().message(),
+                message.message(),
                 &Message::Content(Box::new(ContentMessage::new(
                     sender_user_id.clone(),
                     true,
-                    orig_message.clone()
+                    orig_message.clone(),
+                    group_id
                 )))
             );
         }
         message.id()
+    }
+
+    pub async fn send_attachment(
+        &mut self,
+        conversation_id: ConversationId,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
+        attachment: &[u8],
+        filename: &str,
+    ) -> (ConversationMessageId, NestedPartContent) {
+        let recipient_strings = recipients
+            .iter()
+            .map(|n| format!("{n:?}"))
+            .collect::<Vec<_>>();
+        info!(
+            "{sender_id:?} sends a message to {}",
+            recipient_strings.join(", ")
+        );
+
+        let test_sender = self.users.get_mut(sender_id).unwrap();
+        let sender = &mut test_sender.user;
+
+        // Before sending a message, the sender must first fetch and process its QS messages.
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
+        sender
+            .fully_process_qs_messages(sender_qs_messages)
+            .await
+            .unwrap();
+
+        let tmp_dir = TempDir::new().unwrap();
+        let path = tmp_dir.path().join(filename);
+        std::fs::write(&path, attachment).unwrap();
+
+        let message = sender
+            .upload_attachment(conversation_id, &path)
+            .await
+            .unwrap();
+
+        let mut external_part = None;
+        message
+            .message()
+            .mimi_content()
+            .unwrap()
+            .visit_attachments(|part| {
+                assert!(external_part.replace(part.clone()).is_none());
+                Ok(())
+            })
+            .unwrap();
+        let external_part = external_part.unwrap();
+        match &external_part {
+            NestedPartContent::ExternalPart {
+                enc_alg,
+                key,
+                nonce,
+                hash_alg,
+                ..
+            } => {
+                assert_eq!(*enc_alg, EncryptionAlgorithm::Aes256Gcm12);
+                assert_eq!(nonce.len(), 12);
+                assert_eq!(key.len(), 32);
+                assert_eq!(*hash_alg, HashAlgorithm::Sha256);
+            }
+            _ => panic!("unexpected attachment type"),
+        };
+
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
+            let recipient_user = &mut recipient.user;
+
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
+                .await
+                .unwrap();
+
+            let mut attachment_found_once = false;
+            messages
+                .new_messages
+                .last()
+                .unwrap()
+                .message()
+                .mimi_content()
+                .unwrap()
+                .visit_attachments(|part| {
+                    assert!(!attachment_found_once);
+
+                    // Removed cleared fields from the expected attachment.
+                    let mut expected = external_part.clone();
+                    if let NestedPartContent::ExternalPart {
+                        key,
+                        nonce,
+                        aad,
+                        content_hash,
+                        ..
+                    } = &mut expected
+                    {
+                        key.clear();
+                        nonce.clear();
+                        aad.clear();
+                        content_hash.clear();
+                    } else {
+                        panic!("Unexpected attachment type")
+                    }
+
+                    assert_eq!(part, &expected);
+                    attachment_found_once = true;
+                    Ok(())
+                })
+                .unwrap();
+        }
+
+        (message.id(), external_part)
     }
 
     pub async fn create_group(&mut self, user_id: &UserId) -> ConversationId {

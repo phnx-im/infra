@@ -9,7 +9,6 @@ import 'package:prototype/user/user.dart';
 
 import 'conversation_list_content.dart';
 import 'conversation_list_cubit.dart';
-import 'conversation_list_footer.dart';
 import 'conversation_list_header.dart';
 
 class ConversationListContainer extends StatelessWidget {
@@ -36,24 +35,14 @@ class ConversationListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        shape: BoxShape.rectangle,
-        border: Border(right: BorderSide(width: 1, color: colorGreyLight)),
-      ),
-      child: Scaffold(
-        backgroundColor:
-            isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
-        body: Padding(
-          padding: EdgeInsets.only(top: _topPadding()),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ConversationListHeader(),
-              Expanded(child: ConversationListContent()),
-              ConversationListFooter(),
-            ],
-          ),
-        ),
+      color: isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+      padding: EdgeInsets.only(top: _topPadding()),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ConversationListHeader(),
+          Expanded(child: ConversationListContent()),
+        ],
       ),
     );
   }

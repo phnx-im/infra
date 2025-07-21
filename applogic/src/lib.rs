@@ -9,8 +9,10 @@ pub(crate) use frb_generated::*;
 pub mod api;
 pub mod background_execution;
 
+#[allow(clippy::uninlined_format_args)]
 pub(crate) mod frb_generated;
 pub(crate) mod logging;
+pub(crate) mod message_content;
 pub(crate) mod messages;
 pub(crate) mod notifications;
 pub(crate) mod util;

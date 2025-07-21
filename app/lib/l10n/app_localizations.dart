@@ -128,6 +128,12 @@ abstract class AppLocalizations {
   /// **'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.'**
   String get userSettingsScreen_userNamesDescription;
 
+  /// No description provided for @userSettingsScreen_interfaceScale.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface scale'**
+  String get userSettingsScreen_interfaceScale;
+
   /// No description provided for @removeUsernameDialog_title.
   ///
   /// In en, this message translates to:
@@ -242,12 +248,6 @@ abstract class AppLocalizations {
   /// **'Remove user'**
   String get removeUserButton_text;
 
-  /// No description provided for @introScreen_developerSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Developer Settings'**
-  String get introScreen_developerSettings;
-
   /// No description provided for @introScreen_signUp.
   ///
   /// In en, this message translates to:
@@ -269,7 +269,7 @@ abstract class AppLocalizations {
   /// No description provided for @userHandleScreen_error_emptyHandle.
   ///
   /// In en, this message translates to:
-  /// **'User handle cannot be empty'**
+  /// **'Username cannot be empty'**
   String get userHandleScreen_error_emptyHandle;
 
   /// No description provided for @userHandleScreen_description.
@@ -356,17 +356,59 @@ abstract class AppLocalizations {
   /// **'Yesterday'**
   String get timestamp_yesterday;
 
-  /// No description provided for @conversationList_newConnection.
+  /// No description provided for @conversationList_newContact.
   ///
   /// In en, this message translates to:
-  /// **'New connection'**
-  String get conversationList_newConnection;
+  /// **'New contact'**
+  String get conversationList_newContact;
 
-  /// No description provided for @conversationList_newConversation.
+  /// No description provided for @conversationList_newGroup.
   ///
   /// In en, this message translates to:
-  /// **'New conversation'**
-  String get conversationList_newConversation;
+  /// **'New group'**
+  String get conversationList_newGroup;
+
+  /// No description provided for @conversationList_emptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new connection to get started'**
+  String get conversationList_emptyMessage;
+
+  /// No description provided for @conversationList_draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get conversationList_draft;
+
+  /// No description provided for @conversationList_you.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get conversationList_you;
+
+  /// No description provided for @conversationList_imageEmoji.
+  ///
+  /// In en, this message translates to:
+  /// **'🖼️'**
+  String get conversationList_imageEmoji;
+
+  /// No description provided for @conversationList_fileEmoji.
+  ///
+  /// In en, this message translates to:
+  /// **'📎'**
+  String get conversationList_fileEmoji;
+
+  /// No description provided for @settings_profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get settings_profile;
+
+  /// No description provided for @settings_developerSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings (developer)'**
+  String get settings_developerSettings;
 
   /// No description provided for @newConversationDialog_newConversationTitle.
   ///
@@ -395,8 +437,14 @@ abstract class AppLocalizations {
   /// No description provided for @newConversationDialog_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to add conversation with name {conversationName}: {error}'**
-  String newConversationDialog_error(Object conversationName, Object error);
+  /// **'Failed to add conversation with name {conversationName}'**
+  String newConversationDialog_error(Object conversationName);
+
+  /// No description provided for @newConversationDialog_error_emptyGroupName.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation name cannot be empty'**
+  String get newConversationDialog_error_emptyGroupName;
 
   /// No description provided for @newConnectionDialog_newConnectionTitle.
   ///
@@ -425,8 +473,50 @@ abstract class AppLocalizations {
   /// No description provided for @newConnectionDialog_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to add user with Username {username}: {error}'**
-  String newConnectionDialog_error(Object error, Object username);
+  /// **'Failed to add user with Username {username}. Please try again.'**
+  String newConnectionDialog_error(Object username);
+
+  /// No description provided for @newConnectionDialog_error_emptyHandle.
+  ///
+  /// In en, this message translates to:
+  /// **'Username cannot be empty'**
+  String get newConnectionDialog_error_emptyHandle;
+
+  /// No description provided for @newConnectionDialog_error_handleNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Username {username} does not exist'**
+  String newConnectionDialog_error_handleNotFound(Object username);
+
+  /// No description provided for @composer_inputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message {conversationTitle}'**
+  String composer_inputHint(Object conversationTitle);
+
+  /// No description provided for @composer_editMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Message'**
+  String get composer_editMessage;
+
+  /// No description provided for @composer_error_attachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to upload attachment. Please try again.'**
+  String get composer_error_attachment;
+
+  /// No description provided for @attachmentSize.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} {byteUnit}'**
+  String attachmentSize(double size, Object byteUnit);
+
+  /// No description provided for @textMessage_edited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get textMessage_edited;
 }
 
 class _AppLocalizationsDelegate

@@ -5,13 +5,14 @@
 use displaydoc::Display;
 use futures_util::Stream;
 use phnxcommon::{
-    identifiers::UserHandleHash, messages::client_as::ConnectionPackage, time::ExpirationData,
+    identifiers::UserHandleHash, messages::connection_package::ConnectionPackage,
+    time::ExpirationData,
 };
 use phnxprotos::{
     auth_service::{
         convert::UserHandleHashError,
         v1::{
-            ConnectRequest, ConnectResponse, EncryptedConnectionOffer,
+            ConnectRequest, ConnectResponse, ConnectionOfferMessage,
             EnqueueConnectionOfferResponse, FetchConnectionPackageResponse, connect_request,
             connect_response, handle_queue_message,
         },
@@ -56,7 +57,7 @@ pub(crate) trait ConnectHandleProtocol {
     async fn enqueue_connection_offer(
         &self,
         hash: &UserHandleHash,
-        connection_offer: EncryptedConnectionOffer,
+        connection_offer: ConnectionOfferMessage,
     ) -> Result<(), HandleQueueError>;
 }
 
@@ -221,7 +222,7 @@ impl ConnectHandleProtocol for AuthService {
     async fn enqueue_connection_offer(
         &self,
         hash: &UserHandleHash,
-        connection_offer: EncryptedConnectionOffer,
+        connection_offer: ConnectionOfferMessage,
     ) -> Result<(), HandleQueueError> {
         let payload = handle_queue_message::Payload::ConnectionOffer(connection_offer);
         self.handle_queues.enqueue(hash, payload).await?;
@@ -254,18 +255,18 @@ mod tests {
     use std::time;
 
     use mockall::predicate::*;
-    use phnxcommon::{credentials::keys::HandleVerifyingKey, identifiers::UserId, time::Duration};
+    use phnxcommon::{
+        credentials::keys::{HandleSigningKey, HandleVerifyingKey},
+        time::Duration,
+    };
     use phnxprotos::auth_service::v1::{
-        self, EncryptedConnectionOffer, EnqueueConnectionOfferResponse, EnqueueConnectionOfferStep,
+        self, ConnectionOfferMessage, EnqueueConnectionOfferResponse, EnqueueConnectionOfferStep,
         FetchConnectionPackageStep,
     };
     use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
 
-    use crate::auth_service::{
-        client_record::persistence::tests::random_client_record,
-        connection_package::persistence::tests::random_connection_package,
-    };
+    use crate::auth_service::connection_package::persistence::tests::random_connection_package;
 
     use super::*;
 
@@ -310,13 +311,12 @@ mod tests {
     async fn connect_handle_protocol_success() -> anyhow::Result<()> {
         init_test_tracing();
 
-        let user_id = UserId::random("example.com".parse()?);
-        let client_credential = random_client_record(user_id)?.credential().clone();
+        let signing_key = HandleSigningKey::generate().unwrap();
 
         let hash = UserHandleHash::new([1; 32]);
         let expiration_data = ExpirationData::new(Duration::days(1));
-        let connection_package = random_connection_package(client_credential);
-        let connection_offer = EncryptedConnectionOffer::default();
+        let connection_package = random_connection_package(signing_key.verifying_key().clone());
+        let connection_offer = ConnectionOfferMessage::default();
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
 
@@ -485,12 +485,11 @@ mod tests {
 
         // fetch in step 2
 
-        let user_id = UserId::random("example.com".parse()?);
-        let client_credential = random_client_record(user_id)?.credential().clone();
+        let signing_key = HandleSigningKey::generate()?;
 
         let hash = UserHandleHash::new([1; 32]);
         let expiration_data = ExpirationData::new(Duration::days(1));
-        let connection_package = random_connection_package(client_credential);
+        let connection_package = random_connection_package(signing_key.verifying_key().clone());
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
 

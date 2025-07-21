@@ -47,10 +47,12 @@ class _NoConversations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Container(
       alignment: AlignmentDirectional.center,
+      padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       child: Text(
-        'Create a new connection to get started',
+        loc.conversationList_emptyMessage,
         style: TextStyle(
           fontSize: isLargeScreen(context) ? 14 : 15,
           color: Colors.black54,
@@ -222,11 +224,12 @@ class _LastMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId = context.select(
-      (NavigationCubit cubit) => cubit.state.conversationId,
+    final isCurrentConversation = context.select(
+      (NavigationCubit cubit) => cubit.state.conversationId == conversation.id,
     );
 
     final lastMessage = conversation.lastMessage;
+    final draftMessage = conversation.draft?.message.trim();
 
     final readStyle = TextStyle(
       color: colorDMB,
@@ -234,32 +237,55 @@ class _LastMessage extends StatelessWidget {
       height: 1.2,
     ).merge(VariableFontWeight.normal);
     final unreadStyle = readStyle.merge(VariableFontWeight.medium);
+    final draftStyle = readStyle.copyWith(fontStyle: FontStyle.italic);
 
-    final contentStyle =
-        conversation.id != currentConversationId &&
-                conversation.unreadMessages > 0
+    final showDraft =
+        !isCurrentConversation && draftMessage?.isNotEmpty == true;
+
+    final prefixStyle =
+        showDraft ? draftStyle : readStyle.merge(VariableFontWeight.semiBold);
+
+    final suffixStyle =
+        isCurrentConversation && conversation.unreadMessages > 0
             ? unreadStyle
             : readStyle;
 
-    final senderStyle = readStyle.merge(VariableFontWeight.semiBold);
+    final loc = AppLocalizations.of(context);
 
-    final (sender, displayedLastMessage) = switch (lastMessage?.message) {
-      UiMessage_Content(field0: final content) => (
-        content.sender == ownClientId ? 'You: ' : null,
-        content.content.plainBody,
-      ),
-      UiMessage_Display() => (null, null),
-      null => (null, null),
-    };
+    final prefix =
+        showDraft
+            ? "${loc.conversationList_draft}: "
+            : switch (lastMessage?.message) {
+              UiMessage_Content(field0: final content)
+                  when content.sender == ownClientId =>
+                "${loc.conversationList_you}: ",
+              _ => null,
+            };
+
+    final suffix =
+        showDraft
+            ? draftMessage
+            : switch (lastMessage?.message) {
+              UiMessage_Content(field0: final content) =>
+                content.content.plainBody?.isNotEmpty == true
+                    ? content.content.plainBody
+                    : content.content.attachments.isNotEmpty
+                    ? content.content.attachments.first.imageMetadata != null
+                        ? loc.conversationList_imageEmoji
+                        : loc.conversationList_fileEmoji
+                    : '',
+              _ => null,
+            };
 
     return Text.rich(
       maxLines: 2,
       softWrap: true,
       overflow: TextOverflow.ellipsis,
       TextSpan(
-        text: sender,
-        style: senderStyle,
-        children: [TextSpan(text: displayedLastMessage, style: contentStyle)],
+        children: [
+          TextSpan(text: prefix, style: prefixStyle),
+          TextSpan(text: suffix, style: suffixStyle),
+        ],
       ),
     );
   }

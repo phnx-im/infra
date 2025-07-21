@@ -7,14 +7,20 @@ use openmls::prelude::HpkeCiphertext;
 use phnxcommon::{
     credentials::{self, keys},
     crypto, identifiers,
-    messages::{self, client_as},
-    time,
+    messages::{
+        self,
+        client_as::{self},
+        connection_package::ConnectionPackageHashError,
+    },
 };
 use thiserror::Error;
 use tonic::Status;
 
 use crate::{
-    common::{convert::InvalidIndexedCiphertext, v1::Signature},
+    common::{
+        convert::{ExpirationDataError, InvalidIndexedCiphertext},
+        v1::Signature,
+    },
     convert::TryRefInto,
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -23,9 +29,9 @@ use super::v1::{
     AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
     AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
-    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionPackage, ConnectionPackagePayload,
-    CredentialFingerprint, EncryptedConnectionOffer, EncryptedUserProfile, ExpirationData,
-    HandleSignature, HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
+    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionOfferMessage, ConnectionPackage,
+    ConnectionPackagePayload, CredentialFingerprint, EncryptedUserProfile, HandleSignature,
+    HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -180,32 +186,6 @@ impl TryFrom<MlsInfraVersion> for messages::MlsInfraVersion {
     }
 }
 
-impl TryFrom<ExpirationData> for time::ExpirationData {
-    type Error = ExpirationDataError;
-
-    fn try_from(value: ExpirationData) -> Result<Self, Self::Error> {
-        Ok(Self::from_parts(
-            value.not_before.ok_or_missing_field("not_before")?.into(),
-            value.not_after.ok_or_missing_field("not_after")?.into(),
-        ))
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ExpirationDataError {
-    #[error(transparent)]
-    MissingField(#[from] MissingFieldError<&'static str>),
-}
-
-impl From<time::ExpirationData> for ExpirationData {
-    fn from(value: time::ExpirationData) -> Self {
-        Self {
-            not_before: Some(value.not_before().into()),
-            not_after: Some(value.not_after().into()),
-        }
-    }
-}
-
 impl From<credentials::CredentialFingerprint> for CredentialFingerprint {
     fn from(value: credentials::CredentialFingerprint) -> Self {
         Self {
@@ -292,8 +272,8 @@ impl From<ClientCredentialPayloadError> for Status {
     }
 }
 
-impl From<messages::client_as::ConnectionPackage> for ConnectionPackage {
-    fn from(value: messages::client_as::ConnectionPackage) -> Self {
+impl From<messages::connection_package::ConnectionPackage> for ConnectionPackage {
+    fn from(value: messages::connection_package::ConnectionPackage) -> Self {
         let (payload, signature) = value.into_parts();
         Self {
             payload: Some(payload.into()),
@@ -302,7 +282,7 @@ impl From<messages::client_as::ConnectionPackage> for ConnectionPackage {
     }
 }
 
-impl TryFrom<ConnectionPackage> for messages::client_as_out::ConnectionPackageIn {
+impl TryFrom<ConnectionPackage> for messages::connection_package::ConnectionPackageIn {
     type Error = ConnectionPackageError;
 
     fn try_from(proto: ConnectionPackage) -> Result<Self, Self::Error> {
@@ -327,18 +307,19 @@ impl From<ConnectionPackageError> for Status {
     }
 }
 
-impl From<messages::client_as::ConnectionPackageTbs> for ConnectionPackagePayload {
-    fn from(value: messages::client_as::ConnectionPackageTbs) -> Self {
+impl From<messages::connection_package::ConnectionPackagePayload> for ConnectionPackagePayload {
+    fn from(value: messages::connection_package::ConnectionPackagePayload) -> Self {
         Self {
             protocol_version: Some(value.protocol_version.into()),
             encryption_key: Some(value.encryption_key.into()),
             lifetime: Some(value.lifetime.into()),
-            client_credential: Some(value.client_credential.into()),
+            verifying_key: Some(value.verifying_key.into()),
+            user_handle_hash: Some(value.user_handle_hash.into()),
         }
     }
 }
 
-impl TryFrom<ConnectionPackagePayload> for messages::client_as_out::ConnectionPackageTbsIn {
+impl TryFrom<ConnectionPackagePayload> for messages::connection_package::ConnectionPackagePayload {
     type Error = ConnectionPackagePayloadError;
 
     fn try_from(proto: ConnectionPackagePayload) -> Result<Self, Self::Error> {
@@ -352,9 +333,13 @@ impl TryFrom<ConnectionPackagePayload> for messages::client_as_out::ConnectionPa
                 .ok_or_missing_field("encryption_key")?
                 .into(),
             lifetime: proto.lifetime.ok_or_missing_field("lifetime")?.try_into()?,
-            client_credential: proto
-                .client_credential
-                .ok_or_missing_field("client_credential")?
+            verifying_key: proto
+                .verifying_key
+                .ok_or_missing_field("verifying_key")?
+                .into(),
+            user_handle_hash: proto
+                .user_handle_hash
+                .ok_or_missing_field("user_handle_hash")?
                 .try_into()?,
         })
     }
@@ -370,6 +355,8 @@ pub enum ConnectionPackagePayloadError {
     Lifetime(#[from] ExpirationDataError),
     #[error(transparent)]
     ClientCredential(#[from] ClientCredentialError),
+    #[error(transparent)]
+    UserHandleHash(#[from] UserHandleHashError),
 }
 
 impl From<crypto::ConnectionEncryptionKey> for ConnectionEncryptionKey {
@@ -649,20 +636,32 @@ impl From<AsIntermediateVerifyingKey> for credentials::keys::AsIntermediateVerif
     }
 }
 
-impl From<client_as::EncryptedConnectionOffer> for EncryptedConnectionOffer {
-    fn from(value: client_as::EncryptedConnectionOffer) -> Self {
+impl From<client_as::ConnectionOfferMessage> for ConnectionOfferMessage {
+    fn from(value: client_as::ConnectionOfferMessage) -> Self {
+        let (ciphertext, connection_package_hash) = value.into_parts();
+        let ciphertext: HpkeCiphertext = ciphertext.as_ref().clone();
         Self {
-            ciphertext: Some(value.into_ciphertext().into()),
+            ciphertext: Some(ciphertext.into()),
+            connection_package_hash: connection_package_hash.to_bytes().to_vec(),
         }
     }
 }
 
-impl TryFrom<EncryptedConnectionOffer> for client_as::EncryptedConnectionOffer {
-    type Error = MissingFieldError<&'static str>;
+#[derive(Debug, thiserror::Error, Display)]
+pub enum ConnectionOfferMessageError {
+    /// Missing ciphertext field
+    MissingCiphertext(#[from] MissingFieldError<&'static str>),
+    /// Invalid connection package hash
+    InvalidConnectionPackageHash(#[from] ConnectionPackageHashError),
+}
 
-    fn try_from(proto: EncryptedConnectionOffer) -> Result<Self, Self::Error> {
+impl TryFrom<ConnectionOfferMessage> for client_as::ConnectionOfferMessage {
+    type Error = ConnectionOfferMessageError;
+
+    fn try_from(proto: ConnectionOfferMessage) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
-        Ok(ciphertext.into())
+        let connection_package_hash = proto.connection_package_hash.try_into()?;
+        Ok(Self::new(connection_package_hash, ciphertext.into()))
     }
 }
 

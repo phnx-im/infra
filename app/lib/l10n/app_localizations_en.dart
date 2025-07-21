@@ -30,6 +30,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.';
 
   @override
+  String get userSettingsScreen_interfaceScale => 'Interface scale';
+
+  @override
   String get removeUsernameDialog_title => 'Remove Username';
 
   @override
@@ -92,9 +95,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUserButton_text => 'Remove user';
 
   @override
-  String get introScreen_developerSettings => 'Developer Settings';
-
-  @override
   String get introScreen_signUp => 'Sign up';
 
   @override
@@ -104,8 +104,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userHandleScreen_inputHint => 'Username';
 
   @override
-  String get userHandleScreen_error_emptyHandle =>
-      'User handle cannot be empty';
+  String get userHandleScreen_error_emptyHandle => 'Username cannot be empty';
 
   @override
   String get userHandleScreen_description =>
@@ -152,10 +151,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timestamp_yesterday => 'Yesterday';
 
   @override
-  String get conversationList_newConnection => 'New connection';
+  String get conversationList_newContact => 'New contact';
 
   @override
-  String get conversationList_newConversation => 'New conversation';
+  String get conversationList_newGroup => 'New group';
+
+  @override
+  String get conversationList_emptyMessage =>
+      'Create a new connection to get started';
+
+  @override
+  String get conversationList_draft => 'Draft';
+
+  @override
+  String get conversationList_you => 'You';
+
+  @override
+  String get conversationList_imageEmoji => '🖼️';
+
+  @override
+  String get conversationList_fileEmoji => '📎';
+
+  @override
+  String get settings_profile => 'Profile';
+
+  @override
+  String get settings_developerSettings => 'Settings (developer)';
 
   @override
   String get newConversationDialog_newConversationTitle => 'New conversation';
@@ -172,9 +193,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newConversationDialog_actionButton => 'Create conversation';
 
   @override
-  String newConversationDialog_error(Object conversationName, Object error) {
-    return 'Failed to add conversation with name $conversationName: $error';
+  String newConversationDialog_error(Object conversationName) {
+    return 'Failed to add conversation with name $conversationName';
   }
+
+  @override
+  String get newConversationDialog_error_emptyGroupName =>
+      'Conversation name cannot be empty';
 
   @override
   String get newConnectionDialog_newConnectionTitle => 'New connection';
@@ -190,7 +215,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newConnectionDialog_actionButton => 'Connect';
 
   @override
-  String newConnectionDialog_error(Object error, Object username) {
-    return 'Failed to add user with Username $username: $error';
+  String newConnectionDialog_error(Object username) {
+    return 'Failed to add user with Username $username. Please try again.';
   }
+
+  @override
+  String get newConnectionDialog_error_emptyHandle =>
+      'Username cannot be empty';
+
+  @override
+  String newConnectionDialog_error_handleNotFound(Object username) {
+    return 'Username $username does not exist';
+  }
+
+  @override
+  String composer_inputHint(Object conversationTitle) {
+    return 'Message $conversationTitle';
+  }
+
+  @override
+  String get composer_editMessage => 'Edit Message';
+
+  @override
+  String get composer_error_attachment =>
+      'Failed to upload attachment. Please try again.';
+
+  @override
+  String attachmentSize(double size, Object byteUnit) {
+    final intl.NumberFormat sizeNumberFormat = intl
+        .NumberFormat.decimalPatternDigits(
+      locale: localeName,
+      decimalDigits: 2,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return '$sizeString $byteUnit';
+  }
+
+  @override
+  String get textMessage_edited => 'edited';
 }

@@ -15,10 +15,14 @@ mod user_profiles;
 mod utils;
 
 pub use crate::{
+    clients::attachment::{
+        AttachmentContent, AttachmentStatus, AttachmentUrl, AttachmentUrlParseError,
+        DownloadProgress, DownloadProgressEvent, MimiContentExt,
+    },
     contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
-        InactiveConversation,
+        InactiveConversation, MessageDraft,
         messages::{
             ContentMessage, ConversationMessage, ConversationMessageId, ErrorMessage, EventMessage,
             Message, NotificationType, SystemMessage,
