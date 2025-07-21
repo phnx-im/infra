@@ -152,7 +152,7 @@ impl AsCredentials {
         let as_credentials: HashMap<Hash<AsCredentialBody>, AsCredential> = as_credentials_response
             .as_credentials
             .into_iter()
-            .map(|credential| (credential.fingerprint().clone(), credential))
+            .map(|credential| (*credential.fingerprint(), credential))
             .collect::<HashMap<_, _>>();
         let mut as_inter_creds = vec![];
         for as_inter_cred in as_credentials_response.as_intermediate_credentials {
@@ -183,10 +183,7 @@ impl AsCredentials {
                 verifiable_credential.signer_fingerprint(),
             )
             .await?;
-            as_credentials.insert(
-                verifiable_credential.signer_fingerprint().clone(),
-                as_credential,
-            );
+            as_credentials.insert(*verifiable_credential.signer_fingerprint(), as_credential);
         }
         Ok(as_credentials)
     }

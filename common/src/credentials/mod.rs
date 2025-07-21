@@ -214,7 +214,7 @@ impl AsIntermediateCredentialCsr {
         let expiration_data = expiration_data_option.unwrap_or(ExpirationData::new(
             DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME,
         ));
-        let signer_fingerprint = as_signing_key.credential().fingerprint().clone();
+        let signer_fingerprint = *as_signing_key.credential().fingerprint();
         let credential = AsIntermediateCredentialPayload {
             csr: self,
             expiration_data,
@@ -707,7 +707,7 @@ pub mod persistence {
                     .unwrap(),
                 verifying_key: credential.payload.csr.verifying_key.clone(),
                 expiration_data: credential.payload.expiration_data.clone(),
-                signer_fingerprint: credential.payload.signer_fingerprint.clone(),
+                signer_fingerprint: credential.payload.signer_fingerprint,
                 signature: credential.signature.clone(),
             }
         }
@@ -749,13 +749,10 @@ pub mod test_utils {
         let as_intermediate_credential = as_intermediate_credential_csr.sign(&ac_sk, None).unwrap();
         let aic_sk =
             AsIntermediateSigningKey::from_prelim_key(aic_sk, as_intermediate_credential).unwrap();
-        let client_credential = ClientCredentialPayload::new(
-            credential_csr,
-            None,
-            aic_sk.credential().fingerprint().clone(),
-        )
-        .sign(&aic_sk)
-        .unwrap();
+        let client_credential =
+            ClientCredentialPayload::new(credential_csr, None, *aic_sk.credential().fingerprint())
+                .sign(&aic_sk)
+                .unwrap();
         let client_sk = ClientSigningKey::from_prelim_key(signing_key, client_credential).unwrap();
         (aic_sk, client_sk)
     }

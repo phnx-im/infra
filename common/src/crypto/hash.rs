@@ -47,8 +47,7 @@ impl<T: Labeled + Sized> Hash<T> {
         assert_eq!(
             bytes.len(),
             HASH_SIZE,
-            "Hash must be exactly {} bytes long",
-            HASH_SIZE
+            "Hash must be exactly {HASH_SIZE} bytes long",
         );
         let mut hash_bytes = [0u8; HASH_SIZE];
         hash_bytes.copy_from_slice(&bytes[..HASH_SIZE]);
@@ -135,10 +134,7 @@ mod trait_impls {
 
     impl<T: Labeled> Clone for Hash<T> {
         fn clone(&self) -> Self {
-            Self {
-                bytes: self.bytes.clone(),
-                _marker: PhantomData,
-            }
+            *self
         }
     }
 
