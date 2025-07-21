@@ -30,7 +30,7 @@ use crate::{
         Labeled,
         ear::Ciphertext,
         errors::KeyGenerationError,
-        hash::{Hash, Hashable},
+        hash::{HASH_SIZE, Hash, Hashable},
         signatures::{
             private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -70,21 +70,24 @@ impl Labeled for AsCredentialBody {
     const LABEL: &'static str = AS_CREDENTIAL_LABEL;
 }
 
+fn legacy_credential_hash(payload: &impl tls_codec::Serialize, label: &str) -> [u8; HASH_SIZE] {
+    let hash_label = format!("Infra Credential Fingerprint {label}");
+    let rust_crypto = OpenMlsRustCrypto::default();
+    let payload_bytes = payload.tls_serialize_detached().unwrap_or_default();
+    let input = [hash_label.as_bytes().to_vec(), payload_bytes].concat();
+    rust_crypto
+        .crypto()
+        .hash(HashType::Sha2_256, &input)
+        .unwrap_or_default()
+        .try_into()
+        .unwrap()
+}
+
 // Custom implementation to preserver backwards compatibility.
 impl Hashable for AsCredentialBody {
     fn hash(&self) -> Hash<Self> {
         let label = Self::LABEL;
-        let hash_label = format!("Infra Credential Fingerprint {label}");
-        let rust_crypto = OpenMlsRustCrypto::default();
-        let payload = self.tls_serialize_detached().unwrap_or_default();
-        let input = [hash_label.as_bytes().to_vec(), payload].concat();
-        let value = rust_crypto
-            .crypto()
-            .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default()
-            .try_into()
-            .unwrap();
-        Hash::from_bytes(value)
+        Hash::from_bytes(legacy_credential_hash(self, label))
     }
 }
 
@@ -241,17 +244,7 @@ impl Labeled for AsIntermediateCredentialBody {
 impl Hashable for AsIntermediateCredentialBody {
     fn hash(&self) -> Hash<Self> {
         let label = Self::LABEL;
-        let hash_label = format!("Infra Credential Fingerprint {label}");
-        let rust_crypto = OpenMlsRustCrypto::default();
-        let payload = self.tls_serialize_detached().unwrap_or_default();
-        let input = [hash_label.as_bytes().to_vec(), payload].concat();
-        let value = rust_crypto
-            .crypto()
-            .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default()
-            .try_into()
-            .unwrap();
-        Hash::from_bytes(value)
+        Hash::from_bytes(legacy_credential_hash(self, label))
     }
 }
 
@@ -511,17 +504,7 @@ impl Labeled for ClientCredential {
 impl Hashable for ClientCredential {
     fn hash(&self) -> Hash<Self> {
         let label = Self::LABEL;
-        let hash_label = format!("Infra Credential Fingerprint {label}");
-        let rust_crypto = OpenMlsRustCrypto::default();
-        let payload = self.tls_serialize_detached().unwrap_or_default();
-        let input = [hash_label.as_bytes().to_vec(), payload].concat();
-        let value = rust_crypto
-            .crypto()
-            .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default()
-            .try_into()
-            .unwrap();
-        Hash::from_bytes(value)
+        Hash::from_bytes(legacy_credential_hash(self, label))
     }
 }
 
