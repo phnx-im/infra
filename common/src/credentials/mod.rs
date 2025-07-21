@@ -5,10 +5,10 @@
 use chrono::Duration;
 use mls_assist::{
     openmls::prelude::{
-        BasicCredential, BasicCredentialError, Credential, HashType, OpenMlsCrypto,
-        OpenMlsProvider, SignatureScheme,
+        BasicCredential, BasicCredentialError, Credential, HashType, SignatureScheme,
     },
     openmls_rust_crypto::OpenMlsRustCrypto,
+    openmls_traits::{OpenMlsProvider, crypto::OpenMlsCrypto},
 };
 
 use serde::{Deserialize, Serialize};
@@ -27,8 +27,10 @@ use crate::{
     LibraryError,
     codec::PhnxCodec,
     crypto::{
+        Labeled,
         ear::Ciphertext,
         errors::KeyGenerationError,
+        hash::{Hash, Hashable},
         signatures::{
             private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -48,73 +50,41 @@ pub mod keys;
 
 use self::keys::ClientVerifyingKey;
 
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    TlsDeserializeBytes,
-    TlsSerialize,
-    TlsSize,
-    Hash,
-    Serialize,
-    Deserialize,
-    sqlx::Type,
-)]
-#[sqlx(transparent)]
-pub struct CredentialFingerprint(Vec<u8>);
-
-impl std::fmt::Display for CredentialFingerprint {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let fp = hex::encode(&self.0);
-        write!(f, "{fp}")
-    }
-}
-
-impl CredentialFingerprint {
-    #[cfg(any(feature = "test_utils", test))]
-    pub fn new_for_test(value: Vec<u8>) -> Self {
-        Self(value)
-    }
-
-    fn with_label(credential: &impl TlsSerialize, label: &str) -> Self {
-        let hash_label = format!("Infra Credential Fingerprint {label}");
-        let rust_crypto = OpenMlsRustCrypto::default();
-        let payload = credential.tls_serialize_detached().unwrap_or_default();
-        let input = [hash_label.as_bytes().to_vec(), payload].concat();
-        let value = rust_crypto
-            .crypto()
-            .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default();
-        Self(value)
-    }
-
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.0
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-}
-
 const DEFAULT_AS_CREDENTIAL_LIFETIME: Duration = Duration::days(5 * 365);
 const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredential {
     body: AsCredentialBody,
-    fingerprint: CredentialFingerprint,
+    fingerprint: Hash<AsCredentialBody>,
 }
 
 impl From<AsCredentialBody> for AsCredential {
     fn from(body: AsCredentialBody) -> Self {
         let fingerprint = body.hash();
         Self { body, fingerprint }
+    }
+}
+
+impl Labeled for AsCredentialBody {
+    const LABEL: &'static str = AS_CREDENTIAL_LABEL;
+}
+
+// Custom implementation to preserver backwards compatibility.
+impl Hashable for AsCredentialBody {
+    fn hash(&self) -> Hash<Self> {
+        let label = Self::LABEL;
+        let hash_label = format!("Infra Credential Fingerprint {label}");
+        let rust_crypto = OpenMlsRustCrypto::default();
+        let payload = self.tls_serialize_detached().unwrap_or_default();
+        let input = [hash_label.as_bytes().to_vec(), payload].concat();
+        let value = rust_crypto
+            .crypto()
+            .hash(HashType::Sha2_256, &input)
+            .unwrap_or_default()
+            .try_into()
+            .unwrap();
+        Hash::from_bytes(value)
     }
 }
 
@@ -140,12 +110,6 @@ impl Encode<'_, Sqlite> for AsCredentialBody {
     ) -> Result<IsNull, BoxDynError> {
         let bytes = PhnxCodec::to_vec(self)?;
         Encode::<Sqlite>::encode(bytes, buf)
-    }
-}
-
-impl AsCredentialBody {
-    fn hash(&self) -> CredentialFingerprint {
-        CredentialFingerprint::with_label(self, AS_CREDENTIAL_LABEL)
     }
 }
 
@@ -179,15 +143,15 @@ impl AsCredential {
         Ok((credential, signing_key))
     }
 
-    pub fn from_parts(body: AsCredentialBody, fingerprint: CredentialFingerprint) -> Self {
+    pub fn from_parts(body: AsCredentialBody, fingerprint: Hash<AsCredentialBody>) -> Self {
         Self { body, fingerprint }
     }
 
-    pub fn into_parts(self) -> (AsCredentialBody, CredentialFingerprint) {
+    pub fn into_parts(self) -> (AsCredentialBody, Hash<AsCredentialBody>) {
         (self.body, self.fingerprint)
     }
 
-    pub fn fingerprint(&self) -> &CredentialFingerprint {
+    pub fn fingerprint(&self) -> &Hash<AsCredentialBody> {
         &self.fingerprint
     }
 
@@ -264,10 +228,32 @@ impl AsIntermediateCredentialCsr {
 pub struct AsIntermediateCredentialPayload {
     pub csr: AsIntermediateCredentialCsr,
     pub expiration_data: ExpirationData,
-    pub signer_fingerprint: CredentialFingerprint, // fingerprint of the signing AsCredential
+    pub signer_fingerprint: Hash<AsCredentialBody>, // fingerprint of the signing AsCredential
 }
 
-pub const AS_INTERMEDIATE_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential";
+const AS_INTERMEDIATE_CREDENTIAL_LABEL: &str = "MLS Infra AS Intermediate Credential";
+
+impl Labeled for AsIntermediateCredentialBody {
+    const LABEL: &'static str = AS_INTERMEDIATE_CREDENTIAL_LABEL;
+}
+
+// Custom implementation to preserver backwards compatibility.
+impl Hashable for AsIntermediateCredentialBody {
+    fn hash(&self) -> Hash<Self> {
+        let label = Self::LABEL;
+        let hash_label = format!("Infra Credential Fingerprint {label}");
+        let rust_crypto = OpenMlsRustCrypto::default();
+        let payload = self.tls_serialize_detached().unwrap_or_default();
+        let input = [hash_label.as_bytes().to_vec(), payload].concat();
+        let value = rust_crypto
+            .crypto()
+            .hash(HashType::Sha2_256, &input)
+            .unwrap_or_default()
+            .try_into()
+            .unwrap();
+        Hash::from_bytes(value)
+    }
+}
 
 impl Signable for AsIntermediateCredentialPayload {
     type SignedOutput = AsIntermediateCredential;
@@ -314,16 +300,12 @@ impl AsIntermediateCredentialBody {
     pub fn into_parts(self) -> (AsIntermediateCredentialPayload, Signature<AsKeyType>) {
         (self.credential, self.signature)
     }
-
-    fn hash(&self) -> CredentialFingerprint {
-        CredentialFingerprint::with_label(self, AS_INTERMEDIATE_CREDENTIAL_LABEL)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsIntermediateCredential {
     body: AsIntermediateCredentialBody,
-    fingerprint: CredentialFingerprint,
+    fingerprint: Hash<AsIntermediateCredentialBody>,
 }
 
 impl From<AsIntermediateCredentialBody> for AsIntermediateCredential {
@@ -346,7 +328,12 @@ impl tls_codec::Size for AsIntermediateCredential {
 }
 
 impl AsIntermediateCredential {
-    pub fn into_parts(self) -> (AsIntermediateCredentialBody, CredentialFingerprint) {
+    pub fn into_parts(
+        self,
+    ) -> (
+        AsIntermediateCredentialBody,
+        Hash<AsIntermediateCredentialBody>,
+    ) {
         (self.body, self.fingerprint)
     }
 
@@ -354,7 +341,7 @@ impl AsIntermediateCredential {
         &self.body.credential.csr.verifying_key
     }
 
-    pub fn fingerprint(&self) -> &CredentialFingerprint {
+    pub fn fingerprint(&self) -> &Hash<AsIntermediateCredentialBody> {
         &self.fingerprint
     }
 
@@ -392,7 +379,7 @@ impl VerifiableAsIntermediateCredential {
         }
     }
 
-    pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
+    pub fn signer_fingerprint(&self) -> &Hash<AsCredentialBody> {
         &self.credential.signer_fingerprint
     }
 }
@@ -470,14 +457,14 @@ impl ClientCredentialCsr {
 pub struct ClientCredentialPayload {
     pub csr: ClientCredentialCsr,
     pub expiration_data: ExpirationData,
-    pub signer_fingerprint: CredentialFingerprint,
+    pub signer_fingerprint: Hash<AsIntermediateCredentialBody>,
 }
 
 impl ClientCredentialPayload {
     pub fn new(
         csr: ClientCredentialCsr,
         expiration_data_option: Option<ExpirationData>,
-        signer_fingerprint: CredentialFingerprint,
+        signer_fingerprint: Hash<AsIntermediateCredentialBody>,
     ) -> Self {
         let expiration_data = expiration_data_option
             .unwrap_or(ExpirationData::new(DEFAULT_CLIENT_CREDENTIAL_LIFETIME));
@@ -516,6 +503,28 @@ impl ClientCredentialPayload {
     }
 }
 
+impl Labeled for ClientCredential {
+    const LABEL: &'static str = CLIENT_CREDENTIAL_LABEL;
+}
+
+// Custom implementation to preserver backwards compatibility.
+impl Hashable for ClientCredential {
+    fn hash(&self) -> Hash<Self> {
+        let label = Self::LABEL;
+        let hash_label = format!("Infra Credential Fingerprint {label}");
+        let rust_crypto = OpenMlsRustCrypto::default();
+        let payload = self.tls_serialize_detached().unwrap_or_default();
+        let input = [hash_label.as_bytes().to_vec(), payload].concat();
+        let value = rust_crypto
+            .crypto()
+            .hash(HashType::Sha2_256, &input)
+            .unwrap_or_default()
+            .try_into()
+            .unwrap();
+        Hash::from_bytes(value)
+    }
+}
+
 // WARNING: If this type is changed, a new variant of the
 // VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`
 // implementations of `ClientCredential` must be updated accordingly.
@@ -548,11 +557,11 @@ impl ClientCredential {
         &self.payload.csr.verifying_key
     }
 
-    pub fn fingerprint(&self) -> CredentialFingerprint {
-        CredentialFingerprint::with_label(self, CLIENT_CREDENTIAL_LABEL)
+    pub fn fingerprint(&self) -> Hash<Self> {
+        self.hash()
     }
 
-    pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
+    pub fn signer_fingerprint(&self) -> &Hash<AsIntermediateCredentialBody> {
         &self.payload.signer_fingerprint
     }
 }
@@ -632,7 +641,7 @@ impl VerifiableClientCredential {
         self.payload.csr.user_id.domain()
     }
 
-    pub fn signer_fingerprint(&self) -> &CredentialFingerprint {
+    pub fn signer_fingerprint(&self) -> &Hash<AsIntermediateCredentialBody> {
         &self.payload.signer_fingerprint
     }
 
@@ -674,7 +683,8 @@ pub mod persistence {
     use crate::{codec::PhnxCodec, identifiers::UserId, time::ExpirationData};
 
     use super::{
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint,
+        AsIntermediateCredentialBody, ClientCredential, ClientCredentialCsr,
+        ClientCredentialPayload, Hash,
         keys::{AsIntermediateSignature, ClientVerifyingKey},
     };
 
@@ -685,7 +695,7 @@ pub mod persistence {
         signature_scheme: Vec<u8>,
         verifying_key: ClientVerifyingKey,
         expiration_data: ExpirationData,
-        signer_fingerprint: CredentialFingerprint,
+        signer_fingerprint: Hash<AsIntermediateCredentialBody>,
         signature: AsIntermediateSignature,
     }
 

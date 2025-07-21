@@ -8,9 +8,12 @@ use phnxapiclient::as_api::AsRequestError;
 use phnxcommon::{
     credentials::{
         AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
-        CredentialFingerprint, VerifiableClientCredential,
+        VerifiableClientCredential,
     },
-    crypto::signatures::{private_keys::SignatureVerificationError, signable::Verifiable},
+    crypto::{
+        hash::Hash,
+        signatures::{private_keys::SignatureVerificationError, signable::Verifiable},
+    },
     identifiers::Fqdn,
 };
 use sqlx::{
@@ -62,10 +65,12 @@ impl AsCredentials {
         }
     }
 
-    fn fingerprint(&self) -> &CredentialFingerprint {
+    fn fingerprint(&self) -> &[u8] {
         match self {
-            AsCredentials::AsCredential(credential) => credential.fingerprint(),
-            AsCredentials::AsIntermediateCredential(credential) => credential.fingerprint(),
+            AsCredentials::AsCredential(credential) => credential.fingerprint().as_bytes(),
+            AsCredentials::AsIntermediateCredential(credential) => {
+                credential.fingerprint().as_bytes()
+            }
         }
     }
 
@@ -107,7 +112,7 @@ impl AsCredentials {
 
     async fn load_intermediate(
         executor: impl SqliteExecutor<'_>,
-        fingerprint_option: Option<&CredentialFingerprint>,
+        fingerprint_option: Option<&Hash<AsIntermediateCredentialBody>>,
         domain: &Fqdn,
     ) -> sqlx::Result<Option<AsIntermediateCredential>> {
         let body: Option<AsIntermediateCredentialBody> =
@@ -144,7 +149,7 @@ impl AsCredentials {
         api_clients: &ApiClients,
     ) -> Result<Vec<AsIntermediateCredential>, AsCredentialStoreError> {
         let as_credentials_response = api_clients.get(domain)?.as_as_credentials().await?;
-        let as_credentials: HashMap<CredentialFingerprint, AsCredential> = as_credentials_response
+        let as_credentials: HashMap<Hash<AsCredentialBody>, AsCredential> = as_credentials_response
             .as_credentials
             .into_iter()
             .map(|credential| (credential.fingerprint().clone(), credential))
@@ -164,7 +169,7 @@ impl AsCredentials {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         verifiable_credentials: impl Iterator<Item = &VerifiableClientCredential>,
-    ) -> Result<HashMap<CredentialFingerprint, AsIntermediateCredential>> {
+    ) -> Result<HashMap<Hash<AsIntermediateCredentialBody>, AsIntermediateCredential>> {
         let mut as_credentials = HashMap::new();
         for verifiable_credential in verifiable_credentials {
             if as_credentials.contains_key(verifiable_credential.signer_fingerprint()) {
@@ -192,7 +197,7 @@ impl AsCredentials {
         connection: &mut SqliteConnection,
         api_clients: &ApiClients,
         domain: &Fqdn,
-        fingerprint: &CredentialFingerprint,
+        fingerprint: &Hash<AsIntermediateCredentialBody>,
     ) -> Result<AsIntermediateCredential, AsCredentialStoreError> {
         info!("Loading AS credential from db");
         // Phase 1: Check if there is a credential in the database.

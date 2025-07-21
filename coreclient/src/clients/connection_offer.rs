@@ -6,7 +6,7 @@ use openmls::group::GroupId;
 use payload::{ConnectionOfferPayload, ConnectionOfferPayloadIn};
 use phnxcommon::{
     credentials::{
-        ClientCredential, CredentialFingerprint, VerifiableClientCredential,
+        AsIntermediateCredentialBody, ClientCredential, VerifiableClientCredential,
         keys::{AsIntermediateVerifyingKey, ClientSignature},
     },
     crypto::{
@@ -17,6 +17,7 @@ use phnxcommon::{
                 WelcomeAttributionInfoEarKey,
             },
         },
+        hash::Hash,
         hpke::{HpkeDecryptable, HpkeEncryptable},
         indexed_aead::keys::UserProfileBaseSecret,
         kdf::keys::{ConnectionKey, ConnectionKeyType},
@@ -118,7 +119,7 @@ pub(crate) mod payload {
                     wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
                     user_profile_base_secret: UserProfileBaseSecret::random().unwrap(),
                 },
-                connection_package_hash: ConnectionPackageHash::random(),
+                connection_package_hash: ConnectionPackageHash::new_for_test(vec![0; 32]),
             }
         }
     }
@@ -274,7 +275,7 @@ impl ConnectionOfferIn {
         self.payload.sender_client_credential.domain()
     }
 
-    pub(super) fn signer_fingerprint(&self) -> &CredentialFingerprint {
+    pub(super) fn signer_fingerprint(&self) -> &Hash<AsIntermediateCredentialBody> {
         self.payload.sender_client_credential.signer_fingerprint()
     }
 
@@ -349,7 +350,7 @@ mod tests {
         let (as_sk, client_sk) = create_test_credentials(sender_user_id);
         let cep_payload = ConnectionOfferPayload::dummy(client_sk.credential().clone());
         let user_handle = UserHandle::new("ellie_01".to_owned()).unwrap();
-        let hash = ConnectionPackageHash::random();
+        let hash = ConnectionPackageHash::new_for_test(vec![0; 32]);
         let cep = cep_payload
             .clone()
             .sign(&client_sk, user_handle.clone(), hash)
