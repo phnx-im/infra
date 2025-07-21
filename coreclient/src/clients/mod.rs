@@ -19,7 +19,7 @@ use phnxcommon::{
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
         ear::{
-            EarEncryptable, EarKey, GenericSerializable,
+            EarEncryptable,
             keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         },
         hpke::HpkeEncryptable,
@@ -27,10 +27,7 @@ use phnxcommon::{
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
     identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
-    messages::{
-        FriendshipToken, QueueMessage,
-        push_token::{EncryptedPushToken, PushToken},
-    },
+    messages::{FriendshipToken, QueueMessage, push_token::PushToken},
 };
 pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 pub use phnxprotos::queue_service::v1::{
@@ -563,12 +560,8 @@ impl CoreUser {
         // Encrypt the push token, if there is one.
         let encrypted_push_token = match push_token {
             Some(push_token) => {
-                let encrypted_push_token = EncryptedPushToken::from(
-                    self.inner
-                        .key_store
-                        .push_token_ear_key
-                        .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
-                );
+                let encrypted_push_token =
+                    push_token.encrypt(&self.inner.key_store.push_token_ear_key)?;
                 Some(encrypted_push_token)
             }
             None => None,
