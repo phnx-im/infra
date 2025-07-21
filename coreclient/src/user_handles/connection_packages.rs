@@ -5,7 +5,7 @@
 use std::borrow::Borrow;
 
 use phnxcommon::{
-    crypto::ConnectionDecryptionKey,
+    crypto::{ConnectionDecryptionKey, hash::Hashable},
     identifiers::UserHandle,
     messages::connection_package::{ConnectionPackage, ConnectionPackageHash},
 };

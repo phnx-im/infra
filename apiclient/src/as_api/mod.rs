@@ -359,8 +359,12 @@ impl ApiClient {
             revoked_credentials: response
                 .revoked_credentials
                 .into_iter()
-                .map(From::from)
-                .collect(),
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| {
+                    error!(%error, "invalid AS intermediate credential");
+                    AsRequestError::UnexpectedResponse
+                })?,
         })
     }
 

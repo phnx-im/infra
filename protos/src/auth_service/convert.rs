@@ -6,11 +6,11 @@ use displaydoc::Display;
 use openmls::prelude::HpkeCiphertext;
 use phnxcommon::{
     credentials::{self, keys},
-    crypto, identifiers,
+    crypto::{self, Labeled, hash},
+    identifiers,
     messages::{
         self,
         client_as::{self},
-        connection_package::ConnectionPackageHashError,
     },
 };
 use thiserror::Error;
@@ -30,8 +30,8 @@ use super::v1::{
     AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
     AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
     ClientVerifyingKey, ConnectionEncryptionKey, ConnectionOfferMessage, ConnectionPackage,
-    ConnectionPackagePayload, CredentialFingerprint, EncryptedUserProfile, HandleSignature,
-    HandleVerifyingKey, MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
+    ConnectionPackagePayload, EncryptedUserProfile, HandleSignature, HandleVerifyingKey, Hash,
+    MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -186,17 +186,32 @@ impl TryFrom<MlsInfraVersion> for messages::MlsInfraVersion {
     }
 }
 
-impl From<credentials::CredentialFingerprint> for CredentialFingerprint {
-    fn from(value: credentials::CredentialFingerprint) -> Self {
+impl<T: Labeled> From<hash::Hash<T>> for Hash {
+    fn from(value: hash::Hash<T>) -> Self {
         Self {
-            bytes: value.into_bytes(),
+            bytes: value.into_bytes().to_vec(),
         }
     }
 }
 
-impl From<CredentialFingerprint> for credentials::CredentialFingerprint {
-    fn from(proto: CredentialFingerprint) -> Self {
-        Self::from_bytes(proto.bytes)
+const HASH_SIZE: usize = hash::HASH_SIZE;
+
+#[derive(Debug, thiserror::Error)]
+pub enum HashError {
+    #[error("Invalid hash length: expected {HASH_SIZE}, got {got}")]
+    InvalidHashLength { got: usize },
+}
+
+impl<T: Labeled> TryFrom<Hash> for hash::Hash<T> {
+    type Error = HashError;
+
+    fn try_from(proto: Hash) -> Result<Self, Self::Error> {
+        let hash_bytes = <[u8; HASH_SIZE]>::try_from(proto.bytes.as_slice()).map_err(|_| {
+            HashError::InvalidHashLength {
+                got: proto.bytes.len(),
+            }
+        })?;
+        Ok(hash::Hash::from_bytes(hash_bytes))
     }
 }
 
@@ -247,7 +262,7 @@ impl TryFrom<ClientCredentialPayload> for credentials::ClientCredentialPayload {
         let signer_fingerprint = proto
             .credential_fingerprint
             .ok_or_missing_field("credential_fingerprint")?
-            .into();
+            .try_into()?;
         Ok(credentials::ClientCredentialPayload::new(
             csr,
             expiration_data,
@@ -264,6 +279,8 @@ pub enum ClientCredentialPayloadError {
     Csr(#[from] ClientCredentialCsrError),
     #[error(transparent)]
     ExpirationData(#[from] ExpirationDataError),
+    #[error("Invalid credential fingerprint: {0}")]
+    CredentialFingerprint(#[from] HashError),
 }
 
 impl From<ClientCredentialPayloadError> for Status {
@@ -405,7 +422,10 @@ impl TryFrom<AsCredential> for credentials::AsCredential {
     fn try_from(proto: AsCredential) -> Result<Self, Self::Error> {
         Ok(Self::from_parts(
             proto.body.ok_or_missing_field("body")?.try_into()?,
-            proto.fingerprint.ok_or_missing_field("fingerprint")?.into(),
+            proto
+                .fingerprint
+                .ok_or_missing_field("fingerprint")?
+                .try_into()?,
         ))
     }
 }
@@ -416,6 +436,8 @@ pub enum AsCredentialError {
     MissingField(#[from] MissingFieldError<&'static str>),
     #[error(transparent)]
     Body(#[from] AsCredentialBodyError),
+    #[error("Invalid fingerprint: {0}")]
+    Fingerprint(#[from] HashError),
 }
 
 impl From<credentials::AsCredentialBody> for AsCredentialBody {
@@ -557,7 +579,7 @@ impl TryFrom<AsIntermediateCredentialPayload> for credentials::AsIntermediateCre
         let signer_fingerprint = proto
             .signer_fingerprint
             .ok_or_missing_field("signer_fingerprint")?
-            .into();
+            .try_into()?;
         Ok(Self {
             csr,
             expiration_data,
@@ -574,6 +596,8 @@ pub enum AsIntermediateCredentialPayloadError {
     Csr(#[from] AsIntermediateCredentialCsrError),
     #[error(transparent)]
     ExpirationData(#[from] ExpirationDataError),
+    #[error("Invalid signer fingerprint: {0}")]
+    SignerFingerprint(#[from] HashError),
 }
 
 impl From<credentials::AsIntermediateCredentialCsr> for AsIntermediateCredentialCsr {
@@ -642,17 +666,17 @@ impl From<client_as::ConnectionOfferMessage> for ConnectionOfferMessage {
         let ciphertext: HpkeCiphertext = ciphertext.as_ref().clone();
         Self {
             ciphertext: Some(ciphertext.into()),
-            connection_package_hash: connection_package_hash.to_bytes().to_vec(),
+            connection_package_hash: Some(connection_package_hash.into()),
         }
     }
 }
 
 #[derive(Debug, thiserror::Error, Display)]
 pub enum ConnectionOfferMessageError {
-    /// Missing ciphertext field
-    MissingCiphertext(#[from] MissingFieldError<&'static str>),
+    /// Missing field
+    MissingField(#[from] MissingFieldError<&'static str>),
     /// Invalid connection package hash
-    InvalidConnectionPackageHash(#[from] ConnectionPackageHashError),
+    InvalidConnectionPackageHash(#[from] HashError),
 }
 
 impl TryFrom<ConnectionOfferMessage> for client_as::ConnectionOfferMessage {
@@ -660,7 +684,10 @@ impl TryFrom<ConnectionOfferMessage> for client_as::ConnectionOfferMessage {
 
     fn try_from(proto: ConnectionOfferMessage) -> Result<Self, Self::Error> {
         let ciphertext: HpkeCiphertext = proto.ciphertext.ok_or_missing_field("ciphertext")?.into();
-        let connection_package_hash = proto.connection_package_hash.try_into()?;
+        let connection_package_hash = proto
+            .connection_package_hash
+            .ok_or_missing_field("hash")?
+            .try_into()?;
         Ok(Self::new(connection_package_hash, ciphertext.into()))
     }
 }

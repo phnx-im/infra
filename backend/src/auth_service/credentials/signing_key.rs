@@ -6,7 +6,8 @@ use std::ops::Deref;
 
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxcommon::{
-    credentials::{AsCredential, CredentialFingerprint, keys::AsSigningKey},
+    credentials::{AsCredential, AsCredentialBody, keys::AsSigningKey},
+    crypto::hash::Hash,
     identifiers::Fqdn,
 };
 use serde::{Deserialize, Serialize};
@@ -58,7 +59,7 @@ impl StorableSigningKey {
         Ok(signing_key)
     }
 
-    fn fingerprint(&self) -> &CredentialFingerprint {
+    fn fingerprint(&self) -> &Hash<AsCredentialBody> {
         match self {
             StorableSigningKey::V1(signing_key) => signing_key.credential().fingerprint(),
         }

@@ -357,7 +357,7 @@ mod test {
         time::{Duration, ExpirationData},
     };
     use phnxprotos::{
-        auth_service::v1::{ConnectionOfferMessage, handle_queue_message::Payload},
+        auth_service::v1::{ConnectionOfferMessage, Hash, handle_queue_message::Payload},
         common::v1::HpkeCiphertext,
     };
     use tokio::time::timeout;
@@ -375,7 +375,7 @@ mod test {
                 kem_output: b"kem_output".to_vec(),
                 ciphertext: payload_str.as_bytes().to_vec(),
             }),
-            connection_package_hash: vec![1; 32],
+            connection_package_hash: Some(Hash { bytes: vec![1; 32] }),
         })
     }
 

@@ -164,8 +164,8 @@ pub(crate) mod persistence {
     pub(crate) mod tests {
         use mls_assist::openmls::prelude::SignatureScheme;
         use phnxcommon::{
-            credentials::{ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint},
-            crypto::signatures::signable::Signature,
+            credentials::{ClientCredentialCsr, ClientCredentialPayload},
+            crypto::{hash::Hash, signatures::signable::Signature},
             time::{Duration, ExpirationData},
         };
         use sqlx::PgPool;
@@ -192,7 +192,7 @@ pub(crate) mod persistence {
                     ClientCredentialPayload::new(
                         csr,
                         Some(expiration_data),
-                        CredentialFingerprint::new_for_test(b"fingerprint".to_vec()),
+                        Hash::new_for_test(b"fingerprint".to_vec()),
                     ),
                     Signature::new_for_test(b"signature".to_vec()),
                 ),
