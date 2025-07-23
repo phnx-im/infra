@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcoreclient::{ConversationId, ConversationMessage};
+use phnxcoreclient::{ConversationId, ConversationMessage, ConversationType};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,16 +22,14 @@ impl User {
                 .await
             {
                 let title = match conversation.conversation_type() {
-                    phnxcoreclient::ConversationType::UnconfirmedConnection(user_id)
-                    | phnxcoreclient::ConversationType::Connection(user_id) => self
+                    ConversationType::Connection(user_id) => self
                         .user
                         .user_profile(user_id)
                         .await
                         .display_name
                         .to_string(),
-                    phnxcoreclient::ConversationType::Group => {
-                        conversation.attributes().title().to_string()
-                    }
+                    ConversationType::HandleConnection(handle) => handle.plaintext().to_owned(),
+                    ConversationType::Group => conversation.attributes().title().to_string(),
                 };
                 let body = conversation_message
                     .message()
@@ -74,22 +72,19 @@ impl User {
         notifications: &mut Vec<NotificationContent>,
     ) {
         for conversation_id in connection_conversations {
-            if let Some(conversation) = self.user.conversation(conversation_id).await {
-                if let phnxcoreclient::ConversationType::UnconfirmedConnection(client_id)
-                | phnxcoreclient::ConversationType::Connection(client_id) =
-                    conversation.conversation_type()
-                {
-                    let contact_name = self.user.user_profile(client_id).await.display_name;
-                    let title = format!("New connection request from {contact_name}");
-                    let body = "Open to accept or ignore".to_owned();
+            if let Some(conversation) = self.user.conversation(conversation_id).await
+                && let ConversationType::Connection(client_id) = conversation.conversation_type()
+            {
+                let contact_name = self.user.user_profile(client_id).await.display_name;
+                let title = format!("New connection with {contact_name}");
+                let body = "Say hi".to_owned();
 
-                    notifications.push(NotificationContent {
-                        identifier: NotificationId::random(),
-                        title: title.to_owned(),
-                        body: body.to_owned(),
-                        conversation_id: Some(*conversation_id),
-                    });
-                };
+                notifications.push(NotificationContent {
+                    identifier: NotificationId::random(),
+                    title,
+                    body,
+                    conversation_id: Some(*conversation_id),
+                });
             }
         }
     }
@@ -103,7 +98,6 @@ impl NotificationId {
         Self(Uuid::new_v4())
     }
 
-    #[cfg(any(target_os = "ios", target_os = "android"))]
     pub(crate) fn invalid() -> Self {
         Self(Uuid::nil())
     }
@@ -124,7 +118,7 @@ pub struct NotificationHandle {
     pub conversation_id: Option<ConversationId>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct NotificationService {
     #[cfg(any(target_os = "ios", target_os = "android", target_os = "macos"))]
     dart_service: DartNotificationService,
@@ -139,7 +133,7 @@ impl NotificationService {
         }
     }
 
-    pub(crate) async fn send_notification(&self, notification: NotificationContent) {
+    pub(crate) async fn show_notification(&self, notification: NotificationContent) {
         #[cfg(any(target_os = "ios", target_os = "android", target_os = "macos"))]
         self.dart_service.send_notification(notification).await;
         #[cfg(any(target_os = "linux", target_os = "windows"))]

@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:prototype/l10n/app_localizations.dart';
+import 'package:prototype/theme/theme.dart';
+
+class Timestamp extends StatefulWidget {
+  const Timestamp(this.timestamp, {super.key});
+
+  final String timestamp;
+
+  @override
+  State<Timestamp> createState() => TimestampState();
+}
+
+class TimestampState extends State<Timestamp> {
+  String _displayTimestamp = '';
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayTimestamp = _calcTimeString(widget.timestamp);
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      final newDisplayTimestamp = _calcTimeString(widget.timestamp);
+      if (newDisplayTimestamp != _displayTimestamp) {
+        setState(() {
+          _displayTimestamp = _calcTimeString(widget.timestamp);
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant Timestamp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.timestamp != widget.timestamp) {
+      setState(() {
+        _displayTimestamp = _calcTimeString(widget.timestamp);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final localizedTimestamp = _localizedTimeString(_displayTimestamp, context);
+    return SelectionContainer.disabled(
+      child: Text(
+        localizedTimestamp,
+        style: TextStyle(
+          color: colorGreyDark,
+          fontSize: isLargeScreen(context) ? 10 : 12,
+          letterSpacing: -0.1,
+        ).merge(VariableFontWeight.medium),
+      ),
+    );
+  }
+
+  String _calcTimeString(String time) {
+    final t = DateTime.parse(time);
+    // If the elapsed time is less than 60 seconds, show "now"
+    if (DateTime.now().difference(t).inSeconds < 60) {
+      return "now";
+    }
+    // If the elapsed time is less than 60 minutes, show the elapsed minutes
+    if (DateTime.now().difference(t).inMinutes < 60) {
+      return '${DateTime.now().difference(t).inMinutes}m';
+    }
+    // Otherwise show the time
+    return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _localizedTimeString(String time, BuildContext context) {
+    if (time == "now") {
+      return AppLocalizations.of(context).timestamp_now;
+    } else {
+      return time;
+    }
+  }
+}

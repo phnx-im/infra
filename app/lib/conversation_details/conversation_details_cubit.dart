@@ -40,8 +40,11 @@ class ConversationDetailsCubit
   Future<void> setConversationPicture({required Uint8List? bytes}) =>
       _impl.setConversationPicture(bytes: bytes);
 
-  void sendMessage(String messageText) =>
+  Future<void> sendMessage(String messageText) =>
       _impl.sendMessage(messageText: messageText);
+
+  Future<void> uploadAttachment(String path) =>
+      _impl.uploadAttachment(path: path);
 
   Future<void> markAsRead({
     required ConversationMessageId untilMessageId,
@@ -50,4 +53,12 @@ class ConversationDetailsCubit
     untilMessageId: untilMessageId,
     untilTimestamp: untilTimestamp,
   );
+
+  Future<void> storeDraft({required String draftMessage}) =>
+      _impl.storeDraft(draftMessage: draftMessage);
+
+  Future<void> resetDraft() => _impl.resetDraft();
+
+  Future<void> editMessage({ConversationMessageId? messageId}) =>
+      _impl.editMessage(messageId: messageId);
 }

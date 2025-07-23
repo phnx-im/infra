@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::bail;
-use mimi_content::MimiContent;
+use mimi_content::{MessageStatus, MimiContent, content_container::MimiContentV1};
 use phnxcommon::{
     codec::{self, BlobDecoded, BlobEncoded, PhnxCodec},
-    identifiers::{Fqdn, UserId},
+    identifiers::{Fqdn, MimiId, UserId},
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
@@ -20,16 +20,16 @@ use crate::{ContentMessage, ConversationId, ConversationMessage, Message, store:
 use super::{ErrorMessage, EventMessage};
 
 const UNKNOWN_MESSAGE_VERSION: u16 = 0;
-const CURRENT_MESSAGE_VERSION: u16 = 1;
+const CURRENT_MESSAGE_VERSION: u16 = 2;
 
 #[derive(Serialize, Deserialize)]
-struct VersionedMessage {
+pub(crate) struct VersionedMessage {
     #[serde(default = "VersionedMessage::unknown_message_version")]
-    version: u16,
+    pub(crate) version: u16,
     // We store the message as bytes, because deserialization depends on
     // other parameters.
     #[serde(default)]
-    content: Vec<u8>,
+    pub(crate) content: Vec<u8>,
 }
 
 impl VersionedMessage {
@@ -46,8 +46,13 @@ impl VersionedMessage {
         }
     }
 
-    fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
+    pub(crate) fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
         match self.version {
+            1 => {
+                warn!("Old message version detected. Why was it not upgraded by a migration?");
+                let old = PhnxCodec::from_slice::<MimiContentV1>(&self.content)?;
+                Ok(old.upgrade())
+            }
             CURRENT_MESSAGE_VERSION => Ok(PhnxCodec::from_slice::<MimiContent>(&self.content)?),
             other => bail!("unknown mimi content message version: {other}"),
         }
@@ -62,7 +67,7 @@ impl VersionedMessage {
         })
     }
 
-    fn from_mimi_content(
+    pub(crate) fn from_mimi_content(
         content: &MimiContent,
     ) -> Result<VersionedMessage, phnxcommon::codec::Error> {
         Ok(VersionedMessage {
@@ -76,12 +81,15 @@ use super::{ConversationMessageId, TimestampedMessage};
 
 struct SqlConversationMessage {
     message_id: ConversationMessageId,
+    mimi_id: Option<MimiId>,
     conversation_id: ConversationId,
     timestamp: TimeStamp,
     sender_user_uuid: Option<Uuid>,
     sender_user_domain: Option<Fqdn>,
     content: BlobDecoded<VersionedMessage>,
     sent: bool,
+    status: i64,
+    edited_at: Option<TimeStamp>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -102,12 +110,15 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
     fn try_from(
         SqlConversationMessage {
             message_id,
+            mimi_id,
             conversation_id,
             timestamp,
             sender_user_uuid,
             sender_user_domain,
             content,
             sent,
+            status,
+            edited_at,
         }: SqlConversationMessage,
     ) -> Result<Self, Self::Error> {
         let message = match (sender_user_uuid, sender_user_domain) {
@@ -122,6 +133,8 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
                             sender,
                             sent,
                             content,
+                            mimi_id,
+                            edited_at,
                         }))
                     })
                     .unwrap_or_else(|e| {
@@ -143,6 +156,7 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
             conversation_message_id: message_id,
             conversation_id,
             timestamped_message,
+            status: u8::try_from(status).map_or(MessageStatus::Unread, MessageStatus::from_repr),
         })
     }
 }
@@ -156,14 +170,51 @@ impl ConversationMessage {
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
+                mimi_id AS "mimi_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
-                content As "content: _",
-                sent
-            FROM conversation_messages WHERE message_id = ?"#,
+                content AS "content: _",
+                sent,
+                status,
+                edited_at AS "edited_at: _"
+            FROM conversation_messages
+            WHERE message_id = ?
+            "#,
             message_id,
+        )
+        .fetch_optional(executor)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
+    }
+
+    pub(crate) async fn load_by_mimi_id(
+        executor: impl SqliteExecutor<'_>,
+        mimi_id: &MimiId,
+    ) -> sqlx::Result<Option<Self>> {
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                mimi_id AS "mimi_id: _",
+                conversation_id AS "conversation_id: _",
+                timestamp AS "timestamp: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
+                content AS "content: _",
+                sent,
+                status,
+                edited_at AS "edited_at: _"
+            FROM conversation_messages
+            WHERE mimi_id = ?
+            "#,
+            mimi_id,
         )
         .fetch_optional(executor)
         .await
@@ -184,12 +235,15 @@ impl ConversationMessage {
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
+                mimi_id AS "mimi_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE conversation_id = ?
             ORDER BY timestamp DESC
@@ -220,13 +274,13 @@ impl ConversationMessage {
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
     ) -> anyhow::Result<()> {
-        let (sender_uuid, sender_domain) = match &self.timestamped_message.message {
-            Message::Content(content_message) => Some((
-                content_message.sender.uuid(),
-                content_message.sender.domain(),
-            ))
-            .unzip(),
-            Message::Event(_) => (None, None),
+        let (sender_uuid, sender_domain, mimi_id) = match &self.timestamped_message.message {
+            Message::Content(content_message) => (
+                Some(content_message.sender.uuid()),
+                Some(content_message.sender.domain()),
+                Some(content_message.mimi_id()),
+            ),
+            Message::Event(_) => (None, None, None),
         };
         let content = match &self.timestamped_message.message {
             Message::Content(content_message) => {
@@ -243,14 +297,16 @@ impl ConversationMessage {
         query!(
             "INSERT INTO conversation_messages (
                 message_id,
+                mimi_id,
                 conversation_id,
                 timestamp,
                 sender_user_uuid,
                 sender_user_domain,
                 content,
                 sent
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             self.conversation_message_id,
+            mimi_id,
             self.conversation_id,
             self.timestamped_message.timestamp,
             sender_uuid,
@@ -264,6 +320,52 @@ impl ConversationMessage {
         notifier
             .add(self.conversation_message_id)
             .update(self.conversation_id);
+        Ok(())
+    }
+
+    pub(crate) async fn update(
+        &self,
+        executor: impl SqliteExecutor<'_>,
+        notifier: &mut StoreNotifier,
+    ) -> anyhow::Result<()> {
+        let mimi_id = self.message().mimi_id();
+        let content = match &self.timestamped_message.message {
+            Message::Content(content_message) => {
+                VersionedMessage::from_mimi_content(&content_message.content)?
+            }
+            Message::Event(event_message) => VersionedMessage::from_event_message(event_message)?,
+        };
+        let content = BlobEncoded(&content);
+        let sent = match &self.timestamped_message.message {
+            Message::Content(content_message) => content_message.sent,
+            Message::Event(_) => true,
+        };
+        let edited_at = self.edited_at();
+        let status = self.status().repr();
+        let message_id = self.id();
+
+        query!(
+            "UPDATE conversation_messages
+            SET
+                mimi_id = ?,
+                timestamp = ?,
+                content = ?,
+                sent = ?,
+                edited_at = ?,
+                status = ?
+            WHERE message_id = ?",
+            mimi_id,
+            self.timestamped_message.timestamp,
+            content,
+            sent,
+            edited_at,
+            status,
+            message_id,
+        )
+        .execute(executor)
+        .await?;
+        notifier.update(self.id());
+        notifier.update(self.conversation_id);
         Ok(())
     }
 
@@ -298,18 +400,61 @@ impl ConversationMessage {
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
+                mimi_id AS "mimi_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE conversation_id = ?
                 AND sender_user_uuid IS NOT NULL
                 AND sender_user_domain IS NOT NULL
             ORDER BY timestamp DESC LIMIT 1"#,
             conversation_id,
+        )
+        .fetch_optional(executor)
+        .await
+        .map(|record| {
+            record
+                .map(TryFrom::try_from)
+                .transpose()
+                .map_err(From::from)
+        })?
+    }
+
+    /// Get the last content message in the conversation which is owned by the given user.
+    pub(crate) async fn last_content_message_by_user(
+        executor: impl SqliteExecutor<'_>,
+        conversation_id: ConversationId,
+        user_id: &UserId,
+    ) -> sqlx::Result<Option<Self>> {
+        let user_uuid = user_id.uuid();
+        let user_domain = user_id.domain();
+        query_as!(
+            SqlConversationMessage,
+            r#"SELECT
+                message_id AS "message_id: _",
+                conversation_id AS "conversation_id: _",
+                mimi_id AS "mimi_id: _",
+                timestamp AS "timestamp: _",
+                sender_user_uuid AS "sender_user_uuid: _",
+                sender_user_domain AS "sender_user_domain: _",
+                content AS "content: _",
+                sent,
+                status,
+                edited_at AS "edited_at: _"
+            FROM conversation_messages
+            WHERE conversation_id = ?
+                AND sender_user_uuid = ?
+                AND sender_user_domain = ?
+            ORDER BY timestamp DESC LIMIT 1"#,
+            conversation_id,
+            user_uuid,
+            user_domain,
         )
         .fetch_optional(executor)
         .await
@@ -329,12 +474,15 @@ impl ConversationMessage {
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
+                mimi_id AS "mimi_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp <= (SELECT timestamp FROM conversation_messages
@@ -361,12 +509,15 @@ impl ConversationMessage {
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
+                mimi_id AS "mimi_id: _",
                 conversation_id AS "conversation_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
                 content AS "content: _",
-                sent
+                sent,
+                status,
+                edited_at AS "edited_at: _"
             FROM conversation_messages
             WHERE message_id != ?1
                 AND timestamp >= (SELECT timestamp FROM conversation_messages
@@ -391,6 +542,7 @@ pub(crate) mod tests {
     use std::sync::LazyLock;
 
     use chrono::Utc;
+    use openmls::group::GroupId;
     use sqlx::SqlitePool;
 
     use crate::{
@@ -402,18 +554,27 @@ pub(crate) mod tests {
     pub(crate) fn test_conversation_message(
         conversation_id: ConversationId,
     ) -> ConversationMessage {
+        test_conversation_message_with_salt(conversation_id, [0; 16])
+    }
+
+    pub(crate) fn test_conversation_message_with_salt(
+        conversation_id: ConversationId,
+        salt: [u8; 16],
+    ) -> ConversationMessage {
         let conversation_message_id = ConversationMessageId::random();
         let timestamp = Utc::now().into();
-        let message = Message::Content(Box::new(ContentMessage {
-            sender: UserId::random("localhost".parse().unwrap()),
-            sent: false,
-            content: MimiContent::simple_markdown_message("Hello world!".to_string()),
-        }));
+        let message = Message::Content(Box::new(ContentMessage::new(
+            UserId::random("localhost".parse().unwrap()),
+            false,
+            MimiContent::simple_markdown_message("Hello world!".to_string(), salt),
+            &GroupId::from_slice(&[0]),
+        )));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ConversationMessage {
             conversation_message_id,
             conversation_id,
             timestamped_message,
+            status: MessageStatus::Unread,
         }
     }
 
@@ -522,6 +683,7 @@ pub(crate) mod tests {
                     UserId::random("localhost".parse()?),
                 ))),
             },
+            status: MessageStatus::Unread,
         }
         .store(&pool, &mut store_notifier)
         .await?;
@@ -577,6 +739,7 @@ pub(crate) mod tests {
     static VERSIONED_MESSAGE: LazyLock<VersionedMessage> = LazyLock::new(|| {
         VersionedMessage::from_mimi_content(&MimiContent::simple_markdown_message(
             "Hello world!".to_string(),
+            [0; 16], // simple salt for testing
         ))
         .unwrap()
     });

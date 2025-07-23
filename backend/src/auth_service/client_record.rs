@@ -2,21 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{
-    credentials::ClientCredential, crypto::RatchetEncryptionKey, identifiers::UserId,
-    messages::client_as::AsQueueRatchet, time::TimeStamp,
-};
-use sqlx::{Connection, PgConnection};
+use phnxcommon::{credentials::ClientCredential, identifiers::UserId, time::TimeStamp};
+use sqlx::PgExecutor;
 
 use crate::errors::StorageError;
-
-use super::queue::Queue;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(super) struct ClientRecord {
-    pub(super) queue_encryption_key: RatchetEncryptionKey,
-    pub(super) ratchet: AsQueueRatchet,
     pub(super) activity_time: TimeStamp,
     pub(super) credential: ClientCredential,
     pub(super) token_allowance: i32,
@@ -26,43 +19,26 @@ const DEFAULT_TOKEN_ALLOWANCE: i32 = 1000;
 
 impl ClientRecord {
     pub(super) async fn new_and_store(
-        connection: &mut PgConnection,
-        queue_encryption_key: RatchetEncryptionKey,
-        ratchet: AsQueueRatchet,
+        connection: impl PgExecutor<'_>,
         credential: ClientCredential,
     ) -> Result<Self, StorageError> {
         let record = Self {
-            queue_encryption_key,
-            ratchet,
             activity_time: TimeStamp::now(),
             credential,
             token_allowance: DEFAULT_TOKEN_ALLOWANCE,
         };
-
-        // Initialize the client's queue.
-        let mut transaction = connection.begin().await?;
-        record.store(&mut *transaction).await?;
-        Queue::new_and_store(record.user_id(), &mut *transaction).await?;
-        transaction.commit().await?;
-
+        record.store(connection).await?;
         Ok(record)
     }
 
     #[cfg(test)]
-    pub(super) fn credential(&self) -> &ClientCredential {
-        &self.credential
-    }
-
     fn user_id(&self) -> &UserId {
         self.credential.identity()
     }
 }
 
 pub(crate) mod persistence {
-    use phnxcommon::{
-        codec::{BlobDecoded, BlobEncoded},
-        credentials::persistence::FlatClientCredential,
-    };
+    use phnxcommon::credentials::persistence::FlatClientCredential;
     use sqlx::{
         PgExecutor, query,
         types::chrono::{DateTime, Utc},
@@ -82,16 +58,12 @@ pub(crate) mod persistence {
                 "INSERT INTO as_client_records (
                     user_uuid,
                     user_domain,
-                    queue_encryption_key,
-                    ratchet,
                     activity_time,
                     credential,
                     remaining_tokens
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                ) VALUES ($1, $2, $3, $4, $5)",
                 user_id.uuid(),
                 user_id.domain() as _,
-                BlobEncoded(&self.queue_encryption_key) as _,
-                BlobEncoded(&self.ratchet) as _,
                 activity_time,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
@@ -110,14 +82,10 @@ pub(crate) mod persistence {
             let user_id = self.credential.identity();
             query!(
                 "UPDATE as_client_records SET
-                    queue_encryption_key = $1,
-                    ratchet = $2,
-                    activity_time = $3,
-                    credential = $4,
-                    remaining_tokens = $5
-                WHERE user_uuid = $6 AND user_domain = $7",
-                BlobEncoded(&self.queue_encryption_key) as _,
-                BlobEncoded(&self.ratchet) as _,
+                    activity_time = $1,
+                    credential = $2,
+                    remaining_tokens = $3
+                WHERE user_uuid = $4 AND user_domain = $5",
                 activity_time,
                 client_credential as FlatClientCredential,
                 self.token_allowance,
@@ -135,9 +103,6 @@ pub(crate) mod persistence {
         ) -> Result<Option<ClientRecord>, StorageError> {
             query!(
                 r#"SELECT
-                    queue_encryption_key
-                        AS "queue_encryption_key: BlobDecoded<RatchetEncryptionKey>",
-                    ratchet AS "ratchet: BlobDecoded<AsQueueRatchet>",
                     activity_time,
                     credential AS "credential: FlatClientCredential",
                     remaining_tokens
@@ -150,8 +115,6 @@ pub(crate) mod persistence {
             .await?
             .map(|record| {
                 Ok(ClientRecord {
-                    queue_encryption_key: record.queue_encryption_key.into_inner(),
-                    ratchet: record.ratchet.into_inner(),
                     activity_time: record.activity_time.into(),
                     credential: record.credential.into_client_credential(user_id.clone()),
                     token_allowance: record.remaining_tokens,
@@ -202,7 +165,7 @@ pub(crate) mod persistence {
         use mls_assist::openmls::prelude::SignatureScheme;
         use phnxcommon::{
             credentials::{ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint},
-            crypto::{ratchet::QueueRatchet, signatures::signable::Signature},
+            crypto::signatures::signable::Signature,
             time::{Duration, ExpirationData},
         };
         use sqlx::PgPool;
@@ -224,10 +187,6 @@ pub(crate) mod persistence {
             let (csr, _) = ClientCredentialCsr::new(user_id, SignatureScheme::ED25519)?;
             let expiration_data = ExpirationData::new(Duration::days(90));
             let record = ClientRecord {
-                queue_encryption_key: RatchetEncryptionKey::new_for_test(
-                    b"encryption_key".to_vec(),
-                ),
-                ratchet: QueueRatchet::random()?,
                 activity_time: TimeStamp::now(),
                 credential: ClientCredential::new(
                     ClientCredentialPayload::new(

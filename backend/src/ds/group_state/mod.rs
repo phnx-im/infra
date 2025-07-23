@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use mimi_room_policy::VerifiedRoomState;
+use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
 use mls_assist::{
     MlsAssistRustCrypto,
     group::Group,
@@ -17,6 +17,7 @@ use mls_assist::{
 };
 use phnxcommon::{
     codec::PhnxCodec,
+    credentials::VerifiableClientCredential,
     crypto::{
         ear::{
             Ciphertext, EarDecryptable, EarEncryptable,
@@ -24,13 +25,14 @@ use phnxcommon::{
         },
         errors::{DecryptionError, EncryptionError},
     },
-    identifiers::{QsReference, SealedClientReference},
+    identifiers::{QsReference, SealedClientReference, UserId},
     messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
 use thiserror::Error;
+use tls_codec::Serialize as _;
 use tracing::error;
 use uuid::Uuid;
 
@@ -63,24 +65,6 @@ pub(crate) struct DsGroupState {
 }
 
 impl DsGroupState {
-    // TODO: This is copied from CoreClient. Can we move this to openmls?
-    //
-    // Computes free indices based on existing leaf indices and staged removals.
-    // Not that staged additions are not considered.
-    pub(super) async fn free_indices(&mut self) -> impl Iterator<Item = LeafNodeIndex> + 'static {
-        let leaf_indices = self.member_profiles.keys().cloned().collect::<Vec<_>>();
-
-        let highest_index = leaf_indices
-            .last()
-            .cloned()
-            .unwrap_or(LeafNodeIndex::new(0));
-
-        (0..highest_index.u32())
-            .filter(move |index| !leaf_indices.contains(&LeafNodeIndex::new(*index)))
-            .chain(highest_index.u32() + 1..)
-            .map(LeafNodeIndex::new)
-    }
-
     pub(crate) fn new(
         provider: MlsAssistRustCrypto<PhnxCodec>,
         group: Group,
@@ -102,6 +86,32 @@ impl DsGroupState {
             group,
             room_state,
             member_profiles: client_profiles,
+        }
+    }
+
+    pub(crate) fn room_state_change_role(
+        &mut self,
+        sender: &UserId,
+        target: &UserId,
+        role: RoleIndex,
+    ) -> Option<()> {
+        let Ok(sender) = sender.tls_serialize_detached() else {
+            return None;
+        };
+
+        let Ok(target) = target.tls_serialize_detached() else {
+            return None;
+        };
+
+        match self
+            .room_state
+            .apply_regular_proposals(&sender, &[MimiProposal::ChangeRole { target, role }])
+        {
+            Ok(_) => Some(()),
+            Err(e) => {
+                error!(%e, "Change role proposal failed");
+                None
+            }
         }
     }
 
@@ -132,7 +142,7 @@ impl DsGroupState {
         ExternalCommitInfo {
             group_info,
             ratchet_tree,
-            room_state: serde_json::to_vec(&self.room_state).unwrap(),
+            room_state: self.room_state.clone(),
             encrypted_user_profile_keys,
         }
     }
@@ -151,7 +161,7 @@ impl DsGroupState {
         ear_key: &GroupStateEarKey,
     ) -> Result<EncryptedDsGroupState, DsGroupStateEncryptionError> {
         let encrypted =
-            EncryptableDsGroupState::from(SerializableDsGroupState::from_group_state(self)?)
+            EncryptableDsGroupState::from(SerializableDsGroupStateV2::from_group_state(self)?)
                 .encrypt(ear_key)?;
         Ok(encrypted)
     }
@@ -161,7 +171,7 @@ impl DsGroupState {
         ear_key: &GroupStateEarKey,
     ) -> Result<Self, DsGroupStateDecryptionError> {
         let encryptable = EncryptableDsGroupState::decrypt(ear_key, encrypted_group_state)?;
-        let group_state = SerializableDsGroupState::into_group_state(encryptable.into())?;
+        let group_state = SerializableDsGroupStateV2::into_group_state(encryptable.into())?;
         Ok(group_state)
     }
 
@@ -252,14 +262,21 @@ impl StorableDsGroupData {
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct SerializableDsGroupState {
+pub(crate) struct SerializableDsGroupStateV1 {
     group_id: GroupId,
     serialized_provider: Vec<u8>,
-    room_state: VerifiedRoomState,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
-impl SerializableDsGroupState {
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SerializableDsGroupStateV2 {
+    group_id: GroupId,
+    serialized_provider: Vec<u8>,
+    room_state: Vec<u8>,
+    member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
+}
+
+impl SerializableDsGroupStateV2 {
     pub(super) fn from_group_state(
         group_state: DsGroupState,
     ) -> Result<Self, phnxcommon::codec::Error> {
@@ -271,11 +288,12 @@ impl SerializableDsGroupState {
             .clone();
         let client_profiles = group_state.member_profiles.into_iter().collect();
         let serialized_provider = group_state.provider.storage().serialize()?;
+        let room_state = PhnxCodec::to_vec(group_state.room_state.unverified())?;
         Ok(Self {
             group_id,
             serialized_provider,
             member_profiles: client_profiles,
-            room_state: group_state.room_state,
+            room_state,
         })
     }
 
@@ -285,31 +303,68 @@ impl SerializableDsGroupState {
         let group = Group::load(&storage, &self.group_id)?.unwrap();
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
+
+        let room_state = if let Some(state) = PhnxCodec::from_slice(&self.room_state)
+            .ok()
+            .and_then(|state| VerifiedRoomState::verify(state).ok())
+        {
+            state
+        } else {
+            error!("Failed to load room state. Falling back to default room state.");
+
+            let members = group
+                .members()
+                .map(|m| {
+                    VerifiableClientCredential::try_from(m.credential)
+                        .unwrap()
+                        .user_id()
+                        .clone()
+                        .tls_serialize_detached()
+                })
+                .filter_map(|r| match r {
+                    Ok(user) => Some(user),
+                    Err(e) => {
+                        error!(%e, "Failed to serialize user id for fallback room");
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            VerifiedRoomState::fallback_room(members)
+        };
+
         Ok(DsGroupState {
             provider,
             group,
             member_profiles: client_profiles,
-            room_state: self.room_state,
+            room_state,
         })
     }
 }
 
 #[derive(Serialize, Deserialize)]
 pub(super) enum EncryptableDsGroupState {
-    V1(SerializableDsGroupState),
+    V1(SerializableDsGroupStateV1),
+    V2(SerializableDsGroupStateV2),
 }
 
-impl From<EncryptableDsGroupState> for SerializableDsGroupState {
+impl From<EncryptableDsGroupState> for SerializableDsGroupStateV2 {
     fn from(encryptable: EncryptableDsGroupState) -> Self {
         match encryptable {
-            EncryptableDsGroupState::V1(serializable) => serializable,
+            EncryptableDsGroupState::V1(serializable) => Self {
+                group_id: serializable.group_id,
+                serialized_provider: serializable.serialized_provider,
+                room_state: Vec::new(),
+                member_profiles: serializable.member_profiles,
+            },
+            EncryptableDsGroupState::V2(serializable) => serializable,
         }
     }
 }
 
-impl From<SerializableDsGroupState> for EncryptableDsGroupState {
-    fn from(serializable: SerializableDsGroupState) -> Self {
-        EncryptableDsGroupState::V1(serializable)
+impl From<SerializableDsGroupStateV2> for EncryptableDsGroupState {
+    fn from(serializable: SerializableDsGroupStateV2) -> Self {
+        EncryptableDsGroupState::V2(serializable)
     }
 }
 

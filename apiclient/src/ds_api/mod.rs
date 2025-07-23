@@ -12,7 +12,7 @@ use phnxcommon::{
     LibraryError,
     credentials::keys::ClientSigningKey,
     crypto::ear::keys::GroupStateEarKey,
-    identifiers::QsReference,
+    identifiers::{AttachmentId, QsReference},
     messages::{
         client_ds::UserProfileKeyUpdateParams,
         client_ds_out::{
@@ -23,6 +23,7 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
+pub use phnxprotos::delivery_service::v1::ProvisionAttachmentResponse;
 
 use crate::ApiClient;
 
@@ -202,5 +203,40 @@ impl ApiClient {
     /// Request a group ID.
     pub async fn ds_request_group_id(&self) -> Result<GroupId, DsRequestError> {
         self.ds_grpc_client.request_group_id().await
+    }
+
+    /// Provision an attachment for a group.
+    ///
+    /// The result is used to upload the attachment to the server.
+    pub async fn ds_provision_attachment(
+        &self,
+        signing_key: &ClientSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+        group_id: &GroupId,
+        sender_index: LeafNodeIndex,
+    ) -> Result<ProvisionAttachmentResponse, DsRequestError> {
+        self.ds_grpc_client
+            .provision_attachment(signing_key, group_state_ear_key, group_id, sender_index)
+            .await
+    }
+
+    /// Get the download URL for an attachment.
+    pub async fn ds_get_attachment_url(
+        &self,
+        signing_key: &ClientSigningKey,
+        group_state_ear_key: &GroupStateEarKey,
+        group_id: &GroupId,
+        sender_index: LeafNodeIndex,
+        attachment_id: AttachmentId,
+    ) -> Result<String, DsRequestError> {
+        self.ds_grpc_client
+            .get_attachment_url(
+                signing_key,
+                group_state_ear_key,
+                group_id,
+                sender_index,
+                attachment_id,
+            )
+            .await
     }
 }

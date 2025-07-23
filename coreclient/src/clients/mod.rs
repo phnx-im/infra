@@ -2,18 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashSet, convert::identity, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Context, Result, anyhow, bail};
-use chrono::{DateTime, Duration, Utc};
-use exif::{Reader, Tag};
+use anyhow::{Context, Result, anyhow, ensure};
+use chrono::{DateTime, Utc};
 use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
+pub use phnxapiclient::as_api::ListenHandleResponder;
 use phnxapiclient::{ApiClient, ApiClientInitError};
 use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
+        keys::{ClientSigningKey, HandleSigningKey},
     },
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
@@ -23,35 +24,39 @@ use phnxcommon::{
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
-        signatures::{
-            keys::{QsClientSigningKey, QsUserSigningKey},
-            signable::Signable,
-        },
+        signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
-    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
+    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
     messages::{
-        FriendshipToken, MlsInfraVersion, QueueMessage,
-        client_as::ConnectionPackageTbs,
+        FriendshipToken, QueueMessage,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
+pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
+
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info};
 use url::Url;
 
-use crate::{Asset, groups::Group, utils::persistence::delete_client_database};
+use crate::{
+    Asset,
+    contacts::HandleContact,
+    groups::Group,
+    store::Store,
+    utils::{image::resize_profile_image, persistence::delete_client_database},
+};
 use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
 use crate::{
     ConversationMessageId,
     clients::connection_offer::FriendshipPackage,
-    contacts::{Contact, PartialContact},
+    contacts::Contact,
     conversations::{
         Conversation, ConversationAttributes,
         messages::{ConversationMessage, TimestampedMessage},
@@ -68,6 +73,7 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 
 mod add_contact;
 pub(crate) mod api_clients;
+pub(crate) mod attachment;
 pub(crate) mod connection_offer;
 pub mod conversations;
 mod create_user;
@@ -82,13 +88,13 @@ pub mod store;
 mod tests;
 mod update_key;
 mod user_profile;
+pub(crate) mod user_settings;
 
 pub(crate) const CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
 
 pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const KEY_PACKAGES: usize = 50;
-pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
 #[derive(Debug, Clone)]
 pub struct CoreUser {
@@ -99,6 +105,7 @@ pub struct CoreUser {
 struct CoreUserInner {
     pool: SqlitePool,
     api_clients: ApiClients,
+    http_client: reqwest::Client,
     _qs_user_id: QsUserId,
     qs_client_id: QsClientId,
     key_store: MemoryUserKeyStore,
@@ -245,6 +252,14 @@ impl CoreUser {
         &self.inner.key_store.signing_key
     }
 
+    pub(crate) fn api_client(&self) -> anyhow::Result<ApiClient> {
+        Ok(self.inner.api_clients.default_client()?)
+    }
+
+    pub(crate) fn http_client(&self) -> reqwest::Client {
+        self.inner.http_client.clone()
+    }
+
     pub(crate) fn send_store_notification(&self, notification: StoreNotification) {
         if !notification.is_empty() {
             self.inner.store_notifications_tx.notify(notification);
@@ -289,65 +304,19 @@ impl CoreUser {
         Ok(StoreNotification::dequeue(self.pool()).await?)
     }
 
-    pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<()> {
-        if &user_profile.user_id != self.user_id() {
-            bail!("Can't set user profile for users other than the current user.",);
-        }
+    pub async fn set_own_user_profile(&self, mut user_profile: UserProfile) -> Result<UserProfile> {
+        ensure!(
+            &user_profile.user_id == self.user_id(),
+            "Can't set user profile for users other than the current user"
+        );
         if let Some(profile_picture) = user_profile.profile_picture {
             let new_image = match profile_picture {
-                Asset::Value(image_bytes) => self.resize_image(&image_bytes)?,
+                Asset::Value(image_bytes) => resize_profile_image(&image_bytes)?,
             };
             user_profile.profile_picture = Some(Asset::Value(new_image));
         }
-        self.update_user_profile(user_profile).await?;
-        Ok(())
-    }
-
-    fn resize_image(&self, mut image_bytes: &[u8]) -> Result<Vec<u8>> {
-        let image = image::load_from_memory(image_bytes)?;
-
-        // Read EXIF data
-        let exif_reader = Reader::new();
-        let mut image_bytes_cursor = std::io::Cursor::new(&mut image_bytes);
-        let exif = exif_reader
-            .read_from_container(&mut image_bytes_cursor)
-            .ok();
-
-        // Resize the image
-        let image = image.resize(256, 256, image::imageops::FilterType::Nearest);
-
-        // Rotate/flip the image according to the orientation if necessary
-        let image = if let Some(exif) = exif {
-            let orientation = exif
-                .get_field(Tag::Orientation, exif::In::PRIMARY)
-                .and_then(|field| field.value.get_uint(0))
-                .unwrap_or(1);
-            match orientation {
-                1 => image,
-                2 => image.fliph(),
-                3 => image.rotate180(),
-                4 => image.flipv(),
-                5 => image.rotate90().fliph(),
-                6 => image.rotate90(),
-                7 => image.rotate270().fliph(),
-                8 => image.rotate270(),
-                _ => image,
-            }
-        } else {
-            image
-        };
-
-        // Save the resized image
-        let mut buf = Vec::new();
-        let mut cursor = std::io::Cursor::new(&mut buf);
-        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 90);
-        encoder.encode_image(&image)?;
-        info!(
-            from_bytes = image_bytes.len(),
-            to_bytes = buf.len(),
-            "Resized profile picture",
-        );
-        Ok(buf)
+        self.update_user_profile(user_profile.clone()).await?;
+        Ok(user_profile)
     }
 
     /// Get the user profile of the user with the given [`AsClientId`].
@@ -355,7 +324,22 @@ impl CoreUser {
     /// In case of an error, or if the user profile is not found, the client id is used as a
     /// fallback.
     pub async fn user_profile(&self, user_id: &UserId) -> UserProfile {
-        IndexedUserProfile::load(self.pool(), user_id)
+        match self.pool().acquire().await {
+            Ok(mut connection) => self.user_profile_internal(&mut connection, user_id).await,
+            Err(error) => {
+                error!(%error, "Error loading user profile; fallback to user_id");
+                UserProfile::from_user_id(user_id)
+            }
+        }
+    }
+
+    // Helper to use when we already hold a connection
+    async fn user_profile_internal(
+        &self,
+        connection: &mut SqliteConnection,
+        user_id: &UserId,
+    ) -> UserProfile {
+        IndexedUserProfile::load(connection, user_id)
             .await
             .inspect_err(|error| {
                 error!(%error, "Error loading user profile; fallback to user_id");
@@ -374,9 +358,6 @@ impl CoreUser {
         while remaining_messages > 0 {
             let api_client = self.inner.api_clients.default_client()?;
             let mut response = match &queue_type {
-                QueueType::As => {
-                    unimplemented!()
-                }
                 QueueType::Qs => {
                     api_client
                         .qs_dequeue_messages(
@@ -402,17 +383,38 @@ impl CoreUser {
         Ok(messages)
     }
 
-    pub async fn as_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        let sequence_number = QueueType::As.load_sequence_number(self.pool()).await?;
-        let api_client = self.inner.api_clients.default_client()?;
-        let (stream, responder) = api_client
-            .as_listen(sequence_number, &self.inner.key_store.signing_key)
-            .await?;
-        let messages: Vec<QueueMessage> = stream.map_while(identity).collect().await;
-        if let Some(message) = messages.last() {
-            responder.ack(message.sequence_number).await;
+    /// Fetch and process AS messages
+    ///
+    /// Returns the list of [`ConversationId`]s of any newly created conversations.
+    pub async fn fetch_and_process_as_messages(&self) -> Result<Vec<ConversationId>> {
+        let records = self.user_handle_records().await?;
+        let api_client = self.api_client()?;
+        let mut conversation_ids = Vec::new();
+        for record in records {
+            let (mut stream, responder) = api_client
+                .as_listen_handle(record.hash, &record.signing_key)
+                .await?;
+            while let Some(Some(message)) = stream.next().await {
+                let Some(message_id) = message.message_id else {
+                    error!("no message id in handle queue message");
+                    continue;
+                };
+                match self
+                    .process_handle_queue_message(&record.handle, message)
+                    .await
+                {
+                    Ok(conversation_id) => {
+                        conversation_ids.push(conversation_id);
+                    }
+                    Err(error) => {
+                        error!(%error, "failed to process handle queue message");
+                    }
+                }
+                // ack the message independently of the result of processing the message
+                responder.ack(message_id.into()).await;
+            }
         }
-        Ok(messages)
+        Ok(conversation_ids)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
@@ -432,9 +434,8 @@ impl CoreUser {
         Contact::load(self.pool(), user_id).await
     }
 
-    pub async fn partial_contacts(&self) -> sqlx::Result<Vec<PartialContact>> {
-        let partial_contact = PartialContact::load_all(self.pool()).await?;
-        Ok(partial_contact)
+    pub async fn handle_contacts(&self) -> sqlx::Result<Vec<HandleContact>> {
+        HandleContact::load_all(self.pool()).await
     }
 
     fn create_own_client_reference(&self) -> QsReference {
@@ -490,6 +491,18 @@ impl CoreUser {
         Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
     }
 
+    pub async fn listen_handle(
+        &self,
+        hash: UserHandleHash,
+        signing_key: &HandleSigningKey,
+    ) -> Result<(
+        impl Stream<Item = Option<HandleQueueMessage>> + use<>,
+        ListenHandleResponder,
+    )> {
+        let api_client = self.inner.api_clients.default_client()?;
+        Ok(api_client.as_listen_handle(hash, signing_key).await?)
+    }
+
     /// Mark all messages in the conversation with the given conversation id and
     /// with a timestamp older than the given timestamp as read.
     pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
@@ -505,25 +518,6 @@ impl CoreUser {
         .await?;
         notifier.notify();
         Ok(())
-    }
-
-    /// Mark all messages in the conversation with the given conversation id and
-    /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_conversation_as_read(
-        &self,
-        conversation_id: ConversationId,
-        until: ConversationMessageId,
-    ) -> sqlx::Result<bool> {
-        let mut notifier = self.store_notifier();
-        let marked_as_read = Conversation::mark_as_read_until_message_id(
-            self.pool().acquire().await?.as_mut(),
-            &mut notifier,
-            conversation_id,
-            until,
-        )
-        .await?;
-        notifier.notify();
-        Ok(marked_as_read)
     }
 
     /// Returns how many messages are marked as unread across all conversations.
@@ -597,7 +591,7 @@ impl CoreUser {
         self.inner.key_store.signing_key.credential().identity()
     }
 
-    async fn store_messages(
+    async fn store_new_messages(
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,
@@ -605,9 +599,20 @@ impl CoreUser {
     ) -> Result<Vec<ConversationMessage>> {
         let mut stored_messages = Vec::with_capacity(group_messages.len());
         for timestamped_message in group_messages.into_iter() {
-            let message =
-                ConversationMessage::from_timestamped_message(conversation_id, timestamped_message);
+            let message_id = ConversationMessageId::random();
+            let mut message =
+                ConversationMessage::new(conversation_id, message_id, timestamped_message);
+            let attachment_records = Self::extract_attachments(&mut message);
             message.store(&mut *connection, notifier).await?;
+            for (record, pending_record) in attachment_records {
+                if let Err(error) = record.store(&mut *connection, notifier, None).await {
+                    error!(%error, "Failed to store attachment");
+                    continue;
+                }
+                if let Err(error) = pending_record.store(&mut *connection, notifier).await {
+                    error!(%error, "Failed to store pending attachment");
+                }
+            }
             stored_messages.push(message);
         }
         Ok(stored_messages)

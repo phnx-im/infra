@@ -12,6 +12,7 @@ import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/core/api/markdown.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -19,13 +20,17 @@ import 'package:prototype/user/user.dart';
 import '../mocks.dart';
 import '../helpers.dart';
 
+final userProfiles = [
+  UiUserProfile(userId: 1.userId(), displayName: 'Alice'),
+  UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
+  UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+];
+
 final conversations = [
   UiConversationDetails(
     id: 1.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_Connection(
-      UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
-    ),
+    conversationType: UiConversationType_Connection(userProfiles[1]),
     unreadMessages: 10,
     messagesCount: 10,
     attributes: const UiConversationAttributes(title: 'Bob', picture: null),
@@ -38,21 +43,24 @@ final conversations = [
         UiContentMessage(
           sender: 2.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
             content: simpleMessage('Hello Alice'),
+            attachments: [],
           ),
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
     id: 2.conversationId(),
     status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_UnconfirmedConnection(
-      UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+    conversationType: const UiConversationType_HandleConnection(
+      UiUserHandle(plaintext: "eve_03"),
     ),
     unreadMessages: 0,
     messagesCount: 10,
@@ -66,6 +74,7 @@ final conversations = [
         UiContentMessage(
           sender: 3.userId(),
           sent: true,
+          edited: true,
           content: UiMimiContent(
             plainBody:
                 'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
@@ -73,10 +82,12 @@ final conversations = [
             content: simpleMessage(
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
             ),
+            attachments: [],
           ),
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -95,21 +106,59 @@ final conversations = [
         UiContentMessage(
           sender: 4.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
             content: simpleMessage('Hello All'),
+            attachments: [],
           ),
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
+    ),
+  ),
+  UiConversationDetails(
+    id: 4.conversationId(),
+    status: const UiConversationStatus.active(),
+    conversationType: const UiConversationType_Group(),
+    unreadMessages: 0,
+    messagesCount: 10,
+    attributes: const UiConversationAttributes(title: 'Group', picture: null),
+    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastMessage: UiConversationMessage(
+      id: 3.conversationMessageId(),
+      conversationId: 3.conversationId(),
+      timestamp: '2023-01-01T00:00:00.000Z',
+      message: UiMessage_Content(
+        UiContentMessage(
+          sender: 4.userId(),
+          sent: true,
+          edited: false,
+          content: UiMimiContent(
+            plainBody: 'Hello All',
+            topicId: Uint8List(0),
+            content: simpleMessage('Hello All'),
+            attachments: [],
+          ),
+        ),
+      ),
+      position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
+    ),
+    draft: UiMessageDraft(
+      message: 'Some draft message',
+      editingId: null,
+      updatedAt: DateTime.now(),
+      source: UiMessageDraftSource.system,
     ),
   ),
 ];
 
 MessageContent simpleMessage(String msg) {
   return MessageContent(
-    content: [
+    elements: [
       RangedBlockElement(
         start: 0,
         end: msg.length,
@@ -139,9 +188,7 @@ void main() {
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: 'alice'));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
     });
 
     Widget buildSubject() => MultiBlocProvider(
@@ -155,6 +202,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(body: ConversationListContent()),
           );
         },

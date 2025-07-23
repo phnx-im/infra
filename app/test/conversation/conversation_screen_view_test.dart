@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_details/conversation_details.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
@@ -23,6 +24,12 @@ final conversation = conversations[2];
 
 final members = [1.userId(), 2.userId(), 3.userId()];
 
+final profiles = [
+  UiUserProfile(userId: 1.userId(), displayName: 'Alice'),
+  UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
+  UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+];
+
 void main() {
   setUpAll(() {
     registerFallbackValue(0.conversationMessageId());
@@ -32,21 +39,21 @@ void main() {
   group('ConversationScreenView', () {
     late MockNavigationCubit navigationCubit;
     late MockUserCubit userCubit;
+    late MockUsersCubit contactsCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
+      contactsCubit = MockUsersCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
 
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
-      when(
-        () => userCubit.userProfile(any()),
-      ).thenAnswer((_) => Future.value(null));
+        () => contactsCubit.state,
+      ).thenReturn(MockUsersState(profiles: userProfiles));
       when(() => conversationDetailsCubit.state).thenReturn(
         ConversationDetailsState(conversation: conversation, members: members),
       );
@@ -56,12 +63,18 @@ void main() {
           untilTimestamp: any(named: "untilTimestamp"),
         ),
       ).thenAnswer((_) => Future.value());
+      when(
+        () => conversationDetailsCubit.storeDraft(
+          draftMessage: any(named: "draftMessage"),
+        ),
+      ).thenAnswer((_) async => Future.value());
     });
 
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
         BlocProvider<ConversationDetailsCubit>.value(
           value: conversationDetailsCubit,
         ),
@@ -72,6 +85,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(
               body: ConversationScreenView(
                 createMessageCubit: createMockMessageCubit,
@@ -110,10 +124,13 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/conversation_screen.png'),
-      );
+      // Increase threshold because font rendering is differnt across different platforms.
+      await withThreshold(0.0222, () async {
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/conversation_screen.png'),
+        );
+      });
     });
   });
 }

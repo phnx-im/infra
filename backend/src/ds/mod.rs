@@ -9,9 +9,13 @@ use sqlx::PgPool;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::infra_service::{InfraService, ServiceCreationError};
+use crate::{
+    ds::storage::Storage,
+    infra_service::{InfraService, ServiceCreationError},
+};
 pub use grpc::GrpcDs;
 
+mod attachments;
 mod delete_group;
 mod group_operation;
 pub mod group_state;
@@ -20,6 +24,7 @@ mod join_connection_group;
 pub mod process;
 mod resync;
 mod self_remove;
+pub mod storage;
 mod update;
 mod update_user_profile_key;
 
@@ -32,6 +37,7 @@ pub struct Ds {
     own_domain: Fqdn,
     reserved_group_ids: Arc<Mutex<HashSet<Uuid>>>,
     db_pool: PgPool,
+    storage: Option<Storage>,
 }
 
 #[derive(Debug)]
@@ -43,6 +49,7 @@ impl InfraService for Ds {
             own_domain: domain,
             reserved_group_ids: Default::default(),
             db_pool,
+            storage: None,
         };
 
         Ok(ds)
@@ -50,6 +57,10 @@ impl InfraService for Ds {
 }
 
 impl Ds {
+    pub fn set_storage(&mut self, storage: Storage) {
+        self.storage = Some(storage);
+    }
+
     async fn reserve_group_id(&self, group_id: Uuid) -> bool {
         let mut reserved_group_ids = self.reserved_group_ids.lock().await;
         reserved_group_ids.insert(group_id)

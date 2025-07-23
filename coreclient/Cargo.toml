@@ -29,7 +29,6 @@ image = "0.25.1"
 kamadak-exif = "0.6.1"
 derive_more = { workspace = true }
 mimi_content = { workspace = true }
-serde_json = "1.0.140"
 
 # Persistence
 serde = { version = "1", features = ["derive"] }
@@ -46,6 +45,11 @@ trait-variant = "0.1.2"
 enumset = "1.1.5"
 phnxprotos.workspace = true
 url = "2.5.4"
+reqwest = { workspace = true, features = ["stream"] }
+infer = "0.19.0"
+blurhash = "0.2.3"
+webp = "0.3.0"
+sha2 = { workspace = true }
 
 [dev-dependencies]
 phnxserver_test_harness = { path = "../test_harness" }

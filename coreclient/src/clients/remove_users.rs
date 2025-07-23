@@ -28,6 +28,7 @@ impl CoreUser {
                     txn,
                     self.signing_key(),
                     conversation_id,
+                    self.user_id(),
                     target_users,
                 )
                 .await
@@ -49,6 +50,7 @@ impl CoreUser {
 
 mod remove_users_flow {
     use anyhow::Context;
+    use mimi_room_policy::RoleIndex;
     use phnxcommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
@@ -73,6 +75,7 @@ mod remove_users_flow {
             txn: &mut SqliteTransaction<'_>,
             signer: &ClientSigningKey,
             conversation_id: ConversationId,
+            sender_id: &UserId,
             target_users: Vec<UserId>,
         ) -> anyhow::Result<Self> {
             let conversation = Conversation::load(txn.as_mut(), &conversation_id)
@@ -82,6 +85,11 @@ mod remove_users_flow {
             let mut group = Group::load_clean(txn, group_id)
                 .await?
                 .with_context(|| format!("No group found for group ID {group_id:?}"))?;
+
+            // Room policy checks
+            for target in &target_users {
+                group.room_state_change_role(sender_id, target, RoleIndex::Outsider)?;
+            }
 
             let params = group
                 .stage_remove(txn.as_mut(), signer, target_users)
@@ -137,7 +145,8 @@ mod remove_users_flow {
                 .merge_pending_commit(txn.as_mut(), None, ds_timestamp)
                 .await?;
             group.store_update(txn.as_mut()).await?;
-            CoreUser::store_messages(txn.as_mut(), notifier, conversation_id, group_messages).await
+            CoreUser::store_new_messages(txn.as_mut(), notifier, conversation_id, group_messages)
+                .await
         }
     }
 }

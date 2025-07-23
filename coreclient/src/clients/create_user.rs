@@ -6,10 +6,8 @@ use crate::{
     DisplayName,
     groups::client_auth_info::StorableClientCredential,
     key_stores::{
-        MemoryUserKeyStoreBase,
-        as_credentials::AsCredentials,
-        indexed_keys::StorableIndexedKey,
-        queue_ratchets::{StorableAsQueueRatchet, StorableQsQueueRatchet},
+        MemoryUserKeyStoreBase, as_credentials::AsCredentials, indexed_keys::StorableIndexedKey,
+        queue_ratchets::StorableQsQueueRatchet,
     },
     user_profiles::generate::NewUserProfile,
 };
@@ -24,12 +22,11 @@ use phnxcommon::{
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
     messages::{
-        client_as::ConnectionPackage,
         client_as_out::EncryptedUserProfile,
         client_qs::CreateUserRecordResponse,
+        connection_package::ConnectionPackage,
         push_token::{EncryptedPushToken, PushToken},
     },
-    time::ExpirationData,
 };
 use tracing::debug;
 
@@ -88,9 +85,6 @@ impl BasicUserData {
             as_intermediate_credential.fingerprint().clone(),
         );
 
-        let as_queue_decryption_key = RatchetDecryptionKey::generate()?;
-        let as_initial_ratchet_secret = RatchetSecret::random()?;
-        StorableAsQueueRatchet::initialize(pool, as_initial_ratchet_secret.clone()).await?;
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
         StorableQsQueueRatchet::initialize(pool, qs_initial_ratchet_secret.clone()).await?;
         let qs_queue_decryption_key = RatchetDecryptionKey::generate()?;
@@ -108,7 +102,6 @@ impl BasicUserData {
 
         let key_store = MemoryUserKeyStoreBase {
             signing_key: prelim_signing_key,
-            as_queue_decryption_key,
             connection_decryption_key,
             qs_client_signing_key,
             qs_user_signing_key,
@@ -152,7 +145,6 @@ impl BasicUserData {
             encrypted_push_token,
             encrypted_user_profile,
             key_store,
-            as_initial_ratchet_secret,
             qs_initial_ratchet_secret,
         };
 
@@ -171,7 +163,6 @@ pub(crate) struct InitialUserState {
     encrypted_push_token: Option<EncryptedPushToken>,
     encrypted_user_profile: EncryptedUserProfile,
     key_store: MemoryUserKeyStoreBase<PreliminaryClientSigningKey>,
-    as_initial_ratchet_secret: RatchetSecret,
     qs_initial_ratchet_secret: RatchetSecret,
 }
 
@@ -186,11 +177,6 @@ impl InitialUserState {
             .default_client()?
             .as_register_user(
                 self.client_credential_payload.clone(),
-                self.key_store
-                    .as_queue_decryption_key
-                    .encryption_key()
-                    .clone(),
-                self.as_initial_ratchet_secret.clone(),
                 self.encrypted_user_profile.clone(),
             )
             .await?;
@@ -234,7 +220,6 @@ impl PostAsRegistrationState {
             encrypted_push_token,
             encrypted_user_profile: _,
             key_store,
-            as_initial_ratchet_secret: _,
             qs_initial_ratchet_secret,
         } = self.initial_user_state;
 
@@ -256,7 +241,6 @@ impl PostAsRegistrationState {
         // Replace preliminary signing key in the key store
         let key_store = MemoryUserKeyStore {
             signing_key,
-            as_queue_decryption_key: key_store.as_queue_decryption_key,
             connection_decryption_key: key_store.connection_decryption_key,
             qs_client_signing_key: key_store.qs_client_signing_key,
             qs_user_signing_key: key_store.qs_user_signing_key,
@@ -268,27 +252,11 @@ impl PostAsRegistrationState {
             qs_client_id_encryption_key: key_store.qs_client_id_encryption_key,
         };
 
-        // TODO: For now, we use the same ConnectionDecryptionKey for all
-        // connection packages.
-
-        let mut connection_packages = vec![];
-        for _ in 0..CONNECTION_PACKAGES {
-            let lifetime = ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION);
-            let connection_package_tbs = ConnectionPackageTbs::new(
-                MlsInfraVersion::default(),
-                key_store.connection_decryption_key.encryption_key().clone(),
-                lifetime,
-                key_store.signing_key.credential().clone(),
-            );
-            let connection_package = connection_package_tbs.sign(&key_store.signing_key)?;
-            connection_packages.push(connection_package);
-        }
-
         let unfinalized_registration_state = UnfinalizedRegistrationState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
-            connection_packages,
+            connection_packages: Vec::new(),
             encrypted_push_token,
         };
 
@@ -318,33 +286,22 @@ pub(crate) struct UnfinalizedRegistrationState {
 }
 
 impl UnfinalizedRegistrationState {
-    pub(super) async fn publish_connection_packages(
-        self,
-        api_clients: &ApiClients,
-    ) -> Result<AsRegisteredUserState> {
+    // Previously, this published connection packages. Now, these are published on user handle
+    // creation.
+    pub(super) fn noop(self) -> AsRegisteredUserState {
         let UnfinalizedRegistrationState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
-            connection_packages,
+            connection_packages: _,
             encrypted_push_token,
         } = self;
-
-        api_clients
-            .default_client()?
-            .as_publish_connection_packages(
-                key_store.signing_key.credential().identity().clone(),
-                connection_packages,
-                &key_store.signing_key,
-            )
-            .await?;
-        let as_registered_user_state = AsRegisteredUserState {
+        AsRegisteredUserState {
             key_store,
             server_url,
             qs_initial_ratchet_secret,
             encrypted_push_token,
-        };
-        Ok(as_registered_user_state)
+        }
     }
 
     pub(super) fn user_id(&self) -> &UserId {
@@ -498,6 +455,7 @@ impl PersistedUserState {
             _qs_user_id: qs_user_id,
             qs_client_id,
             api_clients: api_clients.clone(),
+            http_client: reqwest::Client::new(),
             store_notifications_tx: Default::default(),
         });
         CoreUser { inner }

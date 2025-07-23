@@ -4,9 +4,10 @@
 
 //! List of conversations feature
 
-use std::{pin::pin, sync::Arc};
+use std::sync::Arc;
 
 use flutter_rust_bridge::frb;
+use phnxcommon::identifiers::UserHandle;
 use phnxcoreclient::{
     Conversation,
     clients::CoreUser,
@@ -18,11 +19,14 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::StreamSink;
-use crate::util::{Cubit, CubitCore, spawn_from_sync};
+use crate::{
+    StreamSink,
+    api::types::{UiMessageDraft, UiMessageDraftSource},
+    util::{Cubit, CubitCore, spawn_from_sync},
+};
 
 use super::{
-    types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserId},
+    types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserHandle},
     user_cubit::UserCubitBase,
 };
 
@@ -47,7 +51,7 @@ impl ConversationListCubitBase {
     /// conversations.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
-        let store = user_cubit.core_user.clone();
+        let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::new();
@@ -82,11 +86,15 @@ impl ConversationListCubitBase {
 
     // Cubit methods
 
-    /// Creates a new 1:1 connection with the given user.
-    pub async fn create_connection(&self, user_id: UiUserId) -> anyhow::Result<ConversationId> {
-        let id = self.context.store.add_contact(user_id.into()).await?;
-        self.context.load_and_emit_state().await;
-        Ok(id)
+    /// Creates a new 1:1 connection with the given user via a user handle.
+    ///
+    /// Returns `None` if the provided handle does not exist.
+    pub async fn create_connection(
+        &self,
+        handle: UiUserHandle,
+    ) -> anyhow::Result<Option<ConversationId>> {
+        let handle = UserHandle::new(handle.plaintext)?;
+        self.context.store.add_contact(handle).await
     }
 
     /// Creates a new group conversation with the given name.
@@ -121,7 +129,7 @@ where
 
     fn spawn(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + 'static,
+        store_notifications: impl Stream<Item = Arc<StoreNotification>> + Send + Unpin + 'static,
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
@@ -140,10 +148,9 @@ where
 
     async fn store_notifications_loop(
         self,
-        store_notifications: impl Stream<Item = Arc<StoreNotification>>,
+        mut store_notifications: impl Stream<Item = Arc<StoreNotification>> + Unpin,
         stop: CancellationToken,
     ) {
-        let mut store_notifications = pin!(store_notifications);
         loop {
             let res = tokio::select! {
                 _ = stop.cancelled() => return,
@@ -159,10 +166,10 @@ where
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
-        let any_conversation_changed = notification
-            .ops
-            .iter()
-            .any(|(id, op)| matches!(id, StoreEntityId::Conversation(_) if !op.is_empty()));
+        let any_conversation_changed = notification.ops.iter().any(|(id, op)| {
+            matches!(id, StoreEntityId::Conversation(_) if !op.is_empty())
+                || matches!(id, StoreEntityId::User(_) if !op.is_empty())
+        });
         if any_conversation_changed {
             // TODO(perf): This is a very coarse-grained approach. Optimally, we would only load
             // changed and new conversations, and replace them individually in the `state`.
@@ -175,17 +182,30 @@ async fn conversation_details(store: &impl Store) -> Vec<UiConversationDetails> 
     let conversations = store.conversations().await.unwrap_or_default();
     let mut conversation_details = Vec::with_capacity(conversations.len());
     for conversation in conversations {
-        let details = converation_into_ui_details(store, conversation).await;
+        let details = load_conversation_details(store, conversation).await;
         conversation_details.push(details);
     }
-    // Sort the conversations by last used timestamp in descending order
-    conversation_details.sort_unstable_by(|a, b| b.last_used.cmp(&a.last_used));
+    // Sort the conversations first by last updated draft if any, then by last used timestamp in
+    // descending order
+    conversation_details.sort_unstable_by(|a, b| {
+        b.draft
+            .as_ref()
+            .filter(|draft| !draft.is_empty())
+            .map(|draft| draft.updated_at)
+            .cmp(
+                &a.draft
+                    .as_ref()
+                    .filter(|draft| !draft.is_empty())
+                    .map(|draft| draft.updated_at),
+            )
+            .then(b.last_used.cmp(&a.last_used))
+    });
     conversation_details
 }
 
 /// Loads additional details for a conversation and converts it into a
 /// [`UiConversationDetails`]
-pub(super) async fn converation_into_ui_details(
+pub(super) async fn load_conversation_details(
     store: &impl Store,
     conversation: Conversation,
 ) -> UiConversationDetails {
@@ -202,7 +222,7 @@ pub(super) async fn converation_into_ui_details(
         .await
         .ok()
         .flatten()
-        .map(|m| m.into());
+        .map(From::from);
     let last_used = last_message
         .as_ref()
         .map(|m: &UiConversationMessage| m.timestamp.clone())
@@ -213,6 +233,12 @@ pub(super) async fn converation_into_ui_details(
         UiConversationType::load_from_conversation_type(store, conversation.conversation_type)
             .await;
 
+    let draft = store
+        .message_draft(conversation.id)
+        .await
+        .unwrap_or_default()
+        .map(|d| UiMessageDraft::from_draft(d, UiMessageDraftSource::System));
+
     UiConversationDetails {
         id: conversation.id,
         status: conversation.status.into(),
@@ -222,5 +248,6 @@ pub(super) async fn converation_into_ui_details(
         messages_count,
         unread_messages,
         last_message,
+        draft,
     }
 }

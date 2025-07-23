@@ -17,20 +17,35 @@ use sqlx::{
 use tracing::{error, info};
 
 use crate::clients::store::ClientRecord;
+use crate::utils::data_migrations;
 
 pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
 
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
 pub(crate) async fn open_phnx_db(db_path: &str) -> sqlx::Result<SqlitePool> {
-    let db_url = format!("sqlite://{}/{}", db_path, PHNX_DB_NAME);
+    let db_url = format!("sqlite://{db_path}/{PHNX_DB_NAME}");
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts
         .journal_mode(SqliteJournalMode::Wal)
         .create_if_missing(true);
     let pool = SqlitePool::connect_with(opts).await?;
 
-    migrate!().run(&pool).await?;
+    // Delete the old migration table if it exists
+    const FIRST_MIGRATION: i64 = 20250115104336;
+    if let Ok(Some(_)) = sqlx::query_scalar::<_, i64>(&format!(
+        "SELECT 1 FROM _sqlx_migrations WHERE version = {FIRST_MIGRATION}"
+    ))
+    .fetch_optional(&pool)
+    .await
+    {
+        // The database is based on old migration
+        sqlx::query("DROP TABLE IF EXISTS _sqlx_migrations")
+            .execute(&pool)
+            .await?;
+    }
+
+    migrate!("migrations/phnx").run(&pool).await?;
 
     Ok(pool)
 }
@@ -49,7 +64,7 @@ pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
         .acquire_timeout(Duration::from_secs(3))
         .connect_with(opts)
         .await?;
-    migrate!().run(&pool).await?;
+    sqlx::migrate!().run(&pool).await?;
     Ok(pool)
 }
 
@@ -116,13 +131,14 @@ fn client_db_name(user_id: &UserId) -> String {
 
 pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Result<SqlitePool> {
     let client_db_name = client_db_name(user_id);
-    let db_url = format!("sqlite://{}/{}", client_db_path, client_db_name);
+    let db_url = format!("sqlite://{client_db_path}/{client_db_name}");
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts
         .journal_mode(SqliteJournalMode::Wal)
         .create_if_missing(true);
     let pool = SqlitePoolOptions::default().connect_with(opts).await?;
 
+    data_migrations::migrate(&pool).await?;
     migrate!().run(&pool).await?;
 
     Ok(pool)

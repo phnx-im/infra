@@ -10,13 +10,20 @@ POSTGRES_DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
 docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } else { "false" }
 
-# run postgres via docker compose and apply migrations
-init-db $DATABASE_URL=(POSTGRES_DATABASE_URL): generate-db-certs
+# run docker compose services in the background
+run-services: generate-db-certs
     if {{docker-is-podman}} == "true"; then \
+        podman rm infra_minio-setup_1 -i 2>&1 /dev/null; \
         podman-compose --podman-run-args=--replace up -d; \
+        podman-compose ps; \
+        podman logs infra_postgres_1; \
     else \
-        docker compose up --wait; \
+        docker compose up --wait --wait-timeout=300; \
+        docker compose ps; \
     fi
+
+# initialize the backend database and apply migrations
+init-backend-db $DATABASE_URL=(POSTGRES_DATABASE_URL):
     cd backend && sqlx database create
     cd backend && sqlx database setup
 
@@ -66,18 +73,53 @@ frb-generate $CARGO_TARGET_DIR=(justfile_directory() + "/target/frb_codegen"):
 # `flutter_rust_bridge_codegen` runs the `dart run build_runner build` command,
 # which updates the generated files.
 check-frb: frb-generate
+    just check-clean-repo "just frb-generate"
+
+# same as check-generated-frb (with all prerequisite steps for running in CI)
+check-frb-ci: install-cargo-binstall
+    cargo binstall flutter_rust_bridge_codegen@2.11.1 cargo-expand
+    just check-frb
+
+check-clean-repo command:
     #!/usr/bin/env -S bash -eu
     if [ -n "$(git status --porcelain)" ]; then
         git add -N .
         git --no-pager diff
-        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run 'just frb-generate'?"
+        echo -e "\x1b[1;31mFound uncommitted changes. Did you forget to run '{{command}}'?"
         exit 1
     fi
 
-# same as check-generated-frb (with all prerequisite steps for running in CI)
-check-frb-ci: install-cargo-binstall
-    cargo binstall flutter_rust_bridge_codegen@2.9.0 cargo-expand
-    just check-frb
+# update the Flutter dependencies
+[working-directory: 'app']
+flutter-pub-get:
+    flutter pub get
+
+# check that the Flutter lockfile is up to date
+[working-directory: 'app']
+check-flutter-lockfile: flutter-pub-get
+    # getting the Flutter dependencies may change the formatting
+    just dart-format
+    just check-clean-repo "just flutter-pub-get"
+
+# format dart code
+[working-directory: 'app']
+dart-format:
+    dart format .
+
+# check that dart code is formatted
+[working-directory: 'app']
+check-dart-format: dart-format
+    just check-clean-repo "just dart-format"
+
+# generate localization files
+[working-directory: 'app']
+gen-l10n:
+    flutter gen-l10n
+
+# check that the localization files are up to date
+[working-directory: 'app']
+check-l10n: gen-l10n
+    just check-clean-repo "just gen-l10n"
 
 # set up the CI environment for the app
 install-cargo-binstall:
@@ -130,10 +172,24 @@ test-flutter *args='':
     flutter test {{args}}
 
 # run backend server (at localhost)
-run-backend: init-db
+run-backend: init-backend-db
     cargo run --bin phnxserver
 
 # Build Windows app
 [working-directory: 'app']
 build-windows:
      flutter build windows
+
+# Run app
+[working-directory: 'app']
+run-app *args='':
+    flutter run {{args}}
+
+# Run app on Linux
+run-app-linux *args='':
+    just run-app -d linux {{args}}
+
+# Add client migration
+[working-directory: 'coreclient']
+add-client-migration migration_name:
+    sqlx migrate add {{migration_name}}

@@ -9,7 +9,6 @@ import 'package:prototype/user/user.dart';
 
 import 'conversation_list_content.dart';
 import 'conversation_list_cubit.dart';
-import 'conversation_list_footer.dart';
 import 'conversation_list_header.dart';
 
 class ConversationListContainer extends StatelessWidget {
@@ -29,25 +28,21 @@ class ConversationListContainer extends StatelessWidget {
 class ConversationListView extends StatelessWidget {
   const ConversationListView({super.key});
 
+  double _topPadding() {
+    return isPointer() ? Spacings.l : kToolbarHeight;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        shape: BoxShape.rectangle,
-        border: Border(right: BorderSide(width: 1, color: colorGreyLight)),
-      ),
-      child: const Scaffold(
-        backgroundColor: convPaneBackgroundColor,
-        body: Stack(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: kToolbarHeight, bottom: 120),
-              child: ConversationListContent(),
-            ),
-            ConversationListHeader(),
-            ConversationListFooter(),
-          ],
-        ),
+      color: isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+      padding: EdgeInsets.only(top: _topPadding()),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ConversationListHeader(),
+          Expanded(child: ConversationListContent()),
+        ],
       ),
     );
   }

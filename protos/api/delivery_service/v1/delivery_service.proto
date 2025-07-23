@@ -35,6 +35,20 @@ service DeliveryService {
   rpc GroupOperation(GroupOperationRequest) returns (GroupOperationResponse);
 
   rpc UpdateProfileKey(UpdateProfileKeyRequest) returns (UpdateProfileKeyResponse);
+
+  // Generates an attachment ID and returns a pre-signed URL for uploading an attachment.
+  //
+  // The actual upload is done by the client.
+  //
+  // Note: An attachment is always provisioned relative to a specific group.
+  rpc ProvisionAttachment(ProvisionAttachmentRequest) returns (ProvisionAttachmentResponse);
+
+  // Returns a URL for downloading attachment.
+  //
+  // The actual download is done by the client.
+  //
+  // Note: An attachment is always retrieved relative to a specific group.
+  rpc GetAttachmentUrl(GetAttachmentUrlRequest) returns (GetAttachmentUrlResponse);
 }
 
 // common messages
@@ -56,6 +70,10 @@ message MlsMessage {
 }
 
 message AssistedMessage {
+  bytes tls = 1;
+}
+
+message RoomState {
   bytes tls = 1;
 }
 
@@ -83,7 +101,7 @@ message CreateGroupPayload {
   EncryptedUserProfileKey encrypted_user_profile_key = 5;
   QsReference creator_client_reference = 6;
   MlsMessage group_info = 7;
-  bytes room_state = 8;
+  RoomState room_state = 8;
 }
 
 message EncryptedUserProfileKey {
@@ -124,7 +142,7 @@ message GroupEpoch {
 message WelcomeInfoResponse {
   RatchetTree ratchet_tree = 1;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 3;
-  bytes room_state = 4;
+  RoomState room_state = 4;
 }
 
 // external commit info
@@ -138,7 +156,7 @@ message ExternalCommitInfoResponse {
   GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
-  bytes room_state = 5;
+  RoomState room_state = 5;
 }
 
 message GroupInfo {
@@ -156,7 +174,7 @@ message ConnectionGroupInfoResponse {
   GroupInfo group_info = 1;
   RatchetTree ratchet_tree = 2;
   repeated EncryptedUserProfileKey encrypted_user_profile_keys = 4;
-  bytes room_state = 5;
+  RoomState room_state = 5;
 }
 
 // update
@@ -294,3 +312,48 @@ message UpdateProfileKeyPayload {
 }
 
 message UpdateProfileKeyResponse {}
+
+// provision attachment
+
+message ProvisionAttachmentRequest {
+  ProvisionAttachmentPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message ProvisionAttachmentPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  common.v1.QualifiedGroupId group_id = 2;
+  LeafNodeIndex sender = 3;
+}
+
+message ProvisionAttachmentResponse {
+  common.v1.Uuid attachment_id = 1;
+  common.v1.ExpirationData upload_url_expiration = 2;
+  string upload_url = 4; // non-empty
+  repeated HeaderEntry upload_headers = 5; // can be empty
+}
+
+message HeaderEntry {
+  string key = 1;
+  string value = 2;
+}
+
+// get attachment url
+
+message GetAttachmentUrlRequest {
+  GetAttachmentUrlPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message GetAttachmentUrlPayload {
+  GroupStateEarKey group_state_ear_key = 1;
+  common.v1.QualifiedGroupId group_id = 2;
+  LeafNodeIndex sender = 3;
+  common.v1.Uuid attachment_id = 4;
+}
+
+message GetAttachmentUrlResponse {
+  common.v1.ExpirationData download_url_expiration = 1;
+  string download_url = 2;
+  repeated HeaderEntry download_headers = 3;
+}

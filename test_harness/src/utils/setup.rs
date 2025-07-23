@@ -5,12 +5,17 @@
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    time::Duration,
 };
 
-use mimi_content::MimiContent;
+use anyhow::Context;
+use mimi_content::{
+    MimiContent,
+    content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
+};
 use phnxcommon::{
-    DEFAULT_PORT_HTTP,
-    identifiers::{Fqdn, UserId},
+    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
+    identifiers::{Fqdn, UserHandle, UserId},
 };
 use phnxcoreclient::{
     ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
@@ -19,7 +24,11 @@ use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
 use tempfile::TempDir;
-use tokio::task::{LocalEnterGuard, LocalSet};
+use tokio::{
+    task::{LocalEnterGuard, LocalSet},
+    time::timeout,
+};
+use tokio_stream::StreamExt;
 use tracing::info;
 
 use crate::utils::spawn_app_with_rate_limits;
@@ -29,8 +38,10 @@ use super::TEST_RATE_LIMITS;
 #[derive(Debug)]
 pub struct TestUser {
     pub user: CoreUser,
-    // If this is an ephemeral user, this is None.
+    /// If this is an ephemeral user, this is None.
     pub db_dir: Option<String>,
+    /// The user handle record of the user if a handle was added.
+    pub user_handle_record: Option<UserHandleRecord>,
 }
 
 impl AsRef<CoreUser> for TestUser {
@@ -63,7 +74,12 @@ impl TestUser {
         let server_url = format!("http://{hostname_str}").parse().unwrap();
 
         let user = CoreUser::new_ephemeral(user_id.clone(), server_url, grpc_port, None).await?;
-        Ok(Self { user, db_dir: None })
+
+        Ok(Self {
+            user,
+            db_dir: None,
+            user_handle_record: None,
+        })
     }
 
     pub async fn new_persisted(
@@ -83,11 +99,37 @@ impl TestUser {
         Self {
             user,
             db_dir: Some(db_dir.to_owned()),
+            user_handle_record: None,
         }
     }
 
     pub fn user(&self) -> &CoreUser {
         &self.user
+    }
+
+    pub async fn add_user_handle(&mut self) -> anyhow::Result<UserHandleRecord> {
+        if let Some(record) = self.user_handle_record.clone() {
+            info!(user_id = ?self.user.user_id(), "User handle already exists");
+            return Ok(record);
+        }
+
+        let user_id_str = format!("{:?}", self.user.user_id())
+            .replace('-', "")
+            .replace(['@', '.'], "_");
+        let handle = UserHandle::new(user_id_str)?;
+        info!(
+            user_id = ?self.user.user_id(),
+            handle = handle.plaintext(),
+            "Adding handle to user"
+        );
+        let record = self
+            .user
+            .add_user_handle(&handle)
+            .await?
+            .context("user handle is already in use")?;
+        self.user_handle_record = Some(record.clone());
+
+        Ok(record)
     }
 }
 
@@ -297,30 +339,35 @@ impl TestBackend {
 
     pub async fn connect_users(&mut self, user1_id: &UserId, user2_id: &UserId) -> ConversationId {
         info!("Connecting users {user1_id:?} and {user2_id:?}");
+
+        let test_user2 = self.users.get_mut(user2_id).unwrap();
+        let user2_handle_record = test_user2.add_user_handle().await.unwrap();
+        let user2_handle = &user2_handle_record.handle;
+
         let test_user1 = self.users.get_mut(user1_id).unwrap();
         let user1 = &mut test_user1.user;
-        let user1_partial_contacts_before = user1.partial_contacts().await.unwrap();
+        let user1_profile = user1.own_user_profile().await.unwrap();
+        let user1_handle_contacts_before = user1.handle_contacts().await.unwrap();
         let user1_conversations_before = user1.conversations().await.unwrap();
-        user1.add_contact(user2_id.clone()).await.unwrap();
-        let mut user1_partial_contacts_after = user1.partial_contacts().await.unwrap();
+        user1.add_contact(user2_handle.clone()).await.unwrap();
+        let mut user1_handle_contacts_after = user1.handle_contacts().await.unwrap();
         let error_msg = format!(
-            "User 2 should be in the partial contacts list of user 1. List: {:?}",
-            user1_partial_contacts_after,
+            "User 2 should be in the handle contacts list of user 1. List: {user1_handle_contacts_after:?}",
         );
-        let new_user_position = user1_partial_contacts_after
+        let new_user_position = user1_handle_contacts_after
             .iter()
-            .position(|c| &c.user_id == user2_id)
+            .position(|c| &c.handle == user2_handle)
             .expect(&error_msg);
-        // If we remove the new user, the partial contact lists should be the same.
-        user1_partial_contacts_after.remove(new_user_position);
-        user1_partial_contacts_before
+        // If we remove the new user, the handle contact lists should be the same.
+        user1_handle_contacts_after.remove(new_user_position);
+        user1_handle_contacts_before
             .into_iter()
-            .zip(user1_partial_contacts_after)
+            .zip(user1_handle_contacts_after)
             .for_each(|(before, after)| {
-                assert_eq!(before.user_id, after.user_id);
+                assert_eq!(before.handle, after.handle);
             });
         let mut user1_conversations_after = user1.conversations().await.unwrap();
-        let test_title = format!("Connection group: {user1_id:?} - {user2_id:?}");
+        let test_title = format!("Connection group: {}", user2_handle.plaintext());
         let new_conversation_position = user1_conversations_after
             .iter()
             .position(|c| c.attributes().title() == test_title)
@@ -329,7 +376,7 @@ impl TestBackend {
         assert!(conversation.status() == &ConversationStatus::Active);
         assert!(
             conversation.conversation_type()
-                == &ConversationType::UnconfirmedConnection(user2_id.clone())
+                == &ConversationType::HandleConnection(user2_handle.clone())
         );
         user1_conversations_before
             .into_iter()
@@ -343,23 +390,36 @@ impl TestBackend {
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
-        info!("{user2_id:?} fetches AS messages");
-        let as_messages = user2.as_fetch_messages().await.unwrap();
-        info!("{user2_id:?} processes AS messages");
-        user2.fully_process_as_messages(as_messages).await.unwrap();
+        info!("{user2_id:?} fetches and process AS handle messages");
+        let (mut stream, responder) = user2
+            .listen_handle(user2_handle_record.hash, &user2_handle_record.signing_key)
+            .await
+            .unwrap();
+        while let Some(Some(message)) = timeout(Duration::from_millis(500), stream.next())
+            .await
+            .unwrap()
+        {
+            let message_id = message.message_id.unwrap();
+            user2
+                .process_handle_queue_message(&user2_handle_record.handle, message)
+                .await
+                .unwrap();
+            responder.ack(message_id.into()).await;
+        }
+
         // User 2 should have auto-accepted (for now at least) the connection request.
         let mut user2_contacts_after = user2.contacts().await.unwrap();
         info!("User 2 contacts after: {:?}", user2_contacts_after);
-        let user2_partial_contacts_before = user2.partial_contacts().await.unwrap();
+        let user2_handle_contacts_before = user2.handle_contacts().await.unwrap();
         info!(
-            "User 2 partial contacts after: {:?}",
-            user2_partial_contacts_before
+            "User 2 handle contacts after: {:?}",
+            user2_handle_contacts_before
         );
         let new_contact_position = user2_contacts_after
             .iter()
             .position(|c| &c.user_id == user1_id)
-            .expect("User 1 should be in the partial contacts list of user 2");
-        // If we remove the new user, the partial contact lists should be the same.
+            .expect("User 1 should be in the handle contacts list of user 2");
+        // If we remove the new user, the handle contact lists should be the same.
         user2_contacts_after.remove(new_contact_position);
         user2_contacts_before
             .into_iter()
@@ -375,7 +435,9 @@ impl TestBackend {
         );
         let new_conversation_position = user2_conversations_after
             .iter()
-            .position(|c| c.attributes().title() == DisplayName::from_user_id(user1_id).to_string())
+            .position(|c| {
+                c.attributes().title() == user1_profile.display_name.clone().into_string()
+            })
             .expect("User 2 should have created a new conversation");
         let conversation = user2_conversations_after.remove(new_conversation_position);
         assert!(conversation.status() == &ConversationStatus::Active);
@@ -530,7 +592,8 @@ impl TestBackend {
             .take(32)
             .map(char::from)
             .collect();
-        let orig_message = MimiContent::simple_markdown_message(message);
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let orig_message = MimiContent::simple_markdown_message(message, salt);
         let test_sender = self.users.get_mut(sender_id).unwrap();
         let sender = &mut test_sender.user;
 
@@ -545,17 +608,25 @@ impl TestBackend {
 
         let message = test_sender
             .user
-            .send_message(conversation_id, orig_message.clone())
+            .send_message(conversation_id, orig_message.clone(), None)
             .await
             .unwrap();
         let sender_user_id = test_sender.user.user_id().clone();
+
+        let conversation = test_sender
+            .user
+            .conversation(&conversation_id)
+            .await
+            .unwrap();
+        let group_id = conversation.group_id();
 
         assert_eq!(
             message.message(),
             &Message::Content(Box::new(ContentMessage::new(
                 test_sender.user.user_id().clone(),
                 true,
-                orig_message.clone()
+                orig_message.clone(),
+                group_id,
             )))
         );
 
@@ -570,16 +641,136 @@ impl TestBackend {
                 .await
                 .unwrap();
 
+            let message = messages.new_messages.last().unwrap();
+            let conversaion = recipient_user
+                .conversation(&message.conversation_id())
+                .await
+                .unwrap();
+            let group_id = conversaion.group_id();
+
             assert_eq!(
-                messages.new_messages.last().unwrap().message(),
+                message.message(),
                 &Message::Content(Box::new(ContentMessage::new(
                     sender_user_id.clone(),
                     true,
-                    orig_message.clone()
+                    orig_message.clone(),
+                    group_id
                 )))
             );
         }
         message.id()
+    }
+
+    pub async fn send_attachment(
+        &mut self,
+        conversation_id: ConversationId,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
+        attachment: &[u8],
+        filename: &str,
+    ) -> (ConversationMessageId, NestedPartContent) {
+        let recipient_strings = recipients
+            .iter()
+            .map(|n| format!("{n:?}"))
+            .collect::<Vec<_>>();
+        info!(
+            "{sender_id:?} sends a message to {}",
+            recipient_strings.join(", ")
+        );
+
+        let test_sender = self.users.get_mut(sender_id).unwrap();
+        let sender = &mut test_sender.user;
+
+        // Before sending a message, the sender must first fetch and process its QS messages.
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
+        sender
+            .fully_process_qs_messages(sender_qs_messages)
+            .await
+            .unwrap();
+
+        let tmp_dir = TempDir::new().unwrap();
+        let path = tmp_dir.path().join(filename);
+        std::fs::write(&path, attachment).unwrap();
+
+        let message = sender
+            .upload_attachment(conversation_id, &path)
+            .await
+            .unwrap();
+
+        let mut external_part = None;
+        message
+            .message()
+            .mimi_content()
+            .unwrap()
+            .visit_attachments(|part| {
+                assert!(external_part.replace(part.clone()).is_none());
+                Ok(())
+            })
+            .unwrap();
+        let external_part = external_part.unwrap();
+        match &external_part {
+            NestedPartContent::ExternalPart {
+                enc_alg,
+                key,
+                nonce,
+                hash_alg,
+                ..
+            } => {
+                assert_eq!(*enc_alg, EncryptionAlgorithm::Aes256Gcm12);
+                assert_eq!(nonce.len(), 12);
+                assert_eq!(key.len(), 32);
+                assert_eq!(*hash_alg, HashAlgorithm::Sha256);
+            }
+            _ => panic!("unexpected attachment type"),
+        };
+
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
+            let recipient_user = &mut recipient.user;
+
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
+                .await
+                .unwrap();
+
+            let mut attachment_found_once = false;
+            messages
+                .new_messages
+                .last()
+                .unwrap()
+                .message()
+                .mimi_content()
+                .unwrap()
+                .visit_attachments(|part| {
+                    assert!(!attachment_found_once);
+
+                    // Removed cleared fields from the expected attachment.
+                    let mut expected = external_part.clone();
+                    if let NestedPartContent::ExternalPart {
+                        key,
+                        nonce,
+                        aad,
+                        content_hash,
+                        ..
+                    } = &mut expected
+                    {
+                        key.clear();
+                        nonce.clear();
+                        aad.clear();
+                        content_hash.clear();
+                    } else {
+                        panic!("Unexpected attachment type")
+                    }
+
+                    assert_eq!(part, &expected);
+                    attachment_found_once = true;
+                    Ok(())
+                })
+                .unwrap();
+        }
+
+        (message.id(), external_part)
     }
 
     pub async fn create_group(&mut self, user_id: &UserId) -> ConversationId {
@@ -806,7 +997,7 @@ impl TestBackend {
         conversation_id: ConversationId,
         remover_id: &UserId,
         removed_ids: Vec<&UserId>,
-    ) {
+    ) -> anyhow::Result<()> {
         let removed_strings = removed_ids
             .iter()
             .map(|n| format!("{n:?}"))
@@ -841,8 +1032,7 @@ impl TestBackend {
                 conversation_id,
                 removed_ids.iter().copied().cloned().collect::<Vec<_>>(),
             )
-            .await
-            .expect("Error removing users.");
+            .await?;
 
         let mut expected_messages = HashSet::new();
 
@@ -957,10 +1147,16 @@ impl TestBackend {
             let removed_set: HashSet<_> = removed_ids.iter().cloned().cloned().collect();
             assert_eq!(removed_members, removed_set)
         }
+
+        Ok(())
     }
 
     /// Has the leaver leave the given group.
-    pub async fn leave_group(&mut self, conversation_id: ConversationId, leaver_id: &UserId) {
+    pub async fn leave_group(
+        &mut self,
+        conversation_id: ConversationId,
+        leaver_id: &UserId,
+    ) -> anyhow::Result<()> {
         info!(
             "{leaver_id:?} leaves the group with id {}",
             conversation_id.uuid()
@@ -969,7 +1165,7 @@ impl TestBackend {
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
-        leaver.leave_conversation(conversation_id).await.unwrap();
+        leaver.leave_conversation(conversation_id).await?;
 
         // Now have a random group member perform an update, thus committing the leave operation.
         // TODO: This is not really random. We should do better here. But also,
@@ -1001,7 +1197,10 @@ impl TestBackend {
             .await;
 
         let group_members = self.groups.get_mut(&conversation_id).unwrap();
+
         group_members.remove(leaver_id);
+
+        Ok(())
     }
 
     pub async fn delete_group(&mut self, conversation_id: ConversationId, deleter_id: &UserId) {
@@ -1243,7 +1442,8 @@ impl TestBackend {
                         );
                         let members_to_remove = members_to_remove.iter().collect();
                         self.remove_from_group(conversation.id(), &random_user, members_to_remove)
-                            .await;
+                            .await
+                            .unwrap();
                     }
                 }
             }
@@ -1266,7 +1466,9 @@ impl TestBackend {
                         "Random operation: {random_user:?} leaves group {}",
                         conversation.id().uuid()
                     );
-                    self.leave_group(conversation.id(), &random_user).await;
+                    self.leave_group(conversation.id(), &random_user)
+                        .await
+                        .unwrap();
                 }
             }
             _ => panic!("Invalid action"),

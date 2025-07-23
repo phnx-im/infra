@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::TimeDelta;
+use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     group::Group,
     messages::{AssistedMessageIn, SerializedMlsMessage},
@@ -10,32 +11,29 @@ use mls_assist::{
 };
 use phnxcommon::{
     credentials::{ClientCredential, keys::ClientVerifyingKey},
-    crypto::signatures::{
-        keys::LeafVerifyingKeyRef, private_keys::SignatureVerificationError, signable::Verifiable,
+    crypto::{
+        ear::keys::GroupStateEarKey,
+        signatures::{
+            keys::LeafVerifyingKeyRef,
+            private_keys::SignatureVerificationError,
+            signable::{Verifiable, VerifiedStruct},
+        },
     },
-};
-use phnxcommon::{
-    crypto::ear::keys::GroupStateEarKey,
-    identifiers::{Fqdn, QualifiedGroupId},
-    messages::client_ds::QsQueueMessagePayload,
-};
-use phnxcommon::{
-    crypto::signatures::signable::VerifiedStruct,
-    identifiers,
+    identifiers::{self, AttachmentId, Fqdn, QualifiedGroupId},
     messages::client_ds::{
-        GroupOperationParams, JoinConnectionGroupParams, UserProfileKeyUpdateParams,
-        WelcomeInfoParams,
+        GroupOperationParams, JoinConnectionGroupParams, QsQueueMessagePayload,
+        UserProfileKeyUpdateParams, WelcomeInfoParams,
     },
     time::TimeStamp,
 };
 use phnxprotos::{
-    convert::{RefInto, TryRefInto},
+    convert::{RefInto, TryFromRef as _, TryRefInto},
     delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
 use tls_codec::DeserializeBytes;
 use tonic::{Request, Response, Status, async_trait};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
     ds::process::Provider,
@@ -280,7 +278,16 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .creator_client_reference
             .ok_or_missing_field("creator_client_reference")?
             .try_into()?;
-        let room_state = serde_json::from_slice(&payload.room_state).unwrap(); // TODO Handle error
+        let room_state = mimi_room_policy::RoomState::try_from_ref(
+            &payload.room_state.ok_or_missing_field("room_state")?,
+        )
+        .map_err(|_| Status::invalid_argument("Invalid room_state message"))?;
+
+        let room_state = VerifiedRoomState::verify(room_state).map_err(|e| {
+            warn!(%e, "proposed room policy failed verification");
+            Status::invalid_argument("Room state verification failed")
+        })?;
+
         let group_state = DsGroupState::new(
             provider,
             group,
@@ -344,7 +351,13 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
-            room_state: serde_json::to_vec(&group_state.room_state).unwrap(),
+            room_state: Some(
+                group_state
+                    .room_state
+                    .unverified()
+                    .try_ref_into()
+                    .invalid_tls("room_state")?,
+            ),
         }))
     }
 
@@ -382,7 +395,13 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
-            room_state: commit_info.room_state,
+            room_state: Some(
+                commit_info
+                    .room_state
+                    .unverified()
+                    .try_ref_into()
+                    .invalid_tls("room_state")?,
+            ),
         }))
     }
 
@@ -420,7 +439,13 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 .into_iter()
                 .map(From::from)
                 .collect(),
-            room_state: commit_info.room_state,
+            room_state: Some(
+                commit_info
+                    .room_state
+                    .unverified()
+                    .try_ref_into()
+                    .invalid_tls("room_state")?,
+            ),
         }))
     }
 
@@ -734,7 +759,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         let verifying_key: LeafVerifyingKeyRef = group_state
             .group()
             .leaf(sender_index)
-            .ok_or(Status::invalid_argument("unknown sender"))?
+            .ok_or_else(|| Status::invalid_argument("unknown sender"))?
             .signature_key()
             .into();
         let payload: UpdateProfileKeyPayload =
@@ -773,6 +798,75 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         }
 
         Ok(Response::new(UpdateProfileKeyResponse {}))
+    }
+
+    async fn provision_attachment(
+        &self,
+        request: Request<ProvisionAttachmentRequest>,
+    ) -> Result<Response<ProvisionAttachmentResponse>, Status> {
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+
+        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
+
+        let ear_key = request.ear_key()?;
+        let qgid = payload.validated_qgid(self.ds.own_domain())?;
+        let sender_index = payload.sender.ok_or_missing_field("sender")?.into();
+
+        let (_group_data, group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        // verify signature
+        let verifying_key: LeafVerifyingKeyRef = group_state
+            .group()
+            .leaf(sender_index)
+            .ok_or_else(|| Status::invalid_argument("unknown sender"))?
+            .signature_key()
+            .into();
+        let payload = request.verify(verifying_key).map_err(InvalidSignature)?;
+
+        Ok(self.ds.provision_attachment(payload).await?)
+    }
+
+    async fn get_attachment_url(
+        &self,
+        request: Request<GetAttachmentUrlRequest>,
+    ) -> Result<Response<GetAttachmentUrlResponse>, Status> {
+        let request = request.into_inner();
+
+        request
+            .signature
+            .as_ref()
+            .ok_or_missing_field("signature")?;
+
+        let payload = request.payload.as_ref().ok_or_missing_field("payload")?;
+
+        let ear_key = request.ear_key()?;
+        let qgid = payload.validated_qgid(self.ds.own_domain())?;
+        let sender_index = payload.sender.ok_or_missing_field("sender")?.into();
+
+        let (_group_data, group_state) = self.load_group_state(&qgid, &ear_key).await?;
+
+        // verify signature
+        let verifying_key: LeafVerifyingKeyRef = group_state
+            .group()
+            .leaf(sender_index)
+            .ok_or_else(|| Status::invalid_argument("unknown sender"))?
+            .signature_key()
+            .into();
+        let payload: GetAttachmentUrlPayload =
+            request.verify(verifying_key).map_err(InvalidSignature)?;
+
+        let attachment_id = payload
+            .attachment_id
+            .ok_or_missing_field("attachment_id")?
+            .into();
+        let attachment_id = AttachmentId::new(attachment_id);
+
+        Ok(self.ds.get_attachment_url(attachment_id).await?)
     }
 }
 
@@ -866,6 +960,26 @@ impl WithQualifiedGroupId for UpdateProfileKeyPayload {
     }
 }
 
+impl WithQualifiedGroupId for ProvisionAttachmentPayload {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status> {
+        self.group_id
+            .as_ref()
+            .ok_or_missing_field("group_id")?
+            .try_ref_into()
+            .map_err(From::from)
+    }
+}
+
+impl WithQualifiedGroupId for GetAttachmentUrlPayload {
+    fn qgid(&self) -> Result<QualifiedGroupId, Status> {
+        self.group_id
+            .as_ref()
+            .ok_or_missing_field("group_id")?
+            .try_ref_into()
+            .map_err(From::from)
+    }
+}
+
 /// Protobuf containing a group state ear key
 trait WithGroupStateEarKey {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
@@ -928,6 +1042,18 @@ impl WithGroupStateEarKey for ResyncRequest {
 }
 
 impl WithGroupStateEarKey for UpdateProfileKeyRequest {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
+impl WithGroupStateEarKey for ProvisionAttachmentRequest {
+    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
+        self.payload.as_ref()?.group_state_ear_key.as_ref()
+    }
+}
+
+impl WithGroupStateEarKey for GetAttachmentUrlRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.payload.as_ref()?.group_state_ear_key.as_ref()
     }

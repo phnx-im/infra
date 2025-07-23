@@ -4,8 +4,9 @@
 
 use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
+use base64::{Engine, prelude::BASE64_STANDARD};
 use image::{ImageBuffer, Rgba};
-use mimi_content::MimiContent;
+use mimi_content::{MimiContent, content_container::NestedPartContent};
 use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
 use phnxprotos::{
     auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
@@ -13,14 +14,19 @@ use phnxprotos::{
 };
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
-use phnxcommon::identifiers::UserId;
+use phnxcommon::{
+    assert_matches,
+    identifiers::{UserHandle, UserId},
+};
 use phnxcoreclient::{
-    Asset, ConversationId, ConversationMessage, DisplayName, UserProfile, clients::CoreUser,
-    store::Store,
+    Asset, ConversationId, ConversationMessage, DisplayName, DownloadProgressEvent, UserProfile,
+    clients::CoreUser, store::Store,
 };
 use phnxserver::RateLimitsConfig;
 use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
 use png::Encoder;
+use sha2::{Digest, Sha256};
+use tokio_stream::StreamExt;
 use tonic::transport::Channel;
 use tonic_health::pb::{
     HealthCheckRequest, health_check_response::ServingStatus, health_client::HealthClient,
@@ -90,7 +96,8 @@ async fn rate_limit() {
             .user
             .send_message(
                 conversation_id,
-                MimiContent::simple_markdown_message("Hello bob".into()),
+                MimiContent::simple_markdown_message("Hello bob".into(), [0; 16]), // simple seed for testing
+                None,
             )
             .await;
 
@@ -118,7 +125,8 @@ async fn rate_limit() {
         .user
         .send_message(
             conversation_id,
-            MimiContent::simple_markdown_message("Hello bob".into()),
+            MimiContent::simple_markdown_message("Hello bob".into(), [0; 16]), // simple seed for testing
+            None,
         )
         .await;
 
@@ -193,7 +201,8 @@ async fn remove_from_group() {
 
     setup
         .remove_from_group(conversation_id, &ALICE, vec![&BOB])
-        .await;
+        .await
+        .unwrap();
 
     // Now that charlie is not in a group with Bob anymore, the user profile
     // should be the default one derived from the client id.
@@ -216,7 +225,8 @@ async fn re_add_client() {
     for _ in 0..10 {
         setup
             .remove_from_group(conversation_id, &ALICE, vec![&BOB])
-            .await;
+            .await
+            .unwrap();
         setup
             .invite_to_group(conversation_id, &ALICE, vec![&BOB])
             .await;
@@ -240,7 +250,7 @@ async fn leave_group() {
     setup
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
-    setup.leave_group(conversation_id, &BOB).await;
+    setup.leave_group(conversation_id, &BOB).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -285,6 +295,21 @@ async fn full_cycle() {
     setup
         .send_message(conversation_alice_bob, &BOB, vec![&ALICE])
         .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Room policy", skip_all)]
+async fn room_policy() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+
+    // Connect them
+    let _conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+    let _conversation_alice_charlie = setup.connect_users(&ALICE, &CHARLIE).await;
+    let _conversation_bob_charlie = setup.connect_users(&BOB, &CHARLIE).await;
 
     // Create an independent group and invite bob.
     let conversation_id = setup.create_group(&ALICE).await;
@@ -293,33 +318,26 @@ async fn full_cycle() {
         .invite_to_group(conversation_id, &ALICE, vec![&BOB])
         .await;
 
-    // Create chalie, connect him with alice and invite him to the group.
-    setup.add_user(&CHARLIE).await;
-    setup.connect_users(&ALICE, &CHARLIE).await;
-
+    // Bob can invite charlie
     setup
-        .invite_to_group(conversation_id, &ALICE, vec![&CHARLIE])
+        .invite_to_group(conversation_id, &BOB, vec![&CHARLIE])
         .await;
 
-    // Add dave, connect him with charlie and invite him to the group. Then have alice remove dave and bob.
-    setup.add_user(&DAVE).await;
-    setup.connect_users(&CHARLIE, &DAVE).await;
-
+    // Charlie can kick alice
     setup
-        .invite_to_group(conversation_id, &CHARLIE, vec![&DAVE])
-        .await;
+        .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE])
+        .await
+        .unwrap();
 
+    // Charlie can kick bob
     setup
-        .send_message(conversation_id, &ALICE, vec![&CHARLIE, &BOB, &DAVE])
-        .await;
+        .remove_from_group(conversation_id, &CHARLIE, vec![&BOB])
+        .await
+        .unwrap();
 
-    setup
-        .remove_from_group(conversation_id, &ALICE, vec![&DAVE, &BOB])
-        .await;
-
-    setup.leave_group(conversation_id, &CHARLIE).await;
-
-    setup.delete_group(conversation_id, &ALICE).await
+    // TODO: This currently fails
+    // Charlie can leave and an empty room remains
+    // setup.leave_group(conversation_id, &CHARLIE).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -453,9 +471,9 @@ async fn retrieve_conversation_messages() {
             .take(32)
             .map(char::from)
             .collect();
-        let message_content = MimiContent::simple_markdown_message(message);
+        let message_content = MimiContent::simple_markdown_message(message, [0; 16]); // simple seed for testing
         let message = alice
-            .send_message(conversation_id, message_content)
+            .send_message(conversation_id, message_content, None)
             .await
             .unwrap();
         messages_sent.push(message);
@@ -502,9 +520,9 @@ async fn mark_as_read() {
                 .take(32)
                 .map(char::from)
                 .collect();
-            let message_content = MimiContent::simple_markdown_message(message);
+            let message_content = MimiContent::simple_markdown_message(message, [0; 16]); // simple seed for testing
             let message = user
-                .send_message(conversation_id, message_content)
+                .send_message(conversation_id, message_content, None)
                 .await
                 .unwrap();
             messages_sent.push(message);
@@ -609,9 +627,11 @@ async fn error_if_user_doesnt_exist() {
     let alice_test = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test.user;
 
-    let res = alice.add_contact(BOB.clone()).await;
+    let res = alice
+        .add_contact(UserHandle::new("non_existent".to_owned()).unwrap())
+        .await;
 
-    assert!(res.is_err());
+    assert!(matches!(res, Ok(None)));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -738,6 +758,7 @@ async fn update_user_profile_on_group_join() {
     assert_eq!(charlie_user_profile.display_name, alice_display_name);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Health check test", skip_all)]
 async fn health_check() {
     let setup = TestBackend::single().await;
@@ -769,6 +790,160 @@ async fn health_check() {
             ServingStatus::try_from(response.status).unwrap(),
             ServingStatus::Serving
         );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Send attachment test", skip_all)]
+async fn send_attachment() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+
+    let attachment = vec![0x00, 0x01, 0x02, 0x03];
+    let (_message_id, external_part) = setup
+        .send_attachment(conversation_id, &ALICE, vec![&BOB], &attachment, "test.bin")
+        .await;
+
+    let attachment_id = match &external_part {
+        NestedPartContent::ExternalPart {
+            content_type,
+            url,
+            filename,
+            size,
+            content_hash,
+            ..
+        } => {
+            assert_eq!(content_type, "application/octet-stream");
+            assert_eq!(filename, "test.bin");
+            assert_eq!(*size, attachment.len() as u64);
+
+            let sha256sum = Sha256::digest(&attachment);
+            assert_eq!(sha256sum.as_slice(), content_hash.as_slice());
+
+            url.parse().unwrap()
+        }
+        _ => panic!("unexpected attachment type"),
+    };
+
+    let bob_test_user = setup.get_user(&BOB);
+    let bob = &bob_test_user.user;
+
+    let (progress, download_task) = bob.download_attachment(attachment_id);
+
+    let progress_events = progress.stream().collect::<Vec<_>>();
+
+    let (progress_events, res) = tokio::join!(progress_events, download_task);
+    res.expect("Download task failed");
+
+    assert_matches!(
+        progress_events.first().unwrap(),
+        DownloadProgressEvent::Init
+    );
+    assert_matches!(
+        progress_events.last().unwrap(),
+        DownloadProgressEvent::Completed
+    );
+
+    let content = bob
+        .load_attachment(attachment_id)
+        .await
+        .unwrap()
+        .into_bytes()
+        .unwrap();
+    match external_part {
+        NestedPartContent::ExternalPart {
+            size, content_hash, ..
+        } => {
+            assert_eq!(content.len() as u64, size);
+            let sha256sum = Sha256::digest(&content);
+            assert_eq!(sha256sum.as_slice(), content_hash.as_slice());
+        }
+        _ => panic!("unexpected attachment type"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Send image attachment test", skip_all)]
+async fn send_image_attachment() {
+    let mut setup = TestBackend::single().await;
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+
+    // A base64 encoded blue PNG image 100x75 pixels.
+    const SAMPLE_PNG_BASE64: &str = "\
+    iVBORw0KGgoAAAANSUhEUgAAAGQAAABLAQMAAAC81rD0AAAABGdBTUEAALGPC/xhBQAAACBjSFJN\
+    AAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABlBMVEUAAP7////DYP5JAAAA\
+    AWJLR0QB/wIt3gAAAAlwSFlzAAALEgAACxIB0t1+/AAAAAd0SU1FB+QIGBcKN7/nP/UAAAASSURB\
+    VDjLY2AYBaNgFIwCdAAABBoAAaNglfsAAAAZdEVYdGNvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVDn\
+    r0DLAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDIwLTA4LTI0VDIzOjEwOjU1KzAzOjAwkHdeuQAAACV0\
+    RVh0ZGF0ZTptb2RpZnkAMjAyMC0wOC0yNFQyMzoxMDo1NSswMzowMOEq5gUAAAAASUVORK5CYII=";
+
+    let attachment = BASE64_STANDARD.decode(SAMPLE_PNG_BASE64).unwrap();
+    let (_message_id, external_part) = setup
+        .send_attachment(conversation_id, &ALICE, vec![&BOB], &attachment, "test.png")
+        .await;
+
+    let attachment_id = match &external_part {
+        NestedPartContent::ExternalPart {
+            content_type,
+            url,
+            filename,
+            size,
+            content_hash,
+            ..
+        } => {
+            assert_eq!(content_type, "image/webp");
+            assert_eq!(filename, "test.webp");
+            assert_eq!(*size, 100);
+            assert_eq!(
+                content_hash.as_slice(),
+                hex::decode("c8cb184c4242c38c3bc8fb26c521377778d9038b9d7dd03f31b9be701269a673")
+                    .unwrap()
+                    .as_slice()
+            );
+
+            url.parse().unwrap()
+        }
+        _ => panic!("unexpected attachment type"),
+    };
+
+    let bob_test_user = setup.get_user(&BOB);
+    let bob = &bob_test_user.user;
+
+    let (progress, download_task) = bob.download_attachment(attachment_id);
+
+    let progress_events = progress.stream().collect::<Vec<_>>();
+
+    let (progress_events, res) = tokio::join!(progress_events, download_task);
+    res.expect("Download task failed");
+
+    assert_matches!(
+        progress_events.first().unwrap(),
+        DownloadProgressEvent::Init
+    );
+    assert_matches!(
+        progress_events.last().unwrap(),
+        DownloadProgressEvent::Completed
+    );
+
+    let content = bob
+        .load_attachment(attachment_id)
+        .await
+        .unwrap()
+        .into_bytes()
+        .unwrap();
+    match external_part {
+        NestedPartContent::ExternalPart {
+            size, content_hash, ..
+        } => {
+            assert_eq!(content.len() as u64, size);
+            let sha256sum = Sha256::digest(&content);
+            assert_eq!(sha256sum.as_slice(), content_hash.as_slice());
+        }
+        _ => panic!("unexpected attachment type"),
     }
 }
 

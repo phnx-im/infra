@@ -19,12 +19,11 @@ thiserror = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 async-trait = "0.1.53"
 uuid = { version = "1.0.0", features = ["v4", "serde"] }
-# Rust crypto dependencies
 tracing = { version = "0.1.35", features = ["log"] }
+# Rust crypto dependencies
 sqlx = { workspace = true, features = ["postgres", "tls-rustls"] }
 mimi-room-policy = { workspace = true }
 tokio = "1"
-serde_json = "1.0.140"
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
@@ -34,14 +33,24 @@ rand = "0.8"
 tokio-util.workspace = true
 chrono = { workspace = true }
 futures-util = "0.3.31"
-sha2 = "0.10"
+sha2 = { workspace = true }
 displaydoc = "0.2.5"
 prost.workspace = true
+base64 = "0.22.1"
+aws-sdk-s3 = { version = "1.92.0", default-features = false, features = [
+    "behavior-version-latest",
+    "http-1x",
+] }
+aws-config = { version = "1.8.0", default-features = false, features = [
+    "behavior-version-latest",
+    "rt-tokio",
+] }
 
 [dev-dependencies]
 phnxcommon = { path = "../common", features = ["test_utils"] }
 anyhow = "1.0.97"
 insta = { workspace = true }
+serde_json = "1.0.140"
 mockall = "0.13.1"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 

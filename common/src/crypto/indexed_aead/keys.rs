@@ -7,6 +7,7 @@ use std::{hash::Hash, marker::PhantomData};
 use crate::{
     LibraryError,
     crypto::{
+        RawKey,
         ear::{
             AEAD_KEY_SIZE, Ciphertext, EarDecryptable, EarEncryptable, EarKey,
             keys::{EncryptedUserProfileKeyCtype, IdentityLinkWrapperKey},
@@ -98,6 +99,19 @@ impl<KT> std::fmt::Debug for Index<KT> {
             .field("secret", self.secret.secret())
             .field("_type", &self._type)
             .finish()
+    }
+}
+
+impl<KT: RawKey> Key<KT> {
+    pub fn from_bytes(bytes: [u8; AEAD_KEY_SIZE]) -> Self {
+        Self {
+            secret: Secret::from(bytes),
+            _type: PhantomData,
+        }
+    }
+
+    pub fn into_bytes(self) -> [u8; AEAD_KEY_SIZE] {
+        self.secret.into_secret()
     }
 }
 

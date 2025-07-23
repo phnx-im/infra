@@ -6,6 +6,8 @@
 
 use std::fmt::Display;
 
+pub use mls_assist::openmls_rust_crypto::RustCrypto;
+pub use mls_assist::openmls_traits::random::OpenMlsRand;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{
@@ -13,6 +15,7 @@ use tls_codec::{
     TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 
+pub mod assert_matches;
 pub mod codec;
 pub mod credentials;
 pub mod crypto;
@@ -44,6 +47,6 @@ impl LibraryError {
 
 impl Display for LibraryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }

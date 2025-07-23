@@ -1,3 +1,4 @@
+// dart format width=80
 // coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint
@@ -9,235 +10,146 @@ part of 'registration_cubit.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// dart format off
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
-
 /// @nodoc
 mixin _$RegistrationState {
-  // Domain choice screen data
-  String get domain =>
-      throw _privateConstructorUsedError; // Display name/avatar screen data
-  ImageData? get avatar => throw _privateConstructorUsedError;
-  String get displayName => throw _privateConstructorUsedError;
-  bool get isSigningUp => throw _privateConstructorUsedError;
 
-  /// Create a copy of RegistrationState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $RegistrationStateCopyWith<RegistrationState> get copyWith =>
-      throw _privateConstructorUsedError;
+// Domain choice screen data
+ String get domain;// Display name/avatar screen data
+ ImageData? get avatar; String get displayName; bool get isSigningUp;
+/// Create a copy of RegistrationState
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$RegistrationStateCopyWith<RegistrationState> get copyWith => _$RegistrationStateCopyWithImpl<RegistrationState>(this as RegistrationState, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is RegistrationState&&(identical(other.domain, domain) || other.domain == domain)&&(identical(other.avatar, avatar) || other.avatar == avatar)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isSigningUp, isSigningUp) || other.isSigningUp == isSigningUp));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,domain,avatar,displayName,isSigningUp);
+
+@override
+String toString() {
+  return 'RegistrationState(domain: $domain, avatar: $avatar, displayName: $displayName, isSigningUp: $isSigningUp)';
+}
+
+
 }
 
 /// @nodoc
-abstract class $RegistrationStateCopyWith<$Res> {
-  factory $RegistrationStateCopyWith(
-    RegistrationState value,
-    $Res Function(RegistrationState) then,
-  ) = _$RegistrationStateCopyWithImpl<$Res, RegistrationState>;
-  @useResult
-  $Res call({
-    String domain,
-    ImageData? avatar,
-    String displayName,
-    bool isSigningUp,
-  });
-}
+abstract mixin class $RegistrationStateCopyWith<$Res>  {
+  factory $RegistrationStateCopyWith(RegistrationState value, $Res Function(RegistrationState) _then) = _$RegistrationStateCopyWithImpl;
+@useResult
+$Res call({
+ String domain, ImageData? avatar, String displayName, bool isSigningUp
+});
 
+
+
+
+}
 /// @nodoc
-class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
+class _$RegistrationStateCopyWithImpl<$Res>
     implements $RegistrationStateCopyWith<$Res> {
-  _$RegistrationStateCopyWithImpl(this._value, this._then);
+  _$RegistrationStateCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final RegistrationState _self;
+  final $Res Function(RegistrationState) _then;
 
-  /// Create a copy of RegistrationState
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? domain = null,
-    Object? avatar = freezed,
-    Object? displayName = null,
-    Object? isSigningUp = null,
-  }) {
-    return _then(
-      _value.copyWith(
-            domain:
-                null == domain
-                    ? _value.domain
-                    : domain // ignore: cast_nullable_to_non_nullable
-                        as String,
-            avatar:
-                freezed == avatar
-                    ? _value.avatar
-                    : avatar // ignore: cast_nullable_to_non_nullable
-                        as ImageData?,
-            displayName:
-                null == displayName
-                    ? _value.displayName
-                    : displayName // ignore: cast_nullable_to_non_nullable
-                        as String,
-            isSigningUp:
-                null == isSigningUp
-                    ? _value.isSigningUp
-                    : isSigningUp // ignore: cast_nullable_to_non_nullable
-                        as bool,
-          )
-          as $Val,
-    );
-  }
+/// Create a copy of RegistrationState
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? domain = null,Object? avatar = freezed,Object? displayName = null,Object? isSigningUp = null,}) {
+  return _then(_self.copyWith(
+domain: null == domain ? _self.domain : domain // ignore: cast_nullable_to_non_nullable
+as String,avatar: freezed == avatar ? _self.avatar : avatar // ignore: cast_nullable_to_non_nullable
+as ImageData?,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String,isSigningUp: null == isSigningUp ? _self.isSigningUp : isSigningUp // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
 }
 
-/// @nodoc
-abstract class _$$RegistrationStateImplCopyWith<$Res>
-    implements $RegistrationStateCopyWith<$Res> {
-  factory _$$RegistrationStateImplCopyWith(
-    _$RegistrationStateImpl value,
-    $Res Function(_$RegistrationStateImpl) then,
-  ) = __$$RegistrationStateImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({
-    String domain,
-    ImageData? avatar,
-    String displayName,
-    bool isSigningUp,
-  });
 }
 
-/// @nodoc
-class __$$RegistrationStateImplCopyWithImpl<$Res>
-    extends _$RegistrationStateCopyWithImpl<$Res, _$RegistrationStateImpl>
-    implements _$$RegistrationStateImplCopyWith<$Res> {
-  __$$RegistrationStateImplCopyWithImpl(
-    _$RegistrationStateImpl _value,
-    $Res Function(_$RegistrationStateImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of RegistrationState
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? domain = null,
-    Object? avatar = freezed,
-    Object? displayName = null,
-    Object? isSigningUp = null,
-  }) {
-    return _then(
-      _$RegistrationStateImpl(
-        domain:
-            null == domain
-                ? _value.domain
-                : domain // ignore: cast_nullable_to_non_nullable
-                    as String,
-        avatar:
-            freezed == avatar
-                ? _value.avatar
-                : avatar // ignore: cast_nullable_to_non_nullable
-                    as ImageData?,
-        displayName:
-            null == displayName
-                ? _value.displayName
-                : displayName // ignore: cast_nullable_to_non_nullable
-                    as String,
-        isSigningUp:
-            null == isSigningUp
-                ? _value.isSigningUp
-                : isSigningUp // ignore: cast_nullable_to_non_nullable
-                    as bool,
-      ),
-    );
-  }
-}
 
 /// @nodoc
 
-class _$RegistrationStateImpl extends _RegistrationState {
-  const _$RegistrationStateImpl({
-    this.domain = '',
-    this.avatar,
-    this.displayName = '',
-    this.isSigningUp = false,
-  }) : super._();
 
-  // Domain choice screen data
-  @override
-  @JsonKey()
-  final String domain;
-  // Display name/avatar screen data
-  @override
-  final ImageData? avatar;
-  @override
-  @JsonKey()
-  final String displayName;
-  @override
-  @JsonKey()
-  final bool isSigningUp;
+class _RegistrationState extends RegistrationState {
+  const _RegistrationState({this.domain = '', this.avatar, this.displayName = '', this.isSigningUp = false}): super._();
+  
 
-  @override
-  String toString() {
-    return 'RegistrationState(domain: $domain, avatar: $avatar, displayName: $displayName, isSigningUp: $isSigningUp)';
-  }
+// Domain choice screen data
+@override@JsonKey() final  String domain;
+// Display name/avatar screen data
+@override final  ImageData? avatar;
+@override@JsonKey() final  String displayName;
+@override@JsonKey() final  bool isSigningUp;
 
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$RegistrationStateImpl &&
-            (identical(other.domain, domain) || other.domain == domain) &&
-            (identical(other.avatar, avatar) || other.avatar == avatar) &&
-            (identical(other.displayName, displayName) ||
-                other.displayName == displayName) &&
-            (identical(other.isSigningUp, isSigningUp) ||
-                other.isSigningUp == isSigningUp));
-  }
+/// Create a copy of RegistrationState
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$RegistrationStateCopyWith<_RegistrationState> get copyWith => __$RegistrationStateCopyWithImpl<_RegistrationState>(this, _$identity);
 
-  @override
-  int get hashCode =>
-      Object.hash(runtimeType, domain, avatar, displayName, isSigningUp);
 
-  /// Create a copy of RegistrationState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$RegistrationStateImplCopyWith<_$RegistrationStateImpl> get copyWith =>
-      __$$RegistrationStateImplCopyWithImpl<_$RegistrationStateImpl>(
-        this,
-        _$identity,
-      );
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _RegistrationState&&(identical(other.domain, domain) || other.domain == domain)&&(identical(other.avatar, avatar) || other.avatar == avatar)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isSigningUp, isSigningUp) || other.isSigningUp == isSigningUp));
 }
 
-abstract class _RegistrationState extends RegistrationState {
-  const factory _RegistrationState({
-    final String domain,
-    final ImageData? avatar,
-    final String displayName,
-    final bool isSigningUp,
-  }) = _$RegistrationStateImpl;
-  const _RegistrationState._() : super._();
 
-  // Domain choice screen data
-  @override
-  String get domain; // Display name/avatar screen data
-  @override
-  ImageData? get avatar;
-  @override
-  String get displayName;
-  @override
-  bool get isSigningUp;
+@override
+int get hashCode => Object.hash(runtimeType,domain,avatar,displayName,isSigningUp);
 
-  /// Create a copy of RegistrationState
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$RegistrationStateImplCopyWith<_$RegistrationStateImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+@override
+String toString() {
+  return 'RegistrationState(domain: $domain, avatar: $avatar, displayName: $displayName, isSigningUp: $isSigningUp)';
 }
+
+
+}
+
+/// @nodoc
+abstract mixin class _$RegistrationStateCopyWith<$Res> implements $RegistrationStateCopyWith<$Res> {
+  factory _$RegistrationStateCopyWith(_RegistrationState value, $Res Function(_RegistrationState) _then) = __$RegistrationStateCopyWithImpl;
+@override @useResult
+$Res call({
+ String domain, ImageData? avatar, String displayName, bool isSigningUp
+});
+
+
+
+
+}
+/// @nodoc
+class __$RegistrationStateCopyWithImpl<$Res>
+    implements _$RegistrationStateCopyWith<$Res> {
+  __$RegistrationStateCopyWithImpl(this._self, this._then);
+
+  final _RegistrationState _self;
+  final $Res Function(_RegistrationState) _then;
+
+/// Create a copy of RegistrationState
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? domain = null,Object? avatar = freezed,Object? displayName = null,Object? isSigningUp = null,}) {
+  return _then(_RegistrationState(
+domain: null == domain ? _self.domain : domain // ignore: cast_nullable_to_non_nullable
+as String,avatar: freezed == avatar ? _self.avatar : avatar // ignore: cast_nullable_to_non_nullable
+as ImageData?,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String,isSigningUp: null == isSigningUp ? _self.isSigningUp : isSigningUp // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
+}
+
+// dart format on

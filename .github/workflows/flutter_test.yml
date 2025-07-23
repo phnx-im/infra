@@ -33,8 +33,16 @@ jobs:
         with:
           path: 'app/.fvmrc'
 
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Check Flutter lockfile
+        run: just check-flutter-lockfile
+
+      # Note: for formatting to use the correct style, we need to run `flutter
+      # pub get` first. This is done in the `check-dart-format` step.
+      - name: Check dart format
+        run: just check-dart-format
+
+      - name: Check localization
+        run: just check-l10n
 
       - name: Analyze dart code
         run: just analyze-dart

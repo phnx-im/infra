@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -22,11 +23,21 @@ class LogsScreen extends StatefulWidget {
 class _LogsScreenState extends State<LogsScreen> {
   late Future<String> _appLogs;
   late Future<String> _backgroundLogs;
+  late Timer _timer;
 
   @override
   void initState() {
     super.initState();
     _loadLogs();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _loadLogs();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
   }
 
   void _loadLogs() async {
@@ -136,7 +147,9 @@ class LogsScreenView extends StatelessWidget {
     final cacheDir = await getApplicationCacheDirectory();
     final data = await tarLogs(cacheDir: cacheDir.path);
     final file = XFile.fromData(data, mimeType: 'application/gzip');
-    Share.shareXFiles([file], fileNameOverrides: ['logs.tar.gz']);
+    SharePlus.instance.share(
+      ShareParams(files: [file], fileNameOverrides: ['logs.tar.gz']),
+    );
   }
 
   void _saveLogs() async {
