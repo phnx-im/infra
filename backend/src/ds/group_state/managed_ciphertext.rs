@@ -150,43 +150,34 @@ where
         // Flush all expired keys
         self.flush_expired_keys(now);
 
-        println!(
-            "Key index on ciphertext: {:?}",
-            self.inner.ciphertext.key_index()
-        );
-        println!("Key index on provided key: {:?}", key.index());
-
         let current_key = {
             // Check if the key is the main key
             if key.index() == self.inner.ciphertext.key_index() {
-                println!("Provided key is main key");
                 // Check if the key is still in the validity period
                 let key_generated = self.inner.current_key_expiration.not_before();
                 if *key_generated + TOTAL_KEY_VALIDITY < *now {
-                    println!("Key is expired");
-                    println!("key generated: {:?}", key_generated);
-                    println!(
-                        "Key generated + TOTAL_KEY_VALIDITY: {:?}",
-                        *key_generated + TOTAL_KEY_VALIDITY
-                    );
-                    println!("now: {:?}", now);
                     return Err(ManagedCiphertextError::InvalidDecryptionKey);
                 }
                 key.clone()
             } else {
-                println!("Key is not the main key, checking wrapped keys...");
-                // If it is not, check if the key unwraps one of the wrapped keys
-                let wrapped_key = self
-                    .inner
-                    .wrapped_keys
-                    .get(key.index())
-                    .ok_or(ManagedCiphertextError::InvalidDecryptionKey)?;
-                println!("Decrypting with wrapped key: {:?}", key.index());
-                IndexedAeadKey::decrypt_with_index(
-                    key,
-                    &wrapped_key.ciphertext,
-                    derivation_context.clone(),
-                )?
+                // If it is not, check if the key unwraps one of the wrapped
+                // keys. If the unwrapped key is the main key, return it. If
+                // not, look for the next wrapped key.
+                let mut current_key = key.clone();
+                loop {
+                    let Some(wrapped_key) = self.inner.wrapped_keys.get(current_key.index()) else {
+                        return Err(ManagedCiphertextError::InvalidDecryptionKey);
+                    };
+                    let unwrapped_key = IndexedAeadKey::decrypt_with_index(
+                        &current_key,
+                        &wrapped_key.ciphertext,
+                        derivation_context.clone(),
+                    )?;
+                    current_key = unwrapped_key;
+                    if current_key.index() == self.inner.ciphertext.key_index() {
+                        break current_key;
+                    }
+                }
             }
         };
 
