@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::BTreeMap, fs, io::Cursor, sync::LazyLock, time::Duration};
+use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use base64::{Engine, prelude::BASE64_STANDARD};
 use image::{ImageBuffer, Rgba};
 use mimi_content::{
-    ByteBuf, Disposition, MessageStatus, MimiContent, NestedPart,
+    MessageStatus, MimiContent,
     content_container::NestedPartContent,
 };
 use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
@@ -18,7 +18,7 @@ use phnxprotos::{
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use phnxcommon::{
-    OpenMlsRand, RustCrypto, assert_matches,
+    assert_matches,
     identifiers::{UserHandle, UserId},
 };
 use phnxcoreclient::{

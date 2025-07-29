@@ -93,7 +93,6 @@ async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<usize> {
 
 #[cfg(test)]
 mod test {
-    use mimi_content::ByteBuf;
     use phnxcommon::{assert_matches, identifiers::UserId, time::TimeStamp};
     use sqlx::{SqliteConnection, migrate::Migrate};
 
@@ -124,7 +123,7 @@ mod test {
         let mimi_content_bytes = PhnxCodec::to_vec(&mimi_content).unwrap();
         let content = VersionedMessage {
             version: 1,
-            content: ByteBuf::from(mimi_content_bytes),
+            content: mimi_content_bytes,
         };
 
         sqlx::query(

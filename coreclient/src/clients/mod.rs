@@ -36,9 +36,7 @@ pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message}
 pub use phnxprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
-use sqlx::Value;
-use sqlx::ValueRef;
-use sqlx::{Row, sqlite::SqliteValue};
+use sqlx::{Row};
 use sqlx::{SqliteTransaction, query};
 
 use serde::{Deserialize, Serialize};
@@ -702,7 +700,7 @@ impl CoreUser {
                         // Try again without 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
                         let string2 = string.replace('\x18', "");
                         if string2.contains(query) {
-                            result.push(string.to_string());
+                            //result.push(string.to_string());
                             continue;
                         }
                     }

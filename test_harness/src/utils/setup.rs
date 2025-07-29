@@ -751,7 +751,7 @@ impl TestBackend {
                 .conversation(&message.conversation_id())
                 .await
                 .unwrap();
-            let group_id = conversation.group_id();
+            let _group_id = conversation.group_id();
 
             assert_eq!(message.message(), target_message.message());
         }
@@ -846,7 +846,7 @@ impl TestBackend {
                 .conversation(&message.conversation_id())
                 .await
                 .unwrap();
-            let group_id = conversation.group_id();
+            let _group_id = conversation.group_id();
 
             assert_eq!(message.message(), target_message.message());
         }
