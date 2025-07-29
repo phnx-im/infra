@@ -9,6 +9,7 @@ import 'package:prototype/conversation_list/conversation_list.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -22,24 +23,38 @@ void main() {
     late MockNavigationCubit navigationCubit;
     late MockConversationListCubit conversationListCubit;
     late MockUserCubit userCubit;
+    late MockUsersCubit contactsCubit;
+    late MockConversationDetailsCubit conversationDetailsCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
       conversationListCubit = MockConversationListCubit();
+      contactsCubit = MockUsersCubit();
+      conversationDetailsCubit = MockConversationDetailsCubit();
 
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "alice"));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
+      when(() => contactsCubit.state).thenReturn(
+        MockUsersState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
+        ),
+      );
+      when(() => conversationDetailsCubit.state).thenReturn(
+        ConversationDetailsState(
+          conversation: conversations[1],
+          members: [1.userId()],
+        ),
+      );
     });
 
     Widget buildSubject() => MultiBlocProvider(
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
         BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
       ],
       child: Builder(
@@ -47,6 +62,7 @@ void main() {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(body: ConversationListView()),
           );
         },

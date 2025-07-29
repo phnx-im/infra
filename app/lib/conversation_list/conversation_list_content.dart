@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -29,6 +30,7 @@ class ConversationListContent extends StatelessWidget {
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.all(0),
       itemCount: conversations.length,
       physics: const BouncingScrollPhysics().applyTo(
         const AlwaysScrollableScrollPhysics(),
@@ -45,10 +47,12 @@ class _NoConversations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Container(
       alignment: AlignmentDirectional.center,
+      padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       child: Text(
-        'Create a new connection to get started',
+        loc.conversationList_emptyMessage,
         style: TextStyle(
           fontSize: isLargeScreen(context) ? 14 : 15,
           color: Colors.black54,
@@ -77,31 +81,33 @@ class _ListTile extends StatelessWidget {
       ),
       minVerticalPadding: 0,
       title: Container(
-        alignment: AlignmentDirectional.topStart,
-        height: 76,
+        alignment: AlignmentDirectional.centerStart,
+        height: 70,
         width: 300,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacings.xs,
+          vertical: Spacings.xxs,
+        ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(Spacings.s),
           color: isSelected ? convPaneFocusColor : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          spacing: Spacings.s,
           children: [
             UserAvatar(
               size: 48,
               image: conversation.picture,
               displayName: conversation.title,
             ),
-            const SizedBox(width: Spacings.s),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   _ListTileTop(conversation: conversation),
-                  const SizedBox(height: 2),
                   Expanded(child: _ListTileBottom(conversation: conversation)),
                 ],
               ),
@@ -127,9 +133,9 @@ class _ListTileTop extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      spacing: Spacings.xxs,
       children: [
         Expanded(child: _ConversationTitle(title: conversation.title)),
-        const SizedBox(width: 8),
         _LastUpdated(conversation: conversation),
       ],
     );
@@ -147,6 +153,8 @@ class _ListTileBottom extends StatelessWidget {
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: Spacings.s,
       children: [
         Expanded(
           child: Align(
@@ -157,7 +165,6 @@ class _ListTileBottom extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 16),
         Align(
           alignment: Alignment.center,
           child: _UnreadBadge(
@@ -217,11 +224,12 @@ class _LastMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId = context.select(
-      (NavigationCubit cubit) => cubit.state.conversationId,
+    final isCurrentConversation = context.select(
+      (NavigationCubit cubit) => cubit.state.conversationId == conversation.id,
     );
 
     final lastMessage = conversation.lastMessage;
+    final draftMessage = conversation.draft?.message.trim();
 
     final readStyle = TextStyle(
       color: colorDMB,
@@ -229,32 +237,55 @@ class _LastMessage extends StatelessWidget {
       height: 1.2,
     ).merge(VariableFontWeight.normal);
     final unreadStyle = readStyle.merge(VariableFontWeight.medium);
+    final draftStyle = readStyle.copyWith(fontStyle: FontStyle.italic);
 
-    final contentStyle =
-        conversation.id != currentConversationId &&
-                conversation.unreadMessages > 0
+    final showDraft =
+        !isCurrentConversation && draftMessage?.isNotEmpty == true;
+
+    final prefixStyle =
+        showDraft ? draftStyle : readStyle.merge(VariableFontWeight.semiBold);
+
+    final suffixStyle =
+        isCurrentConversation && conversation.unreadMessages > 0
             ? unreadStyle
             : readStyle;
 
-    final senderStyle = readStyle.merge(VariableFontWeight.semiBold);
+    final loc = AppLocalizations.of(context);
 
-    final (sender, displayedLastMessage) = switch (lastMessage?.message) {
-      UiMessage_Content(field0: final content) => (
-        content.sender == ownClientId ? 'You: ' : null,
-        content.content.plainBody,
-      ),
-      UiMessage_Display() => (null, null),
-      null => (null, null),
-    };
+    final prefix =
+        showDraft
+            ? "${loc.conversationList_draft}: "
+            : switch (lastMessage?.message) {
+              UiMessage_Content(field0: final content)
+                  when content.sender == ownClientId =>
+                "${loc.conversationList_you}: ",
+              _ => null,
+            };
+
+    final suffix =
+        showDraft
+            ? draftMessage
+            : switch (lastMessage?.message) {
+              UiMessage_Content(field0: final content) =>
+                content.content.plainBody?.isNotEmpty == true
+                    ? content.content.plainBody
+                    : content.content.attachments.isNotEmpty
+                    ? content.content.attachments.first.imageMetadata != null
+                        ? loc.conversationList_imageEmoji
+                        : loc.conversationList_fileEmoji
+                    : '',
+              _ => null,
+            };
 
     return Text.rich(
       maxLines: 2,
       softWrap: true,
       overflow: TextOverflow.ellipsis,
       TextSpan(
-        text: sender,
-        style: senderStyle,
-        children: [TextSpan(text: displayedLastMessage, style: contentStyle)],
+        children: [
+          TextSpan(text: prefix, style: prefixStyle),
+          TextSpan(text: suffix, style: suffixStyle),
+        ],
       ),
     );
   }
@@ -305,12 +336,17 @@ class _LastUpdatedState extends State<_LastUpdated> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Baseline(
       baseline: Spacings.xs,
       baselineType: TextBaseline.alphabetic,
       child: Text(
-        _displayTimestamp,
-        style: const TextStyle(color: colorDMB, fontSize: 11),
+        _localizedTimestamp(_displayTimestamp, loc),
+        style: const TextStyle(
+          color: colorDMB,
+          fontSize: 12,
+          letterSpacing: -0.2,
+        ).merge(VariableFontWeight.medium),
       ),
     );
   }
@@ -337,6 +373,13 @@ class _ConversationTitle extends StatelessWidget {
     );
   }
 }
+
+String _localizedTimestamp(String original, AppLocalizations loc) =>
+    switch (original) {
+      'Now' => loc.timestamp_now,
+      'Yesterday' => loc.timestamp_yesterday,
+      _ => original,
+    };
 
 String formatTimestamp(String t, {DateTime? now}) {
   DateTime timestamp;

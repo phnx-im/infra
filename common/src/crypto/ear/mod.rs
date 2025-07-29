@@ -18,6 +18,7 @@ pub use traits::{
 };
 
 use aes_gcm::Aes256Gcm;
+pub use aes_gcm::aead::Payload;
 use serde::{Deserialize, Serialize};
 
 /// This type determines the AEAD scheme used for encryption at rest (EAR) by
@@ -51,6 +52,12 @@ pub struct AeadCiphertext {
 pub struct Ciphertext<CT> {
     ct: AeadCiphertext,
     pd: PhantomData<CT>,
+}
+
+impl<CT> Ciphertext<CT> {
+    pub fn aead_ciphertext(&self) -> &AeadCiphertext {
+        &self.ct
+    }
 }
 
 impl<CT> From<AeadCiphertext> for Ciphertext<CT> {

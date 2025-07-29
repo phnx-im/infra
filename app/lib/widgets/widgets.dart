@@ -7,4 +7,4 @@ library;
 
 export 'app_bar_back_button.dart';
 export 'user_avatar.dart';
-export 'frosted_glass.dart';
+export 'overlapping_checks_icon.dart';

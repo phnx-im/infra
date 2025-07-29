@@ -7,26 +7,44 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
 
+import '../helpers.dart';
 import '../mocks.dart';
 
 void main() {
   group('UserSettingsScreenTest', () {
     late MockUserCubit userCubit;
+    late MockUsersCubit contactsCubit;
+    late MockUserSettingsCubit userSettingsCubit;
 
     setUp(() async {
       userCubit = MockUserCubit();
+      contactsCubit = MockUsersCubit();
+      userSettingsCubit = MockUserSettingsCubit();
+
+      when(() => contactsCubit.state).thenReturn(
+        MockUsersState(
+          profiles: [UiUserProfile(userId: 1.userId(), displayName: "ellie")],
+        ),
+      );
+      when(() => userSettingsCubit.state).thenReturn(const UserSettings());
     });
 
     Widget buildSubject() => MultiBlocProvider(
-      providers: [BlocProvider<UserCubit>.value(value: userCubit)],
+      providers: [
+        BlocProvider<UserCubit>.value(value: userCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
+        BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
+      ],
       child: Builder(
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: themeData(context),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const UserSettingsScreen(),
           );
         },
@@ -36,7 +54,7 @@ void main() {
     testWidgets('renders correctly (no handles)', (tester) async {
       when(
         () => userCubit.state,
-      ).thenReturn(MockUiUser(id: 1, displayName: "ellie", userHandles: []));
+      ).thenReturn(MockUiUser(id: 1, userHandles: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -50,7 +68,6 @@ void main() {
       when(() => userCubit.state).thenReturn(
         MockUiUser(
           id: 1,
-          displayName: "ellie",
           userHandles: [
             const UiUserHandle(plaintext: "ellie"),
             const UiUserHandle(plaintext: "firefly"),
@@ -70,7 +87,6 @@ void main() {
       when(() => userCubit.state).thenReturn(
         MockUiUser(
           id: 1,
-          displayName: "ellie",
           userHandles: [
             const UiUserHandle(plaintext: "ellie"),
             const UiUserHandle(plaintext: "firefly"),

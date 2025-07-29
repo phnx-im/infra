@@ -13,7 +13,6 @@ service AuthService {
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 
   rpc PublishConnectionPackages(PublishConnectionPackagesRequest) returns (PublishConnectionPackagesResponse);
-  rpc GetUserConnectionPackages(GetUserConnectionPackagesRequest) returns (GetUserConnectionPackagesResponse);
 
   rpc StageUserProfile(StageUserProfileRequest) returns (StageUserProfileResponse);
   rpc MergeUserProfile(MergeUserProfileRequest) returns (MergeUserProfileResponse);
@@ -22,9 +21,6 @@ service AuthService {
   rpc AsCredentials(AsCredentialsRequest) returns (AsCredentialsResponse);
 
   rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
-
-  rpc Listen(stream ListenRequest) returns (stream ListenResponse);
-  rpc EnqueueMessages(EnqueueMessagesRequest) returns (EnqueueMessagesResponse);
 
   // User Handles API
 
@@ -90,11 +86,6 @@ message MlsInfraVersion {
   uint32 version = 1;
 }
 
-message ExpirationData {
-  common.v1.Timestamp not_before = 1;
-  common.v1.Timestamp not_after = 2;
-}
-
 message EncryptedUserProfile {
   common.v1.IndexedCiphertext ciphertext = 1;
 }
@@ -107,8 +98,9 @@ message ConnectionPackage {
 message ConnectionPackagePayload {
   MlsInfraVersion protocol_version = 1;
   ConnectionEncryptionKey encryption_key = 2;
-  ExpirationData lifetime = 3;
-  ClientCredential client_credential = 4;
+  common.v1.ExpirationData lifetime = 3;
+  HandleVerifyingKey verifying_key = 5;
+  UserHandleHash user_handle_hash = 6;
 }
 
 message ConnectionEncryptionKey {
@@ -122,7 +114,7 @@ message ClientCredential {
 
 message ClientCredentialPayload {
   ClientCredentialCsr csr = 1;
-  ExpirationData expiration_data = 2;
+  common.v1.ExpirationData expiration_data = 2;
   CredentialFingerprint credential_fingerprint = 3;
 }
 
@@ -154,8 +146,6 @@ message CredentialFingerprint {
 
 message RegisterUserRequest {
   ClientCredentialPayload client_credential_payload = 1;
-  common.v1.RatchetEncryptionKey queue_encryption_key = 2;
-  common.v1.RatchetSecret initial_ratchet_secret = 3;
   EncryptedUserProfile encrypted_user_profile = 4;
 }
 
@@ -184,10 +174,7 @@ message PublishConnectionPackagesRequest {
 }
 
 message PublishConnectionPackagesPayload {
-  oneof owner {
-    UserId user_id = 1;
-    UserHandleHash hash = 3;
-  }
+  UserHandleHash hash = 3;
   repeated ConnectionPackage connection_packages = 2;
 }
 
@@ -283,7 +270,7 @@ message AsCredential {
 message AsCredentialBody {
   MlsInfraVersion version = 1;
   common.v1.Fqdn user_domain = 2;
-  ExpirationData expiration_data = 3;
+  common.v1.ExpirationData expiration_data = 3;
   SignatureScheme signature_scheme = 4;
   AsVerifyingKey verifying_key = 5;
 }
@@ -304,7 +291,7 @@ message AsIntermediateCredentialBody {
 
 message AsIntermediateCredentialPayload {
   AsIntermediateCredentialCsr csr = 1;
-  ExpirationData expiration_data = 2;
+  common.v1.ExpirationData expiration_data = 2;
   CredentialFingerprint signer_fingerprint = 3;
 }
 
@@ -333,54 +320,6 @@ message IssueTokensPayload {
 
 message IssueTokensResponse {
   bytes token_response = 1;
-}
-
-// enqueue messages
-
-message EnqueueMessagesRequest {
-  UserId user_id = 1;
-  EncryptedConnectionOffer connection_offer = 2;
-}
-
-message EncryptedConnectionOffer {
-  common.v1.HpkeCiphertext ciphertext = 1;
-}
-
-message EnqueueMessagesResponse {}
-
-// listen
-
-message ListenRequest {
-  oneof request {
-    InitListenRequest init = 1;
-    AckListenRequest ack = 2;
-  }
-}
-
-message InitListenRequest {
-  InitListenPayload payload = 1;
-  common.v1.Signature signature = 2;
-}
-
-message InitListenPayload {
-  UserId user_id = 1;
-  uint64 sequence_number_start = 2;
-}
-
-message AckListenRequest {
-  uint64 up_to_sequence_number = 1;
-}
-
-message ListenResponse {
-  // Optional message
-  //
-  // When not present, there are currently no messages in the queue.
-  QueueMessage message = 1;
-}
-
-message QueueMessage {
-  uint64 sequence_number = 1;
-  common.v1.Ciphertext ciphertext = 2;
 }
 
 // User Handles API common messsages
@@ -457,7 +396,12 @@ message FetchConnectionPackageResponse {
 }
 
 message EnqueueConnectionOfferStep {
-  EncryptedConnectionOffer connection_offer = 2;
+  ConnectionOfferMessage connection_offer = 3;
+}
+
+message ConnectionOfferMessage {
+  common.v1.HpkeCiphertext ciphertext = 1;
+  bytes connection_package_hash = 2;
 }
 
 message ConnectResponse {
@@ -501,6 +445,6 @@ message ListenHandleResponse {
 message HandleQueueMessage {
   common.v1.Uuid message_id = 1;
   oneof payload {
-    EncryptedConnectionOffer connection_offer = 2;
+    ConnectionOfferMessage connection_offer = 3;
   }
 }

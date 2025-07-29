@@ -33,8 +33,7 @@ impl TryFrom<String> for Environment {
             "local" => Ok(Self::Local),
             "production" => Ok(Self::Production),
             other => Err(format!(
-                "{} is not a supported environment. Use either `local` or `production`.",
-                other
+                "{other} is not a supported environment. Use either `local` or `production`."
             )),
         }
     }
@@ -44,7 +43,7 @@ impl TryFrom<String> for Environment {
 pub fn get_configuration(prefix: &str) -> Result<Settings, ConfigError> {
     // Directories
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-    let configuration_directory = base_path.join(format!("{}configuration", prefix));
+    let configuration_directory = base_path.join(format!("{prefix}configuration"));
 
     // Detect the running environment.
     // Default to `local` if unspecified.

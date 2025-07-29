@@ -4,7 +4,7 @@
 
 use chrono::DateTime;
 use phnxcommon::{
-    credentials::keys::{AsIntermediateSignature, AsSignature, ClientSignature},
+    credentials::keys::{AsIntermediateSignature, AsSignature, ClientSignature, HandleSignature},
     crypto::{
         self,
         ear::{self, AeadCiphertext},
@@ -18,6 +18,7 @@ use phnxcommon::{
 use tonic::Status;
 
 use crate::{
+    common::v1::ExpirationData,
     convert::{FromRef, TryFromRef, TryRefInto},
     validation::{MissingFieldError, MissingFieldExt},
 };
@@ -180,7 +181,7 @@ pub enum InvalidIndexedCiphertext {
 
 impl From<InvalidIndexedCiphertext> for Status {
     fn from(e: InvalidIndexedCiphertext) -> Self {
-        Status::invalid_argument(format!("invalid indexed ciphertext: {}", e))
+        Status::invalid_argument(format!("invalid indexed ciphertext: {e}"))
     }
 }
 
@@ -255,6 +256,20 @@ impl From<ClientSignature> for Signature {
 }
 
 impl From<Signature> for ClientSignature {
+    fn from(value: Signature) -> Self {
+        signable::Signature::from_bytes(value.value)
+    }
+}
+
+impl From<HandleSignature> for Signature {
+    fn from(value: HandleSignature) -> Self {
+        Self {
+            value: value.into_bytes(),
+        }
+    }
+}
+
+impl From<Signature> for HandleSignature {
     fn from(value: Signature) -> Self {
         signable::Signature::from_bytes(value.value)
     }
@@ -349,6 +364,32 @@ impl From<HpkeCiphertext> for openmls::prelude::HpkeCiphertext {
         Self {
             kem_output: proto.kem_output.into(),
             ciphertext: proto.ciphertext.into(),
+        }
+    }
+}
+
+impl TryFrom<ExpirationData> for time::ExpirationData {
+    type Error = ExpirationDataError;
+
+    fn try_from(value: ExpirationData) -> Result<Self, Self::Error> {
+        Ok(Self::from_parts(
+            value.not_before.ok_or_missing_field("not_before")?.into(),
+            value.not_after.ok_or_missing_field("not_after")?.into(),
+        ))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ExpirationDataError {
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError<&'static str>),
+}
+
+impl From<time::ExpirationData> for ExpirationData {
+    fn from(value: time::ExpirationData) -> Self {
+        Self {
+            not_before: Some(value.not_before().into()),
+            not_after: Some(value.not_after().into()),
         }
     }
 }

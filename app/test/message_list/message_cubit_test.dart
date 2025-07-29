@@ -23,14 +23,17 @@ void main() {
           UiContentMessage(
             sender: bobId,
             sent: true,
+            edited: false,
             content: UiMimiContent(
               plainBody: 'Hello Alice',
               topicId: Uint8List(0),
               content: simpleMessage('Hello Alice'),
+              attachments: [],
             ),
           ),
         ),
         position: UiFlightPosition.single,
+        status: UiMessageStatus.sent,
       );
       final b = UiConversationMessage(
         id: 1.conversationMessageId(),
@@ -40,14 +43,17 @@ void main() {
           UiContentMessage(
             sender: bobId,
             sent: true,
+            edited: false,
             content: UiMimiContent(
               plainBody: 'Hello Alice',
               topicId: Uint8List(0),
               content: simpleMessage('Hello Alice'),
+              attachments: [],
             ),
           ),
         ),
         position: UiFlightPosition.single,
+        status: UiMessageStatus.sent,
       );
       expect(a, equals(b));
     });

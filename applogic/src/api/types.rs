@@ -11,18 +11,18 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::MimiContent;
+use mimi_content::MessageStatus;
 pub use phnxcommon::identifiers::UserHandle;
 use phnxcommon::identifiers::UserId;
 use phnxcoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
-    InactiveConversation, Message, SystemMessage, UserProfile, store::Store,
+    InactiveConversation, Message, MessageDraft, SystemMessage, UserProfile, store::Store,
 };
 pub use phnxcoreclient::{ConversationId, ConversationMessageId};
 use uuid::Uuid;
 
-use super::markdown::MessageContent;
+use crate::api::message_content::UiMimiContent;
 
 /// Mirror of the [`ConversationId`] type
 #[doc(hidden)]
@@ -86,6 +86,59 @@ pub struct UiConversationDetails {
     pub messages_count: usize,
     pub unread_messages: usize,
     pub last_message: Option<UiConversationMessage>,
+    pub draft: Option<UiMessageDraft>,
+}
+
+/// Draft of a message in a conversation
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
+pub struct UiMessageDraft {
+    pub message: String,
+    pub editing_id: Option<ConversationMessageId>,
+    pub updated_at: DateTime<Utc>,
+    pub source: UiMessageDraftSource,
+}
+
+/// Makes it possible to distinguish whether the draft was created in Flutter by the user or loaded
+/// from the database or reset by the handle, that is, by the system.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum UiMessageDraftSource {
+    /// The draft was created/changed by the user.
+    User,
+    /// The draft was created/changed by the system.
+    System,
+}
+
+impl UiMessageDraft {
+    pub(crate) fn new(message: String, source: UiMessageDraftSource) -> Self {
+        Self {
+            message,
+            editing_id: None,
+            updated_at: Utc::now(),
+            source,
+        }
+    }
+
+    pub(crate) fn from_draft(draft: MessageDraft, source: UiMessageDraftSource) -> Self {
+        Self {
+            message: draft.message,
+            editing_id: draft.editing_id,
+            updated_at: Utc::now(),
+            source,
+        }
+    }
+
+    pub(crate) fn into_draft(self) -> MessageDraft {
+        MessageDraft {
+            message: self.message,
+            editing_id: self.editing_id,
+            updated_at: self.updated_at,
+        }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.message.trim().is_empty() && self.editing_id.is_none()
+    }
 }
 
 /// Status of a conversation
@@ -128,10 +181,11 @@ impl From<InactiveConversation> for UiInactiveConversation {
 }
 
 /// Type of a conversation
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiConversationType {
-    /// A connection conversation that is not yet confirmed by the other party.
-    UnconfirmedConnection(UiUserProfile),
+    /// A connection conversation which was established via a handle and is not yet confirmed by
+    /// the other party.
+    HandleConnection(UiUserHandle),
     /// A connection conversation that is confirmed by the other party and for which we have
     /// received the necessary secrets.
     Connection(UiUserProfile),
@@ -150,15 +204,15 @@ impl UiConversationType {
         store: &impl Store,
         conversation_type: ConversationType,
     ) -> Self {
-        let load_profile = async |user_id| {
-            let user_profile = store.user_profile(&user_id).await;
-            UiUserProfile::from_profile(user_profile)
-        };
         match conversation_type {
-            ConversationType::UnconfirmedConnection(user_id) => {
-                Self::UnconfirmedConnection(load_profile(user_id).await)
+            ConversationType::HandleConnection(handle) => {
+                Self::HandleConnection(UiUserHandle::from(handle))
             }
-            ConversationType::Connection(user_id) => Self::Connection(load_profile(user_id).await),
+            ConversationType::Connection(user_id) => {
+                let user_profile = store.user_profile(&user_id).await;
+                let profile = UiUserProfile::from_profile(user_profile);
+                Self::Connection(profile)
+            }
             ConversationType::Group => Self::Group,
         }
     }
@@ -203,23 +257,47 @@ pub struct UiConversationMessage {
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
     pub position: UiFlightPosition,
+    pub status: UiMessageStatus,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum UiMessageStatus {
+    Sending,
+    /// The message was sent to the server.
+    Sent,
+    /// The message was received by at least one user in the conversation.
+    Delivered,
+    /// The message was read by at least one user in the conversation.
+    Read,
+}
+
+impl From<ConversationMessage> for UiConversationMessage {
+    #[frb(ignore)]
+    fn from(message: ConversationMessage) -> Self {
+        let status = if !message.is_sent() {
+            UiMessageStatus::Sending
+        } else if message.status() == MessageStatus::Read {
+            UiMessageStatus::Read
+        } else if message.status() == MessageStatus::Delivered {
+            UiMessageStatus::Delivered
+        } else {
+            UiMessageStatus::Sent
+        };
+
+        Self {
+            conversation_id: message.conversation_id(),
+            id: message.id(),
+            timestamp: message.timestamp().to_rfc3339(),
+            message: UiMessage::from(message.message().clone()),
+            position: UiFlightPosition::Single,
+            status,
+        }
+    }
 }
 
 impl UiConversationMessage {
     pub(crate) fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp.parse().ok()
-    }
-}
-
-impl From<ConversationMessage> for UiConversationMessage {
-    fn from(conversation_message: ConversationMessage) -> Self {
-        Self {
-            conversation_id: conversation_message.conversation_id(),
-            id: conversation_message.id(),
-            timestamp: conversation_message.timestamp().to_rfc3339(),
-            message: UiMessage::from(conversation_message.message().clone()),
-            position: UiFlightPosition::Single,
-        }
     }
 }
 
@@ -245,58 +323,24 @@ impl From<Message> for UiMessage {
     }
 }
 
-/// The actual content of a message
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[frb(dart_metadata = ("freezed"))]
-pub struct UiMimiContent {
-    pub replaces: Option<Vec<u8>>,
-    pub topic_id: Vec<u8>,
-    pub in_reply_to: Option<Vec<u8>>,
-    pub plain_body: String,
-    pub content: MessageContent,
-}
-
-impl From<MimiContent> for UiMimiContent {
-    fn from(mimi_content: MimiContent) -> Self {
-        let plain_body = match mimi_content.string_rendering() {
-            Ok(plain_body) => plain_body,
-            Err(e) => {
-                return Self {
-                    plain_body: format!("Invalid message: {e}"),
-                    replaces: mimi_content.replaces.map(|v| v.into_vec()),
-                    topic_id: mimi_content.topic_id.into_vec(),
-                    in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
-                    content: MessageContent::error(format!("Invalid message: {e}")),
-                };
-            }
-        };
-
-        let parsed_message = MessageContent::parse_markdown(&plain_body);
-
-        Self {
-            plain_body,
-            replaces: mimi_content.replaces.map(|v| v.into_vec()),
-            topic_id: mimi_content.topic_id.into_vec(),
-            in_reply_to: mimi_content.in_reply_to.map(|i| i.hash.into_vec()),
-            content: parsed_message,
-        }
-    }
-}
-
 /// Content of a message including the sender and whether it was sent
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiContentMessage {
     pub sender: UiUserId,
     pub sent: bool,
     pub content: UiMimiContent,
+    pub edited: bool,
 }
 
 impl From<ContentMessage> for UiContentMessage {
     fn from(content_message: ContentMessage) -> Self {
-        let (sender, sent, content) = content_message.into_parts();
+        let sent = content_message.was_sent();
+        let edited = content_message.edited_at().is_some();
+        let (sender, content) = content_message.into_sender_and_content();
         Self {
             sender: sender.into(),
             sent,
+            edited,
             content: UiMimiContent::from(content),
         }
     }
@@ -320,22 +364,21 @@ impl From<EventMessage> for UiEventMessage {
 
 /// System message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct UiSystemMessage {
-    pub message: String,
+pub enum UiSystemMessage {
+    Add(UiUserId, UiUserId),
+    Remove(UiUserId, UiUserId),
 }
 
 impl From<SystemMessage> for UiSystemMessage {
     fn from(system_message: SystemMessage) -> Self {
-        // TODO: Use display names here
-        let message = match system_message {
-            SystemMessage::Add(adder, added) => {
-                format!("{adder:?} added {added:?} to the conversation")
+        match system_message {
+            SystemMessage::Add(user_id, contact_id) => {
+                UiSystemMessage::Add(user_id.into(), contact_id.into())
             }
-            SystemMessage::Remove(remover, removed) => {
-                format!("{remover:?} removed {removed:?} from the conversation")
+            SystemMessage::Remove(user_id, contact_id) => {
+                UiSystemMessage::Remove(user_id.into(), contact_id.into())
             }
-        };
-        Self { message }
+        }
     }
 }
 
@@ -525,7 +568,7 @@ pub struct UiClientRecord {
     pub(crate) is_finished: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(dart_metadata = ("freezed"))]
 pub struct UiUserHandle {
     pub(crate) plaintext: String,

@@ -51,7 +51,7 @@ SPEC CHECKSUMS:
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
-  phnxapplogic: ecb191e3e9876dc0a8f6708518c28678057e3b50
+  phnxapplogic: 17c3d9a62e86e2bc92bd4acbecb5bb6b6d3b806d
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
 
 PODFILE CHECKSUM: 1220b9aeaff430464a6e8d836cc72e2101e24e90

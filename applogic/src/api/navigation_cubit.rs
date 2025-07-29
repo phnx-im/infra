@@ -38,7 +38,7 @@ pub enum IntroScreenType {
     Intro,
     ServerChoice,
     DisplayNamePicture,
-    DeveloperSettings,
+    DeveloperSettings(DeveloperSettingsScreenType),
 }
 
 /// Conversations screen: main screen of the app
@@ -247,14 +247,23 @@ impl NavigationCubitBase {
 
     pub fn open_developer_settings(&self, screen: DeveloperSettingsScreenType) {
         self.core.state_tx().send_if_modified(|state| match state {
-            NavigationState::Intro { screens } => {
-                if screens.last() != Some(&IntroScreenType::DeveloperSettings) {
-                    screens.push(IntroScreenType::DeveloperSettings);
-                    true
-                } else {
-                    false
+            NavigationState::Intro { screens } => match screens.last_mut() {
+                Some(IntroScreenType::DeveloperSettings(DeveloperSettingsScreenType::Root)) => {
+                    if screen != DeveloperSettingsScreenType::Root {
+                        screens.push(IntroScreenType::DeveloperSettings(screen));
+                        true
+                    } else {
+                        false
+                    }
                 }
-            }
+                Some(IntroScreenType::DeveloperSettings(dev_screen)) => {
+                    mem::replace(dev_screen, screen) == screen
+                }
+                _ => {
+                    screens.push(IntroScreenType::DeveloperSettings(screen));
+                    true
+                }
+            },
             NavigationState::Home { home } => {
                 home.developer_settings_screen.replace(screen) != Some(screen)
             }

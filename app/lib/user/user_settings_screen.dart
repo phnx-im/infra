@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
@@ -19,16 +22,15 @@ class UserSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (displayName, profilePicture) = context.select(
-      (UserCubit cubit) => (
-        cubit.state.displayName,
-        cubit.state.profilePicture,
-      ),
-    );
+    final profile = context.select((UsersCubit cubit) => cubit.state.profile());
+
+    final loc = AppLocalizations.of(context);
+    final isDesktopPlatform =
+        Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Settings'),
+        title: Text(loc.userSettingsScreen_title),
         toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
@@ -41,11 +43,10 @@ class UserSettingsScreen extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // User Profile and ID
                   UserAvatar(
-                    displayName: displayName,
+                    displayName: profile.displayName,
                     size: 100,
-                    image: profilePicture,
+                    image: profile.profilePicture,
                     onPressed: () => _pickAvatar(context),
                   ),
                   const SizedBox(height: Spacings.xs),
@@ -57,6 +58,14 @@ class UserSettingsScreen extends StatelessWidget {
                   const SizedBox(height: Spacings.xs),
 
                   const _UserHandles(),
+
+                  if (isDesktopPlatform) ...[
+                    const SizedBox(height: Spacings.xs),
+                    Divider(color: Theme.of(context).hintColor),
+                    const SizedBox(height: Spacings.xs),
+
+                    const _DesktopSettings(),
+                  ],
                 ],
               ),
             ),
@@ -84,9 +93,12 @@ class _UserProfileData extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (displayName, userId) = context.select(
-      (UserCubit cubit) => (cubit.state.displayName, cubit.state.userId),
+    final userId = context.select((UserCubit cubit) => cubit.state.userId);
+    final displayName = context.select(
+      (UsersCubit cubit) => cubit.state.displayName(),
     );
+
+    final loc = AppLocalizations.of(context);
 
     return ListView(
       shrinkWrap: true,
@@ -107,7 +119,7 @@ class _UserProfileData extends StatelessWidget {
             _copyTextToClipboard(
               context,
               userId.uuid.toString(),
-              snackBarMessage: "User ID copied to clipboard",
+              snackBarMessage: loc.userSettingsScreen_idCopied,
             );
           },
         ),
@@ -115,7 +127,7 @@ class _UserProfileData extends StatelessWidget {
         ListTile(
           subtitle: Text(
             style: TextStyle(color: Theme.of(context).hintColor),
-            "Others will see your picture and name when you communicate with them.",
+            loc.userSettingsScreen_profileDescription,
           ),
         ),
       ],
@@ -142,42 +154,28 @@ class _UserHandles extends StatelessWidget {
       (UserCubit cubit) => cubit.state.userHandles,
     );
 
+    final loc = AppLocalizations.of(context);
+
     return ListView(
       shrinkWrap: true,
-      children:
-          userHandles.isEmpty
-              // no user handles yet
-              ? [
-                const _UserHandlePlaceholder(),
-                const SizedBox(height: Spacings.xs),
-                ListTile(
-                  subtitle: Text(
-                    style: TextStyle(color: Theme.of(context).hintColor),
-                    "Share usernames with others so they can connect with you.\nAfter the connection, usernames are not visible to others anymore.\nYou can have up to 5 usernames.",
-                  ),
-                ),
-              ]
-              // user handles
-              : [
-                ...userHandles.expand(
-                  (handle) => [
-                    _UserHandle(handle: handle),
-                    const SizedBox(height: Spacings.xs),
-                  ],
-                ),
-                if (userHandles.length < 5) ...[
-                  const _UserHandlePlaceholder(),
-                  const SizedBox(height: Spacings.xs),
-                ],
-                ListTile(
-                  subtitle: Text(
-                    style: TextStyle(color: Theme.of(context).hintColor),
-                    "Share usernames with others so they can connect with you. After the connection, "
-                    "usernames are not visible to others anymore. "
-                    "You can have up to 5 usernames.",
-                  ),
-                ),
-              ],
+      children: [
+        ...userHandles.expand(
+          (handle) => [
+            _UserHandle(handle: handle),
+            const SizedBox(height: Spacings.xs),
+          ],
+        ),
+        if (userHandles.isEmpty || userHandles.length < 5) ...[
+          const _UserHandlePlaceholder(),
+          const SizedBox(height: Spacings.xs),
+        ],
+        ListTile(
+          subtitle: Text(
+            style: TextStyle(color: Theme.of(context).hintColor),
+            loc.userSettingsScreen_userNamesDescription,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -197,22 +195,20 @@ class _UserHandle extends StatelessWidget {
   }
 
   void _removeHandle(BuildContext context) async {
+    final loc = AppLocalizations.of(context);
     await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Remove Username"),
-          content: const Text(
-            "If you continue, your username will be removed and may be claimed by someone else. "
-            "You’ll no longer be reachable through it.",
-          ),
+          title: Text(loc.removeUsernameDialog_title),
+          content: Text(loc.removeUsernameDialog_content),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
               style: textButtonStyle(context),
-              child: const Text("Cancel"),
+              child: Text(loc.removeUsernameDialog_cancel),
             ),
             TextButton(
               onPressed: () async {
@@ -222,7 +218,7 @@ class _UserHandle extends StatelessWidget {
                 }
               },
               style: textButtonStyle(context),
-              child: const Text("Remove"),
+              child: Text(loc.removeUsernameDialog_remove),
             ),
           ],
         );
@@ -236,16 +232,71 @@ class _UserHandlePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return ListTile(
       leading: const Icon(Icons.alternate_email, size: _listIconSize),
       title: Text(
         style: TextStyle(color: Theme.of(context).hintColor),
-        "Username",
+        loc.userSettingsScreen_userHandlePlaceholder,
       ),
       onTap:
           () => context.read<NavigationCubit>().openUserSettings(
             screen: UserSettingsScreenType.addUserHandle,
           ),
+    );
+  }
+}
+
+class _DesktopSettings extends StatefulWidget {
+  const _DesktopSettings();
+
+  @override
+  State<_DesktopSettings> createState() => _DesktopSettingsState();
+}
+
+class _DesktopSettingsState extends State<_DesktopSettings> {
+  double _interfaceScaleSliderValue = 100.0;
+
+  @override
+  void initState() {
+    super.initState();
+    setState(() {
+      _interfaceScaleSliderValue =
+          context.read<UserSettingsCubit>().state.interfaceScale * 100;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.visibility, size: _listIconSize),
+          titleAlignment: ListTileTitleAlignment.top,
+          title: Text(loc.userSettingsScreen_interfaceScale),
+          subtitle: Slider(
+            min: 50,
+            max: 300,
+            divisions: ((300 - 50) / 5).truncate(),
+            value: _interfaceScaleSliderValue,
+            label: _interfaceScaleSliderValue.truncate().toString(),
+            activeColor: colorDMB,
+            onChanged:
+                (value) => setState(() => _interfaceScaleSliderValue = value),
+            onChangeEnd: (value) {
+              context.read<UserSettingsCubit>().setInterfaceScale(
+                userCubit: context.read(),
+                value: value / 100,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: Spacings.s),
+      ],
     );
   }
 }

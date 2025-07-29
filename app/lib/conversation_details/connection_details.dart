@@ -35,7 +35,7 @@ class ConnectionDetails extends StatelessWidget {
         child: Column(
           children: [
             UserAvatar(
-              size: 100,
+              size: 96,
               displayName: conversation.title,
               image: conversation.picture,
             ),

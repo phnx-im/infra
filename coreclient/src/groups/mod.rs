@@ -146,6 +146,7 @@ impl PartialCreateGroupParams {
     }
 }
 
+#[derive(Debug)]
 pub(super) struct ProfileInfo {
     pub(super) client_credential: ClientCredential,
     pub(super) user_profile_key: UserProfileKey,
@@ -234,7 +235,7 @@ impl Group {
         let user_id = signer.credential().identity();
         let room_state = VerifiedRoomState::new(
             user_id.tls_serialize_detached()?,
-            RoomPolicy::default_private(),
+            RoomPolicy::default_trusted_private(),
         )
         .unwrap();
 
@@ -886,7 +887,7 @@ impl Group {
     ) -> Result<SendMessageParamsOut, GroupOperationError> {
         let mls_message = self
             .mls_group
-            .create_message(provider, signer, &content.serialize())?;
+            .create_message(provider, signer, &content.serialize()?)?;
 
         let message = AssistedMessageOut::new(mls_message, None)?;
 

@@ -86,6 +86,12 @@ class DeveloperSettingsScreenView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.select((LoadableUserCubit cubit) => cubit.state.user);
+    final profile =
+        user != null
+            ? context.select(
+              (UsersCubit cubit) => cubit.state.profile(userId: user.userId),
+            )
+            : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -115,18 +121,18 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                       onTap: onRefreshPushToken,
                     ),
                   ],
+                  const _SectionHeader("User"),
+                  ListTile(
+                    title: const Text("Change User"),
+                    trailing: const Icon(Icons.change_circle),
+                    onTap:
+                        () => context
+                            .read<NavigationCubit>()
+                            .openDeveloperSettings(
+                              screen: DeveloperSettingsScreenType.changeUser,
+                            ),
+                  ),
                   if (user != null) ...[
-                    const _SectionHeader("User"),
-                    ListTile(
-                      title: const Text("Change User"),
-                      trailing: const Icon(Icons.change_circle),
-                      onTap:
-                          () => context
-                              .read<NavigationCubit>()
-                              .openDeveloperSettings(
-                                screen: DeveloperSettingsScreenType.changeUser,
-                              ),
-                    ),
                     ListTile(
                       title: const Text("Log Out"),
                       trailing: const Icon(Icons.logout),
@@ -147,13 +153,12 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                   if (user != null)
                     ListTile(
                       title: Text(
-                        user.userId.uuid
-                            .toString(), // TODO: Add also a display name
+                        profile?.displayName ?? user.userId.uuid.toString(),
                         style: Theme.of(context).textTheme.bodyLarge
                             ?.copyWith(color: Colors.red)
                             .merge(_titleFontWeight),
                       ),
-                      subtitle: Text("Domain: ${user.userId.domain}"),
+                      subtitle: Text("${user.userId}"),
                       trailing: const Icon(Icons.delete),
                       onTap:
                           () => _confirmDialog(

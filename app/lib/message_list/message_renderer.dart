@@ -7,16 +7,27 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/api/markdown.dart';
+import 'package:prototype/theme/theme.dart';
 
 Widget buildBlockElement(BlockElement block, bool isSender) {
   return switch (block) {
     BlockElement_Paragraph(:final field0) => Text.rich(
-      TextSpan(children: field0.map(buildInlineElement).toList()),
+      TextSpan(
+        children:
+            field0.map((child) => buildInlineElement(child, isSender)).toList(),
+        style: TextStyle(color: isSender ? Colors.white : Colors.black),
+      ),
     ),
     BlockElement_Heading(:final field0) => Text.rich(
       TextSpan(
-        children: field0.map(buildInlineElement).toList(),
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        children:
+            field0.map((child) => buildInlineElement(child, isSender)).toList(),
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          fontVariations: variationBold,
+          color: isSender ? Colors.white : Colors.black,
+        ),
       ),
     ),
     BlockElement_Quote(:final field0) => Container(
@@ -136,7 +147,7 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
     BlockElement_CodeBlock(:final field0) => Text.rich(
       TextSpan(
         text: field0.map((e) => e.value).join('\n'),
-        style: const TextStyle(fontSize: 12, color: Colors.black),
+        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
       ),
     ),
     BlockElement_Error(:final field0) => Container(
@@ -150,35 +161,43 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
   };
 }
 
-InlineSpan buildInlineElement(RangedInlineElement inline) {
+InlineSpan buildInlineElement(RangedInlineElement inline, bool isSender) {
   return switch (inline.element) {
     InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
       text: field0,
-      style: const TextStyle(fontSize: 12),
+      style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
     ),
     InlineElement_Link(:final children) => TextSpan(
-      children: children.map(buildInlineElement).toList(),
-      style: const TextStyle(
-        color: Colors.black,
-        decorationColor: Colors.blue,
+      children:
+          children.map((child) => buildInlineElement(child, isSender)).toList(),
+      style: TextStyle(
+        color: isSender ? const Color(0xFF69d1ff) : Colors.blue,
+        decorationColor: isSender ? const Color(0xFF69d1ff) : Colors.blue,
         decoration: TextDecoration.underline,
       ),
     ),
     InlineElement_Bold(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
-      style: const TextStyle(fontWeight: FontWeight.bold),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontVariations: variationBold,
+      ),
     ),
     InlineElement_Italic(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
       style: const TextStyle(fontStyle: FontStyle.italic),
     ),
     InlineElement_Strikethrough(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
       style: const TextStyle(decoration: TextDecoration.lineThrough),
     ),
     InlineElement_Spoiler(:final field0) => TextSpan(
-      children: field0.map(buildInlineElement).toList(),
+      children:
+          field0.map((child) => buildInlineElement(child, isSender)).toList(),
       style: TextStyle(
         decoration: TextDecoration.combine([
           TextDecoration.overline,
@@ -337,7 +356,7 @@ class CustomTextEditingController extends TextEditingController {
     // Flutter uses UTF-16, but Rust uses UTF-8
     raw = utf8.encode(text);
 
-    MessageContent parsed = const MessageContent(content: []);
+    MessageContent parsed = const MessageContent(elements: []);
 
     if (text.isNotEmpty) {
       parsed = MessageContent.parseMarkdownRaw(string: raw);
@@ -345,7 +364,7 @@ class CustomTextEditingController extends TextEditingController {
 
     return TextSpan(
       style: style,
-      children: buildWrappedBlock(0, raw.length, parsed.content),
+      children: buildWrappedBlock(0, raw.length, parsed.elements),
     );
   }
 
@@ -398,7 +417,7 @@ class CustomTextEditingController extends TextEditingController {
               )
               .toList(),
         ),
-        style: const TextStyle(fontSize: 12, color: Colors.black),
+        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
       ),
       BlockElement_Error() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
@@ -420,7 +439,7 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Code() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        style: const TextStyle(fontSize: 12),
+        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
       ),
       InlineElement_Link() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
@@ -432,7 +451,10 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Bold(:final field0) => TextSpan(
         children: buildWrappedInline(inline.start, inline.end, field0),
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontVariations: variationBold,
+        ),
       ),
       InlineElement_Italic(:final field0) => TextSpan(
         children: buildWrappedInline(inline.start, inline.end, field0),

@@ -14,6 +14,7 @@ use crate::{
     ConversationMessageId,
     conversations::{Conversation, messages::ConversationMessage},
     groups::{Group, openmls_provider::PhnxOpenMlsProvider},
+    utils::image::resize_profile_image,
 };
 
 use super::{ConversationId, CoreUser};
@@ -154,7 +155,8 @@ impl CoreUser {
                 let id = conversation_id.uuid();
                 anyhow!("Can't find conversation with id {id}")
             })?;
-        let resized_picture_option = picture.and_then(|picture| self.resize_image(&picture).ok());
+        let resized_picture_option =
+            picture.and_then(|picture| resize_profile_image(&picture).ok());
         let mut notifier = self.store_notifier();
         conversation
             .set_conversation_picture(&mut *connection, &mut notifier, resized_picture_option)
@@ -182,13 +184,6 @@ impl CoreUser {
         message_id: ConversationMessageId,
     ) -> Result<Option<ConversationMessage>> {
         Ok(ConversationMessage::next_message(self.pool(), message_id).await?)
-    }
-
-    pub(crate) async fn try_last_message(
-        &self,
-        conversation_id: ConversationId,
-    ) -> sqlx::Result<Option<ConversationMessage>> {
-        ConversationMessage::last_content_message(self.pool(), conversation_id).await
     }
 
     pub(crate) async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
@@ -572,7 +567,8 @@ mod delete_conversation_flow {
                     past_members.into_iter().collect(),
                 )
                 .await?;
-            CoreUser::store_messages(&mut *connection, notifier, conversation_id, messages).await
+            CoreUser::store_new_messages(&mut *connection, notifier, conversation_id, messages)
+                .await
         }
     }
 }

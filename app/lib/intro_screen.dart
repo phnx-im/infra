@@ -4,10 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prototype/l10n/l10n.dart';
+import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/theme/theme.dart';
-
-import 'navigation/navigation.dart';
 
 class IntroScreen extends StatelessWidget {
   const IntroScreen({super.key});
@@ -17,6 +17,8 @@ class IntroScreen extends StatelessWidget {
     final isUserLoading = context.select((LoadableUserCubit cubit) {
       return cubit.state is LoadingUser;
     });
+
+    final loc = AppLocalizations.of(context);
 
     return Scaffold(
       body: Center(
@@ -35,7 +37,7 @@ class IntroScreen extends StatelessWidget {
                 color: Colors.grey[350],
               ),
               _GradientText(
-                "Prototype.",
+                loc.appTitle,
                 gradient: const LinearGradient(
                   colors: [
                     Color.fromARGB(255, 34, 163, 255),
@@ -54,7 +56,7 @@ class IntroScreen extends StatelessWidget {
                     () =>
                         context.read<NavigationCubit>().openDeveloperSettings(),
                 style: textButtonStyle(context),
-                child: const Text('Developer Settings'),
+                child: Text(loc.settings_developerSettings),
               ),
               if (!isUserLoading)
                 Column(
@@ -70,7 +72,7 @@ class IntroScreen extends StatelessWidget {
                                   .read<NavigationCubit>()
                                   .openServerChoice(),
                       style: buttonStyle(context, true),
-                      child: const Text('Sign up'),
+                      child: Text(loc.introScreen_signUp),
                     ),
                   ],
                 ),

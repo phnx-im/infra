@@ -34,12 +34,12 @@ anyhow = { version = "1", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.39", features = ["rt", "macros"] }
-flutter_rust_bridge = { version = "=2.9.0", features = ["chrono", "uuid"] }
+flutter_rust_bridge = { version = "=2.10.0", features = ["chrono", "uuid"] }
 chrono = { workspace = true }
 jni = "0.21"
 tokio-util = { workspace = true }
 tokio-stream = "0.1.17"
-blake3 = "1.5.5"
+blake3 = { workspace = true }
 bytes = "1.10.0"
 memmap2 = "0.9.5"
 regex = "1.11.1"
@@ -59,3 +59,4 @@ notify-rust = "4"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 tempfile = "3.17.1"
+openmls = { workspace = true } # Required for GroupId

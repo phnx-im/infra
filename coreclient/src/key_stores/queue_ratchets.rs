@@ -9,10 +9,7 @@ use phnxcommon::{
         kdf::keys::RatchetSecret,
         ratchet::{QueueRatchet, RatchetPayload},
     },
-    messages::{
-        EncryptedAsQueueMessageCtype, EncryptedQsQueueMessageCtype,
-        client_as::AsQueueMessagePayload, client_ds::QsQueueMessagePayload,
-    },
+    messages::{EncryptedQsQueueMessageCtype, client_ds::QsQueueMessagePayload},
 };
 use sqlx::{
     Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
@@ -24,14 +21,12 @@ use super::*;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub(crate) enum QueueType {
-    As,
     Qs,
 }
 
 impl QueueType {
     fn as_str(&self) -> &'static str {
         match self {
-            QueueType::As => "as",
             QueueType::Qs => "qs",
         }
     }
@@ -46,7 +41,6 @@ impl FromStr for QueueType {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
-            "as" => Ok(Self::As),
             "qs" => Ok(Self::Qs),
             _ => Err(QueueTypeParseError(s.into())),
         }
@@ -163,40 +157,6 @@ impl StorableQsQueueRatchet {
         executor: impl SqliteExecutor<'_>,
     ) -> sqlx::Result<()> {
         self.update_internal(executor, QueueType::Qs).await
-    }
-}
-
-pub(crate) type StorableAsQueueRatchet =
-    StorableQueueRatchet<EncryptedAsQueueMessageCtype, AsQueueMessagePayload>;
-
-impl StorableAsQueueRatchet {
-    pub(crate) async fn initialize(
-        executor: impl SqliteExecutor<'_>,
-        ratcht_secret: RatchetSecret,
-    ) -> sqlx::Result<()> {
-        Self {
-            queue_type: QueueType::As,
-            queue_ratchet: QueueRatchet::try_from(ratcht_secret).map_err(|error| {
-                error!(%error, "Error initializing AS queue ratchet");
-                // This is just a library error, so we hide it behind a sqlx
-                // error.
-                sqlx::Error::Decode(Box::new(error))
-            })?,
-        }
-        .store(executor)
-        .await?;
-        Ok(())
-    }
-
-    pub(crate) async fn load(executor: impl SqliteExecutor<'_>) -> sqlx::Result<Self> {
-        StorableQueueRatchet::load_internal(executor, QueueType::As).await
-    }
-
-    pub(crate) async fn update_ratchet(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-    ) -> sqlx::Result<()> {
-        self.update_internal(executor, QueueType::As).await
     }
 }
 

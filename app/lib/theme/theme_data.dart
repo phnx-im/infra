@@ -19,6 +19,7 @@ ThemeData themeData(BuildContext context) => ThemeData(
       letterSpacing: _defaultLetterSpacing,
     ).merge(VariableFontWeight.bold),
   ),
+  scaffoldBackgroundColor: Colors.white,
   fontFamily: fontFamily,
   textTheme: TextTheme(
     displayLarge: const TextStyle(
@@ -58,7 +59,7 @@ ThemeData themeData(BuildContext context) => ThemeData(
     backgroundColor: Colors.white,
     brightness: Brightness.light,
   ),
-  dialogTheme: const DialogTheme(
+  dialogTheme: const DialogThemeData(
     backgroundColor: Colors.white,
     surfaceTintColor: Colors.white,
   ),
