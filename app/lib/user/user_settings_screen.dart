@@ -12,6 +12,7 @@ import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
 import 'package:prototype/user/user.dart';
+import 'package:prototype/util/debouncer.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -25,6 +26,8 @@ class UserSettingsScreen extends StatelessWidget {
     final profile = context.select((UsersCubit cubit) => cubit.state.profile());
 
     final loc = AppLocalizations.of(context);
+
+    final isMobilePlatform = Platform.isAndroid || Platform.isIOS;
     final isDesktopPlatform =
         Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
@@ -58,6 +61,14 @@ class UserSettingsScreen extends StatelessWidget {
                   const SizedBox(height: Spacings.xs),
 
                   const _UserHandles(),
+
+                  if (isMobilePlatform) ...[
+                    const SizedBox(height: Spacings.xs),
+                    Divider(color: Theme.of(context).hintColor),
+                    const SizedBox(height: Spacings.xs),
+
+                    const _MobileSettings(),
+                  ],
 
                   if (isDesktopPlatform) ...[
                     const SizedBox(height: Spacings.xs),
@@ -102,6 +113,7 @@ class _UserProfileData extends StatelessWidget {
 
     return ListView(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         ListTile(
           leading: const Icon(Icons.person_outline, size: _listIconSize),
@@ -158,6 +170,7 @@ class _UserHandles extends StatelessWidget {
 
     return ListView(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         ...userHandles.expand(
           (handle) => [
@@ -248,6 +261,53 @@ class _UserHandlePlaceholder extends StatelessWidget {
   }
 }
 
+class _MobileSettings extends StatefulWidget {
+  const _MobileSettings();
+
+  @override
+  State<_MobileSettings> createState() => _MobileSettingsState();
+}
+
+class _MobileSettingsState extends State<_MobileSettings> {
+  final Debouncer _sendOnEnterDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 500),
+  );
+  bool _sendOnEnter = false;
+
+  @override
+  void initState() {
+    super.initState();
+    setState(() {
+      _sendOnEnter = context.read<UserSettingsCubit>().state.sendOnEnter;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        SwitchListTile(
+          title: const Text("Send with Enter"),
+          value: _sendOnEnter,
+          onChanged: (value) {
+            _sendOnEnterDebouncer.run(() {
+              context.read<UserSettingsCubit>().setSendOnEnter(
+                userCubit: context.read(),
+                value: value,
+              );
+            });
+            setState(() {
+              _sendOnEnter = value;
+            });
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class _DesktopSettings extends StatefulWidget {
   const _DesktopSettings();
 
@@ -273,6 +333,7 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
 
     return ListView(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         ListTile(
           leading: const Icon(Icons.visibility, size: _listIconSize),
@@ -299,4 +360,16 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
       ],
     );
   }
+}
+
+Color getColor(Set<WidgetState> states) {
+  const Set<WidgetState> interactiveStates = <WidgetState>{
+    WidgetState.pressed,
+    WidgetState.hovered,
+    WidgetState.focused,
+  };
+  if (states.any(interactiveStates.contains)) {
+    return Colors.brown;
+  }
+  return Colors.transparent;
 }
