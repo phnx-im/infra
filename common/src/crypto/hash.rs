@@ -95,11 +95,12 @@ where
     for<'a> &'a T: Serialize,
 {
     fn hash(&self) -> Hash<T> {
-        let serialization_result = LabeledHashPayload::new(self).tls_serialize_detached();
+        let mut hasher = HashAlg::new();
+        let serialization_result = LabeledHashPayload::new(self).tls_serialize(&mut hasher);
         debug_assert!(serialization_result.is_ok(), "Serialization failed");
         let serialized_labeled_payload = serialization_result.unwrap_or_default();
 
-        let hash_bytes = HashAlg::digest(&serialized_labeled_payload);
+        let hash_bytes = hasher.finalize();
         Hash {
             bytes: hash_bytes.into(),
             _marker: PhantomData,
@@ -164,11 +165,11 @@ mod trait_impls {
 
     impl<'a, T: Labeled, DB: Database> sqlx::Decode<'a, DB> for Hash<T>
     where
-        Vec<u8>: sqlx::Decode<'a, DB>,
+        &'a [u8]: sqlx::Decode<'a, DB>,
     {
         fn decode(value: <DB as Database>::ValueRef<'a>) -> Result<Self, sqlx::error::BoxDynError> {
-            let bytes_vec = <Vec<u8>>::decode(value)?;
-            let bytes: [u8; HASH_SIZE] = bytes_vec
+            let byte_slice = <&[u8]>::decode(value)?;
+            let bytes: [u8; HASH_SIZE] = byte_slice
                 .try_into()
                 .map_err(|_| sqlx::error::BoxDynError::from("Invalid hash length"))?;
             Ok(Self {

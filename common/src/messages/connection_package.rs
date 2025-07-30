@@ -120,13 +120,6 @@ mod payload {
     }
 }
 
-//#[derive(
-//    Debug, Clone, Copy, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
-//)]
-//#[cfg_attr(any(feature = "test_utils", test), derive(PartialEq))]
-//#[serde(transparent)]
-//pub struct ConnectionPackageHash(Hash<ConnectionPackage>);
-
 impl Labeled for ConnectionPackage {
     const LABEL: &'static str = "ConnectionPackage";
 }
