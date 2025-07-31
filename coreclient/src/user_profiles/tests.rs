@@ -69,7 +69,7 @@ fn backend_interaction() {
     let client_credential = ClientCredentialPayload::new(
         credential_csr,
         None,
-        as_intermediate_credential.fingerprint().clone(),
+        *as_intermediate_credential.fingerprint(),
     )
     .sign(&aic_sk)
     .unwrap();
