@@ -82,7 +82,7 @@ impl BasicUserData {
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,
             None,
-            as_intermediate_credential.fingerprint().clone(),
+            *as_intermediate_credential.fingerprint(),
         );
 
         let qs_initial_ratchet_secret = RatchetSecret::random()?;

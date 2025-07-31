@@ -15,7 +15,6 @@ use std::marker::PhantomData;
 use hpke::{DecryptionKey, EncryptionKey};
 use kdf::keys::ConnectionKeyType;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -27,11 +26,9 @@ use self::{
     kdf::{KdfDerivable, keys::RatchetSecret},
 };
 
-/// This type determines the hash function used by the backend.
-pub type Hash = Sha256;
-
 pub mod ear;
 pub mod errors;
+pub mod hash;
 pub mod hpke;
 pub mod indexed_aead;
 pub mod kdf;
@@ -44,6 +41,15 @@ pub mod signatures;
 pub trait RawKey {}
 
 pub type RatchetKeyUpdate = Vec<u8>;
+
+/// A trait for labeling structs
+pub trait Labeled {
+    const LABEL: &'static str;
+}
+
+impl<T: Labeled> Labeled for &T {
+    const LABEL: &'static str = T::LABEL;
+}
 
 #[derive(Debug)]
 pub struct RatchetKeyType;

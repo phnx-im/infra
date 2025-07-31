@@ -8,7 +8,7 @@ use phnxcommon::{
     codec::PhnxCodec,
     credentials::keys::ClientSigningKey,
     crypto::{
-        ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable,
+        ear::keys::FriendshipPackageEarKey, hash::Hashable as _, hpke::HpkeEncryptable,
         indexed_aead::keys::UserProfileKey,
     },
     identifiers::{QsReference, UserHandle, UserId},
