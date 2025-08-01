@@ -23,12 +23,11 @@ impl UserHandleRecord {
 
         if let Some(record) =
             Self::load_expiration_data(txn.as_mut(), &self.user_handle_hash).await?
+            && record.validate()
         {
-            if record.validate() {
-                // A record already exists and is not expired
-                // => it can't be reclaimed yet
-                return Ok(false);
-            }
+            // A record already exists and is not expired
+            // => it can't be reclaimed yet
+            return Ok(false);
         }
 
         query!(

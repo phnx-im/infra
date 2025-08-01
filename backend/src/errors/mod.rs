@@ -189,20 +189,6 @@ impl From<JoinConnectionGroupError> for Status {
     }
 }
 
-/// Potential errors when adding a user.
-#[derive(Debug, Error)]
-pub(crate) enum ClientAdditionError {
-    #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
-}
-
-/// Potential errors when removing clients.
-#[derive(Debug, Error)]
-pub(crate) enum ClientRemovalError {
-    #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
-}
-
 /// Potential errors when deleting a group.
 #[derive(Debug, Error)]
 pub(crate) enum GroupDeletionError {

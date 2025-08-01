@@ -245,17 +245,16 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         notification: &StoreNotification,
     ) -> anyhow::Result<()> {
         for (id, op) in &notification.ops {
-            if let StoreEntityId::Message(message_id) = id {
-                if op.contains(StoreOperation::Add) {
-                    if let Some(message) = self.store.message(*message_id).await? {
-                        if message.conversation_id() == self.conversation_id {
-                            self.notify_neghbors_of_added_message(message);
-                            self.load_and_emit_state().await;
-                        }
-                        return Ok(());
-                    };
+            if let StoreEntityId::Message(message_id) = id
+                && op.contains(StoreOperation::Add)
+                && let Some(message) = self.store.message(*message_id).await?
+            {
+                if message.conversation_id() == self.conversation_id {
+                    self.notify_neghbors_of_added_message(message);
+                    self.load_and_emit_state().await;
                 }
-            }
+                return Ok(());
+            };
         }
         Ok(())
     }

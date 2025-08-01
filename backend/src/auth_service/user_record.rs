@@ -55,10 +55,10 @@ impl UserRecord {
     ) -> Option<EncryptedUserProfile> {
         if key_index == self.encrypted_user_profile.key_index() {
             return Some(self.encrypted_user_profile);
-        } else if let Some(staged_user_profile) = self.staged_user_profile {
-            if key_index == staged_user_profile.key_index() {
-                return Some(staged_user_profile);
-            }
+        } else if let Some(staged_user_profile) = self.staged_user_profile
+            && key_index == staged_user_profile.key_index()
+        {
+            return Some(staged_user_profile);
         }
         None
     }

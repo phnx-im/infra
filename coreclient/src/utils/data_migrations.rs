@@ -24,10 +24,8 @@ pub(crate) async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     let has_message_status = migrations
         .iter()
         .any(|m| m.version == MESSAGE_STATUS_MIGRATION_VERSION);
-    if !has_message_status {
-        if let Err(error) = convert_messages_v1_to_v2(pool).await {
-            error!(%error, "Failed to convert messages from version 1 to version 2");
-        }
+    if !has_message_status && let Err(error) = convert_messages_v1_to_v2(pool).await {
+        error!(%error, "Failed to convert messages from version 1 to version 2");
     }
 
     Ok(())
