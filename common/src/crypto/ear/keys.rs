@@ -6,10 +6,13 @@
 //! throughout the backend. Keys can either provide their own constructors or
 //! implement the [`KdfDerivable`] trait to allow derivation from other key.
 
-use crate::crypto::{
-    RawKey,
-    indexed_aead::keys::{Key, RandomlyGeneratable},
-    kdf::{KdfDerivable, keys::RatchetSecret},
+use crate::{
+    crypto::{
+        RawKey,
+        indexed_aead::keys::{IndexedKeyType, Key, RandomlyGeneratable},
+        kdf::{KdfDerivable, keys::RatchetSecret},
+    },
+    identifiers::QualifiedGroupId,
 };
 
 use super::{AEAD_KEY_SIZE, Ciphertext, traits::EarKey};
@@ -25,6 +28,12 @@ pub struct GroupStateEarKeyType;
 impl RandomlyGeneratable for GroupStateEarKeyType {}
 
 impl EarKey for GroupStateEarKey {}
+
+impl IndexedKeyType for GroupStateEarKeyType {
+    type DerivationContext<'a> = QualifiedGroupId;
+
+    const LABEL: &'static str = "GroupStateEarKey";
+}
 
 pub type GroupStateEarKey = Key<GroupStateEarKeyType>;
 

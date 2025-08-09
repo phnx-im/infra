@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::marker::PhantomData;
+use std::{hash::Hash, marker::PhantomData};
 
 use crate::{
     LibraryError,
     crypto::{
         RawKey,
         ear::{
-            AEAD_KEY_SIZE, EarDecryptable, EarEncryptable, EarKey,
-            keys::{EncryptedUserProfileKey, EncryptedUserProfileKeyCtype, IdentityLinkWrapperKey},
+            AEAD_KEY_SIZE, Ciphertext, EarDecryptable, EarEncryptable, EarKey,
+            keys::{EncryptedUserProfileKeyCtype, IdentityLinkWrapperKey},
         },
         errors::{DecryptionError, EncryptionError, RandomnessError},
         kdf::{KDF_KEY_SIZE, KdfDerivable, KdfKey},
@@ -18,9 +18,15 @@ use crate::{
     },
     identifiers::UserId,
 };
+use rand::Rng;
 use serde::{Deserialize, Serialize};
-use tls_codec::{TlsSerialize, TlsSize};
+use tls_codec::{Serialize as _, TlsSerialize, TlsSize};
 use tracing::error;
+
+use super::ciphertexts::{
+    IndexDecryptable, IndexDecryptionError, IndexEncryptable, IndexEncryptionError,
+    IndexedCiphertext,
+};
 
 mod trait_impls;
 
@@ -46,7 +52,7 @@ impl<KT: IndexedKeyType> KeyTypeInstance<KT> {
 }
 
 /// A wrapper type for secrets that are associated with a specific key type.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TypedSecret<KT, ST, const SIZE: usize> {
     secret: Secret<SIZE>,
@@ -68,6 +74,33 @@ pub type Key<KT> = TypedSecret<KT, KeySecretType, AEAD_KEY_SIZE>;
 /// An index is derived from the base secret. It is used to identify the key
 /// of the same key type `KT` derived from the same [`BaseSecret`].
 pub type Index<KT> = TypedSecret<KT, IndexSecretType, AEAD_KEY_SIZE>;
+
+impl<KT> std::fmt::Debug for BaseSecret<KT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BaseSecret")
+            .field("secret", &self.secret)
+            .field("_type", &self._type)
+            .finish()
+    }
+}
+
+impl<KT> std::fmt::Debug for Key<KT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Key")
+            .field("secret", &self.secret)
+            .field("_type", &self._type)
+            .finish()
+    }
+}
+
+impl<KT> std::fmt::Debug for Index<KT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Index")
+            .field("secret", self.secret.secret())
+            .field("_type", &self._type)
+            .finish()
+    }
+}
 
 impl<KT: RawKey> Key<KT> {
     pub fn from_bytes(bytes: [u8; AEAD_KEY_SIZE]) -> Self {
@@ -105,6 +138,14 @@ impl<KT> BaseSecret<KT> {
             _type: PhantomData,
         })
     }
+
+    pub fn random_sans_io(rng: &mut impl Rng) -> Result<Self, RandomnessError> {
+        let value = Secret::<KDF_KEY_SIZE>::random_sans_io(rng)?;
+        Ok(Self {
+            secret: value,
+            _type: PhantomData,
+        })
+    }
 }
 
 impl<KT> AsRef<Secret<KDF_KEY_SIZE>> for BaseSecret<KT> {
@@ -133,6 +174,12 @@ impl<KT> Index<KT> {
             secret: Secret::random().unwrap(),
             _type: PhantomData,
         }
+    }
+}
+
+impl<KT> Hash for Index<KT> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.secret, state);
     }
 }
 
@@ -227,6 +274,78 @@ impl<KT> AsRef<Secret<AEAD_KEY_SIZE>> for IndexedAeadKey<KT> {
 
 impl<KT> EarKey for IndexedAeadKey<KT> {}
 
+impl<KT: IndexedKeyType + RandomlyGeneratable> IndexedAeadKey<KT> {
+    pub fn random(context: KT::DerivationContext<'_>) -> Result<Self, RandomnessError> {
+        let base_secret = BaseSecret::random()?;
+        Self::from_base_secret(base_secret, context).map_err(|e| {
+            error!(error = %e, "Key derivation error");
+            RandomnessError::InsufficientRandomness
+        })
+    }
+}
+
+impl<KT: IndexedKeyType> IndexedAeadKey<KT> {
+    pub fn encrypt<'a, Ctype, EncryptionKeyType>(
+        &self,
+        wrapper_key: &Key<EncryptionKeyType>,
+        aad: KT::DerivationContext<'a>,
+    ) -> Result<Ciphertext<Ctype>, EncryptionError>
+    where
+        Key<EncryptionKeyType>: EarKey,
+        BaseSecret<KT>: EarEncryptable<Key<EncryptionKeyType>, Ctype>,
+    {
+        let aad = aad
+            .tls_serialize_detached()
+            .map_err(|e| EncryptionError::SerializationError)?;
+        self.base_secret.encrypt_with_aad(wrapper_key, &aad)
+    }
+
+    pub fn encrypt_with_index<Ctype, EncryptionKeyType: IndexedKeyType>(
+        &self,
+        wrapper_key: &IndexedAeadKey<EncryptionKeyType>,
+    ) -> Result<IndexedCiphertext<EncryptionKeyType, Ctype>, IndexEncryptionError>
+    where
+        BaseSecret<KT>: IndexEncryptable<EncryptionKeyType, Ctype>,
+    {
+        self.base_secret.encrypt_with_index(wrapper_key)
+    }
+
+    pub fn decrypt<'a, Ctype, DecryptionKeyType>(
+        wrapper_key: &Key<DecryptionKeyType>,
+        encrypted_key: &Ciphertext<Ctype>,
+        aad: KT::DerivationContext<'a>,
+    ) -> Result<Self, DecryptionError>
+    where
+        Key<DecryptionKeyType>: EarKey,
+        BaseSecret<KT>: EarDecryptable<Key<DecryptionKeyType>, Ctype>,
+    {
+        let serialized_aad = aad
+            .tls_serialize_detached()
+            .map_err(|e| DecryptionError::SerializationError)?;
+        let base_secret =
+            BaseSecret::decrypt_with_aad(wrapper_key, encrypted_key, &serialized_aad)?;
+        Self::from_base_secret(base_secret, aad).map_err(|e| {
+            error!(error = %e, "Key derivation error");
+            DecryptionError::DecryptionError
+        })
+    }
+
+    pub fn decrypt_with_index<'a, Ctype, DecryptionKeyType: IndexedKeyType>(
+        wrapper_key: &IndexedAeadKey<DecryptionKeyType>,
+        encrypted_key: &IndexedCiphertext<DecryptionKeyType, Ctype>,
+        aad: KT::DerivationContext<'a>,
+    ) -> Result<Self, IndexDecryptionError>
+    where
+        BaseSecret<KT>: IndexDecryptable<DecryptionKeyType, Ctype>,
+    {
+        let base_secret = BaseSecret::decrypt_with_index(wrapper_key, encrypted_key)?;
+        Self::from_base_secret(base_secret, aad).map_err(|e| {
+            error!(error = %e, "Key derivation error");
+            IndexDecryptionError::DecryptionError(DecryptionError::DecryptionError)
+        })
+    }
+}
+
 // User profile key
 
 #[derive(Debug)]
@@ -246,35 +365,7 @@ pub type UserProfileBaseSecret = BaseSecret<UserProfileKeyType>;
 
 pub type UserProfileKey = IndexedAeadKey<UserProfileKeyType>;
 
-impl UserProfileKey {
-    pub fn random(user_id: &UserId) -> Result<Self, RandomnessError> {
-        let base_secret = BaseSecret::random()?;
-        Self::from_base_secret(base_secret, user_id).map_err(|e| {
-            error!(error = %e, "Key derivation error");
-            RandomnessError::InsufficientRandomness
-        })
-    }
-
-    pub fn encrypt(
-        &self,
-        wrapper_key: &IdentityLinkWrapperKey,
-        user_id: &UserId,
-    ) -> Result<EncryptedUserProfileKey, EncryptionError> {
-        self.base_secret.encrypt_with_aad(wrapper_key, user_id)
-    }
-
-    pub fn decrypt(
-        wrapper_key: &IdentityLinkWrapperKey,
-        encrypted_key: &EncryptedUserProfileKey,
-        user_id: &UserId,
-    ) -> Result<Self, DecryptionError> {
-        let base_secret = BaseSecret::decrypt_with_aad(wrapper_key, encrypted_key, user_id)?;
-        Self::from_base_secret(base_secret, user_id).map_err(|e| {
-            error!(error = %e, "Key derivation error");
-            DecryptionError::DecryptionError
-        })
-    }
-}
+impl RandomlyGeneratable for UserProfileKeyType {}
 
 impl EarEncryptable<IdentityLinkWrapperKey, EncryptedUserProfileKeyCtype>
     for UserProfileBaseSecret
