@@ -6,7 +6,7 @@ use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
 use base64::{Engine, prelude::BASE64_STANDARD};
 use image::{ImageBuffer, Rgba};
-use mimi_content::{MimiContent, content_container::NestedPartContent};
+use mimi_content::{MessageStatus, MimiContent, content_container::NestedPartContent};
 use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
 use phnxprotos::{
     auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
@@ -533,6 +533,14 @@ async fn mark_as_read() {
     let number_of_messages = 10;
     send_messages(alice, alice_bob_conversation, number_of_messages).await;
 
+    // Message status starts at Unread
+    let last_message = alice
+        .last_message(alice_bob_conversation)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(last_message.status(), MessageStatus::Unread);
+
     let bob_test_user = setup.users.get_mut(&BOB).unwrap();
     let bob = &mut bob_test_user.user;
 
@@ -548,6 +556,41 @@ async fn mark_as_read() {
         expected_global_unread_message_count,
         global_unread_message_count
     );
+
+    // Alice sees the delivery receipt
+    let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
+    let alice = &mut alice_test_user.user;
+    let qs_messages = alice.qs_fetch_messages().await.unwrap();
+    alice.fully_process_qs_messages(qs_messages).await.unwrap();
+    let last_message = alice
+        .last_message(alice_bob_conversation)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(last_message.status(), MessageStatus::Delivered);
+
+    // Bob reads the messages
+    let bob_test_user = setup.users.get_mut(&BOB).unwrap();
+    let bob = &mut bob_test_user.user;
+    let last_message_id = last_message.message().mimi_id().unwrap();
+    bob.send_delivery_receipts(
+        alice_bob_conversation,
+        [(last_message_id, MessageStatus::Read)],
+    )
+    .await
+    .unwrap();
+
+    // Alice sees the read receipt
+    let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
+    let alice = &mut alice_test_user.user;
+    let qs_messages = alice.qs_fetch_messages().await.unwrap();
+    alice.fully_process_qs_messages(qs_messages).await.unwrap();
+    let last_message = alice
+        .last_message(alice_bob_conversation)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(last_message.status(), MessageStatus::Read);
 
     // Let's send some messages between bob and charlie s.t. we can test the
     // global unread messages count.

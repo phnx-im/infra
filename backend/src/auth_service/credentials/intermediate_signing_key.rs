@@ -7,9 +7,10 @@ use std::{fmt, ops::Deref};
 use mls_assist::openmls::prelude::SignatureScheme;
 use phnxcommon::{
     credentials::{
-        AsIntermediateCredential, AsIntermediateCredentialCsr, CredentialFingerprint,
+        AsIntermediateCredential, AsIntermediateCredentialBody, AsIntermediateCredentialCsr,
         keys::{AsIntermediateSigningKey, AsSigningKey},
     },
+    crypto::hash::Hash,
     identifiers::Fqdn,
 };
 use serde::{Deserialize, Serialize};
@@ -106,7 +107,7 @@ impl IntermediateSigningKey {
         Ok(IntermediateSigningKey::from(as_intermediate_signing_key))
     }
 
-    fn fingerprint(&self) -> &CredentialFingerprint {
+    fn fingerprint(&self) -> &Hash<AsIntermediateCredentialBody> {
         match self {
             IntermediateSigningKey::V1(signing_key) => signing_key.credential().fingerprint(),
         }
