@@ -67,7 +67,6 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                   decoration: InputDecoration(
                     hintText: loc.userHandleScreen_inputHint,
                   ),
-                  style: inputTextStyle(context),
                 ),
                 const SizedBox(height: Spacings.s),
                 Align(

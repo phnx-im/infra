@@ -5,31 +5,30 @@
 // ignore_for_file: prefer_const_constructors
 
 import 'package:flutter/material.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 
 class DoubleCheckIcon extends StatelessWidget {
   const DoubleCheckIcon({
     super.key,
     this.size = 16,
     this.borderWidth = 1,
-    this.color = Colors.white,
-    this.backgroundColor = colorDMB,
     this.singleCheckIcon = false,
     this.inverted = false,
   });
 
   final double size;
   final double borderWidth;
-  final Color color;
-  final Color backgroundColor;
   final double iconSizeRatio = 0.8;
   final bool singleCheckIcon;
   final bool inverted;
 
   @override
   Widget build(BuildContext context) {
-    final color = inverted ? this.backgroundColor : this.color;
-    final backgroundColor = inverted ? this.color : this.backgroundColor;
+    final systemForegroundColor = customColors(context).function.white;
+    final systemBackgroundColor = customColors(context).message.selfBackground;
+    final color = inverted ? systemBackgroundColor : systemForegroundColor;
+    final backgroundColor =
+        inverted ? systemForegroundColor : systemBackgroundColor;
 
     return SizedBox(
       width: singleCheckIcon ? size : size * 1.5,

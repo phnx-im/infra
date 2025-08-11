@@ -104,34 +104,5 @@ void main() {
         matchesGoldenFile('goldens/typography_font_styles.png'),
       );
     });
-
-    testWidgets('font weights', (tester) async {
-      await tester.pumpWidget(
-        buildSubject(
-          Builder(
-            builder: (context) {
-              return Column(
-                children:
-                    FontWeight.values
-                        .map(
-                          (weight) => Text(
-                            "This text has weight $weight",
-                            style: const TextStyle().merge(
-                              VariableFontWeight.values[weight.index],
-                            ),
-                          ),
-                        )
-                        .toList(),
-              );
-            },
-          ),
-        ),
-      );
-
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/typography_font_weights.png'),
-      );
-    });
   });
 }

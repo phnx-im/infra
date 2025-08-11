@@ -1,0 +1,29 @@
+import 'package:flutter/material.dart';
+import 'package:prototype/ui/components/context_menu/context_menu_item_ui.dart';
+import 'package:prototype/ui/components/context_menu/context_menu_ui.dart';
+
+class ContextMenuShowcase extends StatelessWidget {
+  const ContextMenuShowcase({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 200,
+      child: ContextMenuUi(
+        onHide: () {},
+        menuItems: [
+          ContextMenuItem(
+            onPressed: () {},
+            leadingIcon: Icons.person_outline_rounded,
+            label: 'Action 1',
+          ),
+          ContextMenuItem(
+            onPressed: () {},
+            leadingIcon: Icons.settings_outlined,
+            label: 'Action 2',
+          ),
+        ],
+      ),
+    );
+  }
+}

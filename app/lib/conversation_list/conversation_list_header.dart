@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/conversation_list/context_menu.dart';
 import 'package:prototype/conversation_list/conversation_list_cubit.dart';
 import 'package:prototype/conversation_list/create_conversation_view.dart';
 import 'package:prototype/core/api/types.dart';
@@ -12,6 +11,9 @@ import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
+import 'package:prototype/ui/components/context_menu/context_menu.dart';
+import 'package:prototype/ui/components/context_menu/context_menu_item_ui.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
@@ -24,14 +26,15 @@ class ConversationListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(left: Spacings.xxs, right: Spacings.s),
+      padding: const EdgeInsets.only(
+        left: Spacings.xxs,
+        right: Spacings.s,
+        bottom: Spacings.xs,
+      ),
       child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _Avatar(),
-          Expanded(child: _DisplayNameSpace()),
-          _SettingsButton(),
-        ],
+        children: [_Avatar(), _PlusButton()],
       ),
     );
   }
@@ -60,7 +63,7 @@ class _AvatarState extends State<_Avatar> {
         children: [
           ContextMenu(
             direction: ContextMenuDirection.right,
-            width: 200,
+            width: 280,
             controller: contextMenuController,
             menuItems: [
               ContextMenuItem(
@@ -91,35 +94,14 @@ class _AvatarState extends State<_Avatar> {
   }
 }
 
-class _DisplayNameSpace extends StatelessWidget {
-  const _DisplayNameSpace();
+class _PlusButton extends StatefulWidget {
+  const _PlusButton();
 
   @override
-  Widget build(BuildContext context) {
-    final displayName = context.select(
-      (UsersCubit cubit) => cubit.state.displayName(),
-    );
-
-    return Text(
-      displayName,
-      style: const TextStyle(
-        color: colorDMB,
-        fontSize: 13,
-      ).merge(VariableFontWeight.bold),
-      overflow: TextOverflow.ellipsis,
-      textAlign: TextAlign.center,
-    );
-  }
+  State<_PlusButton> createState() => _PlusButtonState();
 }
 
-class _SettingsButton extends StatefulWidget {
-  const _SettingsButton();
-
-  @override
-  State<_SettingsButton> createState() => _SettingsButtonState();
-}
-
-class _SettingsButtonState extends State<_SettingsButton> {
+class _PlusButtonState extends State<_PlusButton> {
   final contextMenuController = OverlayPortalController();
 
   @override
@@ -144,15 +126,26 @@ class _SettingsButtonState extends State<_SettingsButton> {
           },
         ),
       ],
-      child: IconButton(
+      child: TextButton(
+        style: textButtonStyle(context),
         onPressed: () {
           contextMenuController.show();
         },
-        hoverColor: Colors.transparent,
-        focusColor: Colors.transparent,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        icon: const Icon(Icons.add_circle_rounded, size: 24, color: colorDMB),
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: customColors(context).backgroundBase.quaternary,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.add_rounded,
+              size: 22,
+              color: customColors(context).text.primary,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -199,7 +192,7 @@ class _SettingsButtonState extends State<_SettingsButton> {
         _log.severe("Failed to create connection: $e");
         if (context.mounted) {
           showErrorBanner(
-            ScaffoldMessenger.of(context),
+            context,
             loc.newConnectionDialog_error(handle.plaintext),
           );
         }
@@ -259,10 +252,7 @@ class _SettingsButtonState extends State<_SettingsButton> {
       } catch (e) {
         if (context.mounted) {
           _log.severe("Failed to create conversation: $e");
-          showErrorBanner(
-            ScaffoldMessenger.of(context),
-            loc.newConversationDialog_error(groupName),
-          );
+          showErrorBanner(context, loc.newConversationDialog_error(groupName));
         }
       }
     }

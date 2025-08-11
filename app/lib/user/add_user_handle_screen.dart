@@ -7,6 +7,7 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
@@ -71,7 +72,6 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                     decoration: InputDecoration(
                       hintText: loc.userHandleScreen_inputHint,
                     ),
-                    style: inputTextStyle(context),
                     validator: (value) {
                       if (_alreadyExists) {
                         return 'Username already exists';
@@ -140,13 +140,13 @@ class _UserHandleAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       width: _size,
       height: _size,
       child: CircleAvatar(
         radius: _size / 2,
-        backgroundColor: colorDMBLight,
-        child: Icon(Icons.alternate_email, size: _size / 1.5),
+        backgroundColor: customColors(context).text.quaternary,
+        child: const Icon(Icons.alternate_email, size: _size / 1.5),
       ),
     );
   }

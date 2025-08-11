@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prototype/theme/spacings.dart';
-import 'package:prototype/theme/styles.dart';
+import 'package:prototype/ui/components/context_menu/context_menu_item_ui.dart';
+import 'package:prototype/ui/components/context_menu/context_menu_ui.dart';
 
 enum ContextMenuDirection { left, right }
 
@@ -22,7 +21,6 @@ class ContextMenu extends StatefulWidget {
     this.child,
   });
 
-  //final ContextMenuCorner corner;
   final ContextMenuDirection direction;
   final Offset offset;
   final double width;
@@ -73,13 +71,13 @@ class _ContextMenuState extends State<ContextMenu> {
     switch (widget.direction) {
       case ContextMenuDirection.left:
         return Offset(
-          position.dx - widget.width - widget.offset.dx,
-          position.dy + size.height + widget.offset.dy,
+          position.dx - widget.width + size.width - widget.offset.dx,
+          position.dy + size.height + widget.offset.dy + Spacings.xs,
         );
       case ContextMenuDirection.right:
         return Offset(
-          position.dx + size.width + widget.offset.dx,
-          position.dy + size.height + widget.offset.dy,
+          position.dx + widget.offset.dx,
+          position.dy + size.height + widget.offset.dy + Spacings.xxs,
         );
     }
   }
@@ -87,6 +85,20 @@ class _ContextMenuState extends State<ContextMenu> {
   @override
   Widget build(BuildContext context) {
     final relativePosition = _relativePosition();
+
+    // Add hide to menu items and store it menu items
+
+    final updatedMenuItems = <ContextMenuItem>[];
+    for (final item in widget.menuItems) {
+      updatedMenuItems.add(
+        item.copyWith(
+          onPressed: () {
+            widget.controller.hide();
+            item.onPressed();
+          },
+        ),
+      );
+    }
 
     return OverlayPortal(
       controller: widget.controller,
@@ -119,40 +131,9 @@ class _ContextMenuState extends State<ContextMenu> {
                 top: relativePosition.dy,
                 child: SizedBox(
                   width: widget.width,
-                  child: Container(
-                    clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(
-                      color: convPaneBackgroundColor,
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black54,
-                          blurRadius: 64,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (i, item) in widget.menuItems.indexed) ...[
-                          ContextMenuItem(
-                            onPressed: () {
-                              item.onPressed();
-                              widget.controller.hide();
-                            },
-                            label: item.label,
-                          ),
-                          if (i < widget.menuItems.length - 1)
-                            const Divider(
-                              height: 0,
-                              thickness: 1,
-                              color: colorGreyLight,
-                            ),
-                        ],
-                      ],
-                    ),
+                  child: ContextMenuUi(
+                    menuItems: updatedMenuItems,
+                    onHide: widget.controller.hide,
                   ),
                 ),
               ),
@@ -160,35 +141,6 @@ class _ContextMenuState extends State<ContextMenu> {
           ),
         );
       },
-    );
-  }
-}
-
-class ContextMenuItem extends StatelessWidget {
-  const ContextMenuItem({
-    super.key,
-    required this.onPressed,
-    required this.label,
-  });
-
-  final VoidCallback onPressed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        foregroundColor: Colors.black87,
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacings.sm,
-          vertical: Spacings.s,
-        ),
-        alignment: Alignment.centerLeft,
-        splashFactory: !Platform.isAndroid ? NoSplash.splashFactory : null,
-      ),
-      child: Text(label),
     );
   }
 }

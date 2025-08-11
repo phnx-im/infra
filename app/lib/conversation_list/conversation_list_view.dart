@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 
 import 'conversation_list_content.dart';
@@ -35,7 +36,7 @@ class ConversationListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+      color: customColors(context).backgroundBase.primary,
       padding: EdgeInsets.only(top: _topPadding()),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -115,8 +115,7 @@ class _ClientRecordsList extends StatelessWidget {
               return ListTile(
                 titleAlignment: ListTileTitleAlignment.top,
                 titleTextStyle: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: textColor)
-                    .merge(VariableFontWeight.semiBold),
+                    ?.copyWith(color: textColor, fontWeight: FontWeight.bold),
                 subtitleTextStyle: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: textColor),

@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:prototype/app.dart';
 import 'package:prototype/core/frb_generated.dart';
 import 'package:prototype/core/core.dart';
+import 'package:prototype/ui/colors/palette.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/util/logging.dart';
 import 'package:path/path.dart' as p;
 
@@ -24,21 +26,21 @@ void main() async {
   runApp(const App());
 }
 
-void showErrorBanner(
-  ScaffoldMessengerState messengerState,
-  String errorDescription,
-) {
-  messengerState.showMaterialBanner(
+void showErrorBanner(BuildContext context, String errorDescription) {
+  ScaffoldMessenger.of(context).showMaterialBanner(
     MaterialBanner(
-      backgroundColor: Colors.red,
+      backgroundColor: AppColors.red,
       leading: const Icon(Icons.error),
       padding: const EdgeInsets.all(20),
       content: Text(errorDescription),
       actions: [
         TextButton(
-          child: const Text('OK', style: TextStyle(color: Colors.white)),
+          child: Text(
+            'OK',
+            style: TextStyle(color: customColors(context).function.white),
+          ),
           onPressed: () {
-            messengerState.hideCurrentMaterialBanner();
+            ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
           },
         ),
       ],

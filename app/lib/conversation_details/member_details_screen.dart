@@ -55,7 +55,6 @@ class MemberDetailsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const AppBarBackButton(),
@@ -72,11 +71,11 @@ class MemberDetailsScreen extends StatelessWidget {
                 UserAvatar(
                   displayName: profile.displayName,
                   image: profile.profilePicture,
-                  size: 64,
+                  size: 128,
                 ),
                 const SizedBox(height: _padding),
                 Text(
-                  style: Theme.of(context).textTheme.labelMedium,
+                  style: Theme.of(context).textTheme.bodyMedium,
                   profile.displayName,
                 ),
                 const SizedBox(height: _padding),

@@ -48,7 +48,8 @@ class IntroScreen extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 36,
                   letterSpacing: -0.9,
-                ).merge(VariableFontWeight.medium),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               // Text button that opens the developer settings screen
               TextButton(

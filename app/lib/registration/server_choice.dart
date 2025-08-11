@@ -52,7 +52,6 @@ class ServerChoice extends StatelessWidget {
                           ),
                           initialValue:
                               context.read<RegistrationCubit>().state.domain,
-                          style: inputTextStyle(context),
                           onChanged: (String value) {
                             context.read<RegistrationCubit>().setDomain(value);
                           },
