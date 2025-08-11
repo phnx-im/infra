@@ -737,7 +737,7 @@ async fn update_user_profile_on_group_join() {
 
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, &[CHARLIE.clone()])
+        .invite_users(conversation_id, std::slice::from_ref(&*CHARLIE))
         .await
         .unwrap();
 
@@ -753,7 +753,7 @@ async fn update_user_profile_on_group_join() {
     // Bob now invites Alice
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, &[ALICE.clone()])
+        .invite_users(conversation_id, std::slice::from_ref(&*ALICE))
         .await
         .unwrap();
 
