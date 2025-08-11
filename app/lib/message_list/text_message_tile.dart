@@ -177,6 +177,8 @@ class _MessageContent extends StatelessWidget {
             isSender
                 ? AlignmentDirectional.topEnd
                 : AlignmentDirectional.topStart,
+        // There's a bug in the linter
+        // ignore: avoid_unnecessary_containers
         child: Container(
           decoration: BoxDecoration(
             borderRadius: _messageBorderRadius(isSender, flightPosition),
