@@ -1012,10 +1012,10 @@ impl Group {
     ) -> Vec<UserId> {
         let mut pending_removes = Vec::new();
         for proposal in self.mls_group().pending_proposals() {
-            if let Proposal::Remove(rp) = proposal.proposal() {
-                if let Some(client) = self.client_by_index(connection, rp.removed()).await {
-                    pending_removes.push(client);
-                }
+            if let Proposal::Remove(rp) = proposal.proposal()
+                && let Some(client) = self.client_by_index(connection, rp.removed()).await
+            {
+                pending_removes.push(client);
             }
         }
         pending_removes
