@@ -310,25 +310,24 @@ impl SerializableDsGroupStateV2 {
             state
         } else {
             error!("Failed to load room state. Falling back to default room state.");
-
-            let members = group
-                .members()
-                .map(|m| {
-                    VerifiableClientCredential::try_from(m.credential)
-                        .unwrap()
-                        .user_id()
-                        .clone()
-                        .tls_serialize_detached()
-                })
-                .filter_map(|r| match r {
-                    Ok(user) => Some(user),
-                    Err(e) => {
-                        error!(%e, "Failed to serialize user id for fallback room");
-                        None
+            let mut members = Vec::new();
+            for member in group.members() {
+                let credential = match VerifiableClientCredential::try_from(member.credential) {
+                    Ok(credential) => credential,
+                    Err(error) => {
+                        error!(%error, "Failed to convert credential; skipping member");
+                        continue;
                     }
-                })
-                .collect::<Vec<_>>();
-
+                };
+                let user_id = match credential.user_id().tls_serialize_detached() {
+                    Ok(bytes) => bytes,
+                    Err(error) => {
+                        error!(%error, "Failed to serialize user id; skipping member");
+                        continue;
+                    }
+                };
+                members.push(user_id);
+            }
             VerifiedRoomState::fallback_room(members)
         };
 
