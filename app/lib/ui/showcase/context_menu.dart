@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import 'package:flutter/material.dart';
 import 'package:prototype/ui/components/context_menu/context_menu_item_ui.dart';
 import 'package:prototype/ui/components/context_menu/context_menu_ui.dart';
