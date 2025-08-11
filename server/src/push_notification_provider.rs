@@ -161,10 +161,10 @@ impl ProductionPushNotificationProvider {
 
         // Check whether we already have a token and if it is still valid
         let mut token_option = fcm_state.token.lock().await;
-        if let Some(token) = token_option.as_ref() {
-            if !token.is_expired() {
-                return Ok(token.clone());
-            }
+        if let Some(token) = token_option.as_ref()
+            && !token.is_expired()
+        {
+            return Ok(token.clone());
         }
 
         let service_account = &fcm_state.service_account;
