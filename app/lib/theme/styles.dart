@@ -30,16 +30,16 @@ bool isPointer() {
 // Grey
 
 Color activeButtonColor(BuildContext context) =>
-    customColors(context).backgroundBase.tertiary;
+    customColors(context).text.primary;
 Color inactiveButtonColor(BuildContext context) =>
-    customColors(context).text.secondary;
+    customColors(context).text.tertiary;
 
 // === Buttons ===
 
 ButtonStyle textButtonStyle(BuildContext context) {
   return ButtonStyle(
     foregroundColor: WidgetStateProperty.all(
-      customColors(context).backgroundBase.tertiary,
+      customColors(context).text.secondary,
     ),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
@@ -62,9 +62,7 @@ ButtonStyle dynamicTextButtonStyle(
   return ButtonStyle(
     foregroundColor:
         isActive
-            ? WidgetStateProperty.all(
-              customColors(context).backgroundBase.tertiary,
-            )
+            ? WidgetStateProperty.all(customColors(context).text.secondary)
             : WidgetStateProperty.all(customColors(context).text.quaternary),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),

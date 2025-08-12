@@ -283,7 +283,7 @@ class _DisplayName extends StatelessWidget {
           fontSize: LabelFontSize.small2.size,
           fontWeight: FontWeight.w100,
           fontFamily: getSystemMonospaceFontFamily(),
-          letterSpacing: 1.2,
+          letterSpacing: 1,
         ),
         overflow: TextOverflow.ellipsis,
       ),

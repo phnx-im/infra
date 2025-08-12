@@ -313,13 +313,17 @@ class _MessageInput extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.edit_outlined, size: 24),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 24,
+                  color: customColors(context).text.tertiary,
+                ),
                 const SizedBox(width: Spacings.xxs),
                 Text(
                   loc.composer_editMessage,
                   style: TextStyle(
                     fontSize: LabelFontSize.small1.size,
-                    color: customColors(context).text.secondary,
+                    color: customColors(context).text.tertiary,
                   ),
                 ),
               ],

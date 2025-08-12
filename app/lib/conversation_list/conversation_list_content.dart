@@ -77,12 +77,12 @@ class _ListTile extends StatelessWidget {
       horizontalTitleGap: 0,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: Spacings.xxs,
-        vertical: Spacings.xxxs,
+        vertical: Spacings.xxs,
       ),
       minVerticalPadding: 0,
       title: Container(
         alignment: AlignmentDirectional.centerStart,
-        height: 90,
+        height: 70,
         width: 300,
         padding: const EdgeInsets.symmetric(
           horizontal: Spacings.xs,
@@ -101,7 +101,7 @@ class _ListTile extends StatelessWidget {
           spacing: Spacings.s,
           children: [
             UserAvatar(
-              size: 64,
+              size: 50,
               image: conversation.picture,
               displayName: conversation.title,
             ),
@@ -109,6 +109,7 @@ class _ListTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
+                spacing: Spacings.xxxs,
                 children: [
                   _ListTileTop(conversation: conversation),
                   Expanded(child: _ListTileBottom(conversation: conversation)),
@@ -209,7 +210,7 @@ class _UnreadBadge extends StatelessWidget {
       child: Text(
         badgeText,
         style: TextStyle(
-          color: customColors(context).function.white,
+          color: customColors(context).text.primary,
           fontSize: LabelFontSize.small1.size,
           fontWeight: FontWeight.bold,
         ),
@@ -234,11 +235,14 @@ class _LastMessage extends StatelessWidget {
     final draftMessage = conversation.draft?.message.trim();
 
     final readStyle = TextStyle(
-      color: customColors(context).text.secondary,
+      color: customColors(context).text.primary,
       height: 1.2,
     );
     final unreadStyle = readStyle.copyWith(fontWeight: FontWeight.bold);
-    final draftStyle = readStyle.copyWith(fontStyle: FontStyle.italic);
+    final draftStyle = readStyle.copyWith(
+      fontStyle: FontStyle.italic,
+      color: customColors(context).text.tertiary,
+    );
 
     final showDraft =
         !isCurrentConversation && draftMessage?.isNotEmpty == true;
@@ -246,7 +250,10 @@ class _LastMessage extends StatelessWidget {
     final prefixStyle =
         showDraft
             ? draftStyle
-            : readStyle.copyWith(fontWeight: FontWeight.bold);
+            : readStyle.copyWith(
+              fontWeight: FontWeight.normal,
+              color: customColors(context).text.tertiary,
+            );
 
     final suffixStyle =
         isCurrentConversation && conversation.unreadMessages > 0
@@ -281,7 +288,7 @@ class _LastMessage extends StatelessWidget {
             };
 
     return Text.rich(
-      maxLines: 2,
+      maxLines: 1,
       softWrap: true,
       overflow: TextOverflow.ellipsis,
       TextSpan(
@@ -370,8 +377,8 @@ class _ConversationTitle extends StatelessWidget {
         style: TextStyle(
           color: customColors(context).text.tertiary,
           fontFamily: getSystemMonospaceFontFamily(),
-          fontSize: LabelFontSize.small1.size,
-          letterSpacing: 1.2,
+          fontSize: LabelFontSize.small2.size,
+          letterSpacing: 1,
         ),
       ),
     );

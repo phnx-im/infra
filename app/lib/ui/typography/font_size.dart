@@ -13,16 +13,16 @@ enum BaseFontPlatform {
   const BaseFontPlatform(this.base);
 }
 
-// Font sizes for iOS
+// Font sizes for iOS (SF Pro tracking in the comments)
 enum FontSizes {
-  large5(30.63),
-  large4(27.23),
-  large3(24.21),
-  large2(21.52),
-  large1(19.13),
-  base(17.00),
-  small1(15.11),
-  small2(13.43);
+  large5(30.63), // 0.40
+  large4(27.23), // 0.29
+  large3(24.21), // 0.07
+  large2(21.52), // -0.36
+  large1(19.13), // -0.45
+  base(17.00), // -0.43
+  small1(15.11), // -0.23
+  small2(13.43); // -0.08
 
   final double size;
   const FontSizes(this.size);
@@ -63,4 +63,38 @@ enum HeaderFontSize {
   final FontSizes ref;
   const HeaderFontSize(this.ref);
   double get size => ref.size;
+}
+
+enum LabelCupertinoTracking {
+  large2(-0.36),
+  large1(-0.45),
+  base(-0.43),
+  small1(-0.23),
+  small2(-0.08);
+
+  final double spacing;
+  const LabelCupertinoTracking(this.spacing);
+}
+
+enum BodyCupertinoTracking {
+  large2(-0.36),
+  large1(-0.45),
+  base(-0.43),
+  small1(-0.23),
+  small2(-0.08);
+
+  final double spacing;
+  const BodyCupertinoTracking(this.spacing);
+}
+
+enum HeaderCupertinoTracking {
+  h1(-0.40),
+  h2(-0.29),
+  h3(-0.07),
+  h4(-0.36),
+  h5(-0.45),
+  h6(-0.43);
+
+  final double spacing;
+  const HeaderCupertinoTracking(this.spacing);
 }
