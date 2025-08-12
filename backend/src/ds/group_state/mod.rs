@@ -303,34 +303,17 @@ impl SerializableDsGroupStateV2 {
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
 
-        let room_state = if let Some(state) = PhnxCodec::from_slice(&self.room_state)
+        let room_state = PhnxCodec::from_slice(&self.room_state)
+            .inspect_err(|error| {
+                error!(%error, "Failed to load room state. Falling back to default room state.");
+            })
             .ok()
-            .and_then(|state| VerifiedRoomState::verify(state).ok())
-        {
-            state
-        } else {
-            error!("Failed to load room state. Falling back to default room state.");
-
-            let members = group
-                .members()
-                .map(|m| {
-                    VerifiableClientCredential::try_from(m.credential)
-                        .unwrap()
-                        .user_id()
-                        .clone()
-                        .tls_serialize_detached()
-                })
-                .filter_map(|r| match r {
-                    Ok(user) => Some(user),
-                    Err(e) => {
-                        error!(%e, "Failed to serialize user id for fallback room");
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            VerifiedRoomState::fallback_room(members)
-        };
+            .and_then(|state| {
+                VerifiedRoomState::verify(state).inspect_err(|error| {
+                error!(%error, "Failed to verify room state. Falling back to default room state.");
+            }).ok()
+            })
+            .unwrap_or_else(|| fallback_room_state(group.members()));
 
         Ok(DsGroupState {
             provider,
@@ -339,6 +322,30 @@ impl SerializableDsGroupStateV2 {
             room_state,
         })
     }
+}
+
+fn fallback_room_state(
+    members: impl Iterator<Item = mls_assist::openmls::prelude::Member>,
+) -> VerifiedRoomState {
+    let mut member_ids = Vec::new();
+    for member in members {
+        let credential = match VerifiableClientCredential::try_from(member.credential) {
+            Ok(credential) => credential,
+            Err(error) => {
+                error!(%error, "Failed to convert credential; skipping member");
+                continue;
+            }
+        };
+        let user_id = match credential.user_id().tls_serialize_detached() {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                error!(%error, "Failed to serialize user id; skipping member");
+                continue;
+            }
+        };
+        member_ids.push(user_id);
+    }
+    VerifiedRoomState::fallback_room(member_ids)
 }
 
 #[derive(Serialize, Deserialize)]
