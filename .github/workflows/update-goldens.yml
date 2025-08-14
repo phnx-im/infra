@@ -44,4 +44,4 @@ jobs:
           git fetch origin $BRANCH_NAME
           git checkout $BRANCH_NAME
           git add app/test
-          if git commit -m "Update golden files"; then git push; fi
+          git commit -m "Update golden files" && git push
