@@ -15,6 +15,7 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 
 import '../mocks.dart';
@@ -201,7 +202,10 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(context),
+            theme: themeData(
+              MediaQuery.platformBrightnessOf(context),
+              CustomColorScheme.of(context),
+            ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(body: ConversationListContent()),
           );

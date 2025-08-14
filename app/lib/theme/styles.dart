@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:prototype/ui/colors/themes.dart';
+import 'package:prototype/ui/typography/font_size.dart';
 import 'dart:io' show Platform;
-
-import 'variable_font_weight.dart';
 
 // === Devices ===
 
@@ -25,73 +25,31 @@ bool isPointer() {
   return Platform.isLinux || Platform.isMacOS || Platform.isWindows;
 }
 
-// === Fonts ===
-
-const fontFamily = "InterEmbedded";
-
-const variationRegular = [FontVariation("wght", 420)];
-const variationMedium = [FontVariation("wght", 500)];
-const variationSemiBold = [FontVariation("wght", 600)];
-const variationBold = [FontVariation("wght", 700)];
-
-double fontSize(BuildContext context) {
-  return isLargeScreen(context) ? 14 : 16;
-}
-
 // === Colors ===
-
-// DMB
-
-const colorDMB = Color(0xFF616E7E);
-const colorDMBLight = Color(0xFFC3C8CE);
-const colorDMBSuperLight = Color(0xFFEFF1F2);
 
 // Grey
 
-const colorGrey = Color(0xFFC4C4C4);
-const colorGreyLight = Color(0xFFDEDEDE);
-const colorGreySuperLight = Color(0xFFFAFAFA);
-const colorGreyDark = Color(0xFF8A8A8A);
-
-const swatchColor = Color(0xFFC0C6CE);
-
-const activeButtonColor = colorDMB;
-const inactiveButtonColor = colorDMBSuperLight;
-
-// === Inputs ===
-
-TextStyle inputTextStyle(BuildContext context) {
-  return TextStyle(
-    fontFamily: fontFamily,
-    fontSize: fontSize(context),
-  ).merge(VariableFontWeight.normal);
-}
-
-TextStyle messageTextStyle(BuildContext context, bool inverted) =>
-    Theme.of(context).textTheme.bodyMedium!
-        .copyWith(
-          color: inverted ? Colors.white : Colors.black,
-          fontSize: fontSize(context),
-        )
-        .merge(
-          isLargeScreen(context)
-              ? VariableFontWeight.normal
-              : VariableFontWeight.medium,
-        );
+Color activeButtonColor(CustomColorScheme colorScheme) =>
+    colorScheme.backgroundBase.quaternary;
+Color inactiveButtonColor(CustomColorScheme colorScheme) =>
+    colorScheme.backgroundBase.secondary;
 
 // === Buttons ===
 
 ButtonStyle textButtonStyle(BuildContext context) {
   return ButtonStyle(
-    foregroundColor: WidgetStateProperty.all(colorDMB),
+    foregroundColor: WidgetStateProperty.all(
+      customColors(context).text.primary,
+    ),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      Theme.of(context).textTheme.labelLarge!
-          .copyWith(fontSize: fontSize(context))
-          .merge(VariableFontWeight.semiBold),
+      Theme.of(context).textTheme.labelLarge!.copyWith(
+        fontSize: LabelFontSize.base.size,
+        fontWeight: FontWeight.bold,
+      ),
     ),
   );
 }
@@ -104,32 +62,35 @@ ButtonStyle dynamicTextButtonStyle(
   return ButtonStyle(
     foregroundColor:
         isActive
-            ? WidgetStateProperty.all(colorDMB)
-            : WidgetStateProperty.all(colorDMBLight),
+            ? WidgetStateProperty.all(customColors(context).text.secondary)
+            : WidgetStateProperty.all(customColors(context).text.quaternary),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
     splashFactory: NoSplash.splashFactory,
     padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      Theme.of(context).textTheme.labelLarge!
-          .copyWith(fontSize: fontSize(context))
-          .merge(
-            isMain ? VariableFontWeight.semiBold : VariableFontWeight.medium,
-          ),
+      Theme.of(context).textTheme.labelLarge!.copyWith(
+        fontSize: LabelFontSize.base.size,
+        fontWeight: isMain ? FontWeight.bold : FontWeight.normal,
+      ),
     ),
   );
 }
 
-ButtonStyle buttonStyle(BuildContext context, bool isActive) {
+ButtonStyle buttonStyle(CustomColorScheme colorScheme, bool isActive) {
   return ButtonStyle(
     foregroundColor: WidgetStateProperty.all<Color>(
-      isActive ? Colors.white : activeButtonColor,
+      isActive ? colorScheme.text.primary : colorScheme.text.quaternary,
     ),
     backgroundColor: WidgetStateProperty.all<Color>(
-      isActive ? activeButtonColor : inactiveButtonColor,
+      isActive
+          ? activeButtonColor(colorScheme)
+          : inactiveButtonColor(colorScheme),
     ),
     overlayColor: WidgetStateProperty.all<Color>(
-      isActive ? activeButtonColor : inactiveButtonColor,
+      isActive
+          ? activeButtonColor(colorScheme)
+          : inactiveButtonColor(colorScheme),
     ),
     mouseCursor: WidgetStateProperty.all<MouseCursor>(
       isActive ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -151,27 +112,11 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
           width: 0,
           style: BorderStyle.none,
         ),
-        borderRadius:
-            isSmallScreen(context)
-                ? BorderRadius.circular(12)
-                : BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(12),
       ),
     ),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      Theme.of(context).textTheme.labelLarge!
-          .copyWith(fontSize: fontSize(context))
-          .merge(VariableFontWeight.semiBold),
+      TextStyle(fontSize: LabelFontSize.base.size, fontWeight: FontWeight.bold),
     ),
   );
 }
-
-// === Left pane ===
-
-const convPaneBackgroundColor = colorDMBSuperLight;
-const convPaneFocusColor = colorGreyLight;
-const convPaneBlurColor = Color(0x00FFFFFF);
-
-// === Conversation list ===
-
-const convListItemTextColor = Color(0xFF000000);
-const convListItemSelectedColor = Color(0xFF000000);

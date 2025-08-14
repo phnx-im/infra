@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/theme/theme.dart';
 
@@ -48,14 +49,15 @@ class IntroScreen extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 36,
                   letterSpacing: -0.9,
-                ).merge(VariableFontWeight.medium),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               // Text button that opens the developer settings screen
               TextButton(
                 onPressed:
                     () =>
                         context.read<NavigationCubit>().openDeveloperSettings(),
-                style: textButtonStyle(context),
+                style: dynamicTextButtonStyle(context, true, true),
                 child: Text(loc.settings_developerSettings),
               ),
               if (!isUserLoading)
@@ -71,7 +73,7 @@ class IntroScreen extends StatelessWidget {
                               context
                                   .read<NavigationCubit>()
                                   .openServerChoice(),
-                      style: buttonStyle(context, true),
+                      style: buttonStyle(CustomColorScheme.of(context), true),
                       child: Text(loc.introScreen_signUp),
                     ),
                   ],

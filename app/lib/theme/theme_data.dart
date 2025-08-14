@@ -4,71 +4,50 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/palette.dart';
+import 'package:prototype/ui/colors/themes.dart';
+import 'package:prototype/ui/theme/font.dart';
+import 'package:prototype/ui/typography/font_size.dart';
 
-const _defaultLetterSpacing = -0.2;
-
-ThemeData themeData(BuildContext context) => ThemeData(
+ThemeData themeData(
+  Brightness brightness,
+  CustomColorScheme colorScheme,
+) => ThemeData(
+  colorScheme: ColorScheme(
+    brightness: brightness,
+    primary: colorScheme.text.primary,
+    onPrimary: colorScheme.backgroundBase.primary,
+    secondary: colorScheme.text.secondary,
+    onSecondary: colorScheme.backgroundBase.primary,
+    surface: colorScheme.backgroundBase.primary,
+    onSurface: colorScheme.text.primary,
+    error: colorScheme.function.danger,
+    onError: colorScheme.text.primary,
+  ),
   appBarTheme: AppBarTheme(
-    color: Colors.white,
+    color: colorScheme.backgroundBase.primary,
     elevation: 0,
-    iconTheme: const IconThemeData(color: Colors.black),
-    surfaceTintColor: Colors.black,
-    titleTextStyle: const TextStyle(
-      fontFamily: fontFamily,
-      color: Colors.black,
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.bold),
+    iconTheme: IconThemeData(color: colorScheme.text.primary),
+    toolbarHeight: isPointer() ? 100 : null,
+    titleTextStyle: TextStyle(
+      color: colorScheme.text.primary,
+      fontSize: LabelFontSize.base.size,
+      fontWeight: FontWeight.bold,
+    ),
   ),
-  scaffoldBackgroundColor: Colors.white,
-  fontFamily: fontFamily,
-  textTheme: TextTheme(
-    displayLarge: const TextStyle(
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.w400),
-    displayMedium: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    displaySmall: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    headlineLarge: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    headlineMedium: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    headlineSmall: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    titleLarge: const TextStyle(
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.w500),
-    titleMedium: const TextStyle(
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.w500),
-    titleSmall: const TextStyle(
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.w500),
-    bodyLarge: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    bodyMedium: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    bodySmall: const TextStyle(letterSpacing: _defaultLetterSpacing),
-    labelLarge: const TextStyle(
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.w500),
-    labelMedium: const TextStyle(
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.w500),
-    labelSmall: const TextStyle(
-      letterSpacing: _defaultLetterSpacing,
-    ).merge(VariableFontWeight.w500),
+  scaffoldBackgroundColor: colorScheme.backgroundBase.primary,
+  textTheme: customTextScheme,
+  canvasColor: colorScheme.backgroundBase.primary,
+  cardColor: colorScheme.backgroundBase.primary,
+  dialogTheme: DialogThemeData(
+    backgroundColor: colorScheme.backgroundBase.primary,
+    surfaceTintColor: colorScheme.backgroundBase.primary,
   ),
-  canvasColor: Colors.white,
-  cardColor: Colors.white,
-  colorScheme: ColorScheme.fromSwatch(
-    accentColor: swatchColor,
-    backgroundColor: Colors.white,
-    brightness: Brightness.light,
-  ),
-  dialogTheme: const DialogThemeData(
-    backgroundColor: Colors.white,
-    surfaceTintColor: Colors.white,
-  ),
-  primaryColor: swatchColor,
   splashColor: Colors.transparent,
   highlightColor: Colors.transparent,
   hoverColor: Colors.transparent,
   outlinedButtonTheme: OutlinedButtonThemeData(
-    style: buttonStyle(context, true),
+    style: buttonStyle(colorScheme, true),
   ),
   iconButtonTheme: IconButtonThemeData(
     style: ButtonStyle(
@@ -77,36 +56,33 @@ ThemeData themeData(BuildContext context) => ThemeData(
       overlayColor: WidgetStateProperty.all(Colors.transparent),
     ),
   ),
-  textSelectionTheme: const TextSelectionThemeData(cursorColor: Colors.blue),
+  textSelectionTheme: TextSelectionThemeData(cursorColor: AppColors.blue[300]),
   inputDecorationTheme: InputDecorationTheme(
     border: InputBorder.none,
-    hintStyle: const TextStyle(
-      color: colorDMBLight,
-      fontSize: 11,
-      fontFamily: fontFamily,
-    ).merge(VariableFontWeight.normal),
+    hintStyle: TextStyle(
+      color: colorScheme.text.secondary,
+      fontSize: LabelFontSize.small1.size,
+    ),
     focusedBorder: _textInputBorder,
     enabledBorder: _textInputBorder,
     errorBorder: _textInputBorder,
     focusedErrorBorder: _textInputBorder,
     filled: true,
-    fillColor: colorDMBSuperLight,
+    fillColor: colorScheme.backgroundBase.secondary,
   ),
   switchTheme: SwitchThemeData(
-    thumbColor: WidgetStateProperty.all(colorDMB),
-    trackOutlineColor: WidgetStateProperty.all(colorDMB),
+    thumbColor: WidgetStateProperty.all(colorScheme.text.secondary),
+    trackOutlineColor: WidgetStateProperty.all(colorScheme.separator.primary),
     trackColor: WidgetStateProperty.resolveWith(
       (states) =>
           states.contains(WidgetState.selected)
-              ? colorDMBSuperLight
+              ? colorScheme.backgroundBase.secondary
               : Colors.transparent,
     ),
-
-    // trackColor: WidgetStateProperty.all(colorDMB),
   ),
 );
 
 final _textInputBorder = OutlineInputBorder(
   borderSide: const BorderSide(width: 0, style: BorderStyle.none),
-  borderRadius: BorderRadius.circular(7),
+  borderRadius: BorderRadius.circular(8),
 );

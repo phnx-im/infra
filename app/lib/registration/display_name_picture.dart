@@ -8,6 +8,7 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/main.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -69,7 +70,6 @@ class _DisplayNameTextField extends StatelessWidget {
       autofocus: isSmallScreen(context) ? false : true,
       decoration: const InputDecoration(hintText: 'DISPLAY NAME'),
       initialValue: displayName,
-      style: inputTextStyle(context),
       onChanged: (value) {
         context.read<RegistrationCubit>().setDisplayName(value);
       },
@@ -134,21 +134,20 @@ class _SignUpFooter extends StatelessWidget {
                       if (error == null) {
                         navigationCubit.openHome();
                       } else if (context.mounted) {
-                        showErrorBanner(
-                          ScaffoldMessenger.of(context),
-                          error.message,
-                        );
+                        showErrorBanner(context, error.message);
                       }
                     }
                     : null,
-            style: buttonStyle(context, !isSigningUp),
+            style: buttonStyle(CustomColorScheme.of(context), !isSigningUp),
             child: const Text('Sign up'),
           ),
         if (isSigningUp)
-          const Align(
+          Align(
             child: CircularProgressIndicator(
               value: null,
-              valueColor: AlwaysStoppedAnimation<Color>(colorDMB),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                customColors(context).text.secondary,
+              ),
               backgroundColor: Colors.transparent,
             ),
           ),

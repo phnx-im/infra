@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prototype/registration/registration.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 
 import '../mocks.dart';
 
@@ -27,7 +28,10 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(context),
+            theme: themeData(
+              MediaQuery.platformBrightnessOf(context),
+              CustomColorScheme.of(context),
+            ),
             home: const Scaffold(body: ServerChoice()),
           );
         },

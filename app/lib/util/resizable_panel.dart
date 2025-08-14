@@ -3,18 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 
 /// Left panel which can be resized by dragging the handle
 class ResizablePanel extends StatefulWidget {
   const ResizablePanel({
     required this.initialWidth,
-    this.minWidth = 180,
-    this.maxWidth = 500,
+    this.minWidth = 200,
+    this.maxWidth = 600,
     this.resizeHandleWidth = 10,
-    this.panelColor = convPaneBackgroundColor,
-    this.backgroundColor = Colors.white,
-    this.separatorColor = colorGreyLight,
     this.onResizeEnd,
     required this.child,
     super.key,
@@ -24,10 +21,6 @@ class ResizablePanel extends StatefulWidget {
   final double minWidth;
   final double maxWidth;
   final double resizeHandleWidth;
-
-  final Color panelColor;
-  final Color backgroundColor;
-  final Color separatorColor;
 
   final Widget child;
 
@@ -77,18 +70,12 @@ class _ResizablePanelState extends State<ResizablePanel> {
                   children: [
                     Container(
                       width: widget.resizeHandleWidth / 2,
-                      color: widget.panelColor,
-                      alignment: Alignment.topRight,
-                    ),
-                    Container(
-                      width: widget.resizeHandleWidth / 2,
                       decoration: BoxDecoration(
-                        color: widget.backgroundColor,
                         shape: BoxShape.rectangle,
                         border: Border(
                           left: BorderSide(
                             width: 1,
-                            color: widget.separatorColor,
+                            color: customColors(context).separator.secondary,
                           ),
                         ),
                       ),

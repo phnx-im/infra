@@ -13,6 +13,7 @@ import 'package:prototype/background_service.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/navigation/navigation.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 import 'package:prototype/util/interface_scale.dart';
 import 'package:prototype/util/platform.dart';
@@ -120,7 +121,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
-          theme: themeData(context),
+          theme: themeData(Brightness.light, lightTheme),
+          darkTheme: themeData(Brightness.dark, darkTheme),
           routerConfig: _appRouter,
           builder:
               (context, router) => LoadableUserCubitProvider(

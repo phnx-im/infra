@@ -37,7 +37,7 @@ class GroupDetails extends StatelessWidget {
           spacing: Spacings.l,
           children: [
             UserAvatar(
-              size: 64,
+              size: 128,
               image: conversation.picture,
               displayName: conversation.title,
               onPressed: () async {
@@ -55,11 +55,11 @@ class GroupDetails extends StatelessWidget {
             ),
             Text(
               conversation.title,
-              style: Theme.of(context).textTheme.labelMedium,
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
             Text(
               conversation.conversationType.description,
-              style: Theme.of(context).textTheme.labelMedium,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             Expanded(
               child: Container(
@@ -71,9 +71,7 @@ class GroupDetails extends StatelessWidget {
                     children: [
                       Text(
                         "Members",
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelMedium?.merge(VariableFontWeight.bold),
+                        style: Theme.of(context).textTheme.labelLarge,
                       ),
                       Expanded(
                         child: ListView.builder(
@@ -117,10 +115,11 @@ class _MemberTile extends StatelessWidget {
       leading: UserAvatar(
         displayName: profile.displayName,
         image: profile.profilePicture,
+        size: Spacings.l,
       ),
       title: Text(
         profile.displayName,
-        style: Theme.of(context).textTheme.labelMedium,
+        style: Theme.of(context).textTheme.bodyMedium,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: const Icon(Icons.more_horiz),

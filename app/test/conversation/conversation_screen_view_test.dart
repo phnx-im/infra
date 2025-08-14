@@ -12,6 +12,7 @@ import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -84,7 +85,10 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(context),
+            theme: themeData(
+              MediaQuery.platformBrightnessOf(context),
+              CustomColorScheme.of(context),
+            ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(
               body: ConversationScreenView(

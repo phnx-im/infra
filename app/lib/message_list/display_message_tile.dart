@@ -7,6 +7,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/app_localizations.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/palette.dart';
+import 'package:prototype/ui/colors/themes.dart';
+import 'package:prototype/ui/typography/font_size.dart';
 import 'package:prototype/user/users_cubit.dart';
 import 'timestamp.dart';
 
@@ -68,19 +71,21 @@ class SystemMessageContent extends StatelessWidget {
       ),
     };
 
-    final textStyle = const TextStyle(
-      color: colorDMB,
-      fontSize: 12,
-      height: 1.4,
-    ).merge(VariableFontWeight.w400);
+    final textStyle = TextStyle(
+      color: customColors(context).text.tertiary,
+      fontSize: LabelFontSize.small1.size,
+    );
 
-    final profileNameStyle = textStyle.merge(VariableFontWeight.bold);
+    final profileNameStyle = textStyle.copyWith(fontWeight: FontWeight.bold);
 
     return Center(
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Spacings.s),
-          border: Border.all(color: colorDMBSuperLight, width: 2),
+          border: Border.all(
+            color: customColors(context).separator.secondary,
+            width: 2,
+          ),
         ),
         padding: const EdgeInsets.symmetric(
           horizontal: Spacings.s,
@@ -114,11 +119,11 @@ class ErrorMessageContent extends StatelessWidget {
       alignment: AlignmentDirectional.topStart,
       child: Text(
         message.message,
-        style: const TextStyle(
-          color: Colors.red,
-          fontSize: 10,
+        style: TextStyle(
+          color: AppColors.red,
+          fontSize: LabelFontSize.small2.size,
           height: 1.0,
-        ).merge(VariableFontWeight.w200),
+        ),
       ),
     );
   }

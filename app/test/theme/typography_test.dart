@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 
 void main() {
   group('Typography', () {
@@ -12,7 +13,10 @@ void main() {
       builder: (context) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: themeData(context),
+          theme: themeData(
+            MediaQuery.platformBrightnessOf(context),
+            CustomColorScheme.of(context),
+          ),
           home: Scaffold(
             body: SafeArea(
               child: Padding(
@@ -102,35 +106,6 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/typography_font_styles.png'),
-      );
-    });
-
-    testWidgets('font weights', (tester) async {
-      await tester.pumpWidget(
-        buildSubject(
-          Builder(
-            builder: (context) {
-              return Column(
-                children:
-                    FontWeight.values
-                        .map(
-                          (weight) => Text(
-                            "This text has weight $weight",
-                            style: const TextStyle().merge(
-                              VariableFontWeight.values[weight.index],
-                            ),
-                          ),
-                        )
-                        .toList(),
-              );
-            },
-          ),
-        ),
-      );
-
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/typography_font_weights.png'),
       );
     });
   });

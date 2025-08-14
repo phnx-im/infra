@@ -13,6 +13,8 @@ import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart' show AppLocalizations;
 import 'package:prototype/main.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
+import 'package:prototype/ui/typography/font_size.dart';
 import 'package:prototype/util/debouncer.dart';
 import 'package:provider/provider.dart';
 
@@ -120,7 +122,7 @@ class _MessageComposerState extends State<MessageComposer>
     return AnimatedContainer(
       duration: const Duration(milliseconds: 1000),
       child: Container(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: customColors(context).backgroundBase.primary,
         padding: EdgeInsets.only(
           top: Spacings.xs,
           bottom:
@@ -136,7 +138,7 @@ class _MessageComposerState extends State<MessageComposer>
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                  color: customColors(context).backgroundBase.secondary,
                   borderRadius: BorderRadius.circular(Spacings.m),
                 ),
                 padding: const EdgeInsets.only(
@@ -157,12 +159,12 @@ class _MessageComposerState extends State<MessageComposer>
                 height: 50,
                 margin: const EdgeInsets.only(left: Spacings.xs),
                 decoration: BoxDecoration(
-                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                  color: customColors(context).backgroundBase.secondary,
                   borderRadius: BorderRadius.circular(Spacings.m),
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.close),
-                  color: colorDMB,
+                  color: customColors(context).text.primary,
                   hoverColor: const Color(0x00FFFFFF),
                   onPressed: () {
                     context.read<ConversationDetailsCubit>().resetDraft();
@@ -175,12 +177,12 @@ class _MessageComposerState extends State<MessageComposer>
               height: 50,
               margin: const EdgeInsets.only(left: Spacings.xs),
               decoration: BoxDecoration(
-                color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                color: customColors(context).backgroundBase.secondary,
                 borderRadius: BorderRadius.circular(Spacings.m),
               ),
               child: IconButton(
                 icon: Icon(_inputIsEmpty ? Icons.add : Icons.send),
-                color: colorDMB,
+                color: customColors(context).text.primary,
                 hoverColor: const Color(0x00FFFFFF),
                 onPressed: () {
                   if (_inputIsEmpty) {
@@ -264,10 +266,7 @@ class _MessageComposerState extends State<MessageComposer>
       _log.severe("Failed to upload attachment: $e");
       if (context.mounted) {
         final loc = AppLocalizations.of(context);
-        showErrorBanner(
-          ScaffoldMessenger.of(context),
-          loc.composer_error_attachment,
-        );
+        showErrorBanner(context, loc.composer_error_attachment);
       }
     }
   }
@@ -314,23 +313,30 @@ class _MessageInput extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.edit_outlined),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 24,
+                  color: customColors(context).text.tertiary,
+                ),
                 const SizedBox(width: Spacings.xxs),
-                Text(loc.composer_editMessage),
+                Text(
+                  loc.composer_editMessage,
+                  style: TextStyle(
+                    fontSize: LabelFontSize.small1.size,
+                    color: customColors(context).text.tertiary,
+                  ),
+                ),
               ],
             ),
           ),
         TextField(
           focusNode: _focusNode,
-          style: messageTextStyle(context, false),
           controller: _controller,
           minLines: 1,
           maxLines: 10,
           decoration: InputDecoration(
             hintText: loc.composer_inputHint(conversationTitle ?? ""),
-            hintStyle: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: colorDMB),
+            hintStyle: TextStyle(color: customColors(context).text.tertiary),
           ).copyWith(filled: false),
           textInputAction:
               smallScreen ? TextInputAction.send : TextInputAction.newline,

@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -52,7 +53,6 @@ class ServerChoice extends StatelessWidget {
                           ),
                           initialValue:
                               context.read<RegistrationCubit>().state.domain,
-                          style: inputTextStyle(context),
                           onChanged: (String value) {
                             context.read<RegistrationCubit>().setDomain(value);
                           },
@@ -92,7 +92,7 @@ class _NextButton extends StatelessWidget {
                 const IntroScreenType.displayNamePicture(),
               )
               : null,
-      style: buttonStyle(context, isDomainValid),
+      style: buttonStyle(CustomColorScheme.of(context), isDomainValid),
       child: const Text('Next'),
     );
   }

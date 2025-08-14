@@ -6,7 +6,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:prototype/l10n/app_localizations.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
+import 'package:prototype/ui/typography/font_size.dart';
 
 class Timestamp extends StatefulWidget {
   const Timestamp(this.timestamp, {super.key});
@@ -58,10 +59,9 @@ class TimestampState extends State<Timestamp> {
       child: Text(
         localizedTimestamp,
         style: TextStyle(
-          color: colorGreyDark,
-          fontSize: isLargeScreen(context) ? 10 : 12,
-          letterSpacing: -0.1,
-        ).merge(VariableFontWeight.medium),
+          color: customColors(context).text.tertiary,
+          fontSize: LabelFontSize.small2.size,
+        ),
       ),
     );
   }

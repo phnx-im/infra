@@ -30,17 +30,17 @@ class ConnectionDetails extends StatelessWidget {
         children: [
           const SizedBox(height: Spacings.l),
           UserAvatar(
-            size: 96,
+            size: 128,
             displayName: conversation.title,
             image: conversation.picture,
           ),
           Text(
             conversation.title,
-            style: Theme.of(context).textTheme.labelMedium,
+            style: Theme.of(context).textTheme.bodyLarge,
           ),
           Text(
             conversation.conversationType.description,
-            style: Theme.of(context).textTheme.labelMedium,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),

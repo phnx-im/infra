@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:logging/logging.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 
 import 'attachment_image_provider.dart';
 
@@ -71,7 +71,9 @@ class _AttachmentImageState extends State<AttachmentImage> {
     }
     return Center(
       child: CircularProgressIndicator(
-        valueColor: const AlwaysStoppedAnimation<Color>(colorDMB),
+        valueColor: AlwaysStoppedAnimation<Color>(
+          customColors(context).backgroundBase.tertiary,
+        ),
         backgroundColor: Colors.transparent,
         value:
             loadingProgress.expectedTotalBytes != null

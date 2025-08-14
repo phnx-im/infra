@@ -30,10 +30,7 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 }
 
 Future<void> _loadFonts() async {
-  final fonts = {
-    "InterEmbedded": "assets/fonts/inter.ttf",
-    "MaterialIcons": "fonts/MaterialIcons-Regular.otf",
-  };
+  final fonts = {"MaterialIcons": "fonts/MaterialIcons-Regular.otf"};
   for (final entry in fonts.entries) {
     final font = rootBundle.load(entry.value);
     final FontLoader fontLoader = FontLoader(entry.key)..addFont(font);

@@ -4,7 +4,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:prototype/core/core.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
+import 'package:prototype/ui/typography/font_size.dart';
 import 'package:prototype/util/cached_memory_image.dart';
 
 class UserAvatar extends StatelessWidget {
@@ -35,15 +36,16 @@ class UserAvatar extends StatelessWidget {
           height: size,
           child: CircleAvatar(
             radius: size / 2,
-            backgroundColor: colorDMBLight,
+            backgroundColor: customColors(context).text.quaternary,
             foregroundImage:
                 image != null ? CachedMemoryImage.fromImageData(image!) : null,
             child: Text(
               displayName.characters.firstOrNull?.toUpperCase() ?? "",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 10 * size / 24,
-              ).merge(VariableFontWeight.bold),
+                color: customColors(context).function.white,
+                fontSize: LabelFontSize.small2.size * size / 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
