@@ -29,17 +29,17 @@ bool isPointer() {
 
 // Grey
 
-Color activeButtonColor(BuildContext context) =>
-    customColors(context).text.primary;
-Color inactiveButtonColor(BuildContext context) =>
-    customColors(context).text.tertiary;
+Color activeButtonColor(CustomColorScheme colorScheme) =>
+    colorScheme.backgroundBase.quaternary;
+Color inactiveButtonColor(CustomColorScheme colorScheme) =>
+    colorScheme.backgroundBase.secondary;
 
 // === Buttons ===
 
 ButtonStyle textButtonStyle(BuildContext context) {
   return ButtonStyle(
     foregroundColor: WidgetStateProperty.all(
-      customColors(context).text.secondary,
+      customColors(context).text.primary,
     ),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
@@ -77,16 +77,20 @@ ButtonStyle dynamicTextButtonStyle(
   );
 }
 
-ButtonStyle buttonStyle(BuildContext context, bool isActive) {
+ButtonStyle buttonStyle(CustomColorScheme colorScheme, bool isActive) {
   return ButtonStyle(
     foregroundColor: WidgetStateProperty.all<Color>(
-      isActive ? Colors.white : activeButtonColor(context),
+      isActive ? colorScheme.text.primary : colorScheme.text.quaternary,
     ),
     backgroundColor: WidgetStateProperty.all<Color>(
-      isActive ? activeButtonColor(context) : inactiveButtonColor(context),
+      isActive
+          ? activeButtonColor(colorScheme)
+          : inactiveButtonColor(colorScheme),
     ),
     overlayColor: WidgetStateProperty.all<Color>(
-      isActive ? activeButtonColor(context) : inactiveButtonColor(context),
+      isActive
+          ? activeButtonColor(colorScheme)
+          : inactiveButtonColor(colorScheme),
     ),
     mouseCursor: WidgetStateProperty.all<MouseCursor>(
       isActive ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -108,17 +112,11 @@ ButtonStyle buttonStyle(BuildContext context, bool isActive) {
           width: 0,
           style: BorderStyle.none,
         ),
-        borderRadius:
-            isSmallScreen(context)
-                ? BorderRadius.circular(12)
-                : BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(12),
       ),
     ),
     textStyle: WidgetStateProperty.all<TextStyle>(
-      Theme.of(context).textTheme.labelLarge!.copyWith(
-        fontSize: LabelFontSize.base.size,
-        fontWeight: FontWeight.bold,
-      ),
+      TextStyle(fontSize: LabelFontSize.base.size, fontWeight: FontWeight.bold),
     ),
   );
 }

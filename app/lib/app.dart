@@ -121,8 +121,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
-          theme: themeData(context, colorScheme: lightColorScheme),
-          darkTheme: themeData(context, colorScheme: darkColorScheme),
+          theme: themeData(Brightness.light, lightTheme),
+          darkTheme: themeData(Brightness.dark, darkTheme),
           routerConfig: _appRouter,
           builder:
               (context, router) => LoadableUserCubitProvider(

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:prototype/ui/colors/palette.dart';
 import 'package:prototype/ui/colors/semantic.dart';
 
-class CustomColorTheme {
+class CustomColorScheme {
   final BackGroundBaseColors backgroundBase;
   final BackGroundElevatedColors backgroundElevated;
   final TextColors text;
@@ -15,7 +15,7 @@ class CustomColorTheme {
   final FunctionColors function;
   final MessageColors message;
 
-  CustomColorTheme({
+  CustomColorScheme({
     required this.backgroundBase,
     required this.backgroundElevated,
     required this.text,
@@ -24,9 +24,15 @@ class CustomColorTheme {
     required this.function,
     required this.message,
   });
+
+  static CustomColorScheme of(BuildContext context) {
+    return MediaQuery.platformBrightnessOf(context) == Brightness.dark
+        ? darkTheme
+        : lightTheme;
+  }
 }
 
-final CustomColorTheme lightTheme = CustomColorTheme(
+final CustomColorScheme lightTheme = CustomColorScheme(
   backgroundBase: BackGroundBaseColors(
     primary: AppColors.neutral[0]!,
     secondary: AppColors.neutral[25]!,
@@ -72,7 +78,7 @@ final CustomColorTheme lightTheme = CustomColorTheme(
   ),
 );
 
-final CustomColorTheme darkTheme = CustomColorTheme(
+final CustomColorScheme darkTheme = CustomColorScheme(
   backgroundBase: BackGroundBaseColors(
     primary: AppColors.neutral[1000]!,
     secondary: AppColors.neutral[975]!,
@@ -143,12 +149,12 @@ final ColorScheme darkColorScheme = ColorScheme(
 );
 
 /// Map Material brightness to CustomColorTheme
-final Map<Brightness, CustomColorTheme> customColorThemes = {
+final Map<Brightness, CustomColorScheme> customColorThemes = {
   Brightness.light: lightTheme,
   Brightness.dark: darkTheme,
 };
 
 /// Returns the CustomColorTheme for the current Material brightness.
-CustomColorTheme customColors(BuildContext context) {
+CustomColorScheme customColors(BuildContext context) {
   return customColorThemes[Theme.of(context).brightness]!;
 }

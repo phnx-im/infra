@@ -101,7 +101,7 @@ class _AddUserHandleScreenState extends State<AddUserHandleScreen> {
                   const Spacer(),
                   OutlinedButton(
                     onPressed: () => _submit(context),
-                    style: buttonStyle(context, true),
+                    style: buttonStyle(CustomColorScheme.of(context), true),
                     child: Text(loc.userHandleScreen_save),
                   ),
                 ],

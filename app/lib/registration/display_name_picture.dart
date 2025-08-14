@@ -138,7 +138,7 @@ class _SignUpFooter extends StatelessWidget {
                       }
                     }
                     : null,
-            style: buttonStyle(context, !isSigningUp),
+            style: buttonStyle(CustomColorScheme.of(context), !isSigningUp),
             child: const Text('Sign up'),
           ),
         if (isSigningUp)

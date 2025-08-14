@@ -10,34 +10,44 @@ import 'package:prototype/ui/theme/font.dart';
 import 'package:prototype/ui/typography/font_size.dart';
 
 ThemeData themeData(
-  BuildContext context, {
-  ColorScheme? colorScheme,
-}) => ThemeData(
-  colorScheme: colorScheme ?? lightColorScheme,
+  Brightness brightness,
+  CustomColorScheme colorScheme,
+) => ThemeData(
+  colorScheme: ColorScheme(
+    brightness: brightness,
+    primary: colorScheme.text.primary,
+    onPrimary: colorScheme.backgroundBase.primary,
+    secondary: colorScheme.text.secondary,
+    onSecondary: colorScheme.backgroundBase.primary,
+    surface: colorScheme.backgroundBase.primary,
+    onSurface: colorScheme.text.primary,
+    error: colorScheme.function.danger,
+    onError: colorScheme.text.primary,
+  ),
   appBarTheme: AppBarTheme(
-    color: customColors(context).backgroundBase.primary,
+    color: colorScheme.backgroundBase.primary,
     elevation: 0,
-    iconTheme: IconThemeData(color: customColors(context).text.primary),
+    iconTheme: IconThemeData(color: colorScheme.text.primary),
     toolbarHeight: isPointer() ? 100 : null,
     titleTextStyle: TextStyle(
-      color: customColors(context).text.primary,
+      color: colorScheme.text.primary,
       fontSize: LabelFontSize.base.size,
       fontWeight: FontWeight.bold,
     ),
   ),
-  scaffoldBackgroundColor: customColors(context).backgroundBase.primary,
+  scaffoldBackgroundColor: colorScheme.backgroundBase.primary,
   textTheme: customTextScheme,
-  canvasColor: customColors(context).backgroundBase.primary,
-  cardColor: customColors(context).backgroundBase.primary,
+  canvasColor: colorScheme.backgroundBase.primary,
+  cardColor: colorScheme.backgroundBase.primary,
   dialogTheme: DialogThemeData(
-    backgroundColor: customColors(context).backgroundBase.primary,
-    surfaceTintColor: customColors(context).backgroundBase.primary,
+    backgroundColor: colorScheme.backgroundBase.primary,
+    surfaceTintColor: colorScheme.backgroundBase.primary,
   ),
   splashColor: Colors.transparent,
   highlightColor: Colors.transparent,
   hoverColor: Colors.transparent,
   outlinedButtonTheme: OutlinedButtonThemeData(
-    style: buttonStyle(context, true),
+    style: buttonStyle(colorScheme, true),
   ),
   iconButtonTheme: IconButtonThemeData(
     style: ButtonStyle(
@@ -50,7 +60,7 @@ ThemeData themeData(
   inputDecorationTheme: InputDecorationTheme(
     border: InputBorder.none,
     hintStyle: TextStyle(
-      color: customColors(context).text.secondary,
+      color: colorScheme.text.secondary,
       fontSize: LabelFontSize.small1.size,
     ),
     focusedBorder: _textInputBorder,
@@ -58,17 +68,15 @@ ThemeData themeData(
     errorBorder: _textInputBorder,
     focusedErrorBorder: _textInputBorder,
     filled: true,
-    fillColor: customColors(context).backgroundBase.secondary,
+    fillColor: colorScheme.backgroundBase.secondary,
   ),
   switchTheme: SwitchThemeData(
-    thumbColor: WidgetStateProperty.all(customColors(context).text.secondary),
-    trackOutlineColor: WidgetStateProperty.all(
-      customColors(context).separator.primary,
-    ),
+    thumbColor: WidgetStateProperty.all(colorScheme.text.secondary),
+    trackOutlineColor: WidgetStateProperty.all(colorScheme.separator.primary),
     trackColor: WidgetStateProperty.resolveWith(
       (states) =>
           states.contains(WidgetState.selected)
-              ? customColors(context).backgroundBase.secondary
+              ? colorScheme.backgroundBase.secondary
               : Colors.transparent,
     ),
   ),

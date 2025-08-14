@@ -9,6 +9,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:prototype/core/core.dart';
 import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/theme/theme.dart';
+import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 
 import '../helpers.dart';
@@ -33,7 +34,10 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(context),
+            theme: themeData(
+              MediaQuery.platformBrightnessOf(context),
+              CustomColorScheme.of(context),
+            ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const EditDisplayNameScreen(),
           );

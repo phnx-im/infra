@@ -83,7 +83,10 @@ class AddMembersScreenView extends StatelessWidget {
                             _addSelectedContacts(context, selectedContacts);
                           }
                           : null,
-                  style: buttonStyle(context, selectedContacts.isNotEmpty),
+                  style: buttonStyle(
+                    CustomColorScheme.of(context),
+                    selectedContacts.isNotEmpty,
+                  ),
                   child: Text(loc.addMembersScreen_addMembers),
                 ),
               ],
