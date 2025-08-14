@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prototype/core/core.dart';
@@ -32,6 +34,25 @@ class LocalFileComparatorWithThreshold extends LocalFileComparator {
   LocalFileComparatorWithThreshold(super.testFile, this.threshold);
 
   final double threshold;
+
+  String _platformSuffix() {
+    if (Platform.isMacOS) return '.macos';
+    if (Platform.isWindows) return '.windows';
+    if (Platform.isLinux) return '.linux';
+    if (Platform.isAndroid) return '.android';
+    if (Platform.isIOS) return '.ios';
+    return '';
+  }
+
+  @override
+  Uri getTestUri(Uri key, int? version) {
+    final path = key.toFilePath();
+    final newPath = path.replaceFirst(
+      RegExp(r'\.png$'),
+      '${_platformSuffix()}.png',
+    );
+    return Uri.file(newPath);
+  }
 
   @override
   Future<bool> compare(Uint8List imageBytes, Uri golden) async {
@@ -76,4 +97,13 @@ Future<void> withThreshold(double threshold, AsyncCallback test) async {
   } finally {
     goldenFileComparator = prevComparator;
   }
+}
+
+String platformGolden(String baseName) {
+  if (Platform.isMacOS) return '$baseName.macos.png';
+  if (Platform.isWindows) return '$baseName.windows.png';
+  if (Platform.isLinux) return '$baseName.linux.png';
+  if (Platform.isAndroid) return '$baseName.android.png';
+  if (Platform.isIOS) return '$baseName.ios.png';
+  return '$baseName.png';
 }
