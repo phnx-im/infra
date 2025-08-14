@@ -35,6 +35,7 @@ jobs:
         run: just test-flutter --update-goldens
 
       - name: Push changes
+        shell: bash
         env:
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
