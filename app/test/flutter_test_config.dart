@@ -6,7 +6,6 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'helpers.dart';
 
@@ -37,7 +36,6 @@ Future<void> _loadFonts() async {
     final FontLoader fontLoader = FontLoader(entry.key)..addFont(font);
     await fontLoader.load();
   }
-  await GoogleFonts.pendingFonts();
 }
 
 void _setGoldenFileComparatorWithThreshold(double threshold) {
