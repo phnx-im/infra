@@ -12,7 +12,7 @@ on:
       - 'coreclient/**'
       - 'apiclient/**'
       - 'applogic/**'
-      - 'types/**'
+      - 'common/**'
       - 'app/**'
       - 'Cargo.toml'
 
