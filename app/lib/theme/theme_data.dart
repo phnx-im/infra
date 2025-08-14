@@ -9,8 +9,11 @@ import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/ui/theme/font.dart';
 import 'package:prototype/ui/typography/font_size.dart';
 
-ThemeData themeData(BuildContext context) => ThemeData(
-  colorScheme: lightColorScheme,
+ThemeData themeData(
+  BuildContext context, {
+  ColorScheme? colorScheme,
+}) => ThemeData(
+  colorScheme: colorScheme ?? lightColorScheme,
   appBarTheme: AppBarTheme(
     color: customColors(context).backgroundBase.primary,
     elevation: 0,
