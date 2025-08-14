@@ -11,7 +11,7 @@ on:
       - main
     paths:
       - 'server/**'
-      - 'types/**'
+      - 'common/**'
       - 'backend/**'
       - 'Cargo.toml'
   workflow_dispatch:
