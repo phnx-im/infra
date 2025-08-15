@@ -50,6 +50,7 @@ jobs:
 
           git add app/test
           git commit -m "Update golden files" || echo "No changes to commit."
+          git clean -df
 
           # Retry push if there are upstream changes
           MAX_RETRIES=3
