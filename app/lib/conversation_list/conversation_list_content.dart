@@ -197,21 +197,21 @@ class _UnreadBadge extends StatelessWidget {
     }
 
     final badgeText = count <= 100 ? "$count" : "100+";
-    const double badgeSize = 20;
+    const double badgeSize = 26;
     return Container(
       alignment: AlignmentDirectional.center,
       constraints: const BoxConstraints(minWidth: badgeSize),
-      padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
+      padding: const EdgeInsets.fromLTRB(7, 0, 7, 2),
       height: badgeSize,
       decoration: BoxDecoration(
-        color: customColors(context).backgroundBase.secondary,
+        color: customColors(context).backgroundBase.quaternary,
         borderRadius: BorderRadius.circular(badgeSize / 2),
       ),
       child: Text(
         badgeText,
         style: TextStyle(
           color: customColors(context).text.primary,
-          fontSize: LabelFontSize.small1.size,
+          fontSize: LabelFontSize.small2.size,
           fontWeight: FontWeight.bold,
         ),
       ),
