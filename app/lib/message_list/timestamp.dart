@@ -59,7 +59,7 @@ class TimestampState extends State<Timestamp> {
       child: Text(
         localizedTimestamp,
         style: TextStyle(
-          color: customColors(context).text.tertiary,
+          color: CustomColorScheme.of(context).text.tertiary,
           fontSize: LabelFontSize.small2.size,
         ),
       ),

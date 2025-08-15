@@ -28,7 +28,7 @@ class ContextMenuItem extends StatelessWidget {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        foregroundColor: customColors(context).text.primary,
+        foregroundColor: CustomColorScheme.of(context).text.primary,
         padding: const EdgeInsets.symmetric(vertical: Spacings.s),
         alignment: Alignment.centerLeft,
         splashFactory: !Platform.isAndroid ? NoSplash.splashFactory : null,

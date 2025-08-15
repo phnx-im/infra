@@ -139,9 +139,9 @@ class _MemberTile extends StatelessWidget {
       ),
       trailing: Checkbox(
         value: selectedContacts.contains(contact.userId),
-        checkColor: customColors(context).text.secondary,
+        checkColor: CustomColorScheme.of(context).text.secondary,
         fillColor: WidgetStateProperty.all(
-          customColors(context).backgroundBase.secondary,
+          CustomColorScheme.of(context).backgroundBase.secondary,
         ),
         focusColor: Colors.transparent,
         hoverColor: Colors.transparent,

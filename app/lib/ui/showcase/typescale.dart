@@ -61,7 +61,7 @@ class Typescale extends StatelessWidget {
                   style:
                       TextStyle(
                         fontSize: LabelFontSize.base.size,
-                        color: customColors(context).text.tertiary,
+                        color: CustomColorScheme.of(context).text.tertiary,
                       ).withSystemMonospace(),
                 ),
               ),
@@ -72,7 +72,7 @@ class Typescale extends StatelessWidget {
                   style:
                       TextStyle(
                         fontSize: LabelFontSize.small2.size,
-                        color: customColors(context).text.quaternary,
+                        color: CustomColorScheme.of(context).text.quaternary,
                         fontWeight: FontWeight.w500,
                       ).withSystemMonospace(),
                 ),

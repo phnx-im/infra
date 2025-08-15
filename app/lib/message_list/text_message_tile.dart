@@ -184,8 +184,8 @@ class _MessageContent extends StatelessWidget {
             borderRadius: _messageBorderRadius(isSender, flightPosition),
             color:
                 isSender
-                    ? customColors(context).message.selfBackground
-                    : customColors(context).message.otherBackground,
+                    ? CustomColorScheme.of(context).message.selfBackground
+                    : CustomColorScheme.of(context).message.otherBackground,
           ),
           child: DefaultTextStyle.merge(
             child: Column(
@@ -221,8 +221,8 @@ class _MessageContent extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall!.copyWith(
                         color:
                             isSender
-                                ? customColors(context).text.quaternary
-                                : customColors(context).text.tertiary,
+                                ? CustomColorScheme.of(context).text.quaternary
+                                : CustomColorScheme.of(context).text.tertiary,
                       ),
                     ),
                   ),
@@ -279,7 +279,7 @@ class _DisplayName extends StatelessWidget {
       child: Text(
         textUpper,
         style: TextStyle(
-          color: customColors(context).text.tertiary,
+          color: CustomColorScheme.of(context).text.tertiary,
           fontSize: LabelFontSize.small2.size,
           fontWeight: FontWeight.w100,
           fontFamily: getSystemMonospaceFontFamily(),
@@ -314,8 +314,8 @@ class _FileAttachmentContent extends StatelessWidget {
             size: 46,
             color:
                 isSender
-                    ? customColors(context).message.selfText
-                    : customColors(context).message.otherText,
+                    ? CustomColorScheme.of(context).message.selfText
+                    : CustomColorScheme.of(context).message.otherText,
           ),
           const SizedBox(width: Spacings.xxs),
           Column(
@@ -414,7 +414,7 @@ class _ImagePreview extends StatelessWidget {
         child: Container(
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,
-          color: customColors(context).backgroundBase.primary,
+          color: CustomColorScheme.of(context).backgroundBase.primary,
           child: Column(
             children: [
               AppBar(

@@ -17,7 +17,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mobileLayout = Scaffold(
-      backgroundColor: customColors(context).backgroundBase.primary,
+      backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
       body: const ConversationListContainer(),
     );
     const desktopLayout = HomeScreenDesktopLayout(
@@ -45,7 +45,7 @@ class HomeScreenDesktopLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: customColors(context).backgroundBase.primary,
+      backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
       body: Row(
         children: [
           ResizablePanel(
