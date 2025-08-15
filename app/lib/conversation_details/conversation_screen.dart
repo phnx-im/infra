@@ -55,7 +55,7 @@ class _EmptyConversationPane extends StatelessWidget {
     return Center(
       child: Text(
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: customColors(context).text.tertiary,
+          color: CustomColorScheme.of(context).text.tertiary,
         ),
         loc.conversationScreen_emptyConversation,
       ),
@@ -84,7 +84,7 @@ class ConversationScreenView extends StatelessWidget {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          color: customColors(context).backgroundBase.primary,
+          color: CustomColorScheme.of(context).backgroundBase.primary,
         ),
         child: Column(
           children: [
@@ -169,7 +169,7 @@ class _DetailsButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.more_horiz, size: 32),
-      color: customColors(context).text.primary,
+      color: CustomColorScheme.of(context).text.primary,
       padding: const EdgeInsets.symmetric(horizontal: Spacings.xs),
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,
@@ -189,7 +189,7 @@ class _BackButton extends StatelessWidget {
     return IconButton(
       icon: const Icon(Icons.arrow_back, size: 26),
       padding: const EdgeInsets.symmetric(horizontal: Spacings.xs),
-      color: customColors(context).text.primary,
+      color: CustomColorScheme.of(context).text.primary,
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,

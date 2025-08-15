@@ -72,7 +72,7 @@ class SystemMessageContent extends StatelessWidget {
     };
 
     final textStyle = TextStyle(
-      color: customColors(context).text.tertiary,
+      color: CustomColorScheme.of(context).text.tertiary,
       fontSize: LabelFontSize.small1.size,
     );
 
@@ -83,7 +83,7 @@ class SystemMessageContent extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Spacings.s),
           border: Border.all(
-            color: customColors(context).separator.secondary,
+            color: CustomColorScheme.of(context).separator.secondary,
             width: 2,
           ),
         ),

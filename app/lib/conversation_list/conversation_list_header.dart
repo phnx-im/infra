@@ -135,14 +135,14 @@ class _PlusButtonState extends State<_PlusButton> {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: customColors(context).backgroundBase.quaternary,
+            color: CustomColorScheme.of(context).backgroundBase.quaternary,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Center(
             child: Icon(
               Icons.add_rounded,
               size: 22,
-              color: customColors(context).text.primary,
+              color: CustomColorScheme.of(context).text.primary,
             ),
           ),
         ),

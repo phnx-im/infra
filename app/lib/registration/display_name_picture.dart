@@ -146,7 +146,7 @@ class _SignUpFooter extends StatelessWidget {
             child: CircularProgressIndicator(
               value: null,
               valueColor: AlwaysStoppedAnimation<Color>(
-                customColors(context).text.secondary,
+                CustomColorScheme.of(context).text.secondary,
               ),
               backgroundColor: Colors.transparent,
             ),

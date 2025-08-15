@@ -36,13 +36,13 @@ class UserAvatar extends StatelessWidget {
           height: size,
           child: CircleAvatar(
             radius: size / 2,
-            backgroundColor: customColors(context).text.quaternary,
+            backgroundColor: CustomColorScheme.of(context).text.quaternary,
             foregroundImage:
                 image != null ? CachedMemoryImage.fromImageData(image!) : null,
             child: Text(
               displayName.characters.firstOrNull?.toUpperCase() ?? "",
               style: TextStyle(
-                color: customColors(context).function.white,
+                color: CustomColorScheme.of(context).function.white,
                 fontSize: LabelFontSize.small2.size * size / 24,
                 fontWeight: FontWeight.bold,
               ),

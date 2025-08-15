@@ -50,7 +50,7 @@ class _CreateConversationViewState extends State<CreateConversationView> {
       title: Text(widget.title),
       titlePadding: const EdgeInsets.all(20),
       titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: customColors(context).text.secondary,
+        color: CustomColorScheme.of(context).text.secondary,
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actionsPadding: const EdgeInsets.all(20),

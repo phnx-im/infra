@@ -37,7 +37,9 @@ void showErrorBanner(BuildContext context, String errorDescription) {
         TextButton(
           child: Text(
             'OK',
-            style: TextStyle(color: customColors(context).function.white),
+            style: TextStyle(
+              color: CustomColorScheme.of(context).function.white,
+            ),
           ),
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentMaterialBanner();

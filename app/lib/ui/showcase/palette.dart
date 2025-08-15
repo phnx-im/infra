@@ -23,7 +23,9 @@ class PaletteShowcase extends StatelessWidget {
         children: [
           Text(
             name,
-            style: TextStyle(color: customColors(context).text.quaternary),
+            style: TextStyle(
+              color: CustomColorScheme.of(context).text.quaternary,
+            ),
           ),
           const SizedBox(height: 8),
           Wrap(

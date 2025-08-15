@@ -36,7 +36,7 @@ class ConversationListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: customColors(context).backgroundBase.primary,
+      color: CustomColorScheme.of(context).backgroundBase.primary,
       padding: EdgeInsets.only(top: _topPadding()),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
