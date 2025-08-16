@@ -321,7 +321,7 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
             divisions: ((300 - 50) / 5).truncate(),
             value: _interfaceScaleSliderValue,
             label: _interfaceScaleSliderValue.truncate().toString(),
-            activeColor: customColors(context).text.secondary,
+            activeColor: CustomColorScheme.of(context).text.secondary,
             onChanged:
                 (value) => setState(() => _interfaceScaleSliderValue = value),
             onChangeEnd: (value) {

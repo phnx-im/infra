@@ -224,7 +224,7 @@ void _confirmDialog({
           TextButton(
             style: TextButton.styleFrom(
               backgroundColor: AppColors.red,
-              foregroundColor: customColors(context).function.white,
+              foregroundColor: CustomColorScheme.of(context).function.white,
             ),
             onPressed: onConfirm,
             child: Text(confirmLabel),

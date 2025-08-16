@@ -145,7 +145,7 @@ class _UserHandleAvatar extends StatelessWidget {
       height: _size,
       child: CircleAvatar(
         radius: _size / 2,
-        backgroundColor: customColors(context).text.quaternary,
+        backgroundColor: CustomColorScheme.of(context).text.quaternary,
         child: const Icon(Icons.alternate_email, size: _size / 1.5),
       ),
     );

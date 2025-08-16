@@ -147,14 +147,3 @@ final ColorScheme darkColorScheme = ColorScheme(
   error: darkCustomColorScheme.function.danger,
   onError: darkCustomColorScheme.text.primary,
 );
-
-/// Map Material brightness to CustomColorScheme
-final Map<Brightness, CustomColorScheme> customColorSchemes = {
-  Brightness.light: lightCustomColorScheme,
-  Brightness.dark: darkCustomColorScheme,
-};
-
-/// Returns the CustomColorTheme for the current Material brightness.
-CustomColorScheme customColors(BuildContext context) {
-  return customColorSchemes[Theme.of(context).brightness]!;
-}

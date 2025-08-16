@@ -39,7 +39,7 @@ Color inactiveButtonColor(CustomColorScheme colorScheme) =>
 ButtonStyle textButtonStyle(BuildContext context) {
   return ButtonStyle(
     foregroundColor: WidgetStateProperty.all(
-      customColors(context).text.primary,
+      CustomColorScheme.of(context).text.primary,
     ),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
@@ -62,8 +62,12 @@ ButtonStyle dynamicTextButtonStyle(
   return ButtonStyle(
     foregroundColor:
         isActive
-            ? WidgetStateProperty.all(customColors(context).text.secondary)
-            : WidgetStateProperty.all(customColors(context).text.quaternary),
+            ? WidgetStateProperty.all(
+              CustomColorScheme.of(context).text.secondary,
+            )
+            : WidgetStateProperty.all(
+              CustomColorScheme.of(context).text.quaternary,
+            ),
     overlayColor: WidgetStateProperty.all(Colors.transparent),
     surfaceTintColor: WidgetStateProperty.all<Color>(Colors.transparent),
     splashFactory: NoSplash.splashFactory,

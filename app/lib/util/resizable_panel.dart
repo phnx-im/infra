@@ -75,7 +75,10 @@ class _ResizablePanelState extends State<ResizablePanel> {
                         border: Border(
                           left: BorderSide(
                             width: 1,
-                            color: customColors(context).separator.secondary,
+                            color:
+                                CustomColorScheme.of(
+                                  context,
+                                ).separator.secondary,
                           ),
                         ),
                       ),

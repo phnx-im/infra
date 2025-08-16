@@ -72,7 +72,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
     return Center(
       child: CircularProgressIndicator(
         valueColor: AlwaysStoppedAnimation<Color>(
-          customColors(context).backgroundBase.tertiary,
+          CustomColorScheme.of(context).backgroundBase.tertiary,
         ),
         backgroundColor: Colors.transparent,
         value:

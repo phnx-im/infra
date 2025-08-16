@@ -23,7 +23,7 @@ class ContextMenuUi extends StatelessWidget {
     return Container(
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: customColors(context).backgroundElevated.primary,
+        color: CustomColorScheme.of(context).backgroundElevated.primary,
         boxShadow: elevationBoxShadows(context),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -43,7 +43,7 @@ class ContextMenuUi extends StatelessWidget {
                 child: Divider(
                   height: 0,
                   thickness: 1,
-                  color: customColors(context).separator.primary,
+                  color: CustomColorScheme.of(context).separator.primary,
                 ),
               ),
           ],

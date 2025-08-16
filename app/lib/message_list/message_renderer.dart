@@ -26,8 +26,8 @@ Widget buildBlockElement(
         style: TextStyle(
           color:
               isSender
-                  ? customColors(context).message.selfText
-                  : customColors(context).message.otherText,
+                  ? CustomColorScheme.of(context).message.selfText
+                  : CustomColorScheme.of(context).message.otherText,
           fontSize: BodyFontSize.base.size,
         ),
       ),
@@ -43,8 +43,8 @@ Widget buildBlockElement(
           fontWeight: FontWeight.bold,
           color:
               isSender
-                  ? customColors(context).backgroundBase.primary
-                  : customColors(context).text.primary,
+                  ? CustomColorScheme.of(context).backgroundBase.primary
+                  : CustomColorScheme.of(context).text.primary,
         ),
       ),
     ),
@@ -186,8 +186,8 @@ Widget buildBlockElement(
     BlockElement_HorizontalRule() => Divider(
       color:
           isSender
-              ? customColors(context).message.selfText
-              : customColors(context).message.otherText,
+              ? CustomColorScheme.of(context).message.selfText
+              : CustomColorScheme.of(context).message.otherText,
     ),
     BlockElement_CodeBlock(:final field0) => Text.rich(
       TextSpan(
@@ -200,11 +200,11 @@ Widget buildBlockElement(
       decoration: BoxDecoration(
         border: Border(
           left: BorderSide(
-            color: customColors(context).separator.primary,
+            color: CustomColorScheme.of(context).separator.primary,
             width: 4,
           ),
         ),
-        color: customColors(context).function.warning,
+        color: CustomColorScheme.of(context).function.warning,
       ),
       child: Text.rich(TextSpan(text: field0)),
     ),
@@ -231,11 +231,11 @@ InlineSpan buildInlineElement(
         color:
             isSender
                 ? const Color(0xFF69d1ff)
-                : customColors(context).function.link,
+                : CustomColorScheme.of(context).function.link,
         decorationColor:
             isSender
                 ? const Color(0xFF69d1ff)
-                : customColors(context).function.link,
+                : CustomColorScheme.of(context).function.link,
         decoration: TextDecoration.underline,
       ),
     ),
@@ -290,7 +290,7 @@ InlineSpan buildInlineElement(
 
 // The style used for formatting characters like * or >
 TextStyle highlightStyle(BuildContext context) =>
-    TextStyle(color: customColors(context).function.link);
+    TextStyle(color: CustomColorScheme.of(context).function.link);
 
 class CustomTextEditingController extends TextEditingController {
   // Keep track of where widgets are, so the cursor can treat it as one unit
@@ -492,8 +492,8 @@ class CustomTextEditingController extends TextEditingController {
       BlockElement_Error() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
         style: TextStyle(
-          color: customColors(context).function.danger,
-          decorationColor: customColors(context).function.danger,
+          color: CustomColorScheme.of(context).function.danger,
+          decorationColor: CustomColorScheme.of(context).function.danger,
           decoration: TextDecoration.underline,
           decorationStyle: TextDecorationStyle.wavy,
         ),
@@ -517,8 +517,8 @@ class CustomTextEditingController extends TextEditingController {
       InlineElement_Link() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
         style: TextStyle(
-          color: customColors(context).function.link,
-          decorationColor: customColors(context).function.link,
+          color: CustomColorScheme.of(context).function.link,
+          decorationColor: CustomColorScheme.of(context).function.link,
           decoration: TextDecoration.underline,
         ),
       ),

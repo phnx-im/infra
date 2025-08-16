@@ -56,7 +56,7 @@ class _NoConversations extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       child: Text(
         loc.conversationList_emptyMessage,
-        style: TextStyle(color: customColors(context).text.secondary),
+        style: TextStyle(color: CustomColorScheme.of(context).text.secondary),
       ),
     );
   }
@@ -92,7 +92,7 @@ class _ListTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(Spacings.s),
           color:
               isSelected
-                  ? customColors(context).backgroundBase.quaternary
+                  ? CustomColorScheme.of(context).backgroundBase.quaternary
                   : null,
         ),
         child: Row(
@@ -197,21 +197,21 @@ class _UnreadBadge extends StatelessWidget {
     }
 
     final badgeText = count <= 100 ? "$count" : "100+";
-    const double badgeSize = 20;
+    const double badgeSize = 26;
     return Container(
       alignment: AlignmentDirectional.center,
       constraints: const BoxConstraints(minWidth: badgeSize),
-      padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
+      padding: const EdgeInsets.fromLTRB(7, 0, 7, 2),
       height: badgeSize,
       decoration: BoxDecoration(
-        color: customColors(context).backgroundBase.secondary,
+        color: CustomColorScheme.of(context).backgroundBase.quaternary,
         borderRadius: BorderRadius.circular(badgeSize / 2),
       ),
       child: Text(
         badgeText,
         style: TextStyle(
-          color: customColors(context).text.primary,
-          fontSize: LabelFontSize.small1.size,
+          color: CustomColorScheme.of(context).text.primary,
+          fontSize: LabelFontSize.small2.size,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -235,13 +235,13 @@ class _LastMessage extends StatelessWidget {
     final draftMessage = conversation.draft?.message.trim();
 
     final readStyle = TextStyle(
-      color: customColors(context).text.primary,
+      color: CustomColorScheme.of(context).text.primary,
       height: 1.2,
     );
     final unreadStyle = readStyle.copyWith(fontWeight: FontWeight.bold);
     final draftStyle = readStyle.copyWith(
       fontStyle: FontStyle.italic,
-      color: customColors(context).text.tertiary,
+      color: CustomColorScheme.of(context).text.tertiary,
     );
 
     final showDraft =
@@ -252,7 +252,7 @@ class _LastMessage extends StatelessWidget {
             ? draftStyle
             : readStyle.copyWith(
               fontWeight: FontWeight.normal,
-              color: customColors(context).text.tertiary,
+              color: CustomColorScheme.of(context).text.tertiary,
             );
 
     final suffixStyle =
@@ -353,7 +353,7 @@ class _LastUpdatedState extends State<_LastUpdated> {
       child: Text(
         _localizedTimestamp(_displayTimestamp, loc),
         style: TextStyle(
-          color: customColors(context).text.quaternary,
+          color: CustomColorScheme.of(context).text.quaternary,
           fontSize: LabelFontSize.small1.size,
         ),
       ),
@@ -375,7 +375,7 @@ class _ConversationTitle extends StatelessWidget {
         title.toUpperCase(),
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: customColors(context).text.tertiary,
+          color: CustomColorScheme.of(context).text.tertiary,
           fontFamily: getSystemMonospaceFontFamily(),
           fontSize: LabelFontSize.small2.size,
           letterSpacing: 1,

@@ -122,7 +122,7 @@ class _MessageComposerState extends State<MessageComposer>
     return AnimatedContainer(
       duration: const Duration(milliseconds: 1000),
       child: Container(
-        color: customColors(context).backgroundBase.primary,
+        color: CustomColorScheme.of(context).backgroundBase.primary,
         padding: EdgeInsets.only(
           top: Spacings.xs,
           bottom:
@@ -138,7 +138,7 @@ class _MessageComposerState extends State<MessageComposer>
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: customColors(context).backgroundBase.secondary,
+                  color: CustomColorScheme.of(context).backgroundBase.secondary,
                   borderRadius: BorderRadius.circular(Spacings.m),
                 ),
                 padding: const EdgeInsets.only(
@@ -159,12 +159,12 @@ class _MessageComposerState extends State<MessageComposer>
                 height: 50,
                 margin: const EdgeInsets.only(left: Spacings.xs),
                 decoration: BoxDecoration(
-                  color: customColors(context).backgroundBase.secondary,
+                  color: CustomColorScheme.of(context).backgroundBase.secondary,
                   borderRadius: BorderRadius.circular(Spacings.m),
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.close),
-                  color: customColors(context).text.primary,
+                  color: CustomColorScheme.of(context).text.primary,
                   hoverColor: const Color(0x00FFFFFF),
                   onPressed: () {
                     context.read<ConversationDetailsCubit>().resetDraft();
@@ -177,12 +177,12 @@ class _MessageComposerState extends State<MessageComposer>
               height: 50,
               margin: const EdgeInsets.only(left: Spacings.xs),
               decoration: BoxDecoration(
-                color: customColors(context).backgroundBase.secondary,
+                color: CustomColorScheme.of(context).backgroundBase.secondary,
                 borderRadius: BorderRadius.circular(Spacings.m),
               ),
               child: IconButton(
                 icon: Icon(_inputIsEmpty ? Icons.add : Icons.send),
-                color: customColors(context).text.primary,
+                color: CustomColorScheme.of(context).text.primary,
                 hoverColor: const Color(0x00FFFFFF),
                 onPressed: () {
                   if (_inputIsEmpty) {
@@ -316,14 +316,14 @@ class _MessageInput extends StatelessWidget {
                 Icon(
                   Icons.edit_outlined,
                   size: 24,
-                  color: customColors(context).text.tertiary,
+                  color: CustomColorScheme.of(context).text.tertiary,
                 ),
                 const SizedBox(width: Spacings.xxs),
                 Text(
                   loc.composer_editMessage,
                   style: TextStyle(
                     fontSize: LabelFontSize.small1.size,
-                    color: customColors(context).text.tertiary,
+                    color: CustomColorScheme.of(context).text.tertiary,
                   ),
                 ),
               ],
@@ -336,7 +336,9 @@ class _MessageInput extends StatelessWidget {
           maxLines: 10,
           decoration: InputDecoration(
             hintText: loc.composer_inputHint(conversationTitle ?? ""),
-            hintStyle: TextStyle(color: customColors(context).text.tertiary),
+            hintStyle: TextStyle(
+              color: CustomColorScheme.of(context).text.tertiary,
+            ),
           ).copyWith(filled: false),
           textInputAction:
               smallScreen ? TextInputAction.send : TextInputAction.newline,
