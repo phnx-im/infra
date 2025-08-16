@@ -25,7 +25,7 @@ ThemeData themeData(
     onError: colorScheme.text.primary,
   ),
   appBarTheme: AppBarTheme(
-    color: colorScheme.backgroundBase.primary,
+    backgroundColor: colorScheme.backgroundBase.primary,
     elevation: 0,
     iconTheme: IconThemeData(color: colorScheme.text.primary),
     toolbarHeight: isPointer() ? 100 : null,
