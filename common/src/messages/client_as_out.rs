@@ -87,3 +87,9 @@ pub struct MergeUserProfileParams {
     payload: MergeUserProfileParamsTbs,
     signature: ClientSignature,
 }
+
+#[derive(Debug)]
+pub enum UserHandleDeleteResponse {
+    Success,
+    NotFound,
+}
