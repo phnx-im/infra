@@ -76,7 +76,7 @@ platform :ios do
   
       # Set XCode version
       xcodes(
-        version: '16.4',
+        version: '16.2',
         select_for_current_build_only: true,
       )
     
