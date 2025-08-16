@@ -6,11 +6,12 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prototype/ui/typography/monospace.dart';
 
 import 'helpers.dart';
 
 /// The threshold for golden file comparisons to pass (between 0 and 1 as percent)
-const goldenThreshold = 0.022;
+const goldenThreshold = 0.0;
 
 /// The physical size of the screen in the test environment
 const pixel8ScreenSize = Size(1080, 2400);
@@ -30,10 +31,16 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 }
 
 Future<void> _loadFonts() async {
-  final fonts = {"MaterialIcons": "fonts/MaterialIcons-Regular.otf"};
+  final monospace = getSystemMonospaceFontFamily();
+  final fonts = {
+    "MaterialIcons": "fonts/MaterialIcons-Regular.otf",
+    "Roboto": "assets/fonts/Roboto-Regular.ttf",
+    "SourceCodeProEmbedded": "assets/fonts/SourceCodePro.ttf",
+    monospace: "assets/fonts/RobotoMono-Regular.ttf",
+  };
   for (final entry in fonts.entries) {
-    final font = rootBundle.load(entry.value);
-    final FontLoader fontLoader = FontLoader(entry.key)..addFont(font);
+    final bytes = rootBundle.load(entry.value);
+    final fontLoader = FontLoader(entry.key)..addFont(bytes);
     await fontLoader.load();
   }
 }

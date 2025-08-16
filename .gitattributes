@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
-
 **/goldens/** filter=lfs diff=lfs merge=lfs -text
-
 applogic/src/frb_generated.rs linguist-generated=true
 app/lib/core/api/** linguist-generated=true
 app/lib/core/frb_**.dart linguist-generated=true
 app/lib/core/notifications.dart linguist-generated=true
 app/lib/l10n/app_localizations.dart linguist-generated=true
 app/lib/l10n/app_localizations_*.dart linguist-generated=true
+app/assets/fonts/**.ttf filter=lfs diff=lfs merge=lfs -text

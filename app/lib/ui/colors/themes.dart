@@ -27,12 +27,12 @@ class CustomColorScheme {
 
   static CustomColorScheme of(BuildContext context) {
     return MediaQuery.platformBrightnessOf(context) == Brightness.dark
-        ? darkTheme
-        : lightTheme;
+        ? darkCustomColorScheme
+        : lightCustomColorScheme;
   }
 }
 
-final CustomColorScheme lightTheme = CustomColorScheme(
+final CustomColorScheme lightCustomColorScheme = CustomColorScheme(
   backgroundBase: BackGroundBaseColors(
     primary: AppColors.neutral[0]!,
     secondary: AppColors.neutral[25]!,
@@ -78,7 +78,7 @@ final CustomColorScheme lightTheme = CustomColorScheme(
   ),
 );
 
-final CustomColorScheme darkTheme = CustomColorScheme(
+final CustomColorScheme darkCustomColorScheme = CustomColorScheme(
   backgroundBase: BackGroundBaseColors(
     primary: AppColors.neutral[1000]!,
     secondary: AppColors.neutral[975]!,
@@ -126,24 +126,24 @@ final CustomColorScheme darkTheme = CustomColorScheme(
 
 final ColorScheme lightColorScheme = ColorScheme(
   brightness: Brightness.light,
-  primary: lightTheme.text.primary,
-  onPrimary: lightTheme.backgroundBase.primary,
-  secondary: lightTheme.text.secondary,
-  onSecondary: lightTheme.backgroundBase.primary,
-  surface: lightTheme.backgroundBase.primary,
-  onSurface: lightTheme.text.primary,
-  error: lightTheme.function.danger,
-  onError: lightTheme.text.primary,
+  primary: lightCustomColorScheme.text.primary,
+  onPrimary: lightCustomColorScheme.backgroundBase.primary,
+  secondary: lightCustomColorScheme.text.secondary,
+  onSecondary: lightCustomColorScheme.backgroundBase.primary,
+  surface: lightCustomColorScheme.backgroundBase.primary,
+  onSurface: lightCustomColorScheme.text.primary,
+  error: lightCustomColorScheme.function.danger,
+  onError: lightCustomColorScheme.text.primary,
 );
 
 final ColorScheme darkColorScheme = ColorScheme(
   brightness: Brightness.dark,
-  primary: darkTheme.text.primary,
-  onPrimary: darkTheme.backgroundBase.primary,
-  secondary: darkTheme.text.secondary,
-  onSecondary: darkTheme.backgroundBase.primary,
-  surface: darkTheme.backgroundBase.primary,
-  onSurface: darkTheme.text.primary,
-  error: darkTheme.function.danger,
-  onError: darkTheme.text.primary,
+  primary: darkCustomColorScheme.text.primary,
+  onPrimary: darkCustomColorScheme.backgroundBase.primary,
+  secondary: darkCustomColorScheme.text.secondary,
+  onSecondary: darkCustomColorScheme.backgroundBase.primary,
+  surface: darkCustomColorScheme.backgroundBase.primary,
+  onSurface: darkCustomColorScheme.text.primary,
+  error: darkCustomColorScheme.function.danger,
+  onError: darkCustomColorScheme.text.primary,
 );

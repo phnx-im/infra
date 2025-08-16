@@ -12,7 +12,6 @@ import 'package:prototype/l10n/l10n.dart';
 import 'package:prototype/message_list/message_list.dart';
 import 'package:prototype/navigation/navigation.dart';
 import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -71,7 +70,7 @@ void main() {
       ).thenAnswer((_) async => Future.value());
     });
 
-    Widget buildSubject() => MultiBlocProvider(
+    Widget buildSubject({bool useDarkTheme = false}) => MultiBlocProvider(
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
@@ -85,10 +84,7 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(
-              MediaQuery.platformBrightnessOf(context),
-              CustomColorScheme.of(context),
-            ),
+            theme: useDarkTheme ? darkTheme : lightTheme,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(
               body: ConversationScreenView(
@@ -128,13 +124,30 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      // Increase threshold because font rendering is differnt across different platforms.
-      await withThreshold(0.0222, () async {
-        await expectLater(
-          find.byType(MaterialApp),
-          matchesGoldenFile('goldens/conversation_screen.png'),
-        );
-      });
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/conversation_screen.png'),
+      );
+    });
+
+    testWidgets('renders correctly (dark mode)', (tester) async {
+      when(() => navigationCubit.state).thenReturn(
+        NavigationState.home(
+          home: HomeNavigationState(conversationId: conversation.id),
+        ),
+      );
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages));
+
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+      await tester.pumpWidget(buildSubject(useDarkTheme: true));
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/conversation_screen_dark.png'),
+      );
     });
   });
 }
