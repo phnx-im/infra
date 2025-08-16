@@ -70,12 +70,13 @@ platform :ios do
   
     desc "Build app"
     lane :build_ios do |options|
-      # The following is false when "with_signing" is not provided in the oprion and true otherwise
+      # The following is false when "with_signing" is not provided in the option
+      # and true otherwise
       skip_signing = !options[:with_signing]
   
       # Set XCode version
       xcodes(
-        version: '16.1',
+        version: '16.4',
         select_for_current_build_only: true,
       )
     
@@ -95,6 +96,7 @@ platform :ios do
       build_app(
         workspace: "ios/Runner.xcworkspace", 
         scheme: "Runner",
+        configuration: "Release",
         skip_codesigning: skip_signing,
         skip_package_ipa: skip_signing,
         export_method: "app-store",
