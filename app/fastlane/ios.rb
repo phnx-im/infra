@@ -85,6 +85,9 @@ platform :ios do
   
       # Install flutter dependencies
       sh "flutter pub get"
+
+      # Configure the tooling
+      sh "flutter build ios --config-only --release"
     
       # Install CocoaPods dependencies
       cocoapods(

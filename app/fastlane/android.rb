@@ -43,12 +43,8 @@ platform :android do
           )
         end
   
-        # We build the app with Flutter first to set up gradle
-        if upload_to_play_store
-          sh "flutter build appbundle --release"
-        else
-          sh "flutter build appbundle --target-platform android-arm64"
-        end
+        # We configure the app with Flutter first to set up gradle
+        sh "flutter build appbundle --config-only --release"
   
         if upload_to_play_store
           # Prepare the signing properties
