@@ -39,7 +39,7 @@ jobs:
           path: 'app/.fvmrc'
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.88.0
+        uses: dtolnay/rust-toolchain@1.89.0
 
       - name: Set up iOS CI
         env:
