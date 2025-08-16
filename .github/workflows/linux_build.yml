@@ -32,7 +32,7 @@ jobs:
           path: 'app/.fvmrc'
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.88.0
+        uses: dtolnay/rust-toolchain@1.89.0
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y ninja-build gtk+-3.0 gtk+-3.0-dev glib-2.0-dev gio-2.0-dev
