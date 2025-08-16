@@ -4,6 +4,7 @@ platform :android do
       # Package name
       package_name = "im.phnx.prototype"
       track = "internal"
+      gradle_propperties = {}
   
       # Determine if we should deploy to the Play Store
       upload_to_play_store = options[:upload_to_play_store]
@@ -41,12 +42,7 @@ platform :android do
             gradle_file_path: "android/app/build.gradle",
             version_code: current_build_number
           )
-        end
-  
-        # We configure the app with Flutter first to set up gradle
-        sh "flutter build appbundle --config-only --release"
-  
-        if upload_to_play_store
+
           # Prepare the signing properties
           gradle_propperties = {
             "android.injected.signing.store.file" => File.expand_path(keystore_path),
@@ -54,15 +50,20 @@ platform :android do
             "android.injected.signing.key.alias" => "upload",
             "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
           }
+        end
   
-          # Build the bundle in release mode and sign it
-          gradle(
-            task: "bundle",
-            build_type: "Release",
-            project_dir: File.expand_path("../android"),
-            properties: gradle_propperties
-          )
-  
+        # Configure the app with Flutter first to set up gradle
+        sh "flutter precache --android"
+        sh "flutter pub get"
+
+        gradle(
+          task: "bundle",
+          build_type: "Release",
+          project_dir: File.expand_path("../android"),
+          properties: gradle_propperties
+        )
+
+        if upload_to_play_store
           # Upload to Google Play Store
           supply(
             validate_only: false,
@@ -72,7 +73,7 @@ platform :android do
             aab: "build/app/outputs/bundle/release/app-release.aab",
             json_key: "fastlane/" + playstore_key_path,
             package_name: package_name,
-         )
+          )
         end
   
       rescue => e
