@@ -6,7 +6,10 @@ use std::{collections::HashSet, path::Path, sync::Arc};
 
 use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
+use phnxcommon::{
+    identifiers::{AttachmentId, MimiId, UserHandle, UserId},
+    messages::client_as_out::UserHandleDeleteResponse,
+};
 use tokio_stream::Stream;
 use tracing::error;
 use uuid::Uuid;
@@ -85,7 +88,10 @@ impl Store for CoreUser {
         self.add_user_handle(user_handle).await
     }
 
-    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()> {
+    async fn remove_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<UserHandleDeleteResponse> {
         self.remove_user_handle(user_handle).await
     }
 

@@ -122,7 +122,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
         let (stream, responder) = self
             .cubit_context
             .core_user
-            .listen_handle(self.handle_record.hash, &self.handle_record.signing_key)
+            .listen_handle(&self.handle_record)
             .await?;
         self.responder.write().await.replace(responder);
         Ok(stream.filter_map(identity))

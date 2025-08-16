@@ -13,8 +13,7 @@ use phnxapiclient::{ApiClient, ApiClientInitError};
 use phnxcommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
-        keys::{ClientSigningKey, HandleSigningKey},
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
@@ -26,7 +25,7 @@ use phnxcommon::{
         kdf::keys::RatchetSecret,
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
-    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
+    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
     messages::{
         FriendshipToken, QueueMessage,
         push_token::{EncryptedPushToken, PushToken},
@@ -42,11 +41,11 @@ use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use url::Url;
 
 use crate::{
-    Asset,
+    Asset, UserHandleRecord,
     contacts::HandleContact,
     groups::Group,
     store::Store,
@@ -493,14 +492,29 @@ impl CoreUser {
 
     pub async fn listen_handle(
         &self,
-        hash: UserHandleHash,
-        signing_key: &HandleSigningKey,
+        handle_record: &UserHandleRecord,
     ) -> Result<(
-        impl Stream<Item = Option<HandleQueueMessage>> + use<>,
+        impl Stream<Item = Option<HandleQueueMessage>> + Send + 'static,
         ListenHandleResponder,
     )> {
         let api_client = self.inner.api_clients.default_client()?;
-        Ok(api_client.as_listen_handle(hash, signing_key).await?)
+        match api_client
+            .as_listen_handle(handle_record.hash, &handle_record.signing_key)
+            .await
+        {
+            Ok(ok) => Ok(ok),
+            Err(error) => {
+                // We remove the user handle locally if it is not found
+                if error.is_not_found() {
+                    warn!(
+                        "User handle {} not found on the server, removing locally",
+                        &handle_record.handle.plaintext()
+                    );
+                    let _ = self.remove_user_handle_locally(&handle_record.handle).await;
+                }
+                Err(error.into())
+            }
+        }
     }
 
     /// Mark all messages in the conversation with the given conversation id and
