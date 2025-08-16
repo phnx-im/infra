@@ -51,10 +51,16 @@ platform :android do
             "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
           }
         end
-  
-        # Configure the app with Flutter first to set up gradle
+     
+        # We build the app with Flutter first to set up gradle
         sh "flutter precache --android"
         sh "flutter pub get"
+        if upload_to_play_store
+          sh "flutter build appbundle --release"
+        else
+          # Faster build for only one architecture
+          sh "flutter build appbundle --target-platform android-arm64"
+        end
 
         gradle(
           task: "bundle",
