@@ -1,16 +1,16 @@
 plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id 'org.jetbrains.kotlin.plugin.serialization' version '2.1.0'
+    id("com.android.application")
+    id("kotlin-android")
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
-    id "dev.flutter.flutter-gradle-plugin"
-    id 'com.google.gms.google-services'
+    id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 dependencies {
-  implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3"
-  implementation platform('com.google.firebase:firebase-bom:33.6.0')
-  implementation 'com.google.firebase:firebase-messaging'
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 
 android {
@@ -19,12 +19,12 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
     defaultConfig {
@@ -34,7 +34,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 1
+        versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
@@ -42,7 +42,7 @@ android {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
