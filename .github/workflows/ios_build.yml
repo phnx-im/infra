@@ -53,9 +53,10 @@ jobs:
           name: golden-failures
           path: app/test/**/failures/*
 
-      - name: Switch Xcode version
-        run: |
-          sudo xcode-select --switch /Applications/Xcode_16.4.app
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Detect if PR is from a fork
         id: detect_fork
