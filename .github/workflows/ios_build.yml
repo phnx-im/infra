@@ -53,6 +53,12 @@ jobs:
           name: golden-failures
           path: app/test/**/failures/*
 
+      - name: Install iOS platform
+        run: |
+          sudo xcodebuild -runFirstLaunch
+          sudo xcodebuild -checkForNewerComponents
+          sudo xcodebuild -downloadPlatform iOS
+
       - name: Detect if PR is from a fork
         id: detect_fork
         shell: bash
