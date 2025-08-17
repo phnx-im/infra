@@ -80,25 +80,6 @@ class LocalFileComparatorWithThreshold extends LocalFileComparator {
   }
 }
 
-/// Run `test` with a specific threshold for golden file comparisons.
-Future<void> withThreshold(double threshold, AsyncCallback test) async {
-  assert(goldenFileComparator is LocalFileComparator);
-  final prevComparator = goldenFileComparator;
-  final testUrl = (goldenFileComparator as LocalFileComparator).basedir;
-  goldenFileComparator = LocalFileComparatorWithThreshold(
-    // only the base dir is used from this URI, so pass a dummy file name
-    Uri.parse('$testUrl/test.dart'),
-    threshold,
-  );
-  try {
-    await test();
-  } catch (e) {
-    rethrow;
-  } finally {
-    goldenFileComparator = prevComparator;
-  }
-}
-
 String platformGolden(String baseName) {
   if (Platform.isMacOS) return '$baseName.macos.png';
   if (Platform.isWindows) return '$baseName.windows.png';
