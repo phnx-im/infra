@@ -9,6 +9,9 @@ import 'package:prototype/ui/colors/themes.dart';
 import 'package:prototype/ui/theme/font.dart';
 import 'package:prototype/ui/typography/font_size.dart';
 
+ThemeData darkTheme = themeData(Brightness.dark, darkCustomColorScheme);
+ThemeData lightTheme = themeData(Brightness.light, lightCustomColorScheme);
+
 ThemeData themeData(
   Brightness brightness,
   CustomColorScheme colorScheme,
@@ -25,7 +28,7 @@ ThemeData themeData(
     onError: colorScheme.text.primary,
   ),
   appBarTheme: AppBarTheme(
-    color: colorScheme.backgroundBase.primary,
+    backgroundColor: colorScheme.backgroundBase.primary,
     elevation: 0,
     iconTheme: IconThemeData(color: colorScheme.text.primary),
     toolbarHeight: isPointer() ? 100 : null,
