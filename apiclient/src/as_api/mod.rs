@@ -17,7 +17,7 @@ use phnxcommon::{
         client_as::ConnectionOfferMessage,
         client_as_out::{
             AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
-            RegisterUserResponseIn,
+            RegisterUserResponseIn, UserHandleDeleteResponse,
         },
         connection_package::{ConnectionPackage, ConnectionPackageIn},
     },
@@ -391,13 +391,19 @@ impl ApiClient {
         &self,
         hash: UserHandleHash,
         signing_key: &HandleSigningKey,
-    ) -> Result<(), AsRequestError> {
+    ) -> Result<UserHandleDeleteResponse, AsRequestError> {
         let payload = DeleteHandlePayload {
             hash: Some(hash.into()),
         };
         let request = payload.sign(signing_key)?;
-        self.as_grpc_client.client().delete_handle(request).await?;
-        Ok(())
+        let res = self.as_grpc_client.client().delete_handle(request).await;
+        match res {
+            Ok(_) => Ok(UserHandleDeleteResponse::Success),
+            Err(status) => match status.code() {
+                tonic::Code::NotFound => Ok(UserHandleDeleteResponse::NotFound),
+                _ => Err(status.into()),
+            },
+        }
     }
 }
 
