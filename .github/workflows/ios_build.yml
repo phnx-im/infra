@@ -53,10 +53,9 @@ jobs:
           name: golden-failures
           path: app/test/**/failures/*
 
-      - name: Install iOS platform
+      - name: Switch Xcode version
         run: |
-          sudo xcodebuild -runFirstLaunch
-          sudo xcodebuild -downloadPlatform iOS
+          sudo xcode-select --switch /Applications/Xcode_16.4.app
 
       - name: Detect if PR is from a fork
         id: detect_fork
