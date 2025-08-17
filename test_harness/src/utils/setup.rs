@@ -391,10 +391,7 @@ impl TestBackend {
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
         info!("{user2_id:?} fetches and process AS handle messages");
-        let (mut stream, responder) = user2
-            .listen_handle(user2_handle_record.hash, &user2_handle_record.signing_key)
-            .await
-            .unwrap();
+        let (mut stream, responder) = user2.listen_handle(&user2_handle_record).await.unwrap();
         while let Some(Some(message)) = timeout(Duration::from_millis(500), stream.next())
             .await
             .unwrap()
