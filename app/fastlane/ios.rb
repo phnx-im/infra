@@ -73,12 +73,6 @@ platform :ios do
       # The following is false when "with_signing" is not provided in the option
       # and true otherwise
       skip_signing = !options[:with_signing]
-  
-      # Set XCode version
-      xcodes(
-        version: '16.2',
-        select_for_current_build_only: true,
-      )
     
       # Set up CI
       setup_ci()
