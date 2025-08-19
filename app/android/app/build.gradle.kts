@@ -57,7 +57,6 @@ android {
         }
         create("prod") {
             dimension = "environment"
-            // manifestPlaceholders["applicationName"] = "Prototype"
             isDefault = false
         }
     }
