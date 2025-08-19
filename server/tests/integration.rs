@@ -658,7 +658,7 @@ async fn client_persistence() {
 
     // `CoreUser::load` opened the client DB, and so it was re-created.
     fs::remove_file(client_db_path).unwrap();
-    fs::remove_file(db_path.join("phnx.db")).unwrap();
+    fs::remove_file(db_path.join("air.db")).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
