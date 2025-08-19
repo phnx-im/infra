@@ -5,7 +5,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/ui/typography/font_size.dart';
+import 'package:air/ui/typography/font_size.dart';
 
 bool get isCupertino => Platform.isIOS || Platform.isMacOS;
 

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::DEFAULT_PORT_GRPC;
 use chrono::Duration;
-use phnxcommon::DEFAULT_PORT_GRPC;
 use serde::Deserialize;
 
 /// Configuration for the server.

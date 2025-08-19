@@ -6,7 +6,7 @@
 	<string>development</string>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.im.phnx.prototype</string>
+		<string>group.ms.air</string>
 	</array>
 </dict>
 </plist>

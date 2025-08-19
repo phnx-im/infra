@@ -2,7 +2,7 @@ platform :android do
     desc "Build and release the app"
     lane :beta_android do |options|
       # Package name
-      package_name = "im.phnx.prototype"
+      package_name = "ms.air"
       track = "internal"
       gradle_propperties = {}
   

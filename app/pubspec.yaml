@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: prototype
-description: Prototype client.
+name: air
+description: Air client.
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `pub publish`. This is preferred for private packages.
@@ -35,7 +35,7 @@ dependencies:
   path_provider: ^2.1.1
   image_picker: ^1.0.7
   collection: any
-  phnxapplogic:
+  airapplogic:
     path: rust_builder
   permission_handler: ^12.0.0+1
   intl: ^0.20.2

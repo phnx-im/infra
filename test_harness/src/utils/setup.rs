@@ -8,19 +8,19 @@ use std::{
     time::Duration,
 };
 
+use aircommon::{
+    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
+    identifiers::{Fqdn, UserHandle, UserId},
+};
+use aircoreclient::{
+    ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
+};
+use airserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use anyhow::Context;
 use mimi_content::{
     MimiContent,
     content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
 };
-use phnxcommon::{
-    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
-    identifiers::{Fqdn, UserHandle, UserId},
-};
-use phnxcoreclient::{
-    ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
-};
-use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
 use tempfile::TempDir;

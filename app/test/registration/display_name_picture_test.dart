@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:prototype/registration/registration.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
+import 'package:air/registration/registration.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
 
 import '../mocks.dart';
 

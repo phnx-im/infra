@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/ui/colors/themes.dart';
+import 'package:air/core/core.dart';
+import 'package:air/ui/colors/themes.dart';
 
 import 'attachment_image_provider.dart';
 

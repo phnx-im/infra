@@ -13,7 +13,7 @@ platform :mac do
       key_content = ENV['APP_STORE_KEY_P8_BASE64']
       team_id = ENV['TEAM_ID']
       matchType = "appstore"
-      app_identifier = "im.phnx.prototype"
+      app_identifier = "ms.air"
     
       # Load the app store connect API key
       api_key = app_store_connect_api_key(

@@ -4,12 +4,7 @@
 
 use std::{collections::HashMap, ops::Deref};
 
-use anyhow::{Context, Result, anyhow, ensure};
-use openmls::{
-    group::GroupId,
-    prelude::{LeafNodeIndex, SignaturePublicKey},
-};
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredential, AsIntermediateCredentialBody, ClientCredential,
         VerifiableClientCredential,
@@ -19,6 +14,11 @@ use phnxcommon::{
         signatures::{private_keys::VerifyingKeyRef, signable::Verifiable},
     },
     identifiers::UserId,
+};
+use anyhow::{Context, Result, anyhow, ensure};
+use openmls::{
+    group::GroupId,
+    prelude::{LeafNodeIndex, SignaturePublicKey},
 };
 use sqlx::SqliteExecutor;
 

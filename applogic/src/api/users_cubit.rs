@@ -7,12 +7,12 @@ use std::{
     sync::Arc,
 };
 
-use flutter_rust_bridge::frb;
-use phnxcommon::identifiers::UserId;
-use phnxcoreclient::{
+use aircommon::identifiers::UserId;
+use aircoreclient::{
     DisplayName, UserProfile,
     store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
+use flutter_rust_bridge::frb;
 use tokio::sync::{mpsc, watch};
 use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};

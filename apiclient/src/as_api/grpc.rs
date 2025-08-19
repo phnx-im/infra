@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxprotos::auth_service::v1::auth_service_client::AuthServiceClient;
+use airprotos::auth_service::v1::auth_service_client::AuthServiceClient;
 use tonic::transport::Channel;
 
 #[derive(Debug, Clone)]

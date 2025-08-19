@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection, PgPool};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use phnxcommon::{
+use aircommon::{
     crypto::{
         RatchetEncryptionKey, RatchetKeyUpdate,
         ear::{EarDecryptable, keys::PushTokenEarKey},
@@ -91,7 +91,7 @@ impl QsClientRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxcommon::codec::{BlobDecoded, BlobEncoded};
+    use aircommon::codec::{BlobDecoded, BlobEncoded};
     use sqlx::{PgExecutor, query};
 
     use super::*;
@@ -227,7 +227,7 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use phnxcommon::crypto::ratchet::QueueRatchet;
+        use aircommon::crypto::ratchet::QueueRatchet;
         use sqlx::PgPool;
 
         use crate::qs::user_record::persistence::tests::store_random_user_record;

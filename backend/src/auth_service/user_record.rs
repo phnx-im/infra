@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{
+use aircommon::{
     crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::UserId,
     messages::client_as_out::EncryptedUserProfile,
 };
@@ -79,7 +79,7 @@ impl UserRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxcommon::{identifiers::UserId, messages::client_as_out::EncryptedUserProfile};
+    use aircommon::{identifiers::UserId, messages::client_as_out::EncryptedUserProfile};
     use sqlx::{PgExecutor, query, query_as};
 
     use crate::errors::StorageError;
@@ -181,7 +181,7 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use phnxcommon::messages::client_as_out::EncryptedUserProfile;
+        use aircommon::messages::client_as_out::EncryptedUserProfile;
         use sqlx::PgPool;
 
         use super::*;

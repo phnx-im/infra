@@ -11,7 +11,7 @@ use crate::{
     },
     user_profiles::generate::NewUserProfile,
 };
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },

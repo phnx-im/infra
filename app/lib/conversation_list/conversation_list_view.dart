@@ -4,9 +4,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/user/user.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
 
 import 'conversation_list_content.dart';
 import 'conversation_list_cubit.dart';

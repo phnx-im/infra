@@ -4,11 +4,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/theme/theme.dart';
 
 class IntroScreen extends StatelessWidget {
   const IntroScreen({super.key});

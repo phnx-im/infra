@@ -5,7 +5,7 @@
 use crate::errors::{QueueError, StorageError};
 
 use super::network_provider::NetworkProvider;
-use phnxcommon::crypto::errors::{DecryptionError, EncryptionError, KeyGenerationError};
+use aircommon::crypto::errors::{DecryptionError, EncryptionError, KeyGenerationError};
 use thiserror::Error;
 use tracing::error;
 

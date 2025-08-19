@@ -4,8 +4,8 @@
 
 use std::{collections::BTreeMap, mem, sync::Arc};
 
+use aircommon::identifiers::{AttachmentId, UserId};
 use enumset::{EnumSet, EnumSetType};
-use phnxcommon::identifiers::{AttachmentId, UserId};
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};
