@@ -1,1 +1,0 @@
-app/android/app/src/main/res/**/*.webp filter=lfs diff=lfs merge=lfs -text
