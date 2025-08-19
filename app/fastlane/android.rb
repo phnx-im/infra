@@ -39,7 +39,7 @@ platform :android do
   
           # Increment the build number in the gradle file
           increment_version_code(
-            gradle_file_path: "android/app/build.gradle",
+            gradle_file_path: "android/app/build.gradle.kts",
             version_code: current_build_number
           )
 
