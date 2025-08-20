@@ -1,5 +1,6 @@
 require 'xcodeproj'
 require 'plist'
+require 'yaml'
 
 platform :ios do
     desc "Build iOS app for TestFlight"
@@ -25,12 +26,16 @@ platform :ios do
         in_house: false
       )
     
+      # Read app version from pubspec.yaml
+      pubspec = YAML.load_file("../pubspec.yaml")
+      app_version = (pubspec['version'] || '').to_s.split('+').first
+
       # Determine build number
       build_number = if options[:build_number]
                       options[:build_number].to_i
                     else
                       latest_testflight_build_number(
-                        version: "1.0.0",
+                        version: app_version,
                         api_key: api_key,
                         app_identifier: app_identifier
                       ) + 1
@@ -61,7 +66,8 @@ platform :ios do
       # Upload the app to TestFlight if the parameter is set
       if options[:upload_to_test_flight]
         upload_to_testflight(
-          api_key: api_key, 
+          api_key: api_key,
+          app_platform: "ios",
           skip_waiting_for_build_processing: true,
           distribute_external: false,
         )
