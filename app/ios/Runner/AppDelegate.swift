@@ -85,7 +85,16 @@ import UIKit
     if call.method == "getDeviceToken" {
       self.getDeviceToken(result: result)
     } else if call.method == "getDatabasesDirectory" {
-      self.getSharedDocumentsDirectory(result: result)
+      if let path = self.getDatabasesDirectoryPath() {
+        result(path)
+      } else {
+        result(
+          FlutterError(
+            code: "DIRECTORY_ERROR",
+            message: "Failed to get databases directory path",
+            details: nil
+          ))
+      }
     } else if call.method == "setBadgeCount" {
       if let args = call.arguments as? [String: Any], let count = args["count"] as? Int {
         self.setBadgeCount(count, result: result)
@@ -149,29 +158,47 @@ import UIKit
     }
   }
 
-  // Get the shared documents path
-  private func getSharedDocumentsDirectory(result: FlutterResult) {
-    if let containerURL = FileManager.default.containerURL(
-      forSecurityApplicationGroupIdentifier: "group.ms.air")
-    {
-      let documentsURL = containerURL.appendingPathComponent("Documents")
-      // Create the "Documents" directory if it doesn't exist
-      let fileManager = FileManager.default
-      if !fileManager.fileExists(atPath: documentsURL.path) {
-        do {
-          try fileManager.createDirectory(
-            at: documentsURL, withIntermediateDirectories: true, attributes: nil)
-        } catch {
-          print("Failed to create Documents directory: \(error)")
-        }
-      }
-      result(documentsURL.path)
-    } else {
-      result(
-        FlutterError(
-          code: "UNAVAILABLE",
-          message: "App group container not found",
-          details: nil))
+  // Apply file protection
+  private func applyProtection(_ url: URL) {
+    let path = url.path
+    try? FileManager.default.setAttributes(
+      [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+      ofItemAtPath: path
+    )
+  }
+
+  // Get a databases directory path that is NOT backed up to iCloud
+  private func getDatabasesDirectoryPath() -> String? {
+    // Use the App Group container so extensions can also access it
+    guard
+      let containerURL = FileManager.default.containerURL(
+        forSecurityApplicationGroupIdentifier: "group.ms.air"
+      )
+    else {
+      return nil
+    }
+
+    // Prefer Library/Application Support for persistent, non-user‑visible data
+    let dbsURL =
+      containerURL
+      .appendingPathComponent("Library", isDirectory: true)
+      .appendingPathComponent("Application Support", isDirectory: true)
+      .appendingPathComponent("Databases", isDirectory: true)
+
+    do {
+      try FileManager.default.createDirectory(at: dbsURL, withIntermediateDirectories: true)
+      // exclude from backups
+      var vals = URLResourceValues()
+      vals.isExcludedFromBackup = true
+      var u = dbsURL
+      try? u.setResourceValues(vals)
+
+      // enforce protection class
+      applyProtection(dbsURL)
+
+      return dbsURL.path
+    } catch {
+      return nil
     }
   }
 

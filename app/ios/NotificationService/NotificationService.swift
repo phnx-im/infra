@@ -58,16 +58,11 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    // Find the documents directory path for the databases
-    guard
-      let containerURL = FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: "group.ms.air")
-    else {
-      NSLog("NSE Could not find documents directory")
+    guard let path = getDatabasesDirectoryPath() else {
+      NSLog("NSE Could not find databases directory")
       contentHandler(request.content)
       return
     }
-    let path = containerURL.appendingPathComponent("Documents").path
 
     guard
       let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
@@ -174,6 +169,50 @@ class NotificationService: UNNotificationServiceExtension {
       DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
         contentHandler(content)
       }
+    }
+  }
+
+  // Apply file protection
+  private func applyProtection(_ url: URL) {
+    let path = url.path
+    try? FileManager.default.setAttributes(
+      [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+      ofItemAtPath: path
+    )
+  }
+
+  // Get a databases directory path that is NOT backed up to iCloud
+  private func getDatabasesDirectoryPath() -> String? {
+    // Use the App Group container so extensions can also access it
+    guard
+      let containerURL = FileManager.default.containerURL(
+        forSecurityApplicationGroupIdentifier: "group.ms.air"
+      )
+    else {
+      return nil
+    }
+
+    // Prefer Library/Application Support for persistent, non-user‑visible data
+    let dbsURL =
+      containerURL
+      .appendingPathComponent("Library", isDirectory: true)
+      .appendingPathComponent("Application Support", isDirectory: true)
+      .appendingPathComponent("Databases", isDirectory: true)
+
+    do {
+      try FileManager.default.createDirectory(at: dbsURL, withIntermediateDirectories: true)
+      // exclude from backups
+      var vals = URLResourceValues()
+      vals.isExcludedFromBackup = true
+      var u = dbsURL
+      try? u.setResourceValues(vals)
+
+      // enforce protection class
+      applyProtection(dbsURL)
+
+      return dbsURL.path
+    } catch {
+      return nil
     }
   }
 }
