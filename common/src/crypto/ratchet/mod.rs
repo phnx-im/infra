@@ -124,7 +124,7 @@ impl<CT, Payload: RatchetPayload<CT>> QueueRatchet<CT, Payload> {
 mod sqlite {
     use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 
-    use crate::codec::PhnxCodec;
+    use crate::codec::AirCodec;
 
     use super::*;
 
@@ -148,9 +148,9 @@ mod sqlite {
             &self,
             buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
         ) -> Result<IsNull, BoxDynError> {
-            let ratchet_bytes = PhnxCodec::to_vec(self)?;
+            let ratchet_bytes = AirCodec::to_vec(self)?;
             let versioned_ratchet_bytes =
-                PhnxCodec::to_vec(&VersionedQueueRatchet::CurrentVersion(ratchet_bytes))?;
+                AirCodec::to_vec(&VersionedQueueRatchet::CurrentVersion(ratchet_bytes))?;
             Encode::<Sqlite>::encode(versioned_ratchet_bytes, buf)
         }
     }
@@ -158,9 +158,8 @@ mod sqlite {
     impl<CT, Payload: RatchetPayload<CT>> Decode<'_, Sqlite> for QueueRatchet<CT, Payload> {
         fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
             let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-            let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) =
-                PhnxCodec::from_slice(bytes)?;
-            let ratchet = PhnxCodec::from_slice(&ratchet_bytes)?;
+            let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) = AirCodec::from_slice(bytes)?;
+            let ratchet = AirCodec::from_slice(&ratchet_bytes)?;
             Ok(ratchet)
         }
     }
@@ -169,7 +168,7 @@ mod sqlite {
 #[cfg(test)]
 mod test {
     use crate::{
-        codec::PhnxCodec,
+        codec::AirCodec,
         crypto::secrets::Secret,
         messages::{EncryptedQsQueueMessageCtype, client_ds::QsQueueMessagePayload},
     };
@@ -185,7 +184,7 @@ mod test {
 
     #[test]
     fn test_queue_ratchet_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&queue_ratchet()).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&queue_ratchet()).unwrap());
     }
 
     #[test]

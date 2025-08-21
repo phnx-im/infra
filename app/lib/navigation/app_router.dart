@@ -6,14 +6,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/developer/developer.dart';
-import 'package:prototype/home_screen.dart';
-import 'package:prototype/intro_screen.dart';
-import 'package:prototype/registration/registration.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/developer/developer.dart';
+import 'package:air/home_screen.dart';
+import 'package:air/intro_screen.dart';
+import 'package:air/registration/registration.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/user/user.dart';
+import 'package:air/core/core.dart';
 
 import 'navigation_cubit.dart';
 

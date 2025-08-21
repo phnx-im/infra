@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "phnxbackend"
+name = "airbackend"
 version = "0.1.0"
 authors = ["Phoenix R&D <hello@phnx.im>"]
 edition = "2024"
@@ -12,8 +12,8 @@ publish = false
 description = "Implements the local and the federation part of the protocol logic on the server side"
 
 [dependencies]
-phnxcommon = { workspace = true }
-phnxprotos = { workspace = true }
+aircommon = { workspace = true }
+airprotos = { workspace = true }
 
 thiserror = { workspace = true }
 serde = { version = "1", features = ["derive"] }
@@ -47,7 +47,7 @@ aws-config = { version = "1.8.0", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-phnxcommon = { path = "../common", features = ["test_utils"] }
+aircommon = { path = "../common", features = ["test_utils"] }
 anyhow = "1.0.97"
 insta = { workspace = true }
 serde_json = "1.0.140"
@@ -55,4 +55,4 @@ mockall = "0.13.1"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]
-test_utils = ["phnxcommon/test_utils"]
+test_utils = ["aircommon/test_utils"]

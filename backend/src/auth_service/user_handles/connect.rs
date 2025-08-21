@@ -2,13 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use displaydoc::Display;
-use futures_util::Stream;
-use phnxcommon::{
+use aircommon::{
     identifiers::UserHandleHash, messages::connection_package::ConnectionPackage,
     time::ExpirationData,
 };
-use phnxprotos::{
+use airprotos::{
     auth_service::{
         convert::UserHandleHashError,
         v1::{
@@ -19,6 +17,8 @@ use phnxprotos::{
     },
     validation::{MissingFieldError, MissingFieldExt},
 };
+use displaydoc::Display;
+use futures_util::Stream;
 use sqlx::PgPool;
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -254,15 +254,15 @@ impl AuthService {
 mod tests {
     use std::time;
 
-    use mockall::predicate::*;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::{HandleSigningKey, HandleVerifyingKey},
         time::Duration,
     };
-    use phnxprotos::auth_service::v1::{
+    use airprotos::auth_service::v1::{
         self, ConnectionOfferMessage, EnqueueConnectionOfferResponse, EnqueueConnectionOfferStep,
         FetchConnectionPackageStep,
     };
+    use mockall::predicate::*;
     use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
 

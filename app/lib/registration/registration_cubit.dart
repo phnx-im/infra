@@ -5,7 +5,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 
 part 'registration_cubit.freezed.dart';
 

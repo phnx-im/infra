@@ -4,10 +4,10 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use aircommon::identifiers::UserHandleHash;
+use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 use displaydoc::Display;
 use futures_util::stream;
-use phnxcommon::identifiers::UserHandleHash;
-use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 use sqlx::{PgPool, postgres::PgListener};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -352,11 +352,11 @@ mod persistence {
 mod test {
     use std::{pin::pin, time};
 
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::HandleVerifyingKey,
         time::{Duration, ExpirationData},
     };
-    use phnxprotos::{
+    use airprotos::{
         auth_service::v1::{ConnectionOfferMessage, Hash, handle_queue_message::Payload},
         common::v1::HpkeCiphertext,
     };

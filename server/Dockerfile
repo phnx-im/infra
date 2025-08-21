@@ -18,7 +18,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 ENV SQLX_OFFLINE=true
 
-RUN cargo build --release --bin phnxserver
+RUN cargo build --release --bin airserver
 
 FROM debian:bookworm-slim AS runtime
 
@@ -29,10 +29,10 @@ RUN apt-get update -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/phnxserver phnxserver
+COPY --from=builder /app/target/release/airserver airserver
 
 COPY server/configuration server/configuration
 
 ENV APP_ENVIRONMENT=production
 
-ENTRYPOINT ["./phnxserver"]
+ENTRYPOINT ["./airserver"]

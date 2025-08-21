@@ -4,12 +4,12 @@
 
 use std::ops::Deref;
 
-use mls_assist::openmls::prelude::SignatureScheme;
-use phnxcommon::{
+use aircommon::{
     credentials::{AsCredential, AsCredentialBody, keys::AsSigningKey},
     crypto::hash::Hash,
     identifiers::Fqdn,
 };
+use mls_assist::openmls::prelude::SignatureScheme;
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection, PgExecutor};
 
@@ -67,7 +67,7 @@ impl StorableSigningKey {
 }
 
 mod persistence {
-    use phnxcommon::codec::{BlobDecoded, BlobEncoded};
+    use aircommon::codec::{BlobDecoded, BlobEncoded};
     use sqlx::query_scalar;
 
     use crate::{auth_service::credentials::CredentialType, errors::StorageError};
@@ -152,7 +152,7 @@ mod persistence {
     mod tests {
         use std::collections::HashSet;
 
-        use phnxcommon::time::{Duration, ExpirationData};
+        use aircommon::time::{Duration, ExpirationData};
         use sqlx::PgPool;
 
         use super::*;

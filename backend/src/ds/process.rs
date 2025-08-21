@@ -155,14 +155,14 @@ use mls_assist::{
 use tls_codec::{TlsSerialize, TlsSize};
 use uuid::Uuid;
 
-use phnxcommon::{
-    codec::PhnxCodec, crypto::ear::keys::EncryptedUserProfileKey, identifiers::QualifiedGroupId,
+use aircommon::{
+    codec::AirCodec, crypto::ear::keys::EncryptedUserProfileKey, identifiers::QualifiedGroupId,
 };
 
 use super::Ds;
 
 pub const USER_EXPIRATION_DAYS: i64 = 90;
-pub(super) type Provider = MlsAssistRustCrypto<PhnxCodec>;
+pub(super) type Provider = MlsAssistRustCrypto<AirCodec>;
 
 impl Ds {
     pub(crate) async fn request_group_id(&self) -> QualifiedGroupId {

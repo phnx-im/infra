@@ -6,10 +6,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/markdown.dart';
-import 'package:prototype/ui/colors/palette.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
+import 'package:air/core/api/markdown.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
 
 Widget buildBlockElement(
   BuildContext context,

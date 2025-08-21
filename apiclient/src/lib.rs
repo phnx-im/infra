@@ -6,13 +6,13 @@
 
 use std::time::Duration;
 
-use as_api::grpc::AsGrpcClient;
-use ds_api::grpc::DsGrpcClient;
-use phnxprotos::{
+use airprotos::{
     auth_service::v1::auth_service_client::AuthServiceClient,
     delivery_service::v1::delivery_service_client::DeliveryServiceClient,
     queue_service::v1::queue_service_client::QueueServiceClient,
 };
+use as_api::grpc::AsGrpcClient;
+use ds_api::grpc::DsGrpcClient;
 use qs_api::grpc::QsGrpcClient;
 use thiserror::Error;
 use tonic::transport::ClientTlsConfig;

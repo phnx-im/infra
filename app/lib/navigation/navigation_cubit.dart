@@ -5,12 +5,11 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 
-export 'package:prototype/core/core.dart'
+export 'package:air/core/core.dart'
     show NavigationState, IntroScreenType, DeveloperSettingsScreenType;
-export 'package:prototype/core/core_extension.dart'
-    show NavigationStateExtension;
+export 'package:air/core/core_extension.dart' show NavigationStateExtension;
 
 class NavigationCubit implements StateStreamableSource<NavigationState> {
   NavigationCubit()

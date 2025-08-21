@@ -64,14 +64,14 @@ pub type ConnectionDecryptionKey = DecryptionKey<ConnectionKeyType>;
 
 #[cfg(test)]
 mod test {
-    use crate::codec::PhnxCodec;
+    use crate::codec::AirCodec;
 
     use super::*;
 
     #[test]
     fn encryption_key_serde_codec() {
         let key = RatchetEncryptionKey::new_for_test(vec![1, 2, 3]);
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&key).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&key).unwrap());
     }
 
     #[test]

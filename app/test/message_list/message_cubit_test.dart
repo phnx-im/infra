@@ -4,7 +4,7 @@
 
 import 'dart:typed_data';
 
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 import 'package:test/test.dart';
 
 import '../conversation_list/conversation_list_content_test.dart';

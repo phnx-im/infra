@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::Utc;
-use phnxcommon::{
+use aircommon::{
     crypto::{
         ear::keys::WelcomeAttributionInfoEarKey, indexed_aead::keys::UserProfileKeyIndex,
         kdf::keys::ConnectionKey,
@@ -11,6 +10,7 @@ use phnxcommon::{
     identifiers::{Fqdn, UserHandle, UserId},
     messages::FriendshipToken,
 };
+use chrono::Utc;
 use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
@@ -245,7 +245,7 @@ impl HandleContact {
 
 #[cfg(test)]
 mod tests {
-    use phnxcommon::{
+    use aircommon::{
         crypto::{
             ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
             indexed_aead::keys::UserProfileKey,

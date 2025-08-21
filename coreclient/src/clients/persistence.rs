@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::{DateTime, Utc};
-use phnxcommon::{
-    codec::PhnxCodec,
+use aircommon::{
+    codec::AirCodec,
     identifiers::{Fqdn, UserId},
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
@@ -14,7 +14,7 @@ use sqlx::{
 };
 use uuid::Uuid;
 
-use crate::utils::persistence::open_phnx_db;
+use crate::utils::persistence::open_air_db;
 
 use super::store::{ClientRecord, ClientRecordState, UserCreationState};
 
@@ -45,7 +45,7 @@ impl<'q> Encode<'q, Sqlite> for UserCreationState {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let state = StorableUserCreationStateRef::CurrentVersion(self);
-        let bytes = PhnxCodec::to_vec(&state)?;
+        let bytes = AirCodec::to_vec(&state)?;
         Encode::<Sqlite>::encode(bytes, buf)
     }
 }
@@ -53,7 +53,7 @@ impl<'q> Encode<'q, Sqlite> for UserCreationState {
 impl<'r> Decode<'r, Sqlite> for UserCreationState {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        let state = PhnxCodec::from_slice(bytes)?;
+        let state = AirCodec::from_slice(bytes)?;
         match state {
             StorableUserCreationState::CurrentVersion(state) => Ok(state),
         }
@@ -147,8 +147,8 @@ impl From<SqlClientRecord> for ClientRecord {
 }
 
 impl ClientRecord {
-    pub async fn load_all_from_phnx_db(phnx_db_path: &str) -> sqlx::Result<Vec<Self>> {
-        let pool = open_phnx_db(phnx_db_path).await?;
+    pub async fn load_all_from_air_db(air_db_path: &str) -> sqlx::Result<Vec<Self>> {
+        let pool = open_air_db(air_db_path).await?;
         Self::load_all(&pool).await
     }
 
@@ -251,8 +251,8 @@ impl ClientRecord {
 mod tests {
     use std::sync::LazyLock;
 
+    use aircommon::messages::push_token::{PushToken, PushTokenOperator};
     use chrono::{DateTime, Utc};
-    use phnxcommon::messages::push_token::{PushToken, PushTokenOperator};
     use sqlx::SqlitePool;
     use uuid::Uuid;
 
@@ -324,7 +324,7 @@ mod tests {
     fn user_creation_state_basic_serde_codec() {
         insta::assert_binary_snapshot!(
             ".cbor",
-            PhnxCodec::to_vec(&*USER_CREATION_STATE_BASIC).unwrap()
+            AirCodec::to_vec(&*USER_CREATION_STATE_BASIC).unwrap()
         );
     }
 
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn client_record_serde_codec() {
         let record = new_client_record(Uuid::from_u128(1), "2025-01-01T00:00:00Z".parse().unwrap());
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&record).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&record).unwrap());
     }
 
     #[test]

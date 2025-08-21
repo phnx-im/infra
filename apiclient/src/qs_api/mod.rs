@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::openmls::prelude::KeyPackage;
-use phnxcommon::{
+use aircommon::{
     crypto::{
         RatchetEncryptionKey,
         kdf::keys::RatchetSecret,
@@ -19,8 +18,8 @@ use phnxcommon::{
         push_token::EncryptedPushToken,
     },
 };
-use phnxprotos::queue_service::v1::QueueEvent;
-use phnxprotos::{
+use airprotos::queue_service::v1::QueueEvent;
+use airprotos::{
     queue_service::v1::{
         CreateClientRequest, CreateUserRequest, DeleteClientRequest, DeleteUserRequest,
         DequeueMessagesRequest, KeyPackageRequest, ListenRequest, PublishKeyPackagesRequest,
@@ -28,6 +27,7 @@ use phnxprotos::{
     },
     validation::{MissingFieldError, MissingFieldExt},
 };
+use mls_assist::openmls::prelude::KeyPackage;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
 use tracing::error;

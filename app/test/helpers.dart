@@ -6,7 +6,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 import 'package:uuid/uuid.dart';
 
 extension IntTestExtension on int {

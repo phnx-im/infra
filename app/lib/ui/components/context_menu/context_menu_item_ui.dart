@@ -4,9 +4,9 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:prototype/theme/spacings.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
+import 'package:air/theme/spacings.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
 
 class ContextMenuItem extends StatelessWidget {
   const ContextMenuItem({

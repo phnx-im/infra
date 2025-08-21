@@ -5,6 +5,7 @@
 use super::group_state::DsGroupState;
 use super::process::USER_EXPIRATION_DAYS;
 use crate::errors::ClientSelfRemovalError;
+use aircommon::{credentials::VerifiableClientCredential, time::Duration};
 use mimi_room_policy::RoleIndex;
 use mls_assist::{
     group::ProcessedAssistedMessage,
@@ -12,7 +13,6 @@ use mls_assist::{
     openmls::prelude::{ProcessedMessageContent, Proposal, Sender},
     provider_traits::MlsAssistProvider,
 };
-use phnxcommon::{credentials::VerifiableClientCredential, time::Duration};
 
 impl DsGroupState {
     pub(crate) fn self_remove_client(

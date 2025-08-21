@@ -75,6 +75,257 @@ dependencies = [
 ]
 
 [[package]]
+name = "airapiclient"
+version = "0.1.0"
+dependencies = [
+ "aircommon",
+ "airprotos",
+ "futures-util",
+ "mimi-room-policy",
+ "mls-assist",
+ "thiserror 2.0.12",
+ "tls_codec",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "airapplogic"
+version = "0.1.0"
+dependencies = [
+ "aircommon",
+ "aircoreclient",
+ "anyhow",
+ "blake3",
+ "bytes",
+ "chrono",
+ "derive_more 0.99.20",
+ "flate2",
+ "flutter_rust_bridge",
+ "jni",
+ "memmap2",
+ "mimi-room-policy",
+ "mimi_content",
+ "notify-rust",
+ "openmls",
+ "parking_lot",
+ "pulldown-cmark",
+ "quickcheck",
+ "quickcheck_macros",
+ "regex",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.12",
+ "tls_codec",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "airbackend"
+version = "0.1.0"
+dependencies = [
+ "aircommon",
+ "airprotos",
+ "anyhow",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-s3",
+ "base64 0.22.1",
+ "chrono",
+ "displaydoc",
+ "futures-util",
+ "insta",
+ "mimi-room-policy",
+ "mls-assist",
+ "mockall",
+ "privacypass",
+ "prost",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "thiserror 2.0.12",
+ "tls_codec",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tonic",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "aircommon"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "argon2",
+ "chrono",
+ "ciborium",
+ "criterion 0.6.0",
+ "displaydoc",
+ "ed25519",
+ "hex",
+ "hkdf",
+ "insta",
+ "mimi-room-policy",
+ "mimi_content",
+ "mls-assist",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "thiserror 2.0.12",
+ "tls_codec",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "aircoreclient"
+version = "0.1.0"
+dependencies = [
+ "airapiclient",
+ "airbackend",
+ "aircommon",
+ "airprotos",
+ "airserver_test_harness",
+ "anyhow",
+ "blurhash",
+ "chrono",
+ "derive_more 0.99.20",
+ "enumset",
+ "image",
+ "infer",
+ "insta",
+ "kamadak-exif",
+ "mimi-room-policy",
+ "mimi_content",
+ "mls-assist",
+ "openmls",
+ "openmls_rust_crypto",
+ "openmls_traits",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "thiserror 2.0.12",
+ "tls_codec",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "trait-variant",
+ "url",
+ "uuid",
+ "webp",
+]
+
+[[package]]
+name = "airprotos"
+version = "0.1.0"
+dependencies = [
+ "aircommon",
+ "chrono",
+ "derive_more 0.99.20",
+ "displaydoc",
+ "mimi-room-policy",
+ "mls-assist",
+ "openmls",
+ "prost",
+ "protoc-bin-vendored",
+ "thiserror 2.0.12",
+ "tls_codec",
+ "tonic",
+ "tonic-build",
+ "uuid",
+]
+
+[[package]]
+name = "airserver"
+version = "0.1.0"
+dependencies = [
+ "airapiclient",
+ "airbackend",
+ "aircommon",
+ "aircoreclient",
+ "airprotos",
+ "airserver_test_harness",
+ "anyhow",
+ "base64 0.21.7",
+ "config",
+ "criterion 0.5.1",
+ "hex",
+ "image",
+ "jsonwebtoken",
+ "mimi_content",
+ "once_cell",
+ "png",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.12",
+ "tls_codec",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-health",
+ "tower-http",
+ "tower_governor",
+ "tracing",
+ "tracing-bunyan-formatter",
+ "tracing-futures",
+ "tracing-log 0.2.0",
+ "tracing-subscriber",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
+name = "airserver_test_harness"
+version = "0.1.0"
+dependencies = [
+ "airbackend",
+ "aircommon",
+ "aircoreclient",
+ "airserver",
+ "anyhow",
+ "mimi_content",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "aligned-vec"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3842,257 +4093,6 @@ checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
 dependencies = [
  "fixedbitset",
  "indexmap",
-]
-
-[[package]]
-name = "phnxapiclient"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "mimi-room-policy",
- "mls-assist",
- "phnxcommon",
- "phnxprotos",
- "thiserror 2.0.12",
- "tls_codec",
- "tokio",
- "tokio-stream",
- "tonic",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "phnxapplogic"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "blake3",
- "bytes",
- "chrono",
- "derive_more 0.99.20",
- "flate2",
- "flutter_rust_bridge",
- "jni",
- "memmap2",
- "mimi-room-policy",
- "mimi_content",
- "notify-rust",
- "openmls",
- "parking_lot",
- "phnxcommon",
- "phnxcoreclient",
- "pulldown-cmark",
- "quickcheck",
- "quickcheck_macros",
- "regex",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror 2.0.12",
- "tls_codec",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "phnxbackend"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "aws-config",
- "aws-sdk-s3",
- "base64 0.22.1",
- "chrono",
- "displaydoc",
- "futures-util",
- "insta",
- "mimi-room-policy",
- "mls-assist",
- "mockall",
- "phnxcommon",
- "phnxprotos",
- "privacypass",
- "prost",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "thiserror 2.0.12",
- "tls_codec",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tonic",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
-name = "phnxcommon"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "argon2",
- "chrono",
- "ciborium",
- "criterion 0.6.0",
- "displaydoc",
- "ed25519",
- "hex",
- "hkdf",
- "insta",
- "mimi-room-policy",
- "mimi_content",
- "mls-assist",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "secrecy",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "thiserror 2.0.12",
- "tls_codec",
- "tokio",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "phnxcoreclient"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "blurhash",
- "chrono",
- "derive_more 0.99.20",
- "enumset",
- "image",
- "infer",
- "insta",
- "kamadak-exif",
- "mimi-room-policy",
- "mimi_content",
- "mls-assist",
- "openmls",
- "openmls_rust_crypto",
- "openmls_traits",
- "phnxapiclient",
- "phnxbackend",
- "phnxcommon",
- "phnxprotos",
- "phnxserver_test_harness",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "thiserror 2.0.12",
- "tls_codec",
- "tokio",
- "tokio-stream",
- "tracing",
- "trait-variant",
- "url",
- "uuid",
- "webp",
-]
-
-[[package]]
-name = "phnxprotos"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "derive_more 0.99.20",
- "displaydoc",
- "mimi-room-policy",
- "mls-assist",
- "openmls",
- "phnxcommon",
- "prost",
- "protoc-bin-vendored",
- "thiserror 2.0.12",
- "tls_codec",
- "tonic",
- "tonic-build",
- "uuid",
-]
-
-[[package]]
-name = "phnxserver"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.21.7",
- "config",
- "criterion 0.5.1",
- "hex",
- "image",
- "jsonwebtoken",
- "mimi_content",
- "once_cell",
- "phnxapiclient",
- "phnxbackend",
- "phnxcommon",
- "phnxcoreclient",
- "phnxprotos",
- "phnxserver_test_harness",
- "png",
- "rand 0.8.5",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.12",
- "tls_codec",
- "tokio",
- "tokio-stream",
- "tonic",
- "tonic-health",
- "tower-http",
- "tower_governor",
- "tracing",
- "tracing-bunyan-formatter",
- "tracing-futures",
- "tracing-log 0.2.0",
- "tracing-subscriber",
- "uuid",
- "zeroize",
-]
-
-[[package]]
-name = "phnxserver_test_harness"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "mimi_content",
- "phnxbackend",
- "phnxcommon",
- "phnxcoreclient",
- "phnxserver",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "tempfile",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package im.phnx.prototype
+package ms.air
 
 import android.Manifest
 import android.app.Notification
@@ -61,7 +61,7 @@ class NativeLib {
     companion object {
         // Load the shared library
         init {
-            System.loadLibrary("phnxapplogic")
+            System.loadLibrary("airapplogic")
         }
 
         // Declare the native method
@@ -105,8 +105,8 @@ class Notifications {
         const val SELECT_NOTIFICATION: String = "SELECT_NOTIFICATION"
 
         /// Key for storing the conversation id in the Intent extras field
-        const val EXTRAS_NOTIFICATION_ID_KEY: String = "im.phnx.prototype/notification_id"
-        const val EXTRAS_CONVERSATION_ID_KEY: String = "im.phnx.prototype/conversation_id"
+        const val EXTRAS_NOTIFICATION_ID_KEY: String = "ms.air/notification_id"
+        const val EXTRAS_CONVERSATION_ID_KEY: String = "ms.air/conversation_id"
 
 
         fun showNotification(context: Context, content: NotificationContent) {

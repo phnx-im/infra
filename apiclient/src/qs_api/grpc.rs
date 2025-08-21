@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxprotos::queue_service::v1::queue_service_client::QueueServiceClient;
+use airprotos::queue_service::v1::queue_service_client::QueueServiceClient;
 use tonic::transport::Channel;
 
 #[derive(Debug, Clone)]

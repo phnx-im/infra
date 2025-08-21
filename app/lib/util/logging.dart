@@ -4,7 +4,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 
 /// Initializes Dart and Rust logging
 ///

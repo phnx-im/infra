@@ -1,6 +1,6 @@
 ---
 source: backend/src/ds/group_state/mod.rs
-expression: "PhnxCodec::to_vec(&*DELETED_QUEUES).unwrap()"
+expression: "AirCodec::to_vec(&state).unwrap()"
 extension: cbor
 snapshot_kind: binary
 ---

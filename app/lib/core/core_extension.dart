@@ -4,8 +4,8 @@
 
 import 'dart:typed_data';
 
-import 'package:prototype/core/core.dart';
-import 'package:prototype/util/platform.dart';
+import 'package:air/core/core.dart';
+import 'package:air/util/platform.dart';
 import 'package:uuid/uuid.dart';
 
 extension UiConversationDetailsExtension on UiConversationDetails {

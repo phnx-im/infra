@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/showcase/context_menu.dart';
-import 'package:prototype/ui/showcase/grid.dart';
-import 'package:prototype/ui/showcase/palette.dart';
-import 'package:prototype/ui/showcase/typescale.dart';
-import 'package:prototype/ui/theme/font.dart';
-import 'package:prototype/ui/theme/scale.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/showcase/context_menu.dart';
+import 'package:air/ui/showcase/grid.dart';
+import 'package:air/ui/showcase/palette.dart';
+import 'package:air/ui/showcase/typescale.dart';
+import 'package:air/ui/theme/font.dart';
+import 'package:air/ui/theme/scale.dart';
 
 void main() => runApp(const ShowcaseApp());
 

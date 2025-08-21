@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::{identifiers::AttachmentId, time::ExpirationData};
+use airprotos::delivery_service::v1::{
+    GetAttachmentUrlResponse, HeaderEntry, ProvisionAttachmentPayload, ProvisionAttachmentResponse,
+};
 use aws_sdk_s3::{
     config::http,
     error::{BuildError, SdkError},
@@ -10,10 +14,6 @@ use aws_sdk_s3::{
 };
 use chrono::{DateTime, Utc};
 use displaydoc::Display;
-use phnxcommon::{identifiers::AttachmentId, time::ExpirationData};
-use phnxprotos::delivery_service::v1::{
-    GetAttachmentUrlResponse, HeaderEntry, ProvisionAttachmentPayload, ProvisionAttachmentResponse,
-};
 use tonic::{Response, Status};
 use tracing::error;
 use uuid::Uuid;

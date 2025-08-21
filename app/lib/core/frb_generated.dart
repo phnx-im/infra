@@ -88,7 +88,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
-        stem: 'phnxapplogic',
+        stem: 'airapplogic',
         ioDirectory: '../applogic/target/release/',
         webPrefix: 'pkg/',
       );

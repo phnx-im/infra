@@ -27,7 +27,7 @@ abstract class User implements RustOpaqueInterface {
   }) =>
       RustLib.instance.api.crateApiUserUserLoad(dbPath: dbPath, userId: userId);
 
-  /// Loads all client records from the phnx database
+  /// Loads all client records from the air database
   ///
   /// Also tries to load user profile from the client database. In case the client database
   /// cannot be opened, the client record is skipped.

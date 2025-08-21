@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::identifiers::UserId;
+use aircommon::identifiers::UserId;
 use privacypass::{
     amortized_tokens::{AmortizedBatchTokenRequest, AmortizedBatchTokenResponse, server::Server},
     private_tokens::Ristretto255,

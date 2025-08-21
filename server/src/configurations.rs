@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use airbackend::settings::Settings;
 use config::{Config, ConfigError, File, Source};
-use phnxbackend::settings::Settings;
 
 /// The possible runtime environment for our application.
 pub enum Environment {
@@ -73,7 +73,7 @@ fn get_configuration_impl(
         // Layer on the environment-specific values.
         .add_source(environment)
         // Add in settings from environment variables (with a prefix of APP and '_' as separator)
-        // E.g. `PHNX_APPLICATION_PORT=5001 would set `Settings.application.port`
+        // E.g. `AIR_APPLICATION_PORT=5001 would set `Settings.application.port`
         .add_source(config::Environment::with_prefix("PHNX").separator("_"));
     builder.build()?.try_deserialize()
 }

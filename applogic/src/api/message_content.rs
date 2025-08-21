@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+pub use aircommon::identifiers::AttachmentId;
 use flutter_rust_bridge::frb;
-pub use phnxcommon::identifiers::AttachmentId;
 use uuid::Uuid;
 
 use crate::api::markdown::MessageContent;

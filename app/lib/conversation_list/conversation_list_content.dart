@@ -6,15 +6,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/app_localizations.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
-import 'package:prototype/ui/typography/monospace.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/ui/typography/monospace.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_list_cubit.dart';

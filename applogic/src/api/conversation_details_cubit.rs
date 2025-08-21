@@ -7,13 +7,13 @@
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
+use aircommon::{OpenMlsRand, RustCrypto, identifiers::UserId};
+use aircoreclient::{ConversationId, store::StoreNotification};
+use aircoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
 use mimi_content::{MessageStatus, MimiContent};
 use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
-use phnxcommon::{OpenMlsRand, RustCrypto, identifiers::UserId};
-use phnxcoreclient::{ConversationId, store::StoreNotification};
-use phnxcoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
 use tls_codec::Serialize;
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};

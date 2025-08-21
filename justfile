@@ -173,7 +173,7 @@ test-flutter *args='':
 
 # run backend server (at localhost)
 run-backend: init-backend-db
-    cargo run --bin phnxserver
+    cargo run --bin airserver
 
 # Build Windows app
 [working-directory: 'app']

@@ -4,12 +4,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/main.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/main.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'registration_cubit.dart';

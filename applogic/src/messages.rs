@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
 use anyhow::Result;
-use phnxcoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
 use tracing::debug;
 
 use crate::{api::user::User, notifications::NotificationContent};

@@ -4,9 +4,8 @@
 
 use std::str::FromStr;
 
-use openmls::prelude::SignatureScheme;
-use phnxbackend::auth_service::user_record::UserRecord;
-use phnxcommon::{
+use airbackend::auth_service::user_record::UserRecord;
+use aircommon::{
     credentials::{
         AsCredential, AsIntermediateCredentialCsr, ClientCredentialCsr, ClientCredentialPayload,
         keys::ClientSigningKey,
@@ -17,6 +16,7 @@ use phnxcommon::{
     },
     identifiers::{Fqdn, UserId},
 };
+use openmls::prelude::SignatureScheme;
 
 use crate::{
     DisplayName, UserProfile,

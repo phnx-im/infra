@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::identifiers::AttachmentId;
 use chrono::{DateTime, Utc};
 use mimi_content::content_container::{EncryptionAlgorithm, HashAlgorithm};
-use phnxcommon::identifiers::AttachmentId;
 use sqlx::{
     Database, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
     query, query_as, query_scalar,

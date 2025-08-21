@@ -5,9 +5,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/l10n/app_localizations.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
 
 class Timestamp extends StatefulWidget {
   const Timestamp(this.timestamp, {super.key});

@@ -4,14 +4,14 @@
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/conversation_list/conversation_list_cubit.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/message_list/message_cubit.dart';
-import 'package:prototype/message_list/message_list_cubit.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/registration/registration.dart';
-import 'package:prototype/user/user.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/conversation_list/conversation_list_cubit.dart';
+import 'package:air/core/core.dart';
+import 'package:air/message_list/message_cubit.dart';
+import 'package:air/message_list/message_list_cubit.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/registration/registration.dart';
+import 'package:air/user/user.dart';
 
 import 'helpers.dart';
 

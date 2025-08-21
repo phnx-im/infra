@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Context;
-use phnxcommon::{
+use aircommon::{
     crypto::indexed_aead::{
         ciphertexts::{IndexDecryptable, IndexEncryptable},
         keys::UserProfileKey,
     },
     messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
+use anyhow::Context;
 use sqlx::SqliteConnection;
 
 use crate::{

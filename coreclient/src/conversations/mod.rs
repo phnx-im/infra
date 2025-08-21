@@ -4,12 +4,12 @@
 
 use std::fmt::Display;
 
-use chrono::{DateTime, Utc};
-use openmls::group::GroupId;
-use phnxcommon::{
+use aircommon::{
     identifiers::{Fqdn, QualifiedGroupId, UserHandle, UserId},
     time::TimeStamp,
 };
+use chrono::{DateTime, Utc};
+use openmls::group::GroupId;
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqliteExecutor};
 use uuid::Uuid;

@@ -3,15 +3,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "phnxapiclient"
+name = "airapiclient"
 version = "0.1.0"
 edition = "2024"
 publish = false
 description = "HTTP and GRPC client for the server API"
 
 [dependencies]
-phnxprotos.workspace = true
-phnxcommon.workspace = true
+airprotos.workspace = true
+aircommon.workspace = true
 
 thiserror = { workspace = true }
 tracing = "0.1.41"

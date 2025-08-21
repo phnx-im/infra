@@ -1,6 +1,6 @@
 ---
 source: backend/src/auth_service/privacy_pass.rs
-expression: "PhnxCodec::to_vec(&*SERVER).unwrap()"
+expression: "AirCodec::to_vec(&*SERVER).unwrap()"
 extension: cbor
 snapshot_kind: binary
 ---

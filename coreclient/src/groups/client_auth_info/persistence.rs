@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::{group::GroupId, prelude::LeafNodeIndex};
-use phnxcommon::{
+use aircommon::{
     credentials::ClientCredential,
     crypto::hash::Hash,
     identifiers::{Fqdn, UserId},
 };
+use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use sqlx::{Row, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
@@ -407,14 +407,14 @@ impl GroupMembership {
 
 #[cfg(test)]
 mod tests {
-    use openmls::prelude::SignatureScheme;
-    use phnxcommon::{
+    use aircommon::{
         credentials::{
             AsIntermediateCredentialBody, ClientCredential, ClientCredentialCsr,
             ClientCredentialPayload,
         },
         crypto::signatures::signable::{Signature, SignedStruct},
     };
+    use openmls::prelude::SignatureScheme;
     use sqlx::SqlitePool;
     use tls_codec::Serialize;
     use uuid::Uuid;

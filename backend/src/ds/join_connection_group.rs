@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::{
+    messages::client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParams},
+    time::{Duration, TimeStamp},
+};
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::SerializedMlsMessage,
     openmls::prelude::ProcessedMessageContent, provider_traits::MlsAssistProvider,
-};
-use phnxcommon::{
-    messages::client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParams},
-    time::{Duration, TimeStamp},
 };
 use tls_codec::DeserializeBytes;
 

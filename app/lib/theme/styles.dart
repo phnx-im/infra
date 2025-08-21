@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
 import 'dart:io' show Platform;
 
 // === Devices ===

@@ -4,9 +4,7 @@
 
 use std::iter;
 
-use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
-use openmls_rust_crypto::RustCrypto;
-use phnxcommon::{
+use aircommon::{
     LibraryError,
     crypto::{
         ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
@@ -16,6 +14,8 @@ use phnxcommon::{
     identifiers::{UserHandle, UserId},
     messages::FriendshipToken,
 };
+use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
+use openmls_rust_crypto::RustCrypto;
 use sqlx::SqliteConnection;
 
 use crate::{

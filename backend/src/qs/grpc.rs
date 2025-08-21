@@ -4,12 +4,12 @@
 
 use std::pin::Pin;
 
-use phnxprotos::{
+use airprotos::{
     queue_service::v1::{queue_service_server::QueueService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
 };
 
-use phnxcommon::{
+use aircommon::{
     identifiers,
     messages::client_qs::{
         CreateClientRecordParams, CreateUserRecordParams, DeleteClientRecordParams,

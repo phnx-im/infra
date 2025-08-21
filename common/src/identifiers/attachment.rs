@@ -20,7 +20,7 @@ impl AttachmentId {
     }
 
     pub fn from_url(url: &Url) -> Result<Self, AttachmentIdParseError> {
-        if url.scheme() != "phnx" {
+        if url.scheme() != "air" {
             return Err(AttachmentIdParseError::InvalidScheme);
         }
         let suffix = url
@@ -92,7 +92,7 @@ mod test {
 
     #[test]
     fn from_url() {
-        let url = "phnx:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09?width=1920&height=1080"
+        let url = "air:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09?width=1920&height=1080"
             .parse()
             .unwrap();
         let attachment_id = super::AttachmentId::from_url(&url).unwrap();

@@ -4,8 +4,8 @@
 
 use std::mem;
 
+use aircoreclient::ConversationId;
 use flutter_rust_bridge::frb;
-use phnxcoreclient::ConversationId;
 use tokio::sync::watch;
 
 use crate::{

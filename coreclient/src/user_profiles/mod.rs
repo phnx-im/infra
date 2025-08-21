@@ -7,9 +7,7 @@
 
 use std::{fmt, mem};
 
-use display_name::BaseDisplayName;
-pub use display_name::{DisplayName, DisplayNameError};
-use phnxcommon::{
+use aircommon::{
     LibraryError,
     credentials::keys::{ClientKeyType, ClientSignature, PreliminaryClientKeyType},
     crypto::{
@@ -26,6 +24,8 @@ use phnxcommon::{
     identifiers::UserId,
     messages::client_as_out::EncryptedUserProfileCtype,
 };
+use display_name::BaseDisplayName;
+pub use display_name::{DisplayName, DisplayNameError};
 use sealed::Seal;
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode, Encode, Sqlite, encode::IsNull, error::BoxDynError};

@@ -9,17 +9,17 @@
 
 use std::fmt;
 
-use chrono::{DateTime, Duration, Utc};
-use flutter_rust_bridge::frb;
-use mimi_content::MessageStatus;
-pub use phnxcommon::identifiers::UserHandle;
-use phnxcommon::identifiers::UserId;
-use phnxcoreclient::{
+pub use aircommon::identifiers::UserHandle;
+use aircommon::identifiers::UserId;
+use aircoreclient::{
     Asset, Contact, ContentMessage, ConversationAttributes, ConversationMessage,
     ConversationStatus, ConversationType, DisplayName, ErrorMessage, EventMessage,
     InactiveConversation, Message, MessageDraft, SystemMessage, UserProfile, store::Store,
 };
-pub use phnxcoreclient::{ConversationId, ConversationMessageId};
+pub use aircoreclient::{ConversationId, ConversationMessageId};
+use chrono::{DateTime, Duration, Utc};
+use flutter_rust_bridge::frb;
+use mimi_content::MessageStatus;
 use uuid::Uuid;
 
 use crate::api::message_content::UiMimiContent;

@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prototype/app.dart';
-import 'package:prototype/core/frb_generated.dart';
+import 'package:air/app.dart';
+import 'package:air/core/frb_generated.dart';
 import 'package:integration_test/integration_test.dart';
 
 void main() {

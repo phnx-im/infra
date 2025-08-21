@@ -4,19 +4,8 @@
 
 use std::collections::BTreeMap;
 
-use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
-use mls_assist::{
-    MlsAssistRustCrypto,
-    group::Group,
-    openmls::{
-        group::GroupId,
-        prelude::{GroupEpoch, LeafNodeIndex},
-        treesync::RatchetTree,
-    },
-    provider_traits::MlsAssistProvider,
-};
-use phnxcommon::{
-    codec::PhnxCodec,
+use aircommon::{
+    codec::AirCodec,
     credentials::VerifiableClientCredential,
     crypto::{
         ear::{
@@ -28,6 +17,17 @@ use phnxcommon::{
     identifiers::{QsReference, SealedClientReference, UserId},
     messages::client_ds::WelcomeInfoParams,
     time::TimeStamp,
+};
+use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
+use mls_assist::{
+    MlsAssistRustCrypto,
+    group::Group,
+    openmls::{
+        group::GroupId,
+        prelude::{GroupEpoch, LeafNodeIndex},
+        treesync::RatchetTree,
+    },
+    provider_traits::MlsAssistProvider,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::PgExecutor;
@@ -59,13 +59,13 @@ pub(super) struct MemberProfile {
 pub(crate) struct DsGroupState {
     pub(super) room_state: VerifiedRoomState,
     pub(super) group: Group,
-    pub(super) provider: MlsAssistRustCrypto<PhnxCodec>,
+    pub(super) provider: MlsAssistRustCrypto<AirCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
 }
 
 impl DsGroupState {
     pub(crate) fn new(
-        provider: MlsAssistRustCrypto<PhnxCodec>,
+        provider: MlsAssistRustCrypto<AirCodec>,
         group: Group,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
@@ -201,7 +201,7 @@ pub(super) enum DsGroupStateEncryptionError {
     #[error("Error decrypting group state: {0}")]
     EncryptionError(#[from] EncryptionError),
     #[error("Error deserializing group state: {0}")]
-    DeserializationError(#[from] phnxcommon::codec::Error),
+    DeserializationError(#[from] aircommon::codec::Error),
 }
 
 impl From<DsGroupStateEncryptionError> for tonic::Status {
@@ -216,7 +216,7 @@ pub(super) enum DsGroupStateDecryptionError {
     #[error("Error decrypting group state: {0}")]
     DecryptionError(#[from] DecryptionError),
     #[error("Error deserializing group state: {0}")]
-    DeserializationError(#[from] phnxcommon::codec::Error),
+    DeserializationError(#[from] aircommon::codec::Error),
 }
 
 impl From<DsGroupStateDecryptionError> for tonic::Status {
@@ -278,7 +278,7 @@ pub(crate) struct SerializableDsGroupStateV2 {
 impl SerializableDsGroupStateV2 {
     pub(super) fn from_group_state(
         group_state: DsGroupState,
-    ) -> Result<Self, phnxcommon::codec::Error> {
+    ) -> Result<Self, aircommon::codec::Error> {
         let group_id = group_state
             .group()
             .group_info()
@@ -287,7 +287,7 @@ impl SerializableDsGroupStateV2 {
             .clone();
         let client_profiles = group_state.member_profiles.into_iter().collect();
         let serialized_provider = group_state.provider.storage().serialize()?;
-        let room_state = PhnxCodec::to_vec(group_state.room_state.unverified())?;
+        let room_state = AirCodec::to_vec(group_state.room_state.unverified())?;
         Ok(Self {
             group_id,
             serialized_provider,
@@ -296,14 +296,14 @@ impl SerializableDsGroupStateV2 {
         })
     }
 
-    pub(super) fn into_group_state(self) -> Result<DsGroupState, phnxcommon::codec::Error> {
+    pub(super) fn into_group_state(self) -> Result<DsGroupState, aircommon::codec::Error> {
         let storage = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
         // We unwrap here, because the constructor ensures that `self` always stores a group
         let group = Group::load(&storage, &self.group_id)?.unwrap();
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
 
-        let room_state = PhnxCodec::from_slice(&self.room_state)
+        let room_state = AirCodec::from_slice(&self.room_state)
             .inspect_err(|error| {
                 error!(%error, "Failed to load room state. Falling back to default room state.");
             })
@@ -388,7 +388,7 @@ mod test {
     #[test]
     fn test_encrypted_ds_group_state_serde_codec() {
         let state = EncryptedDsGroupState::dummy();
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&state).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&state).unwrap());
     }
 
     #[test]
@@ -412,7 +412,7 @@ mod test {
 
     #[test]
     fn test_deleted_queues_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*DELETED_QUEUES).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&*DELETED_QUEUES).unwrap());
     }
 
     #[test]

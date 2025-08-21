@@ -61,7 +61,7 @@ class NotificationService: UNNotificationServiceExtension {
     // Find the documents directory path for the databases
     guard
       let containerURL = FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: "group.im.phnx.prototype")
+        forSecurityApplicationGroupIdentifier: "group.ms.air")
     else {
       NSLog("NSE Could not find documents directory")
       contentHandler(request.content)

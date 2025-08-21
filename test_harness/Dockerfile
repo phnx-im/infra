@@ -33,7 +33,7 @@ COPY --from=builder /app/target/debug/test_runner test_runner
 
 RUN mkdir -p .local/share
 
-ENV PHNX_TEST_SCENARIO $test_scenario
+ENV AIR_TEST_SCENARIO $test_scenario
 ENV TEST_LOG true
 
 ENTRYPOINT ["./test_runner"]

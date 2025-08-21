@@ -8,18 +8,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use airapiclient::ApiClient;
+use aircommon::{
+    credentials::keys::ClientSigningKey,
+    crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
+    identifiers::AttachmentId,
+};
 use anyhow::Context;
 use chrono::Utc;
 use infer::MatcherType;
 use mimi_content::{
     MimiContent,
     content_container::{Disposition, NestedPart, NestedPartContent, PartSemantics},
-};
-use phnxapiclient::ApiClient;
-use phnxcommon::{
-    credentials::keys::ClientSigningKey,
-    crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
-    identifiers::AttachmentId,
 };
 use sha2::{Digest, Sha256};
 
@@ -30,7 +30,7 @@ use crate::{
         CoreUser,
         attachment::{
             AttachmentBytes, AttachmentRecord,
-            ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_ATTACHMENT_HASH_ALG},
+            ear::{AIR_ATTACHMENT_ENCRYPTION_ALG, AIR_ATTACHMENT_HASH_ALG},
         },
     },
     groups::Group,
@@ -218,11 +218,11 @@ impl ProcessedAttachment {
                 url: url.to_string(),
                 expires: 0,
                 size: self.size,
-                enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
+                enc_alg: AIR_ATTACHMENT_ENCRYPTION_ALG,
                 key: metadata.key.into_bytes().to_vec().into(),
                 nonce: metadata.nonce.to_vec().into(),
                 aad: Default::default(),
-                hash_alg: PHNX_ATTACHMENT_HASH_ALG,
+                hash_alg: AIR_ATTACHMENT_HASH_ALG,
                 content_hash: self.content_hash.into(),
                 description: Default::default(),
                 filename: self.filename,

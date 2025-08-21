@@ -6,11 +6,11 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use flutter_rust_bridge::frb;
-use phnxcoreclient::{
+use aircoreclient::{
     ConversationId, ConversationMessage, ConversationMessageId,
     store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
+use flutter_rust_bridge::frb;
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
@@ -294,10 +294,10 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 
 #[cfg(test)]
 mod tests {
+    use aircommon::{identifiers::UserId, time::TimeStamp};
+    use aircoreclient::{ContentMessage, ConversationMessageId, Message};
     use mimi_content::MimiContent;
     use openmls::group::GroupId;
-    use phnxcommon::{identifiers::UserId, time::TimeStamp};
-    use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
     use uuid::Uuid;
 
     use super::*;

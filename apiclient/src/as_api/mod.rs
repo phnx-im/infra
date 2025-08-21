@@ -4,8 +4,7 @@
 
 use std::convert::identity;
 
-use futures_util::{FutureExt, future::BoxFuture};
-use phnxcommon::{
+use aircommon::{
     LibraryError,
     credentials::{
         ClientCredentialPayload,
@@ -22,7 +21,7 @@ use phnxcommon::{
         connection_package::{ConnectionPackage, ConnectionPackageIn},
     },
 };
-use phnxprotos::auth_service::v1::{
+use airprotos::auth_service::v1::{
     AckListenHandleRequest, AsCredentialsRequest, ConnectRequest, ConnectResponse,
     CreateHandlePayload, DeleteHandlePayload, DeleteUserPayload, EnqueueConnectionOfferStep,
     FetchConnectionPackageStep, GetUserProfileRequest, HandleQueueMessage, InitListenHandlePayload,
@@ -30,6 +29,7 @@ use phnxprotos::auth_service::v1::{
     RegisterUserRequest, StageUserProfilePayload, connect_request, connect_response,
     listen_handle_request,
 };
+use futures_util::{FutureExt, future::BoxFuture};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};

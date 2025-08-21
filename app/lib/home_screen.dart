@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_list/conversation_list.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/resizable_panel.dart';
+import 'package:air/conversation_list/conversation_list.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/util/resizable_panel.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {

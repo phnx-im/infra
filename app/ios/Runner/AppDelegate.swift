@@ -4,7 +4,7 @@ import UIKit
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private var deviceToken: String?
-  private let notificationChannelName: String = "im.phnx.prototype/channel"
+  private let notificationChannelName: String = "ms.air/channel"
 
   override func application(
     _ application: UIApplication,
@@ -152,7 +152,7 @@ import UIKit
   // Get the shared documents path
   private func getSharedDocumentsDirectory(result: FlutterResult) {
     if let containerURL = FileManager.default.containerURL(
-      forSecurityApplicationGroupIdentifier: "group.im.phnx.prototype")
+      forSecurityApplicationGroupIdentifier: "group.ms.air")
     {
       let documentsURL = containerURL.appendingPathComponent("Documents")
       // Create the "Documents" directory if it doesn't exist

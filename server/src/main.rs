@@ -4,14 +4,14 @@
 
 use std::time::Duration;
 
-use phnxbackend::{
+use airbackend::{
     auth_service::AuthService,
     ds::{Ds, storage::Storage},
     infra_service::InfraService,
     qs::Qs,
 };
-use phnxcommon::identifiers::Fqdn;
-use phnxserver::{
+use aircommon::identifiers::Fqdn;
+use airserver::{
     RateLimitsConfig, ServerRunParams,
     configurations::*,
     dispatch::DispatchNotifier,
@@ -27,7 +27,7 @@ use tracing::info;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Configure logging/trace subscription
-    let subscriber = get_subscriber("phnxserver".into(), "info".into(), std::io::stdout);
+    let subscriber = get_subscriber("airserver".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
 
     // Load configuration

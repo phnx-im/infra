@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::Utc;
-use phnxcommon::{
+use aircommon::{
     codec::{BlobDecoded, BlobEncoded},
     credentials::keys::HandleSigningKey,
     identifiers::{UserHandle, UserHandleHash},
 };
+use chrono::Utc;
 use sqlx::{SqliteExecutor, query, query_as, query_scalar};
 
 /// A user handle record stored in the client database.

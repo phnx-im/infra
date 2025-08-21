@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package im.phnx.prototype
+package ms.air
 
 import android.content.ContentValues.TAG
 import android.content.Intent
@@ -15,7 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     companion object {
-        private const val CHANNEL_NAME: String = "im.phnx.prototype/channel"
+        private const val CHANNEL_NAME: String = "ms.air/channel"
     }
 
     private var channel: MethodChannel? = null

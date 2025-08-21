@@ -4,11 +4,7 @@
 
 //! API client implementation for the DS
 
-use mls_assist::{
-    messages::AssistedMessageOut,
-    openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut},
-};
-use phnxcommon::{
+use aircommon::{
     LibraryError,
     credentials::keys::ClientSigningKey,
     crypto::ear::keys::GroupStateEarKey,
@@ -23,7 +19,11 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
-pub use phnxprotos::delivery_service::v1::ProvisionAttachmentResponse;
+pub use airprotos::delivery_service::v1::ProvisionAttachmentResponse;
+use mls_assist::{
+    messages::AssistedMessageOut,
+    openmls::prelude::{GroupEpoch, GroupId, LeafNodeIndex, MlsMessageOut},
+};
 
 use crate::ApiClient;
 

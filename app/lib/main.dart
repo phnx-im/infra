@@ -4,12 +4,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:prototype/app.dart';
-import 'package:prototype/core/frb_generated.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/ui/colors/palette.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/util/logging.dart';
+import 'package:air/app.dart';
+import 'package:air/core/frb_generated.dart';
+import 'package:air/core/core.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/util/logging.dart';
 import 'package:path/path.dart' as p;
 
 void main() async {

@@ -4,8 +4,8 @@
 
 use std::collections::HashMap;
 
-use phnxapiclient::as_api::AsRequestError;
-use phnxcommon::{
+use airapiclient::as_api::AsRequestError;
+use aircommon::{
     credentials::{
         AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
         VerifiableClientCredential,

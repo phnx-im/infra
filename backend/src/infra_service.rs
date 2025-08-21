@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::identifiers::Fqdn;
+use aircommon::identifiers::Fqdn;
 use sqlx::{Executor, PgPool};
 use thiserror::Error;
 use tracing::info;

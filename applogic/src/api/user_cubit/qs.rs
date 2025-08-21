@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use flutter_rust_bridge::frb;
-use phnxcoreclient::clients::{
+use aircoreclient::clients::{
     QueueEvent, QueueEventUpdate, process::process_qs::ProcessedQsMessages, queue_event,
 };
+use flutter_rust_bridge::frb;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};

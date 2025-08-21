@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::{
+    codec::{AirCodec, BlobDecoded, BlobEncoded},
+    credentials::VerifiableClientCredential,
+    crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
+};
 use anyhow::ensure;
 use mimi_room_policy::{RoomState, VerifiedRoomState};
 use openmls::group::{GroupId, MlsGroup};
 use openmls_traits::OpenMlsProvider;
-use phnxcommon::{
-    codec::{BlobDecoded, BlobEncoded, PhnxCodec},
-    credentials::VerifiableClientCredential,
-    crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
-};
 use sqlx::{SqliteExecutor, query, query_as};
 use tls_codec::Serialize as _;
 use tracing::error;
@@ -20,7 +20,7 @@ use crate::{
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper},
 };
 
-use super::{Group, diff::StagedGroupDiff, openmls_provider::PhnxOpenMlsProvider};
+use super::{Group, diff::StagedGroupDiff, openmls_provider::AirOpenMlsProvider};
 
 struct SqlGroup {
     group_id: GroupIdWrapper,
@@ -40,7 +40,7 @@ impl SqlGroup {
             room_state,
         } = self;
 
-        let room_state = if let Some(state) = PhnxCodec::from_slice::<RoomState>(&room_state)
+        let room_state = if let Some(state) = AirCodec::from_slice::<RoomState>(&room_state)
             .ok()
             .and_then(|state| VerifiedRoomState::verify(state).ok())
         {
@@ -143,7 +143,7 @@ impl Group {
         group_id: &GroupId,
     ) -> sqlx::Result<Option<Self>> {
         let Some(mls_group) =
-            MlsGroup::load(PhnxOpenMlsProvider::new(connection).storage(), group_id)?
+            MlsGroup::load(AirOpenMlsProvider::new(connection).storage(), group_id)?
         else {
             return Ok(None);
         };
@@ -189,7 +189,7 @@ impl Group {
             return Ok(None);
         };
         let Some(mls_group) = MlsGroup::load(
-            PhnxOpenMlsProvider::new(connection).storage(),
+            AirOpenMlsProvider::new(connection).storage(),
             &sql_group.group_id.0,
         )?
         else {
@@ -225,7 +225,7 @@ impl Group {
         group_id: &GroupId,
     ) -> sqlx::Result<()> {
         if let Some(mut group) = Group::load(txn.as_mut(), group_id).await? {
-            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
+            let provider = AirOpenMlsProvider::new(txn.as_mut());
             group.mls_group.delete(provider.storage())?;
         };
         let group_id = GroupIdRefWrapper::from(group_id);

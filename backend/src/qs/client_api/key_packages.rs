@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::messages::client_qs::{
+    EncryptionKeyResponse, KeyPackageParams, KeyPackageResponse, PublishKeyPackagesParams,
+};
 use mls_assist::{
     openmls::prelude::{KeyPackage, OpenMlsProvider, ProtocolVersion},
     openmls_rust_crypto::OpenMlsRustCrypto,
-};
-use phnxcommon::messages::client_qs::{
-    EncryptionKeyResponse, KeyPackageParams, KeyPackageResponse, PublishKeyPackagesParams,
 };
 
 use crate::{

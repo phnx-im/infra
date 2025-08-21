@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{
+use aircommon::{
     crypto::signatures::keys::QsUserVerifyingKey, identifiers::QsUserId, messages::FriendshipToken,
 };
 use sqlx::PgExecutor;
@@ -34,7 +34,7 @@ impl UserRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxcommon::identifiers::QsUserId;
+    use aircommon::identifiers::QsUserId;
     use sqlx::PgExecutor;
 
     use crate::errors::StorageError;

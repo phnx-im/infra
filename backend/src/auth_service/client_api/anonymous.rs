@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::messages::client_as::{AsCredentialsParams, AsCredentialsResponse};
+use aircommon::messages::client_as::{AsCredentialsParams, AsCredentialsResponse};
 
 use crate::{
     auth_service::{

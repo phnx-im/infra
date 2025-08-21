@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use displaydoc::Display;
-use futures_util::stream::BoxStream;
-use phnxprotos::{
+use airprotos::{
     auth_service::v1::{auth_service_server, *},
     validation::MissingFieldExt,
 };
+use displaydoc::Display;
+use futures_util::stream::BoxStream;
 
-use phnxcommon::{
+use aircommon::{
     credentials::keys,
     crypto::{
         indexed_aead::keys::UserProfileKeyIndex,

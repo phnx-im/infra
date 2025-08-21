@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use phnxcommon::{identifiers::Fqdn, time::Duration};
+use aircommon::{identifiers::Fqdn, time::Duration};
 use sqlx::PgPool;
 use tokio::sync::Mutex;
 use uuid::Uuid;

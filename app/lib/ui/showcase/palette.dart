@@ -4,8 +4,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:prototype/ui/colors/palette.dart';
-import 'package:prototype/ui/colors/themes.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/themes.dart';
 
 class PaletteShowcase extends StatelessWidget {
   const PaletteShowcase({super.key});

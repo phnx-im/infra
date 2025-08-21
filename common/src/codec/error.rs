@@ -4,7 +4,7 @@
 
 use thiserror::Error;
 
-use super::PhnxCodec;
+use super::AirCodec;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -18,7 +18,7 @@ pub enum Error {
 
 #[derive(Debug, Error)]
 pub struct CodecError {
-    pub(super) codec_version: PhnxCodec,
+    pub(super) codec_version: AirCodec,
     pub(super) error: Box<dyn std::error::Error + Send + Sync + 'static>,
 }
 

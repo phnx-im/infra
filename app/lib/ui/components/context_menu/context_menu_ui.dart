@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/theme/spacings.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/components/context_menu/context_menu_item_ui.dart';
-import 'package:prototype/ui/effects/elevation.dart';
+import 'package:air/theme/spacings.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/components/context_menu/context_menu_item_ui.dart';
+import 'package:air/ui/effects/elevation.dart';
 
 class ContextMenuUi extends StatelessWidget {
   const ContextMenuUi({

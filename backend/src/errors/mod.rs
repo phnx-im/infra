@@ -9,19 +9,19 @@ use thiserror::Error;
 use tonic::Status;
 use tracing::error;
 
-use phnxcommon::codec::PhnxCodec;
+use aircommon::codec::AirCodec;
 
 pub(crate) mod auth_service;
 pub(crate) mod qs;
 
-pub(crate) type CborMlsAssistStorage = MlsAssistMemoryStorage<PhnxCodec>;
+pub(crate) type CborMlsAssistStorage = MlsAssistMemoryStorage<AirCodec>;
 
 #[derive(Debug, Error)]
 pub enum StorageError {
     #[error(transparent)]
     Database(#[from] DatabaseError),
     #[error("Error deserializing column: {0}")]
-    Serde(#[from] phnxcommon::codec::Error),
+    Serde(#[from] aircommon::codec::Error),
 }
 
 impl From<sqlx::Error> for StorageError {
@@ -72,8 +72,8 @@ impl From<sqlx::Error> for QueueError {
     }
 }
 
-impl From<phnxcommon::codec::Error> for QueueError {
-    fn from(e: phnxcommon::codec::Error) -> Self {
+impl From<aircommon::codec::Error> for QueueError {
+    fn from(e: aircommon::codec::Error) -> Self {
         Self::Storage(e.into())
     }
 }

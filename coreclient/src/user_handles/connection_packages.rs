@@ -4,7 +4,7 @@
 
 use std::borrow::Borrow;
 
-use phnxcommon::{
+use aircommon::{
     crypto::{ConnectionDecryptionKey, hash::Hashable},
     identifiers::UserHandle,
     messages::connection_package::{ConnectionPackage, ConnectionPackageHash},
@@ -73,7 +73,7 @@ mod tests {
 
     use super::*;
 
-    use phnxcommon::credentials::keys::HandleSigningKey;
+    use aircommon::credentials::keys::HandleSigningKey;
 
     use sqlx::SqlitePool;
 

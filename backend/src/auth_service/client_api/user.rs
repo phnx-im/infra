@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{
+use aircommon::{
     credentials::ClientCredential,
     crypto::signatures::signable::Signable,
     identifiers::UserId,

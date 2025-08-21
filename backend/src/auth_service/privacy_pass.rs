@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::codec::{BlobDecoded, BlobEncoded};
 use async_trait::async_trait;
-use phnxcommon::codec::{BlobDecoded, BlobEncoded};
 use privacypass::{
     TruncatedTokenKeyId,
     common::store::PrivateKeyStore,
@@ -76,7 +76,7 @@ impl PrivateKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
 mod tests {
     use std::sync::LazyLock;
 
-    use phnxcommon::codec::PhnxCodec;
+    use aircommon::codec::AirCodec;
     use rand::{SeedableRng, rngs::StdRng};
     use sqlx::PgPool;
 
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_server_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*SERVER).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&*SERVER).unwrap());
     }
 
     #[test]

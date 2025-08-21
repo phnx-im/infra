@@ -108,7 +108,7 @@ pub type EncryptedAsQueueMessage = Ciphertext<EncryptedAsQueueMessageCtype>;
 
 #[cfg(test)]
 mod test {
-    use crate::{codec::PhnxCodec, crypto::ear::AeadCiphertext};
+    use crate::{codec::AirCodec, crypto::ear::AeadCiphertext};
 
     use super::*;
 
@@ -118,7 +118,7 @@ mod test {
             sequence_number: 1,
             ciphertext: AeadCiphertext::dummy(),
         };
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&message).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&message).unwrap());
     }
 
     #[test]

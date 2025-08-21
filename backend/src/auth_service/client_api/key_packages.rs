@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{
+use aircommon::{
     identifiers::UserHandleHash,
     messages::connection_package::{ConnectionPackage, ConnectionPackageIn},
 };

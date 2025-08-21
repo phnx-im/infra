@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::messages::connection_package::{ConnectionPackage, legacy::ConnectionPackageV1};
+use aircommon::messages::connection_package::{ConnectionPackage, legacy::ConnectionPackageV1};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

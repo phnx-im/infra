@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::time::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage,
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::ProcessedMessageContent,
     provider_traits::MlsAssistProvider,
 };
-use phnxcommon::time::Duration;
 
 use crate::errors::ClientUpdateError;
 

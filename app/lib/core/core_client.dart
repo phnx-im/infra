@@ -8,8 +8,8 @@ import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/util/platform.dart';
+import 'package:air/core/core.dart';
+import 'package:air/util/platform.dart';
 
 final _log = Logger('CoreClient');
 

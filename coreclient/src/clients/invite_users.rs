@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::identifiers::UserId;
 use invite_users_flow::InviteUsersData;
-use phnxcommon::identifiers::UserId;
 
 use crate::{ConversationId, ConversationMessage, utils::connection_ext::ConnectionExt as _};
 
@@ -62,16 +62,16 @@ impl CoreUser {
 }
 
 mod invite_users_flow {
-    use anyhow::Context;
-    use mimi_room_policy::RoleIndex;
-    use openmls::group::GroupId;
-    use phnxcommon::{
+    use aircommon::{
         credentials::{ClientCredential, keys::ClientSigningKey},
         crypto::ear::keys::WelcomeAttributionInfoEarKey,
         identifiers::{Fqdn, UserId},
         messages::client_ds_out::GroupOperationParamsOut,
         time::TimeStamp,
     };
+    use anyhow::Context;
+    use mimi_room_policy::RoleIndex;
+    use openmls::group::GroupId;
     use sqlx::SqliteConnection;
 
     use crate::{

@@ -18,7 +18,7 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
 };
 
-use phnxcommon::{
+use aircommon::{
     credentials::VerifiableClientCredential,
     crypto::{
         ear::keys::{EncryptedUserProfileKey, GroupStateEarKey},
