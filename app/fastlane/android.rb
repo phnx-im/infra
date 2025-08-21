@@ -30,11 +30,16 @@ platform :android do
           end
           
           # Get the previous build number
-          previous_build_number = google_play_track_version_codes(
-            track: track,
-            package_name: package_name,
-            json_key: "fastlane/" + playstore_key_path,
-          )[0]
+          begin
+            previous_build_number = google_play_track_version_codes(
+              track: track,
+              package_name: package_name,
+              json_key: "fastlane/" + playstore_key_path,
+            )[0]
+            previous_build_number = (previous_build_number || 0).to_i
+          rescue
+            previous_build_number = 0
+          end
           current_build_number = previous_build_number + 1
   
           # Increment the build number in the gradle file
