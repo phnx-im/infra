@@ -6,6 +6,8 @@
 import Foundation
 import UserNotifications
 
+private let kProtectedBlockedCategory = "protected-blocked"
+
 struct IncomingNotificationContent: Codable {
   let title: String
   let body: String
@@ -58,11 +60,30 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    guard let path = getDatabasesDirectoryPath() else {
+    guard let dbUrl = getDatabasesDirectoryPath() else {
       NSLog("NSE Could not find databases directory")
       contentHandler(request.content)
       return
     }
+
+    // If protected data is not yet available (e.g. device never unlocked after reboot),
+    // show a minimal notification and skip DB access.
+    if !protectedDataAvailable(at: dbUrl) {
+      NSLog("NSE Protected data unavailable; sending fallback notification")
+      // Always remove any previously delivered "blocked" notifications to avoid duplicates
+      clearProtectedBlockedNotifications()
+      let fallback = UNMutableNotificationContent()
+      fallback.categoryIdentifier = kProtectedBlockedCategory
+      // TODO: This needs localization
+      fallback.title = "Unlock your device"
+      fallback.body = "You may have new messages, unlock your device to see them."
+      fallback.sound = UNNotificationSound.default
+      contentHandler(fallback)
+      return
+    }
+
+    // Ensure any previously shown "blocked" notification is removed now that data is accessible
+    clearProtectedBlockedNotifications()
 
     guard
       let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
@@ -79,7 +100,7 @@ class NotificationService: UNNotificationServiceExtension {
       title: bestAttemptContent.title,
       body: bestAttemptContent.body,
       data: data,
-      path: path,
+      path: dbUrl.path,
       logFilePath: logFilePath
     )
 
@@ -182,7 +203,7 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   // Get a databases directory path that is NOT backed up to iCloud
-  private func getDatabasesDirectoryPath() -> String? {
+  private func getDatabasesDirectoryPath() -> URL? {
     // Use the App Group container so extensions can also access it
     guard
       let containerURL = FileManager.default.containerURL(
@@ -210,9 +231,38 @@ class NotificationService: UNNotificationServiceExtension {
       // enforce protection class
       applyProtection(dbsURL)
 
-      return dbsURL.path
+      return dbsURL
     } catch {
       return nil
+    }
+  }
+
+  // Check if protected data is available
+  func protectedDataAvailable(at dir: URL) -> Bool {
+    let probe = dir.appendingPathComponent(".probe")
+    // Try to read a byte or create+read; failures with EACCES/EPERM imply protected
+    do {
+      let _ = try Data(contentsOf: probe)  // or write Data() once at install time
+      return true
+    } catch let e as NSError {
+      // NSCocoaErrorDomain Code=257 or NSPOSIXErrorDomain (1/13) commonly appear
+      if e.domain == NSPOSIXErrorDomain, e.code == 1 || e.code == 13 { return false }
+      if e.domain == NSCocoaErrorDomain, e.code == 257 { return false }  // no permission
+      return true  // other errors (e.g., file not found) shouldn't block
+    }
+  }
+
+  // Remove any delivered notifications that were shown due to protected data being unavailable
+  private func clearProtectedBlockedNotifications() {
+    let center = UNUserNotificationCenter.current()
+    center.getDeliveredNotifications { notes in
+      let ids =
+        notes
+        .filter { $0.request.content.categoryIdentifier == kProtectedBlockedCategory }
+        .map { $0.request.identifier }
+      if !ids.isEmpty {
+        center.removeDeliveredNotifications(withIdentifiers: ids)
+      }
     }
   }
 }

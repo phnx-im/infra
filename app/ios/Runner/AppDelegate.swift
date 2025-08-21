@@ -1,6 +1,8 @@
 import Flutter
 import UIKit
 
+private let kProtectedBlockedCategory = "protected-blocked"
+
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private var deviceToken: String?
@@ -27,6 +29,17 @@ import UIKit
 
     // Set the handler function for the method channel
     methodChannel.setMethodCallHandler(handleMethodCall)
+
+    // Clear any lingering "blocked" notifications at launch
+    clearProtectedBlockedNotifications()
+
+    // When protected data becomes available (e.g. first unlock after reboot), clear again
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleProtectedDataAvailable(_:)),
+      name: UIApplication.protectedDataDidBecomeAvailableNotification,
+      object: nil
+    )
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -70,6 +83,15 @@ import UIKit
       notifyFlutter(method: "openedNotification", arguments: handle.toDict())
     }
     completionHandler()
+  }
+
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    clearProtectedBlockedNotifications()
+    super.applicationDidBecomeActive(application)
+  }
+
+  @objc private func handleProtectedDataAvailable(_ notification: Notification) {
+    clearProtectedBlockedNotifications()
   }
 
   // Call Flutter by passing a method and customData as payload
@@ -206,6 +228,20 @@ import UIKit
   private func setBadgeCount(_ count: Int, result: FlutterResult) {
     UIApplication.shared.applicationIconBadgeNumber = count
     result(nil)
+  }
+}
+
+// Remove any delivered notifications that were shown due to protected data being unavailable
+private func clearProtectedBlockedNotifications() {
+  let center = UNUserNotificationCenter.current()
+  center.getDeliveredNotifications { notes in
+    let ids =
+      notes
+      .filter { $0.request.content.categoryIdentifier == kProtectedBlockedCategory }
+      .map { $0.request.identifier }
+    if !ids.isEmpty {
+      center.removeDeliveredNotifications(withIdentifiers: ids)
+    }
   }
 }
 
