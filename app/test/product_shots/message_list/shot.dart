@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import 'package:air/conversation_list/conversation_list_cubit.dart';
 import 'package:air/conversation_list/conversation_list_view.dart';
 import 'package:air/core/api/conversation_details_cubit.dart';
