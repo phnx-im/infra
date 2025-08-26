@@ -34,6 +34,15 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.89.0
 
+      - name: Install Perl and NASM (for OpenSSL build)
+        shell: pwsh
+        run: |
+          choco install -y strawberryperl nasm
+          echo "PERL=C:\Strawberry\perl\bin\perl.exe" >> $env:GITHUB_ENV
+          refreshenv
+          perl -v
+          nasm -v
+
       - name: Build Windows app
         run: just build-windows
 
