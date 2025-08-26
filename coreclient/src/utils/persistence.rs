@@ -187,3 +187,87 @@ impl From<GroupIdWrapper> for GroupId {
         group_id.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{fs, str::FromStr};
+    use tempfile::tempdir;
+    use uuid::Uuid;
+
+    use super::open_client_db;
+    use aircommon::identifiers::{Fqdn, UserId};
+
+    use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+
+    const MARKER: &str = "SECRET_MARKER_12345";
+
+    /// Test that the encrypted database does not contain the plaintext marker
+    #[tokio::test]
+    async fn encrypted_db_marker() -> anyhow::Result<()> {
+        let dir = tempdir()?;
+        let plain_path = dir.path().join("plain.db");
+
+        // Encrypted DB via real code path
+        let user_id = UserId::new(
+            Uuid::from_str("00000000-0000-0000-0000-000000000001")?,
+            Fqdn::from_str("example.test")?,
+        );
+        let pool = open_client_db(&user_id, dir.path().to_str().unwrap()).await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS t (val TEXT)")
+            .execute(&pool)
+            .await?;
+        sqlx::query("INSERT INTO t (val) VALUES (?1)")
+            .bind(MARKER)
+            .execute(&pool)
+            .await?;
+        pool.close().await;
+
+        // Discover the encrypted db file path that open_client_db created
+        let mut enc_path: Option<std::path::PathBuf> = None;
+        for entry in std::fs::read_dir(dir.path())? {
+            let entry = entry?;
+            if let Some(ext) = entry.path().extension()
+                && ext == "db"
+                && entry.file_name() != "plain.db"
+            {
+                enc_path = Some(entry.path());
+                break;
+            }
+        }
+        let enc_path = enc_path.expect("encrypted db file should exist");
+
+        // Plaintext DB created manually
+        let opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", plain_path.display()))?
+            .journal_mode(SqliteJournalMode::Wal)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::default().connect_with(opts).await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS t (val TEXT)")
+            .execute(&pool)
+            .await?;
+        sqlx::query("INSERT INTO t (val) VALUES (?1)")
+            .bind(MARKER)
+            .execute(&pool)
+            .await?;
+        pool.close().await;
+
+        // Read raw bytes
+        let enc_bytes = fs::read(&enc_path)?;
+        let plain_bytes = fs::read(&plain_path)?;
+
+        // Plain should contain the marker in clear; encrypted should not
+        assert!(
+            !enc_bytes
+                .windows(MARKER.len())
+                .any(|w| w == MARKER.as_bytes()),
+            "marker was found in encrypted db bytes"
+        );
+        assert!(
+            plain_bytes
+                .windows(MARKER.len())
+                .any(|w| w == MARKER.as_bytes()),
+            "marker not found in plaintext db bytes"
+        );
+
+        Ok(())
+    }
+}

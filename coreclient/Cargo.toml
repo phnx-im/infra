@@ -62,6 +62,8 @@ aircommon = { path = "../common", features = ["test_utils"] }
 serde_json = "1.0.140"
 insta = { workspace = true, features = ["json"] }
 airbackend = { path = "../backend" }
+tempfile = "3"
+memchr = "2"
 
 [build-dependencies]
 
