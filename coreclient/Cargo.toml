@@ -67,5 +67,6 @@ airbackend = { path = "../backend" }
 
 [package.metadata.cargo-machete]
 ignored = [
-    "kamadak-exif", # false positive due to a different crate name: exif
+    "kamadak-exif",   # false positive due to a different crate name: exif
+    "libsqlite3-sys", # false positive because it replaces a sqlx dependency only
 ]
