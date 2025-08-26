@@ -134,6 +134,12 @@ pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Res
     let db_url = format!("sqlite://{client_db_path}/{client_db_name}");
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts
+        .pragma("key", "STATIC_KEY_FOR_DEBUGGING_PURPOSES")
+        // Explicitly setting default parameters
+        .pragma("cipher_page_size", "4096")
+        .pragma("kdf_iter", "256000")
+        .pragma("cipher_hmac_algorithm", "HMAC_SHA512")
+        .pragma("cipher_kdf_algorithm", "PBKDF2_HMAC_SHA512")
         .journal_mode(SqliteJournalMode::Wal)
         .create_if_missing(true);
     let pool = SqlitePoolOptions::default().connect_with(opts).await?;

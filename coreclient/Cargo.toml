@@ -33,6 +33,11 @@ mimi_content = { workspace = true }
 # Persistence
 serde = { version = "1", features = ["derive"] }
 sqlx = { workspace = true, features = ["chrono", "sqlite"] }
+# the libsqlite3-sys version needs to be synchronized with the corresponding
+# sqlx dependency version
+libsqlite3-sys = { version = "0.30.1", features = [
+    "bundled-sqlcipher-vendored-openssl",
+] }
 mimi-room-policy = { workspace = true }
 
 # Workspace dependencies
