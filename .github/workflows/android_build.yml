@@ -53,3 +53,9 @@ jobs:
       - name: Build Android app
         run: |
           cd app/fastlane && bundle exec fastlane android beta_android --verbose
+
+      - name: Upload Android app APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: air.${{ steps.get_sha.outputs.short_sha }}.apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
