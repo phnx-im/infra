@@ -42,6 +42,7 @@ void main() {
     late MockUsersCubit contactsCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
+    late MockUserSettingsCubit userSettingsCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
@@ -49,6 +50,7 @@ void main() {
       contactsCubit = MockUsersCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
+      userSettingsCubit = MockUserSettingsCubit();
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
@@ -68,6 +70,7 @@ void main() {
           draftMessage: any(named: "draftMessage"),
         ),
       ).thenAnswer((_) async => Future.value());
+      when(() => userSettingsCubit.state).thenReturn(const UserSettings());
     });
 
     Widget buildSubject({bool useDarkTheme = false}) => MultiBlocProvider(
@@ -79,6 +82,7 @@ void main() {
           value: conversationDetailsCubit,
         ),
         BlocProvider<MessageListCubit>.value(value: messageListCubit),
+        BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
       ],
       child: Builder(
         builder: (context) {
