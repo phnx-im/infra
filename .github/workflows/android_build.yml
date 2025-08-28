@@ -55,9 +55,3 @@ jobs:
       - name: Build Android app
         run: |
           cd app/fastlane && bundle exec fastlane android beta_android --verbose
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-build
-          path: app/build
