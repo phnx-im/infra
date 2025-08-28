@@ -2,7 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use aircommon::messages::push_token::PushToken;
+use aircommon::{
+    crypto::{
+        ear::{Ciphertext, EarDecryptable, keys::DatabaseKek},
+        errors::RandomnessError,
+        secrets::Secret,
+    },
+    messages::push_token::PushToken,
+};
 use anyhow::bail;
 
 use super::{
@@ -53,14 +60,10 @@ impl UserCreationState {
 
     pub(super) async fn new(
         client_db: &SqlitePool,
-        air_db: &SqlitePool,
         user_id: UserId,
         server_url: impl ToString,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
-        let client_record = ClientRecord::new(user_id.clone());
-        client_record.store(air_db).await?;
-
         let basic_user_data = BasicUserData {
             user_id: user_id.clone(),
             server_url: server_url.to_string(),
@@ -174,25 +177,94 @@ impl ClientRecordState {
     }
 }
 
+const DATABASE_DEK_LENGTH: usize = 32;
+#[derive(Debug)]
+pub struct EncryptedDatabaseDekCtype;
+pub type EncryptedDek = Ciphertext<EncryptedDatabaseDekCtype>;
+
+impl EarEncryptable<DatabaseKek, EncryptedDatabaseDekCtype> for DatabaseEncryptionKey {}
+impl EarDecryptable<DatabaseKek, EncryptedDatabaseDekCtype> for DatabaseEncryptionKey {}
+
+#[derive(Serialize, Deserialize)]
+pub struct DatabaseEncryptionKey(Secret<DATABASE_DEK_LENGTH>);
+
+impl DatabaseEncryptionKey {
+    pub(crate) fn random() -> Result<Self, RandomnessError> {
+        let secret = Secret::random()?;
+        Ok(Self(secret))
+    }
+
+    pub(crate) fn to_hex_string(&self) -> String {
+        hex::encode(&self.0.secret())
+    }
+}
+
+impl From<Secret<DATABASE_DEK_LENGTH>> for DatabaseEncryptionKey {
+    fn from(secret: Secret<DATABASE_DEK_LENGTH>) -> Self {
+        Self(secret)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRecord {
     pub user_id: UserId,
     pub client_record_state: ClientRecordState,
     pub created_at: DateTime<Utc>,
     pub is_default: bool,
+    pub encrypted_dek: EncryptedDek,
 }
 
 impl ClientRecord {
-    pub(super) fn new(user_id: UserId) -> Self {
-        Self {
+    pub(super) fn new(
+        user_id: UserId,
+        kek: &aircommon::crypto::ear::keys::DatabaseKek,
+    ) -> anyhow::Result<Self> {
+        // Generate new DEK and encrypt it
+        let dek = DatabaseEncryptionKey::random()?;
+
+        let encrypted_dek = kek
+            .encrypt(GenericSerializable::serialize(&dek)?.as_slice())
+            .map_err(|e| anyhow::anyhow!("Failed to encrypt DEK: {}", e))?;
+
+        Ok(Self {
             user_id,
             client_record_state: ClientRecordState::InProgress,
             created_at: Utc::now(),
             is_default: false,
-        }
+            encrypted_dek: encrypted_dek.into(),
+        })
     }
 
     pub(super) fn finish(&mut self) {
         self.client_record_state = ClientRecordState::Finished;
+    }
+
+    /// Get the encrypted DEK
+    pub fn encrypted_dek(&self) -> &EncryptedDek {
+        &self.encrypted_dek
+    }
+
+    /// Decrypt the DEK using the provided KEK
+    fn decrypt_dek(&self, kek: &DatabaseKek) -> anyhow::Result<DatabaseEncryptionKey> {
+        let bytes = kek
+            .decrypt(&self.encrypted_dek.aead_ciphertext())
+            .map_err(|e| anyhow::anyhow!("Failed to decrypt DEK: {}", e))?;
+        let slice: [u8; DATABASE_DEK_LENGTH] = bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Decrypted DEK has invalid length"))?;
+        let secret = Secret::<DATABASE_DEK_LENGTH>::try_from(slice)?;
+
+        Ok(secret.into())
+    }
+
+    /// Open the client database using the encrypted DEK and provided KEK
+    pub async fn open_client_db(
+        &self,
+        client_db_path: &str,
+        kek: &DatabaseKek,
+    ) -> anyhow::Result<sqlx::SqlitePool> {
+        let dek = self.decrypt_dek(kek)?;
+        crate::utils::persistence::open_client_db(&self.user_id, client_db_path, &dek).await
     }
 }

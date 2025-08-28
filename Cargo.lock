@@ -215,6 +215,7 @@ dependencies = [
  "chrono",
  "derive_more 0.99.20",
  "enumset",
+ "hex",
  "image",
  "infer",
  "insta",

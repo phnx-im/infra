@@ -4,6 +4,10 @@
 
 use std::{fmt::Display, fs, path::Path, time::Duration};
 
+use crate::{
+    clients::store::{ClientRecord, DatabaseEncryptionKey},
+    utils::data_migrations,
+};
 use aircommon::identifiers::UserId;
 use anyhow::{Result, bail};
 use openmls::group::GroupId;
@@ -15,9 +19,6 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use tracing::{error, info};
-
-use crate::clients::store::ClientRecord;
-use crate::utils::data_migrations;
 
 pub(crate) const AIR_DB_NAME: &str = "air.db";
 
@@ -129,20 +130,31 @@ fn client_db_name(user_id: &UserId) -> String {
     format!("{}@{}.db", user_id.uuid(), user_id.domain())
 }
 
-pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Result<SqlitePool> {
+/// Open a client database with the provided DEK.
+pub async fn open_client_db(
+    user_id: &UserId,
+    client_db_path: &str,
+    dek: &DatabaseEncryptionKey,
+) -> anyhow::Result<SqlitePool> {
     let client_db_name = client_db_name(user_id);
     let db_url = format!("sqlite://{client_db_path}/{client_db_name}");
-    let opts: SqliteConnectOptions = db_url.parse()?;
+    let opts: SqliteConnectOptions = db_url
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Failed to parse database URL: {}", e))?;
     let opts = opts
-        .pragma("key", "STATIC_KEY_FOR_DEBUGGING_PURPOSES")
+        .pragma("key", dek.to_hex_string())
         // Explicitly setting default parameters
         .pragma("cipher_page_size", "4096")
+        // TODO: Given that we use a random key, we don't need this many rounds
         .pragma("kdf_iter", "256000")
         .pragma("cipher_hmac_algorithm", "HMAC_SHA512")
         .pragma("cipher_kdf_algorithm", "PBKDF2_HMAC_SHA512")
         .journal_mode(SqliteJournalMode::Wal)
         .create_if_missing(true);
-    let pool = SqlitePoolOptions::default().connect_with(opts).await?;
+    let pool = SqlitePoolOptions::default()
+        .connect_with(opts)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to database: {}", e))?;
 
     data_migrations::migrate(&pool).await?;
     migrate!().run(&pool).await?;
@@ -204,15 +216,20 @@ mod tests {
     /// Test that the encrypted database does not contain the plaintext marker
     #[tokio::test]
     async fn encrypted_db_marker() -> anyhow::Result<()> {
+        use aircommon::crypto::ear::keys::DatabaseEncryptionKey;
+
         let dir = tempdir()?;
         let plain_path = dir.path().join("plain.db");
+
+        // Generate a DEK for testing
+        let dek = DatabaseEncryptionKey::random()?;
 
         // Encrypted DB via real code path
         let user_id = UserId::new(
             Uuid::from_str("00000000-0000-0000-0000-000000000001")?,
             Fqdn::from_str("example.test")?,
         );
-        let pool = open_client_db(&user_id, dir.path().to_str().unwrap()).await?;
+        let pool = open_client_db(&user_id, dir.path().to_str().unwrap(), &dek).await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS t (val TEXT)")
             .execute(&pool)
             .await?;
