@@ -4,10 +4,8 @@
 
 use std::{collections::HashMap, iter};
 
-use super::{ClientVerificationInfo, Group, openmls_provider::PhnxOpenMlsProvider};
-use anyhow::{Context, Result, anyhow, bail, ensure};
-use mimi_room_policy::RoleIndex;
-use phnxcommon::{
+use super::{ClientVerificationInfo, Group, openmls_provider::AirOpenMlsProvider};
+use aircommon::{
     credentials::{
         AsIntermediateCredential, AsIntermediateCredentialBody, ClientCredential,
         VerifiableClientCredential,
@@ -16,6 +14,8 @@ use phnxcommon::{
     identifiers::UserId,
     messages::client_ds::{InfraAadMessage, InfraAadPayload},
 };
+use anyhow::{Context, Result, anyhow, bail, ensure};
+use mimi_room_policy::RoleIndex;
 use sqlx::SqliteConnection;
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 use tracing::debug;
@@ -52,7 +52,7 @@ impl Group {
     ) -> Result<ProcessMessageResult> {
         // Phase 1: Process the message.
         let processed_message = {
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group.process_message(&provider, message)?
         };
 

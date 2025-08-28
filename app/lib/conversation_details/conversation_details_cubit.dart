@@ -6,8 +6,8 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/user/user.dart';
+import 'package:air/core/core.dart';
+import 'package:air/user/user.dart';
 
 class ConversationDetailsCubit
     extends StateStreamableSource<ConversationDetailsState> {

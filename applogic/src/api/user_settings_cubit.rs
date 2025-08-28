@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircoreclient::store::{Store, UserSetting};
 use anyhow::{anyhow, bail};
 use flutter_rust_bridge::frb;
-use phnxcoreclient::store::{Store, UserSetting};
 
 use crate::{
     StreamSink,

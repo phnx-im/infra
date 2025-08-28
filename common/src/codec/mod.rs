@@ -19,27 +19,27 @@ pub use persistence::{BlobDecoded, BlobEncoded};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
 #[non_exhaustive]
-pub enum PhnxCodec {
+pub enum AirCodec {
     #[cfg(test)]
     OlderTestVersion = 0,
     #[default]
     V1 = 1,
 }
 
-impl TryFrom<u8> for PhnxCodec {
+impl TryFrom<u8> for AirCodec {
     type Error = Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             #[cfg(test)]
-            0 => Ok(PhnxCodec::OlderTestVersion),
-            1 => Ok(PhnxCodec::V1),
+            0 => Ok(AirCodec::OlderTestVersion),
+            1 => Ok(AirCodec::V1),
             _ => Err(Error::UnknownCodecVersion),
         }
     }
 }
 
-impl PhnxCodec {
+impl AirCodec {
     fn serialize_to_writer<T: Serialize>(
         &self,
         value: &T,
@@ -49,8 +49,8 @@ impl PhnxCodec {
         writer.write_all(&[*self as u8])?;
         match self {
             #[cfg(test)]
-            PhnxCodec::OlderTestVersion => tests::Json::to_writer(value, writer)?,
-            PhnxCodec::V1 => Cbor::to_writer(value, writer)?,
+            AirCodec::OlderTestVersion => tests::Json::to_writer(value, writer)?,
+            AirCodec::V1 => Cbor::to_writer(value, writer)?,
         }
         Ok(())
     }
@@ -70,8 +70,8 @@ impl PhnxCodec {
     ) -> Result<T, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let res = match self {
             #[cfg(test)]
-            PhnxCodec::OlderTestVersion => tests::Json::from_slice(bytes)?,
-            PhnxCodec::V1 => Cbor::from_slice(bytes)?,
+            AirCodec::OlderTestVersion => tests::Json::from_slice(bytes)?,
+            AirCodec::V1 => Cbor::from_slice(bytes)?,
         };
         Ok(res)
     }
@@ -80,7 +80,7 @@ impl PhnxCodec {
     where
         T: Sized + Serialize,
     {
-        let codec_version = PhnxCodec::default();
+        let codec_version = AirCodec::default();
         let res = codec_version.serialize(value).map_err(|error| CodecError {
             codec_version,
             error,
@@ -93,7 +93,7 @@ impl PhnxCodec {
         T: DeserializeOwned,
     {
         let codec_version_byte = bytes.first().ok_or(Error::EmptyyInputSlice)?;
-        let codec_version = PhnxCodec::try_from(*codec_version_byte)?;
+        let codec_version = AirCodec::try_from(*codec_version_byte)?;
         codec_version.deserialize(&bytes[1..]).map_err(|error| {
             CodecError {
                 codec_version,
@@ -104,7 +104,7 @@ impl PhnxCodec {
     }
 }
 
-impl Codec for PhnxCodec {
+impl Codec for AirCodec {
     type Error = Error;
 
     fn to_vec<T>(value: &T) -> Result<Vec<u8>, Self::Error>

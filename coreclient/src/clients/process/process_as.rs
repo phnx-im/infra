@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, Result, ensure};
-use openmls::prelude::MlsMessageOut;
-use phnxcommon::{
+use aircommon::{
     credentials::keys::ClientSigningKey,
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{QualifiedGroupId, UserHandle},
@@ -15,7 +13,9 @@ use phnxcommon::{
         connection_package::{ConnectionPackage, ConnectionPackageHash},
     },
 };
-use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
+use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
+use anyhow::{Context, Result, ensure};
+use openmls::prelude::MlsMessageOut;
 use sqlx::SqliteConnection;
 use sqlx::SqliteTransaction;
 use tls_codec::DeserializeBytes;

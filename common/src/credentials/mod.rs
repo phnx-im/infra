@@ -25,7 +25,7 @@ use keys::{
 
 use crate::{
     LibraryError,
-    codec::PhnxCodec,
+    codec::AirCodec,
     crypto::{
         Labeled,
         ear::Ciphertext,
@@ -111,7 +111,7 @@ impl Encode<'_, Sqlite> for AsCredentialBody {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
-        let bytes = PhnxCodec::to_vec(self)?;
+        let bytes = AirCodec::to_vec(self)?;
         Encode::<Sqlite>::encode(bytes, buf)
     }
 }
@@ -277,7 +277,7 @@ impl Encode<'_, Sqlite> for AsIntermediateCredentialBody {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
-        let bytes = PhnxCodec::to_vec(self)?;
+        let bytes = AirCodec::to_vec(self)?;
         Encode::<Sqlite>::encode(bytes, buf)
     }
 }
@@ -285,7 +285,7 @@ impl Encode<'_, Sqlite> for AsIntermediateCredentialBody {
 impl Decode<'_, Sqlite> for AsIntermediateCredentialBody {
     fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        Ok(PhnxCodec::from_slice(bytes)?)
+        Ok(AirCodec::from_slice(bytes)?)
     }
 }
 
@@ -576,7 +576,7 @@ impl<'q> Encode<'q, Sqlite> for ClientCredential {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let versioned = VersionedClientCredentialRef::CurrentVersion(self);
-        let bytes = PhnxCodec::to_vec(&versioned)?;
+        let bytes = AirCodec::to_vec(&versioned)?;
         Encode::<Sqlite>::encode(bytes, buf)
     }
 }
@@ -584,7 +584,7 @@ impl<'q> Encode<'q, Sqlite> for ClientCredential {
 impl<'r> Decode<'r, Sqlite> for ClientCredential {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        match PhnxCodec::from_slice(bytes)? {
+        match AirCodec::from_slice(bytes)? {
             VersionedClientCredential::CurrentVersion(credential) => Ok(credential),
         }
     }
@@ -663,7 +663,7 @@ pub struct EncryptedClientCredentialCtype;
 pub type EncryptedClientCredential = Ciphertext<EncryptedClientCredentialCtype>;
 
 pub mod persistence {
-    use crate::{codec::PhnxCodec, identifiers::UserId, time::ExpirationData};
+    use crate::{codec::AirCodec, identifiers::UserId, time::ExpirationData};
 
     use super::{
         AsIntermediateCredentialBody, ClientCredential, ClientCredentialCsr,
@@ -685,8 +685,8 @@ pub mod persistence {
     impl FlatClientCredential {
         pub fn new(credential: &ClientCredential) -> Self {
             Self {
-                version: PhnxCodec::to_vec(&credential.payload.csr.version).unwrap(),
-                signature_scheme: PhnxCodec::to_vec(&credential.payload.csr.signature_scheme)
+                version: AirCodec::to_vec(&credential.payload.csr.version).unwrap(),
+                signature_scheme: AirCodec::to_vec(&credential.payload.csr.signature_scheme)
                     .unwrap(),
                 verifying_key: credential.payload.csr.verifying_key.clone(),
                 expiration_data: credential.payload.expiration_data.clone(),
@@ -698,9 +698,9 @@ pub mod persistence {
         pub fn into_client_credential(self, user_id: UserId) -> ClientCredential {
             let payload = ClientCredentialPayload {
                 csr: ClientCredentialCsr {
-                    version: PhnxCodec::from_slice(&self.version).unwrap(),
+                    version: AirCodec::from_slice(&self.version).unwrap(),
                     user_id,
-                    signature_scheme: PhnxCodec::from_slice(&self.signature_scheme).unwrap(),
+                    signature_scheme: AirCodec::from_slice(&self.signature_scheme).unwrap(),
                     verifying_key: self.verifying_key,
                 },
                 expiration_data: self.expiration_data,

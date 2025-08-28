@@ -48,11 +48,11 @@ impl CoreUser {
 }
 
 mod update_key_flow {
-    use anyhow::Context;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::ClientSigningKey, messages::client_ds_out::UpdateParamsOut,
         time::TimeStamp,
     };
+    use anyhow::Context;
     use sqlx::SqliteTransaction;
 
     use crate::{

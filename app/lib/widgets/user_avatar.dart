@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
-import 'package:prototype/util/cached_memory_image.dart';
+import 'package:air/core/core.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/util/cached_memory_image.dart';
 
 class UserAvatar extends StatelessWidget {
   const UserAvatar({

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{codec::PhnxCodec, identifiers::UserId};
-use phnxserver_test_harness::utils::setup::TestBackend;
+use aircommon::{codec::AirCodec, identifiers::UserId};
+use airserver_test_harness::utils::setup::TestBackend;
 
 use crate::{
     clients::store::{ClientRecord, ClientRecordState, UserCreationState},
@@ -20,7 +20,7 @@ async fn user_stages() -> anyhow::Result<()> {
 
     let user_id = UserId::random("example.com".parse().unwrap());
 
-    let phnx_db = open_db_in_memory().await?;
+    let air_db = open_db_in_memory().await?;
     let client_db = open_db_in_memory().await?;
 
     let api_clients = ApiClients::new(
@@ -30,10 +30,10 @@ async fn user_stages() -> anyhow::Result<()> {
     );
 
     let computed_state =
-        UserCreationState::new(&client_db, &phnx_db, user_id.clone(), server_url, None).await?;
+        UserCreationState::new(&client_db, &air_db, user_id.clone(), server_url, None).await?;
 
-    // There should now be a client record state in the phnx db.
-    let client_records = ClientRecord::load_all(&phnx_db).await?;
+    // There should now be a client record state in the air db.
+    let client_records = ClientRecord::load_all(&air_db).await?;
     assert!(client_records.len() == 1);
     let client_record = client_records.first().unwrap();
     assert!(client_record.user_id == user_id);
@@ -48,13 +48,13 @@ async fn user_stages() -> anyhow::Result<()> {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::BasicUserData(_)));
     assert_eq!(
-        PhnxCodec::to_vec(&computed_state).unwrap(),
-        PhnxCodec::to_vec(&loaded_state).unwrap()
+        AirCodec::to_vec(&computed_state).unwrap(),
+        AirCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We now continue down the path of creating a user.
     let computed_state = loaded_state
-        .step(&phnx_db, &client_db, &api_clients)
+        .step(&air_db, &client_db, &api_clients)
         .await
         .unwrap();
 
@@ -67,13 +67,13 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::InitialUserState(_)
     ));
     assert_eq!(
-        PhnxCodec::to_vec(&computed_state).unwrap(),
-        PhnxCodec::to_vec(&loaded_state).unwrap()
+        AirCodec::to_vec(&computed_state).unwrap(),
+        AirCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
     let computed_state = loaded_state
-        .step(&phnx_db, &client_db, &api_clients)
+        .step(&air_db, &client_db, &api_clients)
         .await
         .unwrap();
 
@@ -86,13 +86,13 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::PostRegistrationInitState(_)
     ));
     assert_eq!(
-        PhnxCodec::to_vec(&computed_state).unwrap(),
-        PhnxCodec::to_vec(&loaded_state).unwrap()
+        AirCodec::to_vec(&computed_state).unwrap(),
+        AirCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
     let computed_state = loaded_state
-        .step(&phnx_db, &client_db, &api_clients)
+        .step(&air_db, &client_db, &api_clients)
         .await
         .unwrap();
 
@@ -105,13 +105,13 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::UnfinalizedRegistrationState(_)
     ));
     assert_eq!(
-        PhnxCodec::to_vec(&computed_state).unwrap(),
-        PhnxCodec::to_vec(&loaded_state).unwrap()
+        AirCodec::to_vec(&computed_state).unwrap(),
+        AirCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
     let computed_state = loaded_state
-        .step(&phnx_db, &client_db, &api_clients)
+        .step(&air_db, &client_db, &api_clients)
         .await
         .unwrap();
 
@@ -124,13 +124,13 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::AsRegisteredUserState(_)
     ));
     assert_eq!(
-        PhnxCodec::to_vec(&computed_state).unwrap(),
-        PhnxCodec::to_vec(&loaded_state).unwrap()
+        AirCodec::to_vec(&computed_state).unwrap(),
+        AirCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
     let computed_state = loaded_state
-        .step(&phnx_db, &client_db, &api_clients)
+        .step(&air_db, &client_db, &api_clients)
         .await
         .unwrap();
 
@@ -143,13 +143,13 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::QsRegisteredUserState(_)
     ));
     assert_eq!(
-        PhnxCodec::to_vec(&computed_state).unwrap(),
-        PhnxCodec::to_vec(&loaded_state).unwrap()
+        AirCodec::to_vec(&computed_state).unwrap(),
+        AirCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the final step
     let computed_state = loaded_state
-        .step(&phnx_db, &client_db, &api_clients)
+        .step(&air_db, &client_db, &api_clients)
         .await
         .unwrap();
 
@@ -159,8 +159,8 @@ async fn user_stages() -> anyhow::Result<()> {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::FinalUserState(_)));
     assert_eq!(
-        PhnxCodec::to_vec(&computed_state).unwrap(),
-        PhnxCodec::to_vec(&loaded_state).unwrap()
+        AirCodec::to_vec(&computed_state).unwrap(),
+        AirCodec::to_vec(&loaded_state).unwrap()
     );
 
     Ok(())

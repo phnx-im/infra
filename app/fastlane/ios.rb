@@ -1,5 +1,6 @@
 require 'xcodeproj'
 require 'plist'
+require 'yaml'
 
 platform :ios do
     desc "Build iOS app for TestFlight"
@@ -13,8 +14,8 @@ platform :ios do
       key_content = ENV['APP_STORE_KEY_P8_BASE64']
       team_id = ENV['TEAM_ID']
       matchType = "appstore"
-      app_identifier = "im.phnx.prototype"
-      app_identifier_nse = "im.phnx.prototype.nse"
+      app_identifier = "ms.air"
+      app_identifier_nse = "ms.air.nse"
     
       # Load the app store connect API key
       api_key = app_store_connect_api_key(
@@ -25,12 +26,16 @@ platform :ios do
         in_house: false
       )
     
+      # Read app version from pubspec.yaml
+      pubspec = YAML.load_file("../pubspec.yaml")
+      app_version = (pubspec['version'] || '').to_s.split('+').first
+
       # Determine build number
       build_number = if options[:build_number]
                       options[:build_number].to_i
                     else
                       latest_testflight_build_number(
-                        version: "1.0.0",
+                        version: app_version,
                         api_key: api_key,
                         app_identifier: app_identifier
                       ) + 1
@@ -61,7 +66,8 @@ platform :ios do
       # Upload the app to TestFlight if the parameter is set
       if options[:upload_to_test_flight]
         upload_to_testflight(
-          api_key: api_key, 
+          api_key: api_key,
+          app_platform: "ios",
           skip_waiting_for_build_processing: true,
           distribute_external: false,
         )

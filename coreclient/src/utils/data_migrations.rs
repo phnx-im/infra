@@ -4,8 +4,8 @@
 
 //! Data migrations implemented in Rust that cannot be expressed in SQL.
 
+use aircommon::codec::{AirCodec, BlobDecoded, BlobEncoded};
 use mimi_content::content_container::MimiContentV1;
-use phnxcommon::codec::{BlobDecoded, BlobEncoded, PhnxCodec};
 use sqlx::{SqlitePool, migrate::Migrate, query, query_as};
 use tokio_stream::StreamExt;
 use tracing::{error, info};
@@ -60,7 +60,7 @@ async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<usize> {
     }) = records.next().await.transpose()?
         && version == 1
     {
-        let content_v1: MimiContentV1 = PhnxCodec::from_slice(&content)?;
+        let content_v1: MimiContentV1 = AirCodec::from_slice(&content)?;
         let content_v2 = content_v1.upgrade();
         let Ok(message) = VersionedMessage::from_mimi_content(&content_v2) else {
             error!(
@@ -91,7 +91,7 @@ async fn convert_messages_v1_to_v2(pool: &SqlitePool) -> anyhow::Result<usize> {
 
 #[cfg(test)]
 mod test {
-    use phnxcommon::{assert_matches, identifiers::UserId, time::TimeStamp};
+    use aircommon::{assert_matches, identifiers::UserId, time::TimeStamp};
     use sqlx::{SqliteConnection, migrate::Migrate};
 
     use crate::{
@@ -118,7 +118,7 @@ mod test {
             topic_id: vec![1; 32].into(),
             ..Default::default()
         };
-        let mimi_content_bytes = PhnxCodec::to_vec(&mimi_content).unwrap();
+        let mimi_content_bytes = AirCodec::to_vec(&mimi_content).unwrap();
         let content = VersionedMessage {
             version: 1,
             content: mimi_content_bytes,

@@ -6,8 +6,8 @@
 
 use std::mem;
 
+use aircommon::identifiers::AttachmentId;
 use mimi_content::content_container::NestedPartContent;
-use phnxcommon::identifiers::AttachmentId;
 use tracing::error;
 
 use super::{content::MimiContentExt, persistence::PendingAttachmentRecord};

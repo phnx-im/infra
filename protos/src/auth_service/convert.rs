@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use displaydoc::Display;
-use openmls::prelude::HpkeCiphertext;
-use phnxcommon::{
+use aircommon::{
     credentials::{self, keys},
     crypto::{self, Labeled, hash},
     identifiers,
@@ -13,6 +11,8 @@ use phnxcommon::{
         client_as::{self},
     },
 };
+use displaydoc::Display;
+use openmls::prelude::HpkeCiphertext;
 use thiserror::Error;
 use tonic::Status;
 

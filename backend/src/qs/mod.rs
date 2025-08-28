@@ -61,11 +61,11 @@
 //! smaller than the smalles requested one and responds with the requested
 //! messages.
 
-use client_id_decryption_key::StorableClientIdDecryptionKey;
-use phnxcommon::{
+use aircommon::{
     identifiers::{Fqdn, QsClientId},
     messages::{client_ds::DsEventMessage, push_token::PushToken},
 };
+use client_id_decryption_key::StorableClientIdDecryptionKey;
 
 use sqlx::PgPool;
 

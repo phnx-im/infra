@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/theme/scale.dart';
-import 'package:prototype/ui/typography/font_size.dart';
-import 'package:prototype/ui/typography/monospace.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/theme/scale.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/ui/typography/monospace.dart';
 
 class Typescale extends StatelessWidget {
   const Typescale({super.key});

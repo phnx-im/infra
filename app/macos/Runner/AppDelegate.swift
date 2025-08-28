@@ -4,7 +4,7 @@ import UserNotifications
 
 @main
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
-  public static let notificationChannelName: String = "im.phnx.prototype/channel"
+  public static let notificationChannelName: String = "ms.air/channel"
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
     let center = UNUserNotificationCenter.current()

@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Context;
-pub use persistence::UserHandleRecord;
-use phnxcommon::{
+use aircommon::{
     credentials::keys::HandleSigningKey,
     crypto::ConnectionDecryptionKey,
     identifiers::{UserHandle, UserHandleHash},
     messages::{client_as_out::UserHandleDeleteResponse, connection_package::ConnectionPackage},
 };
+use anyhow::Context;
+pub use persistence::UserHandleRecord;
 use tracing::error;
 
 use crate::{

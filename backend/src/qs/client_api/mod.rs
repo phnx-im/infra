@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::messages::client_qs::{DequeueMessagesParams, DequeueMessagesResponse};
+use aircommon::messages::client_qs::{DequeueMessagesParams, DequeueMessagesResponse};
 
 use crate::errors::qs::QsDequeueError;
 

@@ -8,14 +8,14 @@ use std::{net::SocketAddr, time::Duration};
 
 pub mod setup;
 
-use phnxbackend::{
+use airbackend::{
     auth_service::AuthService,
     ds::{Ds, storage::Storage},
     infra_service::InfraService,
     qs::Qs,
 };
-use phnxcommon::identifiers::Fqdn;
-use phnxserver::{
+use aircommon::identifiers::Fqdn;
+use airserver::{
     RateLimitsConfig, ServerRunParams, configurations::get_configuration_from_str,
     dispatch::DispatchNotifier, enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,

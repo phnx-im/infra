@@ -6,7 +6,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 import 'dart:ui' as ui;
 
 /// Loads an attachment image from the database via an [AttachmentsRepository].
