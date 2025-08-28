@@ -195,7 +195,7 @@ impl DatabaseEncryptionKey {
     }
 
     pub(crate) fn to_hex_string(&self) -> String {
-        hex::encode(&self.0.secret())
+        hex::encode(self.0.secret())
     }
 }
 
@@ -247,14 +247,13 @@ impl ClientRecord {
     /// Decrypt the DEK using the provided KEK
     fn decrypt_dek(&self, kek: &DatabaseKek) -> anyhow::Result<DatabaseEncryptionKey> {
         let bytes = kek
-            .decrypt(&self.encrypted_dek.aead_ciphertext())
+            .decrypt(self.encrypted_dek.aead_ciphertext())
             .map_err(|e| anyhow::anyhow!("Failed to decrypt DEK: {}", e))?;
         let slice: [u8; DATABASE_DEK_LENGTH] = bytes
             .as_slice()
             .try_into()
             .map_err(|_| anyhow::anyhow!("Decrypted DEK has invalid length"))?;
-        let secret = Secret::<DATABASE_DEK_LENGTH>::try_from(slice)?;
-
+        let secret = Secret::from(slice);
         Ok(secret.into())
     }
 

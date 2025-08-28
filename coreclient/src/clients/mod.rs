@@ -97,7 +97,7 @@ pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const KEY_PACKAGES: usize = 50;
 
 enum ClientDbType<'a> {
-    Path(&'a str),
+    Path { path: &'a str, kek: &'a DatabaseKek },
     Ephemeral,
 }
 
@@ -140,8 +140,7 @@ impl CoreUser {
             grpc_port,
             push_token,
             air_db,
-            ClientDbType::Path(db_path),
-            kek,
+            ClientDbType::Path { path: db_path, kek },
         )
         .await
     }
@@ -153,17 +152,22 @@ impl CoreUser {
         push_token: Option<PushToken>,
         air_db: SqlitePool,
         client_db: ClientDbType<'a>,
-        kek: &DatabaseKek,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(user_id.domain().clone(), server_url.clone(), grpc_port);
 
-        let client_record = ClientRecord::new(user_id.clone(), kek)?;
-        client_record.store(&air_db).await?;
-
         let client_db = match client_db {
-            ClientDbType::Path(db_path) => client_record.open_client_db(&db_path, kek).await?,
-            ClientDbType::Ephemeral => open_db_in_memory().await?,
+            ClientDbType::Path { path, kek } => {
+                let client_record = ClientRecord::new(user_id.clone(), kek)?;
+                client_record.store(&air_db).await?;
+                client_record.open_client_db(path, kek).await?
+            }
+            ClientDbType::Ephemeral => {
+                let ephemeral_kek = DatabaseKek::random()?;
+                let client_record = ClientRecord::new(user_id.clone(), &ephemeral_kek)?;
+                client_record.store(&air_db).await?;
+                open_db_in_memory().await?
+            }
         };
 
         let user_creation_state =
@@ -194,7 +198,6 @@ impl CoreUser {
         server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
-        kek: &DatabaseKek,
     ) -> Result<Self> {
         info!(?user_id, "creating new ephemeral user");
 
@@ -208,7 +211,6 @@ impl CoreUser {
             push_token,
             air_db,
             ClientDbType::Ephemeral,
-            kek,
         )
         .await
     }

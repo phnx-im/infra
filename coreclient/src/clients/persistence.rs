@@ -164,7 +164,7 @@ impl ClientRecord {
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
                 is_default,
-                encrypted_dek
+                encrypted_dek AS "encrypted_dek: _"
             FROM client_record"#
         )
         .fetch_all(executor)
@@ -186,7 +186,7 @@ impl ClientRecord {
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
                 is_default,
-                encrypted_dek
+                encrypted_dek AS "encrypted_dek: _"
             FROM client_record WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain

@@ -4,16 +4,18 @@
 
 //! User features
 
-use std::cmp::Reverse;
+use std::{cmp::Reverse, sync::LazyLock};
 
-use aircommon::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
+use aircommon::{
+    DEFAULT_PORT_GRPC, crypto::ear::keys::DatabaseKek, identifiers::UserId,
+    messages::push_token::PushTokenOperator,
+};
 use aircoreclient::{
     Asset, UserProfile,
     clients::{
         CoreUser,
         store::{ClientRecord, ClientRecordState},
     },
-    open_client_db,
 };
 use anyhow::{Context, Result};
 use flutter_rust_bridge::frb;
@@ -26,7 +28,8 @@ use uuid::Uuid;
 use super::types::{UiClientRecord, UiUserId, UiUserProfile};
 
 // TODO: This needs to be changed
-const DEFAULT_DATABASE_KEK: &[u8] = b"default_database_kek";
+static DEFAULT_DATABASE_KEK: LazyLock<DatabaseKek> =
+    LazyLock::new(|| DatabaseKek::from_bytes(*b"default_database_kek_padding____"));
 
 /// Platform specific push token
 pub enum PlatformPushToken {
@@ -81,7 +84,7 @@ impl User {
             DEFAULT_PORT_GRPC,
             &path,
             push_token.map(|p| p.into()),
-            DEFAULT_DATABASE_KEK,
+            &*DEFAULT_DATABASE_KEK,
         )
         .await?;
 
@@ -117,7 +120,7 @@ impl User {
     }
 
     pub async fn load(db_path: String, user_id: UiUserId) -> anyhow::Result<Self> {
-        let user = CoreUser::load(user_id.into(), &db_path, DEFAULT_DATABASE_KEK).await?;
+        let user = CoreUser::load(user_id.into(), &db_path, &*DEFAULT_DATABASE_KEK).await?;
         Ok(Self { user: user.clone() })
     }
 
