@@ -47,18 +47,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // Create a release signing configuration only if required keys are present
     signingConfigs {
+        val keyAlias = keystoreProperties["keyAlias"] as? String ?: return@signingConfigs
+        val keyPassword = keystoreProperties["keyPassword"] as? String ?: return@signingConfigs
+        val storeFile = keystoreProperties["storeFile"]?.let { file(it) } ?: return@signingConfigs
+        val storePassword = keystoreProperties["storePassword"] as? String ?: return@signingConfigs
+
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String
+            this.keyAlias = keyAlias
+            this.keyPassword = keyPassword
+            this.storeFile = storeFile
+            this.storePassword = storePassword
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }

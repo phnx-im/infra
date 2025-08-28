@@ -13,7 +13,7 @@ platform :android do
         # We prepare the keystore and the Play Store key
         if upload_to_play_store
           # Decode the keystore from the base64 string and save it to a temporary file
-          keystore_path = "../android/app/release-key.jks"
+          keystore_path = "release-key.jks"
           base64_keystore = ENV["ANDROID_KEYSTORE_BASE64"]
           UI.user_error!("ANDROID_KEYSTORE_BASE64 environment variable is missing!") if base64_keystore.nil?
           File.open(keystore_path, "wb") do |file|
