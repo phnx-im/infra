@@ -56,9 +56,10 @@ platform :android do
           )
         end
 
+        # When not uploading to the Play Store, we just build the app as APK to
+        # allow manual installation
         build_target = upload_to_play_store ? "appbundle" : "apk"
 
-        # We build the app with Flutter first to set up gradle
         sh "flutter precache --android"
         sh "flutter pub get"
         sh "flutter build #{build_target} --release --target-platform android-arm64"
