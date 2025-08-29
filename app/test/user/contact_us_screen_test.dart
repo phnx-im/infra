@@ -64,7 +64,6 @@ void main() {
     testWidgets('validation renders correctly', (tester) async {
       await tester.pumpWidget(buildSubject(initialBody: "Too short!"));
 
-      when(() => launcher.canLaunchUrl(any())).thenAnswer((_) async => true);
       when(() => launcher.launchUrl(any())).thenAnswer((_) async {});
 
       await tester.tap(find.byType(OutlinedButton));
@@ -75,6 +74,25 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/contact_us_screen_validation.png'),
       );
+    });
+
+    testWidgets('launcher is called correctly', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(initialSubject: "Other", initialBody: "Fire! Fire! Fire!"),
+      );
+      await tester.pumpAndSettle();
+
+      when(() => launcher.launchUrl(any())).thenAnswer((_) async {});
+
+      await tester.tap(find.byType(OutlinedButton));
+
+      verify(
+        () => launcher.launchUrl(
+          Uri.parse(
+            "mailto:help@air.ms?subject=Other&body=Fire!%20Fire!%20Fire!",
+          ),
+        ),
+      ).called(1);
     });
   });
 }

@@ -9,7 +9,10 @@ import 'package:air/ui/colors/themes.dart';
 import 'package:air/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:logging/logging.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
+
+final _log = Logger('ContactUsScreen');
 
 class ContactUsScreen extends StatelessWidget {
   const ContactUsScreen({
@@ -62,8 +65,8 @@ class _EmailForm extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = useState("");
-    final selectedSubject = useState<String?>(null);
+    final body = useState(initialBody ?? "");
+    final selectedSubject = useState<String?>(initialSubject);
 
     final loc = AppLocalizations.of(context);
 
@@ -73,6 +76,8 @@ class _EmailForm extends HookWidget {
       loc.contactUsScreen_subject_requestFeature,
       loc.contactUsScreen_subject_other,
     ];
+
+    assert(initialSubject == null || subjects.contains(initialSubject));
 
     return Form(
       key: _formKey,
@@ -99,8 +104,7 @@ class _EmailForm extends HookWidget {
                       )
                       .toList(),
               onChanged: (value) => selectedSubject.value = value,
-              validator:
-                  (value) => _validateSubject(selectedSubject.value, loc),
+              validator: (value) => _validateSubject(value, loc),
             ),
             const SizedBox(height: Spacings.s),
 
@@ -121,7 +125,11 @@ class _EmailForm extends HookWidget {
             // Submit Button
             OutlinedButton(
               onPressed: () {
-                _launchEmail(context, selectedSubject.value, body.value);
+                final formState = _formKey.currentState;
+                if (formState != null && formState.validate()) {
+                  formState.save();
+                  _launchEmail(context, selectedSubject.value, body.value);
+                }
               },
               style: buttonStyle(CustomColorScheme.of(context), true),
               child: Text(loc.contactUsScreen_composeEmail),
@@ -143,20 +151,16 @@ class _EmailForm extends HookWidget {
           : null;
 
   void _launchEmail(BuildContext context, String? subject, String body) async {
-    final formState = _formKey.currentState;
-    if (formState != null && formState.validate()) {
-      formState.save();
-    }
-
     final Uri emailUri = Uri.parse(
       'mailto:help@air.ms?subject=$subject&body=$body',
     );
 
     final loc = AppLocalizations.of(context);
 
-    if (await launcher.canLaunchUrl(emailUri)) {
+    try {
       await launcher.launchUrl(emailUri);
-    } else {
+    } catch (e) {
+      _log.severe("Failed to launch email: $e");
       if (context.mounted) {
         showErrorBanner(context, loc.contactUsScreen_errorLaunchingEmail);
       }
@@ -165,14 +169,10 @@ class _EmailForm extends HookWidget {
 }
 
 abstract class UrlLauncher {
-  Future<bool> canLaunchUrl(Uri url);
   Future<void> launchUrl(Uri url);
 }
 
 class _UrlLauncher implements UrlLauncher {
-  @override
-  Future<bool> canLaunchUrl(Uri url) => url_launcher.canLaunchUrl(url);
-
   @override
   Future<void> launchUrl(Uri url) => url_launcher.launchUrl(url);
 }
