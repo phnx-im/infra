@@ -134,6 +134,12 @@ abstract class AppLocalizations {
   /// **'Interface scale'**
   String get userSettingsScreen_interfaceScale;
 
+  /// No description provided for @userSettingsScreen_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get userSettingsScreen_help;
+
   /// No description provided for @removeUsernameDialog_title.
   ///
   /// In en, this message translates to:
@@ -517,6 +523,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'edited'**
   String get textMessage_edited;
+
+  /// No description provided for @helpScreen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get helpScreen_title;
+
+  /// No description provided for @helpScreen_contactUs.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Us'**
+  String get helpScreen_contactUs;
+
+  /// No description provided for @helpScreen_versionInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Version Info'**
+  String get helpScreen_versionInfo;
+
+  /// No description provided for @helpScreen_licenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Licenses'**
+  String get helpScreen_licenses;
+
+  /// No description provided for @licensesScreen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Licenses'**
+  String get licensesScreen_title;
+
+  /// No description provided for @contactUsScreen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact'**
+  String get contactUsScreen_title;
+
+  /// No description provided for @contactUsScreen_subject.
+  ///
+  /// In en, this message translates to:
+  /// **'Message subject'**
+  String get contactUsScreen_subject;
+
+  /// No description provided for @contactUsScreen_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Body'**
+  String get contactUsScreen_body;
+
+  /// No description provided for @contactUsScreen_composeEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Compose Email'**
+  String get contactUsScreen_composeEmail;
+
+  /// No description provided for @contactUsScreen_subject_somethingNotWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Something\'s not working'**
+  String get contactUsScreen_subject_somethingNotWorking;
+
+  /// No description provided for @contactUsScreen_subject_iHaveAQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'I have a question'**
+  String get contactUsScreen_subject_iHaveAQuestion;
+
+  /// No description provided for @contactUsScreen_subject_requestFeature.
+  ///
+  /// In en, this message translates to:
+  /// **'Request a feature'**
+  String get contactUsScreen_subject_requestFeature;
+
+  /// No description provided for @contactUsScreen_subject_other.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get contactUsScreen_subject_other;
+
+  /// No description provided for @contactUsScreen_subject_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a subject'**
+  String get contactUsScreen_subject_empty;
+
+  /// No description provided for @contactUsScreen_body_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your message'**
+  String get contactUsScreen_body_empty;
+
+  /// No description provided for @contactUsScreen_body_tooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Please provide more information'**
+  String get contactUsScreen_body_tooShort;
+
+  /// No description provided for @contactUsScreen_errorLaunchingEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not launch email client'**
+  String get contactUsScreen_errorLaunchingEmail;
 }
 
 class _AppLocalizationsDelegate
