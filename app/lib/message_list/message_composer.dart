@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:air/user/user_settings_cubit.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -297,7 +298,9 @@ class _MessageInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final smallScreen = isSmallScreen(context);
+    final sendOnEnter = context.select(
+      (UserSettingsCubit cubit) => cubit.state.sendOnEnter,
+    );
 
     final loc = AppLocalizations.of(context);
 
@@ -341,7 +344,7 @@ class _MessageInput extends StatelessWidget {
             ),
           ).copyWith(filled: false),
           textInputAction:
-              smallScreen ? TextInputAction.send : TextInputAction.newline,
+              sendOnEnter ? TextInputAction.send : TextInputAction.newline,
           onEditingComplete: () => _focusNode.requestFocus(),
           keyboardType: TextInputType.multiline,
           textCapitalization: TextCapitalization.sentences,
