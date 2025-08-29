@@ -8,19 +8,19 @@ use std::{
     time::Duration,
 };
 
+use aircommon::{
+    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
+    identifiers::{Fqdn, UserHandle, UserId},
+};
+use aircoreclient::{
+    ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
+};
+use airserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use anyhow::Context;
 use mimi_content::{
     MimiContent,
     content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
 };
-use phnxcommon::{
-    DEFAULT_PORT_HTTP,
-    identifiers::{Fqdn, UserHandle, UserId},
-};
-use phnxcoreclient::{
-    ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
-};
-use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
 use tempfile::TempDir;
@@ -391,10 +391,7 @@ impl TestBackend {
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
         info!("{user2_id:?} fetches and process AS handle messages");
-        let (mut stream, responder) = user2
-            .listen_handle(user2_handle_record.hash, &user2_handle_record.signing_key)
-            .await
-            .unwrap();
+        let (mut stream, responder) = user2.listen_handle(&user2_handle_record).await.unwrap();
         while let Some(Some(message)) = timeout(Duration::from_millis(500), stream.next())
             .await
             .unwrap()
@@ -592,7 +589,8 @@ impl TestBackend {
             .take(32)
             .map(char::from)
             .collect();
-        let orig_message = MimiContent::simple_markdown_message(message);
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let orig_message = MimiContent::simple_markdown_message(message, salt);
         let test_sender = self.users.get_mut(sender_id).unwrap();
         let sender = &mut test_sender.user;
 
@@ -607,17 +605,25 @@ impl TestBackend {
 
         let message = test_sender
             .user
-            .send_message(conversation_id, orig_message.clone())
+            .send_message(conversation_id, orig_message.clone(), None)
             .await
             .unwrap();
         let sender_user_id = test_sender.user.user_id().clone();
+
+        let conversation = test_sender
+            .user
+            .conversation(&conversation_id)
+            .await
+            .unwrap();
+        let group_id = conversation.group_id();
 
         assert_eq!(
             message.message(),
             &Message::Content(Box::new(ContentMessage::new(
                 test_sender.user.user_id().clone(),
                 true,
-                orig_message.clone()
+                orig_message.clone(),
+                group_id,
             )))
         );
 
@@ -632,12 +638,20 @@ impl TestBackend {
                 .await
                 .unwrap();
 
+            let message = messages.new_messages.last().unwrap();
+            let conversaion = recipient_user
+                .conversation(&message.conversation_id())
+                .await
+                .unwrap();
+            let group_id = conversaion.group_id();
+
             assert_eq!(
-                messages.new_messages.last().unwrap().message(),
+                message.message(),
                 &Message::Content(Box::new(ContentMessage::new(
                     sender_user_id.clone(),
                     true,
-                    orig_message.clone()
+                    orig_message.clone(),
+                    group_id
                 )))
             );
         }

@@ -4,17 +4,12 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Context, Result, anyhow, ensure};
-use chrono::{DateTime, Utc};
-use openmls::prelude::Ciphersuite;
-use own_client_info::OwnClientInfo;
-pub use phnxapiclient::as_api::ListenHandleResponder;
-use phnxapiclient::{ApiClient, ApiClientInitError};
-use phnxcommon::{
+pub use airapiclient::as_api::ListenHandleResponder;
+use airapiclient::{ApiClient, ApiClientInitError};
+use aircommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
-        ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
-        keys::{ClientSigningKey, HandleSigningKey},
+        ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
@@ -26,27 +21,31 @@ use phnxcommon::{
         kdf::keys::RatchetSecret,
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
-    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserHandleHash, UserId},
+    identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
     messages::{
         FriendshipToken, QueueMessage,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
-pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
-pub use phnxprotos::queue_service::v1::{
+pub use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
+pub use airprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
+use anyhow::{Context, Result, anyhow, ensure};
+use chrono::{DateTime, Utc};
+use openmls::prelude::Ciphersuite;
+use own_client_info::OwnClientInfo;
 
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use url::Url;
 
 use crate::{
-    Asset,
+    Asset, UserHandleRecord,
     contacts::HandleContact,
     groups::Group,
     store::Store,
@@ -61,11 +60,11 @@ use crate::{
         Conversation, ConversationAttributes,
         messages::{ConversationMessage, TimestampedMessage},
     },
-    groups::openmls_provider::PhnxOpenMlsProvider,
+    groups::openmls_provider::AirOpenMlsProvider,
     key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
     store::{StoreNotification, StoreNotifier},
     user_profiles::IndexedUserProfile,
-    utils::persistence::{open_client_db, open_db_in_memory, open_phnx_db},
+    utils::persistence::{open_air_db, open_client_db, open_db_in_memory},
 };
 use crate::{store::StoreNotificationsSender, user_profiles::UserProfile};
 
@@ -125,14 +124,14 @@ impl CoreUser {
     ) -> Result<Self> {
         info!(?user_id, "creating new user");
 
-        // Open the phnx db to store the client record
-        let phnx_db = open_phnx_db(db_path).await?;
+        // Open the air db to store the client record
+        let air_db = open_air_db(db_path).await?;
 
         // Open client specific db
         let client_db = open_client_db(&user_id, db_path).await?;
 
         Self::new_with_connections(
-            user_id, server_url, grpc_port, push_token, phnx_db, client_db,
+            user_id, server_url, grpc_port, push_token, air_db, client_db,
         )
         .await
     }
@@ -142,23 +141,18 @@ impl CoreUser {
         server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
-        phnx_db: SqlitePool,
+        air_db: SqlitePool,
         client_db: SqlitePool,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(user_id.domain().clone(), server_url.clone(), grpc_port);
 
-        let user_creation_state = UserCreationState::new(
-            &client_db,
-            &phnx_db,
-            user_id,
-            server_url.clone(),
-            push_token,
-        )
-        .await?;
+        let user_creation_state =
+            UserCreationState::new(&client_db, &air_db, user_id, server_url.clone(), push_token)
+                .await?;
 
         let final_state = user_creation_state
-            .complete_user_creation(&phnx_db, &client_db, &api_clients)
+            .complete_user_creation(&air_db, &client_db, &api_clients)
             .await?;
 
         OwnClientInfo {
@@ -185,14 +179,14 @@ impl CoreUser {
     ) -> Result<Self> {
         info!(?user_id, "creating new ephemeral user");
 
-        // Open the phnx db to store the client record
-        let phnx_db = open_db_in_memory().await?;
+        // Open the air db to store the client record
+        let air_db = open_db_in_memory().await?;
 
         // Open client specific db
         let client_db = open_db_in_memory().await?;
 
         Self::new_with_connections(
-            user_id, server_url, grpc_port, push_token, phnx_db, client_db,
+            user_id, server_url, grpc_port, push_token, air_db, client_db,
         )
         .await
     }
@@ -208,23 +202,23 @@ impl CoreUser {
             .await?
             .context("missing user creation state")?;
 
-        let phnx_db = open_phnx_db(db_path).await?;
+        let air_db = open_air_db(db_path).await?;
         let api_clients = ApiClients::new(
             user_id.domain().clone(),
             user_creation_state.server_url(),
             DEFAULT_PORT_GRPC,
         );
         let final_state = user_creation_state
-            .complete_user_creation(&phnx_db, &client_db, &api_clients)
+            .complete_user_creation(&air_db, &client_db, &api_clients)
             .await?;
-        ClientRecord::set_default(&phnx_db, &user_id).await?;
+        ClientRecord::set_default(&air_db, &user_id).await?;
 
         Ok(final_state.into_self_user(client_db, api_clients))
     }
 
     /// Delete this user on the server and locally.
     ///
-    /// The user database is also deleted. The client record is removed from the phnx database.
+    /// The user database is also deleted. The client record is removed from the air database.
     pub async fn delete(self, db_path: &str) -> anyhow::Result<()> {
         let user_id = self.user_id().clone();
         self.delete_ephemeral().await?;
@@ -493,14 +487,29 @@ impl CoreUser {
 
     pub async fn listen_handle(
         &self,
-        hash: UserHandleHash,
-        signing_key: &HandleSigningKey,
+        handle_record: &UserHandleRecord,
     ) -> Result<(
-        impl Stream<Item = Option<HandleQueueMessage>> + use<>,
+        impl Stream<Item = Option<HandleQueueMessage>> + Send + 'static,
         ListenHandleResponder,
     )> {
         let api_client = self.inner.api_clients.default_client()?;
-        Ok(api_client.as_listen_handle(hash, signing_key).await?)
+        match api_client
+            .as_listen_handle(handle_record.hash, &handle_record.signing_key)
+            .await
+        {
+            Ok(ok) => Ok(ok),
+            Err(error) => {
+                // We remove the user handle locally if it is not found
+                if error.is_not_found() {
+                    warn!(
+                        "User handle {} not found on the server, removing locally",
+                        &handle_record.handle.plaintext()
+                    );
+                    let _ = self.remove_user_handle_locally(&handle_record.handle).await;
+                }
+                Err(error.into())
+            }
+        }
     }
 
     /// Mark all messages in the conversation with the given conversation id and
@@ -518,25 +527,6 @@ impl CoreUser {
         .await?;
         notifier.notify();
         Ok(())
-    }
-
-    /// Mark all messages in the conversation with the given conversation id and
-    /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_conversation_as_read(
-        &self,
-        conversation_id: ConversationId,
-        until: ConversationMessageId,
-    ) -> sqlx::Result<bool> {
-        let mut notifier = self.store_notifier();
-        let marked_as_read = Conversation::mark_as_read_until_message_id(
-            self.pool().acquire().await?.as_mut(),
-            &mut notifier,
-            conversation_id,
-            until,
-        )
-        .await?;
-        notifier.notify();
-        Ok(marked_as_read)
     }
 
     /// Returns how many messages are marked as unread across all conversations.
@@ -610,7 +600,7 @@ impl CoreUser {
         self.inner.key_store.signing_key.credential().identity()
     }
 
-    async fn store_messages(
+    async fn store_new_messages(
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
         conversation_id: ConversationId,

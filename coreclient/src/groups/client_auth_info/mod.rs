@@ -4,18 +4,21 @@
 
 use std::{collections::HashMap, ops::Deref};
 
+use aircommon::{
+    credentials::{
+        AsIntermediateCredential, AsIntermediateCredentialBody, ClientCredential,
+        VerifiableClientCredential,
+    },
+    crypto::{
+        hash::Hash,
+        signatures::{private_keys::VerifyingKeyRef, signable::Verifiable},
+    },
+    identifiers::UserId,
+};
 use anyhow::{Context, Result, anyhow, ensure};
 use openmls::{
     group::GroupId,
     prelude::{LeafNodeIndex, SignaturePublicKey},
-};
-use phnxcommon::{
-    credentials::{
-        AsIntermediateCredential, ClientCredential, CredentialFingerprint,
-        VerifiableClientCredential,
-    },
-    crypto::signatures::{private_keys::VerifyingKeyRef, signable::Verifiable},
-    identifiers::UserId,
 };
 use sqlx::SqliteExecutor;
 
@@ -53,7 +56,7 @@ impl StorableClientCredential {
 
     pub(crate) fn verify(
         verifiable_client_credential: VerifiableClientCredential,
-        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
+        as_credentials: &HashMap<Hash<AsIntermediateCredentialBody>, AsIntermediateCredential>,
     ) -> Result<Self> {
         let as_credential = as_credentials
             .get(verifiable_client_credential.signer_fingerprint())
@@ -67,7 +70,7 @@ impl StorableClientCredential {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct GroupMembership {
     user_id: UserId,
-    client_credential_fingerprint: CredentialFingerprint,
+    client_credential_fingerprint: Hash<ClientCredential>,
     group_id: GroupId,
     leaf_index: LeafNodeIndex,
 }
@@ -77,7 +80,7 @@ impl GroupMembership {
         user_id: UserId,
         group_id: GroupId,
         leaf_index: LeafNodeIndex,
-        client_credential_fingerprint: CredentialFingerprint,
+        client_credential_fingerprint: Hash<ClientCredential>,
     ) -> Self {
         Self {
             user_id,
@@ -142,7 +145,7 @@ impl ClientAuthInfo {
     pub(super) fn verify_new_credentials(
         group_id: &GroupId,
         client_credentials: impl IntoIterator<Item = ClientVerificationInfo>,
-        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
+        as_credentials: &HashMap<Hash<AsIntermediateCredentialBody>, AsIntermediateCredential>,
     ) -> Result<Vec<Self>> {
         let mut client_auth_infos = Vec::new();
         for ClientVerificationInfo {
@@ -171,7 +174,7 @@ impl ClientAuthInfo {
         credential: VerifiableClientCredential,
         leaf_signature_key: SignaturePublicKey,
         old_credential: Option<VerifiableClientCredential>,
-        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
+        as_credentials: &HashMap<Hash<AsIntermediateCredentialBody>, AsIntermediateCredential>,
     ) -> Result<Self> {
         // Verify the leaf credential
         let client_credential = StorableClientCredential::verify(credential, as_credentials)?;

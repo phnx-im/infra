@@ -42,7 +42,7 @@ pub(crate) struct StagedGroupDiff {
 mod test {
     use std::sync::LazyLock;
 
-    use phnxcommon::codec::PhnxCodec;
+    use aircommon::codec::AirCodec;
 
     use super::*;
 
@@ -74,7 +74,7 @@ mod test {
                             "not_before": "2025-05-21T00:00:00Z",
                             "not_after": "2025-05-22T00:00:00Z",
                         },
-                        "signer_fingerprint": [10, 11, 12],
+                        "signer_fingerprint": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,  18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
                     },
                     "signature": [13, 14, 15],
                 },
@@ -91,7 +91,7 @@ mod test {
 
     #[test]
     fn test_group_staged_diff_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&*STAGED_GROUP_DIFF).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&*STAGED_GROUP_DIFF).unwrap());
     }
 
     #[test]

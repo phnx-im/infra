@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::identifiers::UserId;
+use aircommon::identifiers::UserId;
 use remove_users_flow::RemoveUsersData;
 
 use crate::{ConversationId, ConversationMessage};
@@ -49,12 +49,12 @@ impl CoreUser {
 }
 
 mod remove_users_flow {
-    use anyhow::Context;
-    use mimi_room_policy::RoleIndex;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::GroupOperationParamsOut, time::TimeStamp,
     };
+    use anyhow::Context;
+    use mimi_room_policy::RoleIndex;
     use sqlx::SqliteTransaction;
 
     use crate::{
@@ -145,7 +145,8 @@ mod remove_users_flow {
                 .merge_pending_commit(txn.as_mut(), None, ds_timestamp)
                 .await?;
             group.store_update(txn.as_mut()).await?;
-            CoreUser::store_messages(txn.as_mut(), notifier, conversation_id, group_messages).await
+            CoreUser::store_new_messages(txn.as_mut(), notifier, conversation_id, group_messages)
+                .await
         }
     }
 }

@@ -5,18 +5,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/attachments/attachments.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/message_list/timestamp.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/attachments/attachments.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/message_list/timestamp.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/ui/typography/monospace.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 
 import 'message_renderer.dart';
 
-const double largeCornerRadius = Spacings.s;
-const double smallCornerRadius = Spacings.xxxs;
+const double largeCornerRadius = Spacings.sm;
+const double smallCornerRadius = Spacings.xxs;
 const double messageHorizontalPadding = Spacings.xs;
 const double messageVerticalPadding = Spacings.xxs;
 
@@ -27,15 +31,19 @@ const _messagePadding = EdgeInsets.symmetric(
 
 class TextMessageTile extends StatelessWidget {
   const TextMessageTile({
+    required this.messageId,
     required this.contentMessage,
     required this.timestamp,
     required this.flightPosition,
+    required this.status,
     super.key,
   });
 
+  final ConversationMessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
+  final UiMessageStatus status;
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +55,12 @@ class TextMessageTile extends StatelessWidget {
         if (!isSender && flightPosition.isFirst)
           _Sender(sender: contentMessage.sender, isSender: false),
         _MessageView(
+          messageId: messageId,
           contentMessage: contentMessage,
           timestamp: timestamp,
           isSender: isSender,
           flightPosition: flightPosition,
+          status: status,
         ),
       ],
     );
@@ -59,21 +69,28 @@ class TextMessageTile extends StatelessWidget {
 
 class _MessageView extends StatelessWidget {
   const _MessageView({
+    required this.messageId,
     required this.contentMessage,
     required this.timestamp,
     required this.flightPosition,
     required this.isSender,
+    required this.status,
   });
 
+  final ConversationMessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
   final bool isSender;
+  final UiMessageStatus status;
 
   @override
   Widget build(BuildContext context) {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox.shrink());
+
+    final showMessageStatus =
+        isSender && flightPosition.isLast && status != UiMessageStatus.sending;
 
     return Row(
       mainAxisAlignment:
@@ -91,14 +108,40 @@ class _MessageView extends StatelessWidget {
               crossAxisAlignment:
                   isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                _MessageContent(
-                  content: contentMessage.content,
-                  isSender: isSender,
-                  flightPosition: flightPosition,
+                InkWell(
+                  mouseCursor: SystemMouseCursors.basic,
+                  onLongPress:
+                      () => context
+                          .read<ConversationDetailsCubit>()
+                          .editMessage(messageId: messageId),
+                  child: _MessageContent(
+                    content: contentMessage.content,
+                    isSender: isSender,
+                    flightPosition: flightPosition,
+                    isEdited: contentMessage.edited,
+                  ),
                 ),
                 if (flightPosition.isLast) ...[
                   const SizedBox(height: 2),
-                  Timestamp(timestamp),
+                  Row(
+                    mainAxisAlignment:
+                        isSender
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                    children: [
+                      const SizedBox(width: Spacings.s),
+                      Timestamp(timestamp),
+                      if (showMessageStatus)
+                        const SizedBox(width: Spacings.xxxs),
+                      if (showMessageStatus)
+                        DoubleCheckIcon(
+                          size: LabelFontSize.small2.size,
+                          singleCheckIcon: status == UiMessageStatus.sent,
+                          inverted: status == UiMessageStatus.read,
+                        ),
+                      const SizedBox(width: Spacings.xs),
+                    ],
+                  ),
                 ],
               ],
             ),
@@ -115,14 +158,18 @@ class _MessageContent extends StatelessWidget {
     required this.content,
     required this.isSender,
     required this.flightPosition,
+    required this.isEdited,
   });
 
   final UiMimiContent content;
   final bool isSender;
   final UiFlightPosition flightPosition;
+  final bool isEdited;
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.5),
       child: Container(
@@ -130,15 +177,19 @@ class _MessageContent extends StatelessWidget {
             isSender
                 ? AlignmentDirectional.topEnd
                 : AlignmentDirectional.topStart,
+        // There's a bug in the linter
+        // ignore: avoid_unnecessary_containers
         child: Container(
           decoration: BoxDecoration(
             borderRadius: _messageBorderRadius(isSender, flightPosition),
-            color: isSender ? colorDMB : colorDMBSuperLight,
+            color:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfBackground
+                    : CustomColorScheme.of(context).message.otherBackground,
           ),
           child: DefaultTextStyle.merge(
-            style: messageTextStyle(context, isSender),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (content.attachments.firstOrNull case final attachment?)
                   switch (attachment.imageMetadata) {
@@ -156,10 +207,25 @@ class _MessageContent extends StatelessWidget {
                   },
                 ...(content.content?.elements ?? []).map(
                   (inner) => Padding(
-                    padding: _messagePadding,
-                    child: buildBlockElement(inner.element, isSender),
+                    padding: _messagePadding.copyWith(
+                      bottom: isEdited ? 0 : null,
+                    ),
+                    child: buildBlockElement(context, inner.element, isSender),
                   ),
                 ),
+                if (isEdited)
+                  Padding(
+                    padding: _messagePadding.copyWith(top: 0),
+                    child: Text(
+                      loc.textMessage_edited,
+                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                        color:
+                            isSender
+                                ? CustomColorScheme.of(context).text.quaternary
+                                : CustomColorScheme.of(context).text.tertiary,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -182,15 +248,16 @@ class _Sender extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
+      padding: const EdgeInsets.only(top: Spacings.xs, bottom: Spacings.xxs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           UserAvatar(
             displayName: profile.displayName,
             image: profile.profilePicture,
+            size: Spacings.m,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Spacings.xs),
           _DisplayName(displayName: profile.displayName, isSender: isSender),
         ],
       ),
@@ -206,13 +273,18 @@ class _DisplayName extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = isSender ? "You" : displayName;
+    final textUpper = text.toUpperCase();
     return SelectionContainer.disabled(
       child: Text(
-        isSender ? "You" : displayName,
-        style: const TextStyle(
-          color: colorDMB,
-          fontSize: 12,
-        ).merge(VariableFontWeight.semiBold),
+        textUpper,
+        style: TextStyle(
+          color: CustomColorScheme.of(context).text.tertiary,
+          fontSize: LabelFontSize.small2.size,
+          fontWeight: FontWeight.w100,
+          fontFamily: getSystemMonospaceFontFamily(),
+          letterSpacing: 1,
+        ),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -240,7 +312,10 @@ class _FileAttachmentContent extends StatelessWidget {
           Icon(
             Icons.file_present_sharp,
             size: 46,
-            color: isSender ? Colors.white : Colors.black,
+            color:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfText
+                    : CustomColorScheme.of(context).message.otherText,
           ),
           const SizedBox(width: Spacings.xxs),
           Column(
@@ -339,7 +414,7 @@ class _ImagePreview extends StatelessWidget {
         child: Container(
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,
-          color: Colors.white,
+          color: CustomColorScheme.of(context).backgroundBase.primary,
           child: Column(
             children: [
               AppBar(

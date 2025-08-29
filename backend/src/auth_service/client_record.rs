@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{credentials::ClientCredential, identifiers::UserId, time::TimeStamp};
+use aircommon::{credentials::ClientCredential, identifiers::UserId, time::TimeStamp};
 use sqlx::PgExecutor;
 
 use crate::errors::StorageError;
@@ -38,7 +38,7 @@ impl ClientRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxcommon::credentials::persistence::FlatClientCredential;
+    use aircommon::credentials::persistence::FlatClientCredential;
     use sqlx::{
         PgExecutor, query,
         types::chrono::{DateTime, Utc},
@@ -162,12 +162,12 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use mls_assist::openmls::prelude::SignatureScheme;
-        use phnxcommon::{
-            credentials::{ClientCredentialCsr, ClientCredentialPayload, CredentialFingerprint},
-            crypto::signatures::signable::Signature,
+        use aircommon::{
+            credentials::{ClientCredentialCsr, ClientCredentialPayload},
+            crypto::{hash::Hash, signatures::signable::Signature},
             time::{Duration, ExpirationData},
         };
+        use mls_assist::openmls::prelude::SignatureScheme;
         use sqlx::PgPool;
 
         use crate::auth_service::user_record::persistence::tests::store_random_user_record;
@@ -192,7 +192,7 @@ pub(crate) mod persistence {
                     ClientCredentialPayload::new(
                         csr,
                         Some(expiration_data),
-                        CredentialFingerprint::new_for_test(b"fingerprint".to_vec()),
+                        Hash::new_for_test(b"fingerprint".to_vec()),
                     ),
                     Signature::new_for_test(b"signature".to_vec()),
                 ),

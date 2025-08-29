@@ -5,8 +5,10 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::Path};
 
+use aircommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
+use aircommon::messages::client_as_out::UserHandleDeleteResponse;
+use mimi_content::{MessageStatus, MimiContent};
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -61,7 +63,10 @@ pub trait Store {
         user_handle: &UserHandle,
     ) -> StoreResult<Option<UserHandleRecord>>;
 
-    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()>;
+    async fn remove_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<UserHandleDeleteResponse>;
 
     // conversations
 
@@ -87,11 +92,16 @@ pub trait Store {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<HashSet<UserId>>>;
 
+    /// Mark the conversation with the given [`ConversationId`] as read until the given message id
+    /// (including).
+    ///
+    /// Returns whether the conversation was marked as read and the mimi ids of the messages that
+    /// were marked as read.
     async fn mark_conversation_as_read(
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> StoreResult<bool>;
+    ) -> StoreResult<(bool, Vec<MimiId>)>;
 
     /// Delete the conversation with the given [`ConversationId`].
     ///
@@ -193,6 +203,12 @@ pub trait Store {
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
+    async fn last_message_by_user(
+        &self,
+        conversation_id: ConversationId,
+        user_id: &UserId,
+    ) -> StoreResult<Option<ConversationMessage>>;
+
     async fn message_draft(
         &self,
         conversation_id: ConversationId,
@@ -213,8 +229,18 @@ pub trait Store {
     async fn send_message(
         &self,
         conversation_id: ConversationId,
-        content: mimi_content::MimiContent,
+        content: MimiContent,
+        replaces_id: Option<ConversationMessageId>,
     ) -> StoreResult<ConversationMessage>;
+
+    /// Sends a delivery receipt for the message with the given MimiId.
+    ///
+    /// Also stores the message status report locally.
+    async fn send_delivery_receipts<'a>(
+        &self,
+        conversation_id: ConversationId,
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
+    ) -> StoreResult<()>;
 
     async fn resend_message(&self, local_message_id: Uuid) -> StoreResult<()>;
 

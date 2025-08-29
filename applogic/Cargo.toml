@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "phnxapplogic"
+name = "airapplogic"
 version = "0.1.0"
 authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2024"
@@ -21,8 +21,8 @@ crate-type = ["cdylib", "staticlib", "lib"]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 
 [dependencies]
-phnxcoreclient = { path = "../coreclient" }
-phnxcommon = { path = "../common" }
+aircoreclient = { path = "../coreclient" }
+aircommon = { path = "../common" }
 
 mimi-room-policy = { workspace = true }
 
@@ -34,7 +34,7 @@ anyhow = { version = "1", features = ["backtrace"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.39", features = ["rt", "macros"] }
-flutter_rust_bridge = { version = "=2.10.0", features = ["chrono", "uuid"] }
+flutter_rust_bridge = { version = "=2.11.1", features = ["chrono", "uuid"] }
 chrono = { workspace = true }
 jni = "0.21"
 tokio-util = { workspace = true }
@@ -59,3 +59,4 @@ notify-rust = "4"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 tempfile = "3.17.1"
+openmls = { workspace = true } # Required for GroupId

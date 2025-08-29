@@ -2,19 +2,28 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, bail};
-use mimi_content::MimiContent;
-use openmls::storage::OpenMlsProvider;
-use phnxcommon::{
-    credentials::keys::ClientSigningKey, identifiers::UserId,
-    messages::client_ds_out::SendMessageParamsOut, time::TimeStamp,
+use aircommon::{
+    credentials::keys::ClientSigningKey,
+    identifiers::{MimiId, UserId},
+    messages::client_ds_out::SendMessageParamsOut,
+    time::TimeStamp,
 };
+use anyhow::{Context, bail};
+use mimi_content::{
+    ByteBuf, Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPart,
+    NestedPartContent, PerMessageStatus,
+};
+use openmls::storage::OpenMlsProvider;
 use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
-use crate::{Conversation, ConversationId, ConversationMessage, ConversationMessageId, Message};
+use crate::{
+    ContentMessage, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
+    Message,
+    conversations::{StatusRecord, messages::edit::MessageEdit},
+};
 
-use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
+use super::{AirOpenMlsProvider, ApiClients, CoreUser, Group, StoreNotifier};
 
 impl CoreUser {
     /// Send a message and return it.
@@ -25,6 +34,7 @@ impl CoreUser {
         &self,
         conversation_id: ConversationId,
         content: MimiContent,
+        replaces_id: Option<ConversationMessageId>,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = self
             .with_transaction_and_notifier(async |txn, notifier| {
@@ -33,10 +43,10 @@ impl CoreUser {
                     conversation_message_id: ConversationMessageId::random(),
                     content,
                 }
-                .store_unsent_message(txn, notifier, self.user_id())
+                .store_unsent_message(txn, notifier, self.user_id(), replaces_id)
                 .await?
-                .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
-                .store_group_update(txn, notifier)
+                .create_group_message(&AirOpenMlsProvider::new(txn), self.signing_key())?
+                .store_group_update(txn, notifier, self.user_id())
                 .await
             })
             .await?;
@@ -46,7 +56,9 @@ impl CoreUser {
             .await?;
 
         self.with_transaction_and_notifier(async |txn, notifier| {
-            sent_message.mark_as_sent_and_read(txn, notifier).await
+            sent_message
+                .mark_as_sent(txn, notifier, self.user_id())
+                .await
         })
         .await
     }
@@ -64,17 +76,19 @@ impl CoreUser {
             conversation_message_id,
             content,
         }
-        .store_unsent_message(txn, notifier, self.user_id())
+        .store_unsent_message(txn, notifier, self.user_id(), None)
         .await?
-        .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
-        .store_group_update(txn, notifier)
+        .create_group_message(&AirOpenMlsProvider::new(txn), self.signing_key())?
+        .store_group_update(txn, notifier, self.user_id())
         .await?;
 
         let sent_message = unsent_group_message
             .send_message_to_ds(&self.inner.api_clients, self.signing_key())
             .await?;
 
-        sent_message.mark_as_sent_and_read(txn, notifier).await
+        sent_message
+            .mark_as_sent(txn, notifier, self.user_id())
+            .await
     }
 
     /// Re-try sending a message, where sending previously failed.
@@ -84,7 +98,7 @@ impl CoreUser {
                 LocalMessage { local_message_id }
                     .load_for_resend(txn)
                     .await?
-                    .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())
+                    .create_group_message(&AirOpenMlsProvider::new(txn), self.signing_key())
             })
             .await?;
 
@@ -93,9 +107,57 @@ impl CoreUser {
             .await?;
 
         self.with_transaction_and_notifier(async |connection, notifier| {
+            // Do not mark as read, because the user might have missed messages
             sent_message
-                .mark_as_sent_and_read(connection, notifier)
+                .mark_as_sent(connection, notifier, self.user_id())
                 .await
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn send_delivery_receipts(
+        &self,
+        conversation_id: ConversationId,
+        statuses: impl IntoIterator<Item = (&MimiId, MessageStatus)>,
+    ) -> anyhow::Result<()> {
+        let Some(unsent_receipt) = UnsentReceipt::new(statuses)? else {
+            return Ok(()); // Nothing to send
+        };
+
+        let (conversation, group, params) = self
+            .with_transaction(async |txn| {
+                let conversation = Conversation::load(&mut *txn, &conversation_id)
+                    .await?
+                    .with_context(|| {
+                        format!("Can't find conversation with id {conversation_id}")
+                    })?;
+                let group_id = conversation.group_id();
+                let mut group = Group::load_clean(txn, group_id)
+                    .await?
+                    .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+                let params = group.create_message(
+                    &AirOpenMlsProvider::new(txn),
+                    self.signing_key(),
+                    unsent_receipt.content,
+                )?;
+                group.store_update(txn.as_mut()).await?;
+                Ok((conversation, group, params))
+            })
+            .await?;
+
+        self.inner
+            .api_clients
+            .get(&conversation.owner_domain())?
+            .ds_send_message(params, self.signing_key(), group.group_state_ear_key())
+            .await?;
+
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            StatusRecord::borrowed(self.user_id(), unsent_receipt.report, TimeStamp::now())
+                .store_report(txn, notifier)
+                .await?;
+            Ok(())
         })
         .await?;
 
@@ -115,25 +177,70 @@ impl UnsentContent {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         sender: &UserId,
+        replaces_id: Option<ConversationMessageId>,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
         let UnsentContent {
             conversation_id,
             conversation_message_id,
-            content,
+            mut content,
         } = self;
 
         let conversation = Conversation::load(txn.as_mut(), &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
-        // Store the message as unsent so that we don't lose it in case
-        // something goes wrong.
-        let conversation_message = ConversationMessage::new_unsent_message(
-            sender.clone(),
-            conversation_id,
-            conversation_message_id,
-            content.clone(),
-        );
-        conversation_message.store(txn.as_mut(), notifier).await?;
+
+        let conversation_message = if let Some(replaces_id) = replaces_id {
+            // Load the original message and the Mimi ID of the original message
+            let mut original = ConversationMessage::load(txn.as_mut(), replaces_id)
+                .await?
+                .with_context(|| format!("Can't find message with id {replaces_id:?}"))?;
+            let original_mimi_content = original
+                .message()
+                .mimi_content()
+                .context("Replaced message does not have mimi content")?;
+            let original_mimi_id = original
+                .message()
+                .mimi_id()
+                .context("Replaced message does not have mimi id")?;
+            content.replaces = Some(original_mimi_id.as_slice().to_vec().into());
+            let edit_created_at = TimeStamp::now();
+
+            // Store the edit
+            let edit = MessageEdit::new(
+                original_mimi_id,
+                original.id(),
+                edit_created_at,
+                original_mimi_content,
+            );
+            edit.store(txn.as_mut()).await?;
+
+            // Edit the original message and clear its status
+            let is_sent = false;
+            original.set_content_message(ContentMessage::new(
+                sender.clone(),
+                is_sent,
+                content.clone(),
+                conversation.group_id(),
+            ));
+            original.set_status(MessageStatus::Unread);
+            original.set_edited_at(edit_created_at);
+            original.update(txn.as_mut(), notifier).await?;
+            StatusRecord::clear(txn.as_mut(), notifier, original.id()).await?;
+
+            original
+        } else {
+            // Store the message as unsent so that we don't lose it in case
+            // something goes wrong.
+            let conversation_message = ConversationMessage::new_unsent_message(
+                sender.clone(),
+                conversation_id,
+                conversation_message_id,
+                content.clone(),
+                conversation.group_id(),
+            );
+            conversation_message.store(txn.as_mut(), notifier).await?;
+            conversation_message
+        };
 
         let group_id = conversation.group_id();
         let group = Group::load_clean(txn, group_id)
@@ -243,8 +350,9 @@ impl<GroupUpdate> UnsentMessage<WithContent, GroupUpdate> {
 impl UnsentMessage<WithParams, GroupUpdateNeeded> {
     async fn store_group_update(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
+        own_user: &UserId,
     ) -> anyhow::Result<UnsentMessage<WithParams, GroupUpdated>> {
         let Self {
             conversation,
@@ -256,13 +364,15 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
 
         // Immediately write the group back. No need to wait for the DS to
         // confirm as this is just an application message.
-        group.store_update(&mut *connection).await?;
+        group.store_update(txn.as_mut()).await?;
+
         // Also, mark the message (and all messages preceeding it) as read.
         Conversation::mark_as_read_until_message_id(
-            connection,
+            txn,
             notifier,
             conversation.id(),
             conversation_message.id(),
+            own_user,
         )
         .await?;
 
@@ -308,27 +418,80 @@ struct SentMessage {
 }
 
 impl SentMessage {
-    async fn mark_as_sent_and_read(
+    async fn mark_as_sent(
         self,
-        connection: &mut sqlx::SqliteConnection,
+        txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
+        own_user: &UserId,
     ) -> anyhow::Result<ConversationMessage> {
         let Self {
             mut conversation_message,
             ds_timestamp,
         } = self;
 
+        let new_timestamp = if conversation_message.edited_at().is_some() {
+            conversation_message.timestamp().into()
+        } else {
+            ds_timestamp
+        };
         conversation_message
-            .mark_as_sent(connection, notifier, ds_timestamp)
+            .mark_as_sent(&mut *txn, notifier, new_timestamp)
             .await?;
+
+        // Note: even though the message was already marked as read, we still need to move the last
+        // read timestamp down. After a message was sent to DS, it is marked as read, which updates
+        // its timestamp to the timestamp returned by DS.
         Conversation::mark_as_read_until_message_id(
-            connection,
+            txn,
             notifier,
             conversation_message.conversation_id(),
             conversation_message.id(),
+            own_user,
         )
         .await?;
 
         Ok(conversation_message)
+    }
+}
+
+/// Not yet sent receipt message consisting of the content to send and a local message status
+/// report.
+struct UnsentReceipt {
+    report: MessageStatusReport,
+    content: MimiContent,
+}
+
+impl UnsentReceipt {
+    fn new<'a>(
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)>,
+    ) -> anyhow::Result<Option<Self>> {
+        let report = MessageStatusReport {
+            statuses: statuses
+                .into_iter()
+                .map(|(id, status)| PerMessageStatus {
+                    mimi_id: id.as_ref().to_vec().into(),
+                    status,
+                })
+                .collect(),
+        };
+
+        if report.statuses.is_empty() {
+            return Ok(None);
+        }
+
+        let content = MimiContent {
+            salt: ByteBuf::from(aircommon::crypto::secrets::Secret::<16>::random()?.secret()),
+            nested_part: NestedPart {
+                disposition: Disposition::Unspecified,
+                part: NestedPartContent::SinglePart {
+                    content_type: "application/mimi-message-status".to_owned(),
+                    content: report.serialize()?.into(),
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        Ok(Some(Self { report, content }))
     }
 }

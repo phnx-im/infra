@@ -4,7 +4,7 @@
 
 import 'dart:typed_data';
 
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 import 'package:test/test.dart';
 
 import '../conversation_list/conversation_list_content_test.dart';
@@ -23,6 +23,7 @@ void main() {
           UiContentMessage(
             sender: bobId,
             sent: true,
+            edited: false,
             content: UiMimiContent(
               plainBody: 'Hello Alice',
               topicId: Uint8List(0),
@@ -32,6 +33,7 @@ void main() {
           ),
         ),
         position: UiFlightPosition.single,
+        status: UiMessageStatus.sent,
       );
       final b = UiConversationMessage(
         id: 1.conversationMessageId(),
@@ -41,6 +43,7 @@ void main() {
           UiContentMessage(
             sender: bobId,
             sent: true,
+            edited: false,
             content: UiMimiContent(
               plainBody: 'Hello Alice',
               topicId: Uint8List(0),
@@ -50,6 +53,7 @@ void main() {
           ),
         ),
         position: UiFlightPosition.single,
+        status: UiMessageStatus.sent,
       );
       expect(a, equals(b));
     });

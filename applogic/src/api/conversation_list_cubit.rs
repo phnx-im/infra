@@ -6,21 +6,24 @@
 
 use std::sync::Arc;
 
-use flutter_rust_bridge::frb;
-use phnxcommon::identifiers::UserHandle;
-use phnxcoreclient::{
+use aircommon::identifiers::UserHandle;
+use aircoreclient::{
     Conversation,
     clients::CoreUser,
     store::{Store, StoreEntityId},
 };
-use phnxcoreclient::{ConversationId, store::StoreNotification};
+use aircoreclient::{ConversationId, store::StoreNotification};
+use flutter_rust_bridge::frb;
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::StreamSink;
-use crate::util::{Cubit, CubitCore, spawn_from_sync};
+use crate::{
+    StreamSink,
+    api::types::{UiMessageDraft, UiMessageDraftSource},
+    util::{Cubit, CubitCore, spawn_from_sync},
+};
 
 use super::{
     types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserHandle},
@@ -234,7 +237,7 @@ pub(super) async fn load_conversation_details(
         .message_draft(conversation.id)
         .await
         .unwrap_or_default()
-        .map(From::from);
+        .map(|d| UiMessageDraft::from_draft(d, UiMessageDraftSource::System));
 
     UiConversationDetails {
         id: conversation.id,

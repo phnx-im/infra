@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcoreclient::{ConversationId, ConversationMessage, ConversationType};
+use aircoreclient::{ConversationId, ConversationMessage, ConversationType};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -72,19 +72,19 @@ impl User {
         notifications: &mut Vec<NotificationContent>,
     ) {
         for conversation_id in connection_conversations {
-            if let Some(conversation) = self.user.conversation(conversation_id).await {
-                if let ConversationType::Connection(client_id) = conversation.conversation_type() {
-                    let contact_name = self.user.user_profile(client_id).await.display_name;
-                    let title = format!("New connection with {contact_name}");
-                    let body = "Say hi".to_owned();
+            if let Some(conversation) = self.user.conversation(conversation_id).await
+                && let ConversationType::Connection(client_id) = conversation.conversation_type()
+            {
+                let contact_name = self.user.user_profile(client_id).await.display_name;
+                let title = format!("New connection with {contact_name}");
+                let body = "Say hi".to_owned();
 
-                    notifications.push(NotificationContent {
-                        identifier: NotificationId::random(),
-                        title,
-                        body,
-                        conversation_id: Some(*conversation_id),
-                    });
-                }
+                notifications.push(NotificationContent {
+                    identifier: NotificationId::random(),
+                    title,
+                    body,
+                    conversation_id: Some(*conversation_id),
+                });
             }
         }
     }

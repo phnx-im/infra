@@ -4,9 +4,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/widgets/widgets.dart';
 
 import 'connection_details.dart';
 import 'conversation_details_cubit.dart';
@@ -39,7 +39,6 @@ class ConversationDetailsScreenView extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const AppBarBackButton(),

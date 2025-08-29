@@ -8,14 +8,13 @@
 pub mod keys;
 mod traits;
 
+use super::hash::HashAlg;
 use hkdf::Hkdf;
-
-use super::Hash;
 
 pub use traits::{KdfDerivable, KdfExtractable, KdfKey};
 
 /// This type determines the KDF used by the backend.
-pub type Kdf = Hkdf<Hash>;
+pub type Kdf = Hkdf<HashAlg>;
 // Size of a KDF key.
 // TODO: This can probably be gotten generically from the Kdf type.
 pub const KDF_KEY_SIZE: usize = 32;

@@ -5,8 +5,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:prototype/core/core_client.dart';
-import 'package:prototype/util/platform.dart';
+import 'package:air/core/core_client.dart';
+import 'package:air/util/platform.dart';
 
 class BackgroundService {
   final CoreClient _coreClient = CoreClient();

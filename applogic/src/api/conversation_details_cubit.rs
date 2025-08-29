@@ -4,25 +4,26 @@
 
 //! A single conversation details feature
 
-use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
-use phnxcommon::identifiers::UserId;
-
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
+use aircommon::{OpenMlsRand, RustCrypto, identifiers::UserId};
+use aircoreclient::{ConversationId, store::StoreNotification};
+use aircoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::MimiContent;
-use phnxcoreclient::{ConversationId, store::StoreNotification};
-use phnxcoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
+use mimi_content::{MessageStatus, MimiContent};
+use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
 use tls_codec::Serialize;
 use tokio::{sync::watch, time::sleep};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
+use crate::api::types::UiMessageDraft;
+use crate::message_content::MimiContentExt;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
-use crate::{StreamSink, api::types::UiMessageDraft};
+use crate::{StreamSink, api::types::UiMessageDraftSource};
 
 use super::{
     conversation_list_cubit::load_conversation_details,
@@ -144,11 +145,30 @@ impl ConversationDetailsCubitBase {
     /// The not yet sent message is immediately stored in the local store and then the message is
     /// send to the DS.
     pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
-        let content = MimiContent::simple_markdown_message(message_text);
+        let salt: [u8; 16] = RustCrypto::default().random_array()?;
+        let content = MimiContent::simple_markdown_message(message_text, salt);
+
+        let mut draft = None;
+        self.core.state_tx().send_if_modified(|state| {
+            let Some(conversation) = state.conversation.as_mut() else {
+                return false;
+            };
+            draft = conversation.draft.take();
+            draft.is_some()
+        });
+
+        // Remove stored draft
+        if draft.is_some() {
+            self.context
+                .store
+                .store_message_draft(self.context.conversation_id, None)
+                .await?;
+        }
+        let editing_id = draft.and_then(|d| d.editing_id);
 
         self.context
             .store
-            .send_message(self.context.conversation_id, content)
+            .send_message(self.context.conversation_id, content, editing_id)
             .await
             .inspect_err(|error| error!(%error, "Failed to send message"))?;
 
@@ -175,7 +195,7 @@ impl ConversationDetailsCubitBase {
         let scheduled = self
             .context
             .mark_as_read_tx
-            .send_if_modified(|state| match state {
+            .send_if_modified(|state| match &state {
                 MarkAsReadState::NotLoaded => {
                     error!("Marking as read while conversation is not loaded");
                     false
@@ -230,10 +250,24 @@ impl ConversationDetailsCubitBase {
             return Ok(());
         }
 
-        self.context
+        let (_, read_mimi_ids) = self
+            .context
             .store
             .mark_conversation_as_read(self.context.conversation_id, until_message_id)
             .await?;
+
+        let statuses = read_mimi_ids
+            .iter()
+            .map(|mimi_id| (mimi_id, MessageStatus::Read));
+        if let Err(error) = self
+            .context
+            .store
+            .send_delivery_receipts(self.context.conversation_id, statuses)
+            .await
+        {
+            error!(%error, "Failed to send delivery receipt");
+        }
+
         Ok(())
     }
 
@@ -250,26 +284,100 @@ impl ConversationDetailsCubitBase {
                 }
                 Some(_) => false,
                 None => {
-                    conversation
-                        .draft
-                        .replace(UiMessageDraft::new(draft_message));
+                    conversation.draft.replace(UiMessageDraft::new(
+                        draft_message,
+                        UiMessageDraftSource::User,
+                    ));
                     true
                 }
             }
         });
         if changed {
-            let draft = self
-                .core
-                .state_tx()
-                .borrow()
-                .conversation
-                .as_ref()
-                .and_then(|c| c.draft.clone());
-            self.context
-                .store
-                .store_message_draft(self.context.conversation_id, draft.map(From::from).as_ref())
-                .await?;
+            self.store_draft_from_state().await?;
         }
+        Ok(())
+    }
+
+    pub async fn reset_draft(&self) {
+        self.core.state_tx().send_if_modified(|state| {
+            let Some(conversation) = state.conversation.as_mut() else {
+                return false;
+            };
+            conversation.draft.take().is_some()
+        });
+    }
+
+    pub async fn edit_message(
+        &self,
+        message_id: Option<ConversationMessageId>,
+    ) -> anyhow::Result<()> {
+        // Load message
+        let message = match message_id {
+            Some(message_id) => self.context.store.message(message_id).await?,
+            None => {
+                self.context
+                    .store
+                    .last_message_by_user(
+                        self.context.conversation_id,
+                        self.context.store.user_id(),
+                    )
+                    .await?
+            }
+        };
+        let Some(message) = message else {
+            return Ok(());
+        };
+
+        // Get plain body if any; if none, this message is not editable.
+        let Some(body) = message
+            .message()
+            .mimi_content()
+            .and_then(|content| content.plain_body())
+        else {
+            return Ok(());
+        };
+
+        // Update draft in state
+        let changed = self.core.state_tx().send_if_modified(|state| {
+            let Some(conversation) = state.conversation.as_mut() else {
+                return false;
+            };
+            let draft = conversation.draft.get_or_insert_with(|| UiMessageDraft {
+                message: String::new(),
+                editing_id: None,
+                updated_at: Utc::now(),
+                source: UiMessageDraftSource::System,
+            });
+            if draft.editing_id.is_some() {
+                return false;
+            }
+            draft.message = body.to_owned();
+            draft.editing_id.replace(message.id());
+            true
+        });
+
+        if changed {
+            self.store_draft_from_state().await?;
+        }
+
+        Ok(())
+    }
+
+    async fn store_draft_from_state(&self) -> anyhow::Result<()> {
+        let draft = self
+            .core
+            .state_tx()
+            .borrow()
+            .conversation
+            .as_ref()
+            .and_then(|c| c.draft.clone());
+        self.context
+            .store
+            .store_message_draft(
+                self.context.conversation_id,
+                draft.map(|d| d.into_draft()).as_ref(),
+            )
+            .await?;
         Ok(())
     }
 }

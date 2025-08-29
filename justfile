@@ -77,7 +77,7 @@ check-frb: frb-generate
 
 # same as check-generated-frb (with all prerequisite steps for running in CI)
 check-frb-ci: install-cargo-binstall
-    cargo binstall flutter_rust_bridge_codegen@2.10.0 cargo-expand
+    cargo binstall flutter_rust_bridge_codegen@2.11.1 cargo-expand
     just check-frb
 
 check-clean-repo command:
@@ -174,7 +174,7 @@ test-flutter *args='':
 
 # run backend server (at localhost)
 run-backend: init-backend-db
-    cargo run --bin phnxserver
+    cargo run --bin airserver
 
 # Build Windows app
 [working-directory: 'app']
@@ -189,3 +189,8 @@ run-app *args='':
 # Run app on Linux
 run-app-linux *args='':
     just run-app -d linux {{args}}
+
+# Add client migration
+[working-directory: 'coreclient']
+add-client-migration migration_name:
+    sqlx migrate add {{migration_name}}

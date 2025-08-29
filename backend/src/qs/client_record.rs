@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection, PgPool};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use phnxcommon::{
+use aircommon::{
     crypto::{
         RatchetEncryptionKey, RatchetKeyUpdate,
         ear::{EarDecryptable, keys::PushTokenEarKey},
@@ -91,7 +91,7 @@ impl QsClientRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxcommon::codec::{BlobDecoded, BlobEncoded};
+    use aircommon::codec::{BlobDecoded, BlobEncoded};
     use sqlx::{PgExecutor, query};
 
     use super::*;
@@ -227,7 +227,7 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use phnxcommon::crypto::ratchet::QueueRatchet;
+        use aircommon::crypto::ratchet::QueueRatchet;
         use sqlx::PgPool;
 
         use crate::qs::user_record::persistence::tests::store_random_user_record;
@@ -406,66 +406,62 @@ impl QsClientRecord {
                     // - there is a push token associated with the queue
                     // - there is a push token decryption key
                     // - the decryption is successful
-                    if let Some(ref encrypted_push_token) = client_record.encrypted_push_token {
-                        if let Some(ref ear_key) = push_token_key_option {
-                            // Attempt to decrypt the push token.
-                            match PushToken::decrypt(ear_key, encrypted_push_token) {
-                                Err(e) => {
-                                    error!("Push token decryption failed: {}", e);
-                                }
-                                Ok(push_token) => {
-                                    // Send the push notification.
-                                    if let Err(e) =
-                                        push_notification_provider.push(push_token).await
-                                    {
-                                        match e {
-                                            // The push notification failed for some other reason.
-                                            PushNotificationError::Other(error_description) => {
-                                                error!(
-                                                    "Push notification failed unexpectedly: {}",
-                                                    error_description
-                                                )
-                                            }
-                                            // The token is no longer valid and should be deleted.
-                                            PushNotificationError::InvalidToken(
-                                                error_description,
-                                            ) => {
-                                                info!(
-                                                    %error_description,
-                                                    "Push notification failed because the token is invalid",
-                                                );
-                                                client_record.delete_push_token(pool).await?;
-                                            }
-                                            // There was a network error when trying to send the push notification.
-                                            PushNotificationError::NetworkError(error) => {
-                                                info!(
-                                                    %error,
-                                                    "Push notification failed because of a network error",
-                                                )
-                                            }
-                                            PushNotificationError::UnsupportedType => {
-                                                warn!(
-                                                    "Push notification failed because the push token type is unsupported",
-                                                )
-                                            }
-                                            PushNotificationError::JwtCreationError(error) => {
-                                                error!(
-                                                    error,
-                                                    "Push notification failed because the JWT token could not be created",
-                                                )
-                                            }
-                                            PushNotificationError::OAuthError(error) => {
-                                                error!(
-                                                    %error,
-                                                    "Push notification failed because of an OAuth error",
-                                                )
-                                            }
-                                            PushNotificationError::InvalidConfiguration(error) => {
-                                                error!(
-                                                    error,
-                                                    "Push notification failed because of an invalid configuration",
-                                                )
-                                            }
+                    if let Some(ref encrypted_push_token) = client_record.encrypted_push_token
+                        && let Some(ref ear_key) = push_token_key_option
+                    {
+                        // Attempt to decrypt the push token.
+                        match PushToken::decrypt(ear_key, encrypted_push_token) {
+                            Err(e) => {
+                                error!("Push token decryption failed: {}", e);
+                            }
+                            Ok(push_token) => {
+                                // Send the push notification.
+                                if let Err(e) = push_notification_provider.push(push_token).await {
+                                    match e {
+                                        // The push notification failed for some other reason.
+                                        PushNotificationError::Other(error_description) => {
+                                            error!(
+                                                "Push notification failed unexpectedly: {}",
+                                                error_description
+                                            )
+                                        }
+                                        // The token is no longer valid and should be deleted.
+                                        PushNotificationError::InvalidToken(error_description) => {
+                                            info!(
+                                                %error_description,
+                                                "Push notification failed because the token is invalid",
+                                            );
+                                            client_record.delete_push_token(pool).await?;
+                                        }
+                                        // There was a network error when trying to send the push notification.
+                                        PushNotificationError::NetworkError(error) => {
+                                            info!(
+                                                %error,
+                                                "Push notification failed because of a network error",
+                                            )
+                                        }
+                                        PushNotificationError::UnsupportedType => {
+                                            warn!(
+                                                "Push notification failed because the push token type is unsupported",
+                                            )
+                                        }
+                                        PushNotificationError::JwtCreationError(error) => {
+                                            error!(
+                                                error,
+                                                "Push notification failed because the JWT token could not be created",
+                                            )
+                                        }
+                                        PushNotificationError::OAuthError(error) => {
+                                            error!(
+                                                %error,
+                                                "Push notification failed because of an OAuth error",
+                                            )
+                                        }
+                                        PushNotificationError::InvalidConfiguration(error) => {
+                                            error!(
+                                                error,
+                                                "Push notification failed because of an invalid configuration",
+                                            )
                                         }
                                     }
                                 }

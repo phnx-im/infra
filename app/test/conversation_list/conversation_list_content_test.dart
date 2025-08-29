@@ -7,15 +7,16 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prototype/conversation_list/conversation_list_content.dart';
-import 'package:prototype/conversation_list/conversation_list_cubit.dart';
+import 'package:air/conversation_list/conversation_list_content.dart';
+import 'package:air/conversation_list/conversation_list_cubit.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:prototype/core/api/markdown.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/app_localizations.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
+import 'package:air/core/api/markdown.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
 
 import '../mocks.dart';
 import '../helpers.dart';
@@ -43,6 +44,7 @@ final conversations = [
         UiContentMessage(
           sender: 2.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello Alice',
             topicId: Uint8List(0),
@@ -52,6 +54,7 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -72,6 +75,7 @@ final conversations = [
         UiContentMessage(
           sender: 3.userId(),
           sent: true,
+          edited: true,
           content: UiMimiContent(
             plainBody:
                 'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
@@ -84,6 +88,7 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -102,6 +107,7 @@ final conversations = [
         UiContentMessage(
           sender: 4.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
@@ -111,6 +117,7 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
   ),
   UiConversationDetails(
@@ -129,6 +136,7 @@ final conversations = [
         UiContentMessage(
           sender: 4.userId(),
           sent: true,
+          edited: false,
           content: UiMimiContent(
             plainBody: 'Hello All',
             topicId: Uint8List(0),
@@ -138,11 +146,13 @@ final conversations = [
         ),
       ),
       position: UiFlightPosition.single,
+      status: UiMessageStatus.sent,
     ),
     draft: UiMessageDraft(
       message: 'Some draft message',
       editingId: null,
       updatedAt: DateTime.now(),
+      source: UiMessageDraftSource.system,
     ),
   ),
 ];
@@ -192,7 +202,10 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(context),
+            theme: themeData(
+              MediaQuery.platformBrightnessOf(context),
+              CustomColorScheme.of(context),
+            ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(body: ConversationListContent()),
           );
@@ -235,13 +248,10 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      // Increase threshold because rendering frosted glass varies significantly across different platforms.
-      await withThreshold(0.031, () async {
-        await expectLater(
-          find.byType(MaterialApp),
-          matchesGoldenFile('goldens/conversation_list_content.png'),
-        );
-      });
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/conversation_list_content.png'),
+      );
     });
   });
 }

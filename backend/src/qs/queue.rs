@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{
+use aircommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::QsClientId,
     messages::QueueMessage,
@@ -162,7 +162,7 @@ mod persistence {
 
     #[cfg(test)]
     mod tests {
-        use phnxcommon::crypto::ear::AeadCiphertext;
+        use aircommon::crypto::ear::AeadCiphertext;
         use sqlx::PgPool;
 
         use crate::qs::{

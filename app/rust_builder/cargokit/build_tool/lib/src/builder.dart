@@ -88,8 +88,11 @@ class BuildEnvironment {
     final manifestDir = Environment.manifestDir;
     final crateOptions = CargokitCrateOptions.load(
       manifestDir: manifestDir,
+      buildConfiguration: buildConfiguration,
+      toolchainToml: Environment.toolchainToml,
     );
     final crateInfo = CrateInfo.load(manifestDir);
+
     return BuildEnvironment(
       configuration: buildConfiguration,
       crateOptions: crateOptions,
@@ -139,8 +142,11 @@ class RustBuilder {
   Future<String> build() async {
     final extraArgs = _buildOptions?.flags ?? [];
     final manifestPath = path.join(environment.manifestDir, 'Cargo.toml');
-    var env = await _buildEnvironment();
-    env["CARGO_LOG"] = "cargo::core::compiler::fingerprint=trace";
+
+    final version =
+        runCommand('rustup', ['run', _toolchain, 'cargo', '--version']);
+    print('Using cargo version from toolchain $_toolchain: ${version.stdout}');
+
     runCommand(
       'rustup',
       [
@@ -158,9 +164,8 @@ class RustBuilder {
         target.rust,
         '--target-dir',
         environment.targetTempDir,
-        '--verbose',
       ],
-      environment: env,
+      environment: await _buildEnvironment(),
     );
     return path.join(
       environment.targetTempDir,

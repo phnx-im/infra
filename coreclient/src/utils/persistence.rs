@@ -4,9 +4,9 @@
 
 use std::{fmt::Display, fs, path::Path, time::Duration};
 
+use aircommon::identifiers::UserId;
 use anyhow::{Result, bail};
 use openmls::group::GroupId;
-use phnxcommon::identifiers::UserId;
 use sqlx::{
     Database, Encode, Sqlite, SqlitePool, Type,
     encode::IsNull,
@@ -17,13 +17,14 @@ use sqlx::{
 use tracing::{error, info};
 
 use crate::clients::store::ClientRecord;
+use crate::utils::data_migrations;
 
-pub(crate) const PHNX_DB_NAME: &str = "phnx.db";
+pub(crate) const AIR_DB_NAME: &str = "air.db";
 
 /// Open a connection to the DB that contains records for all clients on this
 /// device.
-pub(crate) async fn open_phnx_db(db_path: &str) -> sqlx::Result<SqlitePool> {
-    let db_url = format!("sqlite://{db_path}/{PHNX_DB_NAME}");
+pub(crate) async fn open_air_db(db_path: &str) -> sqlx::Result<SqlitePool> {
+    let db_url = format!("sqlite://{db_path}/{AIR_DB_NAME}");
     let opts: SqliteConnectOptions = db_url.parse()?;
     let opts = opts
         .journal_mode(SqliteJournalMode::Wal)
@@ -44,7 +45,7 @@ pub(crate) async fn open_phnx_db(db_path: &str) -> sqlx::Result<SqlitePool> {
             .await?;
     }
 
-    migrate!("migrations/phnx").run(&pool).await?;
+    migrate!("migrations/air").run(&pool).await?;
 
     Ok(pool)
 }
@@ -63,19 +64,19 @@ pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
         .acquire_timeout(Duration::from_secs(3))
         .connect_with(opts)
         .await?;
-    migrate!().run(&pool).await?;
+    sqlx::migrate!().run(&pool).await?;
     Ok(pool)
 }
 
-/// Delete both the phnx.db and all client dbs from this device.
+/// Delete both the air.db and all client dbs from this device.
 ///
-/// If the phnx.db exists, but cannot be opened, only the phnx.db is deleted.
+/// If the air.db exists, but cannot be opened, only the air.db is deleted.
 ///
 /// WARNING: This will delete all APP-data from this device!
 pub async fn delete_databases(client_db_path: &str) -> Result<()> {
-    let full_phnx_db_path = format!("{client_db_path}/{PHNX_DB_NAME}");
-    if !Path::new(&full_phnx_db_path).exists() {
-        bail!("{full_phnx_db_path} does not exist")
+    let full_air_db_path = format!("{client_db_path}/{AIR_DB_NAME}");
+    if !Path::new(&full_air_db_path).exists() {
+        bail!("{full_air_db_path} does not exist")
     }
 
     // First try to delete all client DBs
@@ -83,16 +84,16 @@ pub async fn delete_databases(client_db_path: &str) -> Result<()> {
         error!(%error, "Failed to delete client DBs")
     }
 
-    // Finally, delete the phnx.db
-    info!(path =% full_phnx_db_path, "removing PHNX DB");
-    fs::remove_file(full_phnx_db_path)?;
+    // Finally, delete the air.db
+    info!(path =% full_air_db_path, "removing AIR DB");
+    fs::remove_file(full_air_db_path)?;
 
     Ok(())
 }
 
 async fn delete_client_databases(client_db_path: &str) -> anyhow::Result<()> {
-    let phnx_db_connection = open_phnx_db(client_db_path).await?;
-    if let Ok(client_records) = ClientRecord::load_all(&phnx_db_connection).await {
+    let air_db_connection = open_air_db(client_db_path).await?;
+    if let Ok(client_records) = ClientRecord::load_all(&air_db_connection).await {
         for client_record in client_records {
             let client_db_name = client_db_name(&client_record.user_id);
             let client_db_path = format!("{client_db_path}/{client_db_name}");
@@ -113,13 +114,13 @@ pub async fn delete_client_database(db_path: &str, user_id: &UserId) -> Result<(
         error!(%error, %client_db_path, "Failed to delete client DB")
     }
 
-    // Delete the client record from the phnx DB
-    let full_phnx_db_path = format!("{db_path}/{PHNX_DB_NAME}");
-    if !Path::new(&full_phnx_db_path).exists() {
-        bail!("phnx.db does not exist")
+    // Delete the client record from the air DB
+    let full_air_db_path = format!("{db_path}/{AIR_DB_NAME}");
+    if !Path::new(&full_air_db_path).exists() {
+        bail!("air.db does not exist")
     }
-    let phnx_db = open_phnx_db(db_path).await?;
-    ClientRecord::delete(&phnx_db, user_id).await?;
+    let air_db = open_air_db(db_path).await?;
+    ClientRecord::delete(&air_db, user_id).await?;
 
     Ok(())
 }
@@ -137,6 +138,7 @@ pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Res
         .create_if_missing(true);
     let pool = SqlitePoolOptions::default().connect_with(opts).await?;
 
+    data_migrations::migrate(&pool).await?;
     migrate!().run(&pool).await?;
 
     Ok(pool)

@@ -4,8 +4,12 @@
 
 use std::{collections::HashSet, path::Path, sync::Arc};
 
+use aircommon::{
+    identifiers::{AttachmentId, MimiId, UserHandle, UserId},
+    messages::client_as_out::UserHandleDeleteResponse,
+};
+use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, UserHandle, UserId};
 use tokio_stream::Stream;
 use tracing::error;
 use uuid::Uuid;
@@ -84,7 +88,10 @@ impl Store for CoreUser {
         self.add_user_handle(user_handle).await
     }
 
-    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()> {
+    async fn remove_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<UserHandleDeleteResponse> {
         self.remove_user_handle(user_handle).await
     }
 
@@ -210,7 +217,22 @@ impl Store for CoreUser {
         &self,
         conversation_id: ConversationId,
     ) -> StoreResult<Option<ConversationMessage>> {
-        Ok(self.try_last_message(conversation_id).await?)
+        Ok(ConversationMessage::last_content_message(self.pool(), conversation_id).await?)
+    }
+
+    async fn last_message_by_user(
+        &self,
+        conversation_id: ConversationId,
+        user_id: &UserId,
+    ) -> StoreResult<Option<ConversationMessage>> {
+        Ok(
+            ConversationMessage::last_content_message_by_user(
+                self.pool(),
+                conversation_id,
+                user_id,
+            )
+            .await?,
+        )
     }
 
     async fn message_draft(
@@ -253,18 +275,37 @@ impl Store for CoreUser {
         &self,
         conversation_id: ConversationId,
         until: ConversationMessageId,
-    ) -> StoreResult<bool> {
-        Ok(self
-            .mark_conversation_as_read(conversation_id, until)
-            .await?)
+    ) -> StoreResult<(bool, Vec<MimiId>)> {
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            Conversation::mark_as_read_until_message_id(
+                txn,
+                notifier,
+                conversation_id,
+                until,
+                self.user_id(),
+            )
+            .await
+            .map_err(From::from)
+        })
+        .await
     }
 
     async fn send_message(
         &self,
         conversation_id: ConversationId,
         content: mimi_content::MimiContent,
+        replaces_id: Option<ConversationMessageId>,
     ) -> StoreResult<ConversationMessage> {
-        self.send_message(conversation_id, content).await
+        self.send_message(conversation_id, content, replaces_id)
+            .await
+    }
+
+    async fn send_delivery_receipts<'a>(
+        &self,
+        conversation_id: ConversationId,
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
+    ) -> StoreResult<()> {
+        self.send_delivery_receipts(conversation_id, statuses).await
     }
 
     async fn upload_attachment(

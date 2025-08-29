@@ -2,15 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mimi_room_policy::VerifiedRoomState;
-use mls_assist::{
-    messages::AssistedMessageOut,
-    openmls::{
-        group::GroupEpoch,
-        prelude::{GroupId, LeafNodeIndex},
-    },
-};
-use phnxcommon::{
+use aircommon::{
     credentials::keys::ClientSigningKey,
     crypto::{ear::keys::GroupStateEarKey, signatures::signable::Signable},
     identifiers::{AttachmentId, QsReference, QualifiedGroupId},
@@ -23,7 +15,7 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
-use phnxprotos::{
+use airprotos::{
     convert::{RefInto, TryRefInto},
     delivery_service::v1::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
@@ -34,6 +26,14 @@ use phnxprotos::{
         delivery_service_client::DeliveryServiceClient,
     },
     validation::MissingFieldExt,
+};
+use mimi_room_policy::VerifiedRoomState;
+use mls_assist::{
+    messages::AssistedMessageOut,
+    openmls::{
+        group::GroupEpoch,
+        prelude::{GroupId, LeafNodeIndex},
+    },
 };
 use tonic::transport::Channel;
 use tracing::error;

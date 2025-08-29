@@ -8,12 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/message_list/message_list.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/message_list/message_list.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../conversation_list/conversation_list_content_test.dart';
@@ -31,6 +32,7 @@ final messages = [
       UiContentMessage(
         sender: 2.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: 'Hello Alice from Bob',
           topicId: Uint8List(0),
@@ -40,6 +42,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 2.conversationMessageId(),
@@ -49,6 +52,7 @@ final messages = [
       UiContentMessage(
         sender: 3.userId(),
         sent: true,
+        edited: true,
         content: UiMimiContent(
           plainBody:
               'Hello Alice. This is a long message that should not be truncated but properly split into multiple lines.',
@@ -61,6 +65,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 3.conversationMessageId(),
@@ -70,6 +75,7 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: true,
         content: UiMimiContent(
           plainBody: 'Hello Bob and Eve',
           topicId: Uint8List(0),
@@ -79,6 +85,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.start,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 4.conversationMessageId(),
@@ -88,6 +95,7 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: 'How are you doing?',
           topicId: Uint8List(0),
@@ -97,6 +105,7 @@ final messages = [
       ),
     ),
     position: UiFlightPosition.middle,
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 5.conversationMessageId(),
@@ -106,6 +115,7 @@ final messages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           plainBody: '''Nice to see you both here! 👋
 
@@ -121,6 +131,47 @@ This is a message with multiple lines. It should be properly displayed in the me
       ),
     ),
     position: UiFlightPosition.end,
+    status: UiMessageStatus.sent,
+  ),
+  UiConversationMessage(
+    id: 7.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:01.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "This is a delivered message",
+          content: simpleMessage("This is a delivered message"),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.delivered,
+  ),
+  UiConversationMessage(
+    id: 8.conversationMessageId(),
+    conversationId: conversationId,
+    timestamp: '2023-01-01T00:04:02.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: 1.userId(),
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          topicId: Uint8List(0),
+          plainBody: "This is a read message",
+          content: simpleMessage("This is a read message"),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.read,
   ),
 ];
 
@@ -147,6 +198,7 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "A File Attachment",
@@ -163,6 +215,7 @@ final attachmentMessages = [
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 7.conversationMessageId(),
@@ -173,6 +226,7 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "Look what I've got to eat",
@@ -181,6 +235,7 @@ final attachmentMessages = [
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 8.conversationMessageId(),
@@ -191,12 +246,14 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           attachments: [imageAttachment],
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
   UiConversationMessage(
     id: 9.conversationMessageId(),
@@ -207,6 +264,7 @@ final attachmentMessages = [
       UiContentMessage(
         sender: 1.userId(),
         sent: true,
+        edited: false,
         content: UiMimiContent(
           topicId: Uint8List(0),
           plainBody: "Small image",
@@ -222,6 +280,7 @@ final attachmentMessages = [
         ),
       ),
     ),
+    status: UiMessageStatus.sent,
   ),
 ];
 
@@ -277,7 +336,10 @@ void main() {
           builder: (context) {
             return MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: themeData(context),
+              theme: themeData(
+                MediaQuery.platformBrightnessOf(context),
+                CustomColorScheme.of(context),
+              ),
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               home: const Scaffold(
                 body: MessageListView(

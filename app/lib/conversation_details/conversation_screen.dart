@@ -4,13 +4,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/message_list/message_list.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/user_avatar.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/message_list/message_list.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/user_avatar.dart';
 
 import 'conversation_details_cubit.dart';
 
@@ -50,14 +52,12 @@ class _EmptyConversationPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    return Scaffold(
-      body: Center(
-        child: Text(
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: colorDMB),
-          loc.conversationScreen_emptyConversation,
+    return Center(
+      child: Text(
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: CustomColorScheme.of(context).text.tertiary,
         ),
+        loc.conversationScreen_emptyConversation,
       ),
     );
   }
@@ -82,18 +82,19 @@ class ConversationScreenView extends StatelessWidget {
     }
 
     return Scaffold(
-      body: Stack(
-        children: <Widget>[
-          Column(
-            children: [
-              const _ConversationHeader(),
-              Expanded(
-                child: MessageListView(createMessageCubit: createMessageCubit),
-              ),
-              const MessageComposer(),
-            ],
-          ),
-        ],
+      body: Container(
+        decoration: BoxDecoration(
+          color: CustomColorScheme.of(context).backgroundBase.primary,
+        ),
+        child: Column(
+          children: [
+            const _ConversationHeader(),
+            Expanded(
+              child: MessageListView(createMessageCubit: createMessageCubit),
+            ),
+            const MessageComposer(),
+          ],
+        ),
       ),
     );
   }
@@ -122,9 +123,8 @@ class _ConversationHeader extends StatelessWidget {
         left: Spacings.xs,
         right: Spacings.xs,
       ),
-      child: Container(
-        color: Colors.white,
-        height: Spacings.l,
+      child: SizedBox(
+        height: Spacings.xl,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -138,17 +138,16 @@ class _ConversationHeader extends StatelessWidget {
                 UserAvatar(
                   displayName: conversationTitle ?? "",
                   image: conversationPicture,
-                  size: Spacings.m,
+                  size: Spacings.l,
                   onPressed: () {
                     context.read<NavigationCubit>().openConversationDetails();
                   },
                 ),
                 Text(
                   conversationTitle ?? "",
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontVariations: variationBold,
+                  style: TextStyle(
+                    fontSize: LabelFontSize.base.size,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -169,8 +168,8 @@ class _DetailsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.more_horiz, size: 26),
-      color: Colors.black,
+      icon: const Icon(Icons.more_horiz, size: 32),
+      color: CustomColorScheme.of(context).text.primary,
       padding: const EdgeInsets.symmetric(horizontal: Spacings.xs),
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,
@@ -190,7 +189,7 @@ class _BackButton extends StatelessWidget {
     return IconButton(
       icon: const Icon(Icons.arrow_back, size: 26),
       padding: const EdgeInsets.symmetric(horizontal: Spacings.xs),
-      color: Colors.black,
+      color: CustomColorScheme.of(context).text.primary,
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,

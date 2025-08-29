@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 class ChangeUserScreen extends StatefulWidget {
@@ -115,8 +115,7 @@ class _ClientRecordsList extends StatelessWidget {
               return ListTile(
                 titleAlignment: ListTileTitleAlignment.top,
                 titleTextStyle: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: textColor)
-                    .merge(VariableFontWeight.semiBold),
+                    ?.copyWith(color: textColor, fontWeight: FontWeight.bold),
                 subtitleTextStyle: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: textColor),

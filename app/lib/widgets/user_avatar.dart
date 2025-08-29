@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/util/cached_memory_image.dart';
+import 'package:air/core/core.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/util/cached_memory_image.dart';
 
 class UserAvatar extends StatelessWidget {
   const UserAvatar({
@@ -35,15 +36,16 @@ class UserAvatar extends StatelessWidget {
           height: size,
           child: CircleAvatar(
             radius: size / 2,
-            backgroundColor: colorDMBLight,
+            backgroundColor: CustomColorScheme.of(context).text.quaternary,
             foregroundImage:
                 image != null ? CachedMemoryImage.fromImageData(image!) : null,
             child: Text(
               displayName.characters.firstOrNull?.toUpperCase() ?? "",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 10 * size / 24,
-              ).merge(VariableFontWeight.bold),
+                color: CustomColorScheme.of(context).function.white,
+                fontSize: LabelFontSize.small2.size * size / 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),

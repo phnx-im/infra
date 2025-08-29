@@ -5,14 +5,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prototype/conversation_list/conversation_list.dart';
+import 'package:air/conversation_list/conversation_list.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:prototype/conversation_list/conversation_list_cubit.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
+import 'package:air/conversation_list/conversation_list_cubit.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
 
 import '../helpers.dart';
 import '../mocks.dart';
@@ -61,7 +62,10 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(context),
+            theme: themeData(
+              MediaQuery.platformBrightnessOf(context),
+              CustomColorScheme.of(context),
+            ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(body: ConversationListView()),
           );
@@ -104,13 +108,10 @@ void main() {
 
       await tester.pumpWidget(buildSubject());
 
-      // Increase threshold because rendering frosted glass varies significantly across different platforms.
-      await withThreshold(0.029, () async {
-        await expectLater(
-          find.byType(MaterialApp),
-          matchesGoldenFile('goldens/conversation_list.png'),
-        );
-      });
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/conversation_list.png'),
+      );
     });
   });
 }

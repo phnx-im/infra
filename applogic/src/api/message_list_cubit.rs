@@ -6,11 +6,11 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use flutter_rust_bridge::frb;
-use phnxcoreclient::{
+use aircoreclient::{
     ConversationId, ConversationMessage, ConversationMessageId,
     store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
+use flutter_rust_bridge::frb;
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
@@ -245,17 +245,16 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         notification: &StoreNotification,
     ) -> anyhow::Result<()> {
         for (id, op) in &notification.ops {
-            if let StoreEntityId::Message(message_id) = id {
-                if op.contains(StoreOperation::Add) {
-                    if let Some(message) = self.store.message(*message_id).await? {
-                        if message.conversation_id() == self.conversation_id {
-                            self.notify_neghbors_of_added_message(message);
-                            self.load_and_emit_state().await;
-                        }
-                        return Ok(());
-                    };
+            if let StoreEntityId::Message(message_id) = id
+                && op.contains(StoreOperation::Add)
+                && let Some(message) = self.store.message(*message_id).await?
+            {
+                if message.conversation_id() == self.conversation_id {
+                    self.notify_neghbors_of_added_message(message);
+                    self.load_and_emit_state().await;
                 }
-            }
+                return Ok(());
+            };
         }
         Ok(())
     }
@@ -295,9 +294,10 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 
 #[cfg(test)]
 mod tests {
+    use aircommon::{identifiers::UserId, time::TimeStamp};
+    use aircoreclient::{ContentMessage, ConversationMessageId, Message};
     use mimi_content::MimiContent;
-    use phnxcommon::{identifiers::UserId, time::TimeStamp};
-    use phnxcoreclient::{ContentMessage, ConversationMessageId, Message};
+    use openmls::group::GroupId;
     use uuid::Uuid;
 
     use super::*;
@@ -310,7 +310,8 @@ mod tests {
             Message::with_content(ContentMessage::new(
                 sender.clone(),
                 true,
-                MimiContent::simple_markdown_message("some content".into()),
+                MimiContent::simple_markdown_message("some content".into(), [0; 16]), // simple seed for testing
+                &GroupId::from_slice(&[0]),
             )),
         )
     }

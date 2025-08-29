@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, anyhow, ensure};
-use phnxcommon::{
+use aircommon::{
     crypto::ear::{AeadCiphertext, EarDecryptable, keys::AttachmentEarKey},
     identifiers::AttachmentId,
 };
+use anyhow::{Context, anyhow, ensure};
 use sha2::{Digest, Sha256};
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
@@ -17,7 +17,7 @@ use crate::{
         CoreUser,
         attachment::{
             AttachmentBytes, AttachmentRecord,
-            ear::{EncryptedAttachment, PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_ATTACHMENT_HASH_ALG},
+            ear::{AIR_ATTACHMENT_ENCRYPTION_ALG, AIR_ATTACHMENT_HASH_ALG, EncryptedAttachment},
             persistence::{AttachmentStatus, PendingAttachmentRecord},
         },
     },
@@ -84,7 +84,7 @@ impl CoreUser {
         // Check encryption parameters
         debug!(?attachment_id, "Checking encryption parameters");
         ensure!(
-            pending_record.enc_alg == PHNX_ATTACHMENT_ENCRYPTION_ALG,
+            pending_record.enc_alg == AIR_ATTACHMENT_ENCRYPTION_ALG,
             "unsupported encryption algorithm: {:?}",
             pending_record.enc_alg
         );
@@ -99,7 +99,7 @@ impl CoreUser {
                 .map_err(|_| anyhow!("invalid key length"))?,
         );
         ensure!(
-            pending_record.hash_alg == PHNX_ATTACHMENT_HASH_ALG,
+            pending_record.hash_alg == AIR_ATTACHMENT_HASH_ALG,
             "unsupported hash algorithm: {:?}",
             pending_record.hash_alg
         );
