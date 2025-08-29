@@ -206,6 +206,16 @@ extension on HomeNavigationState {
             child: AddUserHandleScreen(),
           ),
         ],
+        UserSettingsScreenType.help => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-help"),
+            child: HelpScreen(),
+          ),
+        ],
       },
       if (conversationId != null &&
           conversationOpen &&

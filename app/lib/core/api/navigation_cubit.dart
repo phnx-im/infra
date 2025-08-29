@@ -108,4 +108,4 @@ sealed class NavigationState with _$NavigationState {
   }) = NavigationState_Home;
 }
 
-enum UserSettingsScreenType { root, editDisplayName, addUserHandle }
+enum UserSettingsScreenType { root, editDisplayName, addUserHandle, help }

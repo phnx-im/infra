@@ -55,27 +55,22 @@ class UserSettingsScreen extends StatelessWidget {
 
                   const _UserProfileData(),
 
-                  const SizedBox(height: Spacings.xs),
-                  Divider(color: Theme.of(context).hintColor),
-                  const SizedBox(height: Spacings.xs),
+                  const SettingsDivider(),
 
                   const _UserHandles(),
 
                   if (isMobilePlatform) ...[
-                    const SizedBox(height: Spacings.xs),
-                    Divider(color: Theme.of(context).hintColor),
-                    const SizedBox(height: Spacings.xs),
-
+                    const SettingsDivider(),
                     const _MobileSettings(),
                   ],
 
                   if (isDesktopPlatform) ...[
-                    const SizedBox(height: Spacings.xs),
-                    Divider(color: Theme.of(context).hintColor),
-                    const SizedBox(height: Spacings.xs),
-
+                    const SettingsDivider(),
                     const _DesktopSettings(),
                   ],
+
+                  const SettingsDivider(),
+                  const _Help(),
                 ],
               ),
             ),
@@ -348,4 +343,40 @@ Color getColor(Set<WidgetState> states) {
     return Colors.brown;
   }
   return Colors.transparent;
+}
+
+class _Help extends StatelessWidget {
+  const _Help();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        ListTile(
+          leading: const Icon(Icons.help, size: _listIconSize),
+          title: Text(loc.userSettingsScreen_help),
+          onTap:
+              () => context.read<NavigationCubit>().openUserSettings(
+                screen: UserSettingsScreenType.help,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class SettingsDivider extends StatelessWidget {
+  const SettingsDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacings.xs),
+      child: Divider(color: Theme.of(context).hintColor),
+    );
+  }
 }
