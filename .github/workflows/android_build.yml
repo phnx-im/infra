@@ -70,3 +70,13 @@ jobs:
       - name: Build Android app
         run: |
           cd app/fastlane && bundle exec fastlane android beta_android --verbose
+
+      - name: Calculate short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Upload Android app APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: air-${{ steps.vars.outputs.sha_short }}
+          path: app/build/app/outputs/flutter-apk/app-release.apk
