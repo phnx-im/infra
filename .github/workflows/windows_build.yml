@@ -34,6 +34,23 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.89.0
 
+
+      - name: Set up NASM
+        uses: ilammy/setup-nasm@v1
+
+      - name: Set up Perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: "5"
+
+      - name: Export PERL env var for OpenSSL
+        shell: pwsh
+        run: |
+          $perl = (Get-Command perl).Source
+          echo "PERL=$perl" >> $env:GITHUB_ENV
+          perl -v
+          nasm -v
+
       - name: Build Windows app
         run: just build-windows
 

@@ -16,6 +16,7 @@ use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 use aircommon::{
     assert_matches,
+    crypto::ear::keys::DatabaseKek,
     identifiers::{UserHandle, UserId},
 };
 use aircoreclient::{
@@ -639,8 +640,10 @@ async fn client_persistence() {
 
     let db_path = setup.temp_dir().to_owned();
 
+    let database_kek = DatabaseKek::from_bytes(*b"default_db_kek______with_padding");
+
     // Try to load the user from the database.
-    CoreUser::load(user_id.clone(), db_path.to_str().unwrap())
+    CoreUser::load(user_id.clone(), db_path.to_str().unwrap(), &database_kek)
         .await
         .unwrap();
 
@@ -651,14 +654,16 @@ async fn client_persistence() {
 
     assert!(!client_db_path.exists());
     assert!(
-        CoreUser::load(user_id.clone(), db_path.to_str().unwrap())
+        CoreUser::load(user_id.clone(), db_path.to_str().unwrap(), &database_kek)
             .await
             .is_err()
     );
 
-    // `CoreUser::load` opened the client DB, and so it was re-created.
-    fs::remove_file(client_db_path).unwrap();
-    fs::remove_file(db_path.join("air.db")).unwrap();
+    // Remove all files in the directory
+    for entry in fs::read_dir(&db_path).unwrap() {
+        let entry = entry.unwrap();
+        fs::remove_file(entry.path()).unwrap();
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

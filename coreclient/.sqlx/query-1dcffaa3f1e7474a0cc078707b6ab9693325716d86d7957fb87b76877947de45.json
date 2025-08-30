@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT\n                user_uuid AS \"user_uuid: _\",\n                user_domain AS \"user_domain: _\",\n                record_state AS \"client_record_state: _\",\n                created_at AS \"created_at: _\",\n                is_default\n            FROM client_record",
+  "query": "\n            SELECT\n                user_uuid AS \"user_uuid: _\",\n                user_domain AS \"user_domain: _\",\n                record_state AS \"client_record_state: _\",\n                created_at AS \"created_at: _\",\n                is_default,\n                encrypted_dek AS \"encrypted_dek: _\"\n            FROM client_record",
   "describe": {
     "columns": [
       {
@@ -27,6 +27,11 @@
         "name": "is_default",
         "ordinal": 4,
         "type_info": "Bool"
+      },
+      {
+        "name": "encrypted_dek: _",
+        "ordinal": 5,
+        "type_info": "Blob"
       }
     ],
     "parameters": {
@@ -37,8 +42,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "52effea5fab17202ff62c2b5b02238fba05b8b7646d57a654ebeca44c3efebd6"
+  "hash": "1dcffaa3f1e7474a0cc078707b6ab9693325716d86d7957fb87b76877947de45"
 }

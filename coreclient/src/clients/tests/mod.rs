@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use aircommon::{codec::AirCodec, identifiers::UserId};
+use aircommon::{codec::AirCodec, crypto::ear::keys::DatabaseKek, identifiers::UserId};
 use airserver_test_harness::utils::setup::TestBackend;
 
 use crate::{
@@ -30,7 +30,12 @@ async fn user_stages() -> anyhow::Result<()> {
     );
 
     let computed_state =
-        UserCreationState::new(&client_db, &air_db, user_id.clone(), server_url, None).await?;
+        UserCreationState::new(&client_db, user_id.clone(), server_url, None).await?;
+
+    // There is no DEK for in-memory databases, but we still need a KEK
+    let kek = DatabaseKek::from_bytes(*b"default_db_kek______with_padding");
+    let client_record = ClientRecord::new(user_id.clone(), &kek)?;
+    client_record.store(&air_db).await?;
 
     // There should now be a client record state in the air db.
     let client_records = ClientRecord::load_all(&air_db).await?;

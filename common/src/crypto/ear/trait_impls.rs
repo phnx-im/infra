@@ -4,13 +4,18 @@
 
 use std::marker::PhantomData;
 
-use sqlx::{Postgres, postgres::PgHasArrayType};
+use sqlx::{Postgres, Sqlite, postgres::PgHasArrayType};
+use tls_codec::{DeserializeBytes, Serialize};
 
 use super::{AeadCiphertext, Ciphertext};
 
-impl<CT> sqlx::Type<Postgres> for Ciphertext<CT> {
-    fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
-        <AeadCiphertext as sqlx::Type<Postgres>>::type_info()
+impl<CT, DB> sqlx::Type<DB> for Ciphertext<CT>
+where
+    DB: sqlx::Database,
+    AeadCiphertext: sqlx::Type<DB>,
+{
+    fn type_info() -> <DB as sqlx::Database>::TypeInfo {
+        <AeadCiphertext as sqlx::Type<DB>>::type_info()
     }
 }
 
@@ -20,20 +25,28 @@ impl<CT> PgHasArrayType for Ciphertext<CT> {
     }
 }
 
-impl<CT> sqlx::Encode<'_, Postgres> for Ciphertext<CT> {
+impl<'q, CT, DB> sqlx::Encode<'q, DB> for Ciphertext<CT>
+where
+    DB: sqlx::Database,
+    for<'a> AeadCiphertext: sqlx::Encode<'a, DB>,
+{
     fn encode_by_ref(
         &self,
-        buf: &mut <Postgres as sqlx::Database>::ArgumentBuffer<'_>,
+        buf: &mut <DB as sqlx::Database>::ArgumentBuffer<'_>,
     ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
-        sqlx::Encode::<Postgres>::encode(&self.ct, buf)
+        sqlx::Encode::<DB>::encode(&self.ct, buf)
     }
 }
 
-impl<CT> sqlx::Decode<'_, Postgres> for Ciphertext<CT> {
+impl<CT, DB> sqlx::Decode<'_, DB> for Ciphertext<CT>
+where
+    DB: sqlx::Database,
+    for<'a> AeadCiphertext: sqlx::Decode<'a, DB>,
+{
     fn decode(
-        value: <Postgres as sqlx::Database>::ValueRef<'_>,
+        value: <DB as sqlx::Database>::ValueRef<'_>,
     ) -> Result<Self, sqlx::error::BoxDynError> {
-        let aead_ciphertext: AeadCiphertext = sqlx::Decode::<Postgres>::decode(value)?;
+        let aead_ciphertext: AeadCiphertext = sqlx::Decode::<DB>::decode(value)?;
         Ok(Self {
             ct: aead_ciphertext,
             pd: PhantomData,
@@ -80,3 +93,28 @@ impl<CT> PartialEq for Ciphertext<CT> {
     }
 }
 impl<CT> Eq for Ciphertext<CT> {}
+
+impl sqlx::Type<Sqlite> for AeadCiphertext {
+    fn type_info() -> <Sqlite as sqlx::Database>::TypeInfo {
+        <Vec<u8> as sqlx::Type<Sqlite>>::type_info()
+    }
+}
+
+impl sqlx::Encode<'_, Sqlite> for AeadCiphertext {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'_>,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        let bytes = self.tls_serialize_detached().map_err(Box::new)?;
+        sqlx::Encode::<Sqlite>::encode(bytes, buf)
+    }
+}
+
+impl sqlx::Decode<'_, Sqlite> for AeadCiphertext {
+    fn decode(
+        value: <Sqlite as sqlx::Database>::ValueRef<'_>,
+    ) -> Result<Self, sqlx::error::BoxDynError> {
+        let bytes: &[u8] = sqlx::Decode::<Sqlite>::decode(value)?;
+        Ok(Self::tls_deserialize_exact_bytes(bytes).map_err(Box::new)?)
+    }
+}
