@@ -16,6 +16,7 @@ use aircoreclient::{
         CoreUser,
         store::{ClientRecord, ClientRecordState},
     },
+    open_client_db,
 };
 use anyhow::{Context, Result};
 use flutter_rust_bridge::frb;
@@ -29,7 +30,7 @@ use super::types::{UiClientRecord, UiUserId, UiUserProfile};
 
 // TODO: This needs to be changed
 static DEFAULT_DATABASE_KEK: LazyLock<DatabaseKek> =
-    LazyLock::new(|| DatabaseKek::from_bytes(*b"default_database_kek_padding____"));
+    LazyLock::new(|| DatabaseKek::from_bytes(*b"default_db_kek______with_padding"));
 
 /// Platform specific push token
 pub enum PlatformPushToken {
@@ -84,7 +85,7 @@ impl User {
             DEFAULT_PORT_GRPC,
             &path,
             push_token.map(|p| p.into()),
-            &*DEFAULT_DATABASE_KEK,
+            &DEFAULT_DATABASE_KEK,
         )
         .await?;
 
@@ -120,7 +121,7 @@ impl User {
     }
 
     pub async fn load(db_path: String, user_id: UiUserId) -> anyhow::Result<Self> {
-        let user = CoreUser::load(user_id.into(), &db_path, &*DEFAULT_DATABASE_KEK).await?;
+        let user = CoreUser::load(user_id.into(), &db_path, &DEFAULT_DATABASE_KEK).await?;
         Ok(Self { user: user.clone() })
     }
 
@@ -140,7 +141,7 @@ impl User {
         let mut loaded_user = None;
         for client_record in records {
             let user_id = client_record.user_id;
-            match CoreUser::load(user_id.clone(), &path, DEFAULT_DATABASE_KEK).await {
+            match CoreUser::load(user_id.clone(), &path, &DEFAULT_DATABASE_KEK).await {
                 Ok(user) => {
                     loaded_user = Some(user);
                     break;
@@ -182,7 +183,7 @@ impl User {
 }
 
 async fn load_ui_record(db_path: &str, record: &ClientRecord) -> anyhow::Result<UiClientRecord> {
-    let pool = record.open_client_db(&record.user_id, db_path).await?;
+    let pool = open_client_db(&record.user_id, db_path, &DEFAULT_DATABASE_KEK).await?;
     let user_profile = UserProfile::load(&pool, &record.user_id)
         .await?
         .map(UiUserProfile::from_profile)

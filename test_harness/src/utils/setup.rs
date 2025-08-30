@@ -10,6 +10,7 @@ use std::{
 
 use aircommon::{
     DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
+    crypto::ear::keys::DatabaseKek,
     identifiers::{Fqdn, UserHandle, UserId},
 };
 use aircoreclient::{
@@ -29,7 +30,7 @@ use tokio::{
     time::timeout,
 };
 use tokio_stream::StreamExt;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::utils::spawn_app_with_rate_limits;
 
@@ -93,9 +94,18 @@ impl TestUser {
 
         let server_url = format!("http://{hostname_str}").parse().unwrap();
 
-        let user = CoreUser::new(user_id.clone(), server_url, grpc_port, db_dir, None)
-            .await
-            .unwrap();
+        let database_kek = DatabaseKek::from_bytes(*b"default_db_kek______with_padding");
+
+        let user = CoreUser::new(
+            user_id.clone(),
+            server_url,
+            grpc_port,
+            db_dir,
+            None,
+            &database_kek,
+        )
+        .await
+        .unwrap();
         Self {
             user,
             db_dir: Some(db_dir.to_owned()),
@@ -211,8 +221,16 @@ impl TestBackend {
     pub async fn delete_user(&mut self, user_id: &UserId) {
         let test_user = self.take_user(user_id);
         match test_user.db_dir {
-            Some(db_dir) => test_user.user.delete(db_dir.as_str()).await.unwrap(),
-            None => test_user.user.delete_ephemeral().await.unwrap(),
+            Some(db_dir) => {
+                if let Err(e) = test_user.user.delete(db_dir.as_str()).await {
+                    error!(%e, "Failed to delete client DB");
+                }
+            }
+            None => {
+                if let Err(e) = test_user.user.delete_ephemeral().await {
+                    error!(%e, "Failed to delete ephemeral client DB");
+                }
+            }
         }
     }
 

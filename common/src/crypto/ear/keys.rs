@@ -102,10 +102,6 @@ pub struct EncryptedUserProfileKeyCtype;
 pub type EncryptedUserProfileKey = Ciphertext<EncryptedUserProfileKeyCtype>;
 
 #[derive(Debug)]
-pub struct EncryptedDatabaseDekCtype;
-pub type EncryptedDatabaseDek = Ciphertext<EncryptedDatabaseDekCtype>;
-
-#[derive(Debug)]
 pub struct AttachmentEarKeyType;
 
 impl RawKey for AttachmentEarKeyType {}

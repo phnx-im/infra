@@ -172,7 +172,7 @@ impl ClientRecord {
         Ok(records.into_iter().map(From::from).collect())
     }
 
-    pub(super) async fn load(
+    pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
         user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
@@ -256,7 +256,10 @@ impl ClientRecord {
 mod tests {
     use std::sync::LazyLock;
 
-    use aircommon::messages::push_token::{PushToken, PushTokenOperator};
+    use aircommon::{
+        crypto::ear::{AeadCiphertext, keys::DatabaseKek},
+        messages::push_token::{PushToken, PushTokenOperator},
+    };
     use chrono::{DateTime, Utc};
     use sqlx::SqlitePool;
     use uuid::Uuid;
@@ -266,12 +269,11 @@ mod tests {
     use super::*;
 
     fn new_client_record(id: Uuid, created_at: DateTime<Utc>) -> ClientRecord {
-        use aircommon::crypto::ear::{keys::ClientDatabaseKek, traits::RandomlyGeneratable};
-
         let user_id = UserId::new(id, "localhost".parse().unwrap());
-        let kek = ClientDatabaseKek::random().unwrap();
+        let kek = DatabaseKek::from_bytes(*b"default_db_kek______with_padding");
         let mut record = ClientRecord::new(user_id, &kek).unwrap();
         record.created_at = created_at;
+        record.encrypted_dek = AeadCiphertext::dummy().into();
         record.client_record_state = ClientRecordState::Finished;
         record
     }

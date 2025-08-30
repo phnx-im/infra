@@ -4,7 +4,7 @@
 
 use aircommon::{
     crypto::{
-        ear::{Ciphertext, EarDecryptable, keys::DatabaseKek},
+        ear::{Ciphertext, EarDecryptable, GenericDeserializable, keys::DatabaseKek},
         errors::RandomnessError,
         secrets::Secret,
     },
@@ -182,13 +182,13 @@ const DATABASE_DEK_LENGTH: usize = 32;
 pub struct EncryptedDatabaseDekCtype;
 pub type EncryptedDek = Ciphertext<EncryptedDatabaseDekCtype>;
 
-impl EarEncryptable<DatabaseKek, EncryptedDatabaseDekCtype> for DatabaseEncryptionKey {}
-impl EarDecryptable<DatabaseKek, EncryptedDatabaseDekCtype> for DatabaseEncryptionKey {}
+impl EarEncryptable<DatabaseKek, EncryptedDatabaseDekCtype> for DatabaseDek {}
+impl EarDecryptable<DatabaseKek, EncryptedDatabaseDekCtype> for DatabaseDek {}
 
 #[derive(Serialize, Deserialize)]
-pub struct DatabaseEncryptionKey(Secret<DATABASE_DEK_LENGTH>);
+pub struct DatabaseDek(Secret<DATABASE_DEK_LENGTH>);
 
-impl DatabaseEncryptionKey {
+impl DatabaseDek {
     pub(crate) fn random() -> Result<Self, RandomnessError> {
         let secret = Secret::random()?;
         Ok(Self(secret))
@@ -199,7 +199,7 @@ impl DatabaseEncryptionKey {
     }
 }
 
-impl From<Secret<DATABASE_DEK_LENGTH>> for DatabaseEncryptionKey {
+impl From<Secret<DATABASE_DEK_LENGTH>> for DatabaseDek {
     fn from(secret: Secret<DATABASE_DEK_LENGTH>) -> Self {
         Self(secret)
     }
@@ -215,15 +215,12 @@ pub struct ClientRecord {
 }
 
 impl ClientRecord {
-    pub(super) fn new(
-        user_id: UserId,
-        kek: &aircommon::crypto::ear::keys::DatabaseKek,
-    ) -> anyhow::Result<Self> {
+    pub(super) fn new(user_id: UserId, kek: &DatabaseKek) -> anyhow::Result<Self> {
         // Generate new DEK and encrypt it
-        let dek = DatabaseEncryptionKey::random()?;
-
+        let dek = DatabaseDek::random()?;
+        let serialized_dek = GenericSerializable::serialize(&dek)?;
         let encrypted_dek = kek
-            .encrypt(GenericSerializable::serialize(&dek)?.as_slice())
+            .encrypt(serialized_dek.as_slice())
             .map_err(|e| anyhow::anyhow!("Failed to encrypt DEK: {}", e))?;
 
         Ok(Self {
@@ -245,25 +242,42 @@ impl ClientRecord {
     }
 
     /// Decrypt the DEK using the provided KEK
-    fn decrypt_dek(&self, kek: &DatabaseKek) -> anyhow::Result<DatabaseEncryptionKey> {
+    pub(crate) fn decrypt_dek(&self, kek: &DatabaseKek) -> anyhow::Result<DatabaseDek> {
         let bytes = kek
             .decrypt(self.encrypted_dek.aead_ciphertext())
             .map_err(|e| anyhow::anyhow!("Failed to decrypt DEK: {}", e))?;
-        let slice: [u8; DATABASE_DEK_LENGTH] = bytes
-            .as_slice()
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Decrypted DEK has invalid length"))?;
-        let secret = Secret::from(slice);
-        Ok(secret.into())
+        Ok(<DatabaseDek as GenericDeserializable>::deserialize(
+            bytes.as_slice(),
+        )?)
     }
+}
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
 
-    /// Open the client database using the encrypted DEK and provided KEK
-    pub async fn open_client_db(
-        &self,
-        client_db_path: &str,
-        kek: &DatabaseKek,
-    ) -> anyhow::Result<sqlx::SqlitePool> {
-        let dek = self.decrypt_dek(kek)?;
-        crate::utils::persistence::open_client_db(&self.user_id, client_db_path, &dek).await
+    use aircommon::identifiers::Fqdn;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_create_and_decrypt_client_record_dek() {
+        // Generate a random user id and database kek
+        let user_id = UserId::random(Fqdn::from_str("example.com").unwrap());
+        let kek = DatabaseKek::random().unwrap();
+
+        // Create a new client record
+        let client_record = ClientRecord::new(user_id.clone(), &kek).unwrap();
+
+        // Ensure the client record is in progress
+        assert_eq!(
+            client_record.client_record_state,
+            ClientRecordState::InProgress
+        );
+
+        // Decrypt the DEK
+        let decrypted_dek = client_record.decrypt_dek(&kek).unwrap();
+
+        // The decrypted DEK should match the expected length
+        assert_eq!(decrypted_dek.to_hex_string().len(), DATABASE_DEK_LENGTH * 2);
     }
 }

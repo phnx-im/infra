@@ -46,7 +46,6 @@ use url::Url;
 
 use crate::{
     Asset, UserHandleRecord,
-    clients::store::DatabaseEncryptionKey,
     contacts::HandleContact,
     groups::Group,
     store::Store,
@@ -160,7 +159,7 @@ impl CoreUser {
             ClientDbType::Path { path, kek } => {
                 let client_record = ClientRecord::new(user_id.clone(), kek)?;
                 client_record.store(&air_db).await?;
-                client_record.open_client_db(path, kek).await?
+                open_client_db(&user_id, path, kek).await?
             }
             ClientDbType::Ephemeral => {
                 let ephemeral_kek = DatabaseKek::random()?;
@@ -219,12 +218,8 @@ impl CoreUser {
     ///
     /// If a user creation process with a matching `UserId` was interrupted before, this will
     /// resume that process.
-    pub async fn load(
-        user_id: UserId,
-        db_path: &str,
-        dek: &DatabaseEncryptionKey,
-    ) -> Result<CoreUser> {
-        let client_db = open_client_db(&user_id, db_path, dek).await?;
+    pub async fn load(user_id: UserId, db_path: &str, kek: &DatabaseKek) -> Result<CoreUser> {
+        let client_db = open_client_db(&user_id, db_path, kek).await?;
 
         let user_creation_state = UserCreationState::load(&client_db, &user_id)
             .await?
