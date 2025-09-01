@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::identifiers::UserId;
 use anyhow::ensure;
 use mimi_content::{
     MimiContent,
     content_container::{NestedPart, NestedPartContent, PartSemantics},
 };
 use openmls::group::GroupId;
-use phnxcommon::identifiers::UserId;
 
 pub trait MimiContentExt {
     fn visit_attachments(

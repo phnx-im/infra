@@ -9,13 +9,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:prototype/background_service.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/interface_scale.dart';
-import 'package:prototype/util/platform.dart';
+import 'package:air/background_service.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/user/user.dart';
+import 'package:air/util/interface_scale.dart';
+import 'package:air/util/platform.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details/conversation_details.dart';
@@ -120,7 +120,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
-          theme: themeData(context),
+          theme: lightTheme,
+          darkTheme: darkTheme,
           routerConfig: _appRouter,
           builder:
               (context, router) => LoadableUserCubitProvider(

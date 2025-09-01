@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::{identifiers::MimiId, time::TimeStamp};
 use mimi_content::MimiContent;
-use phnxcommon::{identifiers::MimiId, time::TimeStamp};
 
 use crate::ConversationMessageId;
 
@@ -31,7 +31,7 @@ impl<'a> MessageEdit<'a> {
 }
 
 mod persistence {
-    use phnxcommon::codec::BlobEncoded;
+    use aircommon::codec::BlobEncoded;
     use sqlx::{SqliteExecutor, query, query_scalar};
 
     use crate::conversations::messages::persistence::VersionedMessage;

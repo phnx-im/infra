@@ -7,9 +7,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use aircommon::identifiers::{Fqdn, UserId};
+use airserver_test_harness::utils::setup::TestBackend;
 use criterion::{Criterion, criterion_group, criterion_main};
-use phnxcommon::identifiers::{Fqdn, UserId};
-use phnxserver_test_harness::utils::setup::TestBackend;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 

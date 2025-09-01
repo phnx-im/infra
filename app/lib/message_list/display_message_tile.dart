@@ -4,10 +4,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/app_localizations.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/users_cubit.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/user/users_cubit.dart';
 import 'timestamp.dart';
 
 class DisplayMessageTile extends StatefulWidget {
@@ -68,19 +71,21 @@ class SystemMessageContent extends StatelessWidget {
       ),
     };
 
-    final textStyle = const TextStyle(
-      color: colorDMB,
-      fontSize: 12,
-      height: 1.4,
-    ).merge(VariableFontWeight.w400);
+    final textStyle = TextStyle(
+      color: CustomColorScheme.of(context).text.tertiary,
+      fontSize: LabelFontSize.small1.size,
+    );
 
-    final profileNameStyle = textStyle.merge(VariableFontWeight.bold);
+    final profileNameStyle = textStyle.copyWith(fontWeight: FontWeight.bold);
 
     return Center(
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Spacings.s),
-          border: Border.all(color: colorDMBSuperLight, width: 2),
+          border: Border.all(
+            color: CustomColorScheme.of(context).separator.secondary,
+            width: 2,
+          ),
         ),
         padding: const EdgeInsets.symmetric(
           horizontal: Spacings.s,
@@ -114,11 +119,11 @@ class ErrorMessageContent extends StatelessWidget {
       alignment: AlignmentDirectional.topStart,
       child: Text(
         message.message,
-        style: const TextStyle(
-          color: Colors.red,
-          fontSize: 10,
+        style: TextStyle(
+          color: AppColors.red,
+          fontSize: LabelFontSize.small2.size,
           height: 1.0,
-        ).merge(VariableFontWeight.w200),
+        ),
       ),
     );
   }

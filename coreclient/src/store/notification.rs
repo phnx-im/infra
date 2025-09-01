@@ -4,8 +4,8 @@
 
 use std::{collections::BTreeMap, mem, sync::Arc};
 
+use aircommon::identifiers::{AttachmentId, UserId};
 use enumset::{EnumSet, EnumSetType};
-use phnxcommon::identifiers::{AttachmentId, UserId};
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tokio_stream::{Stream, StreamExt};
@@ -81,11 +81,11 @@ impl StoreNotifier {
 
     /// Send collected notifications to the subscribers, if there are any.
     pub(crate) fn notify(mut self) {
-        if let Some(tx) = self.tx.as_ref() {
-            if !self.notification.ops.is_empty() {
-                let notification = mem::take(&mut self.notification);
-                tx.notify(Arc::new(notification));
-            }
+        if let Some(tx) = self.tx.as_ref()
+            && !self.notification.ops.is_empty()
+        {
+            let notification = mem::take(&mut self.notification);
+            tx.notify(Arc::new(notification));
         }
     }
 }

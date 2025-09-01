@@ -11,7 +11,7 @@ use crate::{
     },
     user_profiles::generate::NewUserProfile,
 };
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },
@@ -81,7 +81,7 @@ impl BasicUserData {
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,
             None,
-            as_intermediate_credential.fingerprint().clone(),
+            *as_intermediate_credential.fingerprint(),
         );
 
         let qs_initial_ratchet_secret = RatchetSecret::random()?;

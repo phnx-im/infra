@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcoreclient::{ConversationId, ConversationMessage, ConversationType};
+use aircoreclient::{ConversationId, ConversationMessage, ConversationType};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

@@ -1,5 +1,6 @@
 require 'xcodeproj'
 require 'plist'
+require 'yaml'
 
 platform :mac do
     desc "Build macOS app for TestFlight"
@@ -13,7 +14,7 @@ platform :mac do
       key_content = ENV['APP_STORE_KEY_P8_BASE64']
       team_id = ENV['TEAM_ID']
       matchType = "appstore"
-      app_identifier = "im.phnx.prototype"
+      app_identifier = "ms.air"
     
       # Load the app store connect API key
       api_key = app_store_connect_api_key(
@@ -23,13 +24,17 @@ platform :mac do
         is_key_content_base64: true,
         in_house: false
       )
+
+      # Read app version from pubspec.yaml
+      pubspec = YAML.load_file("../pubspec.yaml")
+      app_version = (pubspec['version'] || '').to_s.split('+').first
     
       # Determine build number
       build_number = if options[:build_number]
                       options[:build_number].to_i
                     else
                       latest_testflight_build_number(
-                        version: "1.0.0",
+                        version: app_version,
                         api_key: api_key,
                         platform: "osx",
                         app_identifier: app_identifier
@@ -63,7 +68,8 @@ platform :mac do
       # Upload the app to TestFlight if the parameter is set
       if options[:upload_to_test_flight]
         upload_to_testflight(
-          api_key: api_key, 
+          api_key: api_key,
+          app_platform: "osx", 
           skip_waiting_for_build_processing: true,
           distribute_external: false,
         )
@@ -74,12 +80,6 @@ platform :mac do
     lane :build_macos do |options|
       # The following is false when "with_signing" is not provided in the oprion and true otherwise
       skip_signing = !options[:with_signing]
-  
-      # Set XCode version
-      xcodes(
-        version: '16.1',
-        select_for_current_build_only: true,
-      )
     
       # Set up CI
       setup_ci()

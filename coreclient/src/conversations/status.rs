@@ -4,8 +4,8 @@
 
 use std::borrow::Cow;
 
+use aircommon::{identifiers::UserId, time::TimeStamp};
 use mimi_content::MessageStatusReport;
-use phnxcommon::{identifiers::UserId, time::TimeStamp};
 
 pub(crate) struct StatusRecord<'a> {
     sender: Cow<'a, UserId>,

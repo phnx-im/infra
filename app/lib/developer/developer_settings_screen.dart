@@ -5,12 +5,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/util/platform.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/util/platform.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 class DeveloperSettingsScreen extends StatefulWidget {
@@ -20,8 +22,6 @@ class DeveloperSettingsScreen extends StatefulWidget {
   State<DeveloperSettingsScreen> createState() =>
       _DeveloperSettingsScreenState();
 }
-
-const _titleFontWeight = VariableFontWeight.medium;
 
 class _DeveloperSettingsScreenState extends State<DeveloperSettingsScreen> {
   String? deviceToken;
@@ -106,9 +106,7 @@ class DeveloperSettingsScreenView extends StatelessWidget {
             child: ListTileTheme(
               data: Theme.of(context).listTileTheme.copyWith(
                 titleAlignment: ListTileTitleAlignment.titleHeight,
-                titleTextStyle: Theme.of(
-                  context,
-                ).textTheme.bodyLarge!.merge(_titleFontWeight),
+                titleTextStyle: Theme.of(context).textTheme.bodyLarge!,
               ),
               child: ListView(
                 children: [
@@ -154,9 +152,9 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                     ListTile(
                       title: Text(
                         profile?.displayName ?? user.userId.uuid.toString(),
-                        style: Theme.of(context).textTheme.bodyLarge
-                            ?.copyWith(color: Colors.red)
-                            .merge(_titleFontWeight),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge?.copyWith(color: AppColors.red),
                       ),
                       subtitle: Text("${user.userId}"),
                       trailing: const Icon(Icons.delete),
@@ -176,9 +174,10 @@ class DeveloperSettingsScreenView extends StatelessWidget {
                   ListTile(
                     title: Text(
                       'Erase All Databases',
-                      style: Theme.of(context).textTheme.bodyLarge
-                          ?.copyWith(color: Colors.red)
-                          .merge(_titleFontWeight),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     trailing: const Icon(Icons.delete),
                     onTap:
@@ -224,8 +223,8 @@ void _confirmDialog({
           ),
           TextButton(
             style: TextButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.red,
+              foregroundColor: CustomColorScheme.of(context).function.white,
             ),
             onPressed: onConfirm,
             child: Text(confirmLabel),
@@ -248,12 +247,7 @@ class _SectionHeader extends StatelessWidget {
         vertical: Spacings.xxs,
         horizontal: Spacings.xs,
       ),
-      child: Text(
-        label,
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.merge(VariableFontWeight.bold),
-      ),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
     );
   }
 }

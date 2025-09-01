@@ -4,12 +4,12 @@
 
 use std::collections::HashMap;
 
-use phnxbackend::qs::{Notification, NotifierError};
-use phnxprotos::{
+use airbackend::qs::{Notification, NotifierError};
+use airprotos::{
     convert::RefInto,
     queue_service::v1::{QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event},
 };
-use phnxcommon::{identifiers::QsClientId, messages::client_ds::DsEventMessage};
+use aircommon::{identifiers::QsClientId, messages::client_ds::DsEventMessage};
 use tokio::sync::mpsc;
 use tracing::info;
 

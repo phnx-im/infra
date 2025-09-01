@@ -6,11 +6,11 @@
 
 use std::sync::Arc;
 
-use flutter_rust_bridge::frb;
-use phnxcoreclient::{
+use aircoreclient::{
     ConversationMessageId,
     store::{Store, StoreNotification, StoreOperation, StoreResult},
 };
+use flutter_rust_bridge::frb;
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;

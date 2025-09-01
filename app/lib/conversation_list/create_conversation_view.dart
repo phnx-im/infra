@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
 
 class CreateConversationView extends StatefulWidget {
   final String title;
@@ -48,9 +49,9 @@ class _CreateConversationViewState extends State<CreateConversationView> {
     return AlertDialog(
       title: Text(widget.title),
       titlePadding: const EdgeInsets.all(20),
-      titleTextStyle: Theme.of(
-        context,
-      ).textTheme.titleLarge?.copyWith(color: colorGreyDark),
+      titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+        color: CustomColorScheme.of(context).text.secondary,
+      ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actionsPadding: const EdgeInsets.all(20),
       buttonPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -66,7 +67,7 @@ class _CreateConversationViewState extends State<CreateConversationView> {
               const SizedBox(height: 50),
               Text(
                 widget.prompt,
-                style: Theme.of(context).textTheme.labelMedium,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
               Form(
@@ -75,7 +76,6 @@ class _CreateConversationViewState extends State<CreateConversationView> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints.tight(const Size(380, 80)),
                   child: TextFormField(
-                    style: inputTextStyle(context),
                     autofocus: true,
                     controller: _controller,
                     decoration: InputDecoration(hintText: widget.hint),

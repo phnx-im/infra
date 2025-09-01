@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::messages::push_token::PushToken;
 use anyhow::bail;
-use phnxcommon::messages::push_token::PushToken;
 
 use super::{
     create_user::{
@@ -53,13 +53,13 @@ impl UserCreationState {
 
     pub(super) async fn new(
         client_db: &SqlitePool,
-        phnx_db: &SqlitePool,
+        air_db: &SqlitePool,
         user_id: UserId,
         server_url: impl ToString,
         push_token: Option<PushToken>,
     ) -> Result<Self> {
         let client_record = ClientRecord::new(user_id.clone());
-        client_record.store(phnx_db).await?;
+        client_record.store(air_db).await?;
 
         let basic_user_data = BasicUserData {
             user_id: user_id.clone(),
@@ -76,7 +76,7 @@ impl UserCreationState {
 
     pub(super) async fn step(
         self,
-        phnx_db: &SqlitePool,
+        air_db: &SqlitePool,
         client_db: &SqlitePool,
         api_clients: &ApiClients,
     ) -> Result<Self> {
@@ -118,11 +118,11 @@ impl UserCreationState {
         // If we just transitioned into the final state, we need to update the
         // client record.
         if let UserCreationState::FinalUserState(_) = new_state {
-            let mut client_record = ClientRecord::load(phnx_db, new_state.user_id())
+            let mut client_record = ClientRecord::load(air_db, new_state.user_id())
                 .await?
                 .ok_or(anyhow!("Client record not found"))?;
             client_record.finish();
-            client_record.store(phnx_db).await?;
+            client_record.store(air_db).await?;
         }
 
         Ok(new_state)
@@ -139,12 +139,12 @@ impl UserCreationState {
     /// A convenience function that performs the `step` function until the final state is reached.
     pub(super) async fn complete_user_creation(
         mut self,
-        phnx_db: &SqlitePool,
+        air_db: &SqlitePool,
         client_db: &SqlitePool,
         api_clients: &ApiClients,
     ) -> Result<PersistedUserState> {
         while !matches!(self, UserCreationState::FinalUserState(_)) {
-            self = self.step(phnx_db, client_db, api_clients).await?
+            self = self.step(air_db, client_db, api_clients).await?
         }
 
         self.final_state()

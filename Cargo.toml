@@ -18,8 +18,8 @@ members = [
 
 [workspace.dependencies]
 # internal dependencies
-phnxcommon = { path = "./common" }
-phnxprotos = { path = "./protos" }
+aircommon = { path = "./common" }
+airprotos = { path = "./protos" }
 
 uuid = "1.16.0"
 

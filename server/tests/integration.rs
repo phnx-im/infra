@@ -4,26 +4,26 @@
 
 use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
-use base64::{Engine, prelude::BASE64_STANDARD};
-use image::{ImageBuffer, Rgba};
-use mimi_content::{MimiContent, content_container::NestedPartContent};
-use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
-use phnxprotos::{
+use airapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
+use airprotos::{
     auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
     queue_service::v1::queue_service_server,
 };
+use base64::{Engine, prelude::BASE64_STANDARD};
+use image::{ImageBuffer, Rgba};
+use mimi_content::{MessageStatus, MimiContent, content_container::NestedPartContent};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
-use phnxcommon::{
+use aircommon::{
     assert_matches,
     identifiers::{UserHandle, UserId},
 };
-use phnxcoreclient::{
+use aircoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, DownloadProgressEvent, UserProfile,
     clients::CoreUser, store::Store,
 };
-use phnxserver::RateLimitsConfig;
-use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
+use airserver::RateLimitsConfig;
+use airserver_test_harness::utils::setup::{TestBackend, TestUser};
 use png::Encoder;
 use sha2::{Digest, Sha256};
 use tokio_stream::StreamExt;
@@ -533,6 +533,14 @@ async fn mark_as_read() {
     let number_of_messages = 10;
     send_messages(alice, alice_bob_conversation, number_of_messages).await;
 
+    // Message status starts at Unread
+    let last_message = alice
+        .last_message(alice_bob_conversation)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(last_message.status(), MessageStatus::Unread);
+
     let bob_test_user = setup.users.get_mut(&BOB).unwrap();
     let bob = &mut bob_test_user.user;
 
@@ -548,6 +556,41 @@ async fn mark_as_read() {
         expected_global_unread_message_count,
         global_unread_message_count
     );
+
+    // Alice sees the delivery receipt
+    let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
+    let alice = &mut alice_test_user.user;
+    let qs_messages = alice.qs_fetch_messages().await.unwrap();
+    alice.fully_process_qs_messages(qs_messages).await.unwrap();
+    let last_message = alice
+        .last_message(alice_bob_conversation)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(last_message.status(), MessageStatus::Delivered);
+
+    // Bob reads the messages
+    let bob_test_user = setup.users.get_mut(&BOB).unwrap();
+    let bob = &mut bob_test_user.user;
+    let last_message_id = last_message.message().mimi_id().unwrap();
+    bob.send_delivery_receipts(
+        alice_bob_conversation,
+        [(last_message_id, MessageStatus::Read)],
+    )
+    .await
+    .unwrap();
+
+    // Alice sees the read receipt
+    let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
+    let alice = &mut alice_test_user.user;
+    let qs_messages = alice.qs_fetch_messages().await.unwrap();
+    alice.fully_process_qs_messages(qs_messages).await.unwrap();
+    let last_message = alice
+        .last_message(alice_bob_conversation)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(last_message.status(), MessageStatus::Read);
 
     // Let's send some messages between bob and charlie s.t. we can test the
     // global unread messages count.
@@ -615,7 +658,7 @@ async fn client_persistence() {
 
     // `CoreUser::load` opened the client DB, and so it was re-created.
     fs::remove_file(client_db_path).unwrap();
-    fs::remove_file(db_path.join("phnx.db")).unwrap();
+    fs::remove_file(db_path.join("air.db")).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -694,7 +737,7 @@ async fn update_user_profile_on_group_join() {
 
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, &[CHARLIE.clone()])
+        .invite_users(conversation_id, std::slice::from_ref(&*CHARLIE))
         .await
         .unwrap();
 
@@ -710,7 +753,7 @@ async fn update_user_profile_on_group_join() {
     // Bob now invites Alice
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, &[ALICE.clone()])
+        .invite_users(conversation_id, std::slice::from_ref(&*ALICE))
         .await
         .unwrap();
 
