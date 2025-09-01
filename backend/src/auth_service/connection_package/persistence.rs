@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{
+use aircommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::UserHandleHash,
     messages::connection_package::ConnectionPackage,
@@ -93,7 +93,7 @@ impl StorableConnectionPackage {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::{self, HandleVerifyingKey},
         crypto::{ConnectionDecryptionKey, signatures::signable::Signature},
         messages::{MlsInfraVersion, connection_package::ConnectionPackagePayload},

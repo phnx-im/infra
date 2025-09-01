@@ -13,7 +13,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Prototype';
+  String get appTitle => 'Air';
 
   @override
   String get userSettingsScreen_title => 'User Settings';

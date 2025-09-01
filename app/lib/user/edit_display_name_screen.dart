@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 class EditDisplayNameScreen extends StatefulWidget {
@@ -67,7 +68,6 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                   decoration: InputDecoration(
                     hintText: loc.userHandleScreen_inputHint,
                   ),
-                  style: inputTextStyle(context),
                 ),
                 const SizedBox(height: Spacings.s),
                 Align(
@@ -85,7 +85,7 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
                 const Spacer(),
                 OutlinedButton(
                   onPressed: () => _submit(context),
-                  style: buttonStyle(context, true),
+                  style: buttonStyle(CustomColorScheme.of(context), true),
                   child: Text(loc.editDisplayNameScreen_save),
                 ),
               ],

@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "im.phnx" "\0"
-            VALUE "FileDescription", "prototype" "\0"
+            VALUE "CompanyName", "Phoenix R&D GmbH" "\0"
+            VALUE "FileDescription", "air" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "prototype" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 im.phnx. All rights reserved." "\0"
-            VALUE "OriginalFilename", "prototype.exe" "\0"
-            VALUE "ProductName", "prototype" "\0"
+            VALUE "InternalName", "air" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 Phoenix R&D GmbH. All rights reserved." "\0"
+            VALUE "OriginalFilename", "air.exe" "\0"
+            VALUE "ProductName", "air" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::messages::client_as_out::{
+use aircommon::messages::client_as_out::{
     GetUserProfileParams, GetUserProfileResponse, MergeUserProfileParamsTbs,
     StageUserProfileParamsTbs,
 };

@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 import 'package:uuid/uuid.dart';
 
 extension IntTestExtension on int {
@@ -33,6 +35,25 @@ class LocalFileComparatorWithThreshold extends LocalFileComparator {
 
   final double threshold;
 
+  String _platformSuffix() {
+    if (Platform.isMacOS) return '.macos';
+    if (Platform.isWindows) return '.windows';
+    if (Platform.isLinux) return '.linux';
+    if (Platform.isAndroid) return '.android';
+    if (Platform.isIOS) return '.ios';
+    return '';
+  }
+
+  @override
+  Uri getTestUri(Uri key, int? version) {
+    final path = key.toFilePath();
+    final newPath = path.replaceFirst(
+      RegExp(r'\.png$'),
+      '${_platformSuffix()}.png',
+    );
+    return Uri.file(newPath);
+  }
+
   @override
   Future<bool> compare(Uint8List imageBytes, Uri golden) async {
     final result = await GoldenFileComparator.compareLists(
@@ -59,21 +80,11 @@ class LocalFileComparatorWithThreshold extends LocalFileComparator {
   }
 }
 
-/// Run `test` with a specific threshold for golden file comparisons.
-Future<void> withThreshold(double threshold, AsyncCallback test) async {
-  assert(goldenFileComparator is LocalFileComparator);
-  final prevComparator = goldenFileComparator;
-  final testUrl = (goldenFileComparator as LocalFileComparator).basedir;
-  goldenFileComparator = LocalFileComparatorWithThreshold(
-    // only the base dir is used from this URI, so pass a dummy file name
-    Uri.parse('$testUrl/test.dart'),
-    threshold,
-  );
-  try {
-    await test();
-  } catch (e) {
-    rethrow;
-  } finally {
-    goldenFileComparator = prevComparator;
-  }
+String platformGolden(String baseName) {
+  if (Platform.isMacOS) return '$baseName.macos.png';
+  if (Platform.isWindows) return '$baseName.windows.png';
+  if (Platform.isLinux) return '$baseName.linux.png';
+  if (Platform.isAndroid) return '$baseName.android.png';
+  if (Platform.isIOS) return '$baseName.ios.png';
+  return '$baseName.png';
 }

@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::crypto::errors::DecryptionError;
 use mls_assist::messages::AssistedMessageError;
 use openmls::group::{CreateMessageError, MlsGroupStateError, ProcessMessageError};
-use phnxcommon::crypto::errors::DecryptionError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

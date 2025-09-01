@@ -4,27 +4,27 @@
 
 use std::{fmt, ops::Deref};
 
-use anyhow::Result;
-use openmls::prelude::{
-    CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
-    UnknownExtension,
-};
-use phnxcommon::{
+use aircommon::{
     crypto::{
         hpke::{ClientIdEncryptionKey, HpkeEncryptable},
         kdf::keys::ConnectionKey,
     },
     identifiers::{ClientConfig, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsClientId, QsReference},
 };
+use anyhow::Result;
+use openmls::prelude::{
+    CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
+    UnknownExtension,
+};
 use sqlx::SqlitePool;
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
     clients::{CIPHERSUITE, api_clients::ApiClients},
-    groups::{default_capabilities, openmls_provider::PhnxOpenMlsProvider},
+    groups::{default_capabilities, openmls_provider::AirOpenMlsProvider},
 };
 
-use phnxcommon::{
+use aircommon::{
     credentials::keys::ClientSigningKey,
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
@@ -106,7 +106,7 @@ impl MemoryUserKeyStore {
         };
 
         let mut connection = pool.acquire().await?;
-        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let provider = AirOpenMlsProvider::new(&mut connection);
 
         let kp = KeyPackage::builder()
             .key_package_extensions(key_package_extensions)

@@ -4,14 +4,14 @@
 
 use std::{collections::HashMap, convert::identity, sync::Arc};
 
-use anyhow::{Context, bail};
-use flutter_rust_bridge::frb;
-use phnxcommon::identifiers::UserHandle;
-use phnxcoreclient::{
+use aircommon::identifiers::UserHandle;
+use aircoreclient::{
     UserHandleRecord,
     clients::{HandleQueueMessage, ListenHandleResponder},
     store::Store,
 };
+use anyhow::{Context, bail};
+use flutter_rust_bridge::frb;
 use tokio::sync::{RwLock, watch};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::{CancellationToken, DropGuard};
@@ -122,7 +122,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
         let (stream, responder) = self
             .cubit_context
             .core_user
-            .listen_handle(self.handle_record.hash, &self.handle_record.signing_key)
+            .listen_handle(&self.handle_record)
             .await?;
         self.responder.write().await.replace(responder);
         Ok(stream.filter_map(identity))

@@ -7,14 +7,14 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, bail};
-use flutter_rust_bridge::{DartFnFuture, frb};
-use phnxcommon::identifiers::AttachmentId;
-use phnxcoreclient::{
+use aircommon::identifiers::AttachmentId;
+use aircoreclient::{
     AttachmentContent, DownloadProgress, DownloadProgressEvent,
     clients::CoreUser,
     store::{Store, StoreEntityId, StoreOperation},
 };
+use anyhow::{Context, bail};
+use flutter_rust_bridge::{DartFnFuture, frb};
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 use tokio_util::sync::{CancellationToken, DropGuard};

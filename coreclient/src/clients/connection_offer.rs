@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::group::GroupId;
-use payload::{ConnectionOfferPayload, ConnectionOfferPayloadIn};
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredentialBody, ClientCredential, VerifiableClientCredential,
         keys::{AsIntermediateVerifyingKey, ClientSignature},
@@ -33,13 +31,15 @@ use phnxcommon::{
         connection_package::ConnectionPackageHash,
     },
 };
+use openmls::group::GroupId;
+use payload::{ConnectionOfferPayload, ConnectionOfferPayloadIn};
 use tbs::{ConnectionOfferTbs, VerifiableConnectionOffer};
 use tls_codec::{
     DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
 };
 
 pub(crate) mod payload {
-    use phnxcommon::{
+    use aircommon::{
         LibraryError, credentials::keys::ClientSigningKey, identifiers::UserHandle,
         messages::connection_package::ConnectionPackageHash,
     };
@@ -127,7 +127,7 @@ pub(crate) mod payload {
 
 mod tbs {
     use super::*;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::{ClientKeyType, ClientSignature},
         identifiers::UserHandle,
         messages::connection_package::ConnectionPackageHash,
@@ -334,7 +334,7 @@ impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
 
 #[cfg(test)]
 mod tests {
-    use phnxcommon::{
+    use aircommon::{
         credentials::test_utils::create_test_credentials,
         crypto::signatures::private_keys::SignatureVerificationError,
         identifiers::{UserHandle, UserId},

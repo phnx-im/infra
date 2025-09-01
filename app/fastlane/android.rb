@@ -2,12 +2,12 @@ platform :android do
     desc "Build and release the app"
     lane :beta_android do |options|
       # Package name
-      package_name = "im.phnx.prototype"
+      package_name = "ms.air"
       track = "internal"
-  
+
       # Determine if we should deploy to the Play Store
       upload_to_play_store = options[:upload_to_play_store]
-  
+
       # We need to wrap the whole process in a begin/rescue block to ensure that we clean up the temporary files
       begin
         # We prepare the keystore and the Play Store key
@@ -19,7 +19,15 @@ platform :android do
           File.open(keystore_path, "wb") do |file|
             file.write(Base64.decode64(base64_keystore))
           end
-  
+
+          # Prepare the signing properties
+          File.open("../android/key.properties", "w") do |file|
+            file.write("storeFile=#{File.expand_path(keystore_path)}\n")
+            file.write("storePassword=#{ENV["ANDROID_KEY_PASSWORD"]}\n")
+            file.write("keyAlias=upload\n")
+            file.write("keyPassword=#{ENV["ANDROID_KEY_PASSWORD"]}\n")
+          end
+
           # Decode the Play Store key from the base64 string and save it to a temporary file
           playstore_key_path = "playstorekey.json"
           base64_playstore_key = ENV["ANDROID_PLAYSTORE_KEY_JSON"]
@@ -27,46 +35,36 @@ platform :android do
           File.open(playstore_key_path, "wb") do |file|
             file.write(Base64.decode64(base64_playstore_key))
           end
-          
+
           # Get the previous build number
-          previous_build_number = google_play_track_version_codes(
-            track: track,
-            package_name: package_name,
-            json_key: "fastlane/" + playstore_key_path,
-          )[0]
+          begin
+            previous_build_number = google_play_track_version_codes(
+              track: track,
+              package_name: package_name,
+              json_key: "fastlane/" + playstore_key_path,
+            )[0]
+            previous_build_number = (previous_build_number || 0).to_i
+          rescue
+            previous_build_number = 0
+          end
           current_build_number = previous_build_number + 1
-  
+
           # Increment the build number in the gradle file
           increment_version_code(
-            gradle_file_path: "android/app/build.gradle",
+            gradle_file_path: "android/app/build.gradle.kts",
             version_code: current_build_number
           )
         end
-  
-        # We build the app with Flutter first to set up gradle
+
+        # When not uploading to the Play Store, we just build the app as APK to
+        # allow manual installation
+        build_target = upload_to_play_store ? "appbundle" : "apk"
+
+        sh "flutter precache --android"
+        sh "flutter pub get"
+        sh "flutter build #{build_target} --release --target-platform android-arm64"
+
         if upload_to_play_store
-          sh "flutter build appbundle --release"
-        else
-          sh "flutter build appbundle --target-platform android-arm64"
-        end
-  
-        if upload_to_play_store
-          # Prepare the signing properties
-          gradle_propperties = {
-            "android.injected.signing.store.file" => File.expand_path(keystore_path),
-            "android.injected.signing.store.password" => ENV["ANDROID_KEY_PASSWORD"],
-            "android.injected.signing.key.alias" => "upload",
-            "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
-          }
-  
-          # Build the bundle in release mode and sign it
-          gradle(
-            task: "bundle",
-            build_type: "Release",
-            project_dir: File.expand_path("../android"),
-            properties: gradle_propperties
-          )
-  
           # Upload to Google Play Store
           supply(
             validate_only: false,
@@ -76,9 +74,9 @@ platform :android do
             aab: "build/app/outputs/bundle/release/app-release.aab",
             json_key: "fastlane/" + playstore_key_path,
             package_name: package_name,
-         )
+          )
         end
-  
+
       rescue => e
         UI.error(e)
         raise

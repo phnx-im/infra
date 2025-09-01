@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::DateTime;
-use phnxcommon::{
+use aircommon::{
     credentials::keys::{AsIntermediateSignature, AsSignature, ClientSignature, HandleSignature},
     crypto::{
         self,
@@ -15,6 +14,7 @@ use phnxcommon::{
     },
     identifiers, time,
 };
+use chrono::DateTime;
 use tonic::Status;
 
 use crate::{

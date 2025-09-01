@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:prototype/message_list/message_list.dart';
+import 'package:air/message_list/message_list.dart';
 import 'package:test/test.dart';
 
 import '../helpers.dart';

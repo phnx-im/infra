@@ -5,18 +5,18 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/debouncer.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/util/debouncer.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
-const _listIconSize = 36.0;
+const _listIconSize = 24.0;
 
 class UserSettingsScreen extends StatelessWidget {
   const UserSettingsScreen({super.key});
@@ -34,7 +34,6 @@ class UserSettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.userSettingsScreen_title),
-        toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
       body: SafeArea(
@@ -104,7 +103,6 @@ class _UserProfileData extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.select((UserCubit cubit) => cubit.state.userId);
     final displayName = context.select(
       (UsersCubit cubit) => cubit.state.displayName(),
     );
@@ -123,18 +121,6 @@ class _UserProfileData extends StatelessWidget {
                 screen: UserSettingsScreenType.editDisplayName,
               ),
         ),
-        const SizedBox(height: Spacings.s),
-        ListTile(
-          leading: const Icon(Icons.numbers, size: _listIconSize),
-          title: Text(userId.uuid.toString()),
-          onTap: () {
-            _copyTextToClipboard(
-              context,
-              userId.uuid.toString(),
-              snackBarMessage: loc.userSettingsScreen_idCopied,
-            );
-          },
-        ),
         const SizedBox(height: Spacings.xs),
         ListTile(
           subtitle: Text(
@@ -144,16 +130,6 @@ class _UserProfileData extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  void _copyTextToClipboard(
-    BuildContext context,
-    String textToCopy, {
-    required String snackBarMessage,
-  }) async {
-    final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: textToCopy));
-    messenger.showSnackBar(SnackBar(content: Text(snackBarMessage)));
   }
 }
 
@@ -345,7 +321,7 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
             divisions: ((300 - 50) / 5).truncate(),
             value: _interfaceScaleSliderValue,
             label: _interfaceScaleSliderValue.truncate().toString(),
-            activeColor: colorDMB,
+            activeColor: CustomColorScheme.of(context).text.secondary,
             onChanged:
                 (value) => setState(() => _interfaceScaleSliderValue = value),
             onChangeEnd: (value) {

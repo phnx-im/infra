@@ -36,7 +36,7 @@ jobs:
           path: 'app/.fvmrc'
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.88.0
+        uses: dtolnay/rust-toolchain@1.89.0
 
       - name: Set up macOS CI
         env:
@@ -52,6 +52,11 @@ jobs:
         with:
           name: golden-failures
           path: app/test/**/failures/*
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Detect if PR is from a fork
         id: detect_fork
