@@ -3488,7 +3488,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mimi-room-policy"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-room-policy?rev=fdb7c4bd7ad399e8244b3e7db13e120d5d646ad9#fdb7c4bd7ad399e8244b3e7db13e120d5d646ad9"
+source = "git+https://github.com/phnx-im/mimi-room-policy?rev=565772078c5bf72cf92610aadfedc985929372a3#565772078c5bf72cf92610aadfedc985929372a3"
 dependencies = [
  "ciborium",
  "serde",
@@ -3499,7 +3499,7 @@ dependencies = [
 [[package]]
 name = "mimi_content"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
+source = "git+https://github.com/boxdot/mimi-content?rev=18af569b6074ed5b63cb2d5086ffea3acfad3f02#18af569b6074ed5b63cb2d5086ffea3acfad3f02"
 dependencies = [
  "ciborium",
  "hex",
@@ -4358,7 +4358,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.12",
  "tls_codec",
- "tls_codec_derive 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tls_codec_derive",
  "trait-variant",
  "typenum",
  "voprf",
@@ -5169,7 +5169,7 @@ dependencies = [
 [[package]]
 name = "serde_list"
 version = "1.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
+source = "git+https://github.com/boxdot/mimi-content?rev=18af569b6074ed5b63cb2d5086ffea3acfad3f02#18af569b6074ed5b63cb2d5086ffea3acfad3f02"
 dependencies = [
  "serde",
  "serde_list_macros",
@@ -5178,7 +5178,7 @@ dependencies = [
 [[package]]
 name = "serde_list_macros"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-content?rev=bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89#bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89"
+source = "git+https://github.com/boxdot/mimi-content?rev=18af569b6074ed5b63cb2d5086ffea3acfad3f02#18af569b6074ed5b63cb2d5086ffea3acfad3f02"
 dependencies = [
  "quote",
  "syn",
@@ -5855,19 +5855,8 @@ version = "0.4.2"
 source = "git+https://github.com/boxdot/formats?rev=9846c69f91e732b493dcccf92f4c163bfc711b7d#9846c69f91e732b493dcccf92f4c163bfc711b7d"
 dependencies = [
  "serde",
- "tls_codec_derive 0.4.2 (git+https://github.com/boxdot/formats?rev=9846c69f91e732b493dcccf92f4c163bfc711b7d)",
+ "tls_codec_derive",
  "zeroize",
-]
-
-[[package]]
-name = "tls_codec_derive"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d2e76690929402faae40aebdda620a2c0e25dd6d3b9afe48867dfd95991f4bd"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -6556,9 +6545,9 @@ dependencies = [
 
 [[package]]
 name = "webp"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f53152f51fb5af0c08484c33d16cca96175881d1f3dec068c23b31a158c2d99"
+checksum = "c071456adef4aca59bf6a583c46b90ff5eb0b4f758fc347cea81290288f37ce1"
 dependencies = [
  "image",
  "libwebp-sys",

@@ -10,6 +10,7 @@ edition = "2024"
 include = ["./migrations/**"]
 publish = false
 description = "Implements the local and the federation part of the protocol logic on the server side"
+license = "AGPL-3.0-or-later"
 
 [dependencies]
 aircommon = { workspace = true }
