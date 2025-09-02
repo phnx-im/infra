@@ -36,8 +36,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-directories: |
-            app/build/linux/x64/release/plugins/phnxapplogic/cargokit_build/x86_64-unknown-linux-gnu
+          cache-directories: app/build/linux/x64/release/plugins/airapplogic/cargokit_build/x86_64-unknown-linux-gnu
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y ninja-build gtk+-3.0 gtk+-3.0-dev glib-2.0-dev gio-2.0-dev

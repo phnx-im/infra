@@ -62,7 +62,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-directories: app/build/phnxapplogic/build
+          cache-directories: app/build/airapplogic/build
 
       - name: Set up Android CI
         env:
