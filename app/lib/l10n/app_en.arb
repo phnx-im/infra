@@ -25,7 +25,6 @@
   "conversationScreen_emptyConversation": "Select a chat to start messaging",
 
   "memberDetailsScreen_title": "Member details",
-  "memberDetailsScreen_error": "No member details for intro screen",
   "removeUserDialog_title": "Remove user",
   "removeUserDialog_content": "Are you sure you want to remove this user from the group?",
   "removeUserDialog_cancel": "Cancel",
