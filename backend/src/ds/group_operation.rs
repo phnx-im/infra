@@ -258,6 +258,15 @@ impl DsGroupState {
 
         // Process removes
 
+        println!();
+        println!();
+        println!();
+        println!();
+        dbg!(&removed_clients);
+        println!();
+        println!();
+        println!();
+        println!();
         self.remove_profiles(removed_clients);
 
         // ... s.t. it's easier to update the user and client profiles.

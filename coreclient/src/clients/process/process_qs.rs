@@ -6,10 +6,11 @@ use anyhow::{Context, Result, bail, ensure};
 use mimi_content::{
     Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPartContent,
 };
+use mimi_room_policy::RoleIndex;
 use openmls::{
     group::QueuedProposal,
     prelude::{
-        ApplicationMessage, MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent,
+        ApplicationMessage, MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, Proposal,
         ProtocolMessage, Sender,
     },
 };
@@ -29,10 +30,10 @@ use phnxcommon::{
 };
 use sqlx::{Acquire, SqliteTransaction};
 use tls_codec::DeserializeBytes;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
-    ContentMessage, ConversationMessage, Message,
+    ContentMessage, ConversationMessage, Message, SystemMessage,
     contacts::HandleContact,
     conversations::{ConversationType, StatusRecord, messages::edit::MessageEdit},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
@@ -281,7 +282,7 @@ impl CoreUser {
                         }
                         ProcessedMessageContent::ProposalMessage(proposal) => {
                             let (new_messages, updated) = self
-                                .handle_proposal_message(txn, &mut group, *proposal)
+                                .handle_proposal_message(txn, &mut group, *proposal, ds_timestamp)
                                 .await?;
                             (new_messages, Vec::new(), updated)
                         }
@@ -440,12 +441,49 @@ impl CoreUser {
         txn: &mut SqliteTransaction<'_>,
         group: &mut Group,
         proposal: QueuedProposal,
+        ds_timestamp: TimeStamp,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
+        let mut messages = Vec::new();
+
+        match proposal.proposal() {
+            Proposal::Remove(remove_proposal) => {
+                let Some(removed) = group.client_by_index(txn, remove_proposal.removed()).await
+                else {
+                    warn!("removed client not found");
+                    return Ok((vec![], false));
+                };
+
+                // TODO: Handle external sender for when the server wants to kick a user?
+                let Sender::Member(sender) = proposal.sender() else {
+                    return Ok((vec![], false));
+                };
+
+                let Some(sender) = group.client_by_index(txn, *sender).await else {
+                    warn!("sending client not found");
+                    return Ok((vec![], false));
+                };
+
+                ensure!(
+                    sender == removed,
+                    "A user should not send remove proposals for other users"
+                );
+
+                group.room_state_change_role(&sender, &sender, RoleIndex::Outsider)?;
+
+                messages.push(TimestampedMessage::system_message(
+                    SystemMessage::Remove(sender, removed),
+                    ds_timestamp,
+                ));
+            }
+            _ => {}
+        }
+
         // For now, we don't to anything here. The proposal
         // was processed by the MLS group and will be
         // committed with the next commit.
         group.store_proposal(txn.as_mut(), proposal)?;
-        Ok((vec![], false))
+
+        Ok((messages, false))
     }
 
     #[expect(clippy::too_many_arguments)]

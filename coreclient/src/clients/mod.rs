@@ -41,8 +41,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
+use tls_codec::DeserializeBytes;
 use tokio_stream::{Stream, StreamExt};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use url::Url;
 
 use crate::{
@@ -472,7 +473,13 @@ impl CoreUser {
         let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
             return Ok(None);
         };
-        Ok(Some(group.members(&mut *connection).await))
+        let users = group
+            .room_state
+            .users()
+            .keys()
+            .map(|bytes| Ok(UserId::tls_deserialize_exact_bytes(bytes)?))
+            .collect::<Result<HashSet<_>>>()?;
+        Ok(Some(users))
     }
 
     pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserId>> {

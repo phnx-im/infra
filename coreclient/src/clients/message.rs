@@ -36,6 +36,30 @@ impl CoreUser {
         content: MimiContent,
         replaces_id: Option<ConversationMessageId>,
     ) -> anyhow::Result<ConversationMessage> {
+        let needs_update = self
+            .with_transaction(async |txn| {
+                let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+                    .await?
+                    .with_context(|| {
+                        format!("Can't find conversation with id {conversation_id}")
+                    })?;
+                let group_id = conversation.group_id;
+                let group = Group::load_clean(txn, &group_id)
+                    .await?
+                    .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+                Ok(group.mls_group().has_pending_proposal())
+            })
+            .await?;
+
+        if needs_update {
+            // TODO race condition: Before or after this update, new proposals could arrive
+            dbg!("There are pending proposals. Updating...");
+            self.update_key(conversation_id).await?;
+            dbg!("Updating...done");
+        } else {
+            dbg!("There are no pending proposals.");
+        }
+
         let unsent_group_message = self
             .with_transaction_and_notifier(async |txn, notifier| {
                 UnsentContent {

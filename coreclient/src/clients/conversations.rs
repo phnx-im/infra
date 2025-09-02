@@ -134,12 +134,17 @@ impl CoreUser {
             .await?;
 
         // Phase 2: Send the leave to the DS
-        leave
+        let leave = leave
             .ds_self_remove(&self.inner.api_clients, self.signing_key())
-            .await?
-            // Phase 3: Merge the commit into the group
-            .store_update(self.pool())
             .await?;
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            // Phase 3: Merge the commit into the group
+            leave
+                .store_update(txn, notifier, conversation_id, self.user_id())
+                .await?;
+            Ok(())
+        })
+        .await?;
         Ok(())
     }
 
@@ -578,11 +583,14 @@ mod leave_conversation_flow {
     use mimi_room_policy::RoleIndex;
     use phnxcommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
-        messages::client_ds_out::SelfRemoveParamsOut,
+        messages::client_ds_out::SelfRemoveParamsOut, time::TimeStamp,
     };
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
 
-    use crate::{Conversation, ConversationId, groups::Group};
+    use crate::{
+        Conversation, ConversationId, SystemMessage, clients::CoreUser,
+        conversations::messages::TimestampedMessage, groups::Group, store::StoreNotifier,
+    };
 
     pub(super) struct LeaveConversationData<S> {
         conversation: Conversation,
@@ -647,21 +655,47 @@ mod leave_conversation_flow {
 
             let owner_domain = conversation.owner_domain();
 
-            api_clients
+            let ts = api_clients
                 .get(&owner_domain)?
                 .ds_self_remove(params, signer, group.group_state_ear_key())
                 .await?;
 
-            Ok(DsSelfRemoved(group))
+            Ok(DsSelfRemoved {
+                group,
+                ds_timestamp: ts,
+            })
         }
     }
 
-    pub(super) struct DsSelfRemoved(Group);
+    pub(super) struct DsSelfRemoved {
+        group: Group,
+        ds_timestamp: TimeStamp,
+    }
 
     impl DsSelfRemoved {
-        pub(super) async fn store_update(self, pool: &SqlitePool) -> anyhow::Result<()> {
-            let Self(group) = self;
-            group.store_update(pool).await?;
+        pub(super) async fn store_update(
+            self,
+            txn: &mut SqliteTransaction<'_>,
+            notifier: &mut StoreNotifier,
+            conversation_id: ConversationId,
+            user_id: &UserId,
+        ) -> anyhow::Result<()> {
+            let Self {
+                group,
+                ds_timestamp,
+            } = self;
+
+            group.store_update(&mut **txn).await?;
+            CoreUser::store_new_messages(
+                &mut *txn,
+                notifier,
+                conversation_id,
+                vec![TimestampedMessage::system_message(
+                    SystemMessage::Remove(user_id.clone(), user_id.clone()),
+                    ds_timestamp,
+                )],
+            )
+            .await?;
             Ok(())
         }
     }
