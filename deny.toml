@@ -28,8 +28,6 @@ ignore = [
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
-    "AGPL-3.0-only",
-    "AGPL-3.0-or-later",
     "Apache-2.0 WITH LLVM-exception",
     "Apache-2.0",
     "BSD-2-Clause",
@@ -43,20 +41,15 @@ allow = [
 ]
 confidence-threshold = 0.8
 exceptions = [
-    # Each entry is the crate and version constraint, and its specific allow
-    # list
-    #{ allow = ["Zlib"], crate = "adler32" },
+    { allow = ["AGPL-3.0-only"], crate = "mls-assist" },
+    { allow = ["AGPL-3.0-or-later"], crate = "mimi_content" },
+    { allow = ["AGPL-3.0-or-later"], crate = "mimi-room-policy" },
+    { allow = ["AGPL-3.0-or-later"], crate = "serde_list" },
+    { allow = ["AGPL-3.0-or-later"], crate = "serde_list_macros" },
 ]
 
-# Some crates don't have (easily) machine readable licensing information,
-# adding a clarification entry for it allows you to manually specify the
-# licensing information
-[[licenses.clarify]]
-crate = "allo-isolate"
-expression = "Apache-2.0"
-license-files = [
-    { path = "LICENSE", hash = 0xbd0ee924 }
-]
+[licenses.private]
+ignore = true
 
 [sources]
 unknown-registry = "deny"
