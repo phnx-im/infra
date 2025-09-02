@@ -74,4 +74,6 @@ class UserCubit implements StateStreamableSource<UiUser> {
 
   Future<List<UiContact>> addableContacts(ConversationId conversationId) =>
       _impl.addableContacts(conversationId: conversationId);
+
+  Future<void> reportSpam(UiUserId userId) => throw UnimplementedError();
 }

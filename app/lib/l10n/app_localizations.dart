@@ -233,13 +233,13 @@ abstract class AppLocalizations {
   /// No description provided for @removeUserDialog_removeUser.
   ///
   /// In en, this message translates to:
-  /// **'Remove user'**
+  /// **'Remove User'**
   String get removeUserDialog_removeUser;
 
   /// No description provided for @removeUserButton_text.
   ///
   /// In en, this message translates to:
-  /// **'Remove user'**
+  /// **'Remove User'**
   String get removeUserButton_text;
 
   /// No description provided for @introScreen_signUp.
@@ -511,6 +511,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'edited'**
   String get textMessage_edited;
+
+  /// No description provided for @reportSpamButton_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Spam'**
+  String get reportSpamButton_text;
+
+  /// No description provided for @reportSpamDialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Spam?'**
+  String get reportSpamDialog_title;
+
+  /// No description provided for @reportSpamDialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Air will be notified that this person may be sending spam. Air is never able to see the contents of any chats.'**
+  String get reportSpamDialog_content;
+
+  /// No description provided for @reportSpamDialog_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get reportSpamDialog_cancel;
+
+  /// No description provided for @reportSpamDialog_reportSpam.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Spam'**
+  String get reportSpamDialog_reportSpam;
 }
 
 class _AppLocalizationsDelegate

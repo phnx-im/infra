@@ -26,8 +26,8 @@
   "removeUserDialog_title": "Remove user",
   "removeUserDialog_content": "Are you sure you want to remove this user from the group?",
   "removeUserDialog_cancel": "Cancel",
-  "removeUserDialog_removeUser": "Remove user",
-  "removeUserButton_text": "Remove user",
+  "removeUserDialog_removeUser": "Remove User",
+  "removeUserButton_text": "Remove User",
 
   "introScreen_signUp": "Sign up",
 
@@ -97,5 +97,11 @@
     }
   },
 
-  "textMessage_edited": "edited"
+  "textMessage_edited": "edited",
+
+  "reportSpamButton_text": "Report Spam",
+  "reportSpamDialog_title": "Report Spam?",
+  "reportSpamDialog_content": "Air will be notified that this person may be sending spam. Air is never able to see the contents of any chats.",
+  "reportSpamDialog_cancel": "Cancel",
+  "reportSpamDialog_reportSpam": "Report Spam"
 }

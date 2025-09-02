@@ -86,10 +86,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUserDialog_cancel => 'Cancel';
 
   @override
-  String get removeUserDialog_removeUser => 'Remove user';
+  String get removeUserDialog_removeUser => 'Remove User';
 
   @override
-  String get removeUserButton_text => 'Remove user';
+  String get removeUserButton_text => 'Remove User';
 
   @override
   String get introScreen_signUp => 'Sign up';
@@ -251,4 +251,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textMessage_edited => 'edited';
+
+  @override
+  String get reportSpamButton_text => 'Report Spam';
+
+  @override
+  String get reportSpamDialog_title => 'Report Spam?';
+
+  @override
+  String get reportSpamDialog_content =>
+      'Air will be notified that this person may be sending spam. Air is never able to see the contents of any chats.';
+
+  @override
+  String get reportSpamDialog_cancel => 'Cancel';
+
+  @override
+  String get reportSpamDialog_reportSpam => 'Report Spam';
 }
