@@ -26,7 +26,6 @@ class ConnectionDetails extends StatelessWidget {
 
     return Center(
       child: Column(
-        spacing: Spacings.l,
         children: [
           const SizedBox(height: Spacings.l),
           UserAvatar(
@@ -34,14 +33,17 @@ class ConnectionDetails extends StatelessWidget {
             displayName: conversation.title,
             image: conversation.picture,
           ),
+          const SizedBox(height: Spacings.l),
           Text(
-            conversation.title,
             style: Theme.of(context).textTheme.bodyLarge,
+            conversation.title,
           ),
+          const SizedBox(height: Spacings.l),
           Text(
             conversation.conversationType.description,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          const Spacer(),
         ],
       ),
     );
