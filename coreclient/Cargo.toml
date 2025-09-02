@@ -9,6 +9,7 @@ authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2024"
 publish = false
 description = "Implements the protocol logic of the client component"
+license = "AGPL-3.0-or-later"
 
 [lib]
 

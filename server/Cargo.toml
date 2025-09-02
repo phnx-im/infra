@@ -8,6 +8,7 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 description = "Server that makes the logic implemented in the backend available to clients via a REST API"
+license = "AGPL-3.0-or-later"
 
 [lib]
 path = "src/lib.rs"
