@@ -103,6 +103,7 @@ platform :ios do
         skip_codesigning: skip_signing,
         skip_package_ipa: skip_signing,
         export_method: "app-store",
+        derived_data_path: "build/ios/DerivedData",
       )
     end
   end

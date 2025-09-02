@@ -12,6 +12,10 @@ on:
   pull_request:
     branches: ["main"]
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
 jobs:
   macos-build:
     runs-on: macos-latest
@@ -34,9 +38,14 @@ jobs:
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
+          cache: false
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.89.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: app/build/macos/DerivedData
 
       - name: Set up macOS CI
         env:
