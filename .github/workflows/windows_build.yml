@@ -38,7 +38,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-directories: app/build/windows/x64/release/plugins/airapplogic/cargokit_build/x86_64-windows-msvc
+          cache-directories: app/build/windows/x64/plugins/airapplogic/cargokit_build
 
       - name: Build Windows app
         run: just build-windows
