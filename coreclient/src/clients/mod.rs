@@ -15,7 +15,7 @@ use aircommon::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
         ear::{
             EarEncryptable, EarKey, GenericSerializable,
-            keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
+            keys::{DatabaseKek, PushTokenEarKey, WelcomeAttributionInfoEarKey},
         },
         hpke::HpkeEncryptable,
         kdf::keys::RatchetSecret,
@@ -95,6 +95,11 @@ pub(crate) const CIPHERSUITE: Ciphersuite =
 pub(crate) const CONNECTION_PACKAGES: usize = 50;
 pub(crate) const KEY_PACKAGES: usize = 50;
 
+enum ClientDbType<'a> {
+    Path { path: &'a str, kek: &'a DatabaseKek },
+    Ephemeral,
+}
+
 #[derive(Debug, Clone)]
 pub struct CoreUser {
     inner: Arc<CoreUserInner>,
@@ -121,35 +126,51 @@ impl CoreUser {
         grpc_port: u16,
         db_path: &str,
         push_token: Option<PushToken>,
+        kek: &DatabaseKek,
     ) -> Result<Self> {
         info!(?user_id, "creating new user");
 
         // Open the air db to store the client record
         let air_db = open_air_db(db_path).await?;
 
-        // Open client specific db
-        let client_db = open_client_db(&user_id, db_path).await?;
-
-        Self::new_with_connections(
-            user_id, server_url, grpc_port, push_token, air_db, client_db,
+        Self::new_with_params(
+            user_id,
+            server_url,
+            grpc_port,
+            push_token,
+            air_db,
+            ClientDbType::Path { path: db_path, kek },
         )
         .await
     }
 
-    async fn new_with_connections(
+    async fn new_with_params<'a>(
         user_id: UserId,
         server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
         air_db: SqlitePool,
-        client_db: SqlitePool,
+        client_db: ClientDbType<'a>,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(user_id.domain().clone(), server_url.clone(), grpc_port);
 
+        let client_db = match client_db {
+            ClientDbType::Path { path, kek } => {
+                let client_record = ClientRecord::new(user_id.clone(), kek)?;
+                client_record.store(&air_db).await?;
+                open_client_db(&user_id, path, kek).await?
+            }
+            ClientDbType::Ephemeral => {
+                let ephemeral_kek = DatabaseKek::random()?;
+                let client_record = ClientRecord::new(user_id.clone(), &ephemeral_kek)?;
+                client_record.store(&air_db).await?;
+                open_db_in_memory().await?
+            }
+        };
+
         let user_creation_state =
-            UserCreationState::new(&client_db, &air_db, user_id, server_url.clone(), push_token)
-                .await?;
+            UserCreationState::new(&client_db, user_id, server_url.clone(), push_token).await?;
 
         let final_state = user_creation_state
             .complete_user_creation(&air_db, &client_db, &api_clients)
@@ -182,11 +203,13 @@ impl CoreUser {
         // Open the air db to store the client record
         let air_db = open_db_in_memory().await?;
 
-        // Open client specific db
-        let client_db = open_db_in_memory().await?;
-
-        Self::new_with_connections(
-            user_id, server_url, grpc_port, push_token, air_db, client_db,
+        Self::new_with_params(
+            user_id,
+            server_url,
+            grpc_port,
+            push_token,
+            air_db,
+            ClientDbType::Ephemeral,
         )
         .await
     }
@@ -195,8 +218,8 @@ impl CoreUser {
     ///
     /// If a user creation process with a matching `UserId` was interrupted before, this will
     /// resume that process.
-    pub async fn load(user_id: UserId, db_path: &str) -> Result<CoreUser> {
-        let client_db = open_client_db(&user_id, db_path).await?;
+    pub async fn load(user_id: UserId, db_path: &str, kek: &DatabaseKek) -> Result<CoreUser> {
+        let client_db = open_client_db(&user_id, db_path, kek).await?;
 
         let user_creation_state = UserCreationState::load(&client_db, &user_id)
             .await?

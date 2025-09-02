@@ -111,3 +111,16 @@ pub type AttachmentEarKey = Key<AttachmentEarKeyType>;
 impl RandomlyGeneratable for AttachmentEarKeyType {}
 
 impl EarKey for AttachmentEarKey {}
+
+// Client Database KEK (Key Encryption Key)
+
+#[derive(Debug)]
+pub struct DatabaseKekType;
+
+impl RawKey for DatabaseKekType {}
+
+impl RandomlyGeneratable for DatabaseKekType {}
+
+impl EarKey for DatabaseKek {}
+
+pub type DatabaseKek = Key<DatabaseKekType>;

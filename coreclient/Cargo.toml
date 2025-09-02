@@ -30,10 +30,16 @@ image = "0.25.1"
 kamadak-exif = "0.6.1"
 derive_more = { workspace = true }
 mimi_content = { workspace = true }
+hex = { version = "0.4" }
 
 # Persistence
 serde = { version = "1", features = ["derive"] }
 sqlx = { workspace = true, features = ["chrono", "sqlite"] }
+# the libsqlite3-sys version needs to be synchronized with the corresponding
+# sqlx dependency version
+libsqlite3-sys = { version = "0.30.1", features = [
+    "bundled-sqlcipher-vendored-openssl",
+] }
 mimi-room-policy = { workspace = true }
 
 # Workspace dependencies
@@ -58,10 +64,13 @@ aircommon = { path = "../common", features = ["test_utils"] }
 serde_json = "1.0.140"
 insta = { workspace = true, features = ["json"] }
 airbackend = { path = "../backend" }
+tempfile = "3"
+memchr = "2"
 
 [build-dependencies]
 
 [package.metadata.cargo-machete]
 ignored = [
-    "kamadak-exif", # false positive due to a different crate name: exif
+    "kamadak-exif",   # false positive due to a different crate name: exif
+    "libsqlite3-sys", # false positive because it replaces a sqlx dependency only
 ]

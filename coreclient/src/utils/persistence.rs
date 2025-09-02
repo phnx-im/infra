@@ -4,7 +4,11 @@
 
 use std::{fmt::Display, fs, path::Path, time::Duration};
 
-use aircommon::identifiers::UserId;
+use crate::{
+    clients::store::{ClientRecord, DatabaseDek},
+    utils::data_migrations,
+};
+use aircommon::{crypto::ear::keys::DatabaseKek, identifiers::UserId};
 use anyhow::{Result, bail};
 use openmls::group::GroupId;
 use sqlx::{
@@ -15,9 +19,6 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use tracing::{error, info};
-
-use crate::clients::store::ClientRecord;
-use crate::utils::data_migrations;
 
 pub(crate) const AIR_DB_NAME: &str = "air.db";
 
@@ -108,10 +109,17 @@ async fn delete_client_databases(client_db_path: &str) -> anyhow::Result<()> {
 
 pub async fn delete_client_database(db_path: &str, user_id: &UserId) -> Result<()> {
     // Delete the client DB
+    // We also need to delete the WAL & SHM files
     let client_db_name = client_db_name(user_id);
-    let client_db_path = format!("{db_path}/{client_db_name}");
-    if let Err(error) = fs::remove_file(&client_db_path) {
-        error!(%error, %client_db_path, "Failed to delete client DB")
+    // Find all files that start with the client DB name and delete them
+    for entry in fs::read_dir(db_path)? {
+        if let Some(e) = entry?.file_name().to_str()
+            && e.starts_with(&client_db_name)
+        {
+            let client_db_path = format!("{db_path}/{e}");
+            info!(path =% client_db_path, "removing client DB related file");
+            fs::remove_file(client_db_path)?;
+        }
     }
 
     // Delete the client record from the air DB
@@ -129,14 +137,40 @@ fn client_db_name(user_id: &UserId) -> String {
     format!("{}@{}.db", user_id.uuid(), user_id.domain())
 }
 
-pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Result<SqlitePool> {
+/// Open a client database with the provided DEK.
+pub async fn open_client_db(
+    user_id: &UserId,
+    client_db_path: &str,
+    kek: &DatabaseKek,
+) -> anyhow::Result<SqlitePool> {
+    // Fetch and decrypt DEK
+    let air_db = open_air_db(client_db_path).await?;
+    let record = ClientRecord::load(&air_db, user_id)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("No client record found for user"))?;
+    let dek = record.decrypt_dek(kek)?;
+
+    open_client_db_with_dek(user_id, client_db_path, &dek).await
+}
+
+pub(crate) async fn open_client_db_with_dek(
+    user_id: &UserId,
+    client_db_path: &str,
+    dek: &DatabaseDek,
+) -> anyhow::Result<SqlitePool> {
     let client_db_name = client_db_name(user_id);
     let db_url = format!("sqlite://{client_db_path}/{client_db_name}");
-    let opts: SqliteConnectOptions = db_url.parse()?;
+    let opts: SqliteConnectOptions = db_url
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Failed to parse database URL: {}", e))?;
     let opts = opts
+        .pragma("key", format!("\"x'{}'\"", dek.to_hex_string()))
         .journal_mode(SqliteJournalMode::Wal)
         .create_if_missing(true);
-    let pool = SqlitePoolOptions::default().connect_with(opts).await?;
+    let pool = SqlitePoolOptions::default()
+        .connect_with(opts)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to database: {}", e))?;
 
     data_migrations::migrate(&pool).await?;
     migrate!().run(&pool).await?;
@@ -179,5 +213,97 @@ pub(crate) struct GroupIdWrapper(pub(crate) GroupId);
 impl From<GroupIdWrapper> for GroupId {
     fn from(group_id: GroupIdWrapper) -> Self {
         group_id.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+    use std::{fs, str::FromStr};
+    use tempfile::tempdir;
+    use uuid::Uuid;
+
+    use crate::{clients::store::DatabaseDek, utils::persistence::open_client_db_with_dek};
+
+    use aircommon::identifiers::{Fqdn, UserId};
+
+    const MARKER: &str = "SECRET_MARKER_12345";
+
+    /// Test that the encrypted database does not contain the plaintext marker
+    #[tokio::test]
+    async fn encrypted_db_marker() -> anyhow::Result<()> {
+        let dir = tempdir()?;
+        let plain_path = dir.path().join("plain.db");
+
+        // Generate a DEK for testing
+        let dek = DatabaseDek::random()?;
+
+        // Encrypted DB via real code path
+        let user_id = UserId::new(Uuid::new_v4(), Fqdn::from_str("example.test")?);
+        let pool = open_client_db_with_dek(&user_id, dir.path().to_str().unwrap(), &dek).await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS t (val TEXT)")
+            .execute(&pool)
+            .await?;
+        sqlx::query("INSERT INTO t (val) VALUES (?1)")
+            .bind(MARKER)
+            .execute(&pool)
+            .await?;
+        // Force WAL checkpoint to ensure data is written to main db file
+        sqlx::query("PRAGMA wal_checkpoint(FULL)")
+            .execute(&pool)
+            .await?;
+        pool.close().await;
+
+        // Discover the encrypted db file path that open_client_db created
+        let mut enc_path: Option<std::path::PathBuf> = None;
+        for entry in std::fs::read_dir(dir.path())? {
+            let entry = entry?;
+            if let Some(ext) = entry.path().extension()
+                && ext == "db"
+                && entry.file_name() != "plain.db"
+            {
+                enc_path = Some(entry.path());
+                break;
+            }
+        }
+        let enc_path = enc_path.expect("encrypted db file should exist");
+
+        // Plaintext DB created manually
+        let opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", plain_path.display()))?
+            .journal_mode(SqliteJournalMode::Wal)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::default().connect_with(opts).await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS t (val TEXT)")
+            .execute(&pool)
+            .await?;
+        sqlx::query("INSERT INTO t (val) VALUES (?1)")
+            .bind(MARKER)
+            .execute(&pool)
+            .await?;
+        // Force WAL checkpoint to ensure data is written db file
+        sqlx::query("PRAGMA wal_checkpoint(FULL)")
+            .execute(&pool)
+            .await?;
+        pool.close().await;
+
+        // Read raw bytes
+        let enc_bytes = fs::read(&enc_path)?;
+        let plain_bytes = fs::read(&plain_path)?;
+
+        // Plain should contain the marker in clear; encrypted should not
+        assert!(
+            !enc_bytes
+                .windows(MARKER.len())
+                .any(|w| w == MARKER.as_bytes()),
+            "marker was found in encrypted db bytes"
+        );
+        assert!(
+            plain_bytes
+                .windows(MARKER.len())
+                .any(|w| w == MARKER.as_bytes()),
+            "marker not found in plaintext db bytes"
+        );
+
+        Ok(())
     }
 }

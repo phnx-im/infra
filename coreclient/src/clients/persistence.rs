@@ -14,7 +14,7 @@ use sqlx::{
 };
 use uuid::Uuid;
 
-use crate::utils::persistence::open_air_db;
+use crate::{clients::store::EncryptedDek, utils::persistence::open_air_db};
 
 use super::store::{ClientRecord, ClientRecordState, UserCreationState};
 
@@ -133,6 +133,7 @@ struct SqlClientRecord {
     client_record_state: ClientRecordState,
     created_at: DateTime<Utc>,
     is_default: bool,
+    encrypted_dek: EncryptedDek,
 }
 
 impl From<SqlClientRecord> for ClientRecord {
@@ -142,6 +143,7 @@ impl From<SqlClientRecord> for ClientRecord {
             client_record_state: value.client_record_state,
             created_at: value.created_at,
             is_default: value.is_default,
+            encrypted_dek: value.encrypted_dek,
         }
     }
 }
@@ -161,7 +163,8 @@ impl ClientRecord {
                 user_domain AS "user_domain: _",
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
-                is_default
+                is_default,
+                encrypted_dek AS "encrypted_dek: _"
             FROM client_record"#
         )
         .fetch_all(executor)
@@ -169,7 +172,7 @@ impl ClientRecord {
         Ok(records.into_iter().map(From::from).collect())
     }
 
-    pub(super) async fn load(
+    pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
         user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
@@ -182,7 +185,8 @@ impl ClientRecord {
                 user_domain AS "user_domain: _",
                 record_state AS "client_record_state: _",
                 created_at AS "created_at: _",
-                is_default
+                is_default,
+                encrypted_dek AS "encrypted_dek: _"
             FROM client_record WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain
@@ -201,13 +205,14 @@ impl ClientRecord {
         let domain = self.user_id.domain();
         query!(
             "INSERT OR REPLACE INTO client_record
-            (user_uuid, user_domain, record_state, created_at, is_default)
-            VALUES (?1, ?2, ?3, ?4, ?5)",
+            (user_uuid, user_domain, record_state, created_at, is_default, encrypted_dek)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             uuid,
             domain,
             record_state_str,
             self.created_at,
             self.is_default,
+            self.encrypted_dek,
         )
         .execute(executor)
         .await?;
@@ -251,7 +256,10 @@ impl ClientRecord {
 mod tests {
     use std::sync::LazyLock;
 
-    use aircommon::messages::push_token::{PushToken, PushTokenOperator};
+    use aircommon::{
+        crypto::ear::{AeadCiphertext, keys::DatabaseKek},
+        messages::push_token::{PushToken, PushTokenOperator},
+    };
     use chrono::{DateTime, Utc};
     use sqlx::SqlitePool;
     use uuid::Uuid;
@@ -262,12 +270,12 @@ mod tests {
 
     fn new_client_record(id: Uuid, created_at: DateTime<Utc>) -> ClientRecord {
         let user_id = UserId::new(id, "localhost".parse().unwrap());
-        ClientRecord {
-            user_id,
-            client_record_state: ClientRecordState::Finished,
-            created_at,
-            is_default: false,
-        }
+        let kek = DatabaseKek::from_bytes(*b"default_db_kek______with_padding");
+        let mut record = ClientRecord::new(user_id, &kek).unwrap();
+        record.created_at = created_at;
+        record.encrypted_dek = AeadCiphertext::dummy().into();
+        record.client_record_state = ClientRecordState::Finished;
+        record
     }
 
     fn test_client_record() -> ClientRecord {
