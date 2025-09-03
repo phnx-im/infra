@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'Prototype'**
+  /// **'Air'**
   String get appTitle;
 
   /// No description provided for @userSettingsScreen_title.
@@ -247,6 +247,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove user'**
   String get removeUserButton_text;
+
+  /// No description provided for @leaveConversationButton_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave conversation'**
+  String get leaveConversationButton_text;
+
+  /// No description provided for @deleteConversationButton_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete conversation'**
+  String get deleteConversationButton_text;
+
+  /// No description provided for @deleteConnectionButton_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete connection'**
+  String get deleteConnectionButton_text;
 
   /// No description provided for @introScreen_signUp.
   ///

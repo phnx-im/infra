@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::{
+    credentials::keys::ClientSigningKey,
+    identifiers::{MimiId, UserId},
+    messages::client_ds_out::SendMessageParamsOut,
+    time::TimeStamp,
+};
 use anyhow::{Context, bail};
 use mimi_content::{
     ByteBuf, Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPart,
     NestedPartContent, PerMessageStatus,
 };
 use openmls::storage::OpenMlsProvider;
-use phnxcommon::{
-    credentials::keys::ClientSigningKey,
-    identifiers::{MimiId, UserId},
-    messages::client_ds_out::SendMessageParamsOut,
-    time::TimeStamp,
-};
 use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
@@ -23,7 +23,7 @@ use crate::{
     conversations::{StatusRecord, messages::edit::MessageEdit},
 };
 
-use super::{ApiClients, CoreUser, Group, PhnxOpenMlsProvider, StoreNotifier};
+use super::{AirOpenMlsProvider, ApiClients, CoreUser, Group, StoreNotifier};
 
 impl CoreUser {
     /// Send a message and return it.
@@ -69,7 +69,7 @@ impl CoreUser {
                 }
                 .store_unsent_message(txn, notifier, self.user_id(), replaces_id)
                 .await?
-                .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
+                .create_group_message(&AirOpenMlsProvider::new(txn), self.signing_key())?
                 .store_group_update(txn, notifier, self.user_id())
                 .await
             })
@@ -102,7 +102,7 @@ impl CoreUser {
         }
         .store_unsent_message(txn, notifier, self.user_id(), None)
         .await?
-        .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())?
+        .create_group_message(&AirOpenMlsProvider::new(txn), self.signing_key())?
         .store_group_update(txn, notifier, self.user_id())
         .await?;
 
@@ -122,7 +122,7 @@ impl CoreUser {
                 LocalMessage { local_message_id }
                     .load_for_resend(txn)
                     .await?
-                    .create_group_message(&PhnxOpenMlsProvider::new(txn), self.signing_key())
+                    .create_group_message(&AirOpenMlsProvider::new(txn), self.signing_key())
             })
             .await?;
 
@@ -162,7 +162,7 @@ impl CoreUser {
                     .await?
                     .with_context(|| format!("Can't find group with id {group_id:?}"))?;
                 let params = group.create_message(
-                    &PhnxOpenMlsProvider::new(txn),
+                    &AirOpenMlsProvider::new(txn),
                     self.signing_key(),
                     unsent_receipt.content,
                 )?;
@@ -504,7 +504,7 @@ impl UnsentReceipt {
         }
 
         let content = MimiContent {
-            salt: ByteBuf::from(phnxcommon::crypto::secrets::Secret::<16>::random()?.secret()),
+            salt: ByteBuf::from(aircommon::crypto::secrets::Secret::<16>::random()?.secret()),
             nested_part: NestedPart {
                 disposition: Disposition::Unspecified,
                 part: NestedPartContent::SinglePart {

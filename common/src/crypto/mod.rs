@@ -15,7 +15,6 @@ use std::marker::PhantomData;
 use hpke::{DecryptionKey, EncryptionKey};
 use kdf::keys::ConnectionKeyType;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -27,11 +26,9 @@ use self::{
     kdf::{KdfDerivable, keys::RatchetSecret},
 };
 
-/// This type determines the hash function used by the backend.
-pub type Hash = Sha256;
-
 pub mod ear;
 pub mod errors;
+pub mod hash;
 pub mod hpke;
 pub mod indexed_aead;
 pub mod kdf;
@@ -44,6 +41,15 @@ pub mod signatures;
 pub trait RawKey {}
 
 pub type RatchetKeyUpdate = Vec<u8>;
+
+/// A trait for labeling structs
+pub trait Labeled {
+    const LABEL: &'static str;
+}
+
+impl<T: Labeled> Labeled for &T {
+    const LABEL: &'static str = T::LABEL;
+}
 
 #[derive(Debug)]
 pub struct RatchetKeyType;
@@ -58,14 +64,14 @@ pub type ConnectionDecryptionKey = DecryptionKey<ConnectionKeyType>;
 
 #[cfg(test)]
 mod test {
-    use crate::codec::PhnxCodec;
+    use crate::codec::AirCodec;
 
     use super::*;
 
     #[test]
     fn encryption_key_serde_codec() {
         let key = RatchetEncryptionKey::new_for_test(vec![1, 2, 3]);
-        insta::assert_binary_snapshot!(".cbor", PhnxCodec::to_vec(&key).unwrap());
+        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&key).unwrap());
     }
 
     #[test]

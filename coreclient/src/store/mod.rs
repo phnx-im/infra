@@ -5,9 +5,10 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::Path};
 
+use aircommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
+use aircommon::messages::client_as_out::UserHandleDeleteResponse;
 use mimi_content::{MessageStatus, MimiContent};
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -62,7 +63,10 @@ pub trait Store {
         user_handle: &UserHandle,
     ) -> StoreResult<Option<UserHandleRecord>>;
 
-    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()>;
+    async fn remove_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<UserHandleDeleteResponse>;
 
     // conversations
 

@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Context;
-pub use persistence::UserHandleRecord;
-use phnxcommon::{
+use aircommon::{
     credentials::keys::HandleSigningKey,
     crypto::ConnectionDecryptionKey,
     identifiers::{UserHandle, UserHandleHash},
-    messages::connection_package::ConnectionPackage,
+    messages::{client_as_out::UserHandleDeleteResponse, connection_package::ConnectionPackage},
 };
+use anyhow::Context;
+pub use persistence::UserHandleRecord;
 use tracing::error;
 
 use crate::{
@@ -98,15 +98,25 @@ impl CoreUser {
     }
 
     /// Deletes the user handle on the server and removes it locally.
-    pub(crate) async fn remove_user_handle(&self, handle: &UserHandle) -> StoreResult<()> {
+    pub(crate) async fn remove_user_handle(
+        &self,
+        handle: &UserHandle,
+    ) -> StoreResult<UserHandleDeleteResponse> {
         let mut txn = self.pool().begin().await?;
         let record = UserHandleRecord::load(txn.as_mut(), handle)
             .await?
             .context("no user handle found")?;
         let api_client = self.api_client()?;
-        api_client
+        let res = api_client
             .as_delete_handle(record.hash, &record.signing_key)
             .await?;
+
+        self.remove_user_handle_locally(handle).await?;
+        Ok(res)
+    }
+
+    pub(crate) async fn remove_user_handle_locally(&self, handle: &UserHandle) -> StoreResult<()> {
+        let mut txn = self.pool().begin().await?;
         UserHandleRecord::delete(txn.as_mut(), handle).await?;
         txn.commit().await?;
         Ok(())

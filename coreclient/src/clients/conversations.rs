@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::identifiers::UserId;
 use anyhow::{Context, Result, anyhow, bail};
 use create_conversation_flow::IntitialConversationData;
 use delete_conversation_flow::DeleteConversationData;
 use leave_conversation_flow::LeaveConversationData;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::UserId;
 use tracing::error;
 
 use crate::{
     ConversationMessageId,
     conversations::{Conversation, messages::ConversationMessage},
-    groups::{Group, openmls_provider::PhnxOpenMlsProvider},
+    groups::{Group, openmls_provider::AirOpenMlsProvider},
     utils::image::resize_profile_image,
 };
 
@@ -36,7 +36,7 @@ impl CoreUser {
             .with_transaction_and_notifier(async |connection, notifier| {
                 group_data
                     .create_group(
-                        &PhnxOpenMlsProvider::new(&mut *connection),
+                        &AirOpenMlsProvider::new(&mut *connection),
                         &self.inner.key_store.signing_key,
                     )?
                     .store_group(&mut *connection, notifier)
@@ -233,15 +233,15 @@ impl CoreUser {
 }
 
 mod create_conversation_flow {
-    use anyhow::Result;
-    use openmls::group::GroupId;
-    use openmls_traits::OpenMlsProvider;
-    use phnxcommon::{
-        codec::PhnxCodec,
+    use aircommon::{
+        codec::AirCodec,
         credentials::keys::ClientSigningKey,
         crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
         identifiers::QsReference,
     };
+    use anyhow::Result;
+    use openmls::group::GroupId;
+    use openmls_traits::OpenMlsProvider;
 
     use crate::{
         Conversation, ConversationAttributes, ConversationId,
@@ -269,7 +269,7 @@ mod create_conversation_flow {
             let group_id = api_clients.default_client()?.ds_request_group_id().await?;
             // Store the conversation attributes in the group's aad
             let attributes = ConversationAttributes::new(title, picture);
-            let group_data = PhnxCodec::to_vec(&attributes)?.into();
+            let group_data = AirCodec::to_vec(&attributes)?.into();
             Ok(ConversationGroupData {
                 group_id,
                 group_data,
@@ -385,11 +385,11 @@ mod create_conversation_flow {
 mod delete_conversation_flow {
     use std::collections::HashSet;
 
-    use anyhow::Context;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::DeleteGroupParamsOut, time::TimeStamp,
     };
+    use anyhow::Context;
     use sqlx::{SqliteConnection, SqliteTransaction};
 
     use crate::{
@@ -579,12 +579,12 @@ mod delete_conversation_flow {
 }
 
 mod leave_conversation_flow {
-    use anyhow::Context;
-    use mimi_room_policy::RoleIndex;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::SelfRemoveParamsOut, time::TimeStamp,
     };
+    use anyhow::Context;
+    use mimi_room_policy::RoleIndex;
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
 
     use crate::{

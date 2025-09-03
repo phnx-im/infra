@@ -5,7 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 
 import 'user_cubit.dart';
 
@@ -43,4 +43,9 @@ class UserSettingsCubit implements StateStreamableSource<UserSettings> {
     required UserCubit userCubit,
     required double value,
   }) => _impl.setSidebarWidth(userCubit: userCubit.impl, value: value);
+
+  Future<void> setSendOnEnter({
+    required UserCubit userCubit,
+    required bool value,
+  }) => _impl.setSendOnEnter(userCubit: userCubit.impl, value: value);
 }

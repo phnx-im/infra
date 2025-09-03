@@ -6,12 +6,15 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     credentials::{
-        AsCredential, ClientCredentialPayload, CredentialFingerprint,
+        AsCredential, AsCredentialBody, ClientCredentialPayload,
         VerifiableAsIntermediateCredential, VerifiableClientCredential, keys::ClientSignature,
     },
-    crypto::indexed_aead::{
-        ciphertexts::IndexedCiphertext,
-        keys::{UserProfileKeyIndex, UserProfileKeyType},
+    crypto::{
+        hash::Hash,
+        indexed_aead::{
+            ciphertexts::IndexedCiphertext,
+            keys::{UserProfileKeyIndex, UserProfileKeyType},
+        },
     },
     identifiers::UserId,
     messages::connection_package::ConnectionPackageIn,
@@ -28,7 +31,7 @@ pub struct AsCredentialsResponseIn {
     // this is matched against the local trust store or something.
     pub as_credentials: Vec<AsCredential>,
     pub as_intermediate_credentials: Vec<VerifiableAsIntermediateCredential>,
-    pub revoked_credentials: Vec<CredentialFingerprint>,
+    pub revoked_credentials: Vec<Hash<AsCredentialBody>>,
 }
 
 #[derive(Debug)]
@@ -83,4 +86,10 @@ pub struct MergeUserProfileParamsTbs {
 pub struct MergeUserProfileParams {
     payload: MergeUserProfileParamsTbs,
     signature: ClientSignature,
+}
+
+#[derive(Debug)]
+pub enum UserHandleDeleteResponse {
+    Success,
+    NotFound,
 }

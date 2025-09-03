@@ -3,15 +3,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "phnxserver_test_harness"
+name = "airserver_test_harness"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-phnxcommon = { workspace = true }
-phnxserver = { path = "../server" }
-phnxcoreclient = { path = "../coreclient" }
-phnxbackend = { path = "../backend", features = ["test_utils"] }
+aircommon = { workspace = true }
+airserver = { path = "../server" }
+aircoreclient = { path = "../coreclient" }
+airbackend = { path = "../backend", features = ["test_utils"] }
 
 tokio = { version = "1", features = ["process"] }
 rand = "0.8"

@@ -2,13 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/navigation/navigation_cubit.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user_cubit.dart';
+import 'package:air/util/dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation.dart' show NavigationCubit;
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/dialog.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
@@ -27,6 +29,8 @@ class ConnectionDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final loc = AppLocalizations.of(context);
+
     return Align(
       alignment: Alignment.topCenter,
       child: Container(
@@ -35,7 +39,7 @@ class ConnectionDetails extends StatelessWidget {
         child: Column(
           children: [
             UserAvatar(
-              size: 96,
+              size: 128,
               displayName: conversation.title,
               image: conversation.picture,
             ),
@@ -52,8 +56,12 @@ class ConnectionDetails extends StatelessWidget {
             const Spacer(),
             OutlinedButton(
               onPressed: () => _delete(context, conversation.id),
-              style: dangerButtonStyle(context),
-              child: const Text('Delete'),
+              child: Text(
+                loc.deleteConnectionButton_text,
+                style: TextStyle(
+                  color: CustomColorScheme.of(context).function.danger,
+                ),
+              ),
             ),
           ],
         ),
@@ -67,7 +75,7 @@ class ConnectionDetails extends StatelessWidget {
     if (await showConfirmationDialog(
       context,
       title: "Delete",
-      message:
+      message: // TODO: Localization
           "Are you sure you want to remove this connection? "
           "The message history will be also deleted.",
       positiveButtonText: "Delete",

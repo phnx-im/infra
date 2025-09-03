@@ -9,13 +9,15 @@ use mls_assist::{
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as _, TlsSerialize, TlsSize};
 
 use crate::{
     LibraryError,
     credentials::keys::{HandleSignature, HandleSigningKey},
     crypto::{
-        ConnectionDecryptionKey, ConnectionEncryptionKey, errors::RandomnessError,
+        ConnectionDecryptionKey, ConnectionEncryptionKey, Labeled,
+        errors::RandomnessError,
+        hash::{Hash, Hashable},
         signatures::signable::Signable,
     },
     identifiers::UserHandleHash,
@@ -118,43 +120,27 @@ mod payload {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, TlsSerialize, TlsSize, TlsDeserializeBytes,
-)]
-#[cfg_attr(any(feature = "test_utils", test), derive(PartialEq))]
-#[serde(transparent)]
-pub struct ConnectionPackageHash([u8; 32]);
-
-#[derive(Debug, Error)]
-pub enum ConnectionPackageHashError {
-    #[error("Invalid length: expected 32 bytes, got {actual} bytes")]
-    InvalidLength { actual: usize },
+impl Labeled for ConnectionPackage {
+    const LABEL: &'static str = "ConnectionPackage";
 }
 
-impl TryFrom<Vec<u8>> for ConnectionPackageHash {
-    type Error = ConnectionPackageHashError;
+pub type ConnectionPackageHash = Hash<ConnectionPackage>;
 
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        let value_len = value.len();
-        let array = value
+// Custom implementation of `Hashable` for `ConnectionPackage` to ensure
+// backwards compatibility.
+impl Hashable for ConnectionPackage {
+    fn hash(&self) -> ConnectionPackageHash {
+        let rust_crypto = RustCrypto::default();
+        let payload = self.tls_serialize_detached().unwrap_or_default();
+        debug_assert!(!payload.is_empty());
+        let input = [b"Connection Package".to_vec(), payload].concat();
+        let value: [u8; 32] = rust_crypto
+            .hash(HashType::Sha2_256, &input)
+            .unwrap_or_default()
             .try_into()
-            .map_err(|_| ConnectionPackageHashError::InvalidLength { actual: value_len })?;
-        Ok(Self(array))
-    }
-}
-
-impl ConnectionPackageHash {
-    pub fn to_bytes(self) -> [u8; 32] {
-        self.0
-    }
-
-    #[cfg(feature = "test_utils")]
-    pub fn random() -> Self {
-        use rand::RngCore;
-
-        let mut bytes = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut bytes);
-        Self(bytes)
+            // Output length of `hash` is always 32 bytes
+            .unwrap();
+        Hash::from_bytes(value)
     }
 }
 
@@ -201,20 +187,6 @@ impl ConnectionPackage {
         &self.payload.encryption_key
     }
 
-    pub fn hash(&self) -> ConnectionPackageHash {
-        let rust_crypto = RustCrypto::default();
-        let payload = self.tls_serialize_detached().unwrap_or_default();
-        debug_assert!(!payload.is_empty());
-        let input = [b"Connection Package".to_vec(), payload].concat();
-        let value: [u8; 32] = rust_crypto
-            .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default()
-            .try_into()
-            // Output length of `hash` is always 32 bytes
-            .unwrap();
-        ConnectionPackageHash(value)
-    }
-
     pub fn expires_at(&self) -> TimeStamp {
         self.payload.lifetime.not_after()
     }
@@ -225,34 +197,6 @@ impl ConnectionPackage {
     }
 }
 
-mod sqlx_impls {
-    use sqlx::{Database, Decode, Encode, Sqlite, Type, error::BoxDynError};
-
-    use super::*;
-
-    impl Type<Sqlite> for ConnectionPackageHash {
-        fn type_info() -> <Sqlite as Database>::TypeInfo {
-            <Vec<u8> as Type<Sqlite>>::type_info()
-        }
-    }
-
-    impl Encode<'_, Sqlite> for ConnectionPackageHash {
-        fn encode_by_ref(
-            &self,
-            buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
-        ) -> Result<sqlx::encode::IsNull, BoxDynError> {
-            let bytes = self.to_bytes().to_vec();
-            Encode::<Sqlite>::encode(bytes, buf)
-        }
-    }
-
-    impl Decode<'_, Sqlite> for ConnectionPackageHash {
-        fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
-            let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-            Ok(Self(bytes.try_into()?))
-        }
-    }
-}
 pub mod legacy {
     use super::*;
 

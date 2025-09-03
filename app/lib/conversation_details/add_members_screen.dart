@@ -4,12 +4,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/l10n/app_localizations.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/core/core.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 
 import 'add_members_cubit.dart';
 
@@ -51,7 +52,6 @@ class AddMembersScreenView extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const AppBarBackButton(),
@@ -83,7 +83,10 @@ class AddMembersScreenView extends StatelessWidget {
                             _addSelectedContacts(context, selectedContacts);
                           }
                           : null,
-                  style: buttonStyle(context, selectedContacts.isNotEmpty),
+                  style: buttonStyle(
+                    CustomColorScheme.of(context),
+                    selectedContacts.isNotEmpty,
+                  ),
                   child: Text(loc.addMembersScreen_addMembers),
                 ),
               ],
@@ -131,13 +134,15 @@ class _MemberTile extends StatelessWidget {
       ),
       title: Text(
         profile.displayName,
-        style: Theme.of(context).textTheme.labelMedium,
+        style: Theme.of(context).textTheme.bodyMedium,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: Checkbox(
         value: selectedContacts.contains(contact.userId),
-        checkColor: colorDMB,
-        fillColor: WidgetStateProperty.all(colorGreyLight),
+        checkColor: CustomColorScheme.of(context).text.secondary,
+        fillColor: WidgetStateProperty.all(
+          CustomColorScheme.of(context).backgroundBase.secondary,
+        ),
         focusColor: Colors.transparent,
         hoverColor: Colors.transparent,
         overlayColor: WidgetStateProperty.all(Colors.transparent),

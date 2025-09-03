@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::time::Duration;
 use mls_assist::{
     group::ProcessedAssistedMessage, messages::SerializedMlsMessage, openmls::prelude::Sender,
     provider_traits::MlsAssistProvider,
@@ -10,7 +11,6 @@ use mls_assist::{
     messages::AssistedMessageIn,
     openmls::prelude::{LeafNodeIndex, ProcessedMessageContent},
 };
-use phnxcommon::time::Duration;
 
 use crate::errors::ResyncClientError;
 

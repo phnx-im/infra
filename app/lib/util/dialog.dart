@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/theme/styles.dart';
 import 'package:flutter/material.dart';
-import 'package:prototype/theme/theme.dart';
 
 /// Shows a confirmation dialog with the given [title], [message],
 /// [positiveButtonText] and [negativeButtonText].

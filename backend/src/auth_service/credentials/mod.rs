@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::crypto::errors::KeyGenerationError;
+use aircommon::crypto::errors::KeyGenerationError;
 use thiserror::Error;
 
 use crate::errors::StorageError;

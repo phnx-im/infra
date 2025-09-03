@@ -4,13 +4,13 @@
 
 use std::{cell::RefCell, future::Future};
 
+use aircommon::codec::AirCodec;
 use openmls_traits::storage::{
     CURRENT_VERSION, Entity, Key, StorageProvider,
     traits::{
         self, ProposalRef as ProposalRefTrait, SignaturePublicKey as SignaturePublicKeyTrait,
     },
 };
-use phnxcommon::codec::PhnxCodec;
 use sqlx::{
     Database, Decode, Encode, Row, Sqlite, SqliteConnection, SqliteExecutor, Type, encode::IsNull,
     error::BoxDynError, query, sqlite::SqliteTypeInfo,
@@ -742,7 +742,7 @@ impl<'q, T: Key<CURRENT_VERSION>> Encode<'q, Sqlite> for KeyRefWrapper<'_, T> {
         &self,
         buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
     ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
-        let key_bytes = PhnxCodec::to_vec(&self.0)?;
+        let key_bytes = AirCodec::to_vec(&self.0)?;
         Encode::<Sqlite>::encode(key_bytes, buf)
     }
 }
@@ -758,7 +758,7 @@ impl<T: Entity<CURRENT_VERSION>> Encode<'_, Sqlite> for EntityRefWrapper<'_, T> 
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
-        let entity_bytes = PhnxCodec::to_vec(&self.0)?;
+        let entity_bytes = AirCodec::to_vec(&self.0)?;
         Encode::<Sqlite>::encode(entity_bytes, buf)
     }
 }
@@ -835,7 +835,7 @@ impl<T: Entity<CURRENT_VERSION>> Encode<'_, Sqlite> for EntitySliceWrapper<'_, T
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
-        let entity_bytes = PhnxCodec::to_vec(&self.0)?;
+        let entity_bytes = AirCodec::to_vec(&self.0)?;
         Encode::<Sqlite>::encode(entity_bytes, buf)
     }
 }
@@ -912,7 +912,7 @@ impl<T: Entity<CURRENT_VERSION>> Type<Sqlite> for EntityWrapper<T> {
 impl<T: Entity<CURRENT_VERSION>> Decode<'_, Sqlite> for EntityWrapper<T> {
     fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        let entity = PhnxCodec::from_slice(bytes)?;
+        let entity = AirCodec::from_slice(bytes)?;
         Ok(Self(entity))
     }
 }
@@ -1082,7 +1082,7 @@ impl<T: Entity<CURRENT_VERSION>> Type<Sqlite> for EntityVecWrapper<T> {
 impl<T: Entity<CURRENT_VERSION>> Decode<'_, Sqlite> for EntityVecWrapper<T> {
     fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        let entities = PhnxCodec::from_slice(bytes)?;
+        let entities = AirCodec::from_slice(bytes)?;
         Ok(Self(entities))
     }
 }

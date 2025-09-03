@@ -4,7 +4,7 @@
 
 use std::fmt::Debug;
 
-use phnxcommon::crypto::indexed_aead::keys::{
+use aircommon::crypto::indexed_aead::keys::{
     BaseSecret, Index, IndexedAeadKey, IndexedKeyType, Key, KeyTypeInstance,
 };
 use sqlx::{Connection, SqliteConnection, SqliteExecutor, query, query_as};
@@ -149,7 +149,7 @@ pub(crate) trait StorableIndexedKey<KT: IndexedKeyType + Send + Unpin + Debug>:
 
 #[cfg(test)]
 mod tests {
-    use phnxcommon::{crypto::indexed_aead::keys::UserProfileKey, identifiers::UserId};
+    use aircommon::{crypto::indexed_aead::keys::UserProfileKey, identifiers::UserId};
     use sqlx::SqlitePool;
 
     use crate::key_stores::indexed_keys::StorableIndexedKey;

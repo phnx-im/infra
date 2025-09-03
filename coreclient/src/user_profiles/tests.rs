@@ -4,9 +4,8 @@
 
 use std::str::FromStr;
 
-use openmls::prelude::SignatureScheme;
-use phnxbackend::auth_service::user_record::UserRecord;
-use phnxcommon::{
+use airbackend::auth_service::user_record::UserRecord;
+use aircommon::{
     credentials::{
         AsCredential, AsIntermediateCredentialCsr, ClientCredentialCsr, ClientCredentialPayload,
         keys::ClientSigningKey,
@@ -17,6 +16,7 @@ use phnxcommon::{
     },
     identifiers::{Fqdn, UserId},
 };
+use openmls::prelude::SignatureScheme;
 
 use crate::{
     DisplayName, UserProfile,
@@ -69,7 +69,7 @@ fn backend_interaction() {
     let client_credential = ClientCredentialPayload::new(
         credential_csr,
         None,
-        as_intermediate_credential.fingerprint().clone(),
+        *as_intermediate_credential.fingerprint(),
     )
     .sign(&aic_sk)
     .unwrap();

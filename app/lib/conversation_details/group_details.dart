@@ -2,14 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/util/dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/dialog.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/core/core.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
@@ -31,6 +33,8 @@ class GroupDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final loc = AppLocalizations.of(context);
+
     return Align(
       alignment: Alignment.topCenter,
       child: Container(
@@ -40,18 +44,18 @@ class GroupDetails extends StatelessWidget {
           spacing: Spacings.s,
           children: [
             UserAvatar(
-              size: 100,
+              size: 128,
               image: conversation.picture,
               displayName: conversation.title,
               onPressed: () => _selectAvatar(context, conversation.id),
             ),
             Text(
               conversation.title,
-              style: Theme.of(context).textTheme.labelMedium,
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
             Text(
               conversation.conversationType.description,
-              style: Theme.of(context).textTheme.labelMedium,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             Expanded(
               child: Container(
@@ -63,9 +67,7 @@ class GroupDetails extends StatelessWidget {
                     children: [
                       Text(
                         "Members",
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelMedium?.merge(VariableFontWeight.bold),
+                        style: Theme.of(context).textTheme.labelLarge,
                       ),
                       Expanded(
                         child: ListView.builder(
@@ -89,14 +91,22 @@ class GroupDetails extends StatelessWidget {
             ),
             Divider(color: Theme.of(context).hintColor),
             OutlinedButton(
-              style: dangerButtonStyle(context),
               onPressed: () => _leave(context, conversation.id),
-              child: const Text("Leave"),
+              child: Text(
+                loc.leaveConversationButton_text,
+                style: TextStyle(
+                  color: CustomColorScheme.of(context).function.danger,
+                ),
+              ),
             ),
             OutlinedButton(
-              style: dangerButtonStyle(context),
               onPressed: () => _delete(context, conversation.id),
-              child: const Text("Delete"),
+              child: Text(
+                loc.deleteConversationButton_text,
+                style: TextStyle(
+                  color: CustomColorScheme.of(context).function.danger,
+                ),
+              ),
             ),
           ],
         ),
@@ -163,10 +173,11 @@ class _MemberTile extends StatelessWidget {
       leading: UserAvatar(
         displayName: profile.displayName,
         image: profile.profilePicture,
+        size: Spacings.l,
       ),
       title: Text(
         profile.displayName,
-        style: Theme.of(context).textTheme.labelMedium,
+        style: Theme.of(context).textTheme.bodyMedium,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: const Icon(Icons.more_horiz),

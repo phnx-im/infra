@@ -2,20 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Context, Result, bail, ensure};
-use mimi_content::{
-    Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPartContent,
-};
-use mimi_room_policy::RoleIndex;
-use openmls::{
-    group::QueuedProposal,
-    prelude::{
-        ApplicationMessage, MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, Proposal,
-        ProtocolMessage, Sender,
-    },
-};
-use phnxcommon::{
-    codec::PhnxCodec,
+use aircommon::{
+    codec::AirCodec,
     credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{MimiId, QualifiedGroupId, UserHandle, UserId},
@@ -27,6 +15,18 @@ use phnxcommon::{
         },
     },
     time::TimeStamp,
+};
+use anyhow::{Context, Result, bail, ensure};
+use mimi_content::{
+    Disposition, MessageStatus, MessageStatusReport, MimiContent, NestedPartContent,
+};
+use mimi_room_policy::RoleIndex;
+use openmls::{
+    group::QueuedProposal,
+    prelude::{
+        ApplicationMessage, MlsMessageBodyIn, MlsMessageIn, ProcessedMessageContent, Proposal,
+        ProtocolMessage, Sender,
+    },
 };
 use sqlx::{Acquire, SqliteTransaction};
 use tls_codec::DeserializeBytes;
@@ -173,7 +173,7 @@ impl CoreUser {
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().context("No group data")?;
-                let attributes: ConversationAttributes = PhnxCodec::from_slice(group_data.bytes())?;
+                let attributes: ConversationAttributes = AirCodec::from_slice(group_data.bytes())?;
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);

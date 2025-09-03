@@ -4,18 +4,18 @@
 
 use std::{collections::HashMap, iter};
 
-use super::{ClientVerificationInfo, Group, openmls_provider::PhnxOpenMlsProvider};
-use anyhow::{Context, Result, anyhow, bail, ensure};
-use mimi_room_policy::RoleIndex;
-use phnxcommon::{
+use super::{ClientVerificationInfo, Group, openmls_provider::AirOpenMlsProvider};
+use aircommon::{
     credentials::{
-        AsIntermediateCredential, ClientCredential, CredentialFingerprint,
+        AsIntermediateCredential, AsIntermediateCredentialBody, ClientCredential,
         VerifiableClientCredential,
     },
-    crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
+    crypto::{ear::keys::EncryptedUserProfileKey, hash::Hash, indexed_aead::keys::UserProfileKey},
     identifiers::UserId,
     messages::client_ds::{InfraAadMessage, InfraAadPayload},
 };
+use anyhow::{Context, Result, anyhow, bail, ensure};
+use mimi_room_policy::RoleIndex;
 use sqlx::SqliteConnection;
 use tls_codec::DeserializeBytes as TlsDeserializeBytes;
 use tracing::debug;
@@ -52,7 +52,7 @@ impl Group {
     ) -> Result<ProcessMessageResult> {
         // Phase 1: Process the message.
         let processed_message = {
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group.process_message(&provider, message)?
         };
 
@@ -399,7 +399,7 @@ impl Group {
         staged_commit: &StagedCommit,
         connection: &mut SqliteConnection,
         added_clients: impl Iterator<Item = QueuedAddProposal<'a>>,
-        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
+        as_credentials: &HashMap<Hash<AsIntermediateCredentialBody>, AsIntermediateCredential>,
     ) -> Result<Vec<ClientAuthInfo>> {
         // AddUsers Phase 1: Compute the free indices
         let added_clients_with_indices =
@@ -467,7 +467,7 @@ impl Group {
         new_sender_credential: VerifiableClientCredential,
         sender_index: LeafNodeIndex,
         new_sender_leaf_key: SignaturePublicKey,
-        as_credentials: &HashMap<CredentialFingerprint, AsIntermediateCredential>,
+        as_credentials: &HashMap<Hash<AsIntermediateCredentialBody>, AsIntermediateCredential>,
     ) -> Result<()> {
         let client_auth_info = ClientAuthInfo::verify_credential(
             &self.group_id,

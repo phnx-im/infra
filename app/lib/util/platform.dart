@@ -6,10 +6,10 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 import 'package:uuid/uuid.dart';
 
-const platform = MethodChannel('im.phnx.prototype/channel');
+const platform = MethodChannel('ms.air/channel');
 
 final _log = Logger('Platform');
 

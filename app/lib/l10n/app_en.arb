@@ -1,5 +1,5 @@
 {
-  "appTitle": "Prototype",
+  "appTitle": "Air",
 
   "userSettingsScreen_title": "User Settings",
   "userSettingsScreen_idCopied": "User ID copied to clipboard",
@@ -29,6 +29,10 @@
   "removeUserDialog_cancel": "Cancel",
   "removeUserDialog_removeUser": "Remove user",
   "removeUserButton_text": "Remove user",
+
+  "leaveConversationButton_text": "Leave conversation",
+  "deleteConversationButton_text": "Delete conversation",
+  "deleteConnectionButton_text": "Delete connection",
 
   "introScreen_signUp": "Sign up",
 

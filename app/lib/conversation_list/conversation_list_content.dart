@@ -6,12 +6,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/app_localizations.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/ui/typography/monospace.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_list_cubit.dart';
@@ -53,10 +56,7 @@ class _NoConversations extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       child: Text(
         loc.conversationList_emptyMessage,
-        style: TextStyle(
-          fontSize: isLargeScreen(context) ? 14 : 15,
-          color: Colors.black54,
-        ),
+        style: TextStyle(color: CustomColorScheme.of(context).text.secondary),
       ),
     );
   }
@@ -77,7 +77,7 @@ class _ListTile extends StatelessWidget {
       horizontalTitleGap: 0,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: Spacings.xxs,
-        vertical: Spacings.xxxs,
+        vertical: Spacings.xxs,
       ),
       minVerticalPadding: 0,
       title: Container(
@@ -90,7 +90,10 @@ class _ListTile extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Spacings.s),
-          color: isSelected ? convPaneFocusColor : null,
+          color:
+              isSelected
+                  ? CustomColorScheme.of(context).backgroundBase.quaternary
+                  : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -98,7 +101,7 @@ class _ListTile extends StatelessWidget {
           spacing: Spacings.s,
           children: [
             UserAvatar(
-              size: 48,
+              size: 50,
               image: conversation.picture,
               displayName: conversation.title,
             ),
@@ -106,6 +109,7 @@ class _ListTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
+                spacing: Spacings.xxxs,
                 children: [
                   _ListTileTop(conversation: conversation),
                   Expanded(child: _ListTileBottom(conversation: conversation)),
@@ -116,7 +120,6 @@ class _ListTile extends StatelessWidget {
         ),
       ),
       selected: isSelected,
-      focusColor: convListItemSelectedColor,
       onTap:
           () =>
               context.read<NavigationCubit>().openConversation(conversation.id),
@@ -194,23 +197,23 @@ class _UnreadBadge extends StatelessWidget {
     }
 
     final badgeText = count <= 100 ? "$count" : "100+";
-    const double badgeSize = 20;
+    const double badgeSize = 26;
     return Container(
       alignment: AlignmentDirectional.center,
       constraints: const BoxConstraints(minWidth: badgeSize),
-      padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
+      padding: const EdgeInsets.fromLTRB(7, 0, 7, 2),
       height: badgeSize,
       decoration: BoxDecoration(
-        color: colorDMB,
+        color: CustomColorScheme.of(context).backgroundBase.quaternary,
         borderRadius: BorderRadius.circular(badgeSize / 2),
       ),
       child: Text(
         badgeText,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          letterSpacing: 0,
-        ).merge(VariableFontWeight.semiBold),
+        style: TextStyle(
+          color: CustomColorScheme.of(context).text.primary,
+          fontSize: LabelFontSize.small2.size,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -232,18 +235,25 @@ class _LastMessage extends StatelessWidget {
     final draftMessage = conversation.draft?.message.trim();
 
     final readStyle = TextStyle(
-      color: colorDMB,
-      fontSize: isSmallScreen(context) ? 14 : 13,
+      color: CustomColorScheme.of(context).text.primary,
       height: 1.2,
-    ).merge(VariableFontWeight.normal);
-    final unreadStyle = readStyle.merge(VariableFontWeight.medium);
-    final draftStyle = readStyle.copyWith(fontStyle: FontStyle.italic);
+    );
+    final unreadStyle = readStyle.copyWith(fontWeight: FontWeight.bold);
+    final draftStyle = readStyle.copyWith(
+      fontStyle: FontStyle.italic,
+      color: CustomColorScheme.of(context).text.tertiary,
+    );
 
     final showDraft =
         !isCurrentConversation && draftMessage?.isNotEmpty == true;
 
     final prefixStyle =
-        showDraft ? draftStyle : readStyle.merge(VariableFontWeight.semiBold);
+        showDraft
+            ? draftStyle
+            : readStyle.copyWith(
+              fontWeight: FontWeight.normal,
+              color: CustomColorScheme.of(context).text.tertiary,
+            );
 
     final suffixStyle =
         isCurrentConversation && conversation.unreadMessages > 0
@@ -278,7 +288,7 @@ class _LastMessage extends StatelessWidget {
             };
 
     return Text.rich(
-      maxLines: 2,
+      maxLines: 1,
       softWrap: true,
       overflow: TextOverflow.ellipsis,
       TextSpan(
@@ -342,11 +352,10 @@ class _LastUpdatedState extends State<_LastUpdated> {
       baselineType: TextBaseline.alphabetic,
       child: Text(
         _localizedTimestamp(_displayTimestamp, loc),
-        style: const TextStyle(
-          color: colorDMB,
-          fontSize: 12,
-          letterSpacing: -0.2,
-        ).merge(VariableFontWeight.medium),
+        style: TextStyle(
+          color: CustomColorScheme.of(context).text.quaternary,
+          fontSize: LabelFontSize.small1.size,
+        ),
       ),
     );
   }
@@ -363,12 +372,14 @@ class _ConversationTitle extends StatelessWidget {
       baseline: Spacings.s,
       baselineType: TextBaseline.alphabetic,
       child: Text(
-        title,
+        title.toUpperCase(),
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: convListItemTextColor,
-          fontSize: 14,
-        ).merge(VariableFontWeight.semiBold),
+        style: TextStyle(
+          color: CustomColorScheme.of(context).text.tertiary,
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: LabelFontSize.small2.size,
+          letterSpacing: 1,
+        ),
       ),
     );
   }

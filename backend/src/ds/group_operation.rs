@@ -18,7 +18,7 @@ use mls_assist::{
     provider_traits::MlsAssistProvider,
 };
 
-use phnxcommon::{
+use aircommon::{
     credentials::VerifiableClientCredential,
     crypto::{
         ear::keys::{EncryptedUserProfileKey, GroupStateEarKey},
@@ -258,15 +258,15 @@ impl DsGroupState {
 
         // Process removes
 
-        println!();
-        println!();
-        println!();
-        println!();
+        warn!("BBBBBBBBBBBB");
+        warn!("BBBBBBBBBBBB");
+        warn!("BBBBBBBBBBBB");
+        warn!("BBBBBBBBBBBB");
         dbg!(&removed_clients);
-        println!();
-        println!();
-        println!();
-        println!();
+        warn!("BBBBBBBBBBBB");
+        warn!("BBBBBBBBBBBB");
+        warn!("BBBBBBBBBBBB");
+        warn!("BBBBBBBBBBBB");
         self.remove_profiles(removed_clients);
 
         // ... s.t. it's easier to update the user and client profiles.

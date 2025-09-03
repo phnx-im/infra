@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::identifiers::MimiId;
 use mimi_content::{MessageStatus, MimiContent};
-use phnxcommon::identifiers::MimiId;
 use tracing::{error, warn};
 
 use crate::{
@@ -207,7 +207,7 @@ impl ConversationMessage {
         self.status
     }
 
-    pub fn set_status(&mut self, status: MessageStatus) {
+    pub(crate) fn set_status(&mut self, status: MessageStatus) {
         self.status = status;
     }
 
@@ -283,7 +283,7 @@ impl Message {
         }
     }
 
-    pub(crate) fn mimi_id(&self) -> Option<&MimiId> {
+    pub fn mimi_id(&self) -> Option<&MimiId> {
         match self {
             Message::Content(content_message) => content_message.mimi_id(),
             Message::Event(_) => None,

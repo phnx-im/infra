@@ -13,7 +13,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Prototype';
+  String get appTitle => 'Air';
 
   @override
   String get userSettingsScreen_title => 'User Settings';
@@ -93,6 +93,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get removeUserButton_text => 'Remove user';
+
+  @override
+  String get leaveConversationButton_text => 'Leave conversation';
+
+  @override
+  String get deleteConversationButton_text => 'Delete conversation';
+
+  @override
+  String get deleteConnectionButton_text => 'Delete connection';
 
   @override
   String get introScreen_signUp => 'Sign up';

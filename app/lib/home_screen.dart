@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/conversation_list/conversation_list.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/resizable_panel.dart';
+import 'package:air/conversation_list/conversation_list.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/util/resizable_panel.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -16,8 +17,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mobileLayout = Scaffold(
-      backgroundColor:
-          isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
+      backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
       body: const ConversationListContainer(),
     );
     const desktopLayout = HomeScreenDesktopLayout(
@@ -45,21 +45,16 @@ class HomeScreenDesktopLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          isLargeScreen(context) ? convPaneBackgroundColor : Colors.white,
-      body: Container(
-        color: Colors.white,
-        child: Row(
-          children: [
-            ResizablePanel(
-              initialWidth:
-                  context.read<UserSettingsCubit>().state.sidebarWidth,
-              onResizeEnd: (width) => onResizeEnd(context, width),
-              child: conversationList,
-            ),
-            Expanded(child: conversation),
-          ],
-        ),
+      backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
+      body: Row(
+        children: [
+          ResizablePanel(
+            initialWidth: context.read<UserSettingsCubit>().state.sidebarWidth,
+            onResizeEnd: (width) => onResizeEnd(context, width),
+            child: conversationList,
+          ),
+          Expanded(child: conversation),
+        ],
       ),
     );
   }

@@ -4,21 +4,21 @@
 
 use std::convert::Infallible;
 
-use mimi_content::content_container::{EncryptionAlgorithm, HashAlgorithm};
-use phnxcommon::crypto::{
+use aircommon::crypto::{
     ear::{
         Ciphertext, EarDecryptable, EarEncryptable, EarKey, GenericDeserializable,
         GenericSerializable, Payload, keys::AttachmentEarKey,
     },
     errors::{DecryptionError, EncryptionError},
 };
+use mimi_content::content_container::{EncryptionAlgorithm, HashAlgorithm};
 
 use super::AttachmentBytes;
 
-pub(super) const PHNX_ATTACHMENT_ENCRYPTION_ALG: EncryptionAlgorithm =
+pub(super) const AIR_ATTACHMENT_ENCRYPTION_ALG: EncryptionAlgorithm =
     EncryptionAlgorithm::Aes256Gcm12;
 
-pub(super) const PHNX_ATTACHMENT_HASH_ALG: HashAlgorithm = HashAlgorithm::Sha256;
+pub(super) const AIR_ATTACHMENT_HASH_ALG: HashAlgorithm = HashAlgorithm::Sha256;
 
 #[derive(Debug, Clone)]
 pub struct EncryptedAttachmentCtype;

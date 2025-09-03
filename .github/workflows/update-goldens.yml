@@ -7,11 +7,19 @@ name: Update Goldens
 on: workflow_dispatch
 
 jobs:
-  update_goldens:
+  update_linux_goldens:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
     name: Update Golden Files
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Clone repository
@@ -26,9 +34,7 @@ jobs:
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
-
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.88.0
+          cache: false # no need caching in a manual workflow
 
       - name: Run Flutter tests and update goldens
         run: just test-flutter --update-goldens
@@ -39,7 +45,26 @@ jobs:
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+
           git fetch origin $BRANCH_NAME
           git checkout $BRANCH_NAME
+
           git add app/test
-          if git commit -m "Update golden files"; then git push; fi
+          git commit -m "Update golden files" || echo "No changes to commit."
+          git status
+          git restore .
+
+          # Retry push if there are upstream changes
+          MAX_RETRIES=3
+          COUNT=0
+
+          until git push; do
+            COUNT=$((COUNT+1))
+            if [ "$COUNT" -ge "$MAX_RETRIES" ]; then
+              echo "Push failed after $MAX_RETRIES attempts."
+              exit 1
+            fi
+            echo "Push failed, attempting to rebase and retry ($COUNT/$MAX_RETRIES)..."
+            git fetch origin "$BRANCH_NAME"
+            git rebase "origin/$BRANCH_NAME"
+          done
