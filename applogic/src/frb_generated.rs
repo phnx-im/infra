@@ -6937,6 +6937,7 @@ impl SseDecode for crate::api::types::UiConversationMessage {
         let mut var_message = <crate::api::types::UiMessage>::sse_decode(deserializer);
         let mut var_position = <crate::api::types::UiFlightPosition>::sse_decode(deserializer);
         let mut var_status = <crate::api::types::UiMessageStatus>::sse_decode(deserializer);
+        let mut var_isNew = <bool>::sse_decode(deserializer);
         return crate::api::types::UiConversationMessage {
             conversation_id: var_conversationId,
             id: var_id,
@@ -6944,6 +6945,7 @@ impl SseDecode for crate::api::types::UiConversationMessage {
             message: var_message,
             position: var_position,
             status: var_status,
+            is_new: var_isNew,
         };
     }
 }
@@ -8370,6 +8372,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::UiConversationMessage 
             self.message.into_into_dart().into_dart(),
             self.position.into_into_dart().into_dart(),
             self.status.into_into_dart().into_dart(),
+            self.is_new.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -10075,6 +10078,7 @@ impl SseEncode for crate::api::types::UiConversationMessage {
         <crate::api::types::UiMessage>::sse_encode(self.message, serializer);
         <crate::api::types::UiFlightPosition>::sse_encode(self.position, serializer);
         <crate::api::types::UiMessageStatus>::sse_encode(self.status, serializer);
+        <bool>::sse_encode(self.is_new, serializer);
     }
 }
 

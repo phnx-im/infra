@@ -56,6 +56,7 @@ class MessageListView extends StatelessWidget {
                   child: _VisibilityConversationTile(
                     messageId: message.id,
                     timestamp: DateTime.parse(message.timestamp),
+                    child: ConversationTile(animated: message.isNew),
                   ),
                 )
                 : const SizedBox.shrink();
@@ -78,16 +79,18 @@ class _VisibilityConversationTile extends StatelessWidget {
   const _VisibilityConversationTile({
     required this.messageId,
     required this.timestamp,
+    required this.child,
   });
 
   final ConversationMessageId messageId;
   final DateTime timestamp;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return VisibilityDetector(
       key: ValueKey(VisibilityKeyValue(messageId)),
-      child: const ConversationTile(),
+      child: child,
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction > 0) {
           context.read<ConversationDetailsCubit>().markAsRead(

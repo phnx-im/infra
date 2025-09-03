@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/user/user.dart';
 import 'package:flutter/material.dart';
 import 'package:air/core/core.dart';
 import 'package:air/theme/theme.dart';
@@ -12,21 +13,33 @@ import 'message_cubit.dart';
 import 'text_message_tile.dart';
 
 class ConversationTile extends StatelessWidget {
-  const ConversationTile({super.key});
+  const ConversationTile({super.key, required this.animated});
+
+  final bool animated;
 
   @override
   Widget build(BuildContext context) {
-    final (messageId, message, timestamp, position, status) = context.select(
-      (MessageCubit cubit) => (
-        cubit.state.message.id,
-        cubit.state.message.message,
-        cubit.state.message.timestamp,
-        cubit.state.message.position,
-        cubit.state.message.status,
+    final userId = context.select((UserCubit cubit) => cubit.state.userId);
+    final (messageId, message, timestamp, position, status, isNew) = context
+        .select(
+          (MessageCubit cubit) => (
+            cubit.state.message.id,
+            cubit.state.message.message,
+            cubit.state.message.timestamp,
+            cubit.state.message.position,
+            cubit.state.message.status,
+            cubit.state.message.isNew,
+          ),
+        );
+    final (isSender, isNewContent) = switch (message) {
+      UiMessage_Content(field0: final content) => (
+        content.sender == userId,
+        isNew,
       ),
-    );
+      UiMessage_Display() => (false, false),
+    };
 
-    return ListTile(
+    final tile = ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       dense: true,
       visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
@@ -40,6 +53,7 @@ class ConversationTile extends StatelessWidget {
             timestamp: timestamp,
             flightPosition: position,
             status: status,
+            isSender: isSender,
           ),
           UiMessage_Display(field0: final display) => DisplayMessageTile(
             display,
@@ -48,6 +62,77 @@ class ConversationTile extends StatelessWidget {
         },
       ),
       selected: false,
+    );
+
+    return animated
+        ? _AnimatedMessage(position: position, isSender: isSender, child: tile)
+        : tile;
+  }
+}
+
+class _AnimatedMessage extends StatefulWidget {
+  const _AnimatedMessage({
+    super.key,
+    required this.position,
+    required this.isSender,
+    required this.child,
+  });
+
+  final UiFlightPosition position;
+  final bool isSender;
+  final Widget child;
+
+  @override
+  State<_AnimatedMessage> createState() => _AnimatedMessageState();
+}
+
+class _AnimatedMessageState extends State<_AnimatedMessage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fixedStartHeight = switch (widget.position) {
+      UiFlightPosition.start || UiFlightPosition.middle => 0.0,
+      // FIXME: magic number
+      // Technically, this is the height of the timestampt and checkmark for the read message,
+      // however the value is exactly the height + spacing.
+      UiFlightPosition.single || UiFlightPosition.end => 27.0,
+    };
+
+    final animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutQuart,
+    );
+
+    return Container(
+      constraints: BoxConstraints(minHeight: fixedStartHeight),
+      child: SizeTransition(
+        axis: Axis.vertical,
+        sizeFactor: animation,
+        child: ScaleTransition(
+          scale: animation,
+          alignment:
+              widget.isSender ? Alignment.bottomRight : Alignment.bottomLeft,
+          child: widget.child,
+        ),
+      ),
     );
   }
 }

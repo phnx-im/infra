@@ -58,6 +58,7 @@ impl MessageListState {
         &mut self,
         mut new_messages: Vec<ConversationMessage>,
         include_first: bool,
+        initial_load: bool,
     ) {
         let capacity = new_messages.len().saturating_sub(1);
         let mut messages = Vec::with_capacity(capacity);
@@ -85,10 +86,20 @@ impl MessageListState {
             cur = next;
         }
 
+        // Mark messages that are not in the index as new
+        if !initial_load {
+            for message in &mut messages {
+                if !self.inner.message_ids_index.contains_key(&message.id) {
+                    message.is_new = true;
+                }
+            }
+        }
+
         let inner = MessageListStateInner {
             message_ids_index,
             messages,
         };
+
         self.inner = Arc::new(inner); // copy on write
     }
 
@@ -186,13 +197,13 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         stop: CancellationToken,
     ) {
         spawn_from_sync(async move {
-            self.load_and_emit_state().await;
+            self.load_and_emit_state(true).await;
             self.store_notifications_loop(store_notifications, stop)
                 .await;
         });
     }
 
-    async fn load_and_emit_state(&self) {
+    async fn load_and_emit_state(&self, initial_load: bool) {
         const MAX_MESSAGES: usize = 1001;
         let messages = match self
             .store
@@ -211,8 +222,9 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         };
         debug!(?messages, "MessageListCubit::load_and_emit_state");
         let include_first = messages.len() < MAX_MESSAGES;
-        self.state_tx
-            .send_modify(|state| state.rebuild_from_messages(messages, include_first));
+        self.state_tx.send_modify(|state| {
+            state.rebuild_from_messages(messages, include_first, initial_load)
+        });
     }
 
     async fn store_notifications_loop(
@@ -251,7 +263,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
             {
                 if message.conversation_id() == self.conversation_id {
                     self.notify_neghbors_of_added_message(message);
-                    self.load_and_emit_state().await;
+                    self.load_and_emit_state(false).await;
                 }
                 return Ok(());
             };
@@ -340,7 +352,8 @@ mod tests {
 
         let mut state = MessageListState::default();
         let include_first = true;
-        state.rebuild_from_messages(messages.clone(), include_first);
+        let initial_load = false;
+        state.rebuild_from_messages(messages.clone(), include_first, initial_load);
 
         let positions = state
             .inner
@@ -355,7 +368,8 @@ mod tests {
 
         let mut state = MessageListState::default();
         let include_first = false;
-        state.rebuild_from_messages(messages.clone(), include_first);
+        let initial_load = false;
+        state.rebuild_from_messages(messages.clone(), include_first, initial_load);
 
         let positions = state
             .inner
