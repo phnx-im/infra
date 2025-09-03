@@ -1086,6 +1086,7 @@ impl TimestampedMessage {
             .client_credential()
             .identity()
             .clone();
+
             let removed_index = remove_proposal.remove_proposal().removed();
             let removed = ClientAuthInfo::load_staged(connection, group_id, removed_index)
                 .await?
@@ -1093,6 +1094,12 @@ impl TimestampedMessage {
                 .client_credential()
                 .identity()
                 .clone();
+
+            if remover == removed {
+                // A system message for this proposal was already made when it was proposed
+                continue;
+            }
+
             removed_set.insert((remover, removed));
         }
         let remove_messages = removed_set.into_iter().map(|(remover, removed)| {
