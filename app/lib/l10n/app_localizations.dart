@@ -541,6 +541,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Report Spam'**
   String get reportSpamDialog_reportSpam;
+
+  /// No description provided for @reportSpamDialog_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Spam reported'**
+  String get reportSpamDialog_success;
+
+  /// No description provided for @reportSpamDialog_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to report spam. Please try again.'**
+  String get reportSpamDialog_error;
 }
 
 class _AppLocalizationsDelegate

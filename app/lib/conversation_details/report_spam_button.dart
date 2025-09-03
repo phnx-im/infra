@@ -4,11 +4,15 @@
 
 import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart';
+import 'package:air/main.dart';
 import 'package:air/theme/theme.dart';
 import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
+
+final _log = Logger("ReportSpamButton");
 
 class ReportSpamButton extends StatelessWidget {
   const ReportSpamButton({required this.userId, super.key});
@@ -29,7 +33,7 @@ class ReportSpamButton extends StatelessWidget {
   }
 
   void _onPressed(BuildContext context) async {
-    await showDialog(
+    final confirmed = await showDialog(
       context: context,
       builder: (BuildContext context) {
         final loc = AppLocalizations.of(context);
@@ -39,19 +43,12 @@ class ReportSpamButton extends StatelessWidget {
           content: Text(loc.reportSpamDialog_content),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
+              onPressed: () => Navigator.of(context).pop(false),
               style: textButtonStyle(context),
               child: Text(loc.reportSpamDialog_cancel),
             ),
             TextButton(
-              onPressed: () async {
-                await context.read<UserCubit>().reportSpam(userId);
-                if (context.mounted) {
-                  Navigator.of(context).pop(true);
-                }
-              },
+              onPressed: () => Navigator.of(context).pop(true),
               style: textButtonStyle(context),
               child: Text(loc.reportSpamDialog_reportSpam),
             ),
@@ -59,5 +56,22 @@ class ReportSpamButton extends StatelessWidget {
         );
       },
     );
+
+    if (confirmed && context.mounted) {
+      final loc = AppLocalizations.of(context);
+      try {
+        await context.read<UserCubit>().reportSpam(userId);
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loc.reportSpamDialog_success)));
+        }
+      } catch (e) {
+        _log.severe("Failed to report spam: $e");
+        if (context.mounted) {
+          showErrorBanner(context, loc.reportSpamDialog_error);
+        }
+      }
+    }
   }
 }

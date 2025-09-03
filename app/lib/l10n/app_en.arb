@@ -103,5 +103,7 @@
   "reportSpamDialog_title": "Report Spam?",
   "reportSpamDialog_content": "Air will be notified that this person may be sending spam. Air is never able to see the contents of any chats.",
   "reportSpamDialog_cancel": "Cancel",
-  "reportSpamDialog_reportSpam": "Report Spam"
+  "reportSpamDialog_reportSpam": "Report Spam",
+  "reportSpamDialog_success": "Spam reported",
+  "reportSpamDialog_error": "Failed to report spam. Please try again."
 }

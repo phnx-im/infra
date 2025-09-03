@@ -267,4 +267,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportSpamDialog_reportSpam => 'Report Spam';
+
+  @override
+  String get reportSpamDialog_success => 'Spam reported';
+
+  @override
+  String get reportSpamDialog_error =>
+      'Failed to report spam. Please try again.';
 }
