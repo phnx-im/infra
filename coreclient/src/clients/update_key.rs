@@ -65,7 +65,7 @@ mod update_key_flow {
     pub(super) struct UpdateKeyData {
         conversation: Conversation,
         group: Group,
-        params: UpdateParamsOut,
+        params: GroupOperationParamsOut,
     }
 
     impl UpdateKeyData {
@@ -102,7 +102,7 @@ mod update_key_flow {
             let owner_domain = conversation.owner_domain();
             let ds_timestamp = api_clients
                 .get(&owner_domain)?
-                .ds_update(params, signer, group.group_state_ear_key())
+                .ds_group_operation(params, signer, group.group_state_ear_key())
                 .await?;
             Ok(UpdatedKey {
                 group,

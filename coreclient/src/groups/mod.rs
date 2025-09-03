@@ -940,9 +940,12 @@ impl Group {
         &mut self,
         txn: &mut SqliteTransaction<'_>,
         signer: &ClientSigningKey,
-    ) -> Result<UpdateParamsOut> {
+    ) -> Result<GroupOperationParamsOut> {
         // We don't expect there to be a welcome.
-        let aad = InfraAadMessage::from(InfraAadPayload::Update).tls_serialize_detached()?;
+        let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys: vec![],
+        });
+        let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
             let provider = AirOpenMlsProvider::new(txn.as_mut());
@@ -977,7 +980,10 @@ impl Group {
             .await?;
         }
         let commit = AssistedMessageOut::new(mls_message, Some(group_info.into()))?;
-        Ok(UpdateParamsOut { commit })
+        Ok(GroupOperationParamsOut {
+            commit,
+            add_users_info_option: None,
+        })
     }
 
     pub(super) fn stage_leave_group(
