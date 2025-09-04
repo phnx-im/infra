@@ -212,12 +212,6 @@ abstract class AppLocalizations {
   /// **'Member details'**
   String get memberDetailsScreen_title;
 
-  /// No description provided for @memberDetailsScreen_error.
-  ///
-  /// In en, this message translates to:
-  /// **'No member details for intro screen'**
-  String get memberDetailsScreen_error;
-
   /// No description provided for @removeUserDialog_title.
   ///
   /// In en, this message translates to:
