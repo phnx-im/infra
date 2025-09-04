@@ -471,7 +471,6 @@ impl Group {
         let (mls_group, commit, group_info) = {
             let provider = AirOpenMlsProvider::new(&mut *connection);
 
-            /*
             let leaf_node_parameters = LeafNodeParameters::builder()
                 .with_capabilities(default_capabilities())
                 .build();
@@ -487,20 +486,6 @@ impl Group {
                 .finalize(&provider)?;
 
             let (commit, _, _group_info) = commit_message_bundle.into_contents();
-
-            */
-
-            let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
-                &provider,
-                signer,
-                Some(ratchet_tree_in),
-                verifiable_group_info,
-                &mls_group_config,
-                Some(default_capabilities()),
-                None,
-                &aad.tls_serialize_detached()?,
-                credential_with_key,
-            )?;
 
             mls_group.merge_pending_commit(&provider)?;
             let group_info = mls_group.export_group_info(provider.crypto(), signer, true)?;
