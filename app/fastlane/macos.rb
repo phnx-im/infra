@@ -89,7 +89,7 @@ platform :mac do
       sh "flutter pub get"
 
       # Build the app with flutter first to create the necessary ephemeral files
-      sh "flutter build macos --config-only --release"
+      sh "flutter build macos --config-only #{skip_signing ? '--debug' : '--release'}"
     
       # Install CocoaPods dependencies
       cocoapods(
