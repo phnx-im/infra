@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use aircommon::messages::connection_package::{ConnectionPackage, legacy::ConnectionPackageV1};
+use aircommon::messages::connection_package::ConnectionPackage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -10,18 +10,11 @@ pub(crate) mod persistence;
 
 #[derive(Deserialize)]
 pub(in crate::auth_service) enum StorableConnectionPackage {
-    // This is here so we successfully deserialize old connection packages.
-    #[allow(dead_code)]
-    #[serde(rename = "CurrentVersion")]
-    V1(ConnectionPackageV1),
-    V2(ConnectionPackage),
+    V1(ConnectionPackage),
 }
 
 #[derive(Debug, Error)]
-pub(in crate::auth_service) enum ConnectionPackageStorageError {
-    #[error("Invalid connection package version: {}", actual)]
-    InvalidVersion { actual: String },
-}
+pub(in crate::auth_service) enum ConnectionPackageStorageError {}
 
 impl From<ConnectionPackageStorageError> for sqlx::Error {
     fn from(error: ConnectionPackageStorageError) -> Self {
@@ -34,19 +27,14 @@ impl TryFrom<StorableConnectionPackage> for ConnectionPackage {
 
     fn try_from(connection_package: StorableConnectionPackage) -> Result<Self, Self::Error> {
         match connection_package {
-            StorableConnectionPackage::V2(connection_package) => Ok(connection_package),
-            StorableConnectionPackage::V1(_) => {
-                Err(ConnectionPackageStorageError::InvalidVersion {
-                    actual: "V1".to_string(),
-                })
-            }
+            StorableConnectionPackage::V1(connection_package) => Ok(connection_package),
         }
     }
 }
 
 impl From<ConnectionPackage> for StorableConnectionPackage {
     fn from(connection_package: ConnectionPackage) -> Self {
-        StorableConnectionPackage::V2(connection_package)
+        StorableConnectionPackage::V1(connection_package)
     }
 }
 

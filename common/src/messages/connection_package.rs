@@ -196,27 +196,3 @@ impl ConnectionPackage {
         Self { payload, signature }
     }
 }
-
-pub mod legacy {
-    use super::*;
-
-    use crate::{
-        credentials::{ClientCredential, keys::ClientSignature},
-        messages::MlsInfraVersion,
-        time::ExpirationData,
-    };
-
-    #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
-    pub struct ConnectionPackagePayloadV1 {
-        pub protocol_version: MlsInfraVersion,
-        pub encryption_key: ConnectionEncryptionKey,
-        pub lifetime: ExpirationData,
-        pub client_credential: ClientCredential,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
-    pub struct ConnectionPackageV1 {
-        payload: ConnectionPackagePayloadV1,
-        signature: ClientSignature,
-    }
-}
