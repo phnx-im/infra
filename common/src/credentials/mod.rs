@@ -26,7 +26,7 @@ use crate::{
         Labeled,
         ear::Ciphertext,
         errors::KeyGenerationError,
-        hash::{HASH_SIZE, Hash, Hashable},
+        hash::{Hash, Hashable},
         signatures::{
             private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},

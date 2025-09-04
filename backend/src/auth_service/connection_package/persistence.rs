@@ -87,7 +87,7 @@ impl StorableConnectionPackage {
         .fetch_one(connection)
         .await
         .map(|BlobDecoded(connection_package)| connection_package)?;
-        Ok(connection_package.try_into()?)
+        Ok(connection_package.into())
     }
 }
 

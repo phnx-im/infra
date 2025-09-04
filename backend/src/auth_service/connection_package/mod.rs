@@ -4,7 +4,6 @@
 
 use aircommon::messages::connection_package::ConnectionPackage;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 pub(crate) mod persistence;
 
@@ -13,21 +12,10 @@ pub(in crate::auth_service) enum StorableConnectionPackage {
     V1(ConnectionPackage),
 }
 
-#[derive(Debug, Error)]
-pub(in crate::auth_service) enum ConnectionPackageStorageError {}
-
-impl From<ConnectionPackageStorageError> for sqlx::Error {
-    fn from(error: ConnectionPackageStorageError) -> Self {
-        sqlx::Error::Decode(error.into())
-    }
-}
-
-impl TryFrom<StorableConnectionPackage> for ConnectionPackage {
-    type Error = ConnectionPackageStorageError;
-
-    fn try_from(connection_package: StorableConnectionPackage) -> Result<Self, Self::Error> {
+impl From<StorableConnectionPackage> for ConnectionPackage {
+    fn from(connection_package: StorableConnectionPackage) -> Self {
         match connection_package {
-            StorableConnectionPackage::V1(connection_package) => Ok(connection_package),
+            StorableConnectionPackage::V1(connection_package) => connection_package,
         }
     }
 }
