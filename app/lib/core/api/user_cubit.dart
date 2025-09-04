@@ -58,6 +58,8 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   Future<void> removeUserHandle({required UiUserHandle userHandle});
 
+  Future<void> reportSpam({required UiUserId spammerId});
+
   Future<void> setAppState({required AppState appState});
 
   /// Set the display name and/or profile picture of the user.
