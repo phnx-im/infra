@@ -234,9 +234,6 @@ impl Group {
                             .await?;
                         }
                     }
-                    InfraAadPayload::Update => {
-                        // deprecated: use group operations instead which also does an update
-                    }
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
                         // client credential of the joiner

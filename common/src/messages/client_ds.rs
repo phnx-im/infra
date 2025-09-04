@@ -171,8 +171,6 @@ impl InfraAadMessage {
 #[repr(u8)]
 pub enum InfraAadPayload {
     GroupOperation(GroupOperationParamsAad),
-    /// Deprecated: use group operations instead
-    Update,
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
     Resync,
     DeleteGroup,
