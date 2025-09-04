@@ -20,23 +20,18 @@ class ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userId = context.select((UserCubit cubit) => cubit.state.userId);
-    final (messageId, message, timestamp, position, status, isNew) = context
-        .select(
-          (MessageCubit cubit) => (
-            cubit.state.message.id,
-            cubit.state.message.message,
-            cubit.state.message.timestamp,
-            cubit.state.message.position,
-            cubit.state.message.status,
-            cubit.state.message.isNew,
-          ),
-        );
-    final (isSender, isNewContent) = switch (message) {
-      UiMessage_Content(field0: final content) => (
-        content.sender == userId,
-        isNew,
+    final (messageId, message, timestamp, position, status) = context.select(
+      (MessageCubit cubit) => (
+        cubit.state.message.id,
+        cubit.state.message.message,
+        cubit.state.message.timestamp,
+        cubit.state.message.position,
+        cubit.state.message.status,
       ),
-      UiMessage_Display() => (false, false),
+    );
+    final isSender = switch (message) {
+      UiMessage_Content(field0: final content) => content.sender == userId,
+      UiMessage_Display() => false,
     };
 
     final tile = ListTile(

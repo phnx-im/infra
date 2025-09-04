@@ -21,13 +21,25 @@ typedef MessageCubitCreate =
       required MessageState initialState,
     });
 
-class MessageListView extends StatelessWidget {
+class MessageListView extends StatefulWidget {
   const MessageListView({
     super.key,
     this.createMessageCubit = MessageCubit.new,
   });
 
   final MessageCubitCreate createMessageCubit;
+
+  @override
+  State<MessageListView> createState() => _MessageListViewState();
+}
+
+class _MessageListViewState extends State<MessageListView> {
+  /// Holds the list of already animated messages
+  ///
+  /// This is used to prevent the animation from being triggered multiple times
+  /// for messages that were newly added to the list, but are re-built because
+  /// they were removed from the rendering tree due to the scroll position.
+  final _animatedMessages = List<ConversationMessageId>.empty(growable: true);
 
   @override
   Widget build(BuildContext context) {
@@ -44,22 +56,29 @@ class MessageListView extends StatelessWidget {
           (context, reverseIndex) {
             final index = state.loadedMessagesCount - reverseIndex - 1;
             final message = state.messageAt(index);
-            return message != null
-                ? BlocProvider(
-                  key: ValueKey(message.id),
-                  create: (context) {
-                    return createMessageCubit(
-                      userCubit: context.read<UserCubit>(),
-                      initialState: MessageState(message: message),
-                    );
-                  },
-                  child: _VisibilityConversationTile(
-                    messageId: message.id,
-                    timestamp: DateTime.parse(message.timestamp),
-                    child: ConversationTile(animated: message.isNew),
-                  ),
-                )
-                : const SizedBox.shrink();
+            if (message == null) {
+              return const SizedBox.shrink();
+            }
+            final animate =
+                !_animatedMessages.contains(message.id) &&
+                state.isNewMessage(message.id);
+            if (animate) {
+              _animatedMessages.add(message.id);
+            }
+            return BlocProvider(
+              key: ValueKey(message.id),
+              create: (context) {
+                return widget.createMessageCubit(
+                  userCubit: context.read<UserCubit>(),
+                  initialState: MessageState(message: message),
+                );
+              },
+              child: _VisibilityConversationTile(
+                messageId: message.id,
+                timestamp: DateTime.parse(message.timestamp),
+                child: ConversationTile(animated: animate),
+              ),
+            );
           },
           findChildIndexCallback: (key) {
             final messageKey = key as ValueKey<ConversationMessageId>;

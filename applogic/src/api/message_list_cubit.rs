@@ -4,7 +4,10 @@
 
 //! A list of messages feature
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use aircoreclient::{
     ConversationId, ConversationMessage, ConversationMessageId,
@@ -43,6 +46,8 @@ struct MessageListStateInner {
     messages: Vec<UiConversationMessage>,
     /// Lookup index mapping a message id to the index in `messages`
     message_ids_index: HashMap<ConversationMessageId, usize>,
+    /// Newly added messages
+    new_messages: HashSet<ConversationMessageId>,
 }
 
 impl MessageListState {
@@ -87,10 +92,11 @@ impl MessageListState {
         }
 
         // Mark messages that are not in the index as new
+        let mut new_messages = HashSet::new();
         if !initial_load {
-            for message in &mut messages {
+            for message in &messages {
                 if !self.inner.message_ids_index.contains_key(&message.id) {
-                    message.is_new = true;
+                    new_messages.insert(message.id);
                 }
             }
         }
@@ -98,6 +104,7 @@ impl MessageListState {
         let inner = MessageListStateInner {
             message_ids_index,
             messages,
+            new_messages,
         };
 
         self.inner = Arc::new(inner); // copy on write
@@ -121,6 +128,11 @@ impl MessageListState {
     #[frb(sync, type_64bit_int, positional)]
     pub fn message_id_index(&self, message_id: ConversationMessageId) -> Option<usize> {
         self.inner.message_ids_index.get(&message_id).copied()
+    }
+
+    #[frb(sync, positional)]
+    pub fn is_new_message(&self, message_id: ConversationMessageId) -> bool {
+        self.inner.new_messages.contains(&message_id)
     }
 }
 

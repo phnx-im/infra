@@ -250,7 +250,6 @@ class UiConversationMessage {
   final UiMessage message;
   final UiFlightPosition position;
   final UiMessageStatus status;
-  final bool isNew;
 
   const UiConversationMessage({
     required this.conversationId,
@@ -259,7 +258,6 @@ class UiConversationMessage {
     required this.message,
     required this.position,
     required this.status,
-    required this.isNew,
   });
 
   @override
@@ -269,8 +267,7 @@ class UiConversationMessage {
       timestamp.hashCode ^
       message.hashCode ^
       position.hashCode ^
-      status.hashCode ^
-      isNew.hashCode;
+      status.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -282,8 +279,7 @@ class UiConversationMessage {
           timestamp == other.timestamp &&
           message == other.message &&
           position == other.position &&
-          status == other.status &&
-          isNew == other.isNew;
+          status == other.status;
 }
 
 @freezed

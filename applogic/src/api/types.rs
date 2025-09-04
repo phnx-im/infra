@@ -258,7 +258,6 @@ pub struct UiConversationMessage {
     pub message: UiMessage,
     pub position: UiFlightPosition,
     pub status: UiMessageStatus,
-    pub is_new: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -292,7 +291,6 @@ impl From<ConversationMessage> for UiConversationMessage {
             message: UiMessage::from(message.message().clone()),
             position: UiFlightPosition::Single,
             status,
-            is_new: false,
         }
     }
 }
