@@ -7291,6 +7291,7 @@ impl SseDecode for crate::api::navigation_cubit::UserSettingsScreenType {
             0 => crate::api::navigation_cubit::UserSettingsScreenType::Root,
             1 => crate::api::navigation_cubit::UserSettingsScreenType::EditDisplayName,
             2 => crate::api::navigation_cubit::UserSettingsScreenType::AddUserHandle,
+            3 => crate::api::navigation_cubit::UserSettingsScreenType::Help,
             _ => unreachable!("Invalid variant for UserSettingsScreenType: {}", inner),
         };
     }
@@ -8840,6 +8841,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::navigation_cubit::UserSetting
             Self::Root => 0.into_dart(),
             Self::EditDisplayName => 1.into_dart(),
             Self::AddUserHandle => 2.into_dart(),
+            Self::Help => 3.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -10381,6 +10383,7 @@ impl SseEncode for crate::api::navigation_cubit::UserSettingsScreenType {
                 crate::api::navigation_cubit::UserSettingsScreenType::Root => 0,
                 crate::api::navigation_cubit::UserSettingsScreenType::EditDisplayName => 1,
                 crate::api::navigation_cubit::UserSettingsScreenType::AddUserHandle => 2,
+                crate::api::navigation_cubit::UserSettingsScreenType::Help => 3,
                 _ => {
                     unimplemented!("");
                 }
