@@ -642,6 +642,19 @@ impl CoreUser {
             .map(|user_option| user_option.unwrap().into())
     }
 
+    pub async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()> {
+        self.inner
+            .api_clients
+            .default_client()?
+            .as_report_spam(
+                self.user_id().clone(),
+                spammer_id,
+                &self.inner.key_store.signing_key,
+            )
+            .await?;
+        Ok(())
+    }
+
     /// Executes a function with a transaction.
     ///
     /// The transaction is committed if the function returns `Ok`, and rolled

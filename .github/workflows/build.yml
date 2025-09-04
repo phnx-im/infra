@@ -14,6 +14,7 @@ on:
 
 env:
   SQLX_OFFLINE: true
+  CARGO_INCREMENTAL: 0
 
 jobs:
   rust-check-dependencies:

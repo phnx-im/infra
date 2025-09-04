@@ -37,8 +37,7 @@ use aircommon::{
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
-            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
-            WelcomeInfoIn,
+            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, WelcomeInfoIn,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -67,8 +66,8 @@ use openmls::{
     key_packages::KeyPackageBundle,
     prelude::{
         BasicCredentialError, Capabilities, Ciphersuite, CredentialType, CredentialWithKey,
-        Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup,
-        MlsGroupJoinConfig, MlsMessageOut, OpenMlsCrypto, OpenMlsProvider,
+        Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex,
+        LeafNodeParameters, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider,
         PURE_PLAINTEXT_WIRE_FORMAT_POLICY, Proposal, ProposalType, ProtocolVersion, QueuedProposal,
         RequiredCapabilitiesExtension, Sender, SignaturePublicKey, StagedCommit, UnknownExtension,
         tls_codec::Serialize as TlsSerializeTrait,
@@ -471,6 +470,26 @@ impl Group {
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info) = {
             let provider = AirOpenMlsProvider::new(&mut *connection);
+
+            /*
+            let leaf_node_parameters = LeafNodeParameters::builder()
+                .with_capabilities(default_capabilities())
+                .build();
+
+            let (mut mls_group, commit_message_bundle) = MlsGroup::external_commit_builder()
+                .with_aad(aad.tls_serialize_detached()?)
+                .with_ratchet_tree(ratchet_tree_in)
+                .with_config(mls_group_config)
+                .build_group(&provider, verifiable_group_info, credential_with_key)?
+                .leaf_node_parameters(leaf_node_parameters)
+                .load_psks(provider.storage())?
+                .build(provider.rand(), provider.crypto(), signer, |_| true)?
+                .finalize(&provider)?;
+
+            let (commit, _, _group_info) = commit_message_bundle.into_contents();
+
+            */
+
             let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
                 &provider,
                 signer,
@@ -482,6 +501,7 @@ impl Group {
                 &aad.tls_serialize_detached()?,
                 credential_with_key,
             )?;
+
             mls_group.merge_pending_commit(&provider)?;
             let group_info = mls_group.export_group_info(provider.crypto(), signer, true)?;
             (mls_group, commit, group_info)

@@ -445,6 +445,7 @@ impl CoreUser {
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
         let mut messages = Vec::new();
 
+        #[allow(clippy::single_match)]
         match proposal.proposal() {
             Proposal::Remove(remove_proposal) => {
                 let Some(removed) = group.client_by_index(txn, remove_proposal.removed()).await
