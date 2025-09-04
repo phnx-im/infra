@@ -33,6 +33,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userSettingsScreen_interfaceScale => 'Interface scale';
 
   @override
+  String get userSettingsScreen_help => 'Help';
+
+  @override
   String get removeUsernameDialog_title => 'Remove Username';
 
   @override
@@ -251,4 +254,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textMessage_edited => 'edited';
+
+  @override
+  String get helpScreen_title => 'Help';
+
+  @override
+  String get helpScreen_contactUs => 'Contact Us';
+
+  @override
+  String get helpScreen_versionInfo => 'Version Info';
+
+  @override
+  String get helpScreen_licenses => 'Licenses';
+
+  @override
+  String get licensesScreen_title => 'Licenses';
+
+  @override
+  String get contactUsScreen_title => 'Contact';
+
+  @override
+  String get contactUsScreen_subject => 'Message subject';
+
+  @override
+  String get contactUsScreen_body => 'Body';
+
+  @override
+  String get contactUsScreen_composeEmail => 'Compose Email';
+
+  @override
+  String get contactUsScreen_subject_somethingNotWorking =>
+      'Something\'s not working';
+
+  @override
+  String get contactUsScreen_subject_iHaveAQuestion => 'I have a question';
+
+  @override
+  String get contactUsScreen_subject_requestFeature => 'Request a feature';
+
+  @override
+  String get contactUsScreen_subject_other => 'Other';
+
+  @override
+  String get contactUsScreen_subject_empty => 'Please select a subject';
+
+  @override
+  String get contactUsScreen_body_empty => 'Enter your message';
+
+  @override
+  String get contactUsScreen_body_tooShort => 'Please provide more information';
+
+  @override
+  String get contactUsScreen_errorLaunchingEmail =>
+      'Could not launch email client';
 }

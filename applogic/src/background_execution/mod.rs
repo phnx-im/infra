@@ -14,7 +14,7 @@ pub mod java_api;
 #[cfg(target_os = "ios")]
 pub mod swift_api;
 
-#[expect(
+#[allow(
     dead_code,
     reason = "used only on Android/iOS but is compiled for all targets"
 )]
