@@ -76,9 +76,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberDetailsScreen_title => 'Member details';
 
   @override
-  String get memberDetailsScreen_error => 'No member details for intro screen';
-
-  @override
   String get removeUserDialog_title => 'Remove user';
 
   @override

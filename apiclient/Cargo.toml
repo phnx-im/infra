@@ -8,6 +8,7 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 description = "HTTP and GRPC client for the server API"
+license = "AGPL-3.0-or-later"
 
 [dependencies]
 airprotos.workspace = true

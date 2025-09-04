@@ -38,20 +38,21 @@ class ConnectionDetails extends StatelessWidget {
         padding: const EdgeInsets.all(Spacings.s),
         child: Column(
           children: [
+            const SizedBox(height: Spacings.l),
             UserAvatar(
               size: 128,
               displayName: conversation.title,
               image: conversation.picture,
             ),
-            const SizedBox(height: Spacings.m),
+            const SizedBox(height: Spacings.l),
             Text(
+              style: Theme.of(context).textTheme.bodyLarge,
               conversation.title,
-              style: Theme.of(context).textTheme.labelMedium,
             ),
-            const SizedBox(height: Spacings.s),
+            const SizedBox(height: Spacings.l),
             Text(
               conversation.conversationType.description,
-              style: Theme.of(context).textTheme.labelMedium,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const Spacer(),
             OutlinedButton(

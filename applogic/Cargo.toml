@@ -9,6 +9,7 @@ authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2024"
 publish = false
 description = "Multi-platform client application logic"
+license = "AGPL-3.0-or-later"
 
 [lib]
 crate-type = ["cdylib", "staticlib", "lib"]
