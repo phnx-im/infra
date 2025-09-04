@@ -98,11 +98,8 @@ impl BasicUserData {
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
 
-        let connection_decryption_key = ConnectionDecryptionKey::generate()?;
-
         let key_store = MemoryUserKeyStoreBase {
             signing_key: prelim_signing_key,
-            connection_decryption_key,
             qs_client_signing_key,
             qs_user_signing_key,
             qs_queue_decryption_key,
@@ -241,7 +238,6 @@ impl PostAsRegistrationState {
         // Replace preliminary signing key in the key store
         let key_store = MemoryUserKeyStore {
             signing_key,
-            connection_decryption_key: key_store.connection_decryption_key,
             qs_client_signing_key: key_store.qs_client_signing_key,
             qs_user_signing_key: key_store.qs_user_signing_key,
             qs_queue_decryption_key: key_store.qs_queue_decryption_key,

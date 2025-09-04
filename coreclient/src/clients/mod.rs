@@ -12,7 +12,7 @@ use aircommon::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
-        ConnectionDecryptionKey, RatchetDecryptionKey,
+        RatchetDecryptionKey,
         ear::{
             EarEncryptable, EarKey, GenericSerializable,
             keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
