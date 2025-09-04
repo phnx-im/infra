@@ -51,16 +51,11 @@ sha2 = "0.10.9"
 
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
-#openmls = { git = "https://github.com/openmls/openmls" }
-openmls = { path = "../openmls/openmls" }
-#openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
-openmls_memory_storage = { path = "../openmls/openmls_memory_storage" }
-#openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
-openmls_rust_crypto = { path = "../openmls/openmls_rust_crypto" }
-#openmls_traits = { git = "https://github.com/openmls/openmls" }
-openmls_traits = { path = "../openmls/traits" }
-#mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
-mls-assist = { path = "../mls-assist" }
+openmls = { git = "https://github.com/openmls/openmls" }
+openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
+openmls_traits = { git = "https://github.com/openmls/openmls" }
+mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
 
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",

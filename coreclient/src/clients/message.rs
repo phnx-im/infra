@@ -47,7 +47,7 @@ impl CoreUser {
                 let group = Group::load_clean(txn, &group_id)
                     .await?
                     .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-                Ok(group.mls_group().has_pending_proposal())
+                Ok(group.mls_group().has_pending_proposals())
             })
             .await?;
 
