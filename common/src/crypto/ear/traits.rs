@@ -19,63 +19,6 @@ use crate::crypto::{
 
 use super::{AEAD_KEY_SIZE, AEAD_NONCE_SIZE, Aead, AeadCiphertext, Ciphertext};
 
-pub trait TlsSizeExt {
-    fn tls_serialized_len(&self) -> usize;
-}
-
-pub trait TlsSerializeExt: TlsSizeExt {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error>;
-
-    fn tls_serialize_detached(&self) -> Result<Vec<u8>, tls_codec::Error> {
-        let mut buffer = Vec::with_capacity(self.tls_serialized_len());
-        let written = self.tls_serialize(&mut buffer)?;
-        if written != buffer.len() {
-            Err(tls_codec::Error::EncodingError(format!(
-                "Expected that {} bytes were written but the output holds {} bytes",
-                written,
-                buffer.len()
-            )))
-        } else {
-            Ok(buffer)
-        }
-    }
-}
-
-pub trait TlsDeserializeBytesExt: TlsSizeExt {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error>
-    where
-        Self: Sized;
-
-    fn tls_deserialize_exact_bytes(bytes: &[u8]) -> Result<Self, tls_codec::Error>
-    where
-        Self: Sized,
-    {
-        let (value, rest) = Self::tls_deserialize_bytes(bytes)?;
-        if !rest.is_empty() {
-            return Err(tls_codec::Error::TrailingData);
-        }
-        Ok(value)
-    }
-}
-
-impl<T: tls_codec::Size> TlsSizeExt for T {
-    fn tls_serialized_len(&self) -> usize {
-        self.tls_serialized_len()
-    }
-}
-
-impl<T: tls_codec::Serialize> TlsSerializeExt for T {
-    fn tls_serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, tls_codec::Error> {
-        self.tls_serialize(writer)
-    }
-}
-
-impl<T: tls_codec::DeserializeBytes> TlsDeserializeBytesExt for T {
-    fn tls_deserialize_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), tls_codec::Error> {
-        Self::tls_deserialize_bytes(bytes)
-    }
-}
-
 /// A trait meant for structs holding a symmetric key of size [`AEAD_KEY_SIZE`].
 /// It enables use of these keys for encryption and decryption operations.
 pub trait EarKey: AsRef<Secret<AEAD_KEY_SIZE>> {
@@ -154,7 +97,7 @@ fn decrypt<'ctxt, 'aad>(
 
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
-pub trait EarEncryptable<EarKeyType: EarKey, CT>: TlsSerializeExt {
+pub trait EarEncryptable<EarKeyType: EarKey, CT>: tls_codec::Serialize {
     /// Encrypt the value under the given [`EarKey`]. Returns an
     /// [`EncryptionError`] or the ciphertext.
     fn encrypt(&self, ear_key: &EarKeyType) -> Result<Ciphertext<CT>, EncryptionError> {
@@ -190,7 +133,7 @@ pub trait EarEncryptable<EarKeyType: EarKey, CT>: TlsSerializeExt {
 
 /// A trait that can be derived for structs that are encryptable/decryptable by
 /// an EAR key.
-pub trait EarDecryptable<EarKeyType: EarKey, CT>: TlsDeserializeBytesExt + Sized {
+pub trait EarDecryptable<EarKeyType: EarKey, CT>: tls_codec::DeserializeBytes + Sized {
     /// Decrypt the given ciphertext using the given [`EarKey`]. Returns a
     /// [`DecryptionError`] or the resulting plaintext.
     fn decrypt(ear_key: &EarKeyType, ciphertext: &Ciphertext<CT>) -> Result<Self, DecryptionError> {
