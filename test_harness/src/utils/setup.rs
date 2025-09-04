@@ -8,19 +8,19 @@ use std::{
     time::Duration,
 };
 
+use aircommon::{
+    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
+    identifiers::{Fqdn, UserHandle, UserId},
+};
+use aircoreclient::{
+    ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
+};
+use airserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use anyhow::Context;
 use mimi_content::{
     ByteBuf, Disposition, MimiContent, NestedPart,
     content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
 };
-use phnxcommon::{
-    DEFAULT_PORT_HTTP, OpenMlsRand, RustCrypto,
-    identifiers::{Fqdn, UserHandle, UserId},
-};
-use phnxcoreclient::{
-    ConversationId, ConversationStatus, ConversationType, clients::CoreUser, store::Store, *,
-};
-use phnxserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
 use rand_chacha::rand_core::OsRng;
 use tempfile::TempDir;
@@ -391,10 +391,7 @@ impl TestBackend {
         let user2_contacts_before = user2.contacts().await.unwrap();
         let user2_conversations_before = user2.conversations().await.unwrap();
         info!("{user2_id:?} fetches and process AS handle messages");
-        let (mut stream, responder) = user2
-            .listen_handle(user2_handle_record.hash, &user2_handle_record.signing_key)
-            .await
-            .unwrap();
+        let (mut stream, responder) = user2.listen_handle(&user2_handle_record).await.unwrap();
         while let Some(Some(message)) = timeout(Duration::from_millis(500), stream.next())
             .await
             .unwrap()

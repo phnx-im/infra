@@ -2,23 +2,26 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/core/api/markdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/attachments/attachments.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/core/api/markdown.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/message_list/timestamp.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/attachments/attachments.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/message_list/timestamp.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/ui/typography/monospace.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 
 import 'message_renderer.dart';
 
-const double largeCornerRadius = Spacings.s;
-const double smallCornerRadius = Spacings.xxxs;
+const double largeCornerRadius = Spacings.sm;
+const double smallCornerRadius = Spacings.xxs;
 const double messageHorizontalPadding = Spacings.xs;
 const double messageVerticalPadding = Spacings.xxs;
 
@@ -135,10 +138,8 @@ class _MessageView extends StatelessWidget {
                         const SizedBox(width: Spacings.xxxs),
                       if (showMessageStatus)
                         DoubleCheckIcon(
-                          size: status == UiMessageStatus.read ? 13 : 12,
+                          size: LabelFontSize.small2.size,
                           singleCheckIcon: status == UiMessageStatus.sent,
-                          backgroundColor: Colors.white,
-                          color: colorGreyDark,
                           inverted: status == UiMessageStatus.read,
                         ),
                       const SizedBox(width: Spacings.xs),
@@ -181,13 +182,17 @@ class _MessageContent extends StatelessWidget {
             isSender
                 ? AlignmentDirectional.topEnd
                 : AlignmentDirectional.topStart,
+        // There's a bug in the linter
+        // ignore: avoid_unnecessary_containers
         child: Container(
           decoration: BoxDecoration(
             borderRadius: _messageBorderRadius(isSender, flightPosition),
-            color: isSender ? colorDMB : colorDMBSuperLight,
+            color:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfBackground
+                    : CustomColorScheme.of(context).message.otherBackground,
           ),
           child: DefaultTextStyle.merge(
-            style: messageTextStyle(context, isSender),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -195,6 +200,7 @@ class _MessageContent extends StatelessWidget {
                   Padding(
                     padding: _messagePadding,
                     child: buildBlockElement(
+                      context,
                       const BlockElement.error("Deleted message"),
                       isSender,
                     ),
@@ -219,7 +225,7 @@ class _MessageContent extends StatelessWidget {
                     padding: _messagePadding.copyWith(
                       bottom: isEdited ? 0 : null,
                     ),
-                    child: buildBlockElement(inner.element, isSender),
+                    child: buildBlockElement(context, inner.element, isSender),
                   ),
                 ),
                 if (!isDeleted && isEdited)
@@ -228,7 +234,10 @@ class _MessageContent extends StatelessWidget {
                     child: Text(
                       loc.textMessage_edited,
                       style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color: isSender ? colorGreyLight : colorGreyDark,
+                        color:
+                            isSender
+                                ? CustomColorScheme.of(context).text.quaternary
+                                : CustomColorScheme.of(context).text.tertiary,
                       ),
                     ),
                   ),
@@ -254,15 +263,16 @@ class _Sender extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
+      padding: const EdgeInsets.only(top: Spacings.xs, bottom: Spacings.xxs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           UserAvatar(
             displayName: profile.displayName,
             image: profile.profilePicture,
+            size: Spacings.m,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Spacings.xs),
           _DisplayName(displayName: profile.displayName, isSender: isSender),
         ],
       ),
@@ -278,13 +288,18 @@ class _DisplayName extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = isSender ? "You" : displayName;
+    final textUpper = text.toUpperCase();
     return SelectionContainer.disabled(
       child: Text(
-        isSender ? "You" : displayName,
-        style: const TextStyle(
-          color: colorDMB,
-          fontSize: 12,
-        ).merge(VariableFontWeight.semiBold),
+        textUpper,
+        style: TextStyle(
+          color: CustomColorScheme.of(context).text.tertiary,
+          fontSize: LabelFontSize.small2.size,
+          fontWeight: FontWeight.w100,
+          fontFamily: getSystemMonospaceFontFamily(),
+          letterSpacing: 1,
+        ),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -312,7 +327,10 @@ class _FileAttachmentContent extends StatelessWidget {
           Icon(
             Icons.file_present_sharp,
             size: 46,
-            color: isSender ? Colors.white : Colors.black,
+            color:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfText
+                    : CustomColorScheme.of(context).message.otherText,
           ),
           const SizedBox(width: Spacings.xxs),
           Column(
@@ -411,7 +429,7 @@ class _ImagePreview extends StatelessWidget {
         child: Container(
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,
-          color: Colors.white,
+          color: CustomColorScheme.of(context).backgroundBase.primary,
           child: Column(
             children: [
               AppBar(

@@ -22,6 +22,8 @@ service AuthService {
 
   rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
 
+  rpc ReportSpam(ReportSpamRequest) returns (ReportSpamResponse);
+
   // User Handles API
 
   // Creates a new handle
@@ -115,7 +117,7 @@ message ClientCredential {
 message ClientCredentialPayload {
   ClientCredentialCsr csr = 1;
   common.v1.ExpirationData expiration_data = 2;
-  CredentialFingerprint credential_fingerprint = 3;
+  Hash credential_fingerprint = 4;
 }
 
 message ClientCredentialCsr {
@@ -138,7 +140,7 @@ message ClientVerifyingKey {
   bytes bytes = 1;
 }
 
-message CredentialFingerprint {
+message Hash {
   bytes bytes = 1;
 }
 
@@ -259,12 +261,12 @@ message AsCredentialsRequest {}
 message AsCredentialsResponse {
   repeated AsCredential as_credentials = 1;
   repeated AsIntermediateCredential as_intermediate_credentials = 2;
-  repeated CredentialFingerprint revoked_credentials = 3;
+  repeated Hash revoked_credentials = 4;
 }
 
 message AsCredential {
   AsCredentialBody body = 1;
-  CredentialFingerprint fingerprint = 2;
+  Hash fingerprint = 3;
 }
 
 message AsCredentialBody {
@@ -281,7 +283,7 @@ message AsVerifyingKey {
 
 message AsIntermediateCredential {
   AsIntermediateCredentialBody body = 1;
-  CredentialFingerprint fingerprint = 2;
+  Hash fingerprint = 3;
 }
 
 message AsIntermediateCredentialBody {
@@ -292,7 +294,7 @@ message AsIntermediateCredentialBody {
 message AsIntermediateCredentialPayload {
   AsIntermediateCredentialCsr csr = 1;
   common.v1.ExpirationData expiration_data = 2;
-  CredentialFingerprint signer_fingerprint = 3;
+  Hash signer_fingerprint = 4;
 }
 
 message AsIntermediateCredentialCsr {
@@ -321,6 +323,20 @@ message IssueTokensPayload {
 message IssueTokensResponse {
   bytes token_response = 1;
 }
+
+// report spam
+
+message ReportSpamRequest {
+  ReportSpamPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message ReportSpamPayload {
+  UserId reporter_id = 1;
+  UserId spammer_id = 2;
+}
+
+message ReportSpamResponse {}
 
 // User Handles API common messsages
 
@@ -401,7 +417,7 @@ message EnqueueConnectionOfferStep {
 
 message ConnectionOfferMessage {
   common.v1.HpkeCiphertext ciphertext = 1;
-  bytes connection_package_hash = 2;
+  Hash connection_package_hash = 3;
 }
 
 message ConnectResponse {

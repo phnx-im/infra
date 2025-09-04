@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::group::GroupId;
-use phnxapiclient::{ApiClient, as_api::ConnectionOfferResponder};
-use phnxcommon::{
-    codec::PhnxCodec,
+use airapiclient::{ApiClient, as_api::ConnectionOfferResponder};
+use aircommon::{
+    codec::AirCodec,
     credentials::keys::ClientSigningKey,
     crypto::{
-        ear::keys::FriendshipPackageEarKey, hpke::HpkeEncryptable,
+        ear::keys::FriendshipPackageEarKey, hash::Hashable as _, hpke::HpkeEncryptable,
         indexed_aead::keys::UserProfileKey,
     },
     identifiers::{QsReference, UserHandle, UserId},
@@ -17,6 +16,7 @@ use phnxcommon::{
         connection_package::ConnectionPackage,
     },
 };
+use openmls::group::GroupId;
 use sqlx::SqliteTransaction;
 use tracing::info;
 
@@ -24,7 +24,7 @@ use crate::{
     Conversation, ConversationAttributes, ConversationId,
     clients::connection_offer::FriendshipPackage,
     contacts::HandleContact,
-    groups::{Group, PartialCreateGroupParams, openmls_provider::PhnxOpenMlsProvider},
+    groups::{Group, PartialCreateGroupParams, openmls_provider::AirOpenMlsProvider},
     key_stores::{MemoryUserKeyStore, indexed_keys::StorableIndexedKey},
     store::StoreNotifier,
 };
@@ -122,9 +122,9 @@ impl VerifiedConnectionPackagesWithGroupId {
         info!("Creating local connection group");
         let title = format!("Connection group: {}", handle.plaintext());
         let conversation_attributes = ConversationAttributes::new(title, None);
-        let group_data = PhnxCodec::to_vec(&conversation_attributes)?.into();
+        let group_data = AirCodec::to_vec(&conversation_attributes)?.into();
 
-        let provider = PhnxOpenMlsProvider::new(txn);
+        let provider = AirOpenMlsProvider::new(txn);
         let (group, group_membership, partial_params) =
             Group::create_group(&provider, signing_key, group_id.clone(), group_data)?;
         group_membership.store(txn.as_mut()).await?;

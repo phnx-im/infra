@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::{
+use airbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
         PushNotificationProvider, Qs, QsConnector, errors::QsEnqueueError,

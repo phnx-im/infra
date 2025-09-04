@@ -6,41 +6,62 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/api/markdown.dart';
-import 'package:prototype/theme/theme.dart';
+import 'package:air/core/api/markdown.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
 
-Widget buildBlockElement(BlockElement block, bool isSender) {
+Widget buildBlockElement(
+  BuildContext context,
+  BlockElement block,
+  bool isSender,
+) {
   return switch (block) {
     BlockElement_Paragraph(:final field0) => Text.rich(
       TextSpan(
         children:
-            field0.map((child) => buildInlineElement(child, isSender)).toList(),
-        style: TextStyle(color: isSender ? Colors.white : Colors.black),
+            field0
+                .map((child) => buildInlineElement(context, child, isSender))
+                .toList(),
+        style: TextStyle(
+          color:
+              isSender
+                  ? CustomColorScheme.of(context).message.selfText
+                  : CustomColorScheme.of(context).message.otherText,
+          fontSize: BodyFontSize.base.size,
+        ),
       ),
     ),
     BlockElement_Heading(:final field0) => Text.rich(
       TextSpan(
         children:
-            field0.map((child) => buildInlineElement(child, isSender)).toList(),
+            field0
+                .map((child) => buildInlineElement(context, child, isSender))
+                .toList(),
         style: TextStyle(
-          fontSize: 20,
+          fontSize: BodyFontSize.large1.size,
           fontWeight: FontWeight.bold,
-          fontVariations: variationBold,
-          color: isSender ? Colors.white : Colors.black,
+          color:
+              isSender
+                  ? CustomColorScheme.of(context).backgroundBase.primary
+                  : CustomColorScheme.of(context).text.primary,
         ),
       ),
     ),
     BlockElement_Quote(:final field0) => Container(
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Colors.blue, width: 4)),
-        color: Color(0x22448AFF),
+      decoration: BoxDecoration(
+        border: const Border(left: BorderSide(color: AppColors.blue, width: 4)),
+        color: AppColors.blue[700],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children:
             field0
-                .map((inner) => buildBlockElement(inner.element, isSender))
+                .map(
+                  (inner) =>
+                      buildBlockElement(context, inner.element, isSender),
+                )
                 .toList(),
       ),
     ),
@@ -60,8 +81,11 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
                         children:
                             items
                                 .map(
-                                  (item) =>
-                                      buildBlockElement(item.element, isSender),
+                                  (item) => buildBlockElement(
+                                    context,
+                                    item.element,
+                                    isSender,
+                                  ),
                                 )
                                 .toList(),
                       ),
@@ -80,7 +104,16 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text.rich(
-                      TextSpan(text: " ${field0 + BigInt.from(items.$1)}.  "),
+                      TextSpan(
+                        text: " ${field0 + BigInt.from(items.$1)}.  ",
+                        style: TextStyle(
+                          color:
+                              isSender
+                                  ? AppColors.blue[100]
+                                  : AppColors.blue[900],
+                          fontSize: BodyFontSize.base.size,
+                        ),
+                      ),
                     ),
                     Flexible(
                       child: Column(
@@ -90,8 +123,11 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
                         children:
                             items.$2
                                 .map(
-                                  (item) =>
-                                      buildBlockElement(item.element, isSender),
+                                  (item) => buildBlockElement(
+                                    context,
+                                    item.element,
+                                    isSender,
+                                  ),
                                 )
                                 .toList(),
                       ),
@@ -113,8 +149,11 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
                       children:
                           itemBlocks
                               .map(
-                                (item) =>
-                                    buildBlockElement(item.element, isSender),
+                                (item) => buildBlockElement(
+                                  context,
+                                  item.element,
+                                  isSender,
+                                ),
                               )
                               .toList(),
                     ),
@@ -130,8 +169,11 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
                         children:
                             itemBlocks
                                 .map(
-                                  (item) =>
-                                      buildBlockElement(item.element, isSender),
+                                  (item) => buildBlockElement(
+                                    context,
+                                    item.element,
+                                    isSender,
+                                  ),
                                 )
                                 .toList(),
                       ),
@@ -142,7 +184,10 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
       ],
     ),
     BlockElement_HorizontalRule() => Divider(
-      color: isSender ? Colors.white : Colors.black,
+      color:
+          isSender
+              ? CustomColorScheme.of(context).message.selfText
+              : CustomColorScheme.of(context).message.otherText,
     ),
     BlockElement_CodeBlock(:final field0) => Text.rich(
       TextSpan(
@@ -152,16 +197,25 @@ Widget buildBlockElement(BlockElement block, bool isSender) {
     ),
     BlockElement_Error(:final field0) => Container(
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Colors.blue, width: 4)),
-        color: Color(0x44FF8A44),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: CustomColorScheme.of(context).separator.primary,
+            width: 4,
+          ),
+        ),
+        color: CustomColorScheme.of(context).function.warning,
       ),
       child: Text.rich(TextSpan(text: field0)),
     ),
   };
 }
 
-InlineSpan buildInlineElement(RangedInlineElement inline, bool isSender) {
+InlineSpan buildInlineElement(
+  BuildContext context,
+  RangedInlineElement inline,
+  bool isSender,
+) {
   return switch (inline.element) {
     InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
@@ -170,34 +224,47 @@ InlineSpan buildInlineElement(RangedInlineElement inline, bool isSender) {
     ),
     InlineElement_Link(:final children) => TextSpan(
       children:
-          children.map((child) => buildInlineElement(child, isSender)).toList(),
+          children
+              .map((child) => buildInlineElement(context, child, isSender))
+              .toList(),
       style: TextStyle(
-        color: isSender ? const Color(0xFF69d1ff) : Colors.blue,
-        decorationColor: isSender ? const Color(0xFF69d1ff) : Colors.blue,
+        color:
+            isSender
+                ? const Color(0xFF69d1ff)
+                : CustomColorScheme.of(context).function.link,
+        decorationColor:
+            isSender
+                ? const Color(0xFF69d1ff)
+                : CustomColorScheme.of(context).function.link,
         decoration: TextDecoration.underline,
       ),
     ),
     InlineElement_Bold(:final field0) => TextSpan(
       children:
-          field0.map((child) => buildInlineElement(child, isSender)).toList(),
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        fontVariations: variationBold,
-      ),
+          field0
+              .map((child) => buildInlineElement(context, child, isSender))
+              .toList(),
+      style: const TextStyle(fontWeight: FontWeight.bold),
     ),
     InlineElement_Italic(:final field0) => TextSpan(
       children:
-          field0.map((child) => buildInlineElement(child, isSender)).toList(),
+          field0
+              .map((child) => buildInlineElement(context, child, isSender))
+              .toList(),
       style: const TextStyle(fontStyle: FontStyle.italic),
     ),
     InlineElement_Strikethrough(:final field0) => TextSpan(
       children:
-          field0.map((child) => buildInlineElement(child, isSender)).toList(),
+          field0
+              .map((child) => buildInlineElement(context, child, isSender))
+              .toList(),
       style: const TextStyle(decoration: TextDecoration.lineThrough),
     ),
     InlineElement_Spoiler(:final field0) => TextSpan(
       children:
-          field0.map((child) => buildInlineElement(child, isSender)).toList(),
+          field0
+              .map((child) => buildInlineElement(context, child, isSender))
+              .toList(),
       style: TextStyle(
         decoration: TextDecoration.combine([
           TextDecoration.overline,
@@ -222,11 +289,8 @@ InlineSpan buildInlineElement(RangedInlineElement inline, bool isSender) {
 }
 
 // The style used for formatting characters like * or >
-const TextStyle highlightStyle = TextStyle(
-  color: Colors.blue,
-  // fontWeight: FontWeight.normal,
-  // fontStyle: FontStyle.normal,
-);
+TextStyle highlightStyle(BuildContext context) =>
+    TextStyle(color: CustomColorScheme.of(context).function.link);
 
 class CustomTextEditingController extends TextEditingController {
   // Keep track of where widgets are, so the cursor can treat it as one unit
@@ -364,25 +428,29 @@ class CustomTextEditingController extends TextEditingController {
 
     return TextSpan(
       style: style,
-      children: buildWrappedBlock(0, raw.length, parsed.elements),
+      children: buildWrappedBlock(context, 0, raw.length, parsed.elements),
     );
   }
 
-  InlineSpan buildFormattedTextSpanBlock(RangedBlockElement block) {
+  InlineSpan buildFormattedTextSpanBlock(
+    BuildContext context,
+    RangedBlockElement block,
+  ) {
     return switch (block.element) {
       BlockElement_Paragraph(:final field0) => TextSpan(
-        children: buildWrappedInline(block.start, block.end, field0),
+        children: buildWrappedInline(context, block.start, block.end, field0),
       ),
       BlockElement_Heading(:final field0) => TextSpan(
-        children: buildWrappedInline(block.start, block.end, field0),
+        children: buildWrappedInline(context, block.start, block.end, field0),
         style: const TextStyle(fontSize: 20),
       ),
       BlockElement_Quote(:final field0) => TextSpan(
-        children: buildWrappedBlock(block.start, block.end, field0),
-        style: TextStyle(color: Colors.grey[600]),
+        children: buildWrappedBlock(context, block.start, block.end, field0),
+        style: TextStyle(color: AppColors.neutral[600]),
       ),
       BlockElement_UnorderedList(:final field0) => TextSpan(
         children: buildWrappedBlock(
+          context,
           block.start,
           block.end,
           field0.expand((list) => list).toList(),
@@ -390,6 +458,7 @@ class CustomTextEditingController extends TextEditingController {
       ),
       BlockElement_OrderedList(:final field1) => TextSpan(
         children: buildWrappedBlock(
+          context,
           block.start,
           block.end,
           field1.expand((list) => list).toList(),
@@ -397,14 +466,15 @@ class CustomTextEditingController extends TextEditingController {
       ),
       BlockElement_Table() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
-        style: highlightStyle,
+        style: highlightStyle(context),
       ),
       BlockElement_HorizontalRule() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
-        style: highlightStyle,
+        style: highlightStyle(context),
       ),
       BlockElement_CodeBlock(:final field0) => TextSpan(
         children: buildWrappedInline(
+          context,
           block.start,
           block.end,
           field0
@@ -421,9 +491,9 @@ class CustomTextEditingController extends TextEditingController {
       ),
       BlockElement_Error() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
-        style: const TextStyle(
-          color: Colors.red,
-          decorationColor: Colors.red,
+        style: TextStyle(
+          color: CustomColorScheme.of(context).function.danger,
+          decorationColor: CustomColorScheme.of(context).function.danger,
           decoration: TextDecoration.underline,
           decorationStyle: TextDecorationStyle.wavy,
         ),
@@ -431,7 +501,10 @@ class CustomTextEditingController extends TextEditingController {
     };
   }
 
-  InlineSpan buildFormattedTextSpanInline(RangedInlineElement inline) {
+  InlineSpan buildFormattedTextSpanInline(
+    BuildContext context,
+    RangedInlineElement inline,
+  ) {
     return switch (inline.element) {
       // TODO: Handle this case.
       InlineElement_Text() => TextSpan(
@@ -443,29 +516,26 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Link() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        style: const TextStyle(
-          color: Colors.blue,
-          decorationColor: Colors.blue,
+        style: TextStyle(
+          color: CustomColorScheme.of(context).function.link,
+          decorationColor: CustomColorScheme.of(context).function.link,
           decoration: TextDecoration.underline,
         ),
       ),
       InlineElement_Bold(:final field0) => TextSpan(
-        children: buildWrappedInline(inline.start, inline.end, field0),
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontVariations: variationBold,
-        ),
+        children: buildWrappedInline(context, inline.start, inline.end, field0),
+        style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       InlineElement_Italic(:final field0) => TextSpan(
-        children: buildWrappedInline(inline.start, inline.end, field0),
+        children: buildWrappedInline(context, inline.start, inline.end, field0),
         style: const TextStyle(fontStyle: FontStyle.italic),
       ),
       InlineElement_Strikethrough(:final field0) => TextSpan(
-        children: buildWrappedInline(inline.start, inline.end, field0),
+        children: buildWrappedInline(context, inline.start, inline.end, field0),
         style: const TextStyle(decoration: TextDecoration.lineThrough),
       ),
       InlineElement_Spoiler(:final field0) => TextSpan(
-        children: buildWrappedInline(inline.start, inline.end, field0),
+        children: buildWrappedInline(context, inline.start, inline.end, field0),
         style: TextStyle(
           decoration: TextDecoration.combine([
             TextDecoration.overline,
@@ -481,7 +551,7 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_TaskListMarker() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        style: highlightStyle,
+        style: highlightStyle(context),
       ),
     };
   }
@@ -498,6 +568,7 @@ class CustomTextEditingController extends TextEditingController {
   }
 
   List<InlineSpan> buildWrappedInline(
+    BuildContext context,
     int rangeStart,
     int rangeEnd,
     List<RangedInlineElement> value,
@@ -517,12 +588,12 @@ class CustomTextEditingController extends TextEditingController {
         children.add(
           TextSpan(
             text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
-            style: highlightStyle,
+            style: highlightStyle(context),
           ),
         );
       }
 
-      children.add(buildFormattedTextSpanInline(inner));
+      children.add(buildFormattedTextSpanInline(context, inner));
       lastInner = (start: inner.start, end: inner.end);
     }
 
@@ -531,7 +602,7 @@ class CustomTextEditingController extends TextEditingController {
       children.add(
         TextSpan(
           text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
-          style: highlightStyle,
+          style: highlightStyle(context),
         ),
       );
     }
@@ -540,6 +611,7 @@ class CustomTextEditingController extends TextEditingController {
   }
 
   List<InlineSpan> buildWrappedBlock(
+    BuildContext context,
     int rangeStart,
     int rangeEnd,
     List<RangedBlockElement> value,
@@ -554,12 +626,12 @@ class CustomTextEditingController extends TextEditingController {
         children.add(
           TextSpan(
             text: utf8.decode(raw.sublist(lastInner.end, inner.start)),
-            style: highlightStyle,
+            style: highlightStyle(context),
           ),
         );
       }
 
-      children.add(buildFormattedTextSpanBlock(inner));
+      children.add(buildFormattedTextSpanBlock(context, inner));
 
       lastInner = (start: inner.start, end: inner.end);
     }
@@ -569,7 +641,7 @@ class CustomTextEditingController extends TextEditingController {
       children.add(
         TextSpan(
           text: utf8.decode(raw.sublist(lastInner.end, rangeEnd)),
-          style: highlightStyle,
+          style: highlightStyle(context),
         ),
       );
     }

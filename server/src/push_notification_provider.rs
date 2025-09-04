@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
-use phnxbackend::{
+use airbackend::{
     qs::{PushNotificationError, PushNotificationProvider},
     settings::{ApnsSettings, FcmSettings},
 };
-use phnxcommon::messages::push_token::{PushToken, PushTokenOperator};
+use aircommon::messages::push_token::{PushToken, PushTokenOperator};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -161,10 +161,10 @@ impl ProductionPushNotificationProvider {
 
         // Check whether we already have a token and if it is still valid
         let mut token_option = fcm_state.token.lock().await;
-        if let Some(token) = token_option.as_ref() {
-            if !token.is_expired() {
-                return Ok(token.clone());
-            }
+        if let Some(token) = token_option.as_ref()
+            && !token.is_expired()
+        {
+            return Ok(token.clone());
         }
 
         let service_account = &fcm_state.service_account;
@@ -358,7 +358,7 @@ impl ProductionPushNotificationProvider {
         // Create the headers and payload
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert("authorization", format!("bearer {jwt}").parse().unwrap());
-        headers.insert("apns-topic", "im.phnx.prototype".parse().unwrap());
+        headers.insert("apns-topic", "ms.air".parse().unwrap());
         headers.insert("apns-push-type", "alert".parse().unwrap());
         headers.insert("apns-priority", "10".parse().unwrap());
         headers.insert("apns-expiration", "0".parse().unwrap());

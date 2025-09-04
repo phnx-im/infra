@@ -18,8 +18,8 @@ members = [
 
 [workspace.dependencies]
 # internal dependencies
-phnxcommon = { path = "./common" }
-phnxprotos = { path = "./protos" }
+aircommon = { path = "./common" }
+airprotos = { path = "./protos" }
 
 uuid = "1.16.0"
 
@@ -32,7 +32,7 @@ sqlx = { version = "0.8.5", default-features = false, features = [
     "runtime-tokio",
 ] }
 
-mimi-room-policy = { git = "https://github.com/phnx-im/mimi-room-policy", rev = "fdb7c4bd7ad399e8244b3e7db13e120d5d646ad9" }
+mimi-room-policy = { git = "https://github.com/phnx-im/mimi-room-policy", rev = "565772078c5bf72cf92610aadfedc985929372a3" }
 
 tls_codec = { version = "0.4.1", features = ["derive", "serde", "mls"] }
 
@@ -50,11 +50,11 @@ sha2 = "0.10.9"
 
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
-openmls = { git = "https://github.com/openmls/openmls" }
-openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
-openmls_traits = { git = "https://github.com/openmls/openmls" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
+openmls = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+openmls_memory_storage = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+openmls_traits = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+mls-assist = { git = "https://github.com/phnx-im/mls-assist", rev = "6a3ce5ac8dbb756d90d1710f16d6ae17321f15ab" }
 
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
@@ -67,7 +67,7 @@ tokio-stream = "0.1.17"
 tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }
 
-mimi_content = { git = "https://github.com/phnx-im/mimi-content", rev = "bbb1e2a22a58a9598e4e17d44c70c8d1bb4b5e89" }
+mimi_content = { git = "https://github.com/boxdot/mimi-content", rev = "18af569b6074ed5b63cb2d5086ffea3acfad3f02" }
 
 insta = { version = "1.42.1", features = ["json"] }
 
@@ -80,6 +80,7 @@ tower-http = { version = "0.6.2", features = ["trace"] }
 [patch.crates-io]
 # PR: <https://github.com/RustCrypto/formats/pull/1656/files>
 tls_codec = { git = "https://github.com/boxdot/formats", rev = "9846c69f91e732b493dcccf92f4c163bfc711b7d" }
+tls_codec_derive = { git = "https://github.com/boxdot/formats", rev = "9846c69f91e732b493dcccf92f4c163bfc711b7d" }
 # PR: <https://github.com/benwis/tower-governor/pull/53>
 tower_governor = { git = "https://github.com/boxdot/tower-governor", rev = "556d9f8" }
 

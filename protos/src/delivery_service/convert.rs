@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mls_assist::messages::AssistedWelcome;
-use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn, group_info};
-use phnxcommon::{
+use aircommon::{
     credentials::keys,
     crypto::{ear, secrets},
     identifiers,
     messages::{client_ds, client_ds_out::AddUsersInfoOut, welcome_attribution_info},
 };
+use mls_assist::messages::AssistedWelcome;
+use openmls::prelude::{MlsMessageBodyIn, MlsMessageIn, group_info};
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
 

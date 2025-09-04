@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::key_packages;
-use phnxcommon::{
+use aircommon::{
     crypto::{self, ear::AEAD_KEY_SIZE, signatures},
     identifiers,
     messages::{self, push_token},
 };
+use openmls::key_packages;
 use tls_codec::{DeserializeBytes, Serialize};
 use tonic::Status;
 use uuid::Uuid;

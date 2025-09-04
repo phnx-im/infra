@@ -3,14 +3,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/widgets/widgets.dart';
+import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
+import 'report_spam_button.dart';
 
-// Details of a 1:1 connection
+final _log = Logger('ConnectionDetails');
+
+/// Details of a 1:1 connection
 class ConnectionDetails extends StatelessWidget {
   const ConnectionDetails({super.key});
 
@@ -24,24 +28,39 @@ class ConnectionDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final memberId = switch (conversation.conversationType) {
+      UiConversationType_Connection(field0: final profile) => profile.userId,
+      _ => null,
+    };
+    if (memberId == null) {
+      _log.warning("memberId is null in 1:1 connection details");
+      return const SizedBox.shrink();
+    }
+
     return Center(
       child: Column(
-        spacing: Spacings.l,
         children: [
           const SizedBox(height: Spacings.l),
           UserAvatar(
-            size: 96,
+            size: 128,
             displayName: conversation.title,
             image: conversation.picture,
           ),
+          const SizedBox(height: Spacings.l),
           Text(
+            style: Theme.of(context).textTheme.bodyLarge,
             conversation.title,
-            style: Theme.of(context).textTheme.labelMedium,
           ),
+          const SizedBox(height: Spacings.l),
           Text(
             conversation.conversationType.description,
-            style: Theme.of(context).textTheme.labelMedium,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
+
+          const Spacer(),
+
+          ReportSpamButton(userId: memberId),
+          const SizedBox(height: Spacings.s),
         ],
       ),
     );

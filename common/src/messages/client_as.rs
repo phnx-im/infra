@@ -8,10 +8,10 @@ use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use crate::{
     credentials::{
-        AsCredential, AsIntermediateCredential, ClientCredential, ClientCredentialPayload,
-        CredentialFingerprint,
+        AsCredential, AsCredentialBody, AsIntermediateCredential, ClientCredential,
+        ClientCredentialPayload,
     },
-    crypto::{RatchetEncryptionKey, ear::Ciphertext, kdf::keys::RatchetSecret},
+    crypto::{RatchetEncryptionKey, ear::Ciphertext, hash::Hash, kdf::keys::RatchetSecret},
     messages::connection_package::ConnectionPackageHash,
 };
 
@@ -86,5 +86,5 @@ pub struct AsCredentialsParams {}
 pub struct AsCredentialsResponse {
     pub as_credentials: Vec<AsCredential>,
     pub as_intermediate_credentials: Vec<AsIntermediateCredential>,
-    pub revoked_credentials: Vec<CredentialFingerprint>,
+    pub revoked_credentials: Vec<Hash<AsCredentialBody>>,
 }

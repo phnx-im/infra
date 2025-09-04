@@ -6,9 +6,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/user/user.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/core/core.dart';
+import 'package:air/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'conversation_tile.dart';

@@ -1,20 +1,22 @@
 require 'xcodeproj'
 require 'plist'
+require 'yaml'
 
 platform :ios do
     desc "Build iOS app for TestFlight"
     lane :beta_ios do |options|
       # Set up CI
       setup_ci()
-  
+      upload_to_test_flight = options[:upload_to_test_flight]
+
       # Set parameters
       key_id = ENV['APP_STORE_KEY_ID']
       issuer_id = ENV['APP_STORE_ISSUER_ID']
       key_content = ENV['APP_STORE_KEY_P8_BASE64']
       team_id = ENV['TEAM_ID']
       matchType = "appstore"
-      app_identifier = "im.phnx.prototype"
-      app_identifier_nse = "im.phnx.prototype.nse"
+      app_identifier = "ms.air"
+      app_identifier_nse = "ms.air.nse"
     
       # Load the app store connect API key
       api_key = app_store_connect_api_key(
@@ -25,12 +27,16 @@ platform :ios do
         in_house: false
       )
     
+      # Read app version from pubspec.yaml
+      pubspec = YAML.load_file("../pubspec.yaml")
+      app_version = (pubspec['version'] || '').to_s.split('+').first
+
       # Determine build number
       build_number = if options[:build_number]
                       options[:build_number].to_i
                     else
                       latest_testflight_build_number(
-                        version: "1.0.0",
+                        version: app_version,
                         api_key: api_key,
                         app_identifier: app_identifier
                       ) + 1
@@ -56,12 +62,13 @@ platform :ios do
       end
   
       # Build the app with signing
-      build_ios(with_signing: true)
-    
+      build_ios(with_signing: upload_to_test_flight)
+
       # Upload the app to TestFlight if the parameter is set
-      if options[:upload_to_test_flight]
+      if upload_to_test_flight
         upload_to_testflight(
-          api_key: api_key, 
+          api_key: api_key,
+          app_platform: "ios",
           skip_waiting_for_build_processing: true,
           distribute_external: false,
         )
@@ -70,24 +77,21 @@ platform :ios do
   
     desc "Build app"
     lane :build_ios do |options|
-      # The following is false when "with_signing" is not provided in the oprion and true otherwise
+      # The following is false when "with_signing" is not provided in the option
+      # and true otherwise
       skip_signing = !options[:with_signing]
-  
-      # Set XCode version
-      xcodes(
-        version: '16.1',
-        select_for_current_build_only: true,
-      )
     
       # Set up CI
       setup_ci()
   
       # Install flutter dependencies
       sh "flutter pub get"
+
+      # Build the app with flutter first to create the necessary ephemeral files
+      sh "flutter build macos --config-only #{skip_signing ? '--debug' : '--release'}"
     
       # Install CocoaPods dependencies
       cocoapods(
-        clean: true,
         podfile: "ios/Podfile"
       )
   
@@ -95,8 +99,10 @@ platform :ios do
       build_app(
         workspace: "ios/Runner.xcworkspace", 
         scheme: "Runner",
+        configuration: skip_signing ? "Debug" : "Release",
         skip_codesigning: skip_signing,
         skip_package_ipa: skip_signing,
+        skip_archive: skip_signing,
         export_method: "app-store",
       )
     end

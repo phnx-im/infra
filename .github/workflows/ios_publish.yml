@@ -12,10 +12,14 @@ on:
       - 'coreclient/**'
       - 'apiclient/**'
       - 'applogic/**'
-      - 'types/**'
+      - 'common/**'
       - 'app/**'
       - 'Cargo.toml'
   workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
 
 jobs:
   ios-publish:
@@ -37,14 +41,20 @@ jobs:
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
+          cache: false
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.88.0
+        uses: dtolnay/rust-toolchain@1.89.0
 
       - name: Set up iOS CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: just setup-ios-ci
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Build and upload to TestFlight
         env:

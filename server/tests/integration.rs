@@ -4,29 +4,26 @@
 
 use std::{fs, io::Cursor, sync::LazyLock, time::Duration};
 
-use base64::{Engine, prelude::BASE64_STANDARD};
-use image::{ImageBuffer, Rgba};
-use mimi_content::{
-    MessageStatus, MimiContent,
-    content_container::NestedPartContent,
-};
-use phnxapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
-use phnxprotos::{
+use airapiclient::{as_api::AsRequestError, ds_api::DsRequestError};
+use airprotos::{
     auth_service::v1::auth_service_server, delivery_service::v1::delivery_service_server,
     queue_service::v1::queue_service_server,
 };
+use base64::{Engine, prelude::BASE64_STANDARD};
+use image::{ImageBuffer, Rgba};
+use mimi_content::{MessageStatus, MimiContent, content_container::NestedPartContent};
 use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
-use phnxcommon::{
+use aircommon::{
     assert_matches,
     identifiers::{UserHandle, UserId},
 };
-use phnxcoreclient::{
+use aircoreclient::{
     Asset, ConversationId, ConversationMessage, DisplayName, DownloadProgressEvent, UserProfile,
     clients::CoreUser, store::Store,
 };
-use phnxserver::RateLimitsConfig;
-use phnxserver_test_harness::utils::setup::{TestBackend, TestUser};
+use airserver::RateLimitsConfig;
+use airserver_test_harness::utils::setup::{TestBackend, TestUser};
 use png::Encoder;
 use sha2::{Digest, Sha256};
 use tokio_stream::StreamExt;
@@ -734,7 +731,7 @@ async fn client_persistence() {
 
     // `CoreUser::load` opened the client DB, and so it was re-created.
     fs::remove_file(client_db_path).unwrap();
-    fs::remove_file(db_path.join("phnx.db")).unwrap();
+    fs::remove_file(db_path.join("air.db")).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -813,7 +810,7 @@ async fn update_user_profile_on_group_join() {
 
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, &[CHARLIE.clone()])
+        .invite_users(conversation_id, std::slice::from_ref(&*CHARLIE))
         .await
         .unwrap();
 
@@ -829,7 +826,7 @@ async fn update_user_profile_on_group_join() {
     // Bob now invites Alice
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, &[ALICE.clone()])
+        .invite_users(conversation_id, std::slice::from_ref(&*ALICE))
         .await
         .unwrap();
 

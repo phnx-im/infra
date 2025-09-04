@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "phnxcommon"
+name = "aircommon"
 version = "0.1.0"
 authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2024"
 publish = false
 description = "Common code used in the server and client"
+license = "AGPL-3.0-or-later"
 
 [dependencies]
 sha2 = { workspace = true }

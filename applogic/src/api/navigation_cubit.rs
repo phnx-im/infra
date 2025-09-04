@@ -4,8 +4,8 @@
 
 use std::mem;
 
+use aircoreclient::ConversationId;
 use flutter_rust_bridge::frb;
-use phnxcoreclient::ConversationId;
 use tokio::sync::watch;
 
 use crate::{
@@ -83,6 +83,7 @@ pub enum UserSettingsScreenType {
     Root,
     EditDisplayName,
     AddUserHandle,
+    Help,
 }
 
 impl NavigationState {
@@ -326,7 +327,8 @@ impl NavigationCubitBase {
                         user_settings_screen:
                             Some(
                                 UserSettingsScreenType::EditDisplayName
-                                | UserSettingsScreenType::AddUserHandle,
+                                | UserSettingsScreenType::AddUserHandle
+                                | UserSettingsScreenType::Help,
                             ),
                         ..
                     },

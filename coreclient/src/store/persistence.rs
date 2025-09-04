@@ -4,11 +4,11 @@
 
 use std::{borrow::Cow, collections::BTreeMap};
 
-use enumset::EnumSet;
-use phnxcommon::{
-    codec::PhnxCodec,
+use aircommon::{
+    codec::AirCodec,
     identifiers::{AttachmentId, UserId},
 };
+use enumset::EnumSet;
 use serde::{Deserialize, Serialize};
 use sqlx::{
     Acquire, Decode, Encode, Sqlite, SqliteExecutor, Type, encode::IsNull, error::BoxDynError,
@@ -38,7 +38,7 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
     ) -> Result<IsNull, BoxDynError> {
         match self {
             StoreEntityId::User(user_id) => {
-                let bytes = PhnxCodec::to_vec(&StoredUserId(Cow::Borrowed(user_id)))?;
+                let bytes = AirCodec::to_vec(&StoredUserId(Cow::Borrowed(user_id)))?;
                 Encode::<Sqlite>::encode(bytes, buf)
             }
             StoreEntityId::Conversation(conversation_id) => {
@@ -95,7 +95,7 @@ impl SqlStoreNotification {
         } = self;
         let entity_id = match kind {
             StoreEntityKind::User => {
-                let StoredUserId(user_id) = PhnxCodec::from_slice(&entity_id)?;
+                let StoredUserId(user_id) = AirCodec::from_slice(&entity_id)?;
                 StoreEntityId::User(user_id.into_owned())
             }
             StoreEntityKind::Conversation => {

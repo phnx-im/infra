@@ -11,12 +11,11 @@ use crate::{
     },
     user_profiles::generate::NewUserProfile,
 };
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },
     crypto::{
-        ear::{EarKey, GenericSerializable},
         indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
         kdf::keys::ConnectionKey,
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
@@ -82,7 +81,7 @@ impl BasicUserData {
         let client_credential_payload = ClientCredentialPayload::new(
             client_credential_csr,
             None,
-            as_intermediate_credential.fingerprint().clone(),
+            *as_intermediate_credential.fingerprint(),
         );
 
         let qs_initial_ratchet_secret = RatchetSecret::random()?;
@@ -114,11 +113,7 @@ impl BasicUserData {
         };
 
         let encrypted_push_token = match self.push_token {
-            Some(push_token) => Some(EncryptedPushToken::from(
-                key_store
-                    .push_token_ear_key
-                    .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
-            )),
+            Some(push_token) => Some(push_token.encrypt(&key_store.push_token_ear_key)?),
             None => None,
         };
 

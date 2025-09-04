@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::identifiers::MimiId;
 use mimi_content::{MessageStatus, MimiContent};
-use phnxcommon::identifiers::MimiId;
 use tracing::{error, warn};
 
 use crate::{

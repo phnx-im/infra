@@ -4,9 +4,12 @@
 
 use std::{collections::HashSet, path::Path, sync::Arc};
 
+use aircommon::{
+    identifiers::{AttachmentId, MimiId, UserHandle, UserId},
+    messages::client_as_out::UserHandleDeleteResponse,
+};
 use mimi_content::MessageStatus;
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
 use tokio_stream::Stream;
 use tracing::error;
 use uuid::Uuid;
@@ -34,6 +37,10 @@ impl Store for CoreUser {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile> {
         self.set_own_user_profile(user_profile).await
+    }
+
+    async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()> {
+        self.report_spam(spammer_id).await
     }
 
     async fn user_setting<T: UserSetting>(&self) -> T {
@@ -85,7 +92,10 @@ impl Store for CoreUser {
         self.add_user_handle(user_handle).await
     }
 
-    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()> {
+    async fn remove_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<UserHandleDeleteResponse> {
         self.remove_user_handle(user_handle).await
     }
 

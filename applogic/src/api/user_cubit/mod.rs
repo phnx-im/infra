@@ -6,10 +6,10 @@
 
 use std::sync::Arc;
 
+use aircommon::identifiers::{UserHandle, UserId};
+use aircoreclient::Asset;
+use aircoreclient::{ConversationId, clients::CoreUser, store::Store};
 use flutter_rust_bridge::frb;
-use phnxcommon::identifiers::{UserHandle, UserId};
-use phnxcoreclient::Asset;
-use phnxcoreclient::{ConversationId, clients::CoreUser, store::Store};
 use qs::QueueContext;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
@@ -334,6 +334,10 @@ impl UserCubitBase {
         self.background_listen_handle_tasks.remove(user_handle);
 
         Ok(())
+    }
+
+    pub async fn report_spam(&self, spammer_id: UiUserId) -> anyhow::Result<()> {
+        self.context.core_user.report_spam(spammer_id.into()).await
     }
 }
 

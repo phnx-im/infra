@@ -3,18 +3,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "phnxserver"
+name = "airserver"
 version = "0.1.0"
 edition = "2024"
 publish = false
 description = "Server that makes the logic implemented in the backend available to clients via a REST API"
+license = "AGPL-3.0-or-later"
 
 [lib]
 path = "src/lib.rs"
 
 [[bin]]
 path = "src/main.rs"
-name = "phnxserver"
+name = "airserver"
 
 [features]
 api_docs = []
@@ -24,9 +25,9 @@ name = "bench"
 harness = false
 
 [dependencies]
-phnxbackend = { path = "../backend" }
-phnxcommon = { path = "../common" }
-phnxprotos = { path = "../protos" }
+airbackend = { path = "../backend" }
+aircommon = { path = "../common" }
+airprotos = { path = "../protos" }
 
 serde = "1"
 serde_json = "1.0"
@@ -50,10 +51,10 @@ tonic-health = "0.13.0"
 
 [dev-dependencies]
 tracing-futures = "^0.2.5"
-phnxapiclient = { path = "../apiclient" }
-phnxcoreclient = { path = "../coreclient" }
+airapiclient = { path = "../apiclient" }
+aircoreclient = { path = "../coreclient" }
 once_cell = "1"
-phnxserver_test_harness = { path = "../test_harness" }
+airserver_test_harness = { path = "../test_harness" }
 image = "0.25"
 png = "0.17"
 mimi_content = { workspace = true }

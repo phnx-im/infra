@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::qs::{network_provider::NetworkProvider, qs_api::FederatedProcessingResult};
-use phnxcommon::{
+use airbackend::qs::{network_provider::NetworkProvider, qs_api::FederatedProcessingResult};
+use aircommon::{
     DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS, endpoint_paths::ENDPOINT_QS_FEDERATION,
     identifiers::Fqdn,
 };

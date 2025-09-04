@@ -5,9 +5,10 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::Path};
 
+use aircommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
+use aircommon::messages::client_as_out::UserHandleDeleteResponse;
 use mimi_content::{MessageStatus, MimiContent};
 use mimi_room_policy::VerifiedRoomState;
-use phnxcommon::identifiers::{AttachmentId, MimiId, UserHandle, UserId};
 use tokio_stream::Stream;
 use uuid::Uuid;
 
@@ -43,6 +44,8 @@ pub trait Store {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile>;
 
+    async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()>;
+
     /// Loads a user setting
     ///
     /// If the setting is not found, the default value is returned. If loading or decoding failed,
@@ -62,7 +65,10 @@ pub trait Store {
         user_handle: &UserHandle,
     ) -> StoreResult<Option<UserHandleRecord>>;
 
-    async fn remove_user_handle(&self, user_handle: &UserHandle) -> StoreResult<()>;
+    async fn remove_user_handle(
+        &self,
+        user_handle: &UserHandle,
+    ) -> StoreResult<UserHandleDeleteResponse>;
 
     // conversations
 

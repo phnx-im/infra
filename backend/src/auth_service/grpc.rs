@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use displaydoc::Display;
-use futures_util::stream::BoxStream;
-use phnxprotos::{
+use airprotos::{
     auth_service::v1::{auth_service_server, *},
     validation::MissingFieldExt,
 };
+use displaydoc::Display;
+use futures_util::stream::BoxStream;
 
-use phnxcommon::{
+use aircommon::{
     credentials::keys,
     crypto::{
         indexed_aead::keys::UserProfileKeyIndex,
@@ -317,6 +317,20 @@ impl auth_service_server::AuthService for GrpcAs {
         Ok(Response::new(IssueTokensResponse { token_response }))
     }
 
+    async fn report_spam(
+        &self,
+        request: Request<ReportSpamRequest>,
+    ) -> Result<Response<ReportSpamResponse>, Status> {
+        let request = request.into_inner();
+        let (_user_id, _payload) = self
+            .verify_user_auth::<_, ReportSpamPayload>(request)
+            .await?;
+
+        // TODO: forward to the spam reporting service
+
+        Ok(Response::new(ReportSpamResponse {}))
+    }
+
     async fn create_handle(
         &self,
         request: Request<CreateHandleRequest>,
@@ -474,6 +488,12 @@ impl WithUserId for MergeUserProfileRequest {
 impl WithUserId for IssueTokensRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
+    }
+}
+
+impl WithUserId for ReportSpamRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.reporter_id.clone()
     }
 }
 

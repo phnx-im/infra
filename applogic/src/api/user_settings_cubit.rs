@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::anyhow;
+use aircoreclient::store::{Store, UserSetting};
+use anyhow::{anyhow, bail};
 use flutter_rust_bridge::frb;
-use phnxcoreclient::store::{Store, UserSetting};
 
 use crate::{
     StreamSink,
@@ -19,6 +19,8 @@ pub struct UserSettings {
     pub interface_scale: f64,
     #[frb(default = 300.0)]
     pub sidebar_width: f64,
+    #[frb(default = false)]
+    pub send_on_enter: bool,
 }
 
 impl Default for UserSettings {
@@ -27,6 +29,7 @@ impl Default for UserSettings {
         Self {
             interface_scale: InterfaceScaleSetting::DEFAULT.0,
             sidebar_width: SidebarWidthSetting::DEFAULT.0,
+            send_on_enter: SendOnEnterSetting::DEFAULT.0,
         }
     }
 }
@@ -117,6 +120,24 @@ impl UserSettingsCubitBase {
             .send_modify(|state| state.sidebar_width = value);
         Ok(())
     }
+
+    pub async fn set_send_on_enter(
+        &self,
+        user_cubit: &UserCubitBase,
+        value: bool,
+    ) -> anyhow::Result<()> {
+        if self.core.state_tx().borrow().send_on_enter == value {
+            return Ok(());
+        }
+        user_cubit
+            .core_user()
+            .set_user_setting(&SendOnEnterSetting(value))
+            .await?;
+        self.core
+            .state_tx()
+            .send_modify(|state| state.send_on_enter = value);
+        Ok(())
+    }
 }
 
 struct InterfaceScaleSetting(f64);
@@ -159,4 +180,23 @@ fn f64_decode(bytes: Vec<u8>) -> anyhow::Result<f64> {
     Ok(f64::from_le_bytes(
         bytes.try_into().map_err(|_| anyhow!("invalid f64 bytes"))?,
     ))
+}
+
+struct SendOnEnterSetting(bool);
+
+impl UserSetting for SendOnEnterSetting {
+    const KEY: &'static str = "send_on_enter";
+
+    const DEFAULT: Self = Self(false);
+
+    fn encode(&self) -> anyhow::Result<Vec<u8>> {
+        Ok(vec![self.0 as u8])
+    }
+
+    fn decode(bytes: Vec<u8>) -> anyhow::Result<Self> {
+        match bytes.as_slice() {
+            [byte] => Ok(Self(*byte != 0)),
+            _ => bail!("invalid send_on_enter bytes"),
+        }
+    }
 }

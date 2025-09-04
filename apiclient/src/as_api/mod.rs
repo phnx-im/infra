@@ -4,8 +4,7 @@
 
 use std::convert::identity;
 
-use futures_util::{FutureExt, future::BoxFuture};
-use phnxcommon::{
+use aircommon::{
     LibraryError,
     credentials::{
         ClientCredentialPayload,
@@ -17,19 +16,20 @@ use phnxcommon::{
         client_as::ConnectionOfferMessage,
         client_as_out::{
             AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
-            RegisterUserResponseIn,
+            RegisterUserResponseIn, UserHandleDeleteResponse,
         },
         connection_package::{ConnectionPackage, ConnectionPackageIn},
     },
 };
-use phnxprotos::auth_service::v1::{
+use airprotos::auth_service::v1::{
     AckListenHandleRequest, AsCredentialsRequest, ConnectRequest, ConnectResponse,
     CreateHandlePayload, DeleteHandlePayload, DeleteUserPayload, EnqueueConnectionOfferStep,
     FetchConnectionPackageStep, GetUserProfileRequest, HandleQueueMessage, InitListenHandlePayload,
     ListenHandleRequest, MergeUserProfilePayload, PublishConnectionPackagesPayload,
-    RegisterUserRequest, StageUserProfilePayload, connect_request, connect_response,
-    listen_handle_request,
+    RegisterUserRequest, ReportSpamPayload, StageUserProfilePayload, connect_request,
+    connect_response, listen_handle_request,
 };
+use futures_util::{FutureExt, future::BoxFuture};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
@@ -189,6 +189,21 @@ impl ApiClient {
             .client()
             .publish_connection_packages(request)
             .await?;
+        Ok(())
+    }
+
+    pub async fn as_report_spam(
+        &self,
+        reporter_id: UserId,
+        spammer_id: UserId,
+        signing_key: &ClientSigningKey,
+    ) -> Result<(), AsRequestError> {
+        let payload = ReportSpamPayload {
+            reporter_id: Some(reporter_id.into()),
+            spammer_id: Some(spammer_id.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client.client().report_spam(request).await?;
         Ok(())
     }
 
@@ -359,8 +374,12 @@ impl ApiClient {
             revoked_credentials: response
                 .revoked_credentials
                 .into_iter()
-                .map(From::from)
-                .collect(),
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| {
+                    error!(%error, "invalid AS intermediate credential");
+                    AsRequestError::UnexpectedResponse
+                })?,
         })
     }
 
@@ -387,13 +406,19 @@ impl ApiClient {
         &self,
         hash: UserHandleHash,
         signing_key: &HandleSigningKey,
-    ) -> Result<(), AsRequestError> {
+    ) -> Result<UserHandleDeleteResponse, AsRequestError> {
         let payload = DeleteHandlePayload {
             hash: Some(hash.into()),
         };
         let request = payload.sign(signing_key)?;
-        self.as_grpc_client.client().delete_handle(request).await?;
-        Ok(())
+        let res = self.as_grpc_client.client().delete_handle(request).await;
+        match res {
+            Ok(_) => Ok(UserHandleDeleteResponse::Success),
+            Err(status) => match status.code() {
+                tonic::Code::NotFound => Ok(UserHandleDeleteResponse::NotFound),
+                _ => Err(status.into()),
+            },
+        }
     }
 }
 

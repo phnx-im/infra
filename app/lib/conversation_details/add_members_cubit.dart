@@ -6,7 +6,7 @@ import 'dart:collection';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 
 part 'add_members_cubit.freezed.dart';
 

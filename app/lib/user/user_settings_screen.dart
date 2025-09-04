@@ -5,17 +5,18 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/util/debouncer.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
-const _listIconSize = 36.0;
+const _listIconSize = 24.0;
 
 class UserSettingsScreen extends StatelessWidget {
   const UserSettingsScreen({super.key});
@@ -25,13 +26,14 @@ class UserSettingsScreen extends StatelessWidget {
     final profile = context.select((UsersCubit cubit) => cubit.state.profile());
 
     final loc = AppLocalizations.of(context);
+
+    final isMobilePlatform = Platform.isAndroid || Platform.isIOS;
     final isDesktopPlatform =
         Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.userSettingsScreen_title),
-        toolbarHeight: isPointer() ? 100 : null,
         leading: const AppBarBackButton(),
       ),
       body: SafeArea(
@@ -53,19 +55,22 @@ class UserSettingsScreen extends StatelessWidget {
 
                   const _UserProfileData(),
 
-                  const SizedBox(height: Spacings.xs),
-                  Divider(color: Theme.of(context).hintColor),
-                  const SizedBox(height: Spacings.xs),
+                  const SettingsDivider(),
 
                   const _UserHandles(),
 
-                  if (isDesktopPlatform) ...[
-                    const SizedBox(height: Spacings.xs),
-                    Divider(color: Theme.of(context).hintColor),
-                    const SizedBox(height: Spacings.xs),
+                  if (isMobilePlatform) ...[
+                    const SettingsDivider(),
+                    const _MobileSettings(),
+                  ],
 
+                  if (isDesktopPlatform) ...[
+                    const SettingsDivider(),
                     const _DesktopSettings(),
                   ],
+
+                  const SettingsDivider(),
+                  const _Help(),
                 ],
               ),
             ),
@@ -93,7 +98,6 @@ class _UserProfileData extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.select((UserCubit cubit) => cubit.state.userId);
     final displayName = context.select(
       (UsersCubit cubit) => cubit.state.displayName(),
     );
@@ -102,6 +106,7 @@ class _UserProfileData extends StatelessWidget {
 
     return ListView(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         ListTile(
           leading: const Icon(Icons.person_outline, size: _listIconSize),
@@ -110,18 +115,6 @@ class _UserProfileData extends StatelessWidget {
               () => context.read<NavigationCubit>().openUserSettings(
                 screen: UserSettingsScreenType.editDisplayName,
               ),
-        ),
-        const SizedBox(height: Spacings.s),
-        ListTile(
-          leading: const Icon(Icons.numbers, size: _listIconSize),
-          title: Text(userId.uuid.toString()),
-          onTap: () {
-            _copyTextToClipboard(
-              context,
-              userId.uuid.toString(),
-              snackBarMessage: loc.userSettingsScreen_idCopied,
-            );
-          },
         ),
         const SizedBox(height: Spacings.xs),
         ListTile(
@@ -132,16 +125,6 @@ class _UserProfileData extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  void _copyTextToClipboard(
-    BuildContext context,
-    String textToCopy, {
-    required String snackBarMessage,
-  }) async {
-    final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: textToCopy));
-    messenger.showSnackBar(SnackBar(content: Text(snackBarMessage)));
   }
 }
 
@@ -158,6 +141,7 @@ class _UserHandles extends StatelessWidget {
 
     return ListView(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         ...userHandles.expand(
           (handle) => [
@@ -248,6 +232,53 @@ class _UserHandlePlaceholder extends StatelessWidget {
   }
 }
 
+class _MobileSettings extends StatefulWidget {
+  const _MobileSettings();
+
+  @override
+  State<_MobileSettings> createState() => _MobileSettingsState();
+}
+
+class _MobileSettingsState extends State<_MobileSettings> {
+  final Debouncer _sendOnEnterDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 500),
+  );
+  bool _sendOnEnter = false;
+
+  @override
+  void initState() {
+    super.initState();
+    setState(() {
+      _sendOnEnter = context.read<UserSettingsCubit>().state.sendOnEnter;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        SwitchListTile(
+          title: const Text("Send with Enter"),
+          value: _sendOnEnter,
+          onChanged: (value) {
+            _sendOnEnterDebouncer.run(() {
+              context.read<UserSettingsCubit>().setSendOnEnter(
+                userCubit: context.read(),
+                value: value,
+              );
+            });
+            setState(() {
+              _sendOnEnter = value;
+            });
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class _DesktopSettings extends StatefulWidget {
   const _DesktopSettings();
 
@@ -273,6 +304,7 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
 
     return ListView(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         ListTile(
           leading: const Icon(Icons.visibility, size: _listIconSize),
@@ -284,7 +316,7 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
             divisions: ((300 - 50) / 5).truncate(),
             value: _interfaceScaleSliderValue,
             label: _interfaceScaleSliderValue.truncate().toString(),
-            activeColor: colorDMB,
+            activeColor: CustomColorScheme.of(context).text.secondary,
             onChanged:
                 (value) => setState(() => _interfaceScaleSliderValue = value),
             onChangeEnd: (value) {
@@ -297,6 +329,54 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
         ),
         const SizedBox(height: Spacings.s),
       ],
+    );
+  }
+}
+
+Color getColor(Set<WidgetState> states) {
+  const Set<WidgetState> interactiveStates = <WidgetState>{
+    WidgetState.pressed,
+    WidgetState.hovered,
+    WidgetState.focused,
+  };
+  if (states.any(interactiveStates.contains)) {
+    return Colors.brown;
+  }
+  return Colors.transparent;
+}
+
+class _Help extends StatelessWidget {
+  const _Help();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        ListTile(
+          leading: const Icon(Icons.help, size: _listIconSize),
+          title: Text(loc.userSettingsScreen_help),
+          onTap:
+              () => context.read<NavigationCubit>().openUserSettings(
+                screen: UserSettingsScreenType.help,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class SettingsDivider extends StatelessWidget {
+  const SettingsDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacings.xs),
+      child: Divider(color: Theme.of(context).hintColor),
     );
   }
 }

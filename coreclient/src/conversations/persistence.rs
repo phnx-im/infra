@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::{DateTime, Utc};
-use mimi_content::MessageStatus;
-use openmls::group::GroupId;
-use phnxcommon::{
+use aircommon::{
     identifiers::{Fqdn, MimiId, UserHandle, UserId},
     time::TimeStamp,
 };
+use chrono::{DateTime, Utc};
+use mimi_content::MessageStatus;
+use openmls::group::GroupId;
 use sqlx::{
     Connection, SqliteConnection, SqliteExecutor, SqliteTransaction, query, query_as, query_scalar,
 };

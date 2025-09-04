@@ -15,13 +15,7 @@ pub(crate) mod process;
 use client_auth_info::ClientVerificationInfo;
 pub(crate) use error::*;
 
-use anyhow::{Result, anyhow, bail};
-use mimi_content::MimiContent;
-use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
-use mls_assist::messages::AssistedMessageOut;
-use openmls_provider::PhnxOpenMlsProvider;
-use openmls_traits::storage::StorageProvider;
-use phnxcommon::{
+use aircommon::{
     credentials::{ClientCredential, VerifiableClientCredential, keys::ClientSigningKey},
     crypto::{
         ear::{
@@ -52,6 +46,12 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
+use anyhow::{Result, anyhow, bail};
+use mimi_content::MimiContent;
+use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
+use mls_assist::messages::AssistedMessageOut;
+use openmls_provider::AirOpenMlsProvider;
+use openmls_traits::storage::StorageProvider;
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqliteExecutor, SqliteTransaction};
 use tracing::{debug, error};
@@ -242,7 +242,7 @@ impl Group {
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info(provider, signer, true)?,
+            group_info: mls_group.export_group_info(provider.crypto(), signer, true)?,
             room_state: room_state.clone(),
         };
 
@@ -285,7 +285,7 @@ impl Group {
 
         let (processed_welcome, joiner_info) = {
             // Phase 1: Fetch the right KeyPackageBundle from storage
-            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
+            let provider = AirOpenMlsProvider::new(txn.as_mut());
             let kpb: KeyPackageBundle = welcome_bundle
                 .welcome
                 .welcome
@@ -356,7 +356,7 @@ impl Group {
 
         let (mls_group, joiner_info, welcome_attribution_info) = {
             // Phase 5: Finish processing the welcome message
-            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
+            let provider = AirOpenMlsProvider::new(txn.as_mut());
             let staged_welcome =
                 processed_welcome.into_staged_welcome(&provider, Some(ratchet_tree))?;
 
@@ -470,7 +470,7 @@ impl Group {
         // Let's create the group first so that we can access the GroupId.
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info) = {
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
                 &provider,
                 signer,
@@ -483,7 +483,7 @@ impl Group {
                 credential_with_key,
             )?;
             mls_group.merge_pending_commit(&provider)?;
-            let group_info = mls_group.export_group_info(&provider, signer, true)?;
+            let group_info = mls_group.export_group_info(provider.crypto(), signer, true)?;
             (mls_group, commit, group_info)
         };
 
@@ -595,7 +595,7 @@ impl Group {
 
         // Set Aad to contain the encrypted client credentials.
         let (mls_commit, welcome_option, group_info_option) = {
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group
                 .set_aad(aad_message.tls_serialize_detached()?);
             self.mls_group
@@ -691,7 +691,7 @@ impl Group {
         });
         let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
-        let provider = PhnxOpenMlsProvider::new(&mut *connection);
+        let provider = AirOpenMlsProvider::new(&mut *connection);
 
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
@@ -735,7 +735,7 @@ impl Group {
         connection: &mut sqlx::SqliteConnection,
         signer: &ClientSigningKey,
     ) -> anyhow::Result<DeleteGroupParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(&mut *connection);
+        let provider = &AirOpenMlsProvider::new(&mut *connection);
         let remove_indices = self
             .mls_group()
             .members()
@@ -811,7 +811,7 @@ impl Group {
             )
             .await?;
 
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group
                 .merge_staged_commit(&provider, staged_commit)?;
             staged_commit_messages
@@ -832,7 +832,7 @@ impl Group {
                 } else {
                     vec![]
                 };
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group.merge_pending_commit(&provider)?;
             staged_commit_messages
         };
@@ -945,7 +945,7 @@ impl Group {
         let aad = InfraAadMessage::from(InfraAadPayload::Update).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
-            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
+            let provider = AirOpenMlsProvider::new(txn.as_mut());
 
             let (mls_message, _welcome_option, group_info_option) = self
                 .mls_group
@@ -985,7 +985,7 @@ impl Group {
         connection: &mut sqlx::SqliteConnection,
         signer: &ClientSigningKey,
     ) -> Result<SelfRemoveParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
+        let provider = &AirOpenMlsProvider::new(connection);
         let proposal = self.mls_group.leave_group(provider, signer)?;
 
         let assisted_message = AssistedMessageOut::new(proposal, None)?;
@@ -1000,7 +1000,7 @@ impl Group {
         connection: &mut sqlx::SqliteConnection,
         proposal: QueuedProposal,
     ) -> Result<()> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
+        let provider = &AirOpenMlsProvider::new(connection);
         self.mls_group
             .store_pending_proposal(provider.storage(), proposal)?;
         Ok(())
@@ -1012,10 +1012,10 @@ impl Group {
     ) -> Vec<UserId> {
         let mut pending_removes = Vec::new();
         for proposal in self.mls_group().pending_proposals() {
-            if let Proposal::Remove(rp) = proposal.proposal() {
-                if let Some(client) = self.client_by_index(connection, rp.removed()).await {
-                    pending_removes.push(client);
-                }
+            if let Proposal::Remove(rp) = proposal.proposal()
+                && let Some(client) = self.client_by_index(connection, rp.removed()).await
+            {
+                pending_removes.push(client);
             }
         }
         pending_removes

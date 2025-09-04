@@ -4,16 +4,19 @@
 
 import 'dart:async';
 
+import 'package:air/user/user_settings_cubit.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart' show AppLocalizations;
-import 'package:prototype/main.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/util/debouncer.dart';
+import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart' show AppLocalizations;
+import 'package:air/main.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/util/debouncer.dart';
 import 'package:provider/provider.dart';
 
 import 'message_renderer.dart';
@@ -120,7 +123,7 @@ class _MessageComposerState extends State<MessageComposer>
     return AnimatedContainer(
       duration: const Duration(milliseconds: 1000),
       child: Container(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: CustomColorScheme.of(context).backgroundBase.primary,
         padding: EdgeInsets.only(
           top: Spacings.xs,
           bottom:
@@ -136,7 +139,7 @@ class _MessageComposerState extends State<MessageComposer>
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                  color: CustomColorScheme.of(context).backgroundBase.secondary,
                   borderRadius: BorderRadius.circular(Spacings.m),
                 ),
                 padding: const EdgeInsets.only(
@@ -157,12 +160,12 @@ class _MessageComposerState extends State<MessageComposer>
                 height: 50,
                 margin: const EdgeInsets.only(left: Spacings.xs),
                 decoration: BoxDecoration(
-                  color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                  color: CustomColorScheme.of(context).backgroundBase.secondary,
                   borderRadius: BorderRadius.circular(Spacings.m),
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.close),
-                  color: colorDMB,
+                  color: CustomColorScheme.of(context).text.primary,
                   hoverColor: const Color(0x00FFFFFF),
                   onPressed: () {
                     context.read<ConversationDetailsCubit>().resetDraft();
@@ -175,12 +178,12 @@ class _MessageComposerState extends State<MessageComposer>
               height: 50,
               margin: const EdgeInsets.only(left: Spacings.xs),
               decoration: BoxDecoration(
-                color: convPaneBackgroundColor.withValues(alpha: 0.9),
+                color: CustomColorScheme.of(context).backgroundBase.secondary,
                 borderRadius: BorderRadius.circular(Spacings.m),
               ),
               child: IconButton(
                 icon: Icon(_inputIsEmpty ? Icons.add : Icons.send),
-                color: colorDMB,
+                color: CustomColorScheme.of(context).text.primary,
                 hoverColor: const Color(0x00FFFFFF),
                 onPressed: () {
                   if (_inputIsEmpty) {
@@ -264,10 +267,7 @@ class _MessageComposerState extends State<MessageComposer>
       _log.severe("Failed to upload attachment: $e");
       if (context.mounted) {
         final loc = AppLocalizations.of(context);
-        showErrorBanner(
-          ScaffoldMessenger.of(context),
-          loc.composer_error_attachment,
-        );
+        showErrorBanner(context, loc.composer_error_attachment);
       }
     }
   }
@@ -298,7 +298,9 @@ class _MessageInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final smallScreen = isSmallScreen(context);
+    final sendOnEnter = context.select(
+      (UserSettingsCubit cubit) => cubit.state.sendOnEnter,
+    );
 
     final loc = AppLocalizations.of(context);
 
@@ -314,26 +316,35 @@ class _MessageInput extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.edit_outlined),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 24,
+                  color: CustomColorScheme.of(context).text.tertiary,
+                ),
                 const SizedBox(width: Spacings.xxs),
-                Text(loc.composer_editMessage),
+                Text(
+                  loc.composer_editMessage,
+                  style: TextStyle(
+                    fontSize: LabelFontSize.small1.size,
+                    color: CustomColorScheme.of(context).text.tertiary,
+                  ),
+                ),
               ],
             ),
           ),
         TextField(
           focusNode: _focusNode,
-          style: messageTextStyle(context, false),
           controller: _controller,
           minLines: 1,
           maxLines: 10,
           decoration: InputDecoration(
             hintText: loc.composer_inputHint(conversationTitle ?? ""),
-            hintStyle: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: colorDMB),
+            hintStyle: TextStyle(
+              color: CustomColorScheme.of(context).text.tertiary,
+            ),
           ).copyWith(filled: false),
           textInputAction:
-              smallScreen ? TextInputAction.send : TextInputAction.newline,
+              sendOnEnter ? TextInputAction.send : TextInputAction.newline,
           onEditingComplete: () => _focusNode.requestFocus(),
           keyboardType: TextInputType.multiline,
           textCapitalization: TextCapitalization.sentences,

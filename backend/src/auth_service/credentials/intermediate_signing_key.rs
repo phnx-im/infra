@@ -4,14 +4,15 @@
 
 use std::{fmt, ops::Deref};
 
-use mls_assist::openmls::prelude::SignatureScheme;
-use phnxcommon::{
+use aircommon::{
     credentials::{
-        AsIntermediateCredential, AsIntermediateCredentialCsr, CredentialFingerprint,
+        AsIntermediateCredential, AsIntermediateCredentialBody, AsIntermediateCredentialCsr,
         keys::{AsIntermediateSigningKey, AsSigningKey},
     },
+    crypto::hash::Hash,
     identifiers::Fqdn,
 };
+use mls_assist::openmls::prelude::SignatureScheme;
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection};
 use tracing::error;
@@ -106,7 +107,7 @@ impl IntermediateSigningKey {
         Ok(IntermediateSigningKey::from(as_intermediate_signing_key))
     }
 
-    fn fingerprint(&self) -> &CredentialFingerprint {
+    fn fingerprint(&self) -> &Hash<AsIntermediateCredentialBody> {
         match self {
             IntermediateSigningKey::V1(signing_key) => signing_key.credential().fingerprint(),
         }
@@ -114,7 +115,7 @@ impl IntermediateSigningKey {
 }
 
 mod persistence {
-    use phnxcommon::{
+    use aircommon::{
         codec::{BlobDecoded, BlobEncoded},
         credentials::{AsIntermediateCredential, keys::AsIntermediateSigningKey},
     };
@@ -204,11 +205,11 @@ mod persistence {
     mod tests {
         use std::collections::HashSet;
 
-        use mls_assist::openmls::prelude::SignatureScheme;
-        use phnxcommon::{
+        use aircommon::{
             credentials::AsCredential,
             time::{Duration, ExpirationData},
         };
+        use mls_assist::openmls::prelude::SignatureScheme;
         use serde::Serialize;
         use sqlx::PgPool;
 

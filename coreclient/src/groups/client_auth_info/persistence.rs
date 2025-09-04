@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::{group::GroupId, prelude::LeafNodeIndex};
-use phnxcommon::{
-    credentials::CredentialFingerprint,
+use aircommon::{
+    credentials::ClientCredential,
+    crypto::hash::Hash,
     identifiers::{Fqdn, UserId},
 };
+use openmls::{group::GroupId, prelude::LeafNodeIndex};
 use sqlx::{Row, SqliteExecutor, query, query_as, query_scalar};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
@@ -20,7 +21,7 @@ impl StorableClientCredential {
     /// [`CredentialFingerprint`] from the database.
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
-        credential_fingerprint: &CredentialFingerprint,
+        credential_fingerprint: &Hash<ClientCredential>,
     ) -> sqlx::Result<Option<Self>> {
         query_scalar!(
             r#"SELECT
@@ -74,7 +75,7 @@ impl StorableClientCredential {
 }
 
 struct SqlGroupMembership {
-    client_credential_fingerprint: CredentialFingerprint,
+    client_credential_fingerprint: Hash<ClientCredential>,
     group_id: GroupIdWrapper,
     user_uuid: Uuid,
     user_domain: Fqdn,
@@ -406,11 +407,14 @@ impl GroupMembership {
 
 #[cfg(test)]
 mod tests {
-    use openmls::prelude::SignatureScheme;
-    use phnxcommon::{
-        credentials::{ClientCredential, ClientCredentialCsr, ClientCredentialPayload},
+    use aircommon::{
+        credentials::{
+            AsIntermediateCredentialBody, ClientCredential, ClientCredentialCsr,
+            ClientCredentialPayload,
+        },
         crypto::signatures::signable::{Signature, SignedStruct},
     };
+    use openmls::prelude::SignatureScheme;
     use sqlx::SqlitePool;
     use tls_codec::Serialize;
     use uuid::Uuid;
@@ -422,7 +426,8 @@ mod tests {
         let user_id = UserId::new(user_uuid, "localhost".parse().unwrap());
         let (client_credential_csr, _) =
             ClientCredentialCsr::new(user_id, SignatureScheme::ED25519).unwrap();
-        let fingerprint = CredentialFingerprint::new_for_test(b"fingerprint".to_vec());
+        let fingerprint =
+            Hash::<AsIntermediateCredentialBody>::new_for_test(b"fingerprint".to_vec());
         let client_credential = ClientCredential::from_payload(
             ClientCredentialPayload::new(client_credential_csr, None, fingerprint),
             Signature::new_for_test(b"signature".to_vec()),

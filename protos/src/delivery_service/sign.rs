@@ -17,7 +17,7 @@ use super::v1::{
     WelcomeInfoRequest,
 };
 
-use phnxcommon::{
+use aircommon::{
     credentials::keys::{ClientKeyType, ClientSignature},
     crypto::signatures::signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
 };

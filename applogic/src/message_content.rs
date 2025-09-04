@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircoreclient::AttachmentUrl;
 use mimi_content::{
     MimiContent,
     content_container::{Disposition, NestedPart, NestedPartContent, PartSemantics},
 };
-use phnxcoreclient::AttachmentUrl;
 use tracing::warn;
 
 use crate::api::{

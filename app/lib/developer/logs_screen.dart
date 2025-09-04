@@ -8,9 +8,9 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:share_plus/share_plus.dart';
 
 class LogsScreen extends StatefulWidget {

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::UserId};
+use aircommon::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::UserId};
 use sqlx::{SqliteExecutor, query, query_as};
 
 use crate::store::StoreNotifier;
@@ -140,7 +140,7 @@ impl UserProfile {
 
 #[cfg(test)]
 mod tests {
-    use phnxcommon::crypto::indexed_aead::keys::UserProfileKey;
+    use aircommon::crypto::indexed_aead::keys::UserProfileKey;
     use sqlx::SqlitePool;
 
     use crate::{Asset, key_stores::indexed_keys::StorableIndexedKey};

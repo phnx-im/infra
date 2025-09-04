@@ -1,7 +1,0 @@
----
-source: common/src/crypto/ratchet/mod.rs
-assertion_line: 188
-expression: "PhnxCodec::to_vec(&queue_ratchet()).unwrap()"
-extension: cbor
-snapshot_kind: binary
----
