@@ -6,6 +6,8 @@
   "userSettingsScreen_profileDescription": "Others will see your picture and name when you communicate with them.",
   "userSettingsScreen_userNamesDescription": "Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.",
   "userSettingsScreen_interfaceScale": "Interface scale",
+  "userSettingsScreen_help": "Help",
+
   "removeUsernameDialog_title": "Remove Username",
   "removeUsernameDialog_content": "If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.",
   "removeUsernameDialog_cancel": "Cancel",
@@ -97,5 +99,27 @@
     }
   },
 
-  "textMessage_edited": "edited"
+  "textMessage_edited": "edited",
+
+  "helpScreen_title": "Help",
+  "helpScreen_contactUs": "Contact Us",
+  "helpScreen_versionInfo": "Version Info",
+  "helpScreen_licenses": "Licenses",
+
+  "licensesScreen_title": "Licenses",
+
+  "contactUsScreen_title": "Contact",
+  "contactUsScreen_subject": "Message subject",
+  "contactUsScreen_body": "Body",
+  "contactUsScreen_composeEmail": "Compose Email",
+
+  "contactUsScreen_subject_somethingNotWorking": "Something's not working",
+  "contactUsScreen_subject_iHaveAQuestion": "I have a question",
+  "contactUsScreen_subject_requestFeature": "Request a feature",
+  "contactUsScreen_subject_other": "Other",
+
+  "contactUsScreen_subject_empty": "Please select a subject",
+  "contactUsScreen_body_empty": "Enter your message",
+  "contactUsScreen_body_tooShort": "Please provide more information",
+  "contactUsScreen_errorLaunchingEmail": "Could not launch email client"
 }
