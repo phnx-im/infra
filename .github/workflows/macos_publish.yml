@@ -16,6 +16,10 @@ on:
       - 'app/**'
       - 'Cargo.toml'
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
 jobs:
   mac-publish:
     runs-on: macos-latest

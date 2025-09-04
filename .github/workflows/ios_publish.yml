@@ -17,6 +17,10 @@ on:
       - 'Cargo.toml'
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
 jobs:
   ios-publish:
     runs-on: macos-latest
