@@ -43,6 +43,8 @@ abstract class MessageListState implements RustOpaqueInterface {
   static Future<MessageListState> default_() =>
       RustLib.instance.api.crateApiMessageListCubitMessageListStateDefault();
 
+  bool isNewMessage(ConversationMessageId messageId);
+
   /// The number of loaded messages in the list
   ///
   /// Note that this is not the number of all messages in the conversation.
