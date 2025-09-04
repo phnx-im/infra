@@ -92,7 +92,6 @@ platform :ios do
     
       # Install CocoaPods dependencies
       cocoapods(
-        clean: true,
         podfile: "ios/Podfile"
       )
   

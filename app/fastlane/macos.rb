@@ -95,9 +95,6 @@ platform :mac do
       cocoapods(
         podfile: "macos/Podfile"
       )
-
-      # Build the app with flutter first to create the necessary ephemeral files
-      sh "flutter build macos --config-only --release"
   
       # Build the app
       build_mac_app(

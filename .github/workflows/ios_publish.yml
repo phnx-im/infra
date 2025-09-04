@@ -17,10 +17,6 @@ on:
       - 'Cargo.toml'
   workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
-
 jobs:
   ios-publish:
     runs-on: macos-latest
@@ -45,10 +41,6 @@ jobs:
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.89.0
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-directories: app/build/ios/DerivedData
 
       - name: Set up iOS CI
         env:
