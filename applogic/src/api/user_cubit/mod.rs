@@ -335,6 +335,10 @@ impl UserCubitBase {
 
         Ok(())
     }
+
+    pub async fn report_spam(&self, spammer_id: UiUserId) -> anyhow::Result<()> {
+        self.context.core_user.report_spam(spammer_id.into()).await
+    }
 }
 
 impl Drop for UserCubitBase {
