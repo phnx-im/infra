@@ -40,6 +40,7 @@ use crate::errors::{CborMlsAssistStorage, StorageError};
 
 use super::{GROUP_STATE_EXPIRATION, ReservedGroupId, process::ExternalCommitInfo};
 
+mod managed_ciphertext;
 pub(super) mod persistence;
 
 #[derive(Debug, Serialize, Deserialize)]

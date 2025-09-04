@@ -184,10 +184,27 @@ impl ExpirationData {
         }
     }
 
+    /// Create a new instance of [`ExpirationData`] that expires in `lifetime`
+    /// days and the validity of which starts now.
+    pub fn new_sans_io(lifetime: Duration, now: TimeStamp) -> Self {
+        // Note: databases only support microsecond precision.
+        let not_before = now.round_subsecs(6) - Duration::minutes(15);
+        Self {
+            not_before: TimeStamp::from(not_before),
+            not_after: TimeStamp::from(not_before + lifetime),
+        }
+    }
+
     /// Return false either if the `not_after` date has passed, or if the
     /// `not_before` date has not passed yet.
     pub fn validate(&self) -> bool {
         let now = TimeStamp::now();
+        now.is_between(&self.not_before, &self.not_after)
+    }
+
+    /// Return false either if the `not_after` date has passed, or if the
+    /// `not_before` date has not passed yet.
+    pub fn validate_sans_io(&self, now: TimeStamp) -> bool {
         now.is_between(&self.not_before, &self.not_after)
     }
 

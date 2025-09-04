@@ -32,8 +32,8 @@ tokio-stream = "0.1.17"
 tonic = { workspace = true }
 rand = "0.8"
 tokio-util.workspace = true
+chrono = { workspace = true }
 futures-util = "0.3.31"
-chrono = "0.4"
 sha2 = { workspace = true }
 displaydoc = "0.2.5"
 prost.workspace = true
