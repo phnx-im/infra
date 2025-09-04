@@ -36,6 +36,7 @@ mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "postgres"] }
 displaydoc = "0.2.5"
+serde_bytes = "0.11.17"
 
 [dev-dependencies]
 insta = { workspace = true }

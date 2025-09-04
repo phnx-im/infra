@@ -48,6 +48,7 @@ use super::private_keys::{
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Signature<KT> {
+    #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
     _phantom: PhantomData<KT>,
 }
