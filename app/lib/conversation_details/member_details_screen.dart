@@ -12,6 +12,8 @@ import 'package:air/user/user.dart';
 import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
+import 'report_spam_button.dart';
+
 class MemberDetailsScreen extends StatelessWidget {
   const MemberDetailsScreen({super.key});
 
@@ -85,8 +87,6 @@ class MemberDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-
     return Center(
       child: Column(
         children: [
@@ -108,50 +108,75 @@ class MemberDetails extends StatelessWidget {
           if (!isSelf && canKick)
             Padding(
               padding: const EdgeInsets.only(bottom: Spacings.s),
-              child: OutlinedButton(
-                onPressed: () async {
-                  bool confirmed = await showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: Text(loc.removeUserDialog_title),
-                        content: Text(loc.removeUserDialog_content),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(false);
-                            },
-                            style: textButtonStyle(context),
-                            child: Text(loc.removeUserDialog_cancel),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              await context
-                                  .read<UserCubit>()
-                                  .removeUserFromConversation(
-                                    conversationId,
-                                    profile.userId,
-                                  );
-                              if (context.mounted) {
-                                Navigator.of(context).pop(true);
-                              }
-                            },
-                            style: textButtonStyle(context),
-                            child: Text(loc.removeUserDialog_removeUser),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                  if (confirmed && context.mounted) {
-                    Navigator.of(context).pop(true);
-                  }
-                },
-                child: Text(loc.removeUserButton_text),
+              child: _RemoveUserButton(
+                conversationId: conversationId,
+                userId: profile.userId,
               ),
+            ),
+
+          if (!isSelf)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Spacings.s),
+              child: ReportSpamButton(userId: profile.userId),
             ),
         ],
       ),
     );
+  }
+}
+
+class _RemoveUserButton extends StatelessWidget {
+  const _RemoveUserButton({required this.conversationId, required this.userId});
+
+  final ConversationId conversationId;
+  final UiUserId userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return OutlinedButton(
+      onPressed: () => _onPressed(context),
+      child: Text(loc.removeUserButton_text),
+    );
+  }
+
+  void _onPressed(BuildContext context) async {
+    bool confirmed = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        final loc = AppLocalizations.of(context);
+
+        return AlertDialog(
+          title: Text(loc.removeUserDialog_title),
+          content: Text(loc.removeUserDialog_content),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              style: textButtonStyle(context),
+              child: Text(loc.removeUserDialog_cancel),
+            ),
+            TextButton(
+              onPressed: () async {
+                await context.read<UserCubit>().removeUserFromConversation(
+                  conversationId,
+                  userId,
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              style: textButtonStyle(context),
+              child: Text(loc.removeUserDialog_removeUser),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed && context.mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 }

@@ -44,6 +44,8 @@ pub trait Store {
 
     async fn set_own_user_profile(&self, user_profile: UserProfile) -> StoreResult<UserProfile>;
 
+    async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()>;
+
     /// Loads a user setting
     ///
     /// If the setting is not found, the default value is returned. If loading or decoding failed,

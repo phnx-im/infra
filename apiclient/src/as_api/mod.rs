@@ -26,8 +26,8 @@ use airprotos::auth_service::v1::{
     CreateHandlePayload, DeleteHandlePayload, DeleteUserPayload, EnqueueConnectionOfferStep,
     FetchConnectionPackageStep, GetUserProfileRequest, HandleQueueMessage, InitListenHandlePayload,
     ListenHandleRequest, MergeUserProfilePayload, PublishConnectionPackagesPayload,
-    RegisterUserRequest, StageUserProfilePayload, connect_request, connect_response,
-    listen_handle_request,
+    RegisterUserRequest, ReportSpamPayload, StageUserProfilePayload, connect_request,
+    connect_response, listen_handle_request,
 };
 use futures_util::{FutureExt, future::BoxFuture};
 use thiserror::Error;
@@ -189,6 +189,21 @@ impl ApiClient {
             .client()
             .publish_connection_packages(request)
             .await?;
+        Ok(())
+    }
+
+    pub async fn as_report_spam(
+        &self,
+        reporter_id: UserId,
+        spammer_id: UserId,
+        signing_key: &ClientSigningKey,
+    ) -> Result<(), AsRequestError> {
+        let payload = ReportSpamPayload {
+            reporter_id: Some(reporter_id.into()),
+            spammer_id: Some(spammer_id.into()),
+        };
+        let request = payload.sign(signing_key)?;
+        self.as_grpc_client.client().report_spam(request).await?;
         Ok(())
     }
 
