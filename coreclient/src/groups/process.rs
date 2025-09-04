@@ -235,38 +235,7 @@ impl Group {
                         }
                     }
                     InfraAadPayload::Update => {
-                        // Check if the client has updated its leaf credential.
-                        let sender = self
-                            .mls_group
-                            .members()
-                            .find(|m| m.index == sender_index)
-                            .ok_or(anyhow!("Could not find sender in group members"))?;
-                        let old_sender_credential = sender.credential.clone().try_into()?;
-                        let (new_sender_credential, new_sender_leaf_key) =
-                            update_path_leaf_node_info(staged_commit)?;
-                        let as_credentials = AsCredentials::fetch_for_verification(
-                            &mut *connection,
-                            api_clients,
-                            iter::once(&new_sender_credential),
-                        )
-                        .await?;
-                        if new_sender_credential != old_sender_credential {
-                            let client_auth_info = ClientAuthInfo::verify_credential(
-                                &group_id,
-                                sender_index,
-                                new_sender_credential.clone(),
-                                new_sender_leaf_key.clone(),
-                                Some(old_sender_credential),
-                                &as_credentials,
-                            )?;
-
-                            // Persist the updated client auth info.
-                            client_auth_info.stage_update(&mut *connection).await?;
-                        };
-                        // TODO: Validation:
-                        // * Check that the sender type fits.
-                        // * Check that the client id is the same as before.
-                        // * More validation on pseudonymous and client credential?
+                        // deprecated: use group operations instead which also does an update
                     }
                     InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
