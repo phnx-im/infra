@@ -7,7 +7,8 @@ platform :ios do
     lane :beta_ios do |options|
       # Set up CI
       setup_ci()
-  
+      upload_to_test_flight = options[:upload_to_test_flight]
+
       # Set parameters
       key_id = ENV['APP_STORE_KEY_ID']
       issuer_id = ENV['APP_STORE_ISSUER_ID']
@@ -61,10 +62,10 @@ platform :ios do
       end
   
       # Build the app with signing
-      build_ios(with_signing: true)
-    
+      build_ios(with_signing: upload_to_test_flight)
+
       # Upload the app to TestFlight if the parameter is set
-      if options[:upload_to_test_flight]
+      if upload_to_test_flight
         upload_to_testflight(
           api_key: api_key,
           app_platform: "ios",
@@ -86,12 +87,11 @@ platform :ios do
       # Install flutter dependencies
       sh "flutter pub get"
 
-      # Configure the tooling
-      sh "flutter build ios --config-only --release"
+      # Build the app with flutter first to create the necessary ephemeral files
+      sh "flutter build macos --config-only #{skip_signing ? '--debug' : '--release'}"
     
       # Install CocoaPods dependencies
       cocoapods(
-        clean: true,
         podfile: "ios/Podfile"
       )
   
@@ -99,9 +99,10 @@ platform :ios do
       build_app(
         workspace: "ios/Runner.xcworkspace", 
         scheme: "Runner",
-        configuration: "Release",
+        configuration: skip_signing ? "Debug" : "Release",
         skip_codesigning: skip_signing,
         skip_package_ipa: skip_signing,
+        skip_archive: skip_signing,
         export_method: "app-store",
       )
     end
