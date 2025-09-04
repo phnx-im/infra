@@ -67,7 +67,6 @@ class ConversationTile extends StatelessWidget {
 
 class _AnimatedMessage extends StatefulWidget {
   const _AnimatedMessage({
-    super.key,
     required this.position,
     required this.isSender,
     required this.child,
