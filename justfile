@@ -158,7 +158,7 @@ build-ios:
 # Build Linux app
 [working-directory: 'app']
 build-linux:
-     flutter build linux
+     flutter build linux -v
 
 # analyze Dart code
 [working-directory: 'app']
@@ -178,7 +178,7 @@ run-backend: init-backend-db
 # Build Windows app
 [working-directory: 'app']
 build-windows:
-     flutter build windows
+     flutter build windows -v
 
 # Run app
 [working-directory: 'app']
