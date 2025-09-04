@@ -449,43 +449,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         }))
     }
 
-    async fn update(
-        &self,
-        request: Request<UpdateRequest>,
-    ) -> Result<Response<UpdateResponse>, Status> {
-        let request = request.into_inner();
-
-        request
-            .signature
-            .as_ref()
-            .ok_or_missing_field("signature")?;
-
-        let LeafVerificationData {
-            ear_key,
-            group_data,
-            mut group_state,
-            sender_index,
-            message: commit,
-            ..
-        } = self.leaf_verify::<_, UpdatePayload>(request).await?;
-
-        let destination_clients: Vec<_> = group_state
-            .other_destination_clients(sender_index)
-            .collect();
-
-        let group_message = group_state.update_client(commit)?;
-        self.update_group_data(group_data, group_state, &ear_key)
-            .await?;
-
-        let timestamp = self
-            .fan_out_message(group_message, destination_clients)
-            .await?;
-
-        Ok(Response::new(UpdateResponse {
-            fanout_timestamp: Some(timestamp.into()),
-        }))
-    }
-
     async fn join_connection_group(
         &self,
         request: Request<JoinConnectionGroupRequest>,
@@ -1017,12 +980,6 @@ impl WithGroupStateEarKey for GroupOperationRequest {
     }
 }
 
-impl WithGroupStateEarKey for UpdateRequest {
-    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
-        self.payload.as_ref()?.group_state_ear_key.as_ref()
-    }
-}
-
 impl WithGroupStateEarKey for SelfRemoveRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.payload.as_ref()?.group_state_ear_key.as_ref()
@@ -1084,15 +1041,6 @@ impl WithMessage for GroupOperationRequest {
 }
 
 impl WithMessage for DeleteGroupRequest {
-    fn message(&self) -> Result<AssistedMessageIn, Status> {
-        let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
-        let commit = payload.commit.as_ref().ok_or_missing_field("commit")?;
-        let commit = commit.try_ref_into().invalid_tls("commit")?;
-        Ok(commit)
-    }
-}
-
-impl WithMessage for UpdateRequest {
     fn message(&self) -> Result<AssistedMessageIn, Status> {
         let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
         let commit = payload.commit.as_ref().ok_or_missing_field("commit")?;
