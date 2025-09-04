@@ -39,6 +39,10 @@ impl Store for CoreUser {
         self.set_own_user_profile(user_profile).await
     }
 
+    async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()> {
+        self.report_spam(spammer_id).await
+    }
+
     async fn user_setting<T: UserSetting>(&self) -> T {
         match UserSettingRecord::load(self.pool(), T::KEY).await {
             Ok(Some(bytes)) => match T::decode(bytes) {
