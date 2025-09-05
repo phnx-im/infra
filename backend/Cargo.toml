@@ -46,7 +46,6 @@ aws-config = { version = "1.8.0", default-features = false, features = [
     "behavior-version-latest",
     "rt-tokio",
 ] }
-serde_bytes = "0.11.17"
 
 [dev-dependencies]
 aircommon = { path = "../common", features = ["test_utils"] }

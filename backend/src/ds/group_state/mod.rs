@@ -31,7 +31,7 @@ use mls_assist::{
 };
 use sqlx::PgExecutor;
 use thiserror::Error;
-use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 use tracing::error;
 use uuid::Uuid;
 
@@ -262,18 +262,15 @@ impl StorableDsGroupData {
 #[derive(TlsSize, TlsDeserializeBytes, TlsSerialize)]
 pub(crate) struct SerializableDsGroupStateV1 {
     group_id: GroupId,
-    #[serde(with = "serde_bytes")]
-    serialized_provider: Vec<u8>,
+    serialized_provider: VLBytes,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
 #[derive(TlsSize, TlsDeserializeBytes, TlsSerialize)]
 pub(crate) struct SerializableDsGroupStateV2 {
     group_id: GroupId,
-    #[serde(with = "serde_bytes")]
-    serialized_provider: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    room_state: Vec<u8>,
+    serialized_provider: VLBytes,
+    room_state: VLBytes,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
@@ -288,8 +285,8 @@ impl SerializableDsGroupStateV2 {
             .group_id()
             .clone();
         let client_profiles = group_state.member_profiles.into_iter().collect();
-        let serialized_provider = group_state.provider.storage().serialize()?;
-        let room_state = AirCodec::to_vec(group_state.room_state.unverified())?;
+        let serialized_provider = group_state.provider.storage().serialize()?.into();
+        let room_state = AirCodec::to_vec(group_state.room_state.unverified())?.into();
         Ok(Self {
             group_id,
             serialized_provider,
@@ -299,13 +296,13 @@ impl SerializableDsGroupStateV2 {
     }
 
     pub(super) fn into_group_state(self) -> Result<DsGroupState, aircommon::codec::Error> {
-        let storage = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
+        let storage = CborMlsAssistStorage::deserialize(self.serialized_provider.as_slice())?;
         // We unwrap here, because the constructor ensures that `self` always stores a group
         let group = Group::load(&storage, &self.group_id)?.unwrap();
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
 
-        let room_state = AirCodec::from_slice(&self.room_state)
+        let room_state = AirCodec::from_slice(self.room_state.as_slice())
             .inspect_err(|error| {
                 error!(%error, "Failed to load room state. Falling back to default room state.");
             })
@@ -363,7 +360,7 @@ impl From<EncryptableDsGroupState> for SerializableDsGroupStateV2 {
             EncryptableDsGroupState::V1(serializable) => Self {
                 group_id: serializable.group_id,
                 serialized_provider: serializable.serialized_provider,
-                room_state: Vec::new(),
+                room_state: Vec::new().into(),
                 member_profiles: serializable.member_profiles,
             },
             EncryptableDsGroupState::V2(serializable) => serializable,
