@@ -3799,7 +3799,7 @@ dependencies = [
 [[package]]
 name = "mls-assist"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mls-assist#d8a78823615b3aed3b3d14880370da668683e0fb"
+source = "git+https://github.com/phnx-im/mls-assist?rev=cc59c498ea39acec148db847e4ccf7ad27f04ddd#cc59c498ea39acec148db847e4ccf7ad27f04ddd"
 dependencies = [
  "chrono",
  "openmls",
