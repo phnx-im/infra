@@ -198,8 +198,14 @@ impl NavigationCubitBase {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => false,
             NavigationState::Home { home } => {
-                home.conversation_details_open = false;
-                mem::replace(&mut home.conversation_open, false)
+                if (home.conversation_open) {
+                    home.conversation_open = false;
+                    home.conversation_details_open = false;
+                    home.conversation_id = None;
+                    true
+                } else {
+                    false
+                }
             }
         });
     }

@@ -8,8 +8,7 @@
 PRAGMA foreign_keys = OFF;
 
 -- Migration for 'contacts' table
-ALTER TABLE contacts
-RENAME TO contacts_old;
+DROP TRIGGER delete_keys;
 
 CREATE TABLE IF NOT EXISTS contacts_new (
     user_uuid BLOB NOT NULL,
