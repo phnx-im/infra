@@ -263,6 +263,7 @@ impl StorableDsGroupData {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SerializableDsGroupStateV1 {
     group_id: GroupId,
+    #[serde(with = "serde_bytes")]
     serialized_provider: Vec<u8>,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
@@ -270,7 +271,9 @@ pub(crate) struct SerializableDsGroupStateV1 {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SerializableDsGroupStateV2 {
     group_id: GroupId,
+    #[serde(with = "serde_bytes")]
     serialized_provider: Vec<u8>,
+    #[serde(with = "serde_bytes")]
     room_state: Vec<u8>,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
