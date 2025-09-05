@@ -78,7 +78,7 @@ impl CoreUser {
 
         // send attachment message
         let attachment_id = attachment_metadata.attachment_id;
-        let content_bytes = mem::take(&mut attachment.content.bytes);
+        let content_bytes = mem::replace(&mut attachment.content.bytes, Vec::new().into());
         let content_type = attachment.content_type;
 
         let content = MimiContent {
@@ -118,7 +118,7 @@ impl CoreUser {
                 created_at: Utc::now(),
             };
             record
-                .store(txn.as_mut(), notifier, Some(&content_bytes))
+                .store(txn.as_mut(), notifier, Some(content_bytes.as_slice()))
                 .await?;
 
             Ok(message)

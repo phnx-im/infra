@@ -81,6 +81,7 @@ impl UserHandle {
     Debug, Clone, Copy, PartialEq, Eq, Hash, TlsSerialize, TlsSize, Serialize, Deserialize,
 )]
 pub struct UserHandleHash {
+    #[serde(with = "serde_bytes")]
     hash: [u8; 32],
 }
 

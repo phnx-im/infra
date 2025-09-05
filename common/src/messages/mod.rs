@@ -36,7 +36,7 @@ pub mod welcome_attribution_info;
     sqlx::Type,
 )]
 #[sqlx(transparent)]
-pub struct FriendshipToken(Vec<u8>);
+pub struct FriendshipToken(#[serde(with = "serde_bytes")] Vec<u8>);
 
 impl FriendshipToken {
     pub fn from_bytes(token: Vec<u8>) -> Self {

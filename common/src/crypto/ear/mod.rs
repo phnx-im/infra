@@ -41,7 +41,9 @@ const AEAD_NONCE_SIZE: usize = 12;
 )]
 #[sqlx(type_name = "aead_ciphertext")]
 pub struct AeadCiphertext {
+    #[serde(with = "serde_bytes")]
     ciphertext: Vec<u8>,
+    #[serde(with = "serde_bytes")]
     nonce: [u8; AEAD_NONCE_SIZE],
 }
 
