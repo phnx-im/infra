@@ -37,8 +37,7 @@ use aircommon::{
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
-            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, UpdateParamsOut,
-            WelcomeInfoIn,
+            GroupOperationParamsOut, SelfRemoveParamsOut, SendMessageParamsOut, WelcomeInfoIn,
         },
         welcome_attribution_info::{
             WelcomeAttributionInfo, WelcomeAttributionInfoPayload, WelcomeAttributionInfoTbs,
@@ -68,9 +67,9 @@ use openmls::{
     prelude::{
         BasicCredentialError, Capabilities, Ciphersuite, CredentialType, CredentialWithKey,
         Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup,
-        MlsGroupJoinConfig, MlsMessageOut, OpenMlsCrypto, OpenMlsProvider,
-        PURE_PLAINTEXT_WIRE_FORMAT_POLICY, Proposal, ProposalType, ProtocolVersion, QueuedProposal,
-        RequiredCapabilitiesExtension, Sender, SignaturePublicKey, StagedCommit, UnknownExtension,
+        MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+        Proposal, ProposalType, ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension,
+        Sender, SignaturePublicKey, StagedCommit, UnknownExtension,
         tls_codec::Serialize as TlsSerializeTrait,
     },
     treesync::RatchetTree,
@@ -471,6 +470,7 @@ impl Group {
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info) = {
             let provider = AirOpenMlsProvider::new(&mut *connection);
+            #[expect(deprecated)]
             let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
                 &provider,
                 signer,
@@ -942,10 +942,10 @@ impl Group {
         signer: &ClientSigningKey,
     ) -> Result<GroupOperationParamsOut> {
         // We don't expect there to be a welcome.
-        let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
-            new_encrypted_user_profile_keys: vec![],
-        });
-        let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
+        let aad = InfraAadMessage::from(InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys: Vec::new(),
+        }))
+        .tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
             let provider = AirOpenMlsProvider::new(txn.as_mut());

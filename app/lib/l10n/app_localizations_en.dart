@@ -33,6 +33,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userSettingsScreen_interfaceScale => 'Interface scale';
 
   @override
+  String get userSettingsScreen_help => 'Help';
+
+  @override
   String get removeUsernameDialog_title => 'Remove Username';
 
   @override
@@ -86,19 +89,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUserDialog_cancel => 'Cancel';
 
   @override
-  String get removeUserDialog_removeUser => 'Remove user';
+  String get removeUserDialog_removeUser => 'Remove User';
 
   @override
-  String get removeUserButton_text => 'Remove user';
+  String get removeUserButton_text => 'Remove User';
 
   @override
-  String get leaveConversationButton_text => 'Leave conversation';
+  String get leaveConversationButton_text => 'Leave Conversation';
 
   @override
-  String get deleteConversationButton_text => 'Delete conversation';
+  String get deleteConversationButton_text => 'Delete Conversation';
 
   @override
-  String get deleteConnectionButton_text => 'Delete connection';
+  String get deleteConnectionButton_text => 'Delete Connection';
+
+  @override
+  String get deleteConnectionDialog_title => 'Delete Connection';
+
+  @override
+  String get deleteConnectionDialog_content =>
+      'Are you sure you want to delete this connection? The message history will be also deleted.';
+
+  @override
+  String get deleteConnectionDialog_cancel => 'Cancel';
+
+  @override
+  String get deleteConnectionDialog_delete => 'Delete';
 
   @override
   String get introScreen_signUp => 'Sign up';
@@ -260,4 +276,80 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textMessage_edited => 'edited';
+
+  @override
+  String get reportSpamButton_text => 'Report Spam';
+
+  @override
+  String get reportSpamDialog_title => 'Report Spam?';
+
+  @override
+  String get reportSpamDialog_content =>
+      'Air will be notified that this person may be sending spam. Air is never able to see the contents of any chats.';
+
+  @override
+  String get reportSpamDialog_cancel => 'Cancel';
+
+  @override
+  String get reportSpamDialog_reportSpam => 'Report Spam';
+
+  @override
+  String get reportSpamDialog_success => 'Spam reported';
+
+  @override
+  String get reportSpamDialog_error =>
+      'Failed to report spam. Please try again.';
+
+  @override
+  String get helpScreen_title => 'Help';
+
+  @override
+  String get helpScreen_contactUs => 'Contact Us';
+
+  @override
+  String get helpScreen_versionInfo => 'Version Info';
+
+  @override
+  String get helpScreen_licenses => 'Licenses';
+
+  @override
+  String get licensesScreen_title => 'Licenses';
+
+  @override
+  String get contactUsScreen_title => 'Contact';
+
+  @override
+  String get contactUsScreen_subject => 'Message subject';
+
+  @override
+  String get contactUsScreen_body => 'Body';
+
+  @override
+  String get contactUsScreen_composeEmail => 'Compose Email';
+
+  @override
+  String get contactUsScreen_subject_somethingNotWorking =>
+      'Something\'s not working';
+
+  @override
+  String get contactUsScreen_subject_iHaveAQuestion => 'I have a question';
+
+  @override
+  String get contactUsScreen_subject_requestFeature => 'Request a feature';
+
+  @override
+  String get contactUsScreen_subject_other => 'Other';
+
+  @override
+  String get contactUsScreen_subject_empty => 'Please select a subject';
+
+  @override
+  String get contactUsScreen_body_empty => 'Enter your message';
+
+  @override
+  String get contactUsScreen_body_tooShort => 'Please provide more information';
+
+  @override
+  String get contactUsScreen_errorLaunchingEmail =>
+      'Could not launch email client';
 }

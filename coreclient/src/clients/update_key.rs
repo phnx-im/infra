@@ -49,8 +49,7 @@ impl CoreUser {
 
 mod update_key_flow {
     use aircommon::{
-        credentials::keys::ClientSigningKey,
-        messages::client_ds_out::{GroupOperationParamsOut, UpdateParamsOut},
+        credentials::keys::ClientSigningKey, messages::client_ds_out::GroupOperationParamsOut,
         time::TimeStamp,
     };
     use anyhow::Context;

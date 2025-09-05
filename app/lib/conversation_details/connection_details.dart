@@ -11,11 +11,15 @@ import 'package:flutter/material.dart';
 import 'package:air/core/core.dart';
 import 'package:air/theme/theme.dart';
 import 'package:air/widgets/widgets.dart';
+import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
+import 'report_spam_button.dart';
 
-// Details of a 1:1 connection
+final _log = Logger('ConnectionDetails');
+
+/// Details of a 1:1 connection
 class ConnectionDetails extends StatelessWidget {
   const ConnectionDetails({super.key});
 
@@ -29,43 +33,61 @@ class ConnectionDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final loc = AppLocalizations.of(context);
+    final memberId = switch (conversation.conversationType) {
+      UiConversationType_Connection(field0: final profile) => profile.userId,
+      _ => null,
+    };
+    if (memberId == null) {
+      _log.warning("memberId is null in 1:1 connection details");
+      return const SizedBox.shrink();
+    }
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
-        padding: const EdgeInsets.all(Spacings.s),
-        child: Column(
-          children: [
-            const SizedBox(height: Spacings.l),
-            UserAvatar(
-              size: 128,
-              displayName: conversation.title,
-              image: conversation.picture,
-            ),
-            const SizedBox(height: Spacings.l),
-            Text(
-              style: Theme.of(context).textTheme.bodyLarge,
-              conversation.title,
-            ),
-            const SizedBox(height: Spacings.l),
-            Text(
-              conversation.conversationType.description,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const Spacer(),
-            OutlinedButton(
-              onPressed: () => _delete(context, conversation.id),
-              child: Text(
-                loc.deleteConnectionButton_text,
-                style: TextStyle(
-                  color: CustomColorScheme.of(context).function.danger,
-                ),
-              ),
-            ),
-          ],
-        ),
+    return Center(
+      child: Column(
+        children: [
+          const SizedBox(height: Spacings.l),
+          UserAvatar(
+            size: 128,
+            displayName: conversation.title,
+            image: conversation.picture,
+          ),
+          const SizedBox(height: Spacings.l),
+          Text(
+            style: Theme.of(context).textTheme.bodyLarge,
+            conversation.title,
+          ),
+          const SizedBox(height: Spacings.l),
+          Text(
+            conversation.conversationType.description,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+
+          const Spacer(),
+
+          _DeleteConnectionButton(conversationId: conversation.id),
+          const SizedBox(height: Spacings.s),
+
+          ReportSpamButton(userId: memberId),
+          const SizedBox(height: Spacings.s),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeleteConnectionButton extends StatelessWidget {
+  const _DeleteConnectionButton({required this.conversationId});
+
+  final ConversationId conversationId;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return OutlinedButton(
+      onPressed: () => _delete(context, conversationId),
+      child: Text(
+        loc.deleteConnectionButton_text,
+        style: TextStyle(color: CustomColorScheme.of(context).function.danger),
       ),
     );
   }
@@ -73,15 +95,15 @@ class ConnectionDetails extends StatelessWidget {
   void _delete(BuildContext context, ConversationId conversationId) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
-    if (await showConfirmationDialog(
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showConfirmationDialog(
       context,
-      title: "Delete",
-      message: // TODO: Localization
-          "Are you sure you want to remove this connection? "
-          "The message history will be also deleted.",
-      positiveButtonText: "Delete",
-      negativeButtonText: "Cancel",
-    )) {
+      title: loc.deleteConnectionDialog_title,
+      message: loc.deleteConnectionDialog_content,
+      positiveButtonText: loc.deleteConnectionDialog_delete,
+      negativeButtonText: loc.deleteConnectionDialog_cancel,
+    );
+    if (confirmed) {
       userCubit.deleteConversation(conversationId);
       navigationCubit.closeConversation();
     }

@@ -22,6 +22,8 @@ service AuthService {
 
   rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
 
+  rpc ReportSpam(ReportSpamRequest) returns (ReportSpamResponse);
+
   // User Handles API
 
   // Creates a new handle
@@ -321,6 +323,20 @@ message IssueTokensPayload {
 message IssueTokensResponse {
   bytes token_response = 1;
 }
+
+// report spam
+
+message ReportSpamRequest {
+  ReportSpamPayload payload = 1;
+  common.v1.Signature signature = 2;
+}
+
+message ReportSpamPayload {
+  UserId reporter_id = 1;
+  UserId spammer_id = 2;
+}
+
+message ReportSpamResponse {}
 
 // User Handles API common messsages
 

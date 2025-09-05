@@ -124,6 +124,7 @@ impl DsGroupState {
             }
             // A group operation must be a commit.
             Sender::External(_) | Sender::NewMemberProposal => {
+                warn!("A group operation must be a commit");
                 return Err(GroupOperationError::InvalidMessage);
             }
         };

@@ -585,7 +585,7 @@ mod leave_conversation_flow {
     };
     use anyhow::Context;
     use mimi_room_policy::RoleIndex;
-    use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
+    use sqlx::{SqliteConnection, SqliteTransaction};
 
     use crate::{
         Conversation, ConversationId, SystemMessage, clients::CoreUser,

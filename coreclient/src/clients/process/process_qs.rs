@@ -445,37 +445,33 @@ impl CoreUser {
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
         let mut messages = Vec::new();
 
-        match proposal.proposal() {
-            Proposal::Remove(remove_proposal) => {
-                let Some(removed) = group.client_by_index(txn, remove_proposal.removed()).await
-                else {
-                    warn!("removed client not found");
-                    return Ok((vec![], false));
-                };
+        if let Proposal::Remove(remove_proposal) = proposal.proposal() {
+            let Some(removed) = group.client_by_index(txn, remove_proposal.removed()).await else {
+                warn!("removed client not found");
+                return Ok((vec![], false));
+            };
 
-                // TODO: Handle external sender for when the server wants to kick a user?
-                let Sender::Member(sender) = proposal.sender() else {
-                    return Ok((vec![], false));
-                };
+            // TODO: Handle external sender for when the server wants to kick a user?
+            let Sender::Member(sender) = proposal.sender() else {
+                return Ok((vec![], false));
+            };
 
-                let Some(sender) = group.client_by_index(txn, *sender).await else {
-                    warn!("sending client not found");
-                    return Ok((vec![], false));
-                };
+            let Some(sender) = group.client_by_index(txn, *sender).await else {
+                warn!("sending client not found");
+                return Ok((vec![], false));
+            };
 
-                ensure!(
-                    sender == removed,
-                    "A user should not send remove proposals for other users"
-                );
+            ensure!(
+                sender == removed,
+                "A user should not send remove proposals for other users"
+            );
 
-                group.room_state_change_role(&sender, &sender, RoleIndex::Outsider)?;
+            group.room_state_change_role(&sender, &sender, RoleIndex::Outsider)?;
 
-                messages.push(TimestampedMessage::system_message(
-                    SystemMessage::Remove(sender, removed),
-                    ds_timestamp,
-                ));
-            }
-            _ => {}
+            messages.push(TimestampedMessage::system_message(
+                SystemMessage::Remove(sender, removed),
+                ds_timestamp,
+            ));
         }
 
         // For now, we don't to anything here. The proposal
