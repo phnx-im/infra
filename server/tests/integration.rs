@@ -295,6 +295,79 @@ async fn full_cycle() {
     setup
         .send_message(conversation_alice_bob, &BOB, vec![&ALICE])
         .await;
+
+    let count_18 = setup.scan_database(&"\x18", vec![&ALICE, &BOB]).await.len();
+    let count_19 = setup.scan_database(&"\x19", vec![&ALICE, &BOB]).await.len();
+    assert!(
+        count_18 < count_19 * 3 / 2,
+        "Having too many 0x18 is an indicator for using Vec<u8> instead of ByteBuf"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Edit message", skip_all)]
+async fn edit_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup
+        .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    setup
+        .edit_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Delete message", skip_all)]
+async fn delete_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup
+        .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
+    let last_message = alice
+        .last_message(conversation_alice_bob)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let string = last_message
+        .message()
+        .mimi_content()
+        .unwrap()
+        .string_rendering()
+        .unwrap();
+
+    assert!(
+        !setup
+            .scan_database(&string, vec![&ALICE, &BOB])
+            .await
+            .is_empty(),
+    );
+
+    setup
+        .delete_message(conversation_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    assert_eq!(
+        setup.scan_database(&string, vec![&ALICE, &BOB]).await,
+        Vec::<String>::new()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

@@ -50,11 +50,11 @@ sha2 = "0.10.9"
 
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
-openmls = { git = "https://github.com/openmls/openmls" }
-openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
-openmls_traits = { git = "https://github.com/openmls/openmls" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist" }
+openmls = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+openmls_memory_storage = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+openmls_traits = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
+mls-assist = { git = "https://github.com/phnx-im/mls-assist", rev = "6a3ce5ac8dbb756d90d1710f16d6ae17321f15ab" }
 
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",

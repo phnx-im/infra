@@ -242,7 +242,7 @@ impl Group {
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info(provider, signer, true)?,
+            group_info: mls_group.export_group_info(provider.crypto(), signer, true)?,
             room_state: room_state.clone(),
         };
 
@@ -483,7 +483,7 @@ impl Group {
                 credential_with_key,
             )?;
             mls_group.merge_pending_commit(&provider)?;
-            let group_info = mls_group.export_group_info(&provider, signer, true)?;
+            let group_info = mls_group.export_group_info(provider.crypto(), signer, true)?;
             (mls_group, commit, group_info)
         };
 
