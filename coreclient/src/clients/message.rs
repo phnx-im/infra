@@ -53,11 +53,7 @@ impl CoreUser {
 
         if needs_update {
             // TODO race condition: Before or after this update, new proposals could arrive
-            dbg!("There are pending proposals. Updating...");
             self.update_key(conversation_id).await?;
-            dbg!("Updating...done");
-        } else {
-            dbg!("There are no pending proposals.");
         }
 
         let unsent_group_message = self

@@ -49,7 +49,7 @@ impl CoreUser {
 
 mod update_key_flow {
     use aircommon::{
-        credentials::keys::ClientSigningKey, messages::client_ds_out::GroupOperationParamsOut,
+        credentials::keys::ClientSigningKey, messages::client_ds_out::UpdateParamsOut,
         time::TimeStamp,
     };
     use anyhow::Context;
@@ -64,7 +64,7 @@ mod update_key_flow {
     pub(super) struct UpdateKeyData {
         conversation: Conversation,
         group: Group,
-        params: GroupOperationParamsOut,
+        params: UpdateParamsOut,
     }
 
     impl UpdateKeyData {
@@ -101,7 +101,7 @@ mod update_key_flow {
             let owner_domain = conversation.owner_domain();
             let ds_timestamp = api_clients
                 .get(&owner_domain)?
-                .ds_group_operation(params, signer, group.group_state_ear_key())
+                .ds_update(params, signer, group.group_state_ear_key())
                 .await?;
             Ok(UpdatedKey {
                 group,
