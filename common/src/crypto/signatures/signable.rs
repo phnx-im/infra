@@ -37,7 +37,9 @@
 use std::{marker::PhantomData, vec};
 
 use serde::{Deserialize, Serialize};
-use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{
+    Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes,
+};
 
 use crate::LibraryError;
 
@@ -105,8 +107,8 @@ pub trait SignedStruct<T, KT> {
 /// Labeled signature content.
 #[derive(Debug, Clone, TlsSerialize, TlsDeserializeBytes, TlsSize)]
 pub struct SignContent {
-    label: Vec<u8>,
-    content: Vec<u8>,
+    label: VLBytes,
+    content: VLBytes,
 }
 
 const SIGN_LABEL_PREFIX: &str = "Phoenix Homeserver Protocol 1.0";
