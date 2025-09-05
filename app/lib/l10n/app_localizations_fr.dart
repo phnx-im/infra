@@ -50,8 +50,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get removeUsernameDialog_remove => 'Supprimer';
 
   @override
-  String get userSettingsScreen_noUserHandles =>
-      'aucun nom d\'utilisateur pour le moment';
+  String get userSettingsScreen_noUserHandles => 'aucun pseudo pour le moment';
 
   @override
   String get userSettingsScreen_userHandlePlaceholder => 'Nom d\'utilisateur';
@@ -75,7 +74,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get conversationScreen_emptyConversation =>
-      'Sélectionnez un chat pour commencer à envoyer des messages';
+      'Sélectionnez une conversation pour commencer à envoyer des messages';
 
   @override
   String get memberDetailsScreen_title => 'Détails du membre';
@@ -210,7 +209,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get newConnectionDialog_newConnectionDescription =>
-      'Entrez le nom d\'utilisateur de l\'utilisateur avec lequel vous souhaitez vous connecter';
+      'Saisissez le pseudo de l\'utilisateur avec lequel vous souhaitez vous connecter';
 
   @override
   String get newConnectionDialog_usernamePlaceholder => 'Nom d\'utilisateur';
@@ -220,16 +219,16 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String newConnectionDialog_error(Object username) {
-    return 'Impossible d\'ajouter l\'utilisateur avec le nom d\'utilisateur $username. Veuillez réessayer.';
+    return 'Impossible d\'ajouter l\'utilisateur avec le pseudo $username. Veuillez réessayer.';
   }
 
   @override
   String get newConnectionDialog_error_emptyHandle =>
-      'Le nom d\'utilisateur ne peut pas être vide';
+      'Le pseudo ne peut pas être vide';
 
   @override
   String newConnectionDialog_error_handleNotFound(Object username) {
-    return 'Le nom d\'utilisateur $username n\'existe pas';
+    return 'Le pseudo $username n\'existe pas';
   }
 
   @override

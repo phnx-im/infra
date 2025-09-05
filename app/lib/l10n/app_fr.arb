@@ -78,9 +78,9 @@
   "newConnectionDialog_newConnectionDescription": "Saisissez le pseudo de l'utilisateur avec lequel vous souhaitez vous connecter",
   "newConnectionDialog_usernamePlaceholder": "Nom d'utilisateur",
   "newConnectionDialog_actionButton": "Se connecter",
-  "newConnectionDialog_error": "Impossible d'ajouter l'utilisateur avec le pseudo {username}. Veuillez réessayer."
+  "newConnectionDialog_error": "Impossible d'ajouter l'utilisateur avec le pseudo {username}. Veuillez réessayer.",
   "newConnectionDialog_error_emptyHandle": "Le pseudo ne peut pas être vide",
-  "newConnectionDialog_error_handleNotFound": "Le pseudo {username} n'existe pas"
+  "newConnectionDialog_error_handleNotFound": "Le pseudo {username} n'existe pas",
 
   "composer_inputHint": "Message à {conversationTitle}",
   "composer_editMessage": "Modifier le message",

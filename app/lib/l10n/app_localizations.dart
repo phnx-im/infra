@@ -173,7 +173,7 @@ abstract class AppLocalizations {
   /// No description provided for @userSettingsScreen_noUserHandles.
   ///
   /// In en, this message translates to:
-  /// **'no user handles yet'**
+  /// **'no usernames yet'**
   String get userSettingsScreen_noUserHandles;
 
   /// No description provided for @userSettingsScreen_userHandlePlaceholder.
@@ -215,7 +215,7 @@ abstract class AppLocalizations {
   /// No description provided for @conversationScreen_emptyConversation.
   ///
   /// In en, this message translates to:
-  /// **'Select a chat to start messaging'**
+  /// **'Select a conversation to start messaging'**
   String get conversationScreen_emptyConversation;
 
   /// No description provided for @memberDetailsScreen_title.
@@ -461,7 +461,7 @@ abstract class AppLocalizations {
   /// No description provided for @newConnectionDialog_newConnectionDescription.
   ///
   /// In en, this message translates to:
-  /// **'Enter the Username of the user you want to connect to'**
+  /// **'Enter the username of the user you want to connect to'**
   String get newConnectionDialog_newConnectionDescription;
 
   /// No description provided for @newConnectionDialog_usernamePlaceholder.
@@ -479,7 +479,7 @@ abstract class AppLocalizations {
   /// No description provided for @newConnectionDialog_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to add user with Username {username}. Please try again.'**
+  /// **'Failed to add user with username {username}. Please try again.'**
   String newConnectionDialog_error(Object username);
 
   /// No description provided for @newConnectionDialog_error_emptyHandle.

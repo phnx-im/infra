@@ -74,7 +74,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get conversationScreen_emptyConversation =>
-      'Wähle einen Chat aus, um mit dem Nachrichten schreiben zu beginnen';
+      'Wähle eine Unterhaltung aus, um mit dem Nachrichten schreiben zu beginnen';
 
   @override
   String get memberDetailsScreen_title => 'Mitgliederdetails';

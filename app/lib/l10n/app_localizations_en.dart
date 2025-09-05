@@ -49,7 +49,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUsernameDialog_remove => 'Remove';
 
   @override
-  String get userSettingsScreen_noUserHandles => 'no user handles yet';
+  String get userSettingsScreen_noUserHandles => 'no usernames yet';
 
   @override
   String get userSettingsScreen_userHandlePlaceholder => 'Username';
@@ -73,7 +73,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get conversationScreen_emptyConversation =>
-      'Select a chat to start messaging';
+      'Select a conversation to start messaging';
 
   @override
   String get memberDetailsScreen_title => 'Member details';
@@ -206,7 +206,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get newConnectionDialog_newConnectionDescription =>
-      'Enter the Username of the user you want to connect to';
+      'Enter the username of the user you want to connect to';
 
   @override
   String get newConnectionDialog_usernamePlaceholder => 'Username';
@@ -216,7 +216,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String newConnectionDialog_error(Object username) {
-    return 'Failed to add user with Username $username. Please try again.';
+    return 'Failed to add user with username $username. Please try again.';
   }
 
   @override
