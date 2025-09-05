@@ -16,14 +16,12 @@ RENAME TO contacts_old;
 CREATE TABLE IF NOT EXISTS contacts (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
-    conversation_id BLOB NOT NULL,
+    conversation_id BLOB NOT NULL REFERENCES conversations (conversation_id) ON DELETE CASCADE,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
     connection_key BLOB NOT NULL,
-    user_profile_key_index BLOB NOT NULL,
-    PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_profile_key_index) REFERENCES indexed_keys (key_index)
+    user_profile_key_index BLOB NOT NULL REFERENCES indexed_keys (key_index),
+    PRIMARY KEY (user_uuid, user_domain)
 );
 
 INSERT INTO
@@ -40,15 +38,18 @@ DROP TABLE contacts_old;
 ALTER TABLE conversation_messages
 RENAME TO conversation_messages_old;
 
-CREATE TABLE IF NOT EXISTS conversation_messages (
+CREATE TABLE conversation_messages (
     message_id BLOB NOT NULL PRIMARY KEY,
-    conversation_id BLOB NOT NULL,
+    conversation_id BLOB NOT NULL REFERENCES conversations (conversation_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     timestamp TEXT NOT NULL,
+    -- missing `sender_as_{client_uuid,domain}` fields means it is a system message
     sender_user_uuid BLOB,
     sender_user_domain TEXT,
     content BLOB NOT NULL,
     sent BOOLEAN NOT NULL,
-    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+    mimi_id BLOB,
+    status INT NOT NULL DEFAULT 0,
+    edited_at TEXT
 );
 
 INSERT INTO
