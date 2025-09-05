@@ -16,7 +16,7 @@ import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
 
-/// Details of a conversation (group)
+/// Shows conversation details
 class GroupDetails extends StatelessWidget {
   const GroupDetails({super.key});
 
@@ -39,84 +39,75 @@ class GroupDetails extends StatelessWidget {
       alignment: Alignment.topCenter,
       child: Container(
         constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
-        padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
+        padding: const EdgeInsets.symmetric(vertical: Spacings.l),
         child: Column(
+          spacing: Spacings.s,
           children: [
-            const SizedBox(height: Spacings.l),
             UserAvatar(
               size: 128,
               image: conversation.picture,
               displayName: conversation.title,
               onPressed: () => _selectAvatar(context, conversation.id),
             ),
-            const SizedBox(height: Spacings.l),
             Text(
               conversation.title,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            const SizedBox(height: Spacings.l),
             Text(
               conversation.conversationType.description,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: Spacings.l),
-
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(minWidth: 100, maxWidth: 600),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: members.length,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Column(
-                        children: [
-                          // Header
-                          Text(
-                            loc.groupDetails_members,
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          _MemberTile(memberId: members[index]),
-                        ],
-                      );
-                    } else {
-                      return _MemberTile(memberId: members[index]);
-                    }
-                  },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Spacings.l),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Members",
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: members.length,
+                          itemBuilder: (context, index) {
+                            final memberId = members[index];
+                            return _MemberTile(memberId: memberId);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: Spacings.l),
-
             OutlinedButton(
               onPressed: () {
                 context.read<NavigationCubit>().openAddMembers();
               },
-              child: Text(loc.groupDetails_addMembers),
+              child: const Text("Add members"),
             ),
-            const SizedBox(height: Spacings.s),
-
+            Divider(color: Theme.of(context).hintColor),
             OutlinedButton(
               onPressed: () => _leave(context, conversation.id),
               child: Text(
-                loc.groupDetails_leaveConversation,
+                loc.leaveConversationButton_text,
                 style: TextStyle(
                   color: CustomColorScheme.of(context).function.danger,
                 ),
               ),
             ),
-            const SizedBox(height: Spacings.s),
-
             OutlinedButton(
               onPressed: () => _delete(context, conversation.id),
               child: Text(
-                loc.groupDetails_deleteConversation,
+                loc.deleteConversationButton_text,
                 style: TextStyle(
                   color: CustomColorScheme.of(context).function.danger,
                 ),
               ),
             ),
-            const SizedBox(height: Spacings.s),
           ],
         ),
       ),
@@ -137,13 +128,12 @@ class GroupDetails extends StatelessWidget {
   void _leave(BuildContext context, ConversationId id) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
-    final loc = AppLocalizations.of(context);
     if (await showConfirmationDialog(
       context,
-      title: loc.leaveConversationDialog_title,
-      message: loc.leaveConversationDialog_content,
-      positiveButtonText: loc.leaveConversationDialog_leave,
-      negativeButtonText: loc.leaveConversationDialog_cancel,
+      title: "Leave conversation",
+      message: "Are you sure you want to leave this conversation?",
+      positiveButtonText: "Leave",
+      negativeButtonText: "Cancel",
     )) {
       userCubit.leaveConversation(id);
       navigationCubit.closeConversation();
@@ -153,13 +143,14 @@ class GroupDetails extends StatelessWidget {
   void _delete(BuildContext context, ConversationId id) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
-    final loc = AppLocalizations.of(context);
     if (await showConfirmationDialog(
       context,
-      title: loc.deleteConversationDialog_title,
-      message: loc.deleteConversationDialog_content,
-      positiveButtonText: loc.deleteConversationDialog_delete,
-      negativeButtonText: loc.deleteConversationDialog_cancel,
+      title: "Leave conversation",
+      message:
+          "Are you sure you want to delete this conversation? "
+          "The message history will be also deleted.",
+      positiveButtonText: "Delete",
+      negativeButtonText: "Cancel",
     )) {
       userCubit.deleteConversation(id);
       navigationCubit.closeConversation();

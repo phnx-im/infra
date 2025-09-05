@@ -248,18 +248,6 @@ abstract class AppLocalizations {
   /// **'Remove User'**
   String get removeUserButton_text;
 
-  /// No description provided for @leaveConversationButton_text.
-  ///
-  /// In en, this message translates to:
-  /// **'Leave Conversation'**
-  String get leaveConversationButton_text;
-
-  /// No description provided for @deleteConversationButton_text.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete Conversation'**
-  String get deleteConversationButton_text;
-
   /// No description provided for @deleteConnectionButton_text.
   ///
   /// In en, this message translates to:
@@ -703,6 +691,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not launch email client'**
   String get contactUsScreen_errorLaunchingEmail;
+
+  /// No description provided for @groupDetails_members.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get groupDetails_members;
+
+  /// No description provided for @groupDetails_addMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Members'**
+  String get groupDetails_addMembers;
+
+  /// No description provided for @groupDetails_leaveConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Conversation'**
+  String get groupDetails_leaveConversation;
+
+  /// No description provided for @groupDetails_deleteConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Conversation'**
+  String get groupDetails_deleteConversation;
+
+  /// No description provided for @leaveConversationDialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Conversation'**
+  String get leaveConversationDialog_title;
+
+  /// No description provided for @leaveConversationDialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to leave this conversation?'**
+  String get leaveConversationDialog_content;
+
+  /// No description provided for @leaveConversationDialog_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get leaveConversationDialog_cancel;
+
+  /// No description provided for @leaveConversationDialog_leave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get leaveConversationDialog_leave;
+
+  /// No description provided for @deleteConversationDialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Conversation'**
+  String get deleteConversationDialog_title;
+
+  /// No description provided for @deleteConversationDialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this conversation? The message history will be also deleted.'**
+  String get deleteConversationDialog_content;
+
+  /// No description provided for @deleteConversationDialog_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deleteConversationDialog_cancel;
+
+  /// No description provided for @deleteConversationDialog_delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteConversationDialog_delete;
 }
 
 class _AppLocalizationsDelegate

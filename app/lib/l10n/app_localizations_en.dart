@@ -95,12 +95,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeUserButton_text => 'Remove User';
 
   @override
-  String get leaveConversationButton_text => 'Leave Conversation';
-
-  @override
-  String get deleteConversationButton_text => 'Delete Conversation';
-
-  @override
   String get deleteConnectionButton_text => 'Delete Connection';
 
   @override
@@ -352,4 +346,42 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get contactUsScreen_errorLaunchingEmail =>
       'Could not launch email client';
+
+  @override
+  String get groupDetails_members => 'Members';
+
+  @override
+  String get groupDetails_addMembers => 'Add Members';
+
+  @override
+  String get groupDetails_leaveConversation => 'Leave Conversation';
+
+  @override
+  String get groupDetails_deleteConversation => 'Delete Conversation';
+
+  @override
+  String get leaveConversationDialog_title => 'Leave Conversation';
+
+  @override
+  String get leaveConversationDialog_content =>
+      'Are you sure you want to leave this conversation?';
+
+  @override
+  String get leaveConversationDialog_cancel => 'Cancel';
+
+  @override
+  String get leaveConversationDialog_leave => 'Leave';
+
+  @override
+  String get deleteConversationDialog_title => 'Delete Conversation';
+
+  @override
+  String get deleteConversationDialog_content =>
+      'Are you sure you want to delete this conversation? The message history will be also deleted.';
+
+  @override
+  String get deleteConversationDialog_cancel => 'Cancel';
+
+  @override
+  String get deleteConversationDialog_delete => 'Delete';
 }
