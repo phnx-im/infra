@@ -27,7 +27,7 @@ use crate::{
 use aircommon::{
     credentials::keys::ClientSigningKey,
     crypto::{
-        ConnectionDecryptionKey, RatchetDecryptionKey,
+        RatchetDecryptionKey,
         ear::keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
@@ -44,8 +44,6 @@ pub(crate) mod queue_ratchets;
 pub(crate) struct MemoryUserKeyStoreBase<K> {
     // Client credential secret key
     pub(super) signing_key: K,
-    // AS-specific key material
-    pub(super) connection_decryption_key: ConnectionDecryptionKey,
     // QS-specific key material
     pub(super) qs_client_signing_key: QsClientSigningKey,
     pub(super) qs_user_signing_key: QsUserSigningKey,
