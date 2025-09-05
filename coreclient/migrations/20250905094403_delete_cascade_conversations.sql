@@ -7,16 +7,11 @@
 --
 PRAGMA foreign_keys = OFF;
 
--- Don't update foreign references when renaming tables
-PRAGMA legacy_alter_table = ON;
-
-DROP TRIGGER IF EXISTS delete_keys;
-
 -- Migration for 'contacts' table
 ALTER TABLE contacts
 RENAME TO contacts_old;
 
-CREATE TABLE IF NOT EXISTS contacts (
+CREATE TABLE IF NOT EXISTS contacts_new (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
     conversation_id BLOB NOT NULL REFERENCES conversations (conversation_id) ON DELETE CASCADE,
@@ -28,20 +23,30 @@ CREATE TABLE IF NOT EXISTS contacts (
 );
 
 INSERT INTO
-    contacts
+    contacts_new
 SELECT
     co.*
 FROM
-    contacts_old co
+    contacts co
     INNER JOIN conversations conv ON co.conversation_id = conv.conversation_id;
 
-DROP TABLE contacts_old;
+DROP TABLE contacts;
+
+ALTER TABLE contacts_new
+RENAME TO contacts;
+
+CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON contacts FOR EACH ROW BEGIN
+-- Delete user profile keys if the corresponding contact is deleted. Since key
+-- indexes include the user id in their derivation, they are unique per user
+-- and we don't need to check if they are used by another user (or ourselves).
+DELETE FROM indexed_keys
+WHERE
+    key_index = OLD.user_profile_key_index;
+
+END;
 
 -- Migration for 'conversation_messages' table
-ALTER TABLE conversation_messages
-RENAME TO conversation_messages_old;
-
-CREATE TABLE conversation_messages (
+CREATE TABLE conversation_messages_new (
     message_id BLOB NOT NULL PRIMARY KEY,
     conversation_id BLOB NOT NULL REFERENCES conversations (conversation_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     timestamp TEXT NOT NULL,
@@ -56,24 +61,17 @@ CREATE TABLE conversation_messages (
 );
 
 INSERT INTO
-    conversation_messages
+    conversation_messages_new
 SELECT
     *
 FROM
-    conversation_messages_old;
+    conversation_messages;
 
-DROP TABLE conversation_messages_old;
+DROP TABLE conversation_messages;
 
-CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON contacts FOR EACH ROW BEGIN
--- Delete user profile keys if the corresponding contact is deleted. Since key
--- indexes include the user id in their derivation, they are unique per user
--- and we don't need to check if they are used by another user (or ourselves).
-DELETE FROM indexed_keys
-WHERE
-    key_index = OLD.user_profile_key_index;
+ALTER TABLE conversation_messages_new
+RENAME TO conversation_messages;
 
-END;
+PRAGMA foreign_key_check;
 
 PRAGMA foreign_keys = ON;
-
-PRAGMA legacy_alter_table = OFF;
