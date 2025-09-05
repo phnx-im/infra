@@ -16,7 +16,6 @@ use aircommon::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },
     crypto::{
-        ear::{EarKey, GenericSerializable},
         indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
         kdf::keys::ConnectionKey,
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
@@ -111,11 +110,7 @@ impl BasicUserData {
         };
 
         let encrypted_push_token = match self.push_token {
-            Some(push_token) => Some(EncryptedPushToken::from(
-                key_store
-                    .push_token_ear_key
-                    .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
-            )),
+            Some(push_token) => Some(push_token.encrypt(&key_store.push_token_ear_key)?),
             None => None,
         };
 

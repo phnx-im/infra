@@ -21,7 +21,7 @@ use crate::{
     credentials::keys::ClientVerifyingKey,
     crypto::{
         ear::{
-            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+            EarDecryptable, EarEncryptable,
             keys::{EncryptedUserProfileKey, GroupStateEarKey, RatchetKey},
         },
         hpke::{HpkeDecryptable, HpkeEncryptable, JoinerInfoKeyType},
@@ -171,7 +171,6 @@ impl InfraAadMessage {
 #[repr(u8)]
 pub enum InfraAadPayload {
     GroupOperation(GroupOperationParamsAad),
-    Update,
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
     Resync,
     DeleteGroup,
@@ -305,14 +304,6 @@ pub struct DsJoinerInformation {
     pub group_state_ear_key: GroupStateEarKey,
 }
 
-impl GenericSerializable for DsJoinerInformation {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct EncryptedDsJoinerInformation {
     pub ciphertext: HpkeCiphertext,
@@ -332,14 +323,6 @@ impl From<HpkeCiphertext> for EncryptedDsJoinerInformation {
 
 impl HpkeEncryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformation {}
 impl HpkeDecryptable<JoinerInfoKeyType, EncryptedDsJoinerInformation> for DsJoinerInformation {}
-
-impl GenericDeserializable for DsJoinerInformation {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact_bytes(bytes)
-    }
-}
 
 #[derive(Debug, TlsSerialize, TlsDeserializeBytes, TlsSize, Clone)]
 pub struct WelcomeBundle {
