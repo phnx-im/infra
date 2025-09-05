@@ -7,6 +7,9 @@
 --
 PRAGMA foreign_keys = OFF;
 
+-- Don't update foreign references when renaming tables
+PRAGMA legacy_alter_table = ON;
+
 DROP TRIGGER IF EXISTS delete_keys;
 
 -- Migration for 'contacts' table
@@ -72,3 +75,5 @@ WHERE
 END;
 
 PRAGMA foreign_keys = ON;
+
+PRAGMA legacy_alter_table = OFF;
