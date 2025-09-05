@@ -198,7 +198,7 @@ impl NavigationCubitBase {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => false,
             NavigationState::Home { home } => {
-                if (home.conversation_open) {
+                if home.conversation_open {
                     home.conversation_open = false;
                     home.conversation_details_open = false;
                     home.conversation_id = None;
