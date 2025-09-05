@@ -28,11 +28,11 @@ impl From<ConnectionPackage> for StorableConnectionPackage {
 
 #[derive(Serialize)]
 pub(in crate::auth_service) enum StorableConnectionPackageRef<'a> {
-    V2(&'a ConnectionPackage),
+    V1(&'a ConnectionPackage),
 }
 
 impl<'a> From<&'a ConnectionPackage> for StorableConnectionPackageRef<'a> {
     fn from(connection_package: &'a ConnectionPackage) -> Self {
-        StorableConnectionPackageRef::V2(connection_package)
+        StorableConnectionPackageRef::V1(connection_package)
     }
 }
