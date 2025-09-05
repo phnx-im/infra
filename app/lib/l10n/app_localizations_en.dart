@@ -330,4 +330,31 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get contactUsScreen_errorLaunchingEmail =>
       'Could not launch email client';
+
+  @override
+  String get byteUnit_B => 'B';
+
+  @override
+  String get byteUnit_KB => 'KB';
+
+  @override
+  String get byteUnit_MB => 'MB';
+
+  @override
+  String get byteUnit_GB => 'GB';
+
+  @override
+  String get byteUnit_TB => 'TB';
+
+  @override
+  String get byteUnit_PB => 'PB';
+
+  @override
+  String get byteUnit_EB => 'EB';
+
+  @override
+  String get byteUnit_ZB => 'ZB';
+
+  @override
+  String get byteUnit_YB => 'YB';
 }

@@ -9,7 +9,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
+import 'app_localizations_de.dart';
 import 'app_localizations_en.dart';
+import 'app_localizations_fr.dart';
 
 // ignore_for_file: type=lint
 
@@ -96,7 +98,11 @@ abstract class AppLocalizations {
       ];
 
   /// A list of this localizations delegate's supported locales.
-  static const List<Locale> supportedLocales = <Locale>[Locale('en')];
+  static const List<Locale> supportedLocales = <Locale>[
+    Locale('de'),
+    Locale('en'),
+    Locale('fr'),
+  ];
 
   /// No description provided for @appTitle.
   ///
@@ -661,6 +667,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not launch email client'**
   String get contactUsScreen_errorLaunchingEmail;
+
+  /// No description provided for @byteUnit_B.
+  ///
+  /// In en, this message translates to:
+  /// **'B'**
+  String get byteUnit_B;
+
+  /// No description provided for @byteUnit_KB.
+  ///
+  /// In en, this message translates to:
+  /// **'KB'**
+  String get byteUnit_KB;
+
+  /// No description provided for @byteUnit_MB.
+  ///
+  /// In en, this message translates to:
+  /// **'MB'**
+  String get byteUnit_MB;
+
+  /// No description provided for @byteUnit_GB.
+  ///
+  /// In en, this message translates to:
+  /// **'GB'**
+  String get byteUnit_GB;
+
+  /// No description provided for @byteUnit_TB.
+  ///
+  /// In en, this message translates to:
+  /// **'TB'**
+  String get byteUnit_TB;
+
+  /// No description provided for @byteUnit_PB.
+  ///
+  /// In en, this message translates to:
+  /// **'PB'**
+  String get byteUnit_PB;
+
+  /// No description provided for @byteUnit_EB.
+  ///
+  /// In en, this message translates to:
+  /// **'EB'**
+  String get byteUnit_EB;
+
+  /// No description provided for @byteUnit_ZB.
+  ///
+  /// In en, this message translates to:
+  /// **'ZB'**
+  String get byteUnit_ZB;
+
+  /// No description provided for @byteUnit_YB.
+  ///
+  /// In en, this message translates to:
+  /// **'YB'**
+  String get byteUnit_YB;
 }
 
 class _AppLocalizationsDelegate
@@ -674,7 +734,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en'].contains(locale.languageCode);
+      <String>['de', 'en', 'fr'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -683,8 +743,12 @@ class _AppLocalizationsDelegate
 AppLocalizations lookupAppLocalizations(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
+    case 'de':
+      return AppLocalizationsDe();
     case 'en':
       return AppLocalizationsEn();
+    case 'fr':
+      return AppLocalizationsFr();
   }
 
   throw FlutterError(
