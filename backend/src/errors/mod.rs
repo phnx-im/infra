@@ -131,33 +131,6 @@ impl From<GroupOperationError> for Status {
     }
 }
 
-/// Potential errors when updating a client.
-#[derive(Debug, Error)]
-pub(crate) enum ClientUpdateError {
-    /// Invalid assisted message.
-    #[error("Invalid assisted message.")]
-    InvalidMessage,
-    /// Error processing message.
-    #[error("Error processing message.")]
-    ProcessingError,
-    #[error("Error merging commit: {0}")]
-    MergeCommitError(#[from] MergeCommitError<group::errors::StorageError<CborMlsAssistStorage>>),
-}
-
-impl From<ClientUpdateError> for Status {
-    fn from(e: ClientUpdateError) -> Self {
-        let msg = e.to_string();
-        match e {
-            ClientUpdateError::InvalidMessage => Status::invalid_argument(msg),
-            ClientUpdateError::ProcessingError => Status::internal(msg),
-            ClientUpdateError::MergeCommitError(merge_commit_error) => {
-                error!(%merge_commit_error, "failed merging commit");
-                Status::internal(msg)
-            }
-        }
-    }
-}
-
 /// Potential errors when joining a connection group.
 #[derive(Debug, Error)]
 pub(crate) enum JoinConnectionGroupError {

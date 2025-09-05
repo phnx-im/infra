@@ -942,7 +942,10 @@ impl Group {
         signer: &ClientSigningKey,
     ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
-        let aad = InfraAadMessage::from(InfraAadPayload::Update).tls_serialize_detached()?;
+        let aad = InfraAadMessage::from(InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys: vec![],
+        }))
+        .tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
             let provider = AirOpenMlsProvider::new(txn.as_mut());
