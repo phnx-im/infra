@@ -66,7 +66,6 @@ impl Labeled for AsCredentialBody {
     const LABEL: &'static str = AS_CREDENTIAL_LABEL;
 }
 
-// Custom implementation to preserver backwards compatibility.
 impl Hashable for AsCredentialBody {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
@@ -218,7 +217,6 @@ impl Labeled for AsIntermediateCredentialBody {
     const LABEL: &'static str = AS_INTERMEDIATE_CREDENTIAL_LABEL;
 }
 
-// Custom implementation to preserver backwards compatibility.
 impl Hashable for AsIntermediateCredentialBody {}
 
 impl Signable for AsIntermediateCredentialPayload {
@@ -473,7 +471,6 @@ impl Labeled for ClientCredential {
     const LABEL: &'static str = CLIENT_CREDENTIAL_LABEL;
 }
 
-// Custom implementation to preserver backwards compatibility.
 impl Hashable for ClientCredential {}
 
 // WARNING: If this type is changed, a new variant of the

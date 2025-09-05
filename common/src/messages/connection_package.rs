@@ -126,23 +126,7 @@ impl Labeled for ConnectionPackage {
 
 pub type ConnectionPackageHash = Hash<ConnectionPackage>;
 
-// Custom implementation of `Hashable` for `ConnectionPackage` to ensure
-// backwards compatibility.
-impl Hashable for ConnectionPackage {
-    fn hash(&self) -> ConnectionPackageHash {
-        let rust_crypto = RustCrypto::default();
-        let payload = self.tls_serialize_detached().unwrap_or_default();
-        debug_assert!(!payload.is_empty());
-        let input = [b"Connection Package".to_vec(), payload].concat();
-        let value: [u8; 32] = rust_crypto
-            .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default()
-            .try_into()
-            // Output length of `hash` is always 32 bytes
-            .unwrap();
-        Hash::from_bytes(value)
-    }
-}
+impl Hashable for ConnectionPackage {}
 
 #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackage {
