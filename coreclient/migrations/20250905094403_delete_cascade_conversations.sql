@@ -5,7 +5,7 @@
 -- Add ON DELETE CASCADE to the foreign key constraints referencing the
 -- conversations table.
 --
-PRAGMA foreign_keys = ON;
+PRAGMA foreign_keys = OFF;
 
 DROP TRIGGER IF EXISTS delete_keys;
 
@@ -70,3 +70,5 @@ WHERE
     key_index = OLD.user_profile_key_index;
 
 END;
+
+PRAGMA foreign_keys = ON;
