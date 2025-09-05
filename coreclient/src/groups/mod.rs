@@ -242,7 +242,7 @@ impl Group {
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info(provider, signer, true)?,
+            group_info: mls_group.export_group_info(provider.crypto(), signer, true)?,
             room_state: room_state.clone(),
         };
 
@@ -471,6 +471,7 @@ impl Group {
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info) = {
             let provider = AirOpenMlsProvider::new(&mut *connection);
+            #[expect(deprecated)]
             let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
                 &provider,
                 signer,
@@ -482,8 +483,9 @@ impl Group {
                 &aad.tls_serialize_detached()?,
                 credential_with_key,
             )?;
+
             mls_group.merge_pending_commit(&provider)?;
-            let group_info = mls_group.export_group_info(&provider, signer, true)?;
+            let group_info = mls_group.export_group_info(provider.crypto(), signer, true)?;
             (mls_group, commit, group_info)
         };
 
@@ -943,7 +945,7 @@ impl Group {
     ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
         let aad = InfraAadMessage::from(InfraAadPayload::GroupOperation(GroupOperationParamsAad {
-            new_encrypted_user_profile_keys: vec![],
+            new_encrypted_user_profile_keys: Vec::new(),
         }))
         .tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
@@ -1083,6 +1085,7 @@ impl TimestampedMessage {
             .client_credential()
             .identity()
             .clone();
+
             let removed_index = remove_proposal.remove_proposal().removed();
             let removed = ClientAuthInfo::load_staged(connection, group_id, removed_index)
                 .await?
@@ -1090,6 +1093,12 @@ impl TimestampedMessage {
                 .client_credential()
                 .identity()
                 .clone();
+
+            if remover == removed {
+                // A system message for this proposal was already made when it was proposed
+                continue;
+            }
+
             removed_set.insert((remover, removed));
         }
         let remove_messages = removed_set.into_iter().map(|(remover, removed)| {
