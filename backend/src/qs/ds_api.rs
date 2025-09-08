@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    crypto::hpke::HpkeDecryptable, identifiers::ClientConfig, messages::MlsInfraVersion,
+    crypto::hpke::HpkeDecryptable, identifiers::ClientConfig, messages::AirProtocolVersion,
 };
 use tls_codec::Serialize;
 
@@ -41,7 +41,7 @@ impl Qs {
         let own_domain = self.domain.clone();
         if message.client_reference.client_homeserver_domain != own_domain {
             let qs_to_qs_message = QsToQsMessage {
-                protocol_version: MlsInfraVersion::Alpha,
+                protocol_version: AirProtocolVersion::Alpha,
                 sender: own_domain.clone(),
                 recipient: message.client_reference.client_homeserver_domain.clone(),
                 payload: QsToQsPayload::FanOutMessageRequest(message.clone()),

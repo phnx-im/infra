@@ -12,7 +12,7 @@ use aircommon::{
     },
     crypto::{ear::keys::EncryptedUserProfileKey, hash::Hash, indexed_aead::keys::UserProfileKey},
     identifiers::UserId,
-    messages::client_ds::{InfraAadMessage, InfraAadPayload},
+    messages::client_ds::{AadMessage, AadPayload},
 };
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use mimi_room_policy::RoleIndex;
@@ -139,10 +139,10 @@ impl Group {
                 // Phase 2: Process the AAD payload.
                 // Let's figure out which operation this is meant to be.
                 let aad_payload =
-                    InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())?
+                    AadMessage::tls_deserialize_exact_bytes(processed_message.aad())?
                         .into_payload();
                 match aad_payload {
-                    InfraAadPayload::GroupOperation(group_operation_payload) => {
+                    AadPayload::GroupOperation(group_operation_payload) => {
                         let number_of_adds = staged_commit.add_proposals().count();
                         let number_of_upks = group_operation_payload
                             .new_encrypted_user_profile_keys
@@ -234,7 +234,7 @@ impl Group {
                             .await?;
                         }
                     }
-                    InfraAadPayload::JoinConnectionGroup(join_connection_group_payload) => {
+                    AadPayload::JoinConnectionGroup(join_connection_group_payload) => {
                         // JoinConnectionGroup Phase 1: Decrypt and verify the
                         // client credential of the joiner
                         let (sender_credential, sender_leaf_key) =
@@ -269,7 +269,7 @@ impl Group {
                             join_connection_group_payload.encrypted_user_profile_key,
                         ));
                     }
-                    InfraAadPayload::Resync => {
+                    AadPayload::Resync => {
                         // Check if it's an external commit. This implies that
                         // there is only one remove proposal.
                         ensure!(
@@ -314,7 +314,7 @@ impl Group {
                             .set_leaf_index(sender_index);
                         client_auth_info.stage_update(&mut *connection).await?;
                     }
-                    InfraAadPayload::DeleteGroup => {
+                    AadPayload::DeleteGroup => {
                         we_were_removed = true;
                         // There is nothing else to do at this point.
                     }

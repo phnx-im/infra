@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    codec::{self, AirCodec, BlobDecoded, BlobEncoded},
+    codec::{self, PersistenceCodec, BlobDecoded, BlobEncoded},
     identifiers::{Fqdn, MimiId, UserId},
     time::TimeStamp,
 };
@@ -41,7 +41,7 @@ impl VersionedMessage {
 impl VersionedMessage {
     fn to_event_message(&self) -> anyhow::Result<EventMessage> {
         match self.version {
-            CURRENT_MESSAGE_VERSION => Ok(AirCodec::from_slice::<EventMessage>(&self.content)?),
+            CURRENT_MESSAGE_VERSION => Ok(PersistenceCodec::from_slice::<EventMessage>(&self.content)?),
             other => bail!("unknown event message version: {other}"),
         }
     }
@@ -50,10 +50,10 @@ impl VersionedMessage {
         match self.version {
             1 => {
                 warn!("Old message version detected. Why was it not upgraded by a migration?");
-                let old = AirCodec::from_slice::<MimiContentV1>(&self.content)?;
+                let old = PersistenceCodec::from_slice::<MimiContentV1>(&self.content)?;
                 Ok(old.upgrade())
             }
-            CURRENT_MESSAGE_VERSION => Ok(AirCodec::from_slice::<MimiContent>(&self.content)?),
+            CURRENT_MESSAGE_VERSION => Ok(PersistenceCodec::from_slice::<MimiContent>(&self.content)?),
             other => bail!("unknown mimi content message version: {other}"),
         }
     }
@@ -63,7 +63,7 @@ impl VersionedMessage {
     ) -> Result<VersionedMessage, aircommon::codec::Error> {
         Ok(VersionedMessage {
             version: CURRENT_MESSAGE_VERSION,
-            content: AirCodec::to_vec(&event)?,
+            content: PersistenceCodec::to_vec(&event)?,
         })
     }
 
@@ -72,7 +72,7 @@ impl VersionedMessage {
     ) -> Result<VersionedMessage, aircommon::codec::Error> {
         Ok(VersionedMessage {
             version: CURRENT_MESSAGE_VERSION,
-            content: AirCodec::to_vec(&content)?,
+            content: PersistenceCodec::to_vec(&content)?,
         })
     }
 }
@@ -746,7 +746,7 @@ pub(crate) mod tests {
 
     #[test]
     fn versioned_message_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&*VERSIONED_MESSAGE).unwrap());
+        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&*VERSIONED_MESSAGE).unwrap());
     }
 
     #[test]

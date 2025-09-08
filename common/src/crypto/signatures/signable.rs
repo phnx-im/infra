@@ -108,7 +108,7 @@ pub struct SignContent {
     content: Vec<u8>,
 }
 
-const SIGN_LABEL_PREFIX: &str = "Phoenix Homeserver Protocol 1.0";
+const SIGN_LABEL_PREFIX: &str = "Air Protocol";
 
 impl From<(&str, &[u8])> for SignContent {
     fn from((label, content): (&str, &[u8])) -> Self {

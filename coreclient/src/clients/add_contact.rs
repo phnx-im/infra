@@ -4,7 +4,7 @@
 
 use airapiclient::{ApiClient, as_api::ConnectionOfferResponder};
 use aircommon::{
-    codec::AirCodec,
+    codec::PersistenceCodec,
     credentials::keys::ClientSigningKey,
     crypto::{
         ear::keys::FriendshipPackageEarKey, hash::Hashable as _, hpke::HpkeEncryptable,
@@ -122,7 +122,7 @@ impl VerifiedConnectionPackagesWithGroupId {
         info!("Creating local connection group");
         let title = format!("Connection group: {}", handle.plaintext());
         let conversation_attributes = ConversationAttributes::new(title, None);
-        let group_data = AirCodec::to_vec(&conversation_attributes)?.into();
+        let group_data = PersistenceCodec::to_vec(&conversation_attributes)?.into();
 
         let provider = AirOpenMlsProvider::new(txn);
         let (group, group_membership, partial_params) =

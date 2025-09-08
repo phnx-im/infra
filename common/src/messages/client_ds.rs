@@ -32,7 +32,7 @@ use crate::{
 };
 
 use super::{
-    EncryptedQsQueueMessageCtype, MlsInfraVersion, client_as::EncryptedFriendshipPackage,
+    AirProtocolVersion, EncryptedQsQueueMessageCtype, client_as::EncryptedFriendshipPackage,
     welcome_attribution_info::EncryptedWelcomeAttributionInfo,
 };
 
@@ -143,33 +143,33 @@ impl EarEncryptable<RatchetKey, EncryptedQsQueueMessageCtype> for QsQueueMessage
 impl EarDecryptable<RatchetKey, EncryptedQsQueueMessageCtype> for QsQueueMessagePayload {}
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
-pub struct InfraAadMessage {
-    version: MlsInfraVersion,
-    payload: InfraAadPayload,
+pub struct AadMessage {
+    version: AirProtocolVersion,
+    payload: AadPayload,
 }
 
-impl From<InfraAadPayload> for InfraAadMessage {
-    fn from(payload: InfraAadPayload) -> Self {
+impl From<AadPayload> for AadMessage {
+    fn from(payload: AadPayload) -> Self {
         Self {
-            version: MlsInfraVersion::default(),
+            version: AirProtocolVersion::default(),
             payload,
         }
     }
 }
 
-impl InfraAadMessage {
-    pub fn version(&self) -> MlsInfraVersion {
+impl AadMessage {
+    pub fn version(&self) -> AirProtocolVersion {
         self.version
     }
 
-    pub fn into_payload(self) -> InfraAadPayload {
+    pub fn into_payload(self) -> AadPayload {
         self.payload
     }
 }
 
 #[derive(TlsSerialize, TlsDeserializeBytes, TlsSize)]
 #[repr(u8)]
-pub enum InfraAadPayload {
+pub enum AadPayload {
     GroupOperation(GroupOperationParamsAad),
     JoinConnectionGroup(JoinConnectionGroupParamsAad),
     Resync,

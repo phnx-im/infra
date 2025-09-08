@@ -8,7 +8,7 @@ use aircommon::{
     identifiers::{QualifiedGroupId, UserHandle},
     messages::{
         client_as::ConnectionOfferMessage,
-        client_ds::{InfraAadMessage, InfraAadPayload, JoinConnectionGroupParamsAad},
+        client_ds::{AadMessage, AadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
         connection_package::{ConnectionPackage, ConnectionPackageHash},
     },
@@ -195,7 +195,7 @@ impl CoreUser {
         &self,
         cep_payload: &ConnectionOfferPayload,
         own_user_profile_key: &UserProfileKey,
-    ) -> Result<(InfraAadMessage, QualifiedGroupId)> {
+    ) -> Result<(AadMessage, QualifiedGroupId)> {
         // We create a new group and signal that fact to the user,
         // so the user can decide if they want to accept the
         // connection.
@@ -213,12 +213,11 @@ impl CoreUser {
         }
         .encrypt(&cep_payload.friendship_package_ear_key)?;
 
-        let aad: InfraAadMessage =
-            InfraAadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
-                encrypted_friendship_package,
-                encrypted_user_profile_key,
-            })
-            .into();
+        let aad: AadMessage = AadPayload::JoinConnectionGroup(JoinConnectionGroupParamsAad {
+            encrypted_friendship_package,
+            encrypted_user_profile_key,
+        })
+        .into();
         let qgid = QualifiedGroupId::tls_deserialize_exact_bytes(
             cep_payload.connection_group_id.as_slice(),
         )?;
@@ -248,7 +247,7 @@ impl CoreUser {
         eci: ExternalCommitInfoIn,
         cep_payload: &ConnectionOfferPayload,
         leaf_signer: &ClientSigningKey,
-        aad: InfraAadMessage,
+        aad: AadMessage,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         let (group, commit, group_info, member_profile_info) = Group::join_group_externally(
             &mut *connection,

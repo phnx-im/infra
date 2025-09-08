@@ -32,8 +32,7 @@ use aircommon::{
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedGroupId, UserId},
     messages::{
         client_ds::{
-            DsJoinerInformation, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
-            WelcomeBundle,
+            AadMessage, AadPayload, DsJoinerInformation, GroupOperationParamsAad, WelcomeBundle,
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
@@ -401,7 +400,7 @@ impl Group {
             &as_credentials,
         )?;
 
-        // Phase 8: Decrypt and verify the infra credentials.
+        // Phase 8: Decrypt and verify the client credentials.
         {
             for client_auth_info in &client_information {
                 client_auth_info.store(txn).await?;
@@ -449,7 +448,7 @@ impl Group {
         signer: &ClientSigningKey,
         group_state_ear_key: GroupStateEarKey,
         identity_link_wrapper_key: IdentityLinkWrapperKey,
-        aad: InfraAadMessage,
+        aad: AadMessage,
         own_client_credential: &ClientCredential,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         // TODO: We set the ratchet tree extension for now, as it is the only
@@ -534,7 +533,7 @@ impl Group {
             ClientAuthInfo::new(own_client_credential.clone(), own_group_membership);
         client_information.push(own_auth_info);
 
-        // Phase 4: Store the infra credentials.
+        // Phase 4: Store the client credentials.
         {
             for client_auth_info in client_information.iter() {
                 // Store client auth info.
@@ -587,11 +586,10 @@ impl Group {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let aad_message: InfraAadMessage =
-            InfraAadPayload::GroupOperation(GroupOperationParamsAad {
-                new_encrypted_user_profile_keys,
-            })
-            .into();
+        let aad_message: AadMessage = AadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys,
+        })
+        .into();
 
         // Set Aad to contain the encrypted client credentials.
         let (mls_commit, welcome_option, group_info_option) = {
@@ -686,10 +684,10 @@ impl Group {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
 
-        let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+        let aad_payload = AadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],
         });
-        let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
+        let aad = AadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let provider = AirOpenMlsProvider::new(&mut *connection);
 
@@ -749,8 +747,8 @@ impl Group {
             .collect::<Vec<_>>();
 
         // There shouldn't be a welcome
-        let aad_payload = InfraAadPayload::DeleteGroup;
-        let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
+        let aad_payload = AadPayload::DeleteGroup;
+        let aad = AadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
 
         let (mls_message, _welcome_option, group_info_option) = self
@@ -857,22 +855,22 @@ impl Group {
                 .members()
                 .map(|m| m.index)
                 .collect::<Vec<_>>();
-            let infra_group_members =
+            let group_member_data =
                 GroupMembership::group_members(&mut *connection, self.group_id()).await?;
-            if mls_group_members.len() != infra_group_members.len() {
+            if mls_group_members.len() != group_member_data.len() {
                 tracing::info!(?mls_group_members, "Group members according to OpenMLS");
-                tracing::info!(?infra_group_members, "Group members according to Infra");
+                tracing::info!(?group_member_data, "Group members according to DB");
                 panic!("Group members don't match up");
             }
-            let infra_indices = GroupMembership::client_indices(
+            let client_indices = GroupMembership::client_indices(
                 &mut *connection,
                 self.group_id(),
-                &infra_group_members,
+                &group_member_data,
             )
             .await?;
             self.mls_group.members().for_each(|m| {
                 let index = m.index;
-                debug_assert!(infra_indices.contains(&index));
+                debug_assert!(client_indices.contains(&index));
             });
         }
         Ok(event_messages)
@@ -942,7 +940,7 @@ impl Group {
         signer: &ClientSigningKey,
     ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
-        let aad = InfraAadMessage::from(InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+        let aad = AadMessage::from(AadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],
         }))
         .tls_serialize_detached()?;

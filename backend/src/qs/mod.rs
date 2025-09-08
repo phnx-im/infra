@@ -70,7 +70,7 @@ use client_id_decryption_key::StorableClientIdDecryptionKey;
 use sqlx::PgPool;
 
 use crate::{
-    infra_service::{InfraService, ServiceCreationError},
+    air_service::{AirService, ServiceCreationError},
     messages::intra_backend::DsFanOutMessage,
 };
 
@@ -92,7 +92,7 @@ pub struct Qs {
     db_pool: PgPool,
 }
 
-impl InfraService for Qs {
+impl AirService for Qs {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         // Check if the requisite key material exists and if it doesn't, generate it.
 

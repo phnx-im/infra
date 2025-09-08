@@ -10,8 +10,8 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
+    air_service::{AirService, ServiceCreationError},
     ds::storage::Storage,
-    infra_service::{InfraService, ServiceCreationError},
 };
 pub use grpc::GrpcDs;
 
@@ -42,7 +42,7 @@ pub struct Ds {
 #[derive(Debug)]
 pub(crate) struct ReservedGroupId(Uuid);
 
-impl InfraService for Ds {
+impl AirService for Ds {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         let ds = Self {
             own_domain: domain,

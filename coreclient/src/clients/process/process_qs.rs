@@ -3,15 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    codec::AirCodec,
+    codec::PersistenceCodec,
     credentials::ClientCredential,
     crypto::{ear::EarDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{MimiId, QualifiedGroupId, UserHandle, UserId},
     messages::{
         QueueMessage,
         client_ds::{
-            ExtractedQsQueueMessage, ExtractedQsQueueMessagePayload, InfraAadMessage,
-            InfraAadPayload, UserProfileKeyUpdateParams, WelcomeBundle,
+            AadMessage, AadPayload, ExtractedQsQueueMessage, ExtractedQsQueueMessagePayload,
+            UserProfileKeyUpdateParams, WelcomeBundle,
         },
     },
     time::TimeStamp,
@@ -104,7 +104,7 @@ impl CoreUser {
         &self,
         qs_queue_message: ExtractedQsQueueMessage,
     ) -> Result<ProcessQsMessageResult> {
-        // TODO: We should verify whether the messages are valid infra messages, i.e.
+        // TODO: We should verify whether the messages are valid messages, i.e.
         // if it doesn't mix requests, etc. I think the DS already does some of this
         // and we might be able to re-use code.
 
@@ -172,7 +172,7 @@ impl CoreUser {
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().context("No group data")?;
-                let attributes: ConversationAttributes = AirCodec::from_slice(group_data.bytes())?;
+                let attributes: ConversationAttributes = PersistenceCodec::from_slice(group_data.bytes())?;
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);
@@ -531,8 +531,8 @@ impl CoreUser {
         // de-serialized this in the group processing
         // function, but we need the encrypted
         // friendship package here.
-        let encrypted_friendship_package = if let InfraAadPayload::JoinConnectionGroup(payload) =
-            InfraAadMessage::tls_deserialize_exact_bytes(&aad)?.into_payload()
+        let encrypted_friendship_package = if let AadPayload::JoinConnectionGroup(payload) =
+            AadMessage::tls_deserialize_exact_bytes(&aad)?.into_payload()
         {
             payload.encrypted_friendship_package
         } else {

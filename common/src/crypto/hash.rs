@@ -22,7 +22,7 @@ struct LabeledHashPayload<'a, T: Serialize> {
 impl<T: Serialize + Labeled> LabeledHashPayload<'_, T> {
     fn new(payload: T) -> Self {
         Self {
-            operation: TlsStr("Infra Hash"),
+            operation: TlsStr("Air Hash"),
             label: TlsStr(T::LABEL),
             payload,
         }
