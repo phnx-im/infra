@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use aircommon::{
-    codec::AirCodec,
+    codec::PersistenceCodec,
     credentials::VerifiableClientCredential,
     crypto::{
         ear::{
@@ -58,13 +58,13 @@ pub(super) struct MemberProfile {
 pub(crate) struct DsGroupState {
     pub(super) room_state: VerifiedRoomState,
     pub(super) group: Group,
-    pub(super) provider: MlsAssistRustCrypto<AirCodec>,
+    pub(super) provider: MlsAssistRustCrypto<PersistenceCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
 }
 
 impl DsGroupState {
     pub(crate) fn new(
-        provider: MlsAssistRustCrypto<AirCodec>,
+        provider: MlsAssistRustCrypto<PersistenceCodec>,
         group: Group,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
@@ -286,7 +286,7 @@ impl SerializableDsGroupStateV2 {
             .clone();
         let client_profiles = group_state.member_profiles.into_iter().collect();
         let serialized_provider = group_state.provider.storage().serialize()?.into();
-        let room_state = AirCodec::to_vec(group_state.room_state.unverified())?.into();
+        let room_state = PersistenceCodec::to_vec(group_state.room_state.unverified())?.into();
         Ok(Self {
             group_id,
             serialized_provider,
@@ -302,7 +302,7 @@ impl SerializableDsGroupStateV2 {
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
 
-        let room_state = AirCodec::from_slice(self.room_state.as_slice())
+        let room_state = PersistenceCodec::from_slice(self.room_state.as_slice())
             .inspect_err(|error| {
                 error!(%error, "Failed to load room state. Falling back to default room state.");
             })
@@ -388,7 +388,7 @@ mod test {
     #[test]
     fn test_encrypted_ds_group_state_serde_codec() {
         let state = EncryptedDsGroupState::dummy();
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&state).unwrap());
+        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&state).unwrap());
     }
 
     #[test]
@@ -412,7 +412,10 @@ mod test {
 
     #[test]
     fn test_deleted_queues_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&*DELETED_QUEUES).unwrap());
+        insta::assert_binary_snapshot!(
+            ".cbor",
+            PersistenceCodec::to_vec(&*DELETED_QUEUES).unwrap()
+        );
     }
 
     #[test]

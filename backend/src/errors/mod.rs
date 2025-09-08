@@ -9,12 +9,12 @@ use thiserror::Error;
 use tonic::Status;
 use tracing::error;
 
-use aircommon::codec::AirCodec;
+use aircommon::codec::PersistenceCodec;
 
 pub(crate) mod auth_service;
 pub(crate) mod qs;
 
-pub(crate) type CborMlsAssistStorage = MlsAssistMemoryStorage<AirCodec>;
+pub(crate) type CborMlsAssistStorage = MlsAssistMemoryStorage<PersistenceCodec>;
 
 #[derive(Debug, Error)]
 pub enum StorageError {

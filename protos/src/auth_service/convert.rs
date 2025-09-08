@@ -26,12 +26,12 @@ use crate::{
 };
 
 use super::v1::{
-    AsCredential, AsCredentialBody, AsIntermediateCredential, AsIntermediateCredentialBody,
-    AsIntermediateCredentialCsr, AsIntermediateCredentialPayload, AsIntermediateVerifyingKey,
-    AsVerifyingKey, ClientCredential, ClientCredentialCsr, ClientCredentialPayload,
-    ClientVerifyingKey, ConnectionEncryptionKey, ConnectionOfferMessage, ConnectionPackage,
-    ConnectionPackagePayload, EncryptedUserProfile, HandleSignature, HandleVerifyingKey, Hash,
-    MlsInfraVersion, SignatureScheme, UserHandleHash, UserId,
+    AirProtocolVersion, AsCredential, AsCredentialBody, AsIntermediateCredential,
+    AsIntermediateCredentialBody, AsIntermediateCredentialCsr, AsIntermediateCredentialPayload,
+    AsIntermediateVerifyingKey, AsVerifyingKey, ClientCredential, ClientCredentialCsr,
+    ClientCredentialPayload, ClientVerifyingKey, ConnectionEncryptionKey, ConnectionOfferMessage,
+    ConnectionPackage, ConnectionPackagePayload, EncryptedUserProfile, HandleSignature,
+    HandleVerifyingKey, Hash, SignatureScheme, UserHandleHash, UserId,
 };
 
 impl From<identifiers::UserId> for UserId {
@@ -85,7 +85,7 @@ impl TryFrom<ClientCredentialCsr> for credentials::ClientCredentialCsr {
 
     fn try_from(proto: ClientCredentialCsr) -> Result<Self, Self::Error> {
         let version = match proto.msl_version {
-            0 => messages::MlsInfraVersion::Alpha,
+            0 => messages::AirProtocolVersion::Alpha,
             version => return Err(ClientCredentialCsrError::UnexpectedMlsVersion(version)),
         };
         let signature_scheme = SignatureScheme::try_from(proto.signature_scheme)
@@ -167,20 +167,20 @@ impl From<ClientVerifyingKey> for credentials::keys::ClientVerifyingKey {
     }
 }
 
-impl From<messages::MlsInfraVersion> for MlsInfraVersion {
-    fn from(value: messages::MlsInfraVersion) -> Self {
+impl From<messages::AirProtocolVersion> for AirProtocolVersion {
+    fn from(value: messages::AirProtocolVersion) -> Self {
         Self {
             version: value as u32,
         }
     }
 }
 
-impl TryFrom<MlsInfraVersion> for messages::MlsInfraVersion {
+impl TryFrom<AirProtocolVersion> for messages::AirProtocolVersion {
     type Error = UnsupportedMlsVersion;
 
-    fn try_from(value: MlsInfraVersion) -> Result<Self, Self::Error> {
+    fn try_from(value: AirProtocolVersion) -> Result<Self, Self::Error> {
         match value.version {
-            0 => Ok(messages::MlsInfraVersion::Alpha),
+            0 => Ok(messages::AirProtocolVersion::Alpha),
             _ => Err(UnsupportedMlsVersion(value.version)),
         }
     }

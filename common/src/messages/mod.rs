@@ -61,7 +61,7 @@ impl FriendshipToken {
     }
 }
 
-/// Enum encoding the version of the MlsInfra protocol that was used to create
+/// Enum encoding the version of the Air protocol that was used to create
 /// the given message.
 #[derive(
     Debug,
@@ -76,11 +76,11 @@ impl FriendshipToken {
     Deserialize,
 )]
 #[repr(u8)]
-pub enum MlsInfraVersion {
+pub enum AirProtocolVersion {
     Alpha,
 }
 
-impl Default for MlsInfraVersion {
+impl Default for AirProtocolVersion {
     fn default() -> Self {
         Self::Alpha
     }
@@ -108,7 +108,7 @@ pub type EncryptedAsQueueMessage = Ciphertext<EncryptedAsQueueMessageCtype>;
 
 #[cfg(test)]
 mod test {
-    use crate::{codec::AirCodec, crypto::ear::AeadCiphertext};
+    use crate::{codec::PersistenceCodec, crypto::ear::AeadCiphertext};
 
     use super::*;
 
@@ -118,7 +118,7 @@ mod test {
             sequence_number: 1,
             ciphertext: AeadCiphertext::dummy(),
         };
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&message).unwrap());
+        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&message).unwrap());
     }
 
     #[test]

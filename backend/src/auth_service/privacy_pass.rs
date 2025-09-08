@@ -76,7 +76,7 @@ impl PrivateKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
 mod tests {
     use std::sync::LazyLock;
 
-    use aircommon::codec::AirCodec;
+    use aircommon::codec::PersistenceCodec;
     use rand::{SeedableRng, rngs::StdRng};
     use sqlx::PgPool;
 
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_server_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&*SERVER).unwrap());
+        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&*SERVER).unwrap());
     }
 
     #[test]

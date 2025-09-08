@@ -25,7 +25,7 @@ use keys::{
 
 use crate::{
     LibraryError,
-    codec::AirCodec,
+    codec::PersistenceCodec,
     crypto::{
         Labeled,
         ear::Ciphertext,
@@ -37,7 +37,7 @@ use crate::{
         },
     },
     identifiers::{Fqdn, UserId},
-    messages::MlsInfraVersion,
+    messages::AirProtocolVersion,
     time::ExpirationData,
 };
 
@@ -51,7 +51,7 @@ pub mod keys;
 use self::keys::ClientVerifyingKey;
 
 const DEFAULT_AS_CREDENTIAL_LIFETIME: Duration = Duration::days(5 * 365);
-const AS_CREDENTIAL_LABEL: &str = "MLS Infra AS Credential";
+const AS_CREDENTIAL_LABEL: &str = "Air AS Credential";
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredential {
@@ -71,7 +71,7 @@ impl Labeled for AsCredentialBody {
 }
 
 fn legacy_credential_hash(payload: &impl tls_codec::Serialize, label: &str) -> [u8; HASH_SIZE] {
-    let hash_label = format!("Infra Credential Fingerprint {label}");
+    let hash_label = format!("Credential Fingerprint {label}");
     let rust_crypto = OpenMlsRustCrypto::default();
     let payload_bytes = payload.tls_serialize_detached().unwrap_or_default();
     let input = [hash_label.as_bytes().to_vec(), payload_bytes].concat();
@@ -93,7 +93,7 @@ impl Hashable for AsCredentialBody {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredentialBody {
-    pub version: MlsInfraVersion,
+    pub version: AirProtocolVersion,
     pub user_domain: Fqdn,
     pub expiration_data: ExpirationData,
     pub signature_scheme: SignatureScheme,
@@ -111,7 +111,7 @@ impl Encode<'_, Sqlite> for AsCredentialBody {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
-        let bytes = AirCodec::to_vec(self)?;
+        let bytes = PersistenceCodec::to_vec(self)?;
         Encode::<Sqlite>::encode(bytes, buf)
     }
 }
@@ -126,7 +126,7 @@ impl AsCredential {
         user_domain: Fqdn,
         expiration_data_option: Option<ExpirationData>,
     ) -> Result<(Self, AsSigningKey), KeyGenerationError> {
-        let version = MlsInfraVersion::default();
+        let version = AirProtocolVersion::default();
         // Create lifetime valid until 5 years in the future.
         let expiration_data = expiration_data_option
             .unwrap_or_else(|| ExpirationData::new(DEFAULT_AS_CREDENTIAL_LIFETIME));
@@ -175,7 +175,7 @@ const DEFAULT_AS_INTERMEDIATE_CREDENTIAL_LIFETIME: Duration = Duration::days(365
 
 #[derive(Debug, Clone, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct AsIntermediateCredentialCsr {
-    pub version: MlsInfraVersion,
+    pub version: AirProtocolVersion,
     pub user_domain: Fqdn,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: AsIntermediateVerifyingKey, // PK used to sign client credentials
@@ -192,7 +192,7 @@ impl AsIntermediateCredentialCsr {
         signature_scheme: SignatureScheme,
         user_domain: Fqdn,
     ) -> Result<(Self, PreliminaryAsIntermediateSigningKey), KeyGenerationError> {
-        let version = MlsInfraVersion::default();
+        let version = AirProtocolVersion::default();
         let prelim_signing_key = PreliminaryAsIntermediateSigningKey::generate()?;
         let credential = Self {
             version,
@@ -277,7 +277,7 @@ impl Encode<'_, Sqlite> for AsIntermediateCredentialBody {
         &self,
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'_>,
     ) -> Result<IsNull, BoxDynError> {
-        let bytes = AirCodec::to_vec(self)?;
+        let bytes = PersistenceCodec::to_vec(self)?;
         Encode::<Sqlite>::encode(bytes, buf)
     }
 }
@@ -285,7 +285,7 @@ impl Encode<'_, Sqlite> for AsIntermediateCredentialBody {
 impl Decode<'_, Sqlite> for AsIntermediateCredentialBody {
     fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        Ok(AirCodec::from_slice(bytes)?)
+        Ok(PersistenceCodec::from_slice(bytes)?)
     }
 }
 
@@ -402,7 +402,7 @@ impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCreden
     }
 }
 
-const CLIENT_CREDENTIAL_LABEL: &str = "MLS Infra Client Credential";
+const CLIENT_CREDENTIAL_LABEL: &str = "Client Credential";
 const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 
 // WARNING: If this type is changed, a new variant of the
@@ -412,7 +412,7 @@ const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
     Debug, Clone, PartialEq, Eq, TlsDeserializeBytes, TlsSerialize, TlsSize, Serialize, Deserialize,
 )]
 pub struct ClientCredentialCsr {
-    pub version: MlsInfraVersion,
+    pub version: AirProtocolVersion,
     pub user_id: UserId,
     pub signature_scheme: SignatureScheme,
     pub verifying_key: ClientVerifyingKey,
@@ -429,7 +429,7 @@ impl ClientCredentialCsr {
         user_id: UserId,
         signature_scheme: SignatureScheme,
     ) -> Result<(Self, PreliminaryClientSigningKey), KeyGenerationError> {
-        let version = MlsInfraVersion::default();
+        let version = AirProtocolVersion::default();
         let prelim_signing_key = PreliminaryClientSigningKey::generate()?;
         let credential = Self {
             version,
@@ -576,7 +576,7 @@ impl<'q> Encode<'q, Sqlite> for ClientCredential {
         buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
         let versioned = VersionedClientCredentialRef::CurrentVersion(self);
-        let bytes = AirCodec::to_vec(&versioned)?;
+        let bytes = PersistenceCodec::to_vec(&versioned)?;
         Encode::<Sqlite>::encode(bytes, buf)
     }
 }
@@ -584,7 +584,7 @@ impl<'q> Encode<'q, Sqlite> for ClientCredential {
 impl<'r> Decode<'r, Sqlite> for ClientCredential {
     fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-        match AirCodec::from_slice(bytes)? {
+        match PersistenceCodec::from_slice(bytes)? {
             VersionedClientCredential::CurrentVersion(credential) => Ok(credential),
         }
     }
@@ -663,7 +663,7 @@ pub struct EncryptedClientCredentialCtype;
 pub type EncryptedClientCredential = Ciphertext<EncryptedClientCredentialCtype>;
 
 pub mod persistence {
-    use crate::{codec::AirCodec, identifiers::UserId, time::ExpirationData};
+    use crate::{codec::PersistenceCodec, identifiers::UserId, time::ExpirationData};
 
     use super::{
         AsIntermediateCredentialBody, ClientCredential, ClientCredentialCsr,
@@ -685,9 +685,11 @@ pub mod persistence {
     impl FlatClientCredential {
         pub fn new(credential: &ClientCredential) -> Self {
             Self {
-                version: AirCodec::to_vec(&credential.payload.csr.version).unwrap(),
-                signature_scheme: AirCodec::to_vec(&credential.payload.csr.signature_scheme)
-                    .unwrap(),
+                version: PersistenceCodec::to_vec(&credential.payload.csr.version).unwrap(),
+                signature_scheme: PersistenceCodec::to_vec(
+                    &credential.payload.csr.signature_scheme,
+                )
+                .unwrap(),
                 verifying_key: credential.payload.csr.verifying_key.clone(),
                 expiration_data: credential.payload.expiration_data.clone(),
                 signer_fingerprint: credential.payload.signer_fingerprint,
@@ -698,9 +700,9 @@ pub mod persistence {
         pub fn into_client_credential(self, user_id: UserId) -> ClientCredential {
             let payload = ClientCredentialPayload {
                 csr: ClientCredentialCsr {
-                    version: AirCodec::from_slice(&self.version).unwrap(),
+                    version: PersistenceCodec::from_slice(&self.version).unwrap(),
                     user_id,
-                    signature_scheme: AirCodec::from_slice(&self.signature_scheme).unwrap(),
+                    signature_scheme: PersistenceCodec::from_slice(&self.signature_scheme).unwrap(),
                     verifying_key: self.verifying_key,
                 },
                 expiration_data: self.expiration_data,
