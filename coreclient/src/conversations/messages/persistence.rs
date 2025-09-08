@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    codec::{self, PersistenceCodec, BlobDecoded, BlobEncoded},
+    codec::{self, BlobDecoded, BlobEncoded, PersistenceCodec},
     identifiers::{Fqdn, MimiId, UserId},
     time::TimeStamp,
 };
@@ -41,7 +41,9 @@ impl VersionedMessage {
 impl VersionedMessage {
     fn to_event_message(&self) -> anyhow::Result<EventMessage> {
         match self.version {
-            CURRENT_MESSAGE_VERSION => Ok(PersistenceCodec::from_slice::<EventMessage>(&self.content)?),
+            CURRENT_MESSAGE_VERSION => {
+                Ok(PersistenceCodec::from_slice::<EventMessage>(&self.content)?)
+            }
             other => bail!("unknown event message version: {other}"),
         }
     }
@@ -53,7 +55,9 @@ impl VersionedMessage {
                 let old = PersistenceCodec::from_slice::<MimiContentV1>(&self.content)?;
                 Ok(old.upgrade())
             }
-            CURRENT_MESSAGE_VERSION => Ok(PersistenceCodec::from_slice::<MimiContent>(&self.content)?),
+            CURRENT_MESSAGE_VERSION => {
+                Ok(PersistenceCodec::from_slice::<MimiContent>(&self.content)?)
+            }
             other => bail!("unknown mimi content message version: {other}"),
         }
     }
@@ -746,7 +750,10 @@ pub(crate) mod tests {
 
     #[test]
     fn versioned_message_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&*VERSIONED_MESSAGE).unwrap());
+        insta::assert_binary_snapshot!(
+            ".cbor",
+            PersistenceCodec::to_vec(&*VERSIONED_MESSAGE).unwrap()
+        );
     }
 
     #[test]

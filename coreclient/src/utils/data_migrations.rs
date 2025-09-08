@@ -4,7 +4,7 @@
 
 //! Data migrations implemented in Rust that cannot be expressed in SQL.
 
-use aircommon::codec::{PersistenceCodec, BlobDecoded, BlobEncoded};
+use aircommon::codec::{BlobDecoded, BlobEncoded, PersistenceCodec};
 use mimi_content::content_container::MimiContentV1;
 use sqlx::{SqlitePool, migrate::Migrate, query, query_as};
 use tokio_stream::StreamExt;

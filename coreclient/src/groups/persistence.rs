@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    codec::{PersistenceCodec, BlobDecoded, BlobEncoded},
+    codec::{BlobDecoded, BlobEncoded, PersistenceCodec},
     credentials::VerifiableClientCredential,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };

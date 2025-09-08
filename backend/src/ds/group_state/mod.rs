@@ -412,7 +412,10 @@ mod test {
 
     #[test]
     fn test_deleted_queues_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&*DELETED_QUEUES).unwrap());
+        insta::assert_binary_snapshot!(
+            ".cbor",
+            PersistenceCodec::to_vec(&*DELETED_QUEUES).unwrap()
+        );
     }
 
     #[test]

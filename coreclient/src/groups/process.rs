@@ -138,9 +138,8 @@ impl Group {
 
                 // Phase 2: Process the AAD payload.
                 // Let's figure out which operation this is meant to be.
-                let aad_payload =
-                    AadMessage::tls_deserialize_exact_bytes(processed_message.aad())?
-                        .into_payload();
+                let aad_payload = AadMessage::tls_deserialize_exact_bytes(processed_message.aad())?
+                    .into_payload();
                 match aad_payload {
                     AadPayload::GroupOperation(group_operation_payload) => {
                         let number_of_adds = staged_commit.add_proposals().count();

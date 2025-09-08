@@ -172,7 +172,8 @@ impl CoreUser {
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().context("No group data")?;
-                let attributes: ConversationAttributes = PersistenceCodec::from_slice(group_data.bytes())?;
+                let attributes: ConversationAttributes =
+                    PersistenceCodec::from_slice(group_data.bytes())?;
 
                 let conversation =
                     Conversation::new_group_conversation(group_id.clone(), attributes);

@@ -27,8 +27,8 @@ use aircommon::{
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
     messages::{
         client_ds::{
-            AddUsersInfo, DsJoinerInformation, GroupOperationParams, GroupOperationParamsAad,
-            AadMessage, AadPayload, WelcomeBundle,
+            AadMessage, AadPayload, AddUsersInfo, DsJoinerInformation, GroupOperationParams,
+            GroupOperationParamsAad, WelcomeBundle,
         },
         welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },

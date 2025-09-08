@@ -156,7 +156,8 @@ use tls_codec::{TlsSerialize, TlsSize};
 use uuid::Uuid;
 
 use aircommon::{
-    codec::PersistenceCodec, crypto::ear::keys::EncryptedUserProfileKey, identifiers::QualifiedGroupId,
+    codec::PersistenceCodec, crypto::ear::keys::EncryptedUserProfileKey,
+    identifiers::QualifiedGroupId,
 };
 
 use super::Ds;

@@ -158,7 +158,8 @@ mod sqlite {
     impl<CT, Payload: RatchetPayload<CT>> Decode<'_, Sqlite> for QueueRatchet<CT, Payload> {
         fn decode(value: <Sqlite as Database>::ValueRef<'_>) -> Result<Self, BoxDynError> {
             let bytes: &[u8] = Decode::<Sqlite>::decode(value)?;
-            let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) = PersistenceCodec::from_slice(bytes)?;
+            let VersionedQueueRatchet::CurrentVersion(ratchet_bytes) =
+                PersistenceCodec::from_slice(bytes)?;
             let ratchet = PersistenceCodec::from_slice(&ratchet_bytes)?;
             Ok(ratchet)
         }
@@ -184,7 +185,10 @@ mod test {
 
     #[test]
     fn test_queue_ratchet_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&queue_ratchet()).unwrap());
+        insta::assert_binary_snapshot!(
+            ".cbor",
+            PersistenceCodec::to_vec(&queue_ratchet()).unwrap()
+        );
     }
 
     #[test]
