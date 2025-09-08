@@ -25,7 +25,6 @@ pub mod process;
 mod resync;
 mod self_remove;
 pub mod storage;
-mod update;
 mod update_user_profile_key;
 
 /// Number of days after its last use upon which a group state is considered

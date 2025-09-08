@@ -14,7 +14,7 @@ use aircommon::{
     crypto::{
         ConnectionDecryptionKey, RatchetDecryptionKey,
         ear::{
-            EarEncryptable, EarKey, GenericSerializable,
+            EarEncryptable,
             keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         },
         hpke::HpkeEncryptable,
@@ -22,10 +22,7 @@ use aircommon::{
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
     identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
-    messages::{
-        FriendshipToken, QueueMessage,
-        push_token::{EncryptedPushToken, PushToken},
-    },
+    messages::{FriendshipToken, QueueMessage, push_token::PushToken},
 };
 pub use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 pub use airprotos::queue_service::v1::{
@@ -572,12 +569,8 @@ impl CoreUser {
         // Encrypt the push token, if there is one.
         let encrypted_push_token = match push_token {
             Some(push_token) => {
-                let encrypted_push_token = EncryptedPushToken::from(
-                    self.inner
-                        .key_store
-                        .push_token_ear_key
-                        .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
-                );
+                let encrypted_push_token =
+                    push_token.encrypt(&self.inner.key_store.push_token_ear_key)?;
                 Some(encrypted_push_token)
             }
             None => None,
@@ -633,6 +626,19 @@ impl CoreUser {
             .await
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap().into())
+    }
+
+    pub async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()> {
+        self.inner
+            .api_clients
+            .default_client()?
+            .as_report_spam(
+                self.user_id().clone(),
+                spammer_id,
+                &self.inner.key_store.signing_key,
+            )
+            .await?;
+        Ok(())
     }
 
     /// Executes a function with a transaction.

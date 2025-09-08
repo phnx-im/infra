@@ -317,6 +317,20 @@ impl auth_service_server::AuthService for GrpcAs {
         Ok(Response::new(IssueTokensResponse { token_response }))
     }
 
+    async fn report_spam(
+        &self,
+        request: Request<ReportSpamRequest>,
+    ) -> Result<Response<ReportSpamResponse>, Status> {
+        let request = request.into_inner();
+        let (_user_id, _payload) = self
+            .verify_user_auth::<_, ReportSpamPayload>(request)
+            .await?;
+
+        // TODO: forward to the spam reporting service
+
+        Ok(Response::new(ReportSpamResponse {}))
+    }
+
     async fn create_handle(
         &self,
         request: Request<CreateHandleRequest>,
@@ -474,6 +488,12 @@ impl WithUserId for MergeUserProfileRequest {
 impl WithUserId for IssueTokensRequest {
     fn user_id_proto(&self) -> Option<UserId> {
         self.payload.as_ref()?.user_id.clone()
+    }
+}
+
+impl WithUserId for ReportSpamRequest {
+    fn user_id_proto(&self) -> Option<UserId> {
+        self.payload.as_ref()?.reporter_id.clone()
     }
 }
 
