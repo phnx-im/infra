@@ -32,6 +32,7 @@ impl<T: Serialize + Labeled> LabeledHashPayload<'_, T> {
 #[derive(serde::Serialize, serde::Deserialize, TlsSize, TlsSerialize, TlsDeserializeBytes)]
 #[serde(transparent)]
 pub struct Hash<T: Labeled + Sized> {
+    #[serde(with = "serde_bytes")]
     bytes: [u8; HASH_SIZE],
     _marker: PhantomData<T>,
 }
