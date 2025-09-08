@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module provides structs and functions to interact with users in the
-//! various groups an InfraClient is a member of.
+//! various groups a Client is a member of.
 
 use std::{fmt, mem};
 

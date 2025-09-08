@@ -17,7 +17,7 @@ use crate::{
         signatures::signable::Signable,
     },
     identifiers::UserHandleHash,
-    messages::MlsInfraVersion,
+    messages::AirProtocolVersion,
     time::{ExpirationData, TimeStamp},
 };
 
@@ -37,13 +37,13 @@ mod payload {
             },
         },
         identifiers::UserHandleHash,
-        messages::MlsInfraVersion,
+        messages::AirProtocolVersion,
         time::ExpirationData,
     };
 
     #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
     pub struct ConnectionPackagePayload {
-        pub protocol_version: MlsInfraVersion,
+        pub protocol_version: AirProtocolVersion,
         pub user_handle_hash: UserHandleHash,
         pub encryption_key: ConnectionEncryptionKey,
         pub lifetime: ExpirationData,
@@ -145,7 +145,7 @@ impl ConnectionPackage {
     ) -> Result<(ConnectionDecryptionKey, Self), ConnectionPackageError> {
         let decryption_key = ConnectionDecryptionKey::generate()?;
         let payload = ConnectionPackagePayload {
-            protocol_version: MlsInfraVersion::default(),
+            protocol_version: AirProtocolVersion::default(),
             user_handle_hash,
             encryption_key: decryption_key.encryption_key().clone(),
             lifetime: ExpirationData::new(CONNECTION_PACKAGE_EXPIRATION),
