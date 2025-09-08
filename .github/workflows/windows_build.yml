@@ -40,6 +40,9 @@ jobs:
         with:
           cache-directories: app/build/windows/x64/plugins/airapplogic/cargokit_build
 
+      - name: Test flutter
+        run: just test-flutter
+
       - name: Build Windows app
         run: just build-windows
 
