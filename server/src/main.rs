@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use airbackend::{
-    air_service::AirService,
+    air_service::BackendService,
     auth_service::AuthService,
     ds::{Ds, storage::Storage},
     qs::Qs,

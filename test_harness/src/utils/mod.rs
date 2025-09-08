@@ -9,7 +9,7 @@ use std::{net::SocketAddr, time::Duration};
 pub mod setup;
 
 use airbackend::{
-    air_service::AirService,
+    air_service::BackendService,
     auth_service::AuthService,
     ds::{Ds, storage::Storage},
     qs::Qs,

@@ -102,7 +102,7 @@ mod test {
     use uuid::Uuid;
 
     use crate::{
-        air_service::AirService,
+        air_service::BackendService,
         ds::{
             Ds,
             group_state::{EncryptedDsGroupState, StorableDsGroupData},
