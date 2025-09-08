@@ -134,7 +134,7 @@ mod sqlite {
     // be renamed and otherwise preserved to ensure backwards compatibility.
     #[derive(Serialize, Deserialize)]
     enum VersionedQueueRatchet {
-        CurrentVersion(Vec<u8>),
+        CurrentVersion(#[serde(with = "serde_bytes")] Vec<u8>),
     }
 
     impl<CT, Payload: RatchetPayload<CT>> Type<Sqlite> for QueueRatchet<CT, Payload> {
