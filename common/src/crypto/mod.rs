@@ -34,7 +34,6 @@ pub mod indexed_aead;
 pub mod kdf;
 pub mod ratchet;
 pub mod secrets;
-pub(super) mod serde_arrays;
 pub mod signatures;
 
 /// Marker trait for keys that can be converted to and from raw bytes

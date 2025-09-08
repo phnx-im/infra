@@ -32,6 +32,7 @@ pub mod trait_impls;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EncryptionKey<KT> {
+    #[serde(with = "serde_bytes")]
     key: Vec<u8>,
     _type: std::marker::PhantomData<KT>,
 }

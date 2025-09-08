@@ -62,6 +62,7 @@ pub enum QsQueueMessageType {
 pub struct QsQueueMessagePayload {
     pub timestamp: TimeStamp,
     pub message_type: QsQueueMessageType,
+    #[serde(with = "serde_bytes")]
     pub payload: Vec<u8>,
 }
 
@@ -188,6 +189,7 @@ pub struct DsEventMessage {
     pub epoch: GroupEpoch,
     // Timestamp set by the DS at the time of processing the message.
     pub timestamp: TimeStamp,
+    #[serde(with = "serde_bytes")]
     pub payload: Vec<u8>,
 }
 
