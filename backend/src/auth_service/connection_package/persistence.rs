@@ -124,7 +124,7 @@ pub(crate) mod tests {
         ConnectionPackage::new_for_test(
             ConnectionPackagePayload {
                 verifying_key,
-                protocol_version: AirProtocolVersion::default(),
+                protocol_version: AirProtocolVersion::Alpha,
                 encryption_key: ConnectionDecryptionKey::generate()
                     .unwrap()
                     .encryption_key()
