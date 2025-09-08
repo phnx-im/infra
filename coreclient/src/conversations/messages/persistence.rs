@@ -8,7 +8,7 @@ use aircommon::{
     time::TimeStamp,
 };
 use anyhow::bail;
-use mimi_content::{MessageStatus, MimiContent, content_container::MimiContentV1};
+use mimi_content::{MessageStatus, MimiContent};
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteExecutor, query, query_as};
 use tokio_stream::StreamExt;
@@ -20,7 +20,7 @@ use crate::{ContentMessage, ConversationId, ConversationMessage, Message, store:
 use super::{ErrorMessage, EventMessage};
 
 const UNKNOWN_MESSAGE_VERSION: u16 = 0;
-const CURRENT_MESSAGE_VERSION: u16 = 2;
+const CURRENT_MESSAGE_VERSION: u16 = 1;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct VersionedMessage {
@@ -48,11 +48,6 @@ impl VersionedMessage {
 
     pub(crate) fn to_mimi_content(&self) -> anyhow::Result<MimiContent> {
         match self.version {
-            1 => {
-                warn!("Old message version detected. Why was it not upgraded by a migration?");
-                let old = AirCodec::from_slice::<MimiContentV1>(&self.content)?;
-                Ok(old.upgrade())
-            }
             CURRENT_MESSAGE_VERSION => Ok(AirCodec::from_slice::<MimiContent>(&self.content)?),
             other => bail!("unknown mimi content message version: {other}"),
         }
