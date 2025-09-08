@@ -71,7 +71,7 @@ impl Labeled for AsCredentialBody {
 }
 
 fn legacy_credential_hash(payload: &impl tls_codec::Serialize, label: &str) -> [u8; HASH_SIZE] {
-    let hash_label = format!("Air Credential Fingerprint {label}");
+    let hash_label = format!("Credential Fingerprint {label}");
     let rust_crypto = OpenMlsRustCrypto::default();
     let payload_bytes = payload.tls_serialize_detached().unwrap_or_default();
     let input = [hash_label.as_bytes().to_vec(), payload_bytes].concat();
@@ -402,7 +402,7 @@ impl VerifiedStruct<VerifiableAsIntermediateCredential> for AsIntermediateCreden
     }
 }
 
-const CLIENT_CREDENTIAL_LABEL: &str = "Air Client Credential";
+const CLIENT_CREDENTIAL_LABEL: &str = "Client Credential";
 const DEFAULT_CLIENT_CREDENTIAL_LIFETIME: Duration = Duration::days(90);
 
 // WARNING: If this type is changed, a new variant of the
