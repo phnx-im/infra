@@ -8,14 +8,15 @@ use std::{
 };
 
 use aircommon::identifiers::QsClientId;
-use airprotos::queue_service::v1::QueueMessage;
+use airprotos::queue_service::v1::{
+    QueueEmpty, QueueEvent, QueueEventPayload, QueueMessage, queue_event,
+};
 use futures_util::{Stream, stream};
 use sqlx::{Connection, PgConnection, PgExecutor, PgPool, postgres::PgListener, query_scalar};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
-use uuid::Uuid;
 
 use crate::errors::{QueueError, StorageError};
 
@@ -25,7 +26,13 @@ const MAX_BUFFER_SIZE: usize = 32;
 #[derive(Debug, Clone)]
 pub(crate) struct Queues {
     pool: PgPool,
-    listeners: Arc<Mutex<HashMap<QsClientId, CancellationToken>>>,
+    listeners: Arc<Mutex<HashMap<QsClientId, ListenerContext>>>,
+}
+
+#[derive(Debug)]
+struct ListenerContext {
+    cancel: CancellationToken,
+    payload_tx: mpsc::Sender<QueueEventPayload>,
 }
 
 impl Queues {
@@ -40,22 +47,42 @@ impl Queues {
         &self,
         queue_id: QsClientId,
         sequence_number_start: u64,
-    ) -> Result<impl Stream<Item = Option<QueueMessage>> + use<>, QueueError> {
+    ) -> Result<impl Stream<Item = Option<QueueEvent>> + use<>, QueueError> {
         let mut pg_listener = PgListener::connect_with(&self.pool).await?;
         pg_listener.listen(&pg_queue_label(queue_id)).await?;
 
-        let cancel = self.track_listener(queue_id).await?;
+        let (payload_tx, payload_rx) = tokio::sync::mpsc::channel(1024);
+
+        let cancel = self.track_listener(queue_id, payload_tx).await?;
         let context = QueueStreamContext {
-            id: Uuid::new_v4(),
             pool: self.pool.clone(),
             pg_listener,
             queue_id,
-            sequence_number_start,
+            sequence_number: sequence_number_start,
             cancel,
             buffer: VecDeque::with_capacity(MAX_BUFFER_SIZE),
             state: FetchState::Fetch,
         };
-        Ok(context.into_stream())
+
+        let message_stream = context.into_stream().map(|message| match message {
+            Some(message) => Some(QueueEvent {
+                event: Some(queue_event::Event::Message(message)),
+            }),
+            None => Some(QueueEvent {
+                event: Some(queue_event::Event::Empty(QueueEmpty {})),
+            }),
+        });
+
+        let payload_stream =
+            tokio_stream::wrappers::ReceiverStream::new(payload_rx).map(|payload| {
+                Some(QueueEvent {
+                    event: Some(queue_event::Event::Payload(payload)),
+                })
+            });
+
+        let event_stream = stream::select(message_stream, payload_stream);
+
+        Ok(event_stream)
     }
 
     pub(crate) async fn enqueue(
@@ -91,12 +118,20 @@ impl Queues {
         Ok(())
     }
 
-    async fn track_listener(&self, client_id: QsClientId) -> sqlx::Result<CancellationToken> {
+    async fn track_listener(
+        &self,
+        client_id: QsClientId,
+        payload_tx: mpsc::Sender<QueueEventPayload>,
+    ) -> sqlx::Result<CancellationToken> {
         let mut listeners = self.listeners.lock().await;
-        listeners.retain(|_, cancel| !cancel.is_cancelled());
+        listeners.retain(|_, context| !context.cancel.is_cancelled());
         let cancel = CancellationToken::new();
-        if let Some(prev_cancel) = listeners.insert(client_id, cancel.clone()) {
-            prev_cancel.cancel();
+        let context = ListenerContext {
+            cancel: cancel.clone(),
+            payload_tx,
+        };
+        if let Some(prev_context) = listeners.insert(client_id, context) {
+            prev_context.cancel.cancel();
         }
         Ok(cancel)
     }
@@ -113,6 +148,15 @@ pub trait QueueNotifier {
         queue_id: QsClientId,
         message: &QueueMessage,
     ) -> Result<bool, QueueError>;
+
+    /// Sends a payload to the queue.
+    ///
+    /// The payload is only sent if the queue is listening.
+    async fn send_payload(
+        &self,
+        queue_id: QsClientId,
+        payload: QueueEventPayload,
+    ) -> Result<bool, QueueError>;
 }
 
 impl QueueNotifier for Queues {
@@ -124,15 +168,31 @@ impl QueueNotifier for Queues {
     ) -> Result<bool, QueueError> {
         self.enqueue(connection, queue_id, message).await
     }
+
+    async fn send_payload(
+        &self,
+        queue_id: QsClientId,
+        payload: QueueEventPayload,
+    ) -> Result<bool, QueueError> {
+        let Some(tx) = self
+            .listeners
+            .lock()
+            .await
+            .get(&queue_id)
+            .map(|context| context.payload_tx.clone())
+        else {
+            return Ok(false);
+        };
+        tx.send(payload).await?;
+        Ok(true)
+    }
 }
 
 struct QueueStreamContext {
-    id: Uuid,
     pool: PgPool,
     pg_listener: PgListener,
     queue_id: QsClientId,
-    /// The sequence number specified by the client in the `listen` request.
-    sequence_number_start: u64,
+    sequence_number: u64,
     cancel: CancellationToken,
     /// Buffer for already fetched messages
     ///
@@ -188,8 +248,7 @@ impl QueueStreamContext {
         Queue::fetch_into(
             &self.pool,
             &self.queue_id,
-            self.sequence_number_start,
-            self.id,
+            self.sequence_number,
             MAX_BUFFER_SIZE,
             &mut self.buffer,
         )
@@ -198,6 +257,9 @@ impl QueueStreamContext {
             error!(%error, "failed to fetch next messages");
         })
         .ok()?;
+        if let Some(new_sequence_number) = self.buffer.back().map(|m| m.sequence_number) {
+            self.sequence_number = new_sequence_number + 1;
+        }
         Some(())
     }
 
@@ -346,38 +408,31 @@ mod persistence {
             executor: impl PgExecutor<'_>,
             queue_id: &QsClientId,
             sequence_number: u64,
-            fetched_by: Uuid,
             limit: usize,
             buffer: &mut VecDeque<QueueMessage>,
         ) -> sqlx::Result<()> {
             let mut messages = query_scalar!(
-                r#"WITH messages_to_fetch AS (
-                    SELECT sequence_number, message_bytes FROM qs_queues
-                    WHERE queue_id = $1
-                        AND sequence_number >= $2
-                        AND (fetched_by IS NULL OR fetched_by != $3)
-                    ORDER BY sequence_number ASC
-                    LIMIT $4
-                    FOR UPDATE SKIP LOCKED
-                ),
-                updated_messages AS (
-                    UPDATE qs_queues AS q
-                    SET fetched_by = $3
-                    FROM messages_to_fetch m
-                    WHERE q.queue_id = $1 AND q.sequence_number = m.sequence_number
-                )
-                SELECT message_bytes AS "message: SqlQueueMessage"
-                FROM messages_to_fetch
+                r#"SELECT message_bytes AS "message: SqlQueueMessage"
+                FROM qs_queues
+                WHERE queue_id = $1 AND sequence_number >= $2
+                ORDER BY sequence_number ASC
+                LIMIT $3
                 "#,
                 queue_id as &QsClientId,
                 sequence_number as i64,
-                fetched_by,
                 limit as i64,
             )
             .fetch(executor);
             while let Some(SqlQueueMessage(message)) = messages.next().await.transpose()? {
                 buffer.push_back(message);
             }
+            debug_assert!(
+                buffer
+                    .iter()
+                    .zip(buffer.iter().skip(1))
+                    .all(|(a, b)| a.sequence_number + 1 == b.sequence_number),
+                "sequence numbers are not consecutive"
+            );
             Ok(())
         }
 

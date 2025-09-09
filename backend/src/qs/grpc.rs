@@ -319,9 +319,7 @@ impl QueueService for GrpcQs {
             .listen(client_id, sequence_number_start)
             .await?;
         let responses = queue_messages.map(|message| match message {
-            Some(message) => QueueEvent {
-                event: Some(queue_event::Event::Message(message)),
-            },
+            Some(event) => event,
             None => QueueEvent {
                 event: Some(queue_event::Event::Empty(QueueEmpty {})),
             },

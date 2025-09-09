@@ -189,12 +189,12 @@ message InitListenRequest {
   uint64 sequence_number_start = 2;
 }
 
-message FetchListenRequest {}
-
 message AckListenRequest {
   // Sequence number to acknowledge up to (exclusive)
   uint64 up_to_sequence_number = 2;
 }
+
+message FetchListenRequest {}
 
 message QueueEvent {
   oneof event {

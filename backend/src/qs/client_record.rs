@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use airprotos::{convert::RefInto, queue_service::v1::QueueEventPayload};
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection, PgPool};
@@ -16,7 +17,7 @@ use aircommon::{
     identifiers::{QsClientId, QsUserId},
     messages::{
         QueueMessage,
-        client_ds::QsQueueRatchet,
+        client_ds::{DsEventMessage, QsQueueRatchet},
         push_token::{EncryptedPushToken, PushToken},
     },
     time::TimeStamp,
@@ -474,12 +475,21 @@ impl QsClientRecord {
                 }
             }
             // Dispatch an event message.
-            DsFanOutPayload::EventMessage(_event_message) => {
-                unimplemented!()
-                // // We ignore the result, because dispatching events is best effort.
-                // let _ = queue_notifier
-                //     .notify(client_id, Notification::Event(event_message))
-                //     .await;
+            DsFanOutPayload::EventMessage(DsEventMessage {
+                group_id,
+                sender_index,
+                epoch,
+                timestamp,
+                payload,
+            }) => {
+                let payload = QueueEventPayload {
+                    group_id: Some(group_id.ref_into()),
+                    sender: Some(sender_index.into()),
+                    epoch: Some(epoch.into()),
+                    timestamp: Some(timestamp.into()),
+                    payload,
+                };
+                queue_notifier.send_payload(client_id, payload).await?;
             }
         }
 

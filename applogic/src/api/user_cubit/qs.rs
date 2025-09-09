@@ -27,8 +27,8 @@ pub(super) struct QueueContext {
     responder: Option<Arc<QsListenResponder>>,
     /// Accumulated but not yet processed messages
     ///
-    /// Note: It is safe to store messages here, because they are not yet acked. In case, the app
-    /// is shut down, the messages will be received again.
+    /// Note: It is safe to keep messages in memory here, because they are not yet acked. In case,
+    /// the app is shut down, the messages will be received again.
     messages: Vec<QueueMessage>,
 }
 
@@ -72,9 +72,7 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
                         .as_ref()
                         .expect("logic error: no responder")
                         .clone();
-                    tokio::spawn(async move {
-                        responder.ack(max_sequence_number + 1).await;
-                    });
+                    responder.ack(max_sequence_number + 1).await;
                 }
 
                 let core_user = self.cubit_context.core_user.clone();
