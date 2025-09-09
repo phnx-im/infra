@@ -15,6 +15,7 @@ use aircommon::{
 };
 use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 use anyhow::{Context, Result, ensure};
+use mimi_room_policy::{MimiProposal, RoleIndex};
 use openmls::prelude::MlsMessageOut;
 use sqlx::SqliteConnection;
 use sqlx::SqliteTransaction;
@@ -75,7 +76,7 @@ impl CoreUser {
         let eci = self.fetch_external_commit_info(&cep_payload, &qgid).await?;
 
         // Join group
-        let (group, commit, group_info, mut member_profile_info) = self
+        let (mut group, commit, group_info, mut member_profile_info) = self
             .join_group_externally(&mut connection, eci, &cep_payload, self.signing_key(), aad)
             .await?;
 
@@ -119,6 +120,12 @@ impl CoreUser {
         let (mut conversation, contact) = self
             .create_connection_conversation(&mut connection, &group, &cep_payload)
             .await?;
+
+        group.room_state_change_role(
+            &cep_payload.sender_client_credential.identity(),
+            self.user_id(),
+            RoleIndex::Regular,
+        )?;
 
         let mut notifier = self.store_notifier();
 

@@ -126,7 +126,7 @@ pub(crate) struct PartialCreateGroupParams {
     pub(crate) group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
-    room_state: VerifiedRoomState,
+    pub(crate) room_state: VerifiedRoomState,
 }
 
 impl PartialCreateGroupParams {

@@ -127,6 +127,7 @@ impl VerifiedConnectionPackagesWithGroupId {
         let provider = AirOpenMlsProvider::new(txn);
         let (group, group_membership, partial_params) =
             Group::create_group(&provider, signing_key, group_id.clone(), group_data)?;
+
         group_membership.store(txn.as_mut()).await?;
         group.store(txn.as_mut()).await?;
 
