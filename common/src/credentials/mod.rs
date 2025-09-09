@@ -3,12 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::Duration;
-use mls_assist::{
-    openmls::prelude::{
-        BasicCredential, BasicCredentialError, Credential, HashType, SignatureScheme,
-    },
-    openmls_rust_crypto::OpenMlsRustCrypto,
-    openmls_traits::{OpenMlsProvider, crypto::OpenMlsCrypto},
+use mls_assist::openmls::prelude::{
+    BasicCredential, BasicCredentialError, Credential, SignatureScheme,
 };
 
 use serde::{Deserialize, Serialize};
@@ -30,7 +26,7 @@ use crate::{
         Labeled,
         ear::Ciphertext,
         errors::KeyGenerationError,
-        hash::{HASH_SIZE, Hash, Hashable},
+        hash::{Hash, Hashable},
         signatures::{
             private_keys::SigningKey,
             signable::{Signable, Signature, SignedStruct, Verifiable, VerifiedStruct},
@@ -70,26 +66,7 @@ impl Labeled for AsCredentialBody {
     const LABEL: &'static str = AS_CREDENTIAL_LABEL;
 }
 
-fn legacy_credential_hash(payload: &impl tls_codec::Serialize, label: &str) -> [u8; HASH_SIZE] {
-    let hash_label = format!("Credential Fingerprint {label}");
-    let rust_crypto = OpenMlsRustCrypto::default();
-    let payload_bytes = payload.tls_serialize_detached().unwrap_or_default();
-    let input = [hash_label.as_bytes().to_vec(), payload_bytes].concat();
-    rust_crypto
-        .crypto()
-        .hash(HashType::Sha2_256, &input)
-        .unwrap_or_default()
-        .try_into()
-        .unwrap()
-}
-
-// Custom implementation to preserver backwards compatibility.
-impl Hashable for AsCredentialBody {
-    fn hash(&self) -> Hash<Self> {
-        let label = Self::LABEL;
-        Hash::from_bytes(legacy_credential_hash(self, label))
-    }
-}
+impl Hashable for AsCredentialBody {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize, Clone, Serialize, Deserialize)]
 pub struct AsCredentialBody {
@@ -240,13 +217,7 @@ impl Labeled for AsIntermediateCredentialBody {
     const LABEL: &'static str = AS_INTERMEDIATE_CREDENTIAL_LABEL;
 }
 
-// Custom implementation to preserver backwards compatibility.
-impl Hashable for AsIntermediateCredentialBody {
-    fn hash(&self) -> Hash<Self> {
-        let label = Self::LABEL;
-        Hash::from_bytes(legacy_credential_hash(self, label))
-    }
-}
+impl Hashable for AsIntermediateCredentialBody {}
 
 impl Signable for AsIntermediateCredentialPayload {
     type SignedOutput = AsIntermediateCredential;
@@ -500,13 +471,7 @@ impl Labeled for ClientCredential {
     const LABEL: &'static str = CLIENT_CREDENTIAL_LABEL;
 }
 
-// Custom implementation to preserver backwards compatibility.
-impl Hashable for ClientCredential {
-    fn hash(&self) -> Hash<Self> {
-        let label = Self::LABEL;
-        Hash::from_bytes(legacy_credential_hash(self, label))
-    }
-}
+impl Hashable for ClientCredential {}
 
 // WARNING: If this type is changed, a new variant of the
 // VersionedClientCredential(Ref) must be created and the `FromSql` and `ToSql`

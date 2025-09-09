@@ -31,6 +31,7 @@ use aircommon::{
     },
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedGroupId, UserId},
     messages::{
+        client_as::ConnectionOfferHash,
         client_ds::{
             AadMessage, AadPayload, DsJoinerInformation, GroupOperationParamsAad, WelcomeBundle,
         },
@@ -45,7 +46,7 @@ use aircommon::{
     },
     time::TimeStamp,
 };
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use mimi_content::MimiContent;
 use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
 use mls_assist::messages::AssistedMessageOut;
@@ -62,16 +63,17 @@ use crate::{
 use std::collections::HashSet;
 
 use openmls::{
-    group::{Member, ProcessedWelcome},
+    group::{ExternalCommitBuilder, Member, ProcessedWelcome},
     key_packages::KeyPackageBundle,
     prelude::{
         BasicCredentialError, Capabilities, Ciphersuite, CredentialType, CredentialWithKey,
-        Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup,
-        MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
-        Proposal, ProposalType, ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension,
-        Sender, SignaturePublicKey, StagedCommit, UnknownExtension,
-        tls_codec::Serialize as TlsSerializeTrait,
+        Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex,
+        LeafNodeParameters, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider,
+        PURE_PLAINTEXT_WIRE_FORMAT_POLICY, PreSharedKeyProposal, Proposal, ProposalType,
+        ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, SignaturePublicKey,
+        StagedCommit, UnknownExtension, tls_codec::Serialize as TlsSerializeTrait,
     },
+    schedule::{ExternalPsk, PreSharedKeyId, Psk},
     treesync::RatchetTree,
 };
 
@@ -241,7 +243,7 @@ impl Group {
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info(provider, signer, true)?,
+            group_info: mls_group.export_group_info(provider.crypto(), signer, true)?,
             room_state: room_state.clone(),
         };
 
@@ -450,10 +452,8 @@ impl Group {
         identity_link_wrapper_key: IdentityLinkWrapperKey,
         aad: AadMessage,
         own_client_credential: &ClientCredential,
+        connection_offer_hash: ConnectionOfferHash,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
-        // TODO: We set the ratchet tree extension for now, as it is the only
-        // way to make OpenMLS return a GroupInfo. This should change in the
-        // future.
         let mls_group_config = Self::default_mls_group_join_config();
         let credential_with_key = CredentialWithKey {
             credential: signer.credential().try_into()?,
@@ -470,20 +470,41 @@ impl Group {
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info) = {
             let provider = AirOpenMlsProvider::new(&mut *connection);
-            let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
-                &provider,
-                signer,
-                Some(ratchet_tree_in),
-                verifiable_group_info,
-                &mls_group_config,
-                Some(default_capabilities()),
-                None,
-                &aad.tls_serialize_detached()?,
-                credential_with_key,
+            let psk_value = connection_offer_hash.into_bytes();
+            // Since the value is public information, we can also use it as an ID
+            let psk_id = PreSharedKeyId::new(
+                verifiable_group_info.ciphersuite(),
+                provider.rand(),
+                Psk::External(ExternalPsk::new(psk_value.to_vec())),
             )?;
-            mls_group.merge_pending_commit(&provider)?;
-            let group_info = mls_group.export_group_info(&provider, signer, true)?;
-            (mls_group, commit, group_info)
+            psk_id.store(&provider, &psk_value)?;
+            let psk_proposal = PreSharedKeyProposal::new(PreSharedKeyId::new(
+                verifiable_group_info.ciphersuite(),
+                provider.rand(),
+                Psk::External(ExternalPsk::new(psk_value.to_vec())),
+            )?);
+            let leaf_node_parameters = LeafNodeParameters::builder()
+                .with_capabilities(default_capabilities())
+                .build();
+            let (mls_group, commit) = ExternalCommitBuilder::new()
+                .with_aad(aad.tls_serialize_detached()?)
+                .with_config(mls_group_config)
+                .with_ratchet_tree(ratchet_tree_in)
+                .build_group(&provider, verifiable_group_info, credential_with_key)?
+                .leaf_node_parameters(leaf_node_parameters)
+                .add_psk_proposal(psk_proposal)
+                .create_group_info(true)
+                .load_psks(provider.storage())?
+                .build(provider.rand(), provider.crypto(), signer, |_| true)?
+                .finalize(&provider)?;
+
+            let (commit, _, group_info) = commit.into_contents();
+
+            (
+                mls_group,
+                commit,
+                group_info.context("No group info found")?.into(),
+            )
         };
 
         let group_id = mls_group.group_id();
@@ -1049,6 +1070,24 @@ impl Group {
 
     pub(crate) fn own_index(&self) -> LeafNodeIndex {
         self.mls_group().own_leaf_index()
+    }
+
+    pub(crate) fn store_connection_offer_psk(
+        &self,
+        connection: &mut SqliteConnection,
+        connection_offer_hash: ConnectionOfferHash,
+    ) -> Result<()> {
+        let provider = AirOpenMlsProvider::new(connection);
+        let psk_value = connection_offer_hash.into_bytes();
+        PreSharedKeyId::new(
+            self.mls_group().ciphersuite(),
+            provider.rand(),
+            Psk::External(ExternalPsk::new(
+                connection_offer_hash.into_bytes().to_vec(),
+            )),
+        )?
+        .store(&provider, &psk_value)?;
+        Ok(())
     }
 }
 

@@ -3,10 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use chrono::Duration;
-use mls_assist::{
-    openmls::prelude::HashType, openmls_rust_crypto::RustCrypto,
-    openmls_traits::crypto::OpenMlsCrypto,
-};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{Serialize as _, TlsSerialize, TlsSize};
@@ -126,23 +122,7 @@ impl Labeled for ConnectionPackage {
 
 pub type ConnectionPackageHash = Hash<ConnectionPackage>;
 
-// Custom implementation of `Hashable` for `ConnectionPackage` to ensure
-// backwards compatibility.
-impl Hashable for ConnectionPackage {
-    fn hash(&self) -> ConnectionPackageHash {
-        let rust_crypto = RustCrypto::default();
-        let payload = self.tls_serialize_detached().unwrap_or_default();
-        debug_assert!(!payload.is_empty());
-        let input = [b"Connection Package".to_vec(), payload].concat();
-        let value: [u8; 32] = rust_crypto
-            .hash(HashType::Sha2_256, &input)
-            .unwrap_or_default()
-            .try_into()
-            // Output length of `hash` is always 32 bytes
-            .unwrap();
-        Hash::from_bytes(value)
-    }
-}
+impl Hashable for ConnectionPackage {}
 
 #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
 pub struct ConnectionPackage {
@@ -194,29 +174,5 @@ impl ConnectionPackage {
     #[cfg(feature = "test_utils")]
     pub fn new_for_test(payload: ConnectionPackagePayload, signature: HandleSignature) -> Self {
         Self { payload, signature }
-    }
-}
-
-pub mod legacy {
-    use super::*;
-
-    use crate::{
-        credentials::{ClientCredential, keys::ClientSignature},
-        messages::AirProtocolVersion,
-        time::ExpirationData,
-    };
-
-    #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
-    pub struct ConnectionPackagePayloadV1 {
-        pub protocol_version: AirProtocolVersion,
-        pub encryption_key: ConnectionEncryptionKey,
-        pub lifetime: ExpirationData,
-        pub client_credential: ClientCredential,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq, TlsSerialize, TlsSize, Serialize, Deserialize)]
-    pub struct ConnectionPackageV1 {
-        payload: ConnectionPackagePayloadV1,
-        signature: ClientSignature,
     }
 }
