@@ -258,11 +258,11 @@ impl<Event> Default for State<Event> {
 pub(crate) trait BackgroundStreamContext<Event>: Send {
     /// Create the backtrack stream
     fn create_stream(
-        &self,
+        &mut self,
     ) -> impl Future<Output = anyhow::Result<impl Stream<Item = Event> + Send + 'static>> + Send;
 
     /// Handle a stream event
-    fn handle_event(&self, event: Event) -> impl Future<Output = ()> + Send;
+    fn handle_event(&mut self, event: Event) -> impl Future<Output = ()> + Send;
 
     /// Resolves when the app is in the foreground
     fn in_foreground(&self) -> impl Future<Output = ()> + Send;
@@ -331,7 +331,7 @@ mod test {
 
     impl BackgroundStreamContext<TestEvent> for TestContext {
         fn create_stream(
-            &self,
+            &mut self,
         ) -> impl Future<Output = anyhow::Result<impl Stream<Item = TestEvent> + 'static>> {
             let rx = self.create_stream_rx.clone();
             async move {
@@ -340,7 +340,7 @@ mod test {
             }
         }
 
-        async fn handle_event(&self, event: TestEvent) {
+        async fn handle_event(&mut self, event: TestEvent) {
             let _ = event.ack_tx.send(event.value);
         }
 

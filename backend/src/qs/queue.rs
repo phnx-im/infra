@@ -2,145 +2,284 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use aircommon::{
-    codec::{BlobDecoded, BlobEncoded},
-    identifiers::QsClientId,
-    messages::QueueMessage,
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
 };
-use sqlx::{Connection, PgConnection, PgExecutor};
+
+use aircommon::identifiers::QsClientId;
+use airprotos::queue_service::v1::QueueMessage;
+use futures_util::{Stream, stream};
+use sqlx::{Connection, PgConnection, PgExecutor, PgPool, postgres::PgListener, query_scalar};
+use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
+use tokio_util::sync::CancellationToken;
+use tracing::error;
+use uuid::Uuid;
 
 use crate::errors::{QueueError, StorageError};
+
+/// Maximum number of messages to fetch at once.
+const MAX_BUFFER_SIZE: usize = 32;
+
+#[derive(Debug, Clone)]
+pub(crate) struct Queues {
+    pool: PgPool,
+    listeners: Arc<Mutex<HashMap<QsClientId, CancellationToken>>>,
+}
+
+impl Queues {
+    pub(crate) fn new(pool: PgPool) -> Self {
+        Self {
+            pool,
+            listeners: Default::default(),
+        }
+    }
+
+    pub(crate) async fn listen(
+        &self,
+        queue_id: QsClientId,
+        sequence_number_start: u64,
+    ) -> Result<impl Stream<Item = Option<QueueMessage>> + use<>, QueueError> {
+        let mut pg_listener = PgListener::connect_with(&self.pool).await?;
+        pg_listener.listen(&pg_queue_label(queue_id)).await?;
+
+        let cancel = self.track_listener(queue_id).await?;
+        let context = QueueStreamContext {
+            id: Uuid::new_v4(),
+            pool: self.pool.clone(),
+            pg_listener,
+            queue_id,
+            sequence_number_start,
+            cancel,
+            buffer: VecDeque::with_capacity(MAX_BUFFER_SIZE),
+            state: FetchState::Fetch,
+        };
+        Ok(context.into_stream())
+    }
+
+    pub(crate) async fn enqueue(
+        &self,
+        connection: &mut PgConnection,
+        queue_id: QsClientId,
+        message: &QueueMessage,
+    ) -> Result<bool, QueueError> {
+        let mut txn = connection.begin().await?;
+
+        Queue::enqueue(&mut txn, queue_id, message).await?;
+        let query = format!(r#"NOTIFY "{}""#, pg_queue_label(queue_id));
+        sqlx::query(&query).execute(txn.as_mut()).await?;
+
+        txn.commit().await?;
+
+        let is_listening = self.listeners.lock().await.contains_key(&queue_id);
+        Ok(is_listening)
+    }
+
+    pub(crate) async fn ack(
+        &self,
+        queue_id: QsClientId,
+        up_to_sequence_number: u64,
+    ) -> Result<(), QueueError> {
+        Queue::delete(&self.pool, queue_id, up_to_sequence_number).await?;
+        Ok(())
+    }
+
+    pub(crate) async fn trigger_fetch(&self, queue_id: QsClientId) -> Result<(), QueueError> {
+        let query = format!(r#"NOTIFY "{}""#, pg_queue_label(queue_id));
+        sqlx::query(&query).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    async fn track_listener(&self, client_id: QsClientId) -> sqlx::Result<CancellationToken> {
+        let mut listeners = self.listeners.lock().await;
+        listeners.retain(|_, cancel| !cancel.is_cancelled());
+        let cancel = CancellationToken::new();
+        if let Some(prev_cancel) = listeners.insert(client_id, cancel.clone()) {
+            prev_cancel.cancel();
+        }
+        Ok(cancel)
+    }
+}
+
+pub trait QueueNotifier {
+    /// Returns whether the queue id is currently listened to.
+    ///
+    /// Takes an additional `connection` parameter to allow to call this function as a part of a
+    /// transaction.
+    async fn enqueue(
+        &self,
+        connection: &mut PgConnection,
+        queue_id: QsClientId,
+        message: &QueueMessage,
+    ) -> Result<bool, QueueError>;
+}
+
+impl QueueNotifier for Queues {
+    async fn enqueue(
+        &self,
+        connection: &mut PgConnection,
+        queue_id: QsClientId,
+        message: &QueueMessage,
+    ) -> Result<bool, QueueError> {
+        self.enqueue(connection, queue_id, message).await
+    }
+}
+
+struct QueueStreamContext {
+    id: Uuid,
+    pool: PgPool,
+    pg_listener: PgListener,
+    queue_id: QsClientId,
+    /// The sequence number specified by the client in the `listen` request.
+    sequence_number_start: u64,
+    cancel: CancellationToken,
+    /// Buffer for already fetched messages
+    ///
+    /// Invariant: the messages are stored in ascending order by sequence number.
+    buffer: VecDeque<QueueMessage>,
+    state: FetchState,
+}
+
+enum FetchState {
+    /// Fetch the next message.
+    Fetch,
+    /// Wait for a notification to fetch the next message.
+    ///
+    /// This state is used when the queue is empty.
+    Wait,
+}
+
+impl QueueStreamContext {
+    fn into_stream(self) -> impl Stream<Item = Option<QueueMessage>> + Send {
+        stream::unfold(
+            self,
+            async |mut context| -> Option<(Option<QueueMessage>, Self)> {
+                loop {
+                    if context.cancel.is_cancelled() {
+                        return None;
+                    }
+                    if let Some(message) = context.buffer.pop_front() {
+                        return Some((Some(message), context));
+                    }
+                    // buffer is empty
+                    match context.state {
+                        FetchState::Fetch => {
+                            context.fetch_next_messages().await?;
+                            if context.buffer.is_empty() {
+                                // return sentinel value to indicate that the queue is empty
+                                context.state = FetchState::Wait;
+                                return Some((None, context));
+                            }
+                        }
+                        FetchState::Wait => {
+                            context.wait_for_notification().await?;
+                            context.state = FetchState::Fetch;
+                        }
+                    }
+                }
+            },
+        )
+    }
+
+    /// Fetches the next batch of messages into the internal buffer.
+    async fn fetch_next_messages(&mut self) -> Option<()> {
+        debug_assert!(self.buffer.is_empty());
+        Queue::fetch_into(
+            &self.pool,
+            &self.queue_id,
+            self.sequence_number_start,
+            self.id,
+            MAX_BUFFER_SIZE,
+            &mut self.buffer,
+        )
+        .await
+        .inspect_err(|error| {
+            error!(%error, "failed to fetch next messages");
+        })
+        .ok()?;
+        Some(())
+    }
+
+    /// Waits for either a new message or for the listener to be cancelled.
+    ///
+    /// Returns `None` if the listener was cancelled and should stop.
+    async fn wait_for_notification(&mut self) -> Option<()> {
+        tokio::select! {
+            _ = self.pg_listener.recv() => Some(()),
+            _ = self.cancel.cancelled() => None,
+        }
+    }
+}
+
+fn pg_queue_label(queue_id: QsClientId) -> String {
+    format!("qs_{}", queue_id.as_uuid())
+}
 
 pub(super) struct Queue {
     queue_id: QsClientId,
     sequence_number: i64,
 }
 
-impl Queue {
-    pub(super) async fn new_and_store<'a>(
-        queue_id: QsClientId,
-        connection: impl PgExecutor<'_>,
-    ) -> Result<Self, StorageError> {
-        let queue_data = Self {
-            queue_id,
-            sequence_number: 0,
-        };
-        queue_data.store(connection).await?;
-        Ok(queue_data)
-    }
-
-    pub(super) async fn enqueue(
-        connection: &mut PgConnection,
-        queue_id: &QsClientId,
-        message: &QueueMessage,
-    ) -> Result<(), QueueError> {
-        // Begin the transaction
-        let mut transaction = connection.begin().await?;
-
-        // Update and get the sequence number, saving one query
-        let sequence_number = sqlx::query_scalar!(
-            r#"
-            WITH updated_sequence AS (
-                -- Step 1: Update and return the current sequence number.
-                UPDATE qs_queue_data
-                SET sequence_number = sequence_number + 1
-                WHERE queue_id = $1
-                RETURNING sequence_number - 1 as sequence_number
-            )
-            -- Step 2: Insert the message with the new sequence number.
-            INSERT INTO qs_queues (queue_id, sequence_number, message_bytes)
-            SELECT $1, sequence_number, $2 FROM updated_sequence
-            RETURNING sequence_number
-            "#,
-            queue_id as &QsClientId,
-            BlobEncoded(&message) as _,
-        )
-        .fetch_one(&mut *transaction)
-        .await?;
-
-        // Check if the sequence number matches the one we got from the query. If it doesn't,
-        // we return an error and automatically rollback the transaction.
-        if sequence_number != message.sequence_number as i64 {
-            tracing::warn!(
-                "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
-                message.sequence_number,
-                sequence_number
-            );
-            return Err(QueueError::SequenceNumberMismatch);
-        }
-
-        transaction.commit().await?;
-
-        Ok(())
-    }
-
-    pub(super) async fn read_and_delete(
-        connection: &mut PgConnection,
-        queue_id: &QsClientId,
-        sequence_number: u64,
-        number_of_messages: u64,
-    ) -> Result<(Vec<QueueMessage>, u64), QueueError> {
-        let number_of_messages =
-            i64::try_from(number_of_messages).map_err(|_| QueueError::LibraryError)?;
-
-        let mut transaction = connection.begin().await?;
-
-        let rows = sqlx::query!(
-            r#"
-            WITH deleted AS (
-                DELETE FROM qs_queues
-                WHERE queue_id = $1 AND sequence_number < $2
-            ),
-            fetched AS (
-                SELECT message_bytes FROM qs_queues
-                WHERE queue_id = $1 AND sequence_number >= $2
-                ORDER BY sequence_number ASC
-                LIMIT $3
-            ),
-            remaining AS (
-                SELECT COUNT(*) AS count
-                FROM qs_queues
-                WHERE queue_id = $1 AND sequence_number >= $2
-            )
-            SELECT
-                fetched.message_bytes AS "message: BlobDecoded<QueueMessage>",
-                remaining.count
-            FROM fetched, remaining
-            "#,
-            queue_id as &QsClientId,
-            sequence_number as i64,
-            number_of_messages,
-        )
-        .fetch(&mut *transaction);
-
-        // Convert the records to messages.
-        let mut remaining_count = None;
-        let messages = rows
-            .map(|row| {
-                let row = row?;
-                remaining_count.get_or_insert(row.count.unwrap_or_default());
-                Ok(row.message.into_inner())
-            })
-            .collect::<Result<Vec<_>, QueueError>>()
-            .await?;
-
-        transaction.commit().await?;
-
-        let remaining_messages = remaining_count
-            .map(|count| count - messages.len() as i64)
-            .unwrap_or_default()
-            .try_into()
-            .expect("logic error: negative remaining messages");
-
-        Ok((messages, remaining_messages))
-    }
-}
-
 mod persistence {
     use super::*;
 
+    use airprotos::queue_service::v1::QueueMessage;
+    use prost::Message;
+    use sqlx::{
+        Database, Decode, Encode, Postgres, Type, encode::IsNull, error::BoxDynError, query,
+    };
+
+    #[derive(Debug)]
+    pub(super) struct SqlQueueMessage(pub(super) QueueMessage);
+
+    #[derive(Debug)]
+    pub(super) struct SqlQueueMessageRef<'a>(pub(super) &'a QueueMessage);
+
+    impl Type<Postgres> for SqlQueueMessageRef<'_> {
+        fn type_info() -> <Postgres as Database>::TypeInfo {
+            <Vec<u8> as Type<Postgres>>::type_info()
+        }
+    }
+
+    impl<'q> Encode<'q, Postgres> for SqlQueueMessageRef<'_> {
+        fn encode_by_ref(
+            &self,
+            buf: &mut <Postgres as Database>::ArgumentBuffer<'q>,
+        ) -> Result<IsNull, BoxDynError> {
+            let buf: &mut Vec<u8> = buf.as_mut();
+            self.0.encode(buf)?;
+            Ok(IsNull::No)
+        }
+    }
+
+    impl Type<Postgres> for SqlQueueMessage {
+        fn type_info() -> <Postgres as Database>::TypeInfo {
+            <Vec<u8> as Type<Postgres>>::type_info()
+        }
+    }
+
+    impl<'r> Decode<'r, Postgres> for SqlQueueMessage {
+        fn decode(value: <Postgres as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+            let bytes: &[u8] = Decode::<Postgres>::decode(value)?;
+            let value = QueueMessage::decode(bytes)?;
+            Ok(SqlQueueMessage(value))
+        }
+    }
+
     impl Queue {
+        pub(crate) async fn new_and_store<'a>(
+            queue_id: QsClientId,
+            connection: impl PgExecutor<'_>,
+        ) -> Result<Self, StorageError> {
+            let queue_data = Self {
+                queue_id,
+                sequence_number: 0,
+            };
+            queue_data.store(connection).await?;
+            Ok(queue_data)
+        }
+
         pub(super) async fn store(
             &self,
             connection: impl PgExecutor<'_>,
@@ -158,65 +297,102 @@ mod persistence {
             .await?;
             Ok(())
         }
-    }
 
-    #[cfg(test)]
-    mod tests {
-        use aircommon::crypto::ear::AeadCiphertext;
-        use sqlx::PgPool;
+        pub(super) async fn enqueue(
+            connection: &mut PgConnection,
+            queue_id: QsClientId,
+            message: &QueueMessage,
+        ) -> Result<(), QueueError> {
+            // Begin the transaction
+            let mut transaction = connection.begin().await?;
 
-        use crate::qs::{
-            client_record::persistence::tests::store_random_client_record,
-            user_record::persistence::tests::store_random_user_record,
-        };
-
-        use super::*;
-
-        #[sqlx::test]
-        async fn enqueue_read_and_delete(pool: PgPool) -> anyhow::Result<()> {
-            let user_record = store_random_user_record(&pool).await?;
-            let client_record = store_random_client_record(&pool, user_record.user_id).await?;
-
-            let queue = Queue::new_and_store(client_record.client_id, &pool).await?;
-
-            let n: u64 = queue.sequence_number.try_into()?;
-            let mut messages = Vec::new();
-            for sequence_number in n..n + 10 {
-                let message = QueueMessage {
-                    sequence_number,
-                    ciphertext: AeadCiphertext::dummy(),
-                };
-                messages.push(message);
-                Queue::enqueue(
-                    pool.acquire().await?.as_mut(),
-                    &client_record.client_id,
-                    messages.last().unwrap(),
+            // Update and get the sequence number, saving one query
+            let sequence_number = sqlx::query_scalar!(
+                r#"WITH updated_sequence AS (
+                    -- Step 1: Update and return the current sequence number.
+                    UPDATE qs_queue_data
+                    SET sequence_number = sequence_number + 1
+                    WHERE queue_id = $1
+                    RETURNING sequence_number - 1 as sequence_number
                 )
-                .await?;
+                -- Step 2: Insert the message with the new sequence number.
+                INSERT INTO qs_queues (queue_id, sequence_number, message_bytes)
+                SELECT $1, sequence_number, $2 FROM updated_sequence
+                RETURNING sequence_number
+                "#,
+                queue_id as QsClientId,
+                SqlQueueMessageRef(message) as _,
+            )
+            .fetch_one(&mut *transaction)
+            .await?;
+
+            // Check if the sequence number matches the one we got from the query. If it doesn't,
+            // we return an error and automatically rollback the transaction.
+            if sequence_number != message.sequence_number as i64 {
+                tracing::warn!(
+                    "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
+                    message.sequence_number,
+                    sequence_number
+                );
+                return Err(QueueError::SequenceNumberMismatch);
             }
 
-            let (loaded, remaining) = Queue::read_and_delete(
-                pool.acquire().await?.as_mut(),
-                &client_record.client_id,
-                n + 1,
-                5,
-            )
-            .await?;
-            assert_eq!(loaded.len(), 5);
-            assert_eq!(remaining, 4);
-            assert_eq!(loaded, &messages[1..6]);
+            transaction.commit().await?;
 
-            let (loaded, remaining) = Queue::read_and_delete(
-                pool.acquire().await?.as_mut(),
-                &client_record.client_id,
-                n + 1 + 5,
-                5,
-            )
-            .await?;
-            assert_eq!(loaded.len(), 4);
-            assert_eq!(remaining, 0);
-            assert_eq!(loaded, &messages[6..10]);
+            Ok(())
+        }
 
+        pub(super) async fn fetch_into(
+            executor: impl PgExecutor<'_>,
+            queue_id: &QsClientId,
+            sequence_number: u64,
+            fetched_by: Uuid,
+            limit: usize,
+            buffer: &mut VecDeque<QueueMessage>,
+        ) -> sqlx::Result<()> {
+            let mut messages = query_scalar!(
+                r#"WITH messages_to_fetch AS (
+                    SELECT sequence_number, message_bytes FROM qs_queues
+                    WHERE queue_id = $1
+                        AND sequence_number >= $2
+                        AND (fetched_by IS NULL OR fetched_by != $3)
+                    ORDER BY sequence_number ASC
+                    LIMIT $4
+                    FOR UPDATE SKIP LOCKED
+                ),
+                updated_messages AS (
+                    UPDATE qs_queues AS q
+                    SET fetched_by = $3
+                    FROM messages_to_fetch m
+                    WHERE q.queue_id = $1 AND q.sequence_number = m.sequence_number
+                )
+                SELECT message_bytes AS "message: SqlQueueMessage"
+                FROM messages_to_fetch
+                "#,
+                queue_id as &QsClientId,
+                sequence_number as i64,
+                fetched_by,
+                limit as i64,
+            )
+            .fetch(executor);
+            while let Some(SqlQueueMessage(message)) = messages.next().await.transpose()? {
+                buffer.push_back(message);
+            }
+            Ok(())
+        }
+
+        pub(super) async fn delete(
+            executor: impl PgExecutor<'_>,
+            queue_id: QsClientId,
+            up_to_sequence_number: u64,
+        ) -> sqlx::Result<()> {
+            query!(
+                "DELETE FROM qs_queues WHERE queue_id = $1 AND sequence_number < $2",
+                queue_id as QsClientId,
+                up_to_sequence_number as i64,
+            )
+            .execute(executor)
+            .await?;
             Ok(())
         }
     }

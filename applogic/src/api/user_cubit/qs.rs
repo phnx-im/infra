@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::sync::Arc;
+
+use aircommon::messages::QueueMessage;
 use aircoreclient::clients::{
-    QueueEvent, QueueEventUpdate, process::process_qs::ProcessedQsMessages, queue_event,
+    QsListenResponder, QueueEvent, process::process_qs::ProcessedQsMessages, queue_event,
 };
 use flutter_rust_bridge::frb;
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::Stream;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
@@ -21,29 +24,64 @@ use super::{AppState, CubitContext};
 #[frb(ignore)]
 pub(super) struct QueueContext {
     cubit_context: CubitContext,
+    responder: Option<Arc<QsListenResponder>>,
+    /// Accumulated but not yet processed messages
+    ///
+    /// Note: It is safe to store messages here, because they are not yet acked. In case, the app
+    /// is shut down, the messages will be received again.
+    messages: Vec<QueueMessage>,
 }
 
 impl BackgroundStreamContext<QueueEvent> for QueueContext {
-    async fn create_stream(&self) -> anyhow::Result<impl Stream<Item = QueueEvent> + 'static> {
-        let stream = self.cubit_context.core_user.listen_queue().await?;
-        // Immediately emit an update event to kick off the initial state
-        let initial_event = QueueEvent {
-            event: Some(queue_event::Event::Update(QueueEventUpdate {})),
-        };
-        Ok(tokio_stream::once(initial_event).chain(stream))
+    async fn create_stream(&mut self) -> anyhow::Result<impl Stream<Item = QueueEvent> + 'static> {
+        let (stream, responder) = self.cubit_context.core_user.listen_queue().await?;
+        self.responder.replace(Arc::new(responder));
+        Ok(stream)
     }
 
-    async fn handle_event(&self, event: QueueEvent) {
-        debug!(?event, "handling listen event");
+    async fn handle_event(&mut self, event: QueueEvent) {
+        debug!(?event, "handling QS listen event");
         match event.event {
             Some(queue_event::Event::Payload(_)) => {
                 // currently, we don't handle payload events
-                warn!("ignoring listen event")
+                warn!("ignoring QS listen payload event")
             }
-            Some(queue_event::Event::Update(_)) => {
+            Some(queue_event::Event::Message(message)) => {
+                let message = match message.try_into() {
+                    Ok(message) => message,
+                    Err(error) => {
+                        error!(%error, "failed to convert QS message; dropping");
+                        return;
+                    }
+                };
+                // Invariant: after a message there is always an Empty event as sentinel
+                // => accumelated messages will be processed there
+                self.messages.push(message);
+            }
+            // Empty event indicates that the queue is empty
+            Some(queue_event::Event::Empty(_)) => {
+                if self.messages.is_empty() {
+                    return; // no messages to process
+                }
+
+                // Invariant: messages are sorted by sequence number
+                if let Some(max_sequence_number) = self.messages.last().map(|m| m.sequence_number) {
+                    // we received some messages, so we can ack them
+                    let responder = self
+                        .responder
+                        .as_ref()
+                        .expect("logic error: no responder")
+                        .clone();
+                    tokio::spawn(async move {
+                        responder.ack(max_sequence_number + 1).await;
+                    });
+                }
+
                 let core_user = self.cubit_context.core_user.clone();
                 let user = User::from_core_user(core_user);
-                match user.fetch_and_process_qs_messages().await {
+
+                let messages = std::mem::take(&mut self.messages);
+                match user.process_qs_messages(messages).await {
                     Ok(ProcessedQsMessages {
                         new_conversations,
                         changed_conversations: _,
@@ -59,7 +97,7 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
                         self.cubit_context.show_notifications(notifications).await;
                     }
                     Err(error) => {
-                        error!(%error, "failed to fetch messages on queue update");
+                        error!(%error, "failed to process QS message");
                     }
                 }
             }
@@ -88,7 +126,11 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
 
 impl QueueContext {
     pub(super) fn new(cubit_context: CubitContext) -> Self {
-        Self { cubit_context }
+        Self {
+            cubit_context,
+            responder: None,
+            messages: Vec::new(),
+        }
     }
 
     pub(super) fn into_task(

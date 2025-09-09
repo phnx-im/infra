@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use aircommon::messages::QueueMessage;
 use aircoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
 use anyhow::Result;
 use tracing::debug;
@@ -20,13 +21,24 @@ impl User {
     }
 
     /// Fetch and process QS messages
-    pub(crate) async fn fetch_and_process_qs_messages(&self) -> Result<ProcessedQsMessages> {
+    async fn fetch_and_process_qs_messages(&self) -> Result<ProcessedQsMessages> {
         let qs_messages = self.user.qs_fetch_messages().await?;
         self.user.fully_process_qs_messages(qs_messages).await
     }
 
+    pub(crate) async fn process_qs_messages(
+        &self,
+        qs_messages: Vec<QueueMessage>,
+    ) -> Result<ProcessedQsMessages> {
+        self.user.fully_process_qs_messages(qs_messages).await
+    }
+
     /// Fetch and process both QS and AS messages
-    pub(crate) async fn fetch_and_process_all_messages(&self) -> Result<ProcessedMessages> {
+    ///
+    /// This function is intended to be called in the background service.
+    pub(crate) async fn fetch_and_process_all_messages_in_background(
+        &self,
+    ) -> Result<ProcessedMessages> {
         let mut notifications = Vec::new();
 
         // Fetch QS messages
