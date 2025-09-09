@@ -281,27 +281,6 @@ impl QueueService for GrpcQs {
         }))
     }
 
-    // async fn dequeue_messages(
-    //     &self,
-    //     request: Request<DequeueMessagesRequest>,
-    // ) -> Result<Response<DequeueMessagesResponse>, Status> {
-    //     let request = request.into_inner();
-    //     let params = DequeueMessagesParams {
-    //         sender: request.sender.ok_or_missing_field("sender")?.try_into()?,
-    //         sequence_number_start: request.sequence_number_start,
-    //         max_message_number: request.max_message_number,
-    //     };
-    //     let response = self.qs.qs_dequeue_messages(params).await?;
-    //     Ok(Response::new(DequeueMessagesResponse {
-    //         messages: response
-    //             .messages
-    //             .into_iter()
-    //             .map(|message| message.into())
-    //             .collect(),
-    //         remaining_messages_number: response.remaining_messages_number,
-    //     }))
-    // }
-
     async fn qs_encryption_key(
         &self,
         _request: Request<QsEncryptionKeyRequest>,

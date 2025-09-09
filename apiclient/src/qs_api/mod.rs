@@ -205,39 +205,6 @@ impl ApiClient {
         Ok(())
     }
 
-    // pub async fn qs_dequeue_messages(
-    //     &self,
-    //     sender: &QsClientId,
-    //     sequence_number_start: u64,
-    //     max_message_number: u64,
-    //     _signing_key: &QsClientSigningKey,
-    // ) -> Result<DequeueMessagesResponse, QsRequestError> {
-    //     let request = DequeueMessagesRequest {
-    //         sender: Some((*sender).into()),
-    //         sequence_number_start,
-    //         max_message_number,
-    //     };
-    //     let response = self
-    //         .qs_grpc_client
-    //         .client()
-    //         .dequeue_messages(request)
-    //         .await?
-    //         .into_inner();
-    //     let messages: Result<Vec<QueueMessage>, _> = response
-    //         .messages
-    //         .into_iter()
-    //         .map(|message| message.try_into())
-    //         .collect();
-    //     let messages = messages.map_err(|error| {
-    //         error!(%error, "failed to dequeue messages");
-    //         QsRequestError::UnexpectedResponse
-    //     })?;
-    //     Ok(DequeueMessagesResponse {
-    //         messages,
-    //         remaining_messages_number: response.remaining_messages_number,
-    //     })
-    // }
-
     pub async fn qs_key_package(
         &self,
         sender: FriendshipToken,
