@@ -7,7 +7,7 @@ use aircommon::{
     crypto::{hpke::HpkeDecryptable, indexed_aead::keys::UserProfileKey},
     identifiers::{QualifiedGroupId, UserHandle},
     messages::{
-        client_as::ConnectionOfferMessage,
+        client_as::{ConnectionOfferHash, ConnectionOfferMessage},
         client_ds::{AadMessage, AadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
         connection_package::{ConnectionPackage, ConnectionPackageHash},
@@ -62,6 +62,8 @@ impl CoreUser {
     ) -> Result<ConversationId> {
         let mut connection = self.pool().acquire().await?;
 
+        let connection_offer_hash = ecep.connection_offer_hash();
+
         // Parse & verify connection offer
         let (cep_payload, hash) = self
             .parse_and_verify_connection_offer(&mut connection, ecep, handle.clone())
@@ -76,7 +78,14 @@ impl CoreUser {
 
         // Join group
         let (group, commit, group_info, mut member_profile_info) = self
-            .join_group_externally(&mut connection, eci, &cep_payload, self.signing_key(), aad)
+            .join_group_externally(
+                &mut connection,
+                eci,
+                &cep_payload,
+                self.signing_key(),
+                aad,
+                connection_offer_hash,
+            )
             .await?;
 
         // Verify that the group has only one other member and that it's
@@ -248,6 +257,7 @@ impl CoreUser {
         cep_payload: &ConnectionOfferPayload,
         leaf_signer: &ClientSigningKey,
         aad: AadMessage,
+        connection_offer_hash: ConnectionOfferHash,
     ) -> Result<(Group, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
         let (group, commit, group_info, member_profile_info) = Group::join_group_externally(
             &mut *connection,
@@ -260,6 +270,7 @@ impl CoreUser {
                 .clone(),
             aad,
             self.inner.key_store.signing_key.credential(),
+            connection_offer_hash,
         )
         .await?;
         Ok((group, commit, group_info, member_profile_info))
