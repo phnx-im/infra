@@ -12,7 +12,8 @@ use aircommon::{
     },
     identifiers::{QsReference, UserHandle, UserId},
     messages::{
-        client_as::ConnectionOfferMessage, client_ds_out::CreateGroupParamsOut,
+        client_as::{ConnectionOfferMessage, EncryptedConnectionOffer},
+        client_ds_out::CreateGroupParamsOut,
         connection_package::ConnectionPackage,
     },
 };
@@ -29,10 +30,7 @@ use crate::{
     store::StoreNotifier,
 };
 
-use super::{
-    CoreUser,
-    connection_offer::{ConnectionOffer, payload::ConnectionOfferPayload},
-};
+use super::{CoreUser, connection_offer::payload::ConnectionOfferPayload};
 
 impl CoreUser {
     /// Create a connection with via a user handle.
@@ -185,15 +183,6 @@ impl LocalGroup {
 
         let friendship_package_ear_key = FriendshipPackageEarKey::random()?;
 
-        // Create and persist a new partial contact
-        HandleContact::new(
-            handle.clone(),
-            conversation_id,
-            friendship_package_ear_key.clone(),
-        )
-        .upsert(txn.as_mut(), notifier)
-        .await?;
-
         // Create a connection offer
         let connection_package_hash = verified_connection_package.hash();
         let connection_offer_payload = ConnectionOfferPayload {
@@ -201,15 +190,31 @@ impl LocalGroup {
             connection_group_id: group.group_id().clone(),
             connection_group_ear_key: group.group_state_ear_key().clone(),
             connection_group_identity_link_wrapper_key: group.identity_link_wrapper_key().clone(),
-            friendship_package_ear_key,
+            friendship_package_ear_key: friendship_package_ear_key.clone(),
             friendship_package,
             connection_package_hash,
         };
-        let connection_offer = connection_offer_payload.sign(
-            &key_store.signing_key,
+        let connection_offer = connection_offer_payload
+            .sign(
+                &key_store.signing_key,
+                handle.clone(),
+                verified_connection_package.hash(),
+            )?
+            .encrypt(verified_connection_package.encryption_key(), &[], &[]);
+
+        let connection_offer_hash = connection_offer.hash();
+
+        group.store_connection_offer_psk(txn.as_mut(), connection_offer_hash)?;
+
+        // Create and persist a new partial contact
+        HandleContact::new(
             handle,
-            verified_connection_package.hash(),
-        )?;
+            conversation_id,
+            friendship_package_ear_key,
+            connection_offer_hash,
+        )
+        .upsert(txn.as_mut(), notifier)
+        .await?;
 
         let encrypted_user_profile_key =
             own_user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
@@ -227,7 +232,7 @@ impl LocalGroup {
 
 struct LocalHandleContact {
     group: Group,
-    connection_offer: ConnectionOffer,
+    connection_offer: EncryptedConnectionOffer,
     params: CreateGroupParamsOut,
     conversation_id: ConversationId,
     verified_connection_package: ConnectionPackage,
@@ -253,11 +258,9 @@ impl LocalHandleContact {
             .ds_create_group(params, signer, group.group_state_ear_key())
             .await?;
 
-        // Encrypt the connection offer and send it off.
-        let ciphertext =
-            connection_offer.encrypt(verified_connection_package.encryption_key(), &[], &[]);
+        // Send off the connection offer.
         let hash = verified_connection_package.hash();
-        let message = ConnectionOfferMessage::new(hash, ciphertext);
+        let message = ConnectionOfferMessage::new(hash, connection_offer);
         responder.send(message).await?;
 
         Ok(conversation_id)
