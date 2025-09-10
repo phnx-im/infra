@@ -158,8 +158,7 @@ impl TestBackend {
         let domain: Fqdn = "example.com".parse().unwrap();
         let local = LocalSet::new();
         let _guard = local.enter();
-        let (addr, _dispatch) =
-            spawn_app_with_rate_limits(domain.clone(), network_provider, rate_limits).await;
+        let addr = spawn_app_with_rate_limits(domain.clone(), network_provider, rate_limits).await;
         info!(%addr, "spawned server");
         Self {
             users: HashMap::new(),

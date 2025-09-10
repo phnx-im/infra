@@ -150,8 +150,13 @@ impl CoreUser {
 
         // Store the attachment and mark it as downloaded
         self.with_transaction_and_notifier(async move |txn, notifier| {
-            AttachmentRecord::set_content(txn.as_mut(), notifier, attachment_id, &content.bytes)
-                .await?;
+            AttachmentRecord::set_content(
+                txn.as_mut(),
+                notifier,
+                attachment_id,
+                content.bytes.as_slice(),
+            )
+            .await?;
             PendingAttachmentRecord::delete(txn.as_mut(), attachment_id).await?;
             Ok(())
         })

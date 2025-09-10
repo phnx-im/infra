@@ -102,11 +102,11 @@ mod test {
     use uuid::Uuid;
 
     use crate::{
+        air_service::BackendService,
         ds::{
             Ds,
             group_state::{EncryptedDsGroupState, StorableDsGroupData},
         },
-        infra_service::InfraService,
     };
 
     #[sqlx::test]

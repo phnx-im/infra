@@ -87,7 +87,7 @@ impl StorableConnectionPackage {
         .fetch_one(connection)
         .await
         .map(|BlobDecoded(connection_package)| connection_package)?;
-        Ok(connection_package.try_into()?)
+        Ok(connection_package.into())
     }
 }
 
@@ -96,7 +96,7 @@ pub(crate) mod tests {
     use aircommon::{
         credentials::keys::{self, HandleVerifyingKey},
         crypto::{ConnectionDecryptionKey, signatures::signable::Signature},
-        messages::{MlsInfraVersion, connection_package::ConnectionPackagePayload},
+        messages::{AirProtocolVersion, connection_package::ConnectionPackagePayload},
         time::{Duration, ExpirationData},
     };
     use sqlx::PgPool;
@@ -124,7 +124,7 @@ pub(crate) mod tests {
         ConnectionPackage::new_for_test(
             ConnectionPackagePayload {
                 verifying_key,
-                protocol_version: MlsInfraVersion::default(),
+                protocol_version: AirProtocolVersion::Alpha,
                 encryption_key: ConnectionDecryptionKey::generate()
                     .unwrap()
                     .encryption_key()

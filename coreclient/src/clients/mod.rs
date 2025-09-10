@@ -5,14 +5,14 @@
 use std::{collections::HashSet, sync::Arc};
 
 pub use airapiclient::as_api::ListenHandleResponder;
-use airapiclient::{ApiClient, ApiClientInitError};
+use airapiclient::{ApiClient, ApiClientInitError, qs_api::ListenResponder};
 use aircommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
-        ConnectionDecryptionKey, RatchetDecryptionKey,
+        RatchetDecryptionKey,
         ear::{
             EarEncryptable,
             keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
@@ -341,36 +341,27 @@ impl CoreUser {
             .unwrap_or_else(|| UserProfile::from_user_id(user_id))
     }
 
-    async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
-        let mut remaining_messages = 1;
-        let mut messages: Vec<QueueMessage> = Vec::new();
-        let mut sequence_number = queue_type.load_sequence_number(self.pool()).await?;
+    /// Streams all messages from the queue and acks them.
+    ///
+    /// The batch of messages is returned. The stream is closed. This function is intended to be
+    /// called in the background service or tests.
+    async fn fetch_messages_from_queue(&self) -> Result<Vec<QueueMessage>> {
+        let (stream, responder) = self.listen_queue().await?;
 
-        while remaining_messages > 0 {
-            let api_client = self.inner.api_clients.default_client()?;
-            let mut response = match &queue_type {
-                QueueType::Qs => {
-                    api_client
-                        .qs_dequeue_messages(
-                            &self.inner.qs_client_id,
-                            sequence_number,
-                            1_000_000,
-                            &self.inner.key_store.qs_client_signing_key,
-                        )
-                        .await?
-                }
-            };
+        let messages: Vec<QueueMessage> = stream
+            .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
+            .filter_map(|message| match message.event? {
+                queue_event::Event::Empty(_) => unreachable!(),
+                queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
+                queue_event::Event::Payload(_) => None,
+            })
+            .collect()
+            .await;
 
-            remaining_messages = response.remaining_messages_number;
-            messages.append(&mut response.messages);
-
-            if let Some(message) = messages.last() {
-                sequence_number = message.sequence_number + 1;
-                queue_type
-                    .update_sequence_number(self.pool(), sequence_number)
-                    .await?;
-            }
+        if let Some(max_sequence_number) = messages.last().map(|m| m.sequence_number) {
+            responder.ack(max_sequence_number + 1).await;
         }
+
         Ok(messages)
     }
 
@@ -409,7 +400,7 @@ impl CoreUser {
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue(QueueType::Qs).await
+        self.fetch_messages_from_queue().await
     }
 
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
@@ -477,9 +468,19 @@ impl CoreUser {
         Some(group.pending_removes(&mut connection).await)
     }
 
-    pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
+    pub async fn listen_queue(
+        &self,
+    ) -> Result<(impl Stream<Item = QueueEvent> + use<>, QsListenResponder)> {
+        let sequence_number_start = QueueType::Qs.load_sequence_number(self.pool()).await?;
         let api_client = self.inner.api_clients.default_client()?;
-        Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
+        let (stream, responder) = api_client
+            .listen_queue(self.inner.qs_client_id, sequence_number_start)
+            .await?;
+        let responder = QsListenResponder {
+            responder,
+            pool: self.pool().clone(),
+        };
+        Ok((stream, responder))
     }
 
     pub async fn listen_handle(
@@ -723,5 +724,27 @@ impl CoreUser {
             Ok(result)
         })
         .await
+    }
+}
+
+#[derive(Debug)]
+pub struct QsListenResponder {
+    responder: ListenResponder,
+    pool: SqlitePool,
+}
+
+impl QsListenResponder {
+    pub async fn ack(&self, up_to_sequence_number: u64) -> bool {
+        if self.responder.ack(up_to_sequence_number).await {
+            QueueType::Qs
+                .update_sequence_number(&self.pool, up_to_sequence_number)
+                .await
+                .inspect_err(|error| {
+                    error!(%error, "failed to update QS sequence number");
+                })
+                .is_ok()
+        } else {
+            false
+        }
     }
 }

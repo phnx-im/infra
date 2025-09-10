@@ -63,15 +63,16 @@
 
 use aircommon::{
     identifiers::{Fqdn, QsClientId},
-    messages::{client_ds::DsEventMessage, push_token::PushToken},
+    messages::{QueueMessage, client_ds::DsEventMessage, push_token::PushToken},
 };
 use client_id_decryption_key::StorableClientIdDecryptionKey;
 
 use sqlx::PgPool;
 
 use crate::{
-    infra_service::{InfraService, ServiceCreationError},
+    air_service::{BackendService, ServiceCreationError},
     messages::intra_backend::DsFanOutMessage,
+    qs::queue::Queues,
 };
 
 pub mod client_api;
@@ -90,9 +91,10 @@ mod user_record;
 pub struct Qs {
     domain: Fqdn,
     db_pool: PgPool,
+    queues: Queues,
 }
 
-impl InfraService for Qs {
+impl BackendService for Qs {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
         // Check if the requisite key material exists and if it doesn't, generate it.
 
@@ -105,13 +107,25 @@ impl InfraService for Qs {
                 .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
         }
 
-        Ok(Self { domain, db_pool })
+        let queues = Queues::new(db_pool.clone());
+
+        Ok(Self {
+            domain,
+            db_pool,
+            queues,
+        })
+    }
+}
+
+impl Qs {
+    pub(crate) fn queues(&self) -> &Queues {
+        &self.queues
     }
 }
 
 pub enum Notification {
     Event(DsEventMessage),
-    QueueUpdate,
+    QueueUpdate(QueueMessage),
 }
 
 #[derive(Debug)]

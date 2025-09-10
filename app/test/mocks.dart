@@ -105,6 +105,11 @@ class MockMessageListState implements MessageListState {
     final index = messages.indexWhere((element) => element.id == messageId);
     return index != -1 ? index : null;
   }
+
+  @override
+  bool isNewMessage(ConversationMessageId messageId) {
+    return false;
+  }
 }
 
 class MockMessageCubit extends MockCubit<MessageState> implements MessageCubit {

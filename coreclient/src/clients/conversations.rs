@@ -211,7 +211,7 @@ impl CoreUser {
 
 mod create_conversation_flow {
     use aircommon::{
-        codec::AirCodec,
+        codec::PersistenceCodec,
         credentials::keys::ClientSigningKey,
         crypto::{ear::keys::EncryptedUserProfileKey, indexed_aead::keys::UserProfileKey},
         identifiers::QsReference,
@@ -246,7 +246,7 @@ mod create_conversation_flow {
             let group_id = api_clients.default_client()?.ds_request_group_id().await?;
             // Store the conversation attributes in the group's aad
             let attributes = ConversationAttributes::new(title, picture);
-            let group_data = AirCodec::to_vec(&attributes)?.into();
+            let group_data = PersistenceCodec::to_vec(&attributes)?.into();
             Ok(ConversationGroupData {
                 group_id,
                 group_data,

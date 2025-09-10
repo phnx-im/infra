@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    codec::{AirCodec, BlobDecoded, BlobEncoded},
+    codec::{BlobDecoded, BlobEncoded, PersistenceCodec},
     credentials::VerifiableClientCredential,
     crypto::ear::keys::{GroupStateEarKey, IdentityLinkWrapperKey},
 };
@@ -40,7 +40,7 @@ impl SqlGroup {
             room_state,
         } = self;
 
-        let room_state = if let Some(state) = AirCodec::from_slice::<RoomState>(&room_state)
+        let room_state = if let Some(state) = PersistenceCodec::from_slice::<RoomState>(&room_state)
             .ok()
             .and_then(|state| VerifiedRoomState::verify(state).ok())
         {

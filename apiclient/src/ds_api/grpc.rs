@@ -21,7 +21,7 @@ use airprotos::{
         AddUsersInfo, ConnectionGroupInfoRequest, CreateGroupPayload, DeleteGroupPayload,
         ExternalCommitInfoRequest, GetAttachmentUrlPayload, GroupOperationPayload,
         JoinConnectionGroupRequest, ProvisionAttachmentPayload, ProvisionAttachmentResponse,
-        RequestGroupIdRequest, ResyncPayload, SelfRemovePayload, SendMessagePayload, UpdatePayload,
+        RequestGroupIdRequest, ResyncPayload, SelfRemovePayload, SendMessagePayload,
         UpdateProfileKeyPayload, WelcomeInfoPayload,
         delivery_service_client::DeliveryServiceClient,
     },
@@ -226,12 +226,18 @@ impl DsGrpcClient {
         signing_key: &ClientSigningKey,
         group_state_ear_key: &GroupStateEarKey,
     ) -> Result<TimeStamp, DsRequestError> {
-        let payload = UpdatePayload {
+        let payload = GroupOperationPayload {
             group_state_ear_key: Some(group_state_ear_key.ref_into()),
             commit: Some(commit.try_ref_into()?),
+            add_users_info: None,
         };
         let request = payload.sign(signing_key)?;
-        let response = self.client.clone().update(request).await?.into_inner();
+        let response = self
+            .client
+            .clone()
+            .group_operation(request)
+            .await?
+            .into_inner();
         Ok(response
             .fanout_timestamp
             .ok_or(DsRequestError::UnexpectedResponse)?
