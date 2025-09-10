@@ -41,7 +41,7 @@ impl TimestampedMessage {
 
     /// Creates a new timestamped message from a MimiContent.
     ///
-    /// If content is an error, a conversation message containing an error event is created
+    /// If content is an error, a chat message containing an error event is created
     /// instead.
     pub(crate) fn from_mimi_content_result(
         content: mimi_content::Result<MimiContent>,
@@ -75,7 +75,7 @@ impl TimestampedMessage {
     }
 }
 
-/// Identifier of a message in a conversation
+/// Identifier of a message in a chat
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct MessageId {
     pub uuid: Uuid,
@@ -106,8 +106,8 @@ pub struct ChatMessage {
 }
 
 impl ChatMessage {
-    /// Create a new conversation message from a group message. New messages are
-    /// marked as unread by default.
+    /// Create a new chat message from a group message. New messages are marked as unread by
+    /// default.
     pub(crate) fn new(
         chat_id: ChatId,
         message_id: MessageId,

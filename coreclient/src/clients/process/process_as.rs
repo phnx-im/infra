@@ -38,7 +38,7 @@ use super::{
 impl CoreUser {
     /// Process a queue message received from the AS handle queue.
     ///
-    /// Returns the [`ConversationId`] of any newly created conversations.
+    /// Returns the [`ChatId`] of any newly created chat.
     pub async fn process_handle_queue_message(
         &self,
         user_handle: &UserHandle,
@@ -123,25 +123,19 @@ impl CoreUser {
         })
         .await?;
 
-        // Create conversation
-        // Note: For now, the conversation is immediately confirmed.
-        let (mut conversation, contact) = self
-            .create_connection_conversation(&mut connection, &group, &cep_payload)
+        // Create chat
+        // Note: For now, the chat is immediately confirmed.
+        let (mut chat, contact) = self
+            .create_connection_chat(&mut connection, &group, &cep_payload)
             .await?;
 
         let mut notifier = self.store_notifier();
 
-        // Store group, conversation & contact
+        // Store group, chat & contact
         connection
             .with_transaction(async |txn| {
-                self.store_group_conversation_contact(
-                    txn,
-                    &mut notifier,
-                    &group,
-                    &mut conversation,
-                    contact,
-                )
-                .await
+                self.store_group_chat_contact(txn, &mut notifier, &group, &mut chat, contact)
+                    .await
             })
             .await?;
 
@@ -156,8 +150,8 @@ impl CoreUser {
 
         notifier.notify();
 
-        // Return the conversation ID
-        Ok(conversation.id())
+        // Return the chat ID
+        Ok(chat.id())
     }
 
     /// Parse and verify the connection offer
@@ -276,7 +270,7 @@ impl CoreUser {
         Ok((group, commit, group_info, member_profile_info))
     }
 
-    async fn create_connection_conversation(
+    async fn create_connection_chat(
         &self,
         connection: &mut SqliteConnection,
         group: &Group,
@@ -289,29 +283,29 @@ impl CoreUser {
             .await
             .display_name;
 
-        let conversation = Chat::new_connection_chat(
+        let chat = Chat::new_connection_chat(
             group.group_id().clone(),
             sender_user_id.clone(),
             ChatAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
             sender_user_id.clone(),
-            conversation.id(),
+            chat.id(),
             cep_payload.friendship_package.clone(),
         )?;
-        Ok((conversation, contact))
+        Ok((chat, contact))
     }
 
-    async fn store_group_conversation_contact(
+    async fn store_group_chat_contact(
         &self,
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         group: &Group,
-        conversation: &mut Chat,
+        chat: &mut Chat,
         contact: Contact,
     ) -> Result<()> {
         group.store(txn.as_mut()).await?;
-        conversation.store(txn.as_mut(), notifier).await?;
+        chat.store(txn.as_mut(), notifier).await?;
         contact.upsert(txn.as_mut(), notifier).await?;
         Ok(())
     }

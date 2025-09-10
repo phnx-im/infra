@@ -74,7 +74,7 @@ impl TryFrom<&GroupId> for ChatId {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Chat {
     pub id: ChatId,
-    // Id of the (active) MLS group representing this conversation.
+    // Id of the (active) MLS group representing this chat.
     pub group_id: GroupId,
     // The timestamp of the last message that was (marked as) read by the user.
     pub last_read: DateTime<Utc>,
@@ -91,15 +91,14 @@ impl Chat {
     ) -> Result<Self, tls_codec::Error> {
         // To keep things simple and to make sure that chat ids are the same across users, we
         // derive the chat id from the group id.
-        let conversation = Chat {
+        Ok(Chat {
             id: ChatId::try_from(&group_id)?,
             group_id,
             last_read: Utc::now(),
             status: ChatStatus::Active,
             chat_type: ChatType::Connection(user_id),
             attributes,
-        };
-        Ok(conversation)
+        })
     }
 
     pub(crate) fn new_handle_chat(
@@ -186,8 +185,7 @@ impl Chat {
         Ok(())
     }
 
-    /// Confirm a connection conversation by setting the conversation type to
-    /// `Connection`.
+    /// Confirm a connection chat by setting the chat type to `Connection`.
     pub(crate) async fn confirm(
         &mut self,
         executor: impl SqliteExecutor<'_>,

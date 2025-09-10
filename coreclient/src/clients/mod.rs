@@ -367,7 +367,7 @@ impl CoreUser {
 
     /// Fetch and process AS messages
     ///
-    /// Returns the list of [`ChatId`]s of any newly created conversations.
+    /// Returns the list of [`ChatId`]s of any newly created chats.
     pub async fn fetch_and_process_as_messages(&self) -> Result<Vec<ChatId>> {
         let records = self.user_handle_records().await?;
         let api_client = self.api_client()?;
