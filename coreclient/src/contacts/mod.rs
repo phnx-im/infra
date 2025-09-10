@@ -36,8 +36,8 @@ pub struct Contact {
     pub(crate) friendship_token: FriendshipToken,
     pub(crate) connection_key: ConnectionKey,
     pub(crate) user_profile_key_index: UserProfileKeyIndex,
-    // ID of the connection conversation with this contact.
-    pub(crate) conversation_id: ChatId,
+    // ID of the 1:1 chat with this contact.
+    pub(crate) chat_id: ChatId,
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +49,7 @@ pub(crate) struct ContactAddInfos {
 impl Contact {
     pub(crate) fn from_friendship_package(
         user_id: UserId,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         friendship_package: FriendshipPackage,
     ) -> Result<Self, LibraryError> {
         let user_profile_key = UserProfileKey::from_base_secret(
@@ -61,7 +61,7 @@ impl Contact {
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             connection_key: friendship_package.connection_key,
-            conversation_id,
+            chat_id,
             user_profile_key_index: user_profile_key.index().clone(),
         };
         Ok(contact)
@@ -132,7 +132,7 @@ impl Contact {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct HandleContact {
     pub handle: UserHandle,
-    pub conversation_id: ChatId,
+    pub chat_id: ChatId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
     // This is Optional only for backwards compatibility
     pub connection_offer_hash: ConnectionOfferHash,
@@ -141,13 +141,13 @@ pub struct HandleContact {
 impl HandleContact {
     pub(crate) fn new(
         handle: UserHandle,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         friendship_package_ear_key: FriendshipPackageEarKey,
         connection_offer_hash: ConnectionOfferHash,
     ) -> Self {
         Self {
             handle,
-            conversation_id,
+            chat_id,
             friendship_package_ear_key,
             connection_offer_hash,
         }

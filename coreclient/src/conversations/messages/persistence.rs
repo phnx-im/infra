@@ -78,10 +78,10 @@ impl VersionedMessage {
 
 use super::{MessageId, TimestampedMessage};
 
-struct SqlConversationMessage {
+struct SqlchatMessage {
     message_id: MessageId,
     mimi_id: Option<MimiId>,
-    conversation_id: ChatId,
+    chat_id: ChatId,
     timestamp: TimeStamp,
     sender_user_uuid: Option<Uuid>,
     sender_user_domain: Option<Fqdn>,
@@ -103,14 +103,14 @@ impl From<VersionedMessageError> for sqlx::Error {
     }
 }
 
-impl TryFrom<SqlConversationMessage> for ChatMessage {
+impl TryFrom<SqlchatMessage> for ChatMessage {
     type Error = VersionedMessageError;
 
     fn try_from(
-        SqlConversationMessage {
+        SqlchatMessage {
             message_id,
             mimi_id,
-            conversation_id,
+            chat_id,
             timestamp,
             sender_user_uuid,
             sender_user_domain,
@@ -118,7 +118,7 @@ impl TryFrom<SqlConversationMessage> for ChatMessage {
             sent,
             status,
             edited_at,
-        }: SqlConversationMessage,
+        }: SqlchatMessage,
     ) -> Result<Self, Self::Error> {
         let message = match (sender_user_uuid, sender_user_domain) {
             // user message
@@ -153,7 +153,7 @@ impl TryFrom<SqlConversationMessage> for ChatMessage {
         let timestamped_message = TimestampedMessage { timestamp, message };
         Ok(ChatMessage {
             message_id,
-            chat_id: conversation_id,
+            chat_id,
             timestamped_message,
             status: u8::try_from(status).map_or(MessageStatus::Unread, MessageStatus::from_repr),
         })
@@ -166,11 +166,11 @@ impl ChatMessage {
         message_id: MessageId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
-            SqlConversationMessage,
+            SqlchatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
@@ -198,11 +198,11 @@ impl ChatMessage {
         mimi_id: &MimiId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
-            SqlConversationMessage,
+            SqlchatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
@@ -227,15 +227,15 @@ impl ChatMessage {
 
     pub(crate) async fn load_multiple(
         executor: impl SqliteExecutor<'_>,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         number_of_messages: u32,
     ) -> sqlx::Result<Vec<ChatMessage>> {
         let messages: sqlx::Result<Vec<ChatMessage>> = query_as!(
-            SqlConversationMessage,
+            SqlchatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
@@ -244,10 +244,10 @@ impl ChatMessage {
                 status,
                 edited_at AS "edited_at: _"
             FROM message
-            WHERE conversation_id = ?
+            WHERE chat_id = ?
             ORDER BY timestamp DESC
             LIMIT ?"#,
-            conversation_id,
+            chat_id,
             number_of_messages,
         )
         .fetch(executor)
@@ -297,7 +297,7 @@ impl ChatMessage {
             "INSERT INTO message (
                 message_id,
                 mimi_id,
-                conversation_id,
+                chat_id,
                 timestamp,
                 sender_user_uuid,
                 sender_user_domain,
@@ -388,17 +388,17 @@ impl ChatMessage {
         Ok(())
     }
 
-    /// Get the last content message in the conversation.
+    /// Get the last content message in the chat.
     pub(crate) async fn last_content_message(
         executor: impl SqliteExecutor<'_>,
-        conversation_id: ChatId,
+        chat_id: ChatId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
-            SqlConversationMessage,
+            SqlchatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
@@ -407,11 +407,11 @@ impl ChatMessage {
                 status,
                 edited_at AS "edited_at: _"
             FROM message
-            WHERE conversation_id = ?
+            WHERE chat_id = ?
                 AND sender_user_uuid IS NOT NULL
                 AND sender_user_domain IS NOT NULL
             ORDER BY timestamp DESC LIMIT 1"#,
-            conversation_id,
+            chat_id,
         )
         .fetch_optional(executor)
         .await
@@ -423,19 +423,19 @@ impl ChatMessage {
         })?
     }
 
-    /// Get the last content message in the conversation which is owned by the given user.
+    /// Get the last content message in the chat which is owned by the given user.
     pub(crate) async fn last_content_message_by_user(
         executor: impl SqliteExecutor<'_>,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         user_id: &UserId,
     ) -> sqlx::Result<Option<Self>> {
         let user_uuid = user_id.uuid();
         let user_domain = user_id.domain();
         query_as!(
-            SqlConversationMessage,
+            SqlchatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 mimi_id AS "mimi_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
@@ -445,11 +445,11 @@ impl ChatMessage {
                 status,
                 edited_at AS "edited_at: _"
             FROM message
-            WHERE conversation_id = ?
+            WHERE chat_id = ?
                 AND sender_user_uuid = ?
                 AND sender_user_domain = ?
             ORDER BY timestamp DESC LIMIT 1"#,
-            conversation_id,
+            chat_id,
             user_uuid,
             user_domain,
         )
@@ -468,11 +468,11 @@ impl ChatMessage {
         message_id: MessageId,
     ) -> sqlx::Result<Option<ChatMessage>> {
         query_as!(
-            SqlConversationMessage,
+            SqlchatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
@@ -503,11 +503,11 @@ impl ChatMessage {
         message_id: MessageId,
     ) -> sqlx::Result<Option<ChatMessage>> {
         query_as!(
-            SqlConversationMessage,
+            SqlchatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 timestamp AS "timestamp: _",
                 sender_user_uuid AS "sender_user_uuid: _",
                 sender_user_domain AS "sender_user_domain: _",
@@ -546,15 +546,12 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) fn test_conversation_message(conversation_id: ChatId) -> ChatMessage {
-        test_conversation_message_with_salt(conversation_id, [0; 16])
+    pub(crate) fn test_chat_message(chat_id: ChatId) -> ChatMessage {
+        test_chat_message_with_salt(chat_id, [0; 16])
     }
 
-    pub(crate) fn test_conversation_message_with_salt(
-        conversation_id: ChatId,
-        salt: [u8; 16],
-    ) -> ChatMessage {
-        let conversation_message_id = MessageId::random();
+    pub(crate) fn test_chat_message_with_salt(chat_id: ChatId, salt: [u8; 16]) -> ChatMessage {
+        let chat_message_id = MessageId::random();
         let timestamp = Utc::now().into();
         let message = Message::Content(Box::new(ContentMessage::new(
             UserId::random("localhost".parse().unwrap()),
@@ -564,8 +561,8 @@ pub(crate) mod tests {
         )));
         let timestamped_message = TimestampedMessage { timestamp, message };
         ChatMessage {
-            message_id: conversation_message_id,
-            chat_id: conversation_id,
+            message_id: chat_message_id,
+            chat_id,
             timestamped_message,
             status: MessageStatus::Unread,
         }
@@ -575,12 +572,11 @@ pub(crate) mod tests {
     async fn store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
 
         message.store(&pool, &mut store_notifier).await?;
         let loaded = ChatMessage::load(&pool, message.id()).await?.unwrap();
@@ -593,21 +589,20 @@ pub(crate) mod tests {
     async fn store_load_multiple(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let message_a = test_conversation_message(conversation.id());
-        let message_b = test_conversation_message(conversation.id());
+        let message_a = test_chat_message(chat.id());
+        let message_b = test_chat_message(chat.id());
 
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ChatMessage::load_multiple(&pool, conversation.id(), 2).await?;
+        let loaded = ChatMessage::load_multiple(&pool, chat.id(), 2).await?;
         assert_eq!(loaded, [message_a, message_b.clone()]);
 
-        let loaded = ChatMessage::load_multiple(&pool, conversation.id(), 1).await?;
+        let loaded = ChatMessage::load_multiple(&pool, chat.id(), 1).await?;
         assert_eq!(loaded, [message_b]);
 
         Ok(())
@@ -617,12 +612,11 @@ pub(crate) mod tests {
     async fn update_sent_status(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
         message.store(&pool, &mut store_notifier).await?;
 
         let loaded = ChatMessage::load(&pool, message.id()).await?.unwrap();
@@ -643,19 +637,18 @@ pub(crate) mod tests {
     async fn last_content_message(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let message_a = test_conversation_message(conversation.id());
-        let message_b = test_conversation_message(conversation.id());
+        let message_a = test_chat_message(chat.id());
+        let message_b = test_chat_message(chat.id());
 
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;
 
         ChatMessage {
-            chat_id: conversation.id(),
+            chat_id: chat.id(),
             message_id: MessageId::random(),
             timestamped_message: TimestampedMessage {
                 timestamp: Utc::now().into(),
@@ -669,7 +662,7 @@ pub(crate) mod tests {
         .store(&pool, &mut store_notifier)
         .await?;
 
-        let loaded = ChatMessage::last_content_message(&pool, conversation.id()).await?;
+        let loaded = ChatMessage::last_content_message(&pool, chat.id()).await?;
         assert_eq!(loaded, Some(message_b));
 
         Ok(())
@@ -679,13 +672,12 @@ pub(crate) mod tests {
     async fn prev_message(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let message_a = test_conversation_message(conversation.id());
-        let message_b = test_conversation_message(conversation.id());
+        let message_a = test_chat_message(chat.id());
+        let message_b = test_chat_message(chat.id());
 
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;
@@ -700,13 +692,12 @@ pub(crate) mod tests {
     async fn next_message(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let message_a = test_conversation_message(conversation.id());
-        let message_b = test_conversation_message(conversation.id());
+        let message_a = test_chat_message(chat.id());
+        let message_b = test_chat_message(chat.id());
 
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;

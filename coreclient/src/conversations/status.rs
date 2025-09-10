@@ -134,7 +134,7 @@ mod persistence {
         use sqlx::{SqlitePool, query_scalar};
 
         use crate::conversations::{
-            messages::persistence::tests::test_conversation_message_with_salt,
+            messages::persistence::tests::test_chat_message_with_salt,
             persistence::tests::test_chat,
         };
 
@@ -146,15 +146,14 @@ mod persistence {
 
             let alice = UserId::random("localhost".parse().unwrap());
 
-            let conversation = test_chat();
-            conversation
-                .store(pool.acquire().await?.as_mut(), &mut notifier)
+            let chat = test_chat();
+            chat.store(pool.acquire().await?.as_mut(), &mut notifier)
                 .await?;
 
-            let message_a = test_conversation_message_with_salt(conversation.id(), [0; 16]);
+            let message_a = test_chat_message_with_salt(chat.id(), [0; 16]);
             message_a.store(&pool, &mut notifier).await?;
             let mimi_id_a = message_a.message().mimi_id().unwrap();
-            let message_b = test_conversation_message_with_salt(conversation.id(), [1; 16]);
+            let message_b = test_chat_message_with_salt(chat.id(), [1; 16]);
             message_b.store(&pool, &mut notifier).await?;
             let mimi_id_b = message_b.message().mimi_id().unwrap();
             assert_ne!(mimi_id_a, mimi_id_b);
@@ -182,21 +181,17 @@ mod persistence {
                 .await?;
             txn.commit().await?;
 
-            let status_a: i64 = query_scalar(
-                "SELECT status FROM conversation_message_status
-                    WHERE message_id = ?",
-            )
-            .bind(message_a.id())
-            .fetch_one(&mut *pool.acquire().await?)
-            .await?;
+            let status_a: i64 =
+                query_scalar("SELECT status FROM message_status WHERE message_id = ?")
+                    .bind(message_a.id())
+                    .fetch_one(&mut *pool.acquire().await?)
+                    .await?;
 
-            let status_b: i64 = query_scalar(
-                "SELECT status FROM conversation_message_status
-                    WHERE message_id = ?",
-            )
-            .bind(message_b.id())
-            .fetch_one(&mut *pool.acquire().await?)
-            .await?;
+            let status_b: i64 =
+                query_scalar("SELECT status FROM message_status WHERE message_id = ?")
+                    .bind(message_b.id())
+                    .fetch_one(&mut *pool.acquire().await?)
+                    .await?;
 
             assert_eq!(status_a, i64::from(MessageStatus::Read.repr()));
             assert_eq!(status_b, i64::from(MessageStatus::Deleted.repr()));

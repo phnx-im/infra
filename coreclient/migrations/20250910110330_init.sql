@@ -148,13 +148,13 @@ CREATE TABLE own_key_index (
     key_index BLOB NOT NULL REFERENCES indexed_key (key_index) ON DELETE CASCADE
 );
 
-CREATE TABLE conversation (
-    conversation_id BLOB NOT NULL PRIMARY KEY,
-    conversation_title TEXT NOT NULL,
-    conversation_picture BLOB,
+CREATE TABLE chat (
+    chat_id BLOB NOT NULL PRIMARY KEY,
+    chat_title TEXT NOT NULL,
+    chat_picture BLOB,
     group_id BLOB NOT NULL,
     last_read TEXT NOT NULL,
-    -- missing `connection_as_{client_uuid,domain}` fields means it is a group conversation
+    -- missing `connection_as_{client_uuid,domain}` fields means it is a group chat
     connection_user_uuid BLOB,
     connection_user_domain TEXT,
     is_confirmed_connection BOOLEAN NOT NULL DEFAULT FALSE,
@@ -162,23 +162,19 @@ CREATE TABLE conversation (
     connection_user_handle TEXT
 );
 
-CREATE TABLE conversation_past_member (
-    conversation_id BLOB NOT NULL REFERENCES conversation (conversation_id) ON DELETE CASCADE,
+CREATE TABLE chat_past_member (
+    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE,
     member_user_uuid BLOB NOT NULL,
     member_user_domain TEXT NOT NULL,
-    PRIMARY KEY (
-        conversation_id,
-        member_user_uuid,
-        member_user_domain
-    )
+    PRIMARY KEY (chat_id, member_user_uuid, member_user_domain)
 );
 
-CREATE INDEX conversation_past_member_conversation_id_idx ON conversation_past_member (conversation_id);
+CREATE INDEX chat_past_member_chat_id_idx ON chat_past_member (chat_id);
 
 CREATE TABLE contact (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
-    conversation_id BLOB NOT NULL REFERENCES conversation (conversation_id) ON DELETE CASCADE,
+    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
     connection_key BLOB NOT NULL,
@@ -188,7 +184,7 @@ CREATE TABLE contact (
 
 CREATE TABLE message (
     message_id BLOB NOT NULL PRIMARY KEY,
-    conversation_id BLOB NOT NULL REFERENCES conversation (conversation_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     timestamp TEXT NOT NULL,
     -- missing `sender_as_{client_uuid,domain}` fields means it is a system message
     sender_user_uuid BLOB,
@@ -200,7 +196,7 @@ CREATE TABLE message (
     edited_at TEXT
 );
 
-CREATE INDEX message_conversation_id_idx ON message (conversation_id);
+CREATE INDEX message_chat_id_idx ON message (chat_id);
 
 CREATE INDEX message_timetstamp_idx ON message (timestamp);
 
@@ -312,8 +308,8 @@ CREATE TABLE user_handle (
 
 CREATE TABLE user_handle_contact (
     user_handle TEXT NOT NULL PRIMARY KEY,
-    -- 1:1 relationship with conversation
-    conversation_id BLOB NOT NULL UNIQUE REFERENCES conversation (conversation_id) ON DELETE CASCADE,
+    -- 1:1 relationship with chat
+    chat_id BLOB NOT NULL UNIQUE REFERENCES chat (chat_id) ON DELETE CASCADE,
     friendship_package_ear_key BLOB NOT NULL,
     created_at TEXT NOT NULL,
     connection_offer_hash BLOB NOT NULL
@@ -321,7 +317,7 @@ CREATE TABLE user_handle_contact (
 
 CREATE TABLE attachment (
     attachment_id BLOB NOT NULL PRIMARY KEY,
-    conversation_id BLOB NOT NULL REFERENCES conversation (conversation_id) ON DELETE CASCADE,
+    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE,
     message_id BLOB NOT NULL REFERENCES message (message_id) ON DELETE CASCADE,
     content_type TEXT NOT NULL,
     content BLOB,
@@ -355,7 +351,7 @@ CREATE TABLE connection_package (
 );
 
 CREATE TABLE message_draft (
-    conversation_id BLOB NOT NULL PRIMARY KEY REFERENCES conversation (conversation_id) ON DELETE CASCADE,
+    chat_id BLOB NOT NULL PRIMARY KEY REFERENCES chat (chat_id) ON DELETE CASCADE,
     message TEXT NOT NULL,
     editing_id BLOB REFERENCES message (message_id) ON DELETE CASCADE,
     updated_at TEXT NOT NULL

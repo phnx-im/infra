@@ -22,7 +22,7 @@ use super::HandleContact;
 struct SqlContact {
     user_uuid: Uuid,
     user_domain: Fqdn,
-    conversation_id: ChatId,
+    chat_id: ChatId,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     friendship_token: FriendshipToken,
     connection_key: ConnectionKey,
@@ -36,7 +36,7 @@ impl From<SqlContact> for Contact {
             user_domain,
             wai_ear_key,
             friendship_token,
-            conversation_id,
+            chat_id,
             connection_key,
             user_profile_key_index,
         }: SqlContact,
@@ -46,7 +46,7 @@ impl From<SqlContact> for Contact {
             wai_ear_key,
             friendship_token,
             connection_key,
-            conversation_id,
+            chat_id,
             user_profile_key_index,
         }
     }
@@ -64,7 +64,7 @@ impl Contact {
             r#"SELECT
                 user_uuid AS "user_uuid: _",
                 user_domain AS "user_domain: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 connection_key AS "connection_key: _",
@@ -85,7 +85,7 @@ impl Contact {
             r#"SELECT
                 user_uuid AS "user_uuid: _",
                 user_domain AS "user_domain: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 wai_ear_key AS "wai_ear_key: _",
                 friendship_token AS "friendship_token: _",
                 connection_key AS "connection_key: _",
@@ -109,7 +109,7 @@ impl Contact {
             "INSERT OR REPLACE INTO contact (
                 user_uuid,
                 user_domain,
-                conversation_id,
+                chat_id,
                 wai_ear_key,
                 friendship_token,
                 connection_key,
@@ -117,7 +117,7 @@ impl Contact {
             ) VALUES (?, ?, ?, ?, ?, ?, ?)",
             uuid,
             domain,
-            self.conversation_id,
+            self.chat_id,
             self.wai_ear_key,
             self.friendship_token,
             self.connection_key,
@@ -125,9 +125,7 @@ impl Contact {
         )
         .execute(executor)
         .await?;
-        notifier
-            .add(self.user_id.clone())
-            .update(self.conversation_id);
+        notifier.add(self.user_id.clone()).update(self.chat_id);
         Ok(())
     }
 
@@ -161,20 +159,20 @@ impl HandleContact {
         query!(
             "INSERT OR REPLACE INTO user_handle_contact (
                 user_handle,
-                conversation_id,
+                chat_id,
                 friendship_package_ear_key,
                 created_at,
                 connection_offer_hash
             ) VALUES (?, ?, ?, ?, ?)",
             self.handle,
-            self.conversation_id,
+            self.chat_id,
             self.friendship_package_ear_key,
             created_at,
             self.connection_offer_hash
         )
         .execute(executor)
         .await?;
-        notifier.update(self.conversation_id);
+        notifier.update(self.chat_id);
         Ok(())
     }
 
@@ -186,7 +184,7 @@ impl HandleContact {
             Self,
             r#"SELECT
                 user_handle AS "handle: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _",
                 connection_offer_hash AS "connection_offer_hash: _"
             FROM user_handle_contact
@@ -202,7 +200,7 @@ impl HandleContact {
             Self,
             r#"SELECT
                 user_handle AS "handle: _",
-                conversation_id AS "conversation_id: _",
+                chat_id AS "chat_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _",
                 connection_offer_hash AS "connection_offer_hash: _"
             FROM user_handle_contact"#,
@@ -232,7 +230,7 @@ impl HandleContact {
     ) -> anyhow::Result<Contact> {
         let contact = Contact {
             user_id,
-            conversation_id: self.conversation_id,
+            chat_id: self.chat_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
             connection_key: friendship_package.connection_key,
@@ -267,7 +265,7 @@ mod tests {
 
     use super::*;
 
-    fn test_contact(conversation_id: ChatId) -> (Contact, UserProfileKey) {
+    fn test_contact(chat_id: ChatId) -> (Contact, UserProfileKey) {
         let user_id = UserId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&user_id).unwrap();
         let contact = Contact {
@@ -275,7 +273,7 @@ mod tests {
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             friendship_token: FriendshipToken::random().unwrap(),
             connection_key: ConnectionKey::random().unwrap(),
-            conversation_id,
+            chat_id,
             user_profile_key_index: user_profile_key.index().clone(),
         };
         (contact, user_profile_key)
@@ -285,12 +283,11 @@ mod tests {
     async fn contact_store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let (contact, user_profile_key) = test_contact(conversation.id());
+        let (contact, user_profile_key) = test_contact(chat.id());
         user_profile_key.store(&pool).await?;
         contact.upsert(&pool, &mut store_notifier).await?;
 
@@ -303,15 +300,14 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_upsert_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
         let handle = UserHandle::new("ellie_".to_owned()).unwrap();
         let handle_contact = HandleContact {
             handle: handle.clone(),
-            conversation_id: conversation.id(),
+            chat_id: chat.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
             connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };
@@ -327,15 +323,14 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_mark_as_complete(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
         let handle = UserHandle::new("ellie_".to_owned()).unwrap();
         let handle_contact = HandleContact {
             handle: handle.clone(),
-            conversation_id: conversation.id(),
+            chat_id: chat.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
             connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };
@@ -377,15 +372,14 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_delete(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
         let handle = UserHandle::new("ellie_".to_owned()).unwrap();
         let handle_contact = HandleContact {
             handle: handle.clone(),
-            conversation_id: conversation.id(),
+            chat_id: chat.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
             connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };
@@ -405,15 +399,14 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_upsert_idempotent(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_chat();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut store_notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
         let handle = UserHandle::new("ellie_".to_owned()).unwrap();
         let handle_contact = HandleContact {
             handle: handle.clone(),
-            conversation_id: conversation.id(),
+            chat_id: chat.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
             connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };

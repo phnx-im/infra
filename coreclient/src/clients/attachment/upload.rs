@@ -40,20 +40,20 @@ impl CoreUser {
     /// Uploads an attachment and sends a message containing it.
     pub(crate) async fn upload_attachment(
         &self,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         path: &Path,
     ) -> anyhow::Result<ChatMessage> {
-        let (conversation, group) = self
+        let (chat, group) = self
             .with_transaction(async |txn| {
-                let conversation = Chat::load(txn, &conversation_id).await?.with_context(|| {
-                    format!("Can't find conversation with id {conversation_id}")
-                })?;
+                let chat = Chat::load(txn, &chat_id)
+                    .await?
+                    .with_context(|| format!("Can't find chat with id {chat_id}"))?;
 
-                let group_id = conversation.group_id();
+                let group_id = chat.group_id();
                 let group = Group::load_clean(txn, group_id)
                     .await?
                     .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-                Ok((conversation, group))
+                Ok((chat, group))
             })
             .await?;
 
@@ -95,14 +95,14 @@ impl CoreUser {
         self.with_transaction_and_notifier(async |txn, notifier| {
             let message_id = MessageId::random();
             let message = self
-                .send_message_transactional(txn, notifier, conversation_id, message_id, content)
+                .send_message_transactional(txn, notifier, chat_id, message_id, content)
                 .await?;
 
             // store attachment locally
             // (must be done after the message is stored locally due to foreign key constraints)
             let record = AttachmentRecord {
                 attachment_id,
-                conversation_id: conversation.id(),
+                chat_id: chat.id(),
                 message_id,
                 content_type: content_type.to_owned(),
                 status: AttachmentStatus::Ready,

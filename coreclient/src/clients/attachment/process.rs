@@ -31,7 +31,7 @@ impl CoreUser {
     ) -> Vec<(AttachmentRecord, PendingAttachmentRecord)> {
         let mut records = Vec::new();
 
-        let conversation_id = message.chat_id();
+        let chat_id = message.chat_id();
         let message_id = message.id();
         let created_at = message.timestamp();
 
@@ -70,7 +70,7 @@ impl CoreUser {
             // pending attachment record.
             let record = AttachmentRecord {
                 attachment_id,
-                conversation_id,
+                chat_id,
                 message_id,
                 content_type: content_type.clone(),
                 status: AttachmentStatus::Pending,

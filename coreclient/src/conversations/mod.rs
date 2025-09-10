@@ -79,7 +79,7 @@ pub struct Chat {
     // The timestamp of the last message that was (marked as) read by the user.
     pub last_read: DateTime<Utc>,
     pub status: ChatStatus,
-    pub conversation_type: ChatType,
+    pub chat_type: ChatType,
     pub attributes: ChatAttributes,
 }
 
@@ -96,7 +96,7 @@ impl Chat {
             group_id,
             last_read: Utc::now(),
             status: ChatStatus::Active,
-            conversation_type: ChatType::Connection(user_id),
+            chat_type: ChatType::Connection(user_id),
             attributes,
         };
         Ok(conversation)
@@ -113,7 +113,7 @@ impl Chat {
             group_id,
             last_read: Utc::now(),
             status: ChatStatus::Active,
-            conversation_type: ChatType::HandleConnection(handle),
+            chat_type: ChatType::HandleConnection(handle),
             attributes,
         }
     }
@@ -125,7 +125,7 @@ impl Chat {
             group_id,
             last_read: Utc::now(),
             status: ChatStatus::Active,
-            conversation_type: ChatType::Group,
+            chat_type: ChatType::Group,
             attributes,
         }
     }
@@ -139,7 +139,7 @@ impl Chat {
     }
 
     pub fn chat_type(&self) -> &ChatType {
-        &self.conversation_type
+        &self.chat_type
     }
 
     pub fn status(&self) -> &ChatStatus {
@@ -194,10 +194,10 @@ impl Chat {
         notifier: &mut StoreNotifier,
         user_id: UserId,
     ) -> sqlx::Result<()> {
-        if let ChatType::HandleConnection(_) = &self.conversation_type {
+        if let ChatType::HandleConnection(_) = &self.chat_type {
             let chat_type = ChatType::Connection(user_id);
             self.set_chat_type(executor, notifier, &chat_type).await?;
-            self.conversation_type = chat_type;
+            self.chat_type = chat_type;
         }
         Ok(())
     }

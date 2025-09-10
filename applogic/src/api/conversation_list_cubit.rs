@@ -223,7 +223,7 @@ pub(super) async fn load_conversation_details(
     // default is UNIX_EPOCH
 
     let conversation_type =
-        UiChatType::load_from_conversation_type(store, conversation.conversation_type).await;
+        UiChatType::load_from_conversation_type(store, conversation.chat_type).await;
 
     let draft = store
         .message_draft(conversation.id)
