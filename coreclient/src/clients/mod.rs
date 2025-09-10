@@ -34,9 +34,10 @@ use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 
 use serde::{Deserialize, Serialize};
-use sqlx::{SqliteConnection, SqlitePool};
+use sqlx::{Row, SqliteConnection, SqlitePool, SqliteTransaction, query};
 use store::ClientRecord;
 use thiserror::Error;
+use tls_codec::DeserializeBytes;
 use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info, warn};
 use url::Url;
@@ -433,6 +434,31 @@ impl CoreUser {
     }
 
     /// Returns None if there is no conversation with the given id.
+    pub async fn mls_conversation_participants(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Option<HashSet<UserId>> {
+        self.try_mls_conversation_participants(conversation_id)
+            .await
+            .ok()?
+    }
+
+    pub(crate) async fn try_mls_conversation_participants(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<Option<HashSet<UserId>>> {
+        let mut connection = self.pool().acquire().await?;
+        let Some(conversation) = Conversation::load(&mut connection, &conversation_id).await?
+        else {
+            return Ok(None);
+        };
+        let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
+            return Ok(None);
+        };
+        Ok(Some(group.members(&mut *connection).await))
+    }
+
+    /// Returns None if there is no conversation with the given id.
     pub async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
@@ -454,7 +480,13 @@ impl CoreUser {
         let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
             return Ok(None);
         };
-        Ok(Some(group.members(&mut *connection).await))
+        let users = group
+            .room_state
+            .users()
+            .keys()
+            .map(|bytes| Ok(UserId::tls_deserialize_exact_bytes(bytes)?))
+            .collect::<Result<HashSet<_>>>()?;
+        Ok(Some(users))
     }
 
     pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserId>> {
@@ -681,6 +713,49 @@ impl CoreUser {
         let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
+    }
+
+    pub async fn scan_database(&self, query: &str) -> anyhow::Result<Vec<String>> {
+        self.with_transaction(async |txn: &mut SqliteTransaction| {
+            let tables = query!("SELECT name FROM sqlite_schema WHERE type='table'")
+                .fetch_all(&mut **txn)
+                .await?;
+
+            let mut result = Vec::new();
+
+            for table in tables {
+                for row in sqlx::query(&format!("SELECT * FROM {}", table.name.unwrap()))
+                    .fetch_all(&mut **txn)
+                    .await?
+                {
+                    for i in 0..row.len() {
+                        let string = if let Ok(column) = row.try_get::<String, _>(i) {
+                            column
+                        } else if let Ok(column) = row.try_get::<Vec<u8>, _>(i) {
+                            String::from_utf8_lossy(&column).to_string()
+                        } else {
+                            // Unable to decode this type
+                            continue;
+                        };
+
+                        if string.contains(query) {
+                            result.push(string.to_string());
+                            continue;
+                        }
+
+                        // Try again without 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
+                        let string2 = string.replace('\x18', "");
+                        if string2.contains(query) {
+                            //result.push(string.to_string());
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            Ok(result)
+        })
+        .await
     }
 }
 

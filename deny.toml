@@ -41,7 +41,7 @@ allow = [
 ]
 confidence-threshold = 0.8
 exceptions = [
-    { allow = ["AGPL-3.0-only"], crate = "mls-assist" },
+    { allow = ["AGPL-3.0-or-later"], crate = "mls-assist" },
     { allow = ["AGPL-3.0-or-later"], crate = "mimi_content" },
     { allow = ["AGPL-3.0-or-later"], crate = "mimi-room-policy" },
     { allow = ["AGPL-3.0-or-later"], crate = "serde_list" },

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/core/api/markdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -110,9 +111,11 @@ class _MessageView extends StatelessWidget {
                 InkWell(
                   mouseCursor: SystemMouseCursors.basic,
                   onLongPress:
-                      () => context
-                          .read<ConversationDetailsCubit>()
-                          .editMessage(messageId: messageId),
+                      isSender
+                          ? () => context
+                              .read<ConversationDetailsCubit>()
+                              .editMessage(messageId: messageId)
+                          : null,
                   child: _MessageContent(
                     content: contentMessage.content,
                     isSender: isSender,
@@ -169,6 +172,8 @@ class _MessageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
+    final bool isDeleted = content.replaces != null && content.content == null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.5),
       child: Container(
@@ -190,6 +195,16 @@ class _MessageContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (isDeleted)
+                  Padding(
+                    padding: _messagePadding,
+                    child: buildBlockElement(
+                      context,
+                      const BlockElement.error("Deleted message"),
+                      isSender,
+                    ),
+                  ),
+
                 if (content.attachments.firstOrNull case final attachment?)
                   switch (attachment.imageMetadata) {
                     null => _FileAttachmentContent(
@@ -212,7 +227,7 @@ class _MessageContent extends StatelessWidget {
                     child: buildBlockElement(context, inner.element, isSender),
                   ),
                 ),
-                if (isEdited)
+                if (!isDeleted && isEdited)
                   Padding(
                     padding: _messagePadding.copyWith(top: 0),
                     child: Text(
