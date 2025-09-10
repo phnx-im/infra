@@ -182,21 +182,17 @@ mod persistence {
                 .await?;
             txn.commit().await?;
 
-            let status_a: i64 = query_scalar(
-                "SELECT status FROM conversation_message_status
-                    WHERE message_id = ?",
-            )
-            .bind(message_a.id())
-            .fetch_one(&mut *pool.acquire().await?)
-            .await?;
+            let status_a: i64 =
+                query_scalar("SELECT status FROM message_status WHERE message_id = ?")
+                    .bind(message_a.id())
+                    .fetch_one(&mut *pool.acquire().await?)
+                    .await?;
 
-            let status_b: i64 = query_scalar(
-                "SELECT status FROM conversation_message_status
-                    WHERE message_id = ?",
-            )
-            .bind(message_b.id())
-            .fetch_one(&mut *pool.acquire().await?)
-            .await?;
+            let status_b: i64 =
+                query_scalar("SELECT status FROM message_status WHERE message_id = ?")
+                    .bind(message_b.id())
+                    .fetch_one(&mut *pool.acquire().await?)
+                    .await?;
 
             assert_eq!(status_a, i64::from(MessageStatus::Read.repr()));
             assert_eq!(status_b, i64::from(MessageStatus::Deleted.repr()));
