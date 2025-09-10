@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use airprotos::{convert::RefInto, queue_service::v1::QueueEventPayload};
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection, PgPool};
@@ -16,7 +17,7 @@ use aircommon::{
     identifiers::{QsClientId, QsUserId},
     messages::{
         QueueMessage,
-        client_ds::QsQueueRatchet,
+        client_ds::{DsEventMessage, QsQueueRatchet},
         push_token::{EncryptedPushToken, PushToken},
     },
     time::TimeStamp,
@@ -26,10 +27,13 @@ use tracing::{error, info, trace, warn};
 use crate::{
     errors::StorageError,
     messages::intra_backend::DsFanOutPayload,
-    qs::{Notification, PushNotificationError},
+    qs::{
+        PushNotificationError,
+        queue::{Queue, QueueNotifier},
+    },
 };
 
-use super::{Notifier, PushNotificationProvider, errors::EnqueueError, queue::Queue};
+use super::{PushNotificationProvider, errors::EnqueueError};
 
 /// An enum defining the different kind of messages that are stored in an QS
 /// queue.
@@ -361,10 +365,10 @@ pub(crate) mod persistence {
 
 impl QsClientRecord {
     /// Put a message into the queue.
-    pub(crate) async fn enqueue<W: Notifier, P: PushNotificationProvider>(
+    pub(crate) async fn enqueue<Q: QueueNotifier, P: PushNotificationProvider>(
         pool: &PgPool,
-        client_id: &QsClientId,
-        websocket_notifier: &W,
+        client_id: QsClientId,
+        queue_notifier: &Q,
         push_notification_provider: &P,
         msg: DsFanOutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
@@ -375,17 +379,21 @@ impl QsClientRecord {
             DsFanOutPayload::QueueMessage(queue_message) => {
                 let mut txn = pool.begin().await?;
 
-                let mut client_record = Self::load(txn.as_mut(), client_id)
+                let mut client_record = Self::load(txn.as_mut(), &client_id)
                     .await?
                     .ok_or(EnqueueError::ClientNotFound)?;
 
                 // Encrypt the message under the current ratchet key.
                 let queue_message = client_record.ratchet_key.encrypt(queue_message)?;
+                let queue_message_proto: airprotos::queue_service::v1::QueueMessage =
+                    queue_message.into();
 
                 // TODO: Future work: PCS
 
                 trace!("Enqueueing message in storage provider");
-                Queue::enqueue(txn.as_mut(), client_id, &queue_message).await?;
+                let has_listener = queue_notifier
+                    .enqueue(txn.as_mut(), client_id, &queue_message_proto)
+                    .await?;
 
                 // We also update the client record in the storage provider, since we need to store
                 // the new ratchet key.
@@ -397,11 +405,7 @@ impl QsClientRecord {
                 txn.commit().await?;
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
-                if websocket_notifier
-                    .notify(client_id, Notification::QueueUpdate)
-                    .await
-                    .is_err()
-                {
+                if !has_listener {
                     // Send a push notification under the following conditions:
                     // - there is a push token associated with the queue
                     // - there is a push token decryption key
@@ -471,11 +475,21 @@ impl QsClientRecord {
                 }
             }
             // Dispatch an event message.
-            DsFanOutPayload::EventMessage(event_message) => {
-                // We ignore the result, because dispatching events is best effort.œ
-                let _ = websocket_notifier
-                    .notify(client_id, Notification::Event(event_message))
-                    .await;
+            DsFanOutPayload::EventMessage(DsEventMessage {
+                group_id,
+                sender_index,
+                epoch,
+                timestamp,
+                payload,
+            }) => {
+                let payload = QueueEventPayload {
+                    group_id: Some(group_id.ref_into()),
+                    sender: Some(sender_index.into()),
+                    epoch: Some(epoch.into()),
+                    timestamp: Some(timestamp.into()),
+                    payload,
+                };
+                queue_notifier.send_payload(client_id, payload).await?;
             }
         }
 
