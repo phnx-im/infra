@@ -289,13 +289,13 @@ mod persistence {
         ) -> sqlx::Result<()> {
             let mut messages = query_scalar!(
                 r#"WITH messages_to_fetch AS (
-                    SELECT message_id FROM as_user_handles_queues
+                    SELECT message_id FROM as_user_handles_queue
                     WHERE hash = $1 AND (fetched_by IS NULL OR fetched_by != $2)
                     ORDER BY created_at ASC
                     LIMIT $3
                     FOR UPDATE SKIP LOCKED
                 )
-                UPDATE as_user_handles_queues AS q
+                UPDATE as_user_handles_queue AS q
                 SET fetched_by = $2
                 FROM messages_to_fetch m
                 WHERE q.message_id = m.message_id
@@ -319,7 +319,7 @@ mod persistence {
         ) -> sqlx::Result<()> {
             debug_assert_eq!(Some(message_id.into()), message.message_id);
             query!(
-                "INSERT INTO as_user_handles_queues (
+                "INSERT INTO as_user_handles_queue (
                     message_id,
                     hash,
                     message_bytes
@@ -338,7 +338,7 @@ mod persistence {
             message_id: Uuid,
         ) -> sqlx::Result<()> {
             query!(
-                "DELETE FROM as_user_handles_queues WHERE message_id = $1",
+                "DELETE FROM as_user_handles_queue WHERE message_id = $1",
                 message_id,
             )
             .execute(executor)
