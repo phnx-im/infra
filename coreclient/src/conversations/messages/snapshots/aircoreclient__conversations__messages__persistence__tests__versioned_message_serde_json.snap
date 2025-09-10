@@ -3,7 +3,7 @@ source: coreclient/src/conversations/messages/persistence.rs
 expression: "&*VERSIONED_MESSAGE"
 ---
 {
-  "version": 2,
+  "version": 1,
   "content": [
     1,
     135,

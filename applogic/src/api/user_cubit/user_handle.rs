@@ -117,7 +117,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
     }
 
     async fn create_stream(
-        &self,
+        &mut self,
     ) -> anyhow::Result<impl Stream<Item = HandleQueueMessage> + 'static> {
         let (stream, responder) = self
             .cubit_context
@@ -128,7 +128,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
         Ok(stream.filter_map(identity))
     }
 
-    async fn handle_event(&self, message: HandleQueueMessage) {
+    async fn handle_event(&mut self, message: HandleQueueMessage) {
         let message_id = message.message_id.map(From::from);
         match self
             .cubit_context

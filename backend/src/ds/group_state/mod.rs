@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use aircommon::{
-    codec::AirCodec,
+    codec::PersistenceCodec,
     credentials::VerifiableClientCredential,
     crypto::{
         ear::{
@@ -31,7 +31,7 @@ use mls_assist::{
 };
 use sqlx::PgExecutor;
 use thiserror::Error;
-use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize};
+use tls_codec::{Serialize as _, TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 use tracing::error;
 use uuid::Uuid;
 
@@ -58,13 +58,13 @@ pub(super) struct MemberProfile {
 pub(crate) struct DsGroupState {
     pub(super) room_state: VerifiedRoomState,
     pub(super) group: Group,
-    pub(super) provider: MlsAssistRustCrypto<AirCodec>,
+    pub(super) provider: MlsAssistRustCrypto<PersistenceCodec>,
     pub(super) member_profiles: BTreeMap<LeafNodeIndex, MemberProfile>,
 }
 
 impl DsGroupState {
     pub(crate) fn new(
-        provider: MlsAssistRustCrypto<AirCodec>,
+        provider: MlsAssistRustCrypto<PersistenceCodec>,
         group: Group,
         creator_encrypted_user_profile_key: EncryptedUserProfileKey,
         creator_queue_config: QsReference,
@@ -159,7 +159,7 @@ impl DsGroupState {
         ear_key: &GroupStateEarKey,
     ) -> Result<EncryptedDsGroupState, DsGroupStateEncryptionError> {
         let encrypted =
-            EncryptableDsGroupState::from(SerializableDsGroupStateV2::from_group_state(self)?)
+            EncryptableDsGroupState::from(SerializableDsGroupStateV1::from_group_state(self)?)
                 .encrypt(ear_key)?;
         Ok(encrypted)
     }
@@ -169,7 +169,7 @@ impl DsGroupState {
         ear_key: &GroupStateEarKey,
     ) -> Result<Self, DsGroupStateDecryptionError> {
         let encryptable = EncryptableDsGroupState::decrypt(ear_key, encrypted_group_state)?;
-        let group_state = SerializableDsGroupStateV2::into_group_state(encryptable.into())?;
+        let group_state = SerializableDsGroupStateV1::into_group_state(encryptable.into())?;
         Ok(group_state)
     }
 
@@ -262,19 +262,12 @@ impl StorableDsGroupData {
 #[derive(TlsSize, TlsDeserializeBytes, TlsSerialize)]
 pub(crate) struct SerializableDsGroupStateV1 {
     group_id: GroupId,
-    serialized_provider: Vec<u8>,
+    serialized_provider: VLBytes,
+    room_state: VLBytes,
     member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
 }
 
-#[derive(TlsSize, TlsDeserializeBytes, TlsSerialize)]
-pub(crate) struct SerializableDsGroupStateV2 {
-    group_id: GroupId,
-    serialized_provider: Vec<u8>,
-    room_state: Vec<u8>,
-    member_profiles: Vec<(LeafNodeIndex, MemberProfile)>,
-}
-
-impl SerializableDsGroupStateV2 {
+impl SerializableDsGroupStateV1 {
     pub(super) fn from_group_state(
         group_state: DsGroupState,
     ) -> Result<Self, aircommon::codec::Error> {
@@ -285,8 +278,8 @@ impl SerializableDsGroupStateV2 {
             .group_id()
             .clone();
         let client_profiles = group_state.member_profiles.into_iter().collect();
-        let serialized_provider = group_state.provider.storage().serialize()?;
-        let room_state = AirCodec::to_vec(group_state.room_state.unverified())?;
+        let serialized_provider = group_state.provider.storage().serialize()?.into();
+        let room_state = PersistenceCodec::to_vec(group_state.room_state.unverified())?.into();
         Ok(Self {
             group_id,
             serialized_provider,
@@ -296,13 +289,13 @@ impl SerializableDsGroupStateV2 {
     }
 
     pub(super) fn into_group_state(self) -> Result<DsGroupState, aircommon::codec::Error> {
-        let storage = CborMlsAssistStorage::deserialize(&self.serialized_provider)?;
+        let storage = CborMlsAssistStorage::deserialize(self.serialized_provider.as_slice())?;
         // We unwrap here, because the constructor ensures that `self` always stores a group
         let group = Group::load(&storage, &self.group_id)?.unwrap();
         let client_profiles = self.member_profiles.into_iter().collect();
         let provider = MlsAssistRustCrypto::from(storage);
 
-        let room_state = AirCodec::from_slice(&self.room_state)
+        let room_state = PersistenceCodec::from_slice(self.room_state.as_slice())
             .inspect_err(|error| {
                 error!(%error, "Failed to load room state. Falling back to default room state.");
             })
@@ -351,26 +344,19 @@ fn fallback_room_state(
 #[repr(u8)]
 pub(super) enum EncryptableDsGroupState {
     V1(SerializableDsGroupStateV1),
-    V2(SerializableDsGroupStateV2),
 }
 
-impl From<EncryptableDsGroupState> for SerializableDsGroupStateV2 {
+impl From<EncryptableDsGroupState> for SerializableDsGroupStateV1 {
     fn from(encryptable: EncryptableDsGroupState) -> Self {
         match encryptable {
-            EncryptableDsGroupState::V1(serializable) => Self {
-                group_id: serializable.group_id,
-                serialized_provider: serializable.serialized_provider,
-                room_state: Vec::new(),
-                member_profiles: serializable.member_profiles,
-            },
-            EncryptableDsGroupState::V2(serializable) => serializable,
+            EncryptableDsGroupState::V1(serializable) => serializable,
         }
     }
 }
 
-impl From<SerializableDsGroupStateV2> for EncryptableDsGroupState {
-    fn from(serializable: SerializableDsGroupStateV2) -> Self {
-        EncryptableDsGroupState::V2(serializable)
+impl From<SerializableDsGroupStateV1> for EncryptableDsGroupState {
+    fn from(serializable: SerializableDsGroupStateV1) -> Self {
+        EncryptableDsGroupState::V1(serializable)
     }
 }
 
@@ -388,7 +374,7 @@ mod test {
     #[test]
     fn test_encrypted_ds_group_state_serde_codec() {
         let state = EncryptedDsGroupState::dummy();
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&state).unwrap());
+        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&state).unwrap());
     }
 
     #[test]
@@ -412,7 +398,10 @@ mod test {
 
     #[test]
     fn test_deleted_queues_serde_codec() {
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&*DELETED_QUEUES).unwrap());
+        insta::assert_binary_snapshot!(
+            ".cbor",
+            PersistenceCodec::to_vec(&*DELETED_QUEUES).unwrap()
+        );
     }
 
     #[test]

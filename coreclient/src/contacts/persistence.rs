@@ -164,12 +164,14 @@ impl HandleContact {
                 user_handle,
                 conversation_id,
                 friendship_package_ear_key,
-                created_at
-            ) VALUES (?, ?, ?, ?)",
+                created_at,
+                connection_offer_hash
+            ) VALUES (?, ?, ?, ?, ?)",
             self.handle,
             self.conversation_id,
             self.friendship_package_ear_key,
             created_at,
+            self.connection_offer_hash
         )
         .execute(executor)
         .await?;
@@ -186,7 +188,8 @@ impl HandleContact {
             r#"SELECT
                 user_handle AS "handle: _",
                 conversation_id AS "conversation_id: _",
-                friendship_package_ear_key AS "friendship_package_ear_key: _"
+                friendship_package_ear_key AS "friendship_package_ear_key: _",
+                connection_offer_hash AS "connection_offer_hash: _"
             FROM user_handle_contacts
             WHERE user_handle = ?"#,
             handle,
@@ -201,7 +204,8 @@ impl HandleContact {
             r#"SELECT
                 user_handle AS "handle: _",
                 conversation_id AS "conversation_id: _",
-                friendship_package_ear_key AS "friendship_package_ear_key: _"
+                friendship_package_ear_key AS "friendship_package_ear_key: _",
+                connection_offer_hash AS "connection_offer_hash: _"
             FROM user_handle_contacts"#,
         )
         .fetch_all(executor)
@@ -245,13 +249,15 @@ impl HandleContact {
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use aircommon::{
         crypto::{
             ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
             indexed_aead::keys::UserProfileKey,
             kdf::keys::ConnectionKey,
         },
-        messages::FriendshipToken,
+        messages::{FriendshipToken, client_as::ConnectionOfferHash},
     };
     use sqlx::SqlitePool;
 
@@ -308,6 +314,7 @@ mod tests {
             handle: handle.clone(),
             conversation_id: conversation.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+            connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };
 
         handle_contact.upsert(&pool, &mut store_notifier).await?;
@@ -331,6 +338,7 @@ mod tests {
             handle: handle.clone(),
             conversation_id: conversation.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+            connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };
 
         let user_id = UserId::random("localhost".parse().unwrap());
@@ -380,6 +388,7 @@ mod tests {
             handle: handle.clone(),
             conversation_id: conversation.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+            connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };
 
         handle_contact.upsert(&pool, &mut store_notifier).await?;
@@ -407,6 +416,7 @@ mod tests {
             handle: handle.clone(),
             conversation_id: conversation.id(),
             friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
+            connection_offer_hash: ConnectionOfferHash::new_for_test(vec![1, 2, 3, 4, 5]),
         };
 
         handle_contact.upsert(&pool, &mut store_notifier).await?;

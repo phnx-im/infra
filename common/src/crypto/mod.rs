@@ -34,7 +34,6 @@ pub mod indexed_aead;
 pub mod kdf;
 pub mod ratchet;
 pub mod secrets;
-pub(super) mod serde_arrays;
 pub mod signatures;
 
 /// Marker trait for keys that can be converted to and from raw bytes
@@ -64,14 +63,14 @@ pub type ConnectionDecryptionKey = DecryptionKey<ConnectionKeyType>;
 
 #[cfg(test)]
 mod test {
-    use crate::codec::AirCodec;
+    use crate::codec::PersistenceCodec;
 
     use super::*;
 
     #[test]
     fn encryption_key_serde_codec() {
         let key = RatchetEncryptionKey::new_for_test(vec![1, 2, 3]);
-        insta::assert_binary_snapshot!(".cbor", AirCodec::to_vec(&key).unwrap());
+        insta::assert_binary_snapshot!(".cbor", PersistenceCodec::to_vec(&key).unwrap());
     }
 
     #[test]

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS user_handle_contacts (
     conversation_id BLOB NOT NULL UNIQUE,
     friendship_package_ear_key BLOB NOT NULL,
     created_at TEXT NOT NULL,
+    connection_offer_hash BLOB NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id) ON DELETE CASCADE
 );
 

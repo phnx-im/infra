@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use aircommon::{codec::AirCodec, identifiers::UserId};
+use aircommon::{codec::PersistenceCodec, identifiers::UserId};
 use airserver_test_harness::utils::setup::TestBackend;
 
 use crate::{
@@ -48,8 +48,8 @@ async fn user_stages() -> anyhow::Result<()> {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::BasicUserData(_)));
     assert_eq!(
-        AirCodec::to_vec(&computed_state).unwrap(),
-        AirCodec::to_vec(&loaded_state).unwrap()
+        PersistenceCodec::to_vec(&computed_state).unwrap(),
+        PersistenceCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We now continue down the path of creating a user.
@@ -67,8 +67,8 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::InitialUserState(_)
     ));
     assert_eq!(
-        AirCodec::to_vec(&computed_state).unwrap(),
-        AirCodec::to_vec(&loaded_state).unwrap()
+        PersistenceCodec::to_vec(&computed_state).unwrap(),
+        PersistenceCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
@@ -86,8 +86,8 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::PostRegistrationInitState(_)
     ));
     assert_eq!(
-        AirCodec::to_vec(&computed_state).unwrap(),
-        AirCodec::to_vec(&loaded_state).unwrap()
+        PersistenceCodec::to_vec(&computed_state).unwrap(),
+        PersistenceCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
@@ -105,8 +105,8 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::UnfinalizedRegistrationState(_)
     ));
     assert_eq!(
-        AirCodec::to_vec(&computed_state).unwrap(),
-        AirCodec::to_vec(&loaded_state).unwrap()
+        PersistenceCodec::to_vec(&computed_state).unwrap(),
+        PersistenceCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
@@ -124,8 +124,8 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::AsRegisteredUserState(_)
     ));
     assert_eq!(
-        AirCodec::to_vec(&computed_state).unwrap(),
-        AirCodec::to_vec(&loaded_state).unwrap()
+        PersistenceCodec::to_vec(&computed_state).unwrap(),
+        PersistenceCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the next step
@@ -143,8 +143,8 @@ async fn user_stages() -> anyhow::Result<()> {
         UserCreationState::QsRegisteredUserState(_)
     ));
     assert_eq!(
-        AirCodec::to_vec(&computed_state).unwrap(),
-        AirCodec::to_vec(&loaded_state).unwrap()
+        PersistenceCodec::to_vec(&computed_state).unwrap(),
+        PersistenceCodec::to_vec(&loaded_state).unwrap()
     );
 
     // We take the final step
@@ -159,8 +159,8 @@ async fn user_stages() -> anyhow::Result<()> {
         .unwrap();
     assert!(matches!(loaded_state, UserCreationState::FinalUserState(_)));
     assert_eq!(
-        AirCodec::to_vec(&computed_state).unwrap(),
-        AirCodec::to_vec(&loaded_state).unwrap()
+        PersistenceCodec::to_vec(&computed_state).unwrap(),
+        PersistenceCodec::to_vec(&loaded_state).unwrap()
     );
 
     Ok(())

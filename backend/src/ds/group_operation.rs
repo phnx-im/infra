@@ -27,8 +27,8 @@ use aircommon::{
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference},
     messages::{
         client_ds::{
-            AddUsersInfo, DsJoinerInformation, GroupOperationParams, GroupOperationParamsAad,
-            InfraAadMessage, InfraAadPayload, WelcomeBundle,
+            AadMessage, AadPayload, AddUsersInfo, DsJoinerInformation, GroupOperationParams,
+            GroupOperationParamsAad, WelcomeBundle,
         },
         welcome_attribution_info::EncryptedWelcomeAttributionInfo,
     },
@@ -89,13 +89,13 @@ impl DsGroupState {
         };
 
         // Validate that the AAD includes enough encrypted credential chains
-        let aad_message = InfraAadMessage::tls_deserialize_exact_bytes(processed_message.aad())
+        let aad_message = AadMessage::tls_deserialize_exact_bytes(processed_message.aad())
             .map_err(|e| {
                 warn!(%e, "Error deserializing AAD message");
                 GroupOperationError::InvalidMessage
             })?;
         // TODO: Check version of Aad Message
-        let InfraAadPayload::GroupOperation(aad_payload) = aad_message.into_payload() else {
+        let AadPayload::GroupOperation(aad_payload) = aad_message.into_payload() else {
             warn!("AAD payload is not a group operation");
             return Err(GroupOperationError::InvalidMessage);
         };

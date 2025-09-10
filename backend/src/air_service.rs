@@ -30,7 +30,7 @@ impl<T: Into<sqlx::Error>> From<T> for ServiceCreationError {
 }
 
 #[expect(async_fn_in_trait)]
-pub trait InfraService: Sized {
+pub trait BackendService: Sized {
     async fn new(
         database_settings: &DatabaseSettings,
         domain: Fqdn,

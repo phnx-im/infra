@@ -36,6 +36,7 @@ class TextMessageTile extends StatelessWidget {
     required this.timestamp,
     required this.flightPosition,
     required this.status,
+    required this.isSender,
     super.key,
   });
 
@@ -44,12 +45,10 @@ class TextMessageTile extends StatelessWidget {
   final String timestamp;
   final UiFlightPosition flightPosition;
   final UiMessageStatus status;
+  final bool isSender;
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.select((UserCubit cubit) => cubit.state.userId);
-    final isSender = contentMessage.sender == userId;
-
     return Column(
       children: [
         if (!isSender && flightPosition.isFirst)

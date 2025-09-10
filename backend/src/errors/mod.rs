@@ -2,19 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use displaydoc::Display;
 use mls_assist::{
     group, memory_provider::MlsAssistMemoryStorage, openmls::group::MergeCommitError,
 };
 use thiserror::Error;
+use tokio::sync::mpsc;
 use tonic::Status;
 use tracing::error;
 
-use aircommon::codec::AirCodec;
+use aircommon::codec::PersistenceCodec;
 
 pub(crate) mod auth_service;
 pub(crate) mod qs;
 
-pub(crate) type CborMlsAssistStorage = MlsAssistMemoryStorage<AirCodec>;
+pub(crate) type CborMlsAssistStorage = MlsAssistMemoryStorage<PersistenceCodec>;
 
 #[derive(Debug, Error)]
 pub enum StorageError {
@@ -54,16 +56,14 @@ pub enum DatabaseError {
 }
 
 /// General error while accessing the requested queue.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Display)]
 pub(super) enum QueueError {
-    #[error("Database error")]
+    /// Database error
     Storage(#[from] StorageError),
-    /// Mismatching sequence numbers.
-    #[error("Mismatching sequence numbers")]
+    /// Mismatching sequence numbers
     SequenceNumberMismatch,
-    /// Unrecoverable implementation error
-    #[error("Library Error")]
-    LibraryError,
+    /// Payload receiver closed
+    PayloadReceiverClosed,
 }
 
 impl From<sqlx::Error> for QueueError {
@@ -78,6 +78,12 @@ impl From<aircommon::codec::Error> for QueueError {
     }
 }
 
+impl<T> From<mpsc::error::SendError<T>> for QueueError {
+    fn from(_: mpsc::error::SendError<T>) -> Self {
+        Self::PayloadReceiverClosed
+    }
+}
+
 impl From<QueueError> for Status {
     fn from(error: QueueError) -> Self {
         let msg = error.to_string();
@@ -86,7 +92,8 @@ impl From<QueueError> for Status {
                 error!(%error, "storage error");
                 Self::internal(msg)
             }
-            QueueError::SequenceNumberMismatch | QueueError::LibraryError => Self::internal(msg),
+            QueueError::SequenceNumberMismatch => Self::internal(msg),
+            QueueError::PayloadReceiverClosed => Self::internal(msg),
         }
     }
 }

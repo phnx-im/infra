@@ -12,7 +12,7 @@
   "removeUsernameDialog_content": "If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.",
   "removeUsernameDialog_cancel": "Cancel",
   "removeUsernameDialog_remove": "Remove",
-  "userSettingsScreen_noUserHandles": "no user handles yet",
+  "userSettingsScreen_noUserHandles": "no usernames yet",
   "userSettingsScreen_userHandlePlaceholder": "Username",
 
   "addMembersScreen_title": "Add members",
@@ -22,7 +22,7 @@
   "conversationDetailsScreen_title": "Details",
   "conversationDetailsScreen_unknownConversation": "Unknown conversation",
 
-  "conversationScreen_emptyConversation": "Select a chat to start messaging",
+  "conversationScreen_emptyConversation": "Select a conversation to start messaging",
 
   "memberDetailsScreen_title": "Member details",
   "removeUserDialog_title": "Remove user",
@@ -81,10 +81,10 @@
   "newConversationDialog_error_emptyGroupName": "Conversation name cannot be empty",
 
   "newConnectionDialog_newConnectionTitle": "New connection",
-  "newConnectionDialog_newConnectionDescription": "Enter the Username of the user you want to connect to",
+  "newConnectionDialog_newConnectionDescription": "Enter the username of the user you want to connect to",
   "newConnectionDialog_usernamePlaceholder": "Username",
   "newConnectionDialog_actionButton": "Connect",
-  "newConnectionDialog_error": "Failed to add user with Username {username}. Please try again.",
+  "newConnectionDialog_error": "Failed to add user with username {username}. Please try again.",
   "newConnectionDialog_error_emptyHandle": "Username cannot be empty",
   "newConnectionDialog_error_handleNotFound": "Username {username} does not exist",
 
@@ -150,5 +150,14 @@
   "deleteConversationDialog_title": "Delete Conversation",
   "deleteConversationDialog_content": "Are you sure you want to delete this conversation? The message history will be also deleted.",
   "deleteConversationDialog_cancel": "Cancel",
-  "deleteConversationDialog_delete": "Delete"
+  "deleteConversationDialog_delete": "Delete",
+  "byteUnit_B": "B",
+  "byteUnit_KB": "KB",
+  "byteUnit_MB": "MB",
+  "byteUnit_GB": "GB",
+  "byteUnit_TB": "TB",
+  "byteUnit_PB": "PB",
+  "byteUnit_EB": "EB",
+  "byteUnit_ZB": "ZB",
+  "byteUnit_YB": "YB"
 }
