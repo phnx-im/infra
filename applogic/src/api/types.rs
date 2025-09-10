@@ -24,14 +24,14 @@ use uuid::Uuid;
 
 use crate::api::message_content::UiMimiContent;
 
-/// Mirror of the [`ConversationId`] type
+/// Mirror of the [`ChatId`] type
 #[doc(hidden)]
-#[frb(mirror(ConversationId))]
+#[frb(mirror(ChatId))]
 #[frb(dart_code = "
     @override
-    String toString() => 'ConversationId($uuid)';
+    String toString() => 'ChatId($uuid)';
 ")]
-pub struct _ConversationId {
+pub struct _ChatId {
     pub uuid: Uuid,
 }
 
@@ -65,7 +65,7 @@ impl From<UiUserId> for UserId {
     }
 }
 
-/// A conversation which is a 1:1 connection or a group conversation
+/// A chat which is a 1:1 connection or a group chat
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiChat {
     pub id: ChatId,
@@ -74,10 +74,10 @@ pub struct UiChat {
     pub attributes: UiChatAttributes,
 }
 
-/// Details of a conversation
+/// Details of a chat
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(type_64bit_int)]
-pub struct UiConversationDetails {
+pub struct UiChatDetails {
     pub id: ChatId,
     pub status: UiChatStatus,
     pub chat_type: UiChatType,
@@ -89,7 +89,7 @@ pub struct UiConversationDetails {
     pub draft: Option<UiMessageDraft>,
 }
 
-/// Draft of a message in a conversation
+/// Draft of a message in a chat
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(dart_metadata = ("freezed"))]
 pub struct UiMessageDraft {
@@ -141,12 +141,12 @@ impl UiMessageDraft {
     }
 }
 
-/// Status of a conversation
+/// Status of a chat
 ///
-/// A conversation can be inactive or active.
+/// A chat can be inactive or active.
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum UiChatStatus {
-    Inactive(UiInactiveConversation),
+    Inactive(UiInactiveChat),
     Active,
 }
 
@@ -154,20 +154,20 @@ impl From<ChatStatus> for UiChatStatus {
     fn from(status: ChatStatus) -> Self {
         match status {
             ChatStatus::Inactive(inactive) => {
-                UiChatStatus::Inactive(UiInactiveConversation::from(inactive))
+                UiChatStatus::Inactive(UiInactiveChat::from(inactive))
             }
             ChatStatus::Active => UiChatStatus::Active,
         }
     }
 }
 
-/// Inactive conversation with past members
+/// Inactive chat with past members
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct UiInactiveConversation {
+pub struct UiInactiveChat {
     pub past_members: Vec<UiUserId>,
 }
 
-impl From<InactiveChat> for UiInactiveConversation {
+impl From<InactiveChat> for UiInactiveChat {
     fn from(inactive: InactiveChat) -> Self {
         Self {
             past_members: inactive
@@ -180,31 +180,28 @@ impl From<InactiveChat> for UiInactiveConversation {
     }
 }
 
-/// Type of a conversation
+/// Type of a chat
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum UiChatType {
-    /// A connection conversation which was established via a handle and is not yet confirmed by
+    /// A connection chat which was established via a handle and is not yet confirmed by
     /// the other party.
     HandleConnection(UiUserHandle),
-    /// A connection conversation that is confirmed by the other party and for which we have
+    /// A connection chat that is confirmed by the other party and for which we have
     /// received the necessary secrets.
     Connection(UiUserProfile),
-    /// A group conversation, that is, it can contains multiple participants.
+    /// A group chat, that is, it can contains multiple participants.
     Group,
 }
 
 impl UiChatType {
-    /// Converts [`ConversationType`] to [`UiConversationType`] but also load the corresponding
+    /// Converts [`ChatType`] to [`UiChatType`] but also load the corresponding
     /// user profile.
     ///
     /// If the user profile cannot be loaded, or is not set, a minimal user profile is returned
     /// with the display name derived from the client id.
     #[frb(ignore)]
-    pub(crate) async fn load_from_conversation_type(
-        store: &impl Store,
-        conversation_type: ChatType,
-    ) -> Self {
-        match conversation_type {
+    pub(crate) async fn load_from_chat_type(store: &impl Store, chat_type: ChatType) -> Self {
+        match chat_type {
             ChatType::HandleConnection(handle) => {
                 Self::HandleConnection(UiUserHandle::from(handle))
             }
@@ -218,12 +215,12 @@ impl UiChatType {
     }
 }
 
-/// Attributes of a conversation
+/// Attributes of a chat
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct UiChatAttributes {
-    /// Title of the conversation
+    /// Title of the chat
     pub title: String,
-    /// Optional picture of the conversation
+    /// Optional picture of the chat
     pub picture: Option<ImageData>,
 }
 
@@ -238,21 +235,21 @@ impl From<ChatAttributes> for UiChatAttributes {
     }
 }
 
-/// Mirror of the [`ConversationMessageId`] type
+/// Mirror of the [`MessageId`] type
 #[doc(hidden)]
-#[frb(mirror(ConversationMessageId))]
+#[frb(mirror(MessageId))]
 #[frb(dart_code = "
     @override
-    String toString() => 'ConversationMessageId($uuid)';
+    String toString() => 'MessageId($uuid)';
 ")]
-pub struct _ConversationMessageId {
+pub struct _MessageId {
     pub uuid: Uuid,
 }
 
-/// A message in a conversation
+/// A message in a chat
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UiChatMessage {
-    pub conversation_id: ChatId,
+    pub chat_id: ChatId,
     pub id: MessageId,
     pub timestamp: String, // We don't convert this to a DateTime because Dart can't handle nanoseconds.
     pub message: UiMessage,
@@ -265,9 +262,9 @@ pub enum UiMessageStatus {
     Sending,
     /// The message was sent to the server.
     Sent,
-    /// The message was received by at least one user in the conversation.
+    /// The message was received by at least one user in the chat.
     Delivered,
-    /// The message was read by at least one user in the conversation.
+    /// The message was read by at least one user in the chat.
     Read,
 }
 
@@ -285,7 +282,7 @@ impl From<ChatMessage> for UiChatMessage {
         };
 
         Self {
-            conversation_id: message.chat_id(),
+            chat_id: message.chat_id(),
             id: message.id(),
             timestamp: message.timestamp().to_rfc3339(),
             message: UiMessage::from(message.message().clone()),
@@ -301,7 +298,7 @@ impl UiChatMessage {
     }
 }
 
-/// The actual message in a conversation
+/// The actual message in a chat
 ///
 /// Can be either a message to display (e.g. a system message) or a message from a user.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -396,7 +393,7 @@ impl From<ErrorMessage> for UiErrorMessage {
     }
 }
 
-/// Position of a conversation message in a flight
+/// Position of a chat message in a flight
 ///
 /// A flight is a sequence of messages that are grouped to be displayed together.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -415,7 +412,7 @@ impl UiFlightPosition {
     /// Calculate the position of a `message` in a flight.
     ///
     /// The position is determined by the message and its previous and next messages in the
-    /// conversation timeline.
+    /// chat timeline.
     ///
     /// The implementation of this function defines which messages are grouped together in a
     /// flight.

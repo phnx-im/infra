@@ -12,12 +12,12 @@ impl User {
     /// Send notifications for new messages.
     pub(crate) async fn new_message_notifications(
         &self,
-        conversation_messages: &[ChatMessage],
+        messages: &[ChatMessage],
         notifications: &mut Vec<NotificationContent>,
     ) {
-        for conversation_message in conversation_messages {
-            if let Some(conversation) = self.user.chat(&conversation_message.chat_id()).await {
-                let title = match conversation.chat_type() {
+        for message in messages {
+            if let Some(chat) = self.user.chat(&message.chat_id()).await {
+                let title = match chat.chat_type() {
                     ChatType::Connection(user_id) => self
                         .user
                         .user_profile(user_id)
@@ -25,24 +25,24 @@ impl User {
                         .display_name
                         .to_string(),
                     ChatType::HandleConnection(handle) => handle.plaintext().to_owned(),
-                    ChatType::Group => conversation.attributes().title().to_string(),
+                    ChatType::Group => chat.attributes().title().to_string(),
                 };
-                let body = conversation_message
+                let body = message
                     .message()
-                    .string_representation(&self.user, conversation.chat_type())
+                    .string_representation(&self.user, chat.chat_type())
                     .await;
                 notifications.push(NotificationContent {
                     identifier: NotificationId::random(),
                     title: title.to_owned(),
                     body: body.to_owned(),
-                    chat_id: Some(conversation.id()),
+                    chat_id: Some(chat.id()),
                 });
             }
         }
     }
 
-    /// Send notifications for new conversations.
-    pub(crate) async fn new_conversation_notifications(
+    /// Send notifications for new chats.
+    pub(crate) async fn new_chat_notifications(
         &self,
         chat_ids: &[ChatId],
         notifications: &mut Vec<NotificationContent>,
@@ -64,10 +64,10 @@ impl User {
     /// Send notifications for new connection requests.
     pub(crate) async fn new_connection_request_notifications(
         &self,
-        connection_conversations: &[ChatId],
+        connection_chats: &[ChatId],
         notifications: &mut Vec<NotificationContent>,
     ) {
-        for chat_id in connection_conversations {
+        for chat_id in connection_chats {
             if let Some(chat) = self.user.chat(chat_id).await
                 && let ChatType::Connection(client_id) = chat.chat_type()
             {

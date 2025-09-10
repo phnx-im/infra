@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! List of conversations feature
+//! List of chats feature
 
 use std::sync::Arc;
 
@@ -26,18 +26,18 @@ use crate::{
 };
 
 use super::{
-    types::{UiChatType, UiConversationDetails, UiUserHandle},
+    types::{UiChatDetails, UiChatType, UiUserHandle},
     user_cubit::UserCubitBase,
 };
 
-/// Represents the state of the list of conversations.
+/// Represents the state of the list of chat.
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationListState {
-    pub conversations: Vec<UiConversationDetails>,
+    pub chats: Vec<UiChatDetails>,
 }
 
-/// Provides access to the list of conversations.
+/// Provides access to the list of chat.
 #[frb(opaque)]
 pub struct ConversationListCubitBase {
     core: CubitCore<ConversationListState>,
@@ -45,10 +45,10 @@ pub struct ConversationListCubitBase {
 }
 
 impl ConversationListCubitBase {
-    /// Creates a new conversation list cubit.
+    /// Creates a new chat list cubit.
     ///
-    /// Loads the list of conversations in the background and listens to the changes in the
-    /// conversations.
+    /// Loads the list of chats in the background and listens to the changes in the
+    /// chats.
     #[frb(sync)]
     pub fn new(user_cubit: &UserCubitBase) -> Self {
         let store = user_cubit.core_user().clone();
@@ -94,10 +94,10 @@ impl ConversationListCubitBase {
         self.context.store.add_contact(handle).await
     }
 
-    /// Creates a new group conversation with the given name.
+    /// Creates a new group chat with the given name.
     ///
-    /// After the conversation is created, the current user is the only member of the group.
-    pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ChatId> {
+    /// After the chat is created, the current user is the only member of the group.
+    pub async fn create_chat(&self, group_name: String) -> anyhow::Result<ChatId> {
         let id = self.context.store.create_chat(group_name, None).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
@@ -133,10 +133,9 @@ where
     }
 
     async fn load_and_emit_state(&self) {
-        let conversations = conversation_details(&self.store).await;
-        debug!(?conversations, "load_and_emit_state");
-        self.state_tx
-            .send_modify(|state| state.conversations = conversations);
+        let chats = chat_details(&self.store).await;
+        debug!(?chats, "load_and_emit_state");
+        self.state_tx.send_modify(|state| state.chats = chats);
     }
 
     async fn store_notifications_loop(
@@ -159,11 +158,11 @@ where
     }
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
-        let any_conversation_changed = notification.ops.iter().any(|(id, op)| {
+        let any_chat_changed = notification.ops.iter().any(|(id, op)| {
             matches!(id, StoreEntityId::Chat(_) if !op.is_empty())
                 || matches!(id, StoreEntityId::User(_) if !op.is_empty())
         });
-        if any_conversation_changed {
+        if any_chat_changed {
             // TODO(perf): This is a very coarse-grained approach. Optimally, we would only load
             // changed and new conversations, and replace them individually in the `state`.
             self.load_and_emit_state().await;
@@ -171,16 +170,16 @@ where
     }
 }
 
-async fn conversation_details(store: &impl Store) -> Vec<UiConversationDetails> {
-    let conversations = store.chats().await.unwrap_or_default();
-    let mut conversation_details = Vec::with_capacity(conversations.len());
-    for conversation in conversations {
-        let details = load_conversation_details(store, conversation).await;
-        conversation_details.push(details);
+async fn chat_details(store: &impl Store) -> Vec<UiChatDetails> {
+    let chatss = store.chats().await.unwrap_or_default();
+    let mut chat_details = Vec::with_capacity(chatss.len());
+    for chat in chatss {
+        let details = load_chat_details(store, chat).await;
+        chat_details.push(details);
     }
-    // Sort the conversations first by last updated draft if any, then by last used timestamp in
+    // Sort the chat first by last updated draft if any, then by last used timestamp in
     // descending order
-    conversation_details.sort_unstable_by(|a, b| {
+    chat_details.sort_unstable_by(|a, b| {
         b.draft
             .as_ref()
             .filter(|draft| !draft.is_empty())
@@ -193,25 +192,19 @@ async fn conversation_details(store: &impl Store) -> Vec<UiConversationDetails> 
             )
             .then(b.last_used.cmp(&a.last_used))
     });
-    conversation_details
+    chat_details
 }
 
-/// Loads additional details for a conversation and converts it into a
-/// [`UiConversationDetails`]
-pub(super) async fn load_conversation_details(
-    store: &impl Store,
-    conversation: Chat,
-) -> UiConversationDetails {
-    let messages_count = store
-        .messages_count(conversation.id())
-        .await
-        .unwrap_or_default();
+/// Loads additional details for a chat and converts it into a
+/// [`UiChatDetails`]
+pub(super) async fn load_chat_details(store: &impl Store, chat: Chat) -> UiChatDetails {
+    let messages_count = store.messages_count(chat.id()).await.unwrap_or_default();
     let unread_messages = store
-        .unread_messages_count(conversation.id())
+        .unread_messages_count(chat.id())
         .await
         .unwrap_or_default();
     let last_message = store
-        .last_message(conversation.id())
+        .last_message(chat.id())
         .await
         .ok()
         .flatten()
@@ -222,21 +215,20 @@ pub(super) async fn load_conversation_details(
         .unwrap_or_default();
     // default is UNIX_EPOCH
 
-    let conversation_type =
-        UiChatType::load_from_conversation_type(store, conversation.chat_type).await;
+    let chat_type = UiChatType::load_from_chat_type(store, chat.chat_type).await;
 
     let draft = store
-        .message_draft(conversation.id)
+        .message_draft(chat.id)
         .await
         .unwrap_or_default()
         .map(|d| UiMessageDraft::from_draft(d, UiMessageDraftSource::System));
 
-    UiConversationDetails {
-        id: conversation.id,
-        status: conversation.status.into(),
-        chat_type: conversation_type,
+    UiChatDetails {
+        id: chat.id,
+        status: chat.status.into(),
+        chat_type,
         last_used,
-        attributes: conversation.attributes.into(),
+        attributes: chat.attributes.into(),
         messages_count,
         unread_messages,
         last_message,

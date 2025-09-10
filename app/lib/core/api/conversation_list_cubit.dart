@@ -7,14 +7,16 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import '../lib.dart';
+import 'markdown.dart';
+import 'message_content.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
+import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
 part 'conversation_list_cubit.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `conversation_details`, `load_and_emit_state`, `load_conversation_details`, `new`, `process_store_notification`, `spawn`, `store_notifications_loop`
+// These functions are ignored because they are not marked as `pub`: `chat_details`, `load_and_emit_state`, `load_chat_details`, `new`, `process_store_notification`, `spawn`, `store_notifications_loop`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ConversationListContext`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `clone`, `clone`, `eq`, `fmt`, `hash`
 
@@ -22,22 +24,22 @@ part 'conversation_list_cubit.freezed.dart';
 abstract class ConversationListCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
+  /// Creates a new group chat with the given name.
+  ///
+  /// After the chat is created, the current user is the only member of the group.
+  Future<ChatId> createChat({required String groupName});
+
   /// Creates a new 1:1 connection with the given user via a user handle.
   ///
   /// Returns `None` if the provided handle does not exist.
   Future<ChatId?> createConnection({required UiUserHandle handle});
 
-  /// Creates a new group conversation with the given name.
-  ///
-  /// After the conversation is created, the current user is the only member of the group.
-  Future<ChatId> createConversation({required String groupName});
-
   bool get isClosed;
 
-  /// Creates a new conversation list cubit.
+  /// Creates a new chat list cubit.
   ///
-  /// Loads the list of conversations in the background and listens to the changes in the
-  /// conversations.
+  /// Loads the list of chats in the background and listens to the changes in the
+  /// chats.
   factory ConversationListCubitBase({required UserCubitBase userCubit}) =>
       RustLib.instance.api
           .crateApiConversationListCubitConversationListCubitBaseNew(
@@ -49,13 +51,12 @@ abstract class ConversationListCubitBase implements RustOpaqueInterface {
   Stream<ConversationListState> stream();
 }
 
-/// Represents the state of the list of conversations.
+/// Represents the state of the list of chat.
 @freezed
 sealed class ConversationListState with _$ConversationListState {
   const ConversationListState._();
-  const factory ConversationListState({
-    required List<UiConversationDetails> conversations,
-  }) = _ConversationListState;
+  const factory ConversationListState({required List<UiChatDetails> chats}) =
+      _ConversationListState;
   static Future<ConversationListState> default_() =>
       RustLib.instance.api
           .crateApiConversationListCubitConversationListStateDefault();

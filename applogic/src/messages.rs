@@ -49,7 +49,7 @@ impl User {
             new_messages,
             errors: _,
         } = self.fetch_and_process_qs_messages().await?;
-        self.new_conversation_notifications(&new_conversations, &mut notifications)
+        self.new_chat_notifications(&new_conversations, &mut notifications)
             .await;
         self.new_message_notifications(&new_messages, &mut notifications)
             .await;

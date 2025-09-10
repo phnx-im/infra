@@ -7,8 +7,10 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import '../lib.dart';
+import 'markdown.dart';
+import 'message_content.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
 
@@ -25,10 +27,10 @@ abstract class MessageListCubitBase implements RustOpaqueInterface {
 
   factory MessageListCubitBase({
     required UserCubitBase userCubit,
-    required ChatId conversationId,
+    required ChatId chatId,
   }) => RustLib.instance.api.crateApiMessageListCubitMessageListCubitBaseNew(
     userCubit: userCubit,
-    conversationId: conversationId,
+    chatId: chatId,
   );
 
   MessageListState get state;
@@ -45,7 +47,7 @@ abstract class MessageListState implements RustOpaqueInterface {
 
   /// The number of loaded messages in the list
   ///
-  /// Note that this is not the number of all messages in the conversation.
+  /// Note that this is not the number of all messages in the chat.
   int get loadedMessagesCount;
 
   /// Returns the message at the given index.

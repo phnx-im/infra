@@ -24,18 +24,17 @@ use crate::{
 
 use super::user_cubit::UserCubitBase;
 
-/// State of a single message in a conversation
+/// State of a single message in a chat
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MessageState {
     pub message: UiChatMessage,
 }
 
-/// Provides access to a single message in a conversation.
+/// Provides access to a single message in a chat.
 ///
 /// Listens to changes to the message and reloads it. On reload, also the previous and next
-/// messages in the conversation timeline are loaded to calculate the flight position of this
-/// message.
+/// messages in the chat timeline are loaded to calculate the flight position of this message.
 #[frb(opaque)]
 pub struct MessageCubitBase {
     core: CubitCore<MessageState>,
@@ -111,10 +110,10 @@ impl<S: Store + Send + Sync + 'static> MessageContext<S> {
     }
 
     async fn load_and_emit_state(&self) {
-        let conversation_message = self.store.message(self.message_id).await;
+        let message = self.store.message(self.message_id).await;
 
-        debug!(?conversation_message, "load_and_emit_state");
-        match conversation_message {
+        debug!(?message, "load_and_emit_state");
+        match message {
             Ok(Some(message)) => {
                 let mut message = UiChatMessage::from(message);
                 message.position = calculate_flight_position(&self.store, &message)

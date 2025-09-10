@@ -7,7 +7,6 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import '../lib.dart';
 import 'notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
@@ -22,7 +21,7 @@ part 'navigation_cubit.freezed.dart';
 abstract class NavigationCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
-  Future<void> closeConversation();
+  Future<void> closeChat();
 
   bool get isClosed;
 
@@ -34,9 +33,9 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   Future<void> openAddMembers();
 
-  Future<void> openConversation({required ChatId conversationId});
+  Future<void> openChat({required ChatId chatId});
 
-  Future<void> openConversationDetails();
+  Future<void> openChatDetails();
 
   Future<void> openDeveloperSettings({
     required DeveloperSettingsScreenType screen,
@@ -61,7 +60,7 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
 enum DeveloperSettingsScreenType { root, changeUser, logs }
 
-/// Conversations screen: main screen of the app
+/// Chats screen: main screen of the app
 ///
 /// Note: this can be represented in a better way disallowing invalid states.
 /// For now, following KISS we represent the navigation stack in a very simple
@@ -71,12 +70,12 @@ enum DeveloperSettingsScreenType { root, changeUser, logs }
 sealed class HomeNavigationState with _$HomeNavigationState {
   const HomeNavigationState._();
   const factory HomeNavigationState({
-    @Default(false) bool conversationOpen,
-    ChatId? conversationId,
+    @Default(false) bool chatOpen,
+    ChatId? chatId,
     DeveloperSettingsScreenType? developerSettingsScreen,
     UiUserId? memberDetails,
     UserSettingsScreenType? userSettingsScreen,
-    @Default(false) bool conversationDetailsOpen,
+    @Default(false) bool chatDetailsOpen,
     @Default(false) bool addMembersOpen,
   }) = _HomeNavigationState;
   static Future<HomeNavigationState> default_() =>

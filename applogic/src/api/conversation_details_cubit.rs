@@ -26,8 +26,8 @@ use crate::util::{Cubit, CubitCore, spawn_from_sync};
 use crate::{StreamSink, api::types::UiMessageDraftSource};
 
 use super::{
-    conversation_list_cubit::load_conversation_details,
-    types::{UiConversationDetails, UiUserId},
+    conversation_list_cubit::load_chat_details,
+    types::{UiChatDetails, UiUserId},
     user_cubit::UserCubitBase,
 };
 
@@ -39,7 +39,7 @@ use super::{
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationDetailsState {
-    pub conversation: Option<UiConversationDetails>,
+    pub conversation: Option<UiChatDetails>,
     pub members: Vec<UiUserId>,
     pub room_state: Option<UiRoomState>,
 }
@@ -454,10 +454,10 @@ impl ConversationDetailsContext {
         let _ = self.state_tx.send(new_state);
     }
 
-    async fn load_conversation_details(&self) -> Option<(UiConversationDetails, DateTime<Utc>)> {
+    async fn load_conversation_details(&self) -> Option<(UiChatDetails, DateTime<Utc>)> {
         let conversation = self.store.chat(&self.conversation_id).await?;
         let last_read = conversation.last_read();
-        let details = load_conversation_details(&self.store, conversation).await;
+        let details = load_chat_details(&self.store, conversation).await;
         Some((details, last_read))
     }
 

@@ -49,7 +49,7 @@ class UiChatStatus_Inactive extends UiChatStatus {
   const UiChatStatus_Inactive(this.field0): super._();
   
 
- final  UiInactiveConversation field0;
+ final  UiInactiveChat field0;
 
 /// Create a copy of UiChatStatus
 /// with the given fields replaced by the non-null parameter values.
@@ -81,7 +81,7 @@ abstract mixin class $UiChatStatus_InactiveCopyWith<$Res> implements $UiChatStat
   factory $UiChatStatus_InactiveCopyWith(UiChatStatus_Inactive value, $Res Function(UiChatStatus_Inactive) _then) = _$UiChatStatus_InactiveCopyWithImpl;
 @useResult
 $Res call({
- UiInactiveConversation field0
+ UiInactiveChat field0
 });
 
 
@@ -101,7 +101,7 @@ class _$UiChatStatus_InactiveCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
   return _then(UiChatStatus_Inactive(
 null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
-as UiInactiveConversation,
+as UiInactiveChat,
   ));
 }
 

@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$HomeNavigationState {
 
- bool get conversationOpen; ChatId? get conversationId; DeveloperSettingsScreenType? get developerSettingsScreen; UiUserId? get memberDetails; UserSettingsScreenType? get userSettingsScreen; bool get conversationDetailsOpen; bool get addMembersOpen;
+ bool get chatOpen; ChatId? get chatId; DeveloperSettingsScreenType? get developerSettingsScreen; UiUserId? get memberDetails; UserSettingsScreenType? get userSettingsScreen; bool get chatDetailsOpen; bool get addMembersOpen;
 /// Create a copy of HomeNavigationState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $HomeNavigationStateCopyWith<HomeNavigationState> get copyWith => _$HomeNavigati
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is HomeNavigationState&&(identical(other.conversationOpen, conversationOpen) || other.conversationOpen == conversationOpen)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.developerSettingsScreen, developerSettingsScreen) || other.developerSettingsScreen == developerSettingsScreen)&&(identical(other.memberDetails, memberDetails) || other.memberDetails == memberDetails)&&(identical(other.userSettingsScreen, userSettingsScreen) || other.userSettingsScreen == userSettingsScreen)&&(identical(other.conversationDetailsOpen, conversationDetailsOpen) || other.conversationDetailsOpen == conversationDetailsOpen)&&(identical(other.addMembersOpen, addMembersOpen) || other.addMembersOpen == addMembersOpen));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is HomeNavigationState&&(identical(other.chatOpen, chatOpen) || other.chatOpen == chatOpen)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.developerSettingsScreen, developerSettingsScreen) || other.developerSettingsScreen == developerSettingsScreen)&&(identical(other.memberDetails, memberDetails) || other.memberDetails == memberDetails)&&(identical(other.userSettingsScreen, userSettingsScreen) || other.userSettingsScreen == userSettingsScreen)&&(identical(other.chatDetailsOpen, chatDetailsOpen) || other.chatDetailsOpen == chatDetailsOpen)&&(identical(other.addMembersOpen, addMembersOpen) || other.addMembersOpen == addMembersOpen));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversationOpen,conversationId,developerSettingsScreen,memberDetails,userSettingsScreen,conversationDetailsOpen,addMembersOpen);
+int get hashCode => Object.hash(runtimeType,chatOpen,chatId,developerSettingsScreen,memberDetails,userSettingsScreen,chatDetailsOpen,addMembersOpen);
 
 @override
 String toString() {
-  return 'HomeNavigationState(conversationOpen: $conversationOpen, conversationId: $conversationId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsScreen: $userSettingsScreen, conversationDetailsOpen: $conversationDetailsOpen, addMembersOpen: $addMembersOpen)';
+  return 'HomeNavigationState(chatOpen: $chatOpen, chatId: $chatId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsScreen: $userSettingsScreen, chatDetailsOpen: $chatDetailsOpen, addMembersOpen: $addMembersOpen)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $HomeNavigationStateCopyWith<$Res>  {
   factory $HomeNavigationStateCopyWith(HomeNavigationState value, $Res Function(HomeNavigationState) _then) = _$HomeNavigationStateCopyWithImpl;
 @useResult
 $Res call({
- bool conversationOpen, ChatId? conversationId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool conversationDetailsOpen, bool addMembersOpen
+ bool chatOpen, ChatId? chatId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool chatDetailsOpen, bool addMembersOpen
 });
 
 
@@ -62,14 +62,14 @@ class _$HomeNavigationStateCopyWithImpl<$Res>
 
 /// Create a copy of HomeNavigationState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? conversationOpen = null,Object? conversationId = freezed,Object? developerSettingsScreen = freezed,Object? memberDetails = freezed,Object? userSettingsScreen = freezed,Object? conversationDetailsOpen = null,Object? addMembersOpen = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? chatOpen = null,Object? chatId = freezed,Object? developerSettingsScreen = freezed,Object? memberDetails = freezed,Object? userSettingsScreen = freezed,Object? chatDetailsOpen = null,Object? addMembersOpen = null,}) {
   return _then(_self.copyWith(
-conversationOpen: null == conversationOpen ? _self.conversationOpen : conversationOpen // ignore: cast_nullable_to_non_nullable
-as bool,conversationId: freezed == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
+chatOpen: null == chatOpen ? _self.chatOpen : chatOpen // ignore: cast_nullable_to_non_nullable
+as bool,chatId: freezed == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
 as ChatId?,developerSettingsScreen: freezed == developerSettingsScreen ? _self.developerSettingsScreen : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
 as DeveloperSettingsScreenType?,memberDetails: freezed == memberDetails ? _self.memberDetails : memberDetails // ignore: cast_nullable_to_non_nullable
 as UiUserId?,userSettingsScreen: freezed == userSettingsScreen ? _self.userSettingsScreen : userSettingsScreen // ignore: cast_nullable_to_non_nullable
-as UserSettingsScreenType?,conversationDetailsOpen: null == conversationDetailsOpen ? _self.conversationDetailsOpen : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable
+as UserSettingsScreenType?,chatDetailsOpen: null == chatDetailsOpen ? _self.chatDetailsOpen : chatDetailsOpen // ignore: cast_nullable_to_non_nullable
 as bool,addMembersOpen: null == addMembersOpen ? _self.addMembersOpen : addMembersOpen // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -83,15 +83,15 @@ as bool,
 
 
 class _HomeNavigationState extends HomeNavigationState {
-  const _HomeNavigationState({this.conversationOpen = false, this.conversationId, this.developerSettingsScreen, this.memberDetails, this.userSettingsScreen, this.conversationDetailsOpen = false, this.addMembersOpen = false}): super._();
+  const _HomeNavigationState({this.chatOpen = false, this.chatId, this.developerSettingsScreen, this.memberDetails, this.userSettingsScreen, this.chatDetailsOpen = false, this.addMembersOpen = false}): super._();
   
 
-@override@JsonKey() final  bool conversationOpen;
-@override final  ChatId? conversationId;
+@override@JsonKey() final  bool chatOpen;
+@override final  ChatId? chatId;
 @override final  DeveloperSettingsScreenType? developerSettingsScreen;
 @override final  UiUserId? memberDetails;
 @override final  UserSettingsScreenType? userSettingsScreen;
-@override@JsonKey() final  bool conversationDetailsOpen;
+@override@JsonKey() final  bool chatDetailsOpen;
 @override@JsonKey() final  bool addMembersOpen;
 
 /// Create a copy of HomeNavigationState
@@ -104,16 +104,16 @@ _$HomeNavigationStateCopyWith<_HomeNavigationState> get copyWith => __$HomeNavig
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HomeNavigationState&&(identical(other.conversationOpen, conversationOpen) || other.conversationOpen == conversationOpen)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.developerSettingsScreen, developerSettingsScreen) || other.developerSettingsScreen == developerSettingsScreen)&&(identical(other.memberDetails, memberDetails) || other.memberDetails == memberDetails)&&(identical(other.userSettingsScreen, userSettingsScreen) || other.userSettingsScreen == userSettingsScreen)&&(identical(other.conversationDetailsOpen, conversationDetailsOpen) || other.conversationDetailsOpen == conversationDetailsOpen)&&(identical(other.addMembersOpen, addMembersOpen) || other.addMembersOpen == addMembersOpen));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HomeNavigationState&&(identical(other.chatOpen, chatOpen) || other.chatOpen == chatOpen)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.developerSettingsScreen, developerSettingsScreen) || other.developerSettingsScreen == developerSettingsScreen)&&(identical(other.memberDetails, memberDetails) || other.memberDetails == memberDetails)&&(identical(other.userSettingsScreen, userSettingsScreen) || other.userSettingsScreen == userSettingsScreen)&&(identical(other.chatDetailsOpen, chatDetailsOpen) || other.chatDetailsOpen == chatDetailsOpen)&&(identical(other.addMembersOpen, addMembersOpen) || other.addMembersOpen == addMembersOpen));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversationOpen,conversationId,developerSettingsScreen,memberDetails,userSettingsScreen,conversationDetailsOpen,addMembersOpen);
+int get hashCode => Object.hash(runtimeType,chatOpen,chatId,developerSettingsScreen,memberDetails,userSettingsScreen,chatDetailsOpen,addMembersOpen);
 
 @override
 String toString() {
-  return 'HomeNavigationState(conversationOpen: $conversationOpen, conversationId: $conversationId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsScreen: $userSettingsScreen, conversationDetailsOpen: $conversationDetailsOpen, addMembersOpen: $addMembersOpen)';
+  return 'HomeNavigationState(chatOpen: $chatOpen, chatId: $chatId, developerSettingsScreen: $developerSettingsScreen, memberDetails: $memberDetails, userSettingsScreen: $userSettingsScreen, chatDetailsOpen: $chatDetailsOpen, addMembersOpen: $addMembersOpen)';
 }
 
 
@@ -124,7 +124,7 @@ abstract mixin class _$HomeNavigationStateCopyWith<$Res> implements $HomeNavigat
   factory _$HomeNavigationStateCopyWith(_HomeNavigationState value, $Res Function(_HomeNavigationState) _then) = __$HomeNavigationStateCopyWithImpl;
 @override @useResult
 $Res call({
- bool conversationOpen, ChatId? conversationId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool conversationDetailsOpen, bool addMembersOpen
+ bool chatOpen, ChatId? chatId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool chatDetailsOpen, bool addMembersOpen
 });
 
 
@@ -141,14 +141,14 @@ class __$HomeNavigationStateCopyWithImpl<$Res>
 
 /// Create a copy of HomeNavigationState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? conversationOpen = null,Object? conversationId = freezed,Object? developerSettingsScreen = freezed,Object? memberDetails = freezed,Object? userSettingsScreen = freezed,Object? conversationDetailsOpen = null,Object? addMembersOpen = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? chatOpen = null,Object? chatId = freezed,Object? developerSettingsScreen = freezed,Object? memberDetails = freezed,Object? userSettingsScreen = freezed,Object? chatDetailsOpen = null,Object? addMembersOpen = null,}) {
   return _then(_HomeNavigationState(
-conversationOpen: null == conversationOpen ? _self.conversationOpen : conversationOpen // ignore: cast_nullable_to_non_nullable
-as bool,conversationId: freezed == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
+chatOpen: null == chatOpen ? _self.chatOpen : chatOpen // ignore: cast_nullable_to_non_nullable
+as bool,chatId: freezed == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
 as ChatId?,developerSettingsScreen: freezed == developerSettingsScreen ? _self.developerSettingsScreen : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
 as DeveloperSettingsScreenType?,memberDetails: freezed == memberDetails ? _self.memberDetails : memberDetails // ignore: cast_nullable_to_non_nullable
 as UiUserId?,userSettingsScreen: freezed == userSettingsScreen ? _self.userSettingsScreen : userSettingsScreen // ignore: cast_nullable_to_non_nullable
-as UserSettingsScreenType?,conversationDetailsOpen: null == conversationDetailsOpen ? _self.conversationDetailsOpen : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable
+as UserSettingsScreenType?,chatDetailsOpen: null == chatDetailsOpen ? _self.chatDetailsOpen : chatDetailsOpen // ignore: cast_nullable_to_non_nullable
 as bool,addMembersOpen: null == addMembersOpen ? _self.addMembersOpen : addMembersOpen // ignore: cast_nullable_to_non_nullable
 as bool,
   ));

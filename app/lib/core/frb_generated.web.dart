@@ -28,7 +28,6 @@ import 'api/utils.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
-import 'lib.dart';
 import 'notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'package:uuid/uuid.dart';
@@ -44,9 +43,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_AttachmentsRepositoryPtr =>
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerAttachmentsRepository;
-
-  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_ChatIdPtr =>
-      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId;
 
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_ConversationDetailsCubitBasePtr =>
@@ -67,9 +63,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   get rust_arc_decrement_strong_count_MessageCubitBasePtr =>
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase;
 
-  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_MessageIdPtr =>
-      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId;
-
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_MessageListCubitBasePtr =>
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase;
@@ -79,23 +72,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState;
 
   CrossPlatformFinalizerArg
-  get rust_arc_decrement_strong_count_MessageStatePtr =>
-      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState;
-
-  CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_NavigationCubitBasePtr =>
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
-
-  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UiChatPtr =>
-      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat;
-
-  CrossPlatformFinalizerArg
-  get rust_arc_decrement_strong_count_UiChatMessagePtr =>
-      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage;
-
-  CrossPlatformFinalizerArg
-  get rust_arc_decrement_strong_count_UiConversationDetailsPtr =>
-      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails;
 
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_UiRoomStatePtr =>
@@ -132,12 +110,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  ChatId
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    dynamic raw,
-  );
-
-  @protected
   ConversationDetailsCubitBase
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     dynamic raw,
@@ -168,12 +140,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageId
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    dynamic raw,
-  );
-
-  @protected
   MessageListCubitBase
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     dynamic raw,
@@ -186,32 +152,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    dynamic raw,
-  );
-
-  @protected
   NavigationCubitBase
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    dynamic raw,
-  );
-
-  @protected
-  UiChat
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    dynamic raw,
-  );
-
-  @protected
-  UiChatMessage
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    dynamic raw,
-  );
-
-  @protected
-  UiConversationDetails
-  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     dynamic raw,
   );
 
@@ -282,32 +224,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    dynamic raw,
-  );
-
-  @protected
   NavigationCubitBase
   dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    dynamic raw,
-  );
-
-  @protected
-  UiChat
-  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    dynamic raw,
-  );
-
-  @protected
-  UiChatMessage
-  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    dynamic raw,
-  );
-
-  @protected
-  UiConversationDetails
-  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     dynamic raw,
   );
 
@@ -378,32 +296,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    dynamic raw,
-  );
-
-  @protected
   NavigationCubitBase
   dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    dynamic raw,
-  );
-
-  @protected
-  UiChat
-  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    dynamic raw,
-  );
-
-  @protected
-  UiChatMessage
-  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    dynamic raw,
-  );
-
-  @protected
-  UiConversationDetails
-  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     dynamic raw,
   );
 
@@ -490,12 +384,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  ChatId
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    dynamic raw,
-  );
-
-  @protected
   ConversationDetailsCubitBase
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     dynamic raw,
@@ -526,12 +414,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageId
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    dynamic raw,
-  );
-
-  @protected
   MessageListCubitBase
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     dynamic raw,
@@ -544,32 +426,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    dynamic raw,
-  );
-
-  @protected
   NavigationCubitBase
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    dynamic raw,
-  );
-
-  @protected
-  UiChat
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    dynamic raw,
-  );
-
-  @protected
-  UiChatMessage
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    dynamic raw,
-  );
-
-  @protected
-  UiConversationDetails
-  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     dynamic raw,
   );
 
@@ -622,12 +480,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  RustStreamSink<MessageState>
-  dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState_Sse(
-    dynamic raw,
-  );
-
-  @protected
   RustStreamSink<UiUser>
   dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
     dynamic raw,
@@ -649,6 +501,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RustStreamSink<LogEntry> dco_decode_StreamSink_log_entry_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<MessageState> dco_decode_StreamSink_message_state_Sse(
+    dynamic raw,
+  );
 
   @protected
   RustStreamSink<NavigationState> dco_decode_StreamSink_navigation_state_Sse(
@@ -679,30 +536,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
-  ChatId
-  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    dynamic raw,
-  );
-
-  @protected
-  MessageId
-  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    dynamic raw,
-  );
-
-  @protected
-  UiChatMessage
-  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    dynamic raw,
-  );
-
-  @protected
-  UiConversationDetails
-  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    dynamic raw,
-  );
-
-  @protected
   UiRoomState
   dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     dynamic raw,
@@ -716,6 +549,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AttachmentId dco_decode_box_autoadd_attachment_id(dynamic raw);
+
+  @protected
+  ChatId dco_decode_box_autoadd_chat_id(dynamic raw);
 
   @protected
   DeveloperSettingsScreenType
@@ -734,7 +570,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageContent dco_decode_box_autoadd_message_content(dynamic raw);
 
   @protected
+  MessageId dco_decode_box_autoadd_message_id(dynamic raw);
+
+  @protected
+  MessageState dco_decode_box_autoadd_message_state(dynamic raw);
+
+  @protected
   PlatformPushToken dco_decode_box_autoadd_platform_push_token(dynamic raw);
+
+  @protected
+  UiChatDetails dco_decode_box_autoadd_ui_chat_details(dynamic raw);
+
+  @protected
+  UiChatMessage dco_decode_box_autoadd_ui_chat_message(dynamic raw);
 
   @protected
   UiErrorMessage dco_decode_box_autoadd_ui_error_message(dynamic raw);
@@ -746,9 +594,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiImageMetadata dco_decode_box_autoadd_ui_image_metadata(dynamic raw);
 
   @protected
-  UiInactiveConversation dco_decode_box_autoadd_ui_inactive_conversation(
-    dynamic raw,
-  );
+  UiInactiveChat dco_decode_box_autoadd_ui_inactive_chat(dynamic raw);
 
   @protected
   UiMessageDraft dco_decode_box_autoadd_ui_message_draft(dynamic raw);
@@ -772,6 +618,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UiContentMessage dco_decode_box_ui_content_message(dynamic raw);
+
+  @protected
+  ChatId dco_decode_chat_id(dynamic raw);
 
   @protected
   ConversationDetailsState dco_decode_conversation_details_state(dynamic raw);
@@ -807,12 +656,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 dco_decode_isize(dynamic raw);
-
-  @protected
-  List<UiConversationDetails>
-  dco_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    dynamic raw,
-  );
 
   @protected
   List<IntroScreenType> dco_decode_list_intro_screen_type(dynamic raw);
@@ -851,6 +694,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<UiAttachment> dco_decode_list_ui_attachment(dynamic raw);
 
   @protected
+  List<UiChatDetails> dco_decode_list_ui_chat_details(dynamic raw);
+
+  @protected
   List<UiClientRecord> dco_decode_list_ui_client_record(dynamic raw);
 
   @protected
@@ -872,6 +718,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageContent dco_decode_message_content(dynamic raw);
 
   @protected
+  MessageId dco_decode_message_id(dynamic raw);
+
+  @protected
+  MessageState dco_decode_message_state(dynamic raw);
+
+  @protected
   NavigationState dco_decode_navigation_state(dynamic raw);
 
   @protected
@@ -890,30 +742,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
-  ChatId?
-  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    dynamic raw,
-  );
-
-  @protected
-  MessageId?
-  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    dynamic raw,
-  );
-
-  @protected
-  UiChatMessage?
-  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    dynamic raw,
-  );
-
-  @protected
-  UiConversationDetails?
-  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    dynamic raw,
-  );
-
-  @protected
   UiRoomState?
   dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     dynamic raw,
@@ -926,6 +754,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ChatId? dco_decode_opt_box_autoadd_chat_id(dynamic raw);
+
+  @protected
   DeveloperSettingsScreenType?
   dco_decode_opt_box_autoadd_developer_settings_screen_type(dynamic raw);
 
@@ -936,9 +767,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageContent? dco_decode_opt_box_autoadd_message_content(dynamic raw);
 
   @protected
+  MessageId? dco_decode_opt_box_autoadd_message_id(dynamic raw);
+
+  @protected
   PlatformPushToken? dco_decode_opt_box_autoadd_platform_push_token(
     dynamic raw,
   );
+
+  @protected
+  UiChatDetails? dco_decode_opt_box_autoadd_ui_chat_details(dynamic raw);
+
+  @protected
+  UiChatMessage? dco_decode_opt_box_autoadd_ui_chat_message(dynamic raw);
 
   @protected
   UiImageMetadata? dco_decode_opt_box_autoadd_ui_image_metadata(dynamic raw);
@@ -985,6 +825,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiChatAttributes dco_decode_ui_chat_attributes(dynamic raw);
 
   @protected
+  UiChatDetails dco_decode_ui_chat_details(dynamic raw);
+
+  @protected
+  UiChatMessage dco_decode_ui_chat_message(dynamic raw);
+
+  @protected
   UiChatStatus dco_decode_ui_chat_status(dynamic raw);
 
   @protected
@@ -1012,7 +858,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiImageMetadata dco_decode_ui_image_metadata(dynamic raw);
 
   @protected
-  UiInactiveConversation dco_decode_ui_inactive_conversation(dynamic raw);
+  UiInactiveChat dco_decode_ui_inactive_chat(dynamic raw);
 
   @protected
   UiMessage dco_decode_ui_message(dynamic raw);
@@ -1063,12 +909,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  ChatId
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   ConversationDetailsCubitBase
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     SseDeserializer deserializer,
@@ -1099,12 +939,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageId
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   MessageListCubitBase
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     SseDeserializer deserializer,
@@ -1117,32 +951,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   NavigationCubitBase
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChat
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChatMessage
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiConversationDetails
-  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     SseDeserializer deserializer,
   );
 
@@ -1213,32 +1023,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   NavigationCubitBase
   sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChat
-  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChatMessage
-  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiConversationDetails
-  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     SseDeserializer deserializer,
   );
 
@@ -1309,32 +1095,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   NavigationCubitBase
   sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChat
-  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChatMessage
-  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiConversationDetails
-  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     SseDeserializer deserializer,
   );
 
@@ -1399,12 +1161,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  ChatId
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   ConversationDetailsCubitBase
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     SseDeserializer deserializer,
@@ -1435,12 +1191,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageId
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   MessageListCubitBase
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     SseDeserializer deserializer,
@@ -1453,32 +1203,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  MessageState
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   NavigationCubitBase
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChat
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChatMessage
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiConversationDetails
-  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     SseDeserializer deserializer,
   );
 
@@ -1531,12 +1257,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  RustStreamSink<MessageState>
-  sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState_Sse(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   RustStreamSink<UiUser>
   sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
     SseDeserializer deserializer,
@@ -1562,6 +1282,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RustStreamSink<LogEntry> sse_decode_StreamSink_log_entry_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<MessageState> sse_decode_StreamSink_message_state_Sse(
     SseDeserializer deserializer,
   );
 
@@ -1594,30 +1319,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
-  ChatId
-  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  MessageId
-  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChatMessage
-  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiConversationDetails
-  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   UiRoomState
   sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     SseDeserializer deserializer,
@@ -1633,6 +1334,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AttachmentId sse_decode_box_autoadd_attachment_id(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ChatId sse_decode_box_autoadd_chat_id(SseDeserializer deserializer);
 
   @protected
   DeveloperSettingsScreenType
@@ -1659,7 +1363,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MessageId sse_decode_box_autoadd_message_id(SseDeserializer deserializer);
+
+  @protected
+  MessageState sse_decode_box_autoadd_message_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   PlatformPushToken sse_decode_box_autoadd_platform_push_token(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UiChatDetails sse_decode_box_autoadd_ui_chat_details(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UiChatMessage sse_decode_box_autoadd_ui_chat_message(
     SseDeserializer deserializer,
   );
 
@@ -1679,7 +1401,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  UiInactiveConversation sse_decode_box_autoadd_ui_inactive_conversation(
+  UiInactiveChat sse_decode_box_autoadd_ui_inactive_chat(
     SseDeserializer deserializer,
   );
 
@@ -1715,6 +1437,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiContentMessage sse_decode_box_ui_content_message(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ChatId sse_decode_chat_id(SseDeserializer deserializer);
 
   @protected
   ConversationDetailsState sse_decode_conversation_details_state(
@@ -1756,12 +1481,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 sse_decode_isize(SseDeserializer deserializer);
-
-  @protected
-  List<UiConversationDetails>
-  sse_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    SseDeserializer deserializer,
-  );
 
   @protected
   List<IntroScreenType> sse_decode_list_intro_screen_type(
@@ -1814,6 +1533,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<UiChatDetails> sse_decode_list_ui_chat_details(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<UiClientRecord> sse_decode_list_ui_client_record(
     SseDeserializer deserializer,
   );
@@ -1839,6 +1563,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageContent sse_decode_message_content(SseDeserializer deserializer);
 
   @protected
+  MessageId sse_decode_message_id(SseDeserializer deserializer);
+
+  @protected
+  MessageState sse_decode_message_state(SseDeserializer deserializer);
+
+  @protected
   NavigationState sse_decode_navigation_state(SseDeserializer deserializer);
 
   @protected
@@ -1861,30 +1591,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
-  ChatId?
-  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  MessageId?
-  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiChatMessage?
-  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  UiConversationDetails?
-  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   UiRoomState?
   sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     SseDeserializer deserializer,
@@ -1895,6 +1601,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ChatId? sse_decode_opt_box_autoadd_chat_id(SseDeserializer deserializer);
 
   @protected
   DeveloperSettingsScreenType?
@@ -1913,7 +1622,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MessageId? sse_decode_opt_box_autoadd_message_id(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   PlatformPushToken? sse_decode_opt_box_autoadd_platform_push_token(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UiChatDetails? sse_decode_opt_box_autoadd_ui_chat_details(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  UiChatMessage? sse_decode_opt_box_autoadd_ui_chat_message(
     SseDeserializer deserializer,
   );
 
@@ -1972,6 +1696,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiChatAttributes sse_decode_ui_chat_attributes(SseDeserializer deserializer);
 
   @protected
+  UiChatDetails sse_decode_ui_chat_details(SseDeserializer deserializer);
+
+  @protected
+  UiChatMessage sse_decode_ui_chat_message(SseDeserializer deserializer);
+
+  @protected
   UiChatStatus sse_decode_ui_chat_status(SseDeserializer deserializer);
 
   @protected
@@ -1999,9 +1729,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiImageMetadata sse_decode_ui_image_metadata(SseDeserializer deserializer);
 
   @protected
-  UiInactiveConversation sse_decode_ui_inactive_conversation(
-    SseDeserializer deserializer,
-  );
+  UiInactiveChat sse_decode_ui_inactive_chat(SseDeserializer deserializer);
 
   @protected
   UiMessage sse_decode_ui_message(SseDeserializer deserializer);
@@ -2061,13 +1789,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    ChatId self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     ConversationDetailsCubitBase self,
     SseSerializer serializer,
@@ -2103,13 +1824,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    MessageId self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     MessageListCubitBase self,
     SseSerializer serializer,
@@ -2124,36 +1838,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    MessageState self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    UiChat self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    UiChatMessage self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    UiConversationDetails self,
     SseSerializer serializer,
   );
 
@@ -2236,36 +1922,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    MessageState self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    UiChat self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    UiChatMessage self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    UiConversationDetails self,
     SseSerializer serializer,
   );
 
@@ -2348,36 +2006,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    MessageState self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    UiChat self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    UiChatMessage self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    UiConversationDetails self,
     SseSerializer serializer,
   );
 
@@ -2478,13 +2108,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    ChatId self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     ConversationDetailsCubitBase self,
     SseSerializer serializer,
@@ -2520,13 +2143,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    MessageId self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     MessageListCubitBase self,
     SseSerializer serializer,
@@ -2541,36 +2157,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    MessageState self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    UiChat self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    UiChatMessage self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    UiConversationDetails self,
     SseSerializer serializer,
   );
 
@@ -2632,13 +2220,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState_Sse(
-    RustStreamSink<MessageState> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
     RustStreamSink<UiUser> self,
     SseSerializer serializer,
@@ -2666,6 +2247,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_StreamSink_log_entry_Sse(
     RustStreamSink<LogEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_message_state_Sse(
+    RustStreamSink<MessageState> self,
     SseSerializer serializer,
   );
 
@@ -2701,34 +2288,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    ChatId self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    MessageId self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    UiChatMessage self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    UiConversationDetails self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     UiRoomState self,
     SseSerializer serializer,
@@ -2746,6 +2305,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     AttachmentId self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_chat_id(ChatId self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_developer_settings_screen_type(
@@ -2778,8 +2340,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_message_id(
+    MessageId self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_message_state(
+    MessageState self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_platform_push_token(
     PlatformPushToken self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_ui_chat_details(
+    UiChatDetails self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_ui_chat_message(
+    UiChatMessage self,
     SseSerializer serializer,
   );
 
@@ -2802,8 +2388,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_box_autoadd_ui_inactive_conversation(
-    UiInactiveConversation self,
+  void sse_encode_box_autoadd_ui_inactive_chat(
+    UiInactiveChat self,
     SseSerializer serializer,
   );
 
@@ -2848,6 +2434,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     UiContentMessage self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_chat_id(ChatId self, SseSerializer serializer);
 
   @protected
   void sse_encode_conversation_details_state(
@@ -2896,13 +2485,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_isize(PlatformInt64 self, SseSerializer serializer);
-
-  @protected
-  void
-  sse_encode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    List<UiConversationDetails> self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_list_intro_screen_type(
@@ -2968,6 +2550,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_ui_chat_details(
+    List<UiChatDetails> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_ui_client_record(
     List<UiClientRecord> self,
     SseSerializer serializer,
@@ -3004,6 +2592,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_message_id(MessageId self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_message_state(MessageState self, SseSerializer serializer);
+
+  @protected
   void sse_encode_navigation_state(
     NavigationState self,
     SseSerializer serializer,
@@ -3038,34 +2632,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
-  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    ChatId? self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    MessageId? self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    UiChatMessage? self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
-  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    UiConversationDetails? self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void
   sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     UiRoomState? self,
     SseSerializer serializer,
@@ -3075,6 +2641,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
     User? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_chat_id(
+    ChatId? self,
     SseSerializer serializer,
   );
 
@@ -3097,8 +2669,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_message_id(
+    MessageId? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_platform_push_token(
     PlatformPushToken? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_ui_chat_details(
+    UiChatDetails? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_ui_chat_message(
+    UiChatMessage? self,
     SseSerializer serializer,
   );
 
@@ -3175,6 +2765,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_ui_chat_details(UiChatDetails self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ui_chat_message(UiChatMessage self, SseSerializer serializer);
+
+  @protected
   void sse_encode_ui_chat_status(UiChatStatus self, SseSerializer serializer);
 
   @protected
@@ -3220,8 +2816,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_ui_inactive_conversation(
-    UiInactiveConversation self,
+  void sse_encode_ui_inactive_chat(
+    UiInactiveChat self,
     SseSerializer serializer,
   );
 
@@ -3298,22 +2894,6 @@ class RustLibWire implements BaseWire {
     int ptr,
   ) => wasmModule
       .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerAttachmentsRepository(
-        ptr,
-      );
-
-  void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-        ptr,
-      );
-
-  void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
         ptr,
       );
 
@@ -3398,22 +2978,6 @@ class RustLibWire implements BaseWire {
       );
 
   void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-        ptr,
-      );
-
-  void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-        ptr,
-      );
-
-  void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     int ptr,
   ) => wasmModule
@@ -3446,22 +3010,6 @@ class RustLibWire implements BaseWire {
       );
 
   void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-        ptr,
-      );
-
-  void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-        ptr,
-      );
-
-  void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     int ptr,
   ) => wasmModule
@@ -3474,54 +3022,6 @@ class RustLibWire implements BaseWire {
     int ptr,
   ) => wasmModule
       .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-        ptr,
-      );
-
-  void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-        ptr,
-      );
-
-  void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-        ptr,
-      );
-
-  void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-        ptr,
-      );
-
-  void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-        ptr,
-      );
-
-  void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-        ptr,
-      );
-
-  void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    int ptr,
-  ) => wasmModule
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
         ptr,
       );
 
@@ -3655,16 +3155,6 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    int ptr,
-  );
-
-  external void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-    int ptr,
-  );
-
-  external void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     int ptr,
   );
@@ -3715,16 +3205,6 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    int ptr,
-  );
-
-  external void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
-    int ptr,
-  );
-
-  external void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     int ptr,
   );
@@ -3745,52 +3225,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    int ptr,
-  );
-
-  external void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
-    int ptr,
-  );
-
-  external void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     int ptr,
   );
 
   external void
   rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
-    int ptr,
-  );
-
-  external void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    int ptr,
-  );
-
-  external void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
-    int ptr,
-  );
-
-  external void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    int ptr,
-  );
-
-  external void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
-    int ptr,
-  );
-
-  external void
-  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
-    int ptr,
-  );
-
-  external void
-  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
     int ptr,
   );
 

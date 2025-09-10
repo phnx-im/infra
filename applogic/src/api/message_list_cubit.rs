@@ -29,7 +29,7 @@ use super::{
     user_cubit::UserCubitBase,
 };
 
-/// The state reprensenting a list of messages in a conversation
+/// The state reprensenting a list of messages in a chat
 ///
 /// The state is cheaply clonable (internally reference counted).
 #[frb(opaque)]
@@ -42,7 +42,7 @@ pub struct MessageListState {
 #[frb(ignore)]
 #[derive(Debug, Default)]
 struct MessageListStateInner {
-    /// Loaded messages (not all messages in the conversation)
+    /// Loaded messages (not all messages in the chat)
     messages: Vec<UiChatMessage>,
     /// Lookup index mapping a message id to the index in `messages`
     message_ids_index: HashMap<MessageId, usize>,
@@ -112,7 +112,7 @@ impl MessageListState {
 
     /// The number of loaded messages in the list
     ///
-    /// Note that this is not the number of all messages in the conversation.
+    /// Note that this is not the number of all messages in the chat.
     #[frb(sync, getter, type_64bit_int)]
     pub fn loaded_messages_count(&self) -> usize {
         self.inner.messages.len()
@@ -136,7 +136,7 @@ impl MessageListState {
     }
 }
 
-/// Provides access the the list of messages in a conversation.
+/// Provides access the the list of messages in a chat.
 ///
 /// Currently, only the last 1000 messages are loaded. This is subject to change ([#287]).
 ///
@@ -148,13 +148,13 @@ pub struct MessageListCubitBase {
 
 impl MessageListCubitBase {
     #[frb(sync)]
-    pub fn new(user_cubit: &UserCubitBase, conversation_id: ChatId) -> Self {
+    pub fn new(user_cubit: &UserCubitBase, chat_id: ChatId) -> Self {
         let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::new();
 
-        MessageListContext::new(store, core.state_tx().clone(), conversation_id.into())
+        MessageListContext::new(store, core.state_tx().clone(), chat_id.into())
             .spawn(store_notifications, core.cancellation_token().clone());
 
         Self { core }
@@ -187,15 +187,15 @@ impl MessageListCubitBase {
 struct MessageListContext<S> {
     store: S,
     state_tx: watch::Sender<MessageListState>,
-    conversation_id: ChatId,
+    chat_id: ChatId,
 }
 
 impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
-    fn new(store: S, state_tx: watch::Sender<MessageListState>, conversation_id: ChatId) -> Self {
+    fn new(store: S, state_tx: watch::Sender<MessageListState>, chat_id: ChatId) -> Self {
         Self {
             store,
             state_tx,
-            conversation_id,
+            chat_id,
         }
     }
 
@@ -213,18 +213,10 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 
     async fn load_and_emit_state(&self, initial_load: bool) {
         const MAX_MESSAGES: usize = 1001;
-        let messages = match self
-            .store
-            .messages(self.conversation_id, MAX_MESSAGES)
-            .await
-        {
+        let messages = match self.store.messages(self.chat_id, MAX_MESSAGES).await {
             Ok(messages) => messages,
             Err(error) => {
-                error!(
-                    conversation_id =% self.conversation_id,
-                    %error,
-                    "Failed to load messages"
-                );
+                error!(chat_id =% self.chat_id, %error, "Failed to load messages");
                 return;
             }
         };
@@ -269,7 +261,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
                 && op.contains(StoreOperation::Add)
                 && let Some(message) = self.store.message(*message_id).await?
             {
-                if message.chat_id() == self.conversation_id {
+                if message.chat_id() == self.chat_id {
                     self.notify_neghbors_of_added_message(message);
                     self.load_and_emit_state(false).await;
                 }
