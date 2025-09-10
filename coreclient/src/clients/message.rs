@@ -278,7 +278,7 @@ impl LocalMessage {
             Message::Content(_) => bail!("Message with id {local_message_id} was already sent"),
             _ => bail!("Message with id {local_message_id} is not a content message"),
         };
-        let conversation_id = conversation_message.conversation_id();
+        let conversation_id = conversation_message.chat_id();
         let conversation = Chat::load(&mut *connection, &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
@@ -441,7 +441,7 @@ impl SentMessage {
         Chat::mark_as_read_until_message_id(
             txn,
             notifier,
-            conversation_message.conversation_id(),
+            conversation_message.chat_id(),
             conversation_message.id(),
             own_user,
         )

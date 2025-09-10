@@ -731,7 +731,7 @@ async fn handle_message_edit(
     // Clear the status of the message
     StatusRecord::clear(txn.as_mut(), notifier, message.id()).await?;
 
-    Chat::mark_as_unread(txn, notifier, message.conversation_id(), message.id()).await?;
+    Chat::mark_as_unread(txn, notifier, message.chat_id(), message.id()).await?;
 
     Ok(message)
 }

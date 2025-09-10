@@ -211,7 +211,7 @@ impl ChatMessage {
         self.status = status;
     }
 
-    pub fn conversation_id(&self) -> ChatId {
+    pub fn chat_id(&self) -> ChatId {
         self.chat_id
     }
 

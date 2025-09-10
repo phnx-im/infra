@@ -269,7 +269,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
                 && op.contains(StoreOperation::Add)
                 && let Some(message) = self.store.message(*message_id).await?
             {
-                if message.conversation_id() == self.conversation_id {
+                if message.chat_id() == self.conversation_id {
                     self.notify_neghbors_of_added_message(message);
                     self.load_and_emit_state(false).await;
                 }

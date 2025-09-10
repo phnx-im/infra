@@ -31,7 +31,7 @@ impl CoreUser {
     ) -> Vec<(AttachmentRecord, PendingAttachmentRecord)> {
         let mut records = Vec::new();
 
-        let conversation_id = message.conversation_id();
+        let conversation_id = message.chat_id();
         let message_id = message.id();
         let created_at = message.timestamp();
 

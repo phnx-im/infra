@@ -16,11 +16,7 @@ impl User {
         notifications: &mut Vec<NotificationContent>,
     ) {
         for conversation_message in conversation_messages {
-            if let Some(conversation) = self
-                .user
-                .chat(&conversation_message.conversation_id())
-                .await
-            {
+            if let Some(conversation) = self.user.chat(&conversation_message.chat_id()).await {
                 let title = match conversation.chat_type() {
                     ChatType::Connection(user_id) => self
                         .user

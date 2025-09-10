@@ -285,7 +285,7 @@ impl From<ChatMessage> for UiChatMessage {
         };
 
         Self {
-            conversation_id: message.conversation_id(),
+            conversation_id: message.chat_id(),
             id: message.id(),
             timestamp: message.timestamp().to_rfc3339(),
             message: UiMessage::from(message.message().clone()),

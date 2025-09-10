@@ -257,10 +257,10 @@ impl TestBackend {
                 .expect("Error processing qs messages.");
 
             // If the group member in question is removed with this commit,
-            // it should turn its conversation inactive ...
+            // it should turn its chat inactive ...
             if pending_removes.contains(group_member_id) {
-                let conversation_after = group_member.chat(&chat_id).await.unwrap();
-                assert!(matches!(&conversation_after.status(),
+                let chat_after = group_member.chat(&chat_id).await.unwrap();
+                assert!(matches!(&chat_after.status(),
                 ChatStatus::Inactive(ic)
                 if HashSet::from_iter(ic.past_members().to_vec()) ==
                     group_members_before
@@ -345,7 +345,7 @@ impl TestBackend {
         let new_chat_position = user1_chats_after
             .iter()
             .position(|c| c.attributes().title() == test_title)
-            .expect("User 1 should have created a new conversation");
+            .expect("User 1 should have created a new chat");
         let chat = user1_chats_after.remove(new_chat_position);
         assert!(chat.status() == &ChatStatus::Active);
         assert!(chat.chat_type() == &ChatType::HandleConnection(user2_handle.clone()));
@@ -449,10 +449,10 @@ impl TestBackend {
         let new_chat_position = user1_chats_after
             .iter()
             .position(|c| c.attributes().title() == test_title)
-            .expect("User 1 should have created a new conversation");
-        let conversation = user1_chats_after.remove(new_chat_position);
-        assert!(conversation.status() == &ChatStatus::Active);
-        assert!(conversation.chat_type() == &ChatType::Connection(user2_id.clone()));
+            .expect("User 1 should have created a new chat");
+        let chat = user1_chats_after.remove(new_chat_position);
+        assert!(chat.status() == &ChatStatus::Active);
+        assert!(chat.chat_type() == &ChatType::Connection(user2_id.clone()));
         let ids_before: HashSet<_> = user1_chats_before.iter().map(|c| c.id()).collect();
         let ids_after: HashSet<_> = user1_chats_after.iter().map(|c| c.id()).collect();
         assert!(ids_before.is_superset(&ids_after));
@@ -599,10 +599,7 @@ impl TestBackend {
                 .unwrap();
 
             let message = messages.new_messages.last().unwrap();
-            let conversaion = recipient_user
-                .chat(&message.conversation_id())
-                .await
-                .unwrap();
+            let conversaion = recipient_user.chat(&message.chat_id()).await.unwrap();
             let group_id = conversaion.group_id();
 
             assert_eq!(
@@ -620,7 +617,7 @@ impl TestBackend {
 
     pub async fn send_attachment(
         &mut self,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         sender_id: &UserId,
         recipients: Vec<&UserId>,
         attachment: &[u8],
@@ -649,10 +646,7 @@ impl TestBackend {
         let path = tmp_dir.path().join(filename);
         std::fs::write(&path, attachment).unwrap();
 
-        let message = sender
-            .upload_attachment(conversation_id, &path)
-            .await
-            .unwrap();
+        let message = sender.upload_attachment(chat_id, &path).await.unwrap();
 
         let mut external_part = None;
         message
@@ -733,46 +727,46 @@ impl TestBackend {
     pub async fn create_group(&mut self, user_id: &UserId) -> ChatId {
         let test_user = self.users.get_mut(user_id).unwrap();
         let user = &mut test_user.user;
-        let user_conversations_before = user.chats().await.unwrap();
+        let user_chats_before = user.chats().await.unwrap();
 
         let group_name = format!("{:?}", OsRng.r#gen::<[u8; 32]>());
         let group_picture_bytes_option = Some(OsRng.r#gen::<[u8; 32]>().to_vec());
-        let conversation_id = user
+        let chat_id = user
             .create_chat(group_name.clone(), group_picture_bytes_option.clone())
             .await
             .unwrap();
-        let mut user_conversations_after = user.chats().await.unwrap();
-        let new_conversation_position = user_conversations_after
+        let mut user_chats_after = user.chats().await.unwrap();
+        let new_chat_position = user_chats_after
             .iter()
             .position(|c| c.attributes().title() == group_name)
-            .expect("User 1 should have created a new conversation");
-        let conversation = user_conversations_after.remove(new_conversation_position);
-        assert!(conversation.id() == conversation_id);
-        assert!(conversation.status() == &ChatStatus::Active);
-        assert!(conversation.chat_type() == &ChatType::Group);
-        assert_eq!(conversation.attributes().title(), &group_name);
+            .expect("User 1 should have created a new chat");
+        let chat = user_chats_after.remove(new_chat_position);
+        assert!(chat.id() == chat_id);
+        assert!(chat.status() == &ChatStatus::Active);
+        assert!(chat.chat_type() == &ChatType::Group);
+        assert_eq!(chat.attributes().title(), &group_name);
         assert_eq!(
-            conversation.attributes().picture(),
+            chat.attributes().picture(),
             group_picture_bytes_option.as_deref()
         );
-        user_conversations_before
+        user_chats_before
             .into_iter()
-            .zip(user_conversations_after)
+            .zip(user_chats_after)
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
         let member_set: HashSet<UserId> = [user_id.clone()].into();
         assert_eq!(member_set.len(), 1);
-        self.groups.insert(conversation_id, member_set);
+        self.groups.insert(chat_id, member_set);
 
-        conversation_id
+        chat_id
     }
 
     /// Has the inviter invite the invitees to the given group and has everyone
     /// send and process their messages.
     pub async fn invite_to_group(
         &mut self,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         inviter_id: &UserId,
         invitees: Vec<&UserId>,
     ) {
@@ -791,23 +785,23 @@ impl TestBackend {
             .fully_process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
-        let inviter_conversation = inviter.chat(&conversation_id).await.unwrap();
+        let inviter_chat = inviter.chat(&chat_id).await.unwrap();
 
         info!(
             "{inviter_id:?} invites {} to the group with id {}",
             invitee_strings.join(", "),
-            conversation_id.uuid()
+            chat_id.uuid()
         );
 
         // Perform the invite operation and check that the invitees are now in the group.
         let inviter_group_members_before = inviter
-            .chat_participants(conversation_id)
+            .chat_participants(chat_id)
             .await
             .expect("Error getting group members.");
 
         let invite_messages = inviter
             .invite_users(
-                conversation_id,
+                chat_id,
                 &invitees.iter().cloned().cloned().collect::<Vec<_>>(),
             )
             .await
@@ -815,8 +809,7 @@ impl TestBackend {
 
         let mut expected_messages = HashSet::new();
         for invitee_id in &invitees {
-            let expected_message =
-                format!("{inviter_id:?} added {invitee_id:?} to the conversation");
+            let expected_message = format!("{inviter_id:?} added {invitee_id:?} to the chat");
             expected_messages.insert(expected_message);
         }
 
@@ -825,7 +818,7 @@ impl TestBackend {
         assert_eq!(invite_messages, expected_messages);
 
         let inviter_group_members_after = inviter
-            .chat_participants(conversation_id)
+            .chat_participants(chat_id)
             .await
             .expect("Error getting group members.");
         let new_members = inviter_group_members_after
@@ -839,7 +832,7 @@ impl TestBackend {
         for invitee_id in &invitees {
             let test_invitee = self.users.get_mut(invitee_id).unwrap();
             let invitee = &mut test_invitee.user;
-            let mut invitee_conversations_before = invitee.chats().await.unwrap();
+            let mut invitee_chats_before = invitee.chats().await.unwrap();
 
             let qs_messages = invitee.qs_fetch_messages().await.unwrap();
 
@@ -848,50 +841,40 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let mut invitee_conversations_after = invitee.chats().await.unwrap();
-            let conversation_uuid = conversation_id.uuid();
-            let new_conversation_position = invitee_conversations_after
+            let mut invitee_chats_after = invitee.chats().await.unwrap();
+            let chat_uuid = chat_id.uuid();
+            let new_chat_position = invitee_chats_after
                 .iter()
-                .position(|c| c.id() == conversation_id)
+                .position(|c| c.id() == chat_id)
                 .unwrap_or_else(|| {
-                    panic!(
-                        "{invitee_id:?} should have created a new conversation {conversation_uuid}"
-                    )
+                    panic!("{invitee_id:?} should have created a new chat {chat_uuid}")
                 });
-            let conversation = invitee_conversations_after.remove(new_conversation_position);
-            assert!(conversation.id() == conversation_id);
-            assert!(conversation.status() == &ChatStatus::Active);
-            assert!(conversation.chat_type() == &ChatType::Group);
+            let chat = invitee_chats_after.remove(new_chat_position);
+            assert!(chat.id() == chat_id);
+            assert!(chat.status() == &ChatStatus::Active);
+            assert!(chat.chat_type() == &ChatType::Group);
+            assert_eq!(chat.attributes().title(), inviter_chat.attributes().title());
             assert_eq!(
-                conversation.attributes().title(),
-                inviter_conversation.attributes().title()
+                chat.attributes().picture(),
+                inviter_chat.attributes().picture()
             );
-            assert_eq!(
-                conversation.attributes().picture(),
-                inviter_conversation.attributes().picture()
-            );
-            // In case it was a re-join, we remove it from the conversation list before as well.
-            if let Some(inactive_conversation_position) = invitee_conversations_before
-                .iter()
-                .position(|c| c.id() == conversation_id)
+            // In case it was a re-join, we remove it from the chat list before as well.
+            if let Some(inactive_chat_position) =
+                invitee_chats_before.iter().position(|c| c.id() == chat_id)
             {
-                invitee_conversations_before.remove(inactive_conversation_position);
+                invitee_chats_before.remove(inactive_chat_position);
             }
-            // Now that we've removed the new conversation, it should be the same set of conversations
-            info!("Conversations_before: {:?}", invitee_conversations_before);
-            info!("Conversations_after: {:?}", invitee_conversations_after);
-            let different_conversations = invitee_conversations_before
+            // Now that we've removed the new chat, it should be the same set of chats
+            info!("chats_before: {:?}", invitee_chats_before);
+            info!("chats_after: {:?}", invitee_chats_after);
+            let different_chats = invitee_chats_before
                 .into_iter()
                 .collect::<HashSet<_>>()
-                .symmetric_difference(
-                    &invitee_conversations_after
-                        .into_iter()
-                        .collect::<HashSet<_>>(),
-                )
+                .symmetric_difference(&invitee_chats_after.into_iter().collect::<HashSet<_>>())
                 .count();
-            assert_eq!(different_conversations, 0);
+            assert_eq!(different_chats, 0);
         }
-        let group_members = self.groups.get_mut(&conversation_id).unwrap();
+        let group_members = self.groups.get_mut(&chat_id).unwrap();
         for group_member_id in group_members.iter() {
             // Skip the sender
             if group_member_id == inviter_id {
@@ -899,10 +882,7 @@ impl TestBackend {
             }
             let test_group_member = self.users.get_mut(group_member_id).unwrap();
             let group_member = &mut test_group_member.user;
-            let group_members_before = group_member
-                .chat_participants(conversation_id)
-                .await
-                .unwrap();
+            let group_members_before = group_member.chat_participants(chat_id).await.unwrap();
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             let invite_messages = group_member
@@ -914,10 +894,7 @@ impl TestBackend {
 
             assert_eq!(invite_messages, expected_messages);
 
-            let group_members_after = group_member
-                .chat_participants(conversation_id)
-                .await
-                .unwrap();
+            let group_members_after = group_member.chat_participants(chat_id).await.unwrap();
             let new_members = group_members_after
                 .difference(&group_members_before)
                 .collect::<HashSet<_>>();
@@ -933,7 +910,7 @@ impl TestBackend {
         // Now send messages to check that the group works properly. This also
         // ensures that everyone involved has picked up their messages from the
         // QS and that notifications are flushed.
-        self.send_message(conversation_id, inviter_id, invitees.clone())
+        self.send_message(chat_id, inviter_id, invitees.clone())
             .await;
         for invitee_id in &invitees {
             let recipients: Vec<_> = invitees
@@ -942,8 +919,7 @@ impl TestBackend {
                 .chain([&inviter_id].into_iter())
                 .cloned()
                 .collect();
-            self.send_message(conversation_id, invitee_id, recipients)
-                .await;
+            self.send_message(chat_id, invitee_id, recipients).await;
         }
     }
 
@@ -951,7 +927,7 @@ impl TestBackend {
     /// send and process their messages.
     pub async fn remove_from_group(
         &mut self,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         remover_id: &UserId,
         removed_ids: Vec<&UserId>,
     ) -> anyhow::Result<()> {
@@ -974,19 +950,19 @@ impl TestBackend {
         info!(
             "{remover_id:?} removes {} from the group with id {}",
             removed_strings.join(", "),
-            conversation_id.uuid()
+            chat_id.uuid()
         );
 
         // Perform the remove operation and check that the removed are not in
         // the group anymore.
         let remover_group_members_before = remover
-            .chat_participants(conversation_id)
+            .chat_participants(chat_id)
             .await
             .expect("Error getting group members.");
 
         let remove_messages = remover
             .remove_users(
-                conversation_id,
+                chat_id,
                 removed_ids.iter().copied().cloned().collect::<Vec<_>>(),
             )
             .await?;
@@ -994,8 +970,7 @@ impl TestBackend {
         let mut expected_messages = HashSet::new();
 
         for removed_id in &removed_ids {
-            let expected_message =
-                format!("{remover_id:?} removed {removed_id:?} from the conversation");
+            let expected_message = format!("{remover_id:?} removed {removed_id:?} from the chat");
             expected_messages.insert(expected_message);
         }
 
@@ -1003,7 +978,7 @@ impl TestBackend {
         assert_eq!(remove_messages, expected_messages);
 
         let remover_group_members_after = remover
-            .chat_participants(conversation_id)
+            .chat_participants(chat_id)
             .await
             .expect("Error getting group members.");
         let removed_members: HashSet<_> = remover_group_members_before
@@ -1016,13 +991,13 @@ impl TestBackend {
         for removed_id in &removed_ids {
             let test_removed = self.users.get_mut(removed_id).unwrap();
             let removed = &mut test_removed.user;
-            let removed_conversations_before = removed
+            let removed_chats_before = removed
                 .chats()
                 .await
                 .unwrap()
                 .into_iter()
                 .collect::<HashSet<_>>();
-            let past_members = removed.chat_participants(conversation_id).await.unwrap();
+            let past_members = removed.chat_participants(chat_id).await.unwrap();
 
             let qs_messages = removed.qs_fetch_messages().await.unwrap();
 
@@ -1031,39 +1006,35 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let removed_conversations_after = removed
+            let removed_chats_after = removed
                 .chats()
                 .await
                 .unwrap()
                 .into_iter()
                 .collect::<HashSet<_>>();
-            let conversation = removed_conversations_after
+            let chat = removed_chats_after
                 .iter()
-                .find(|c| c.id() == conversation_id)
+                .find(|c| c.id() == chat_id)
                 .unwrap_or_else(|| {
                     panic!(
-                        "{removed_id:?} should have the conversation with id {}",
-                        conversation_id.uuid()
+                        "{removed_id:?} should have the chat with id {}",
+                        chat_id.uuid()
                     )
                 });
-            assert!(conversation.id() == conversation_id);
-            if let ChatStatus::Inactive(inactive_status) = &conversation.status() {
+            assert!(chat.id() == chat_id);
+            if let ChatStatus::Inactive(inactive_status) = &chat.status() {
                 let inactive_status_members =
                     HashSet::from_iter(inactive_status.past_members().to_vec());
                 assert_eq!(inactive_status_members, past_members);
             } else {
-                panic!("Conversation should be inactive.")
+                panic!("chat should be inactive.")
             }
-            assert!(conversation.chat_type() == &ChatType::Group);
-            for conversation in removed_conversations_after {
-                assert!(
-                    removed_conversations_before
-                        .iter()
-                        .any(|c| c.id() == conversation.id())
-                )
+            assert!(chat.chat_type() == &ChatType::Group);
+            for chat in removed_chats_after {
+                assert!(removed_chats_before.iter().any(|c| c.id() == chat.id()))
             }
         }
-        let group_members = self.groups.get_mut(&conversation_id).unwrap();
+        let group_members = self.groups.get_mut(&chat_id).unwrap();
         for removed_id in &removed_ids {
             let remove_successful = group_members.remove(removed_id);
             assert!(remove_successful);
@@ -1076,10 +1047,7 @@ impl TestBackend {
             }
             let test_group_member = self.users.get_mut(group_member_id).unwrap();
             let group_member = &mut test_group_member.user;
-            let group_members_before = group_member
-                .chat_participants(conversation_id)
-                .await
-                .unwrap();
+            let group_members_before = group_member.chat_participants(chat_id).await.unwrap();
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             let remove_messages = group_member
@@ -1090,10 +1058,7 @@ impl TestBackend {
             let remove_messages = display_messages_to_string_map(remove_messages.new_messages);
             assert_eq!(remove_messages, expected_messages);
 
-            let group_members_after = group_member
-                .chat_participants(conversation_id)
-                .await
-                .unwrap();
+            let group_members_after = group_member.chat_participants(chat_id).await.unwrap();
             let removed_members: HashSet<_> = group_members_before
                 .difference(&group_members_after)
                 .cloned()
@@ -1106,26 +1071,19 @@ impl TestBackend {
     }
 
     /// Has the leaver leave the given group.
-    pub async fn leave_group(
-        &mut self,
-        conversation_id: ChatId,
-        leaver_id: &UserId,
-    ) -> anyhow::Result<()> {
-        info!(
-            "{leaver_id:?} leaves the group with id {}",
-            conversation_id.uuid()
-        );
+    pub async fn leave_group(&mut self, chat_id: ChatId, leaver_id: &UserId) -> anyhow::Result<()> {
+        info!("{leaver_id:?} leaves the group with id {}", chat_id.uuid());
         let test_leaver = self.users.get_mut(leaver_id).unwrap();
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
-        leaver.leave_chat(conversation_id).await?;
+        leaver.leave_chat(chat_id).await?;
 
         // Now have a random group member perform an update, thus committing the leave operation.
         // TODO: This is not really random. We should do better here. But also,
         // we probably want a way to track the randomness s.t. we can reproduce
         // tests.
-        let group_members = self.groups.get(&conversation_id).unwrap().clone();
+        let group_members = self.groups.get(&chat_id).unwrap().clone();
         let mut random_member_iter = group_members.iter();
         let mut random_member_id = random_member_iter.next().unwrap();
         // Ensure that the random member isn't the leaver.
@@ -1146,21 +1104,21 @@ impl TestBackend {
         // Now commit to the pending proposal. This also makes everyone else
         // pick up and process their messages. This also tests that group
         // members were removed correctly from the local group and that the
-        // leaver has turned its conversation inactive.
-        self.commit_to_proposals(conversation_id, random_member_id.clone())
+        // leaver has turned its chat inactive.
+        self.commit_to_proposals(chat_id, random_member_id.clone())
             .await;
 
-        let group_members = self.groups.get_mut(&conversation_id).unwrap();
+        let group_members = self.groups.get_mut(&chat_id).unwrap();
 
         group_members.remove(leaver_id);
 
         Ok(())
     }
 
-    pub async fn delete_group(&mut self, conversation_id: ChatId, deleter_id: &UserId) {
+    pub async fn delete_group(&mut self, chat_id: ChatId, deleter_id: &UserId) {
         info!(
             "{deleter_id:?} deletes the group with id {}",
-            conversation_id.uuid()
+            chat_id.uuid()
         );
         let test_deleter = self.users.get_mut(deleter_id).unwrap();
         let deleter = &mut test_deleter.user;
@@ -1176,22 +1134,22 @@ impl TestBackend {
 
         // Perform the remove operation and check that the removed are not in
         // the group anymore.
-        let deleter_conversation_before = deleter.chat(&conversation_id).await.unwrap().clone();
-        assert_eq!(deleter_conversation_before.status(), &ChatStatus::Active);
-        let past_members = deleter.chat_participants(conversation_id).await.unwrap();
+        let deleter_chat_before = deleter.chat(&chat_id).await.unwrap().clone();
+        assert_eq!(deleter_chat_before.status(), &ChatStatus::Active);
+        let past_members = deleter.chat_participants(chat_id).await.unwrap();
 
-        deleter.delete_chat(conversation_id).await.unwrap();
+        deleter.delete_chat(chat_id).await.unwrap();
 
-        let deleter_conversation_after = deleter.chat(&conversation_id).await.unwrap();
-        if let ChatStatus::Inactive(inactive_status) = &deleter_conversation_after.status() {
+        let deleter_chat_after = deleter.chat(&chat_id).await.unwrap();
+        if let ChatStatus::Inactive(inactive_status) = &deleter_chat_after.status() {
             let inactive_status_members =
                 HashSet::from_iter(inactive_status.past_members().to_vec());
             assert_eq!(inactive_status_members, past_members);
         } else {
-            panic!("Conversation should be inactive.")
+            panic!("chat should be inactive.")
         }
 
-        for group_member_id in self.groups.get(&conversation_id).unwrap().iter() {
+        for group_member_id in self.groups.get(&chat_id).unwrap().iter() {
             // Skip the deleter
             if group_member_id == deleter_id {
                 continue;
@@ -1199,16 +1157,9 @@ impl TestBackend {
             let test_group_member = self.users.get_mut(group_member_id).unwrap();
             let group_member = &mut test_group_member.user;
 
-            let group_member_conversation_before =
-                group_member.chat(&conversation_id).await.unwrap();
-            assert_eq!(
-                group_member_conversation_before.status(),
-                &ChatStatus::Active
-            );
-            let past_members = group_member
-                .chat_participants(conversation_id)
-                .await
-                .unwrap();
+            let group_member_chat_before = group_member.chat(&chat_id).await.unwrap();
+            assert_eq!(group_member_chat_before.status(), &ChatStatus::Active);
+            let past_members = group_member.chat_participants(chat_id).await.unwrap();
 
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
@@ -1217,18 +1168,16 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let group_member_conversation_after =
-                group_member.chat(&conversation_id).await.unwrap();
-            if let ChatStatus::Inactive(inactive_status) = &group_member_conversation_after.status()
-            {
+            let group_member_chat_after = group_member.chat(&chat_id).await.unwrap();
+            if let ChatStatus::Inactive(inactive_status) = &group_member_chat_after.status() {
                 let inactive_status_members =
                     HashSet::from_iter(inactive_status.past_members().to_vec());
                 assert_eq!(inactive_status_members, past_members);
             } else {
-                panic!("Conversation should be inactive.")
+                panic!("chat should be inactive.")
             }
         }
-        self.groups.remove(&conversation_id);
+        self.groups.remove(&chat_id);
     }
 
     pub fn random_user(&self, rng: &mut impl RngCore) -> UserId {
@@ -1280,11 +1229,11 @@ impl TestBackend {
                 }
             }
             1 => {
-                let conversation_id = self.create_group(&random_user).await;
+                let chat_id = self.create_group(&random_user).await;
                 info!(
                     random_operation = true,
                     "Random operation: Created group {}",
-                    conversation_id.uuid()
+                    chat_id.uuid()
                 );
                 // TODO: Invite user(s)
             }
@@ -1292,26 +1241,22 @@ impl TestBackend {
                 // Pick a group
                 let user = self.users.get(&random_user).unwrap();
                 // Let's exclude connection groups for now.
-                if let Some(conversation) = user
+                if let Some(chat) = user
                     .user()
                     .chats()
                     .await
                     .unwrap()
                     .into_iter()
-                    .filter(|conversation| {
-                        conversation.chat_type() == &ChatType::Group
-                            && conversation.status() == &ChatStatus::Active
+                    .filter(|chat| {
+                        chat.chat_type() == &ChatType::Group && chat.status() == &ChatStatus::Active
                     })
                     .choose(rng)
                 {
                     let number_of_invitees = rng.gen_range(1..=5);
                     let mut invitees = Vec::new();
                     for invitee in self.users.keys() {
-                        let is_group_member = self
-                            .groups
-                            .get(&conversation.id())
-                            .unwrap()
-                            .contains(invitee);
+                        let is_group_member =
+                            self.groups.get(&chat.id()).unwrap().contains(invitee);
                         let is_connected = user
                             .user()
                             .contacts()
@@ -1337,35 +1282,30 @@ impl TestBackend {
                             random_operation = true,
                             "Random operation: {random_user:?} invites {} to group {}",
                             invitee_strings.join(", "),
-                            conversation.id().uuid()
+                            chat.id().uuid()
                         );
-                        self.invite_to_group(
-                            conversation.id(),
-                            &random_user,
-                            invitees.iter().collect(),
-                        )
-                        .await;
+                        self.invite_to_group(chat.id(), &random_user, invitees.iter().collect())
+                            .await;
                     }
                 }
             }
             3 => {
                 let user = self.users.get(&random_user).unwrap();
-                if let Some(conversation) = user
+                if let Some(chat) = user
                     .user()
                     .chats()
                     .await
                     .unwrap()
                     .into_iter()
-                    .filter(|conversation| {
-                        conversation.chat_type() == &ChatType::Group
-                            && conversation.status() == &ChatStatus::Active
+                    .filter(|chat| {
+                        chat.chat_type() == &ChatType::Group && chat.status() == &ChatStatus::Active
                     })
                     .choose(rng)
                 {
                     let number_of_removals = rng.gen_range(1..=5);
                     let members_to_remove = self
                         .groups
-                        .get(&conversation.id())
+                        .get(&chat.id())
                         .unwrap()
                         .iter()
                         .filter(|&member| member != &random_user)
@@ -1380,10 +1320,10 @@ impl TestBackend {
                             random_operation = true,
                             "Random operation: {random_user:?} removes {} from group {}",
                             removed_strings.join(", "),
-                            conversation.id().uuid()
+                            chat.id().uuid()
                         );
                         let members_to_remove = members_to_remove.iter().collect();
-                        self.remove_from_group(conversation.id(), &random_user, members_to_remove)
+                        self.remove_from_group(chat.id(), &random_user, members_to_remove)
                             .await
                             .unwrap();
                     }
@@ -1391,26 +1331,23 @@ impl TestBackend {
             }
             4 => {
                 let user = self.users.get(&random_user).unwrap();
-                if let Some(conversation) = user
+                if let Some(chat) = user
                     .user()
                     .chats()
                     .await
                     .unwrap()
                     .into_iter()
-                    .filter(|conversation| {
-                        conversation.chat_type() == &ChatType::Group
-                            && conversation.status() == &ChatStatus::Active
+                    .filter(|chat| {
+                        chat.chat_type() == &ChatType::Group && chat.status() == &ChatStatus::Active
                     })
                     .choose(rng)
                 {
                     info!(
                         random_operation = true,
                         "Random operation: {random_user:?} leaves group {}",
-                        conversation.id().uuid()
+                        chat.id().uuid()
                     );
-                    self.leave_group(conversation.id(), &random_user)
-                        .await
-                        .unwrap();
+                    self.leave_group(chat.id(), &random_user).await.unwrap();
                 }
             }
             _ => panic!("Invalid action"),
@@ -1425,11 +1362,11 @@ fn display_messages_to_string_map(display_messages: Vec<ChatMessage>) -> HashSet
             if let Message::Event(EventMessage::System(system_message)) = m.message() {
                 match system_message {
                     SystemMessage::Add(adder, added) => {
-                        Some(format!("{adder:?} added {added:?} to the conversation"))
+                        Some(format!("{adder:?} added {added:?} to the chat"))
                     }
-                    SystemMessage::Remove(remover, removed) => Some(format!(
-                        "{remover:?} removed {removed:?} from the conversation"
-                    )),
+                    SystemMessage::Remove(remover, removed) => {
+                        Some(format!("{remover:?} removed {removed:?} from the chat"))
+                    }
                 }
             } else {
                 None
