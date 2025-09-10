@@ -204,7 +204,7 @@ impl Chat {
 
     pub(crate) async fn load(
         connection: &mut SqliteConnection,
-        conversation_id: &ChatId,
+        chat_id: &ChatId,
     ) -> sqlx::Result<Option<Chat>> {
         let mut transaction = connection.begin().await?;
         let conversation = query_as!(
@@ -222,7 +222,7 @@ impl Chat {
                 is_active
             FROM conversation
             WHERE conversation_id = ?"#,
-            conversation_id
+            chat_id
         )
         .fetch_optional(&mut *transaction)
         .await?;

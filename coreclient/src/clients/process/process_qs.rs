@@ -32,7 +32,7 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    ContentMessage, ConversationMessage, Message,
+    ChatMessage, ContentMessage, Message,
     contacts::HandleContact,
     conversations::{ChatType, StatusRecord, messages::edit::MessageEdit},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
@@ -48,22 +48,22 @@ use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 pub enum ProcessQsMessageResult {
     None,
     NewConversation(ChatId),
-    ConversationChanged(ChatId, Vec<ConversationMessage>),
-    ConversationMessages(Vec<ConversationMessage>),
+    ConversationChanged(ChatId, Vec<ChatMessage>),
+    ConversationMessages(Vec<ChatMessage>),
 }
 
 #[derive(Debug)]
 pub struct ProcessedQsMessages {
     pub new_conversations: Vec<ChatId>,
     pub changed_conversations: Vec<ChatId>,
-    pub new_messages: Vec<ConversationMessage>,
+    pub new_messages: Vec<ChatMessage>,
     pub errors: Vec<anyhow::Error>,
 }
 
 #[derive(Default)]
 struct ApplicationMessagesHandlerResult {
     new_messages: Vec<TimestampedMessage>,
-    updated_messages: Vec<ConversationMessage>,
+    updated_messages: Vec<ChatMessage>,
     conversation_changed: bool,
 }
 
@@ -678,10 +678,10 @@ async fn handle_message_edit(
     sender: &UserId,
     replaces: MimiId,
     content: MimiContent,
-) -> anyhow::Result<ConversationMessage> {
+) -> anyhow::Result<ChatMessage> {
     // First try to directly load the original message by mimi id (non-edited message) and fallback
     // to the history of edits otherwise.
-    let mut message = match ConversationMessage::load_by_mimi_id(txn.as_mut(), &replaces).await? {
+    let mut message = match ChatMessage::load_by_mimi_id(txn.as_mut(), &replaces).await? {
         Some(message) => message,
         None => {
             let message_id = MessageEdit::find_message_id(txn.as_mut(), &replaces)
@@ -690,7 +690,7 @@ async fn handle_message_edit(
                     format!("Original message id not found for editing; mimi_id = {replaces:?}")
                 })?;
 
-            ConversationMessage::load(txn.as_mut(), message_id)
+            ChatMessage::load(txn.as_mut(), message_id)
                 .await?
                 .with_context(|| {
                     format!("Original message not found for editing; message_id = {message_id:?}")

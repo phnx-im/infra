@@ -260,7 +260,7 @@ impl UserCubitBase {
         let Some(members) = self
             .context
             .core_user
-            .conversation_participants(conversation_id)
+            .chat_participants(conversation_id)
             .await
         else {
             return Ok(vec![]);

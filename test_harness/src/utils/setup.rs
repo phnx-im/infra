@@ -215,35 +215,28 @@ impl TestBackend {
 
     /// This has the updater commit an update, but without the checks ensuring
     /// that the group state remains unchanged.
-    pub async fn commit_to_proposals(&mut self, conversation_id: ChatId, updater_id: UserId) {
+    pub async fn commit_to_proposals(&mut self, chat_id: ChatId, updater_id: UserId) {
         info!(
             "{updater_id:?} performs an update in group {}",
-            conversation_id.uuid()
+            chat_id.uuid()
         );
 
         let test_updater = self.users.get_mut(&updater_id).unwrap();
         let updater = &mut test_updater.user;
 
-        let pending_removes =
-            HashSet::from_iter(updater.pending_removes(conversation_id).await.unwrap());
-        let group_members_before = updater
-            .conversation_participants(conversation_id)
-            .await
-            .unwrap();
+        let pending_removes = HashSet::from_iter(updater.pending_removes(chat_id).await.unwrap());
+        let group_members_before = updater.chat_participants(chat_id).await.unwrap();
 
-        updater.update_key(conversation_id).await.unwrap();
+        updater.update_key(chat_id).await.unwrap();
 
-        let group_members_after = updater
-            .conversation_participants(conversation_id)
-            .await
-            .unwrap();
+        let group_members_after = updater.chat_participants(chat_id).await.unwrap();
         let difference: HashSet<UserId> = group_members_before
             .difference(&group_members_after)
             .map(|s| s.to_owned())
             .collect();
         assert_eq!(difference, pending_removes);
 
-        let group_members = self.groups.get(&conversation_id).unwrap();
+        let group_members = self.groups.get(&chat_id).unwrap();
         // Have all group members fetch and process messages.
         for group_member_id in group_members.iter() {
             // skip the sender
@@ -255,11 +248,8 @@ impl TestBackend {
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
             let pending_removes =
-                HashSet::from_iter(group_member.pending_removes(conversation_id).await.unwrap());
-            let group_members_before = group_member
-                .conversation_participants(conversation_id)
-                .await
-                .unwrap();
+                HashSet::from_iter(group_member.pending_removes(chat_id).await.unwrap());
+            let group_members_before = group_member.chat_participants(chat_id).await.unwrap();
 
             group_member
                 .fully_process_qs_messages(qs_messages)
@@ -269,7 +259,7 @@ impl TestBackend {
             // If the group member in question is removed with this commit,
             // it should turn its conversation inactive ...
             if pending_removes.contains(group_member_id) {
-                let conversation_after = group_member.chat(&conversation_id).await.unwrap();
+                let conversation_after = group_member.chat(&chat_id).await.unwrap();
                 assert!(matches!(&conversation_after.status(),
                 ChatStatus::Inactive(ic)
                 if HashSet::from_iter(ic.past_members().to_vec()) ==
@@ -277,10 +267,7 @@ impl TestBackend {
                 ));
             } else {
                 // ... if not, it should remove the members to be removed.
-                let group_members_after = group_member
-                    .conversation_participants(conversation_id)
-                    .await
-                    .unwrap();
+                let group_members_after = group_member.chat_participants(chat_id).await.unwrap();
                 let difference: HashSet<UserId> = group_members_before
                     .difference(&group_members_after)
                     .cloned()
@@ -290,18 +277,18 @@ impl TestBackend {
         }
     }
 
-    pub async fn update_group(&mut self, conversation_id: ChatId, updater_id: &UserId) {
+    pub async fn update_group(&mut self, chat_id: ChatId, updater_id: &UserId) {
         info!(
             "{updater_id:?} performs an update in group {}",
-            conversation_id.uuid()
+            chat_id.uuid()
         );
 
         let test_updater = self.users.get_mut(updater_id).unwrap();
         let updater = &mut test_updater.user;
 
-        updater.update_key(conversation_id).await.unwrap();
+        updater.update_key(chat_id).await.unwrap();
 
-        let group_members = self.groups.get(&conversation_id).unwrap();
+        let group_members = self.groups.get(&chat_id).unwrap();
         // Have all group members fetch and process messages.
         for group_member_id in group_members.iter() {
             // skip the sender
@@ -310,10 +297,7 @@ impl TestBackend {
             }
             let test_group_member = self.users.get_mut(group_member_id).unwrap();
             let group_member = &mut test_group_member.user;
-            let group_members_before = group_member
-                .conversation_participants(conversation_id)
-                .await
-                .unwrap();
+            let group_members_before = group_member.chat_participants(chat_id).await.unwrap();
 
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
 
@@ -322,10 +306,7 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let group_members_after = group_member
-                .conversation_participants(conversation_id)
-                .await
-                .unwrap();
+            let group_members_after = group_member.chat_participants(chat_id).await.unwrap();
             assert_eq!(group_members_after, group_members_before);
         }
     }
@@ -341,7 +322,7 @@ impl TestBackend {
         let user1 = &mut test_user1.user;
         let user1_profile = user1.own_user_profile().await.unwrap();
         let user1_handle_contacts_before = user1.handle_contacts().await.unwrap();
-        let user1_conversations_before = user1.conversations().await.unwrap();
+        let user1_chats_before = user1.chats().await.unwrap();
         user1.add_contact(user2_handle.clone()).await.unwrap();
         let mut user1_handle_contacts_after = user1.handle_contacts().await.unwrap();
         let error_msg = format!(
@@ -359,27 +340,27 @@ impl TestBackend {
             .for_each(|(before, after)| {
                 assert_eq!(before.handle, after.handle);
             });
-        let mut user1_conversations_after = user1.conversations().await.unwrap();
+        let mut user1_chats_after = user1.chats().await.unwrap();
         let test_title = format!("Connection group: {}", user2_handle.plaintext());
-        let new_conversation_position = user1_conversations_after
+        let new_chat_position = user1_chats_after
             .iter()
             .position(|c| c.attributes().title() == test_title)
             .expect("User 1 should have created a new conversation");
-        let conversation = user1_conversations_after.remove(new_conversation_position);
-        assert!(conversation.status() == &ChatStatus::Active);
-        assert!(conversation.chat_type() == &ChatType::HandleConnection(user2_handle.clone()));
-        user1_conversations_before
+        let chat = user1_chats_after.remove(new_chat_position);
+        assert!(chat.status() == &ChatStatus::Active);
+        assert!(chat.chat_type() == &ChatType::HandleConnection(user2_handle.clone()));
+        user1_chats_before
             .into_iter()
-            .zip(user1_conversations_after)
+            .zip(user1_chats_after)
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        let user1_chat_id = conversation.id();
+        let user1_chat_id = chat.id();
 
         let test_user2 = self.users.get_mut(user2_id).unwrap();
         let user2 = &mut test_user2.user;
         let user2_contacts_before = user2.contacts().await.unwrap();
-        let user2_conversations_before = user2.conversations().await.unwrap();
+        let user2_chats_before = user2.chats().await.unwrap();
         info!("{user2_id:?} fetches and process AS handle messages");
         let (mut stream, responder) = user2.listen_handle(&user2_handle_record).await.unwrap();
         while let Some(Some(message)) = timeout(Duration::from_millis(500), stream.next())
@@ -415,27 +396,24 @@ impl TestBackend {
                 assert_eq!(before.user_id, after.user_id);
             });
         // User 2 should have created a connection group.
-        let mut user2_conversations_after = user2.conversations().await.unwrap();
-        info!(
-            "User 2 conversations after: {:?}",
-            user2_conversations_after
-        );
-        let new_conversation_position = user2_conversations_after
+        let mut user2_chats_after = user2.chats().await.unwrap();
+        info!("User 2 chats after: {:?}", user2_chats_after);
+        let new_chat_position = user2_chats_after
             .iter()
             .position(|c| {
                 c.attributes().title() == user1_profile.display_name.clone().into_string()
             })
-            .expect("User 2 should have created a new conversation");
-        let conversation = user2_conversations_after.remove(new_conversation_position);
-        assert!(conversation.status() == &ChatStatus::Active);
-        assert!(conversation.chat_type() == &ChatType::Connection(user1_id.clone()));
-        user2_conversations_before
+            .expect("User 2 should have created a new chat");
+        let chat = user2_chats_after.remove(new_chat_position);
+        assert!(chat.status() == &ChatStatus::Active);
+        assert!(chat.chat_type() == &ChatType::Connection(user1_id.clone()));
+        user2_chats_before
             .into_iter()
-            .zip(user2_conversations_after)
+            .zip(user2_chats_after)
             .for_each(|(before, after)| {
                 assert_eq!(before.id(), after.id());
             });
-        let user2_chat_id = conversation.id();
+        let user2_chat_id = chat.id();
 
         let user2_id = user2.user_id().clone();
         let test_user1 = self.users.get_mut(user1_id).unwrap();
@@ -447,7 +425,7 @@ impl TestBackend {
             .into_iter()
             .map(|contact| contact.user_id.clone())
             .collect();
-        let user1_conversations_before = user1.conversations().await.unwrap();
+        let user1_chats_before = user1.chats().await.unwrap();
         info!("{user1_id:?} fetches QS messages");
         let qs_messages = user1.qs_fetch_messages().await.unwrap();
         info!("{user1_id:?} processes QS messages");
@@ -467,16 +445,16 @@ impl TestBackend {
             .collect();
         assert_eq!(new_user_vec, vec![&user2_id]);
         // User 2 should have created a connection group.
-        let mut user1_conversations_after = user1.conversations().await.unwrap();
-        let new_conversation_position = user1_conversations_after
+        let mut user1_chats_after = user1.chats().await.unwrap();
+        let new_chat_position = user1_chats_after
             .iter()
             .position(|c| c.attributes().title() == test_title)
             .expect("User 1 should have created a new conversation");
-        let conversation = user1_conversations_after.remove(new_conversation_position);
+        let conversation = user1_chats_after.remove(new_chat_position);
         assert!(conversation.status() == &ChatStatus::Active);
         assert!(conversation.chat_type() == &ChatType::Connection(user2_id.clone()));
-        let ids_before: HashSet<_> = user1_conversations_before.iter().map(|c| c.id()).collect();
-        let ids_after: HashSet<_> = user1_conversations_after.iter().map(|c| c.id()).collect();
+        let ids_before: HashSet<_> = user1_chats_before.iter().map(|c| c.id()).collect();
+        let ids_after: HashSet<_> = user1_chats_after.iter().map(|c| c.id()).collect();
         assert!(ids_before.is_superset(&ids_after));
         debug_assert_eq!(user1_chat_id, user2_chat_id);
 
@@ -755,15 +733,15 @@ impl TestBackend {
     pub async fn create_group(&mut self, user_id: &UserId) -> ChatId {
         let test_user = self.users.get_mut(user_id).unwrap();
         let user = &mut test_user.user;
-        let user_conversations_before = user.conversations().await.unwrap();
+        let user_conversations_before = user.chats().await.unwrap();
 
         let group_name = format!("{:?}", OsRng.r#gen::<[u8; 32]>());
         let group_picture_bytes_option = Some(OsRng.r#gen::<[u8; 32]>().to_vec());
         let conversation_id = user
-            .create_conversation(group_name.clone(), group_picture_bytes_option.clone())
+            .create_chat(group_name.clone(), group_picture_bytes_option.clone())
             .await
             .unwrap();
-        let mut user_conversations_after = user.conversations().await.unwrap();
+        let mut user_conversations_after = user.chats().await.unwrap();
         let new_conversation_position = user_conversations_after
             .iter()
             .position(|c| c.attributes().title() == group_name)
@@ -823,7 +801,7 @@ impl TestBackend {
 
         // Perform the invite operation and check that the invitees are now in the group.
         let inviter_group_members_before = inviter
-            .conversation_participants(conversation_id)
+            .chat_participants(conversation_id)
             .await
             .expect("Error getting group members.");
 
@@ -847,7 +825,7 @@ impl TestBackend {
         assert_eq!(invite_messages, expected_messages);
 
         let inviter_group_members_after = inviter
-            .conversation_participants(conversation_id)
+            .chat_participants(conversation_id)
             .await
             .expect("Error getting group members.");
         let new_members = inviter_group_members_after
@@ -861,7 +839,7 @@ impl TestBackend {
         for invitee_id in &invitees {
             let test_invitee = self.users.get_mut(invitee_id).unwrap();
             let invitee = &mut test_invitee.user;
-            let mut invitee_conversations_before = invitee.conversations().await.unwrap();
+            let mut invitee_conversations_before = invitee.chats().await.unwrap();
 
             let qs_messages = invitee.qs_fetch_messages().await.unwrap();
 
@@ -870,7 +848,7 @@ impl TestBackend {
                 .await
                 .expect("Error processing qs messages.");
 
-            let mut invitee_conversations_after = invitee.conversations().await.unwrap();
+            let mut invitee_conversations_after = invitee.chats().await.unwrap();
             let conversation_uuid = conversation_id.uuid();
             let new_conversation_position = invitee_conversations_after
                 .iter()
@@ -922,7 +900,7 @@ impl TestBackend {
             let test_group_member = self.users.get_mut(group_member_id).unwrap();
             let group_member = &mut test_group_member.user;
             let group_members_before = group_member
-                .conversation_participants(conversation_id)
+                .chat_participants(conversation_id)
                 .await
                 .unwrap();
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
@@ -937,7 +915,7 @@ impl TestBackend {
             assert_eq!(invite_messages, expected_messages);
 
             let group_members_after = group_member
-                .conversation_participants(conversation_id)
+                .chat_participants(conversation_id)
                 .await
                 .unwrap();
             let new_members = group_members_after
@@ -1002,7 +980,7 @@ impl TestBackend {
         // Perform the remove operation and check that the removed are not in
         // the group anymore.
         let remover_group_members_before = remover
-            .conversation_participants(conversation_id)
+            .chat_participants(conversation_id)
             .await
             .expect("Error getting group members.");
 
@@ -1025,7 +1003,7 @@ impl TestBackend {
         assert_eq!(remove_messages, expected_messages);
 
         let remover_group_members_after = remover
-            .conversation_participants(conversation_id)
+            .chat_participants(conversation_id)
             .await
             .expect("Error getting group members.");
         let removed_members: HashSet<_> = remover_group_members_before
@@ -1039,15 +1017,12 @@ impl TestBackend {
             let test_removed = self.users.get_mut(removed_id).unwrap();
             let removed = &mut test_removed.user;
             let removed_conversations_before = removed
-                .conversations()
+                .chats()
                 .await
                 .unwrap()
                 .into_iter()
                 .collect::<HashSet<_>>();
-            let past_members = removed
-                .conversation_participants(conversation_id)
-                .await
-                .unwrap();
+            let past_members = removed.chat_participants(conversation_id).await.unwrap();
 
             let qs_messages = removed.qs_fetch_messages().await.unwrap();
 
@@ -1057,7 +1032,7 @@ impl TestBackend {
                 .expect("Error processing qs messages.");
 
             let removed_conversations_after = removed
-                .conversations()
+                .chats()
                 .await
                 .unwrap()
                 .into_iter()
@@ -1102,7 +1077,7 @@ impl TestBackend {
             let test_group_member = self.users.get_mut(group_member_id).unwrap();
             let group_member = &mut test_group_member.user;
             let group_members_before = group_member
-                .conversation_participants(conversation_id)
+                .chat_participants(conversation_id)
                 .await
                 .unwrap();
             let qs_messages = group_member.qs_fetch_messages().await.unwrap();
@@ -1116,7 +1091,7 @@ impl TestBackend {
             assert_eq!(remove_messages, expected_messages);
 
             let group_members_after = group_member
-                .conversation_participants(conversation_id)
+                .chat_participants(conversation_id)
                 .await
                 .unwrap();
             let removed_members: HashSet<_> = group_members_before
@@ -1144,7 +1119,7 @@ impl TestBackend {
         let leaver = &mut test_leaver.user;
 
         // Perform the leave operation.
-        leaver.leave_conversation(conversation_id).await?;
+        leaver.leave_chat(conversation_id).await?;
 
         // Now have a random group member perform an update, thus committing the leave operation.
         // TODO: This is not really random. We should do better here. But also,
@@ -1203,12 +1178,9 @@ impl TestBackend {
         // the group anymore.
         let deleter_conversation_before = deleter.chat(&conversation_id).await.unwrap().clone();
         assert_eq!(deleter_conversation_before.status(), &ChatStatus::Active);
-        let past_members = deleter
-            .conversation_participants(conversation_id)
-            .await
-            .unwrap();
+        let past_members = deleter.chat_participants(conversation_id).await.unwrap();
 
-        deleter.delete_conversation(conversation_id).await.unwrap();
+        deleter.delete_chat(conversation_id).await.unwrap();
 
         let deleter_conversation_after = deleter.chat(&conversation_id).await.unwrap();
         if let ChatStatus::Inactive(inactive_status) = &deleter_conversation_after.status() {
@@ -1234,7 +1206,7 @@ impl TestBackend {
                 &ChatStatus::Active
             );
             let past_members = group_member
-                .conversation_participants(conversation_id)
+                .chat_participants(conversation_id)
                 .await
                 .unwrap();
 
@@ -1322,7 +1294,7 @@ impl TestBackend {
                 // Let's exclude connection groups for now.
                 if let Some(conversation) = user
                     .user()
-                    .conversations()
+                    .chats()
                     .await
                     .unwrap()
                     .into_iter()
@@ -1380,7 +1352,7 @@ impl TestBackend {
                 let user = self.users.get(&random_user).unwrap();
                 if let Some(conversation) = user
                     .user()
-                    .conversations()
+                    .chats()
                     .await
                     .unwrap()
                     .into_iter()
@@ -1421,7 +1393,7 @@ impl TestBackend {
                 let user = self.users.get(&random_user).unwrap();
                 if let Some(conversation) = user
                     .user()
-                    .conversations()
+                    .chats()
                     .await
                     .unwrap()
                     .into_iter()
@@ -1446,7 +1418,7 @@ impl TestBackend {
     }
 }
 
-fn display_messages_to_string_map(display_messages: Vec<ConversationMessage>) -> HashSet<String> {
+fn display_messages_to_string_map(display_messages: Vec<ChatMessage>) -> HashSet<String> {
     display_messages
         .into_iter()
         .filter_map(|m| {

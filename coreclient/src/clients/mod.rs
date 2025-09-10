@@ -55,7 +55,7 @@ use crate::{
     contacts::Contact,
     conversations::{
         Chat, ChatAttributes,
-        messages::{ConversationMessage, TimestampedMessage},
+        messages::{ChatMessage, TimestampedMessage},
     },
     groups::openmls_provider::AirOpenMlsProvider,
     key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
@@ -367,11 +367,11 @@ impl CoreUser {
 
     /// Fetch and process AS messages
     ///
-    /// Returns the list of [`ConversationId`]s of any newly created conversations.
+    /// Returns the list of [`ChatId`]s of any newly created conversations.
     pub async fn fetch_and_process_as_messages(&self) -> Result<Vec<ChatId>> {
         let records = self.user_handle_records().await?;
         let api_client = self.api_client()?;
-        let mut conversation_ids = Vec::new();
+        let mut chat_ids = Vec::new();
         for record in records {
             let (mut stream, responder) = api_client
                 .as_listen_handle(record.hash, &record.signing_key)
@@ -385,8 +385,8 @@ impl CoreUser {
                     .process_handle_queue_message(&record.handle, message)
                     .await
                 {
-                    Ok(conversation_id) => {
-                        conversation_ids.push(conversation_id);
+                    Ok(chat_id) => {
+                        chat_ids.push(chat_id);
                     }
                     Err(error) => {
                         error!(%error, "failed to process handle queue message");
@@ -396,7 +396,7 @@ impl CoreUser {
                 responder.ack(message_id.into()).await;
             }
         }
-        Ok(conversation_ids)
+        Ok(chat_ids)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
@@ -432,36 +432,29 @@ impl CoreUser {
         }
     }
 
-    /// Returns None if there is no conversation with the given id.
-    pub async fn conversation_participants(
-        &self,
-        conversation_id: ChatId,
-    ) -> Option<HashSet<UserId>> {
-        self.try_conversation_participants(conversation_id)
-            .await
-            .ok()?
+    /// Returns None if there is no chat with the given id.
+    pub async fn chat_participants(&self, chat_id: ChatId) -> Option<HashSet<UserId>> {
+        self.try_chat_participants(chat_id).await.ok()?
     }
 
-    pub(crate) async fn try_conversation_participants(
+    pub(crate) async fn try_chat_participants(
         &self,
-        conversation_id: ChatId,
+        chat_id: ChatId,
     ) -> Result<Option<HashSet<UserId>>> {
         let mut connection = self.pool().acquire().await?;
-        let Some(conversation) = Chat::load(&mut connection, &conversation_id).await? else {
+        let Some(chat) = Chat::load(&mut connection, &chat_id).await? else {
             return Ok(None);
         };
-        let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
+        let Some(group) = Group::load(&mut connection, chat.group_id()).await? else {
             return Ok(None);
         };
         Ok(Some(group.members(&mut *connection).await))
     }
 
-    pub async fn pending_removes(&self, conversation_id: ChatId) -> Option<Vec<UserId>> {
+    pub async fn pending_removes(&self, chat_id: ChatId) -> Option<Vec<UserId>> {
         let mut connection = self.pool().acquire().await.ok()?;
-        let conversation = Chat::load(&mut connection, &conversation_id).await.ok()??;
-        let group = Group::load(&mut connection, conversation.group_id())
-            .await
-            .ok()??;
+        let chat = Chat::load(&mut connection, &chat_id).await.ok()??;
+        let group = Group::load(&mut connection, chat.group_id()).await.ok()??;
         Some(group.pending_removes(&mut connection).await)
     }
 
@@ -507,7 +500,7 @@ impl CoreUser {
         }
     }
 
-    /// Mark all messages in the conversation with the given conversation id and
+    /// Mark all messages in the chat with the given chat id and
     /// with a timestamp older than the given timestamp as read.
     pub async fn mark_as_read<T: IntoIterator<Item = (ChatId, DateTime<Utc>)>>(
         &self,
@@ -524,29 +517,26 @@ impl CoreUser {
         Ok(())
     }
 
-    /// Returns how many messages are marked as unread across all conversations.
+    /// Returns how many messages are marked as unread across all chats.
     pub async fn global_unread_messages_count(&self) -> sqlx::Result<usize> {
         Chat::global_unread_message_count(self.pool()).await
     }
 
-    /// Returns how many messages in the conversation with the given ID are
+    /// Returns how many messages in the chat with the given ID are
     /// marked as unread.
-    pub async fn unread_messages_count(&self, conversation_id: ChatId) -> usize {
-        Chat::unread_messages_count(self.pool(), conversation_id)
+    pub async fn unread_messages_count(&self, chat_id: ChatId) -> usize {
+        Chat::unread_messages_count(self.pool(), chat_id)
             .await
             .inspect_err(|error| error!(%error, "Error while fetching unread messages count"))
             .unwrap_or(0)
     }
 
-    pub(crate) async fn try_messages_count(&self, conversation_id: ChatId) -> sqlx::Result<usize> {
-        Chat::messages_count(self.pool(), conversation_id).await
+    pub(crate) async fn try_messages_count(&self, chat_id: ChatId) -> sqlx::Result<usize> {
+        Chat::messages_count(self.pool(), chat_id).await
     }
 
-    pub(crate) async fn try_unread_messages_count(
-        &self,
-        conversation_id: ChatId,
-    ) -> sqlx::Result<usize> {
-        Chat::unread_messages_count(self.pool(), conversation_id).await
+    pub(crate) async fn try_unread_messages_count(&self, chat_id: ChatId) -> sqlx::Result<usize> {
+        Chat::unread_messages_count(self.pool(), chat_id).await
     }
 
     /// Updates the client's push token on the QS.
@@ -591,14 +581,13 @@ impl CoreUser {
     async fn store_new_messages(
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         group_messages: Vec<TimestampedMessage>,
-    ) -> Result<Vec<ConversationMessage>> {
+    ) -> Result<Vec<ChatMessage>> {
         let mut stored_messages = Vec::with_capacity(group_messages.len());
         for timestamped_message in group_messages.into_iter() {
             let message_id = MessageId::random();
-            let mut message =
-                ConversationMessage::new(conversation_id, message_id, timestamped_message);
+            let mut message = ChatMessage::new(chat_id, message_id, timestamped_message);
             let attachment_records = Self::extract_attachments(&mut message);
             message.store(&mut *connection, notifier).await?;
             for (record, pending_record) in attachment_records {

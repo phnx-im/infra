@@ -98,11 +98,7 @@ impl ConversationListCubitBase {
     ///
     /// After the conversation is created, the current user is the only member of the group.
     pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ChatId> {
-        let id = self
-            .context
-            .store
-            .create_conversation(group_name, None)
-            .await?;
+        let id = self.context.store.create_chat(group_name, None).await?;
         self.context.load_and_emit_state().await;
         Ok(id)
     }
@@ -176,7 +172,7 @@ where
 }
 
 async fn conversation_details(store: &impl Store) -> Vec<UiConversationDetails> {
-    let conversations = store.conversations().await.unwrap_or_default();
+    let conversations = store.chats().await.unwrap_or_default();
     let mut conversation_details = Vec::with_capacity(conversations.len());
     for conversation in conversations {
         let details = load_conversation_details(store, conversation).await;

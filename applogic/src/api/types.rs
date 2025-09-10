@@ -12,9 +12,9 @@ use std::fmt;
 pub use aircommon::identifiers::UserHandle;
 use aircommon::identifiers::UserId;
 use aircoreclient::{
-    Asset, ChatAttributes, ChatStatus, ChatType, Contact, ContentMessage, ConversationMessage,
-    DisplayName, ErrorMessage, EventMessage, InactiveChat, Message, MessageDraft, SystemMessage,
-    UserProfile, store::Store,
+    Asset, ChatAttributes, ChatMessage, ChatStatus, ChatType, Contact, ContentMessage, DisplayName,
+    ErrorMessage, EventMessage, InactiveChat, Message, MessageDraft, SystemMessage, UserProfile,
+    store::Store,
 };
 pub use aircoreclient::{ChatId, MessageId};
 use chrono::{DateTime, Duration, Utc};
@@ -271,9 +271,9 @@ pub enum UiMessageStatus {
     Read,
 }
 
-impl From<ConversationMessage> for UiChatMessage {
+impl From<ChatMessage> for UiChatMessage {
     #[frb(ignore)]
-    fn from(message: ConversationMessage) -> Self {
+    fn from(message: ChatMessage) -> Self {
         let status = if !message.is_sent() {
             UiMessageStatus::Sending
         } else if message.status() == MessageStatus::Read {

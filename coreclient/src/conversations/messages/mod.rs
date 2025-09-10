@@ -98,14 +98,14 @@ impl MessageId {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct ConversationMessage {
-    pub(super) conversation_id: ChatId,
-    pub(super) conversation_message_id: MessageId,
+pub struct ChatMessage {
+    pub(super) chat_id: ChatId,
+    pub(super) message_id: MessageId,
     pub(super) timestamped_message: TimestampedMessage,
     pub(super) status: MessageStatus,
 }
 
-impl ConversationMessage {
+impl ChatMessage {
     /// Create a new conversation message from a group message. New messages are
     /// marked as unread by default.
     pub(crate) fn new(
@@ -114,22 +114,22 @@ impl ConversationMessage {
         timestamped_message: TimestampedMessage,
     ) -> Self {
         Self {
-            conversation_id,
-            conversation_message_id,
+            chat_id: conversation_id,
+            message_id: conversation_message_id,
             timestamped_message,
             status: MessageStatus::Unread,
         }
     }
 
     pub fn new_for_test(
-        conversation_id: ChatId,
-        conversation_message_id: MessageId,
+        chat_id: ChatId,
+        message_id: MessageId,
         timestamp: TimeStamp,
         message: Message,
     ) -> Self {
         Self {
-            conversation_id,
-            conversation_message_id,
+            chat_id,
+            message_id,
             timestamped_message: TimestampedMessage { timestamp, message },
             status: MessageStatus::Unread,
         }
@@ -137,8 +137,8 @@ impl ConversationMessage {
 
     pub(crate) fn new_unsent_message(
         sender: UserId,
-        conversation_id: ChatId,
-        conversation_message_id: MessageId,
+        chat_id: ChatId,
+        message_id: MessageId,
         content: MimiContent,
         group_id: &GroupId,
     ) -> Self {
@@ -150,8 +150,8 @@ impl ConversationMessage {
             timestamp: TimeStamp::now(),
         };
         Self {
-            conversation_id,
-            conversation_message_id,
+            chat_id,
+            message_id,
             timestamped_message,
             status: MessageStatus::Unread,
         }
@@ -170,11 +170,11 @@ impl ConversationMessage {
     }
 
     pub fn id_ref(&self) -> &MessageId {
-        &self.conversation_message_id
+        &self.message_id
     }
 
     pub fn id(&self) -> MessageId {
-        self.conversation_message_id
+        self.message_id
     }
 
     pub fn timestamp(&self) -> DateTime<Utc> {
@@ -212,7 +212,7 @@ impl ConversationMessage {
     }
 
     pub fn conversation_id(&self) -> ChatId {
-        self.conversation_id
+        self.chat_id
     }
 
     pub fn message(&self) -> &Message {
@@ -429,5 +429,5 @@ impl From<ErrorMessage> for String {
 #[derive(Debug, Clone)]
 pub enum NotificationType {
     ConversationChange(ChatId), // The id of the changed conversation.
-    Message(Box<ConversationMessage>),
+    Message(Box<ChatMessage>),
 }

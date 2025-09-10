@@ -11,7 +11,7 @@ use mimi_room_policy::VerifiedRoomState;
 
 use crate::{
     MessageId,
-    conversations::{Chat, messages::ConversationMessage},
+    conversations::{Chat, messages::ChatMessage},
     groups::{Group, openmls_provider::AirOpenMlsProvider},
     utils::image::resize_profile_image,
 };
@@ -61,7 +61,7 @@ impl CoreUser {
     pub(crate) async fn delete_conversation(
         &self,
         conversation_id: ChatId,
-    ) -> Result<Vec<ConversationMessage>> {
+    ) -> Result<Vec<ChatMessage>> {
         // Phase 1: Load the conversation and the group
         let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
 
@@ -147,25 +147,16 @@ impl CoreUser {
         Ok(())
     }
 
-    pub(crate) async fn message(
-        &self,
-        message_id: MessageId,
-    ) -> sqlx::Result<Option<ConversationMessage>> {
-        ConversationMessage::load(self.pool(), message_id).await
+    pub(crate) async fn message(&self, message_id: MessageId) -> sqlx::Result<Option<ChatMessage>> {
+        ChatMessage::load(self.pool(), message_id).await
     }
 
-    pub(crate) async fn prev_message(
-        &self,
-        message_id: MessageId,
-    ) -> Result<Option<ConversationMessage>> {
-        Ok(ConversationMessage::prev_message(self.pool(), message_id).await?)
+    pub(crate) async fn prev_message(&self, message_id: MessageId) -> Result<Option<ChatMessage>> {
+        Ok(ChatMessage::prev_message(self.pool(), message_id).await?)
     }
 
-    pub(crate) async fn next_message(
-        &self,
-        message_id: MessageId,
-    ) -> Result<Option<ConversationMessage>> {
-        Ok(ConversationMessage::next_message(self.pool(), message_id).await?)
+    pub(crate) async fn next_message(&self, message_id: MessageId) -> Result<Option<ChatMessage>> {
+        Ok(ChatMessage::next_message(self.pool(), message_id).await?)
     }
 
     pub(crate) async fn chats(&self) -> sqlx::Result<Vec<Chat>> {
@@ -185,10 +176,9 @@ impl CoreUser {
         &self,
         chat_id: ChatId,
         number_of_messages: usize,
-    ) -> Result<Vec<ConversationMessage>> {
+    ) -> Result<Vec<ChatMessage>> {
         let messages =
-            ConversationMessage::load_multiple(self.pool(), chat_id, number_of_messages as u32)
-                .await?;
+            ChatMessage::load_multiple(self.pool(), chat_id, number_of_messages as u32).await?;
         Ok(messages)
     }
 
@@ -366,7 +356,7 @@ mod delete_conversation_flow {
     use sqlx::{SqliteConnection, SqliteTransaction};
 
     use crate::{
-        Chat, ChatId, ConversationMessage,
+        Chat, ChatId, ChatMessage,
         clients::{CoreUser, api_clients::ApiClients},
         conversations::messages::TimestampedMessage,
         groups::Group,
@@ -532,7 +522,7 @@ mod delete_conversation_flow {
             connection: &mut SqliteConnection,
             notifier: &mut StoreNotifier,
             conversation_id: ChatId,
-        ) -> anyhow::Result<Vec<ConversationMessage>> {
+        ) -> anyhow::Result<Vec<ChatMessage>> {
             let Self {
                 mut conversation,
                 past_members,

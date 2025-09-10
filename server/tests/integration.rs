@@ -19,8 +19,8 @@ use aircommon::{
     identifiers::{UserHandle, UserId},
 };
 use aircoreclient::{
-    Asset, ChatId, ConversationMessage, DisplayName, DownloadProgressEvent, UserProfile,
-    clients::CoreUser, store::Store,
+    Asset, ChatId, ChatMessage, DisplayName, DownloadProgressEvent, UserProfile, clients::CoreUser,
+    store::Store,
 };
 use airserver::RateLimitsConfig;
 use airserver_test_harness::utils::setup::{TestBackend, TestUser};
@@ -512,7 +512,7 @@ async fn mark_as_read() {
         user: &mut CoreUser,
         conversation_id: ChatId,
         number_of_messages: usize,
-    ) -> Vec<ConversationMessage> {
+    ) -> Vec<ChatMessage> {
         let mut messages_sent = vec![];
         for _ in 0..number_of_messages {
             let message: String = OsRng

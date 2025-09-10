@@ -24,7 +24,7 @@ use mimi_content::{
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AttachmentStatus, AttachmentUrl, Chat, ChatId, ConversationMessage, MessageId,
+    AttachmentStatus, AttachmentUrl, Chat, ChatId, ChatMessage, MessageId,
     clients::{
         CoreUser,
         attachment::{
@@ -42,7 +42,7 @@ impl CoreUser {
         &self,
         conversation_id: ChatId,
         path: &Path,
-    ) -> anyhow::Result<ConversationMessage> {
+    ) -> anyhow::Result<ChatMessage> {
         let (conversation, group) = self
             .with_transaction(async |txn| {
                 let conversation = Chat::load(txn, &conversation_id).await?.with_context(|| {

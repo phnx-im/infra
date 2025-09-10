@@ -18,7 +18,7 @@ use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
 use crate::{
-    Chat, ChatId, ContentMessage, ConversationMessage, Message, MessageId,
+    Chat, ChatId, ChatMessage, ContentMessage, Message, MessageId,
     conversations::{StatusRecord, messages::edit::MessageEdit},
 };
 
@@ -34,7 +34,7 @@ impl CoreUser {
         conversation_id: ChatId,
         content: MimiContent,
         replaces_id: Option<MessageId>,
-    ) -> anyhow::Result<ConversationMessage> {
+    ) -> anyhow::Result<ChatMessage> {
         let unsent_group_message = self
             .with_transaction_and_notifier(async |txn, notifier| {
                 UnsentContent {
@@ -69,7 +69,7 @@ impl CoreUser {
         conversation_id: ChatId,
         conversation_message_id: MessageId,
         content: MimiContent,
-    ) -> anyhow::Result<ConversationMessage> {
+    ) -> anyhow::Result<ChatMessage> {
         let unsent_group_message = UnsentContent {
             conversation_id,
             conversation_message_id,
@@ -190,7 +190,7 @@ impl UnsentContent {
 
         let conversation_message = if let Some(replaces_id) = replaces_id {
             // Load the original message and the Mimi ID of the original message
-            let mut original = ConversationMessage::load(txn.as_mut(), replaces_id)
+            let mut original = ChatMessage::load(txn.as_mut(), replaces_id)
                 .await?
                 .with_context(|| format!("Can't find message with id {replaces_id:?}"))?;
             let original_mimi_content = original
@@ -230,7 +230,7 @@ impl UnsentContent {
         } else {
             // Store the message as unsent so that we don't lose it in case
             // something goes wrong.
-            let conversation_message = ConversationMessage::new_unsent_message(
+            let conversation_message = ChatMessage::new_unsent_message(
                 sender.clone(),
                 conversation_id,
                 conversation_message_id,
@@ -268,7 +268,7 @@ impl LocalMessage {
         let Self { local_message_id } = self;
 
         let conversation_message =
-            ConversationMessage::load(&mut *connection, MessageId::new(local_message_id))
+            ChatMessage::load(&mut *connection, MessageId::new(local_message_id))
                 .await?
                 .with_context(|| format!("Can't find unsent message with id {local_message_id}"))?;
         let content = match conversation_message.message() {
@@ -313,7 +313,7 @@ struct GroupUpdated;
 struct UnsentMessage<State, GroupUpdate> {
     conversation: Chat,
     group: Group,
-    conversation_message: ConversationMessage,
+    conversation_message: ChatMessage,
     content: State,
     group_update: GroupUpdate,
 }
@@ -410,7 +410,7 @@ impl UnsentMessage<WithParams, GroupUpdated> {
 }
 
 struct SentMessage {
-    conversation_message: ConversationMessage,
+    conversation_message: ChatMessage,
     ds_timestamp: TimeStamp,
 }
 
@@ -420,7 +420,7 @@ impl SentMessage {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         own_user: &UserId,
-    ) -> anyhow::Result<ConversationMessage> {
+    ) -> anyhow::Result<ChatMessage> {
         let Self {
             mut conversation_message,
             ds_timestamp,

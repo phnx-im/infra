@@ -23,7 +23,7 @@ pub use crate::{
     conversations::{
         Chat, ChatAttributes, ChatId, ChatStatus, ChatType, InactiveChat, MessageDraft,
         messages::{
-            ContentMessage, ConversationMessage, ErrorMessage, EventMessage, Message, MessageId,
+            ChatMessage, ContentMessage, ErrorMessage, EventMessage, Message, MessageId,
             NotificationType, SystemMessage,
         },
     },

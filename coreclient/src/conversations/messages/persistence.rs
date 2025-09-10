@@ -15,7 +15,7 @@ use tokio_stream::StreamExt;
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use crate::{ChatId, ContentMessage, ConversationMessage, Message, store::StoreNotifier};
+use crate::{ChatId, ChatMessage, ContentMessage, Message, store::StoreNotifier};
 
 use super::{ErrorMessage, EventMessage};
 
@@ -103,7 +103,7 @@ impl From<VersionedMessageError> for sqlx::Error {
     }
 }
 
-impl TryFrom<SqlConversationMessage> for ConversationMessage {
+impl TryFrom<SqlConversationMessage> for ChatMessage {
     type Error = VersionedMessageError;
 
     fn try_from(
@@ -151,16 +151,16 @@ impl TryFrom<SqlConversationMessage> for ConversationMessage {
         };
 
         let timestamped_message = TimestampedMessage { timestamp, message };
-        Ok(ConversationMessage {
-            conversation_message_id: message_id,
-            conversation_id,
+        Ok(ChatMessage {
+            message_id,
+            chat_id: conversation_id,
             timestamped_message,
             status: u8::try_from(status).map_or(MessageStatus::Unread, MessageStatus::from_repr),
         })
     }
 }
 
-impl ConversationMessage {
+impl ChatMessage {
     pub(crate) async fn load(
         executor: impl SqliteExecutor<'_>,
         message_id: MessageId,
@@ -229,8 +229,8 @@ impl ConversationMessage {
         executor: impl SqliteExecutor<'_>,
         conversation_id: ChatId,
         number_of_messages: u32,
-    ) -> sqlx::Result<Vec<ConversationMessage>> {
-        let messages: sqlx::Result<Vec<ConversationMessage>> = query_as!(
+    ) -> sqlx::Result<Vec<ChatMessage>> {
+        let messages: sqlx::Result<Vec<ChatMessage>> = query_as!(
             SqlConversationMessage,
             r#"SELECT
                 message_id AS "message_id: _",
@@ -252,7 +252,7 @@ impl ConversationMessage {
         )
         .fetch(executor)
         .filter_map(|res| {
-            let message: sqlx::Result<ConversationMessage> = res
+            let message: sqlx::Result<ChatMessage> = res
                 // skip messages that we can't decode, but don't fail loading the rest of the
                 // messages
                 .inspect_err(|e| warn!("Error loading message: {e}"))
@@ -304,9 +304,9 @@ impl ConversationMessage {
                 content,
                 sent
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            self.conversation_message_id,
+            self.message_id,
             mimi_id,
-            self.conversation_id,
+            self.chat_id,
             self.timestamped_message.timestamp,
             sender_uuid,
             sender_domain,
@@ -316,9 +316,7 @@ impl ConversationMessage {
         .execute(executor)
         .await?;
 
-        notifier
-            .add(self.conversation_message_id)
-            .update(self.conversation_id);
+        notifier.add(self.message_id).update(self.chat_id);
         Ok(())
     }
 
@@ -364,7 +362,7 @@ impl ConversationMessage {
         .execute(executor)
         .await?;
         notifier.update(self.id());
-        notifier.update(self.conversation_id);
+        notifier.update(self.chat_id);
         Ok(())
     }
 
@@ -468,7 +466,7 @@ impl ConversationMessage {
     pub(crate) async fn prev_message(
         executor: impl SqliteExecutor<'_>,
         message_id: MessageId,
-    ) -> sqlx::Result<Option<ConversationMessage>> {
+    ) -> sqlx::Result<Option<ChatMessage>> {
         query_as!(
             SqlConversationMessage,
             r#"SELECT
@@ -503,7 +501,7 @@ impl ConversationMessage {
     pub(crate) async fn next_message(
         executor: impl SqliteExecutor<'_>,
         message_id: MessageId,
-    ) -> sqlx::Result<Option<ConversationMessage>> {
+    ) -> sqlx::Result<Option<ChatMessage>> {
         query_as!(
             SqlConversationMessage,
             r#"SELECT
@@ -548,14 +546,14 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) fn test_conversation_message(conversation_id: ChatId) -> ConversationMessage {
+    pub(crate) fn test_conversation_message(conversation_id: ChatId) -> ChatMessage {
         test_conversation_message_with_salt(conversation_id, [0; 16])
     }
 
     pub(crate) fn test_conversation_message_with_salt(
         conversation_id: ChatId,
         salt: [u8; 16],
-    ) -> ConversationMessage {
+    ) -> ChatMessage {
         let conversation_message_id = MessageId::random();
         let timestamp = Utc::now().into();
         let message = Message::Content(Box::new(ContentMessage::new(
@@ -565,9 +563,9 @@ pub(crate) mod tests {
             &GroupId::from_slice(&[0]),
         )));
         let timestamped_message = TimestampedMessage { timestamp, message };
-        ConversationMessage {
-            conversation_message_id,
-            conversation_id,
+        ChatMessage {
+            message_id: conversation_message_id,
+            chat_id: conversation_id,
             timestamped_message,
             status: MessageStatus::Unread,
         }
@@ -585,9 +583,7 @@ pub(crate) mod tests {
         let message = test_conversation_message(conversation.id());
 
         message.store(&pool, &mut store_notifier).await?;
-        let loaded = ConversationMessage::load(&pool, message.id())
-            .await?
-            .unwrap();
+        let loaded = ChatMessage::load(&pool, message.id()).await?.unwrap();
         assert_eq!(loaded, message);
 
         Ok(())
@@ -608,10 +604,10 @@ pub(crate) mod tests {
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::load_multiple(&pool, conversation.id(), 2).await?;
+        let loaded = ChatMessage::load_multiple(&pool, conversation.id(), 2).await?;
         assert_eq!(loaded, [message_a, message_b.clone()]);
 
-        let loaded = ConversationMessage::load_multiple(&pool, conversation.id(), 1).await?;
+        let loaded = ChatMessage::load_multiple(&pool, conversation.id(), 1).await?;
         assert_eq!(loaded, [message_b]);
 
         Ok(())
@@ -629,24 +625,14 @@ pub(crate) mod tests {
         let message = test_conversation_message(conversation.id());
         message.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::load(&pool, message.id())
-            .await?
-            .unwrap();
+        let loaded = ChatMessage::load(&pool, message.id()).await?.unwrap();
         assert!(!loaded.is_sent());
 
         let sent_at: TimeStamp = Utc::now().into();
-        ConversationMessage::update_sent_status(
-            &pool,
-            &mut store_notifier,
-            loaded.id(),
-            sent_at,
-            true,
-        )
-        .await?;
+        ChatMessage::update_sent_status(&pool, &mut store_notifier, loaded.id(), sent_at, true)
+            .await?;
 
-        let loaded = ConversationMessage::load(&pool, message.id())
-            .await?
-            .unwrap();
+        let loaded = ChatMessage::load(&pool, message.id()).await?.unwrap();
         assert_eq!(&loaded.timestamp(), sent_at.as_ref());
         assert!(loaded.is_sent());
 
@@ -668,9 +654,9 @@ pub(crate) mod tests {
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;
 
-        ConversationMessage {
-            conversation_id: conversation.id(),
-            conversation_message_id: MessageId::random(),
+        ChatMessage {
+            chat_id: conversation.id(),
+            message_id: MessageId::random(),
             timestamped_message: TimestampedMessage {
                 timestamp: Utc::now().into(),
                 message: Message::Event(EventMessage::System(SystemMessage::Add(
@@ -683,7 +669,7 @@ pub(crate) mod tests {
         .store(&pool, &mut store_notifier)
         .await?;
 
-        let loaded = ConversationMessage::last_content_message(&pool, conversation.id()).await?;
+        let loaded = ChatMessage::last_content_message(&pool, conversation.id()).await?;
         assert_eq!(loaded, Some(message_b));
 
         Ok(())
@@ -704,7 +690,7 @@ pub(crate) mod tests {
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::prev_message(&pool, message_b.id()).await?;
+        let loaded = ChatMessage::prev_message(&pool, message_b.id()).await?;
         assert_eq!(loaded, Some(message_a));
 
         Ok(())
@@ -725,7 +711,7 @@ pub(crate) mod tests {
         message_a.store(&pool, &mut store_notifier).await?;
         message_b.store(&pool, &mut store_notifier).await?;
 
-        let loaded = ConversationMessage::next_message(&pool, message_a.id()).await?;
+        let loaded = ChatMessage::next_message(&pool, message_a.id()).await?;
         assert_eq!(loaded, Some(message_b));
 
         Ok(())

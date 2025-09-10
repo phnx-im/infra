@@ -5,7 +5,7 @@
 use aircommon::identifiers::UserId;
 use invite_users_flow::InviteUsersData;
 
-use crate::{ChatId, ConversationMessage, utils::connection_ext::ConnectionExt as _};
+use crate::{ChatId, ChatMessage, utils::connection_ext::ConnectionExt as _};
 
 use super::CoreUser;
 
@@ -20,7 +20,7 @@ impl CoreUser {
         &self,
         conversation_id: ChatId,
         invited_users: &[UserId],
-    ) -> anyhow::Result<Vec<ConversationMessage>> {
+    ) -> anyhow::Result<Vec<ChatMessage>> {
         let mut connection = self.pool().acquire().await?;
 
         // Phase 1: Load all the relevant conversation and all the contacts we
@@ -75,7 +75,7 @@ mod invite_users_flow {
     use sqlx::SqliteConnection;
 
     use crate::{
-        Chat, ChatId, Contact, ConversationMessage,
+        Chat, ChatId, ChatMessage, Contact,
         clients::{CoreUser, api_clients::ApiClients},
         contacts::ContactAddInfos,
         groups::{Group, client_auth_info::StorableClientCredential},
@@ -258,7 +258,7 @@ mod invite_users_flow {
             connection: &mut sqlx::SqliteConnection,
             notifier: &mut StoreNotifier,
             conversation_id: ChatId,
-        ) -> anyhow::Result<Vec<ConversationMessage>> {
+        ) -> anyhow::Result<Vec<ChatMessage>> {
             let Self {
                 mut group,
                 ds_timestamp,

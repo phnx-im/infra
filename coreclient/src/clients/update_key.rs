@@ -4,7 +4,7 @@
 
 use update_key_flow::UpdateKeyData;
 
-use crate::{ChatId, ConversationMessage, utils::connection_ext::ConnectionExt};
+use crate::{ChatId, ChatMessage, utils::connection_ext::ConnectionExt};
 
 use super::CoreUser;
 
@@ -19,7 +19,7 @@ impl CoreUser {
     pub(crate) async fn update_key(
         &self,
         conversation_id: ChatId,
-    ) -> anyhow::Result<Vec<ConversationMessage>> {
+    ) -> anyhow::Result<Vec<ChatMessage>> {
         // Phase 1: Load the conversation and the group
         let mut connection = self.pool().acquire().await?;
         let update = connection
@@ -56,7 +56,7 @@ mod update_key_flow {
     use sqlx::SqliteTransaction;
 
     use crate::{
-        Chat, ChatId, ConversationMessage,
+        Chat, ChatId, ChatMessage,
         clients::{CoreUser, api_clients::ApiClients},
         groups::Group,
     };
@@ -120,7 +120,7 @@ mod update_key_flow {
             connection: &mut sqlx::SqliteConnection,
             notifier: &mut crate::store::StoreNotifier,
             conversation_id: ChatId,
-        ) -> anyhow::Result<Vec<ConversationMessage>> {
+        ) -> anyhow::Result<Vec<ChatMessage>> {
             let Self {
                 mut group,
                 ds_timestamp,

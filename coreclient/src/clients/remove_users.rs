@@ -5,7 +5,7 @@
 use aircommon::identifiers::UserId;
 use remove_users_flow::RemoveUsersData;
 
-use crate::{ChatId, ConversationMessage};
+use crate::{ChatId, ChatMessage};
 
 use super::CoreUser;
 
@@ -20,7 +20,7 @@ impl CoreUser {
         &self,
         conversation_id: ChatId,
         target_users: Vec<UserId>,
-    ) -> anyhow::Result<Vec<ConversationMessage>> {
+    ) -> anyhow::Result<Vec<ChatMessage>> {
         // Phase 1: Load the group and conversation and prepare the commit.
         let remove = self
             .with_transaction(async |txn| {
@@ -58,7 +58,7 @@ mod remove_users_flow {
     use sqlx::SqliteTransaction;
 
     use crate::{
-        Chat, ChatId, ConversationMessage,
+        Chat, ChatId, ChatMessage,
         clients::{CoreUser, api_clients::ApiClients},
         groups::Group,
         store::StoreNotifier,
@@ -135,7 +135,7 @@ mod remove_users_flow {
             txn: &mut sqlx::SqliteTransaction<'_>,
             notifier: &mut StoreNotifier,
             conversation_id: ChatId,
-        ) -> anyhow::Result<Vec<ConversationMessage>> {
+        ) -> anyhow::Result<Vec<ChatMessage>> {
             let Self {
                 mut group,
                 ds_timestamp,

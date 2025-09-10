@@ -132,7 +132,7 @@ impl ConversationDetailsCubitBase {
     ///
     /// When `bytes` is `None`, the conversation picture is removed.
     pub async fn set_conversation_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
-        Store::set_conversation_picture(
+        Store::set_picture(
             &self.context.store,
             self.context.conversation_id,
             bytes.clone(),
@@ -253,7 +253,7 @@ impl ConversationDetailsCubitBase {
         let (_, read_mimi_ids) = self
             .context
             .store
-            .mark_conversation_as_read(self.context.conversation_id, until_message_id)
+            .mark_chat_as_read(self.context.conversation_id, until_message_id)
             .await?;
 
         let statuses = read_mimi_ids
@@ -464,7 +464,7 @@ impl ConversationDetailsContext {
     async fn members_of_conversation(&self) -> anyhow::Result<Vec<UiUserId>> {
         Ok(self
             .store
-            .conversation_participants(self.conversation_id)
+            .chat_participants(self.conversation_id)
             .await
             .unwrap_or_default()
             .into_iter()

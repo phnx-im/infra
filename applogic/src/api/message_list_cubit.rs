@@ -10,7 +10,7 @@ use std::{
 };
 
 use aircoreclient::{
-    ChatId, ConversationMessage, MessageId,
+    ChatId, ChatMessage, MessageId,
     store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
 use flutter_rust_bridge::frb;
@@ -61,7 +61,7 @@ impl MessageListState {
     /// of additional messages via batching <https://github.com/phnx-im/infra/issues/287>.
     fn rebuild_from_messages(
         &mut self,
-        mut new_messages: Vec<ConversationMessage>,
+        mut new_messages: Vec<ChatMessage>,
         include_first: bool,
         initial_load: bool,
     ) {
@@ -283,7 +283,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
     ///
     /// The neighbors are calculated from the list of loaded messages by looking up the position of
     /// the `message` in list by timestamp.
-    fn notify_neghbors_of_added_message(&self, message: ConversationMessage) {
+    fn notify_neghbors_of_added_message(&self, message: ChatMessage) {
         let state = self.state_tx.borrow();
         let messages = &state.inner.messages;
         match messages.binary_search_by_key(&Some(message.timestamp()), |m| m.timestamp()) {
@@ -322,8 +322,8 @@ mod tests {
 
     use super::*;
 
-    fn new_test_message(sender: &UserId, timestamp_secs: i64) -> ConversationMessage {
-        ConversationMessage::new_for_test(
+    fn new_test_message(sender: &UserId, timestamp_secs: i64) -> ChatMessage {
+        ChatMessage::new_for_test(
             ChatId::new(Uuid::from_u128(1)),
             MessageId::new(Uuid::from_u128(1)),
             TimeStamp::from(timestamp_secs * 1_000_000_000),

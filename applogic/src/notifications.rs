@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use aircoreclient::{ChatId, ChatType, ConversationMessage};
+use aircoreclient::{ChatId, ChatMessage, ChatType};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -12,7 +12,7 @@ impl User {
     /// Send notifications for new messages.
     pub(crate) async fn new_message_notifications(
         &self,
-        conversation_messages: &[ConversationMessage],
+        conversation_messages: &[ChatMessage],
         notifications: &mut Vec<NotificationContent>,
     ) {
         for conversation_message in conversation_messages {
