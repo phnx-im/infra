@@ -966,7 +966,7 @@ impl<LeafNode: Entity<CURRENT_VERSION>> StorableLeafNode<LeafNode> {
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<Vec<LeafNode>> {
-        sqlx::query("SELECT leaf_node FROM own_leaf_nodes WHERE group_id = ?")
+        sqlx::query("SELECT leaf_node FROM own_leaf_node WHERE group_id = ?")
             .bind(KeyRefWrapper(group_id))
             .fetch(executor)
             .map(|row| {
@@ -985,7 +985,7 @@ impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<Vec<(ProposalRef, Proposal)>> {
-        sqlx::query("SELECT proposal_ref, proposal FROM proposals WHERE group_id = ?1")
+        sqlx::query("SELECT proposal_ref, proposal FROM proposal WHERE group_id = ?1")
             .bind(KeyRefWrapper(group_id))
             .fetch(executor)
             .map(|row| {
@@ -1002,7 +1002,7 @@ impl<Proposal: Entity<CURRENT_VERSION>, ProposalRef: Entity<CURRENT_VERSION>>
         executor: impl SqliteExecutor<'_>,
         group_id: &GroupId,
     ) -> sqlx::Result<Vec<ProposalRef>> {
-        sqlx::query("SELECT proposal_ref FROM proposals WHERE group_id = ?1")
+        sqlx::query("SELECT proposal_ref FROM proposal WHERE group_id = ?1")
             .bind(KeyRefWrapper(group_id))
             .fetch(executor)
             .map(|row| {
@@ -1019,7 +1019,7 @@ impl<SignatureKeyPairs: Entity<CURRENT_VERSION>> StorableSignatureKeyPairs<Signa
         executor: impl SqliteExecutor<'_>,
         public_key: &SignaturePublicKey,
     ) -> sqlx::Result<Option<SignatureKeyPairs>> {
-        sqlx::query("SELECT signature_key FROM signature_keys WHERE public_key = ?1")
+        sqlx::query("SELECT signature_key FROM signature_key WHERE public_key = ?1")
             .bind(KeyRefWrapper(public_key))
             .fetch_optional(executor)
             .await?
@@ -1036,7 +1036,7 @@ impl<EncryptionKeyPair: Entity<CURRENT_VERSION>> StorableEncryptionKeyPair<Encry
         executor: impl SqliteExecutor<'_>,
         public_key: &EncryptionKey,
     ) -> sqlx::Result<Option<EncryptionKeyPair>> {
-        sqlx::query("SELECT key_pair FROM encryption_keys WHERE public_key = ?1")
+        sqlx::query("SELECT key_pair FROM encryption_key WHERE public_key = ?1")
             .bind(KeyRefWrapper(public_key))
             .fetch_optional(executor)
             .await?
@@ -1079,7 +1079,7 @@ impl<EpochKeyPairs: Entity<CURRENT_VERSION>> StorableEpochKeyPairs<EpochKeyPairs
         let group_id = KeyRefWrapper(group_id);
         let epoch_id = KeyRefWrapper(epoch_id);
         sqlx::query(
-            "SELECT key_pairs FROM epoch_keys_pairs
+            "SELECT key_pairs FROM epoch_key_pairs
             WHERE group_id = ?1 AND epoch_id = ?2 AND leaf_index = ?3",
         )
         .bind(group_id)
@@ -1115,7 +1115,7 @@ impl<KeyPackage: Entity<CURRENT_VERSION>> StorableKeyPackage<KeyPackage> {
         executor: impl SqliteExecutor<'_>,
         key_package_ref: &KeyPackageRef,
     ) -> sqlx::Result<Option<KeyPackage>> {
-        sqlx::query("SELECT key_package FROM key_packages WHERE key_package_ref = ?1")
+        sqlx::query("SELECT key_package FROM key_package WHERE key_package_ref = ?1")
             .bind(KeyRefWrapper(key_package_ref))
             .fetch_optional(executor)
             .await?
@@ -1132,7 +1132,7 @@ impl<PskBundle: Entity<CURRENT_VERSION>> StorablePskBundle<PskBundle> {
         executor: impl SqliteExecutor<'_>,
         psk_id: &PskId,
     ) -> sqlx::Result<Option<PskBundle>> {
-        sqlx::query("SELECT psk_bundle FROM psks WHERE psk_id = ?1")
+        sqlx::query("SELECT psk_bundle FROM psk WHERE psk_id = ?1")
             .bind(KeyRefWrapper(psk_id))
             .fetch_optional(executor)
             .await?
