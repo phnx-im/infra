@@ -163,7 +163,7 @@ mod test {
         );
 
         // Update that group state.
-    storable_group_data.encrypted_group_state.flip_bit();
+        storable_group_data.encrypted_group_state.flip_bit();
 
         storable_group_data.update(&ds.db_pool).await.unwrap();
 

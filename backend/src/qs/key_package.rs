@@ -44,9 +44,8 @@ pub(super) trait StorableKeyPackage:
         is_last_resort: bool,
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
-            let mut query_string = String::from(
-                "INSERT INTO key_package (client_id, key_package, is_last_resort) VALUES",
-        );
+        let mut query_string =
+            String::from("INSERT INTO key_package (client_id, key_package, is_last_resort) VALUES");
 
         for (i, key_package) in key_packages.iter().enumerate() {
             // Add values to the query arguments. None of these should throw an error.
