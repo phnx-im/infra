@@ -20,7 +20,7 @@ import '../helpers.dart';
 import '../message_list/message_list_test.dart';
 import '../mocks.dart';
 
-final conversation = conversations[2];
+final chat = chats[2];
 
 final members = [1.userId(), 2.userId(), 3.userId()];
 
@@ -32,7 +32,7 @@ final profiles = [
 
 void main() {
   setUpAll(() {
-    registerFallbackValue(0.conversationMessageId());
+    registerFallbackValue(0.messageId());
     registerFallbackValue(0.userId());
   });
 
@@ -56,9 +56,9 @@ void main() {
       when(
         () => contactsCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
-      when(() => conversationDetailsCubit.state).thenReturn(
-        ConversationDetailsState(conversation: conversation, members: members),
-      );
+      when(
+        () => conversationDetailsCubit.state,
+      ).thenReturn(ConversationDetailsState(chat: chat, members: members));
       when(
         () => conversationDetailsCubit.markAsRead(
           untilMessageId: any(named: "untilMessageId"),
@@ -116,9 +116,7 @@ void main() {
 
     testWidgets('renders correctly', (tester) async {
       when(() => navigationCubit.state).thenReturn(
-        NavigationState.home(
-          home: HomeNavigationState(conversationId: conversation.id),
-        ),
+        NavigationState.home(home: HomeNavigationState(chatId: chat.id)),
       );
       when(
         () => messageListCubit.state,
@@ -136,9 +134,7 @@ void main() {
 
     testWidgets('renders correctly (dark mode)', (tester) async {
       when(() => navigationCubit.state).thenReturn(
-        NavigationState.home(
-          home: HomeNavigationState(conversationId: conversation.id),
-        ),
+        NavigationState.home(home: HomeNavigationState(chatId: chat.id)),
       );
       when(
         () => messageListCubit.state,

@@ -37,9 +37,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   final CoreClient _coreClient = CoreClient();
   final _backgroundService = BackgroundService();
 
-  final StreamController<ConversationId> _openedNotificationController =
-      StreamController<ConversationId>();
-  late final StreamSubscription<ConversationId> _openedNotificationSubscription;
+  final StreamController<ChatId> _openedNotificationController =
+      StreamController<ChatId>();
+  late final StreamSubscription<ChatId> _openedNotificationSubscription;
   final NavigationCubit _navigationCubit = NavigationCubit();
 
   final StreamController<AppState> _appStateController =
@@ -53,7 +53,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     initMethodChannel(_openedNotificationController.sink);
     _openedNotificationSubscription = _openedNotificationController.stream
         .listen((conversationId) {
-          _navigationCubit.openConversation(conversationId);
+          _navigationCubit.openChat(conversationId);
         });
 
     _requestMobileNotifications();
@@ -235,21 +235,19 @@ class ConversationDetailsCubitProvider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<NavigationCubit, NavigationState>(
-      buildWhen:
-          (previous, current) =>
-              current.conversationId != previous.conversationId,
+      buildWhen: (previous, current) => current.chatId != previous.chatId,
       builder: (context, state) {
-        final conversationId = state.conversationId;
-        if (conversationId == null) {
+        final chatId = state.chatId;
+        if (chatId == null) {
           return child;
         }
         return BlocProvider(
           // rebuilds the cubit when a different conversation is selected
-          key: ValueKey("conversation-details-cubit-$conversationId"),
+          key: ValueKey("conversation-details-cubit-$chatId"),
           create:
               (context) => ConversationDetailsCubit(
                 userCubit: context.read<UserCubit>(),
-                conversationId: conversationId,
+                chatId: chatId,
               ),
           child: child,
         );

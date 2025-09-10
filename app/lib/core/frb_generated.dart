@@ -84,7 +84,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 942763400;
+  int get rustContentHash => -1406492773;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -131,7 +131,7 @@ abstract class RustLibApi extends BaseApi {
   ConversationDetailsCubitBase
   crateApiConversationDetailsCubitConversationDetailsCubitBaseNew({
     required UserCubitBase userCubit,
-    required ChatId conversationId,
+    required ChatId chatId,
   });
 
   Future<void>
@@ -146,7 +146,7 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<void>
-  crateApiConversationDetailsCubitConversationDetailsCubitBaseSetConversationPicture({
+  crateApiConversationDetailsCubitConversationDetailsCubitBaseSetChatPicture({
     required ConversationDetailsCubitBase that,
     Uint8List? bytes,
   });
@@ -177,16 +177,16 @@ abstract class RustLibApi extends BaseApi {
     required ConversationListCubitBase that,
   });
 
-  Future<ChatId>
-  crateApiConversationListCubitConversationListCubitBaseCreateChat({
-    required ConversationListCubitBase that,
-    required String groupName,
-  });
-
   Future<ChatId?>
-  crateApiConversationListCubitConversationListCubitBaseCreateConnection({
+  crateApiConversationListCubitConversationListCubitBaseCreateContactChat({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
+  });
+
+  Future<ChatId>
+  crateApiConversationListCubitConversationListCubitBaseCreateGroupChat({
+    required ConversationListCubitBase that,
+    required String groupName,
   });
 
   bool crateApiConversationListCubitConversationListCubitBaseIsClosed({
@@ -962,7 +962,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ConversationDetailsCubitBase
   crateApiConversationDetailsCubitConversationDetailsCubitBaseNew({
     required UserCubitBase userCubit,
-    required ChatId conversationId,
+    required ChatId chatId,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -972,7 +972,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             userCubit,
             serializer,
           );
-          sse_encode_box_autoadd_chat_id(conversationId, serializer);
+          sse_encode_box_autoadd_chat_id(chatId, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
         },
         codec: SseCodec(
@@ -982,7 +982,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ),
         constMeta:
             kCrateApiConversationDetailsCubitConversationDetailsCubitBaseNewConstMeta,
-        argValues: [userCubit, conversationId],
+        argValues: [userCubit, chatId],
         apiImpl: this,
       ),
     );
@@ -992,7 +992,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiConversationDetailsCubitConversationDetailsCubitBaseNewConstMeta =>
       const TaskConstMeta(
         debugName: "ConversationDetailsCubitBase_new",
-        argNames: ["userCubit", "conversationId"],
+        argNames: ["userCubit", "chatId"],
       );
 
   @override
@@ -1077,7 +1077,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<void>
-  crateApiConversationDetailsCubitConversationDetailsCubitBaseSetConversationPicture({
+  crateApiConversationDetailsCubitConversationDetailsCubitBaseSetChatPicture({
     required ConversationDetailsCubitBase that,
     Uint8List? bytes,
   }) {
@@ -1102,7 +1102,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
-            kCrateApiConversationDetailsCubitConversationDetailsCubitBaseSetConversationPictureConstMeta,
+            kCrateApiConversationDetailsCubitConversationDetailsCubitBaseSetChatPictureConstMeta,
         argValues: [that, bytes],
         apiImpl: this,
       ),
@@ -1110,9 +1110,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateApiConversationDetailsCubitConversationDetailsCubitBaseSetConversationPictureConstMeta =>
+  get kCrateApiConversationDetailsCubitConversationDetailsCubitBaseSetChatPictureConstMeta =>
       const TaskConstMeta(
-        debugName: "ConversationDetailsCubitBase_set_conversation_picture",
+        debugName: "ConversationDetailsCubitBase_set_chat_picture",
         argNames: ["that", "bytes"],
       );
 
@@ -1318,49 +1318,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<ChatId>
-  crateApiConversationListCubitConversationListCubitBaseCreateChat({
-    required ConversationListCubitBase that,
-    required String groupName,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
-            that,
-            serializer,
-          );
-          sse_encode_String(groupName, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 16,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_chat_id,
-          decodeErrorData: sse_decode_AnyhowException,
-        ),
-        constMeta:
-            kCrateApiConversationListCubitConversationListCubitBaseCreateChatConstMeta,
-        argValues: [that, groupName],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta
-  get kCrateApiConversationListCubitConversationListCubitBaseCreateChatConstMeta =>
-      const TaskConstMeta(
-        debugName: "ConversationListCubitBase_create_chat",
-        argNames: ["that", "groupName"],
-      );
-
-  @override
   Future<ChatId?>
-  crateApiConversationListCubitConversationListCubitBaseCreateConnection({
+  crateApiConversationListCubitConversationListCubitBaseCreateContactChat({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
   }) {
@@ -1376,7 +1335,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 16,
             port: port_,
           );
         },
@@ -1385,7 +1344,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
-            kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta,
+            kCrateApiConversationListCubitConversationListCubitBaseCreateContactChatConstMeta,
         argValues: [that, handle],
         apiImpl: this,
       ),
@@ -1393,10 +1352,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateApiConversationListCubitConversationListCubitBaseCreateConnectionConstMeta =>
+  get kCrateApiConversationListCubitConversationListCubitBaseCreateContactChatConstMeta =>
       const TaskConstMeta(
-        debugName: "ConversationListCubitBase_create_connection",
+        debugName: "ConversationListCubitBase_create_contact_chat",
         argNames: ["that", "handle"],
+      );
+
+  @override
+  Future<ChatId>
+  crateApiConversationListCubitConversationListCubitBaseCreateGroupChat({
+    required ConversationListCubitBase that,
+    required String groupName,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+            that,
+            serializer,
+          );
+          sse_encode_String(groupName, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_chat_id,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta:
+            kCrateApiConversationListCubitConversationListCubitBaseCreateGroupChatConstMeta,
+        argValues: [that, groupName],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiConversationListCubitConversationListCubitBaseCreateGroupChatConstMeta =>
+      const TaskConstMeta(
+        debugName: "ConversationListCubitBase_create_group_chat",
+        argNames: ["that", "groupName"],
       );
 
   @override
@@ -5951,7 +5951,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return ConversationDetailsState(
-      conversation: dco_decode_opt_box_autoadd_ui_chat_details(arr[0]),
+      chat: dco_decode_opt_box_autoadd_ui_chat_details(arr[0]),
       members: dco_decode_list_ui_user_id(arr[1]),
       roomState:
           dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
@@ -7896,16 +7896,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_conversation = sse_decode_opt_box_autoadd_ui_chat_details(
-      deserializer,
-    );
+    var var_chat = sse_decode_opt_box_autoadd_ui_chat_details(deserializer);
     var var_members = sse_decode_list_ui_user_id(deserializer);
     var var_roomState =
         sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
           deserializer,
         );
     return ConversationDetailsState(
-      conversation: var_conversation,
+      chat: var_chat,
       members: var_members,
       roomState: var_roomState,
     );
@@ -10297,7 +10295,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_opt_box_autoadd_ui_chat_details(self.conversation, serializer);
+    sse_encode_opt_box_autoadd_ui_chat_details(self.chat, serializer);
     sse_encode_list_ui_user_id(self.members, serializer);
     sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
       self.roomState,
@@ -11381,7 +11379,7 @@ class ConversationDetailsCubitBaseImpl extends RustOpaque
         that: this,
       );
 
-  /// Marks the conversation as read until the given message id (including).
+  /// Marks the chat as read until the given message id (including).
   ///
   /// The calls to this method are debounced with a fixed delay.
   Future<void> markAsRead({
@@ -11399,7 +11397,7 @@ class ConversationDetailsCubitBaseImpl extends RustOpaque
         that: this,
       );
 
-  /// Sends a message to the conversation.
+  /// Sends a message to the chat.
   ///
   /// The not yet sent message is immediately stored in the local store and then the message is
   /// send to the DS.
@@ -11411,13 +11409,11 @@ class ConversationDetailsCubitBaseImpl extends RustOpaque
         messageText: messageText,
       );
 
-  /// Sets the conversation picture.
+  /// Sets the chat picture.
   ///
-  /// When `bytes` is `None`, the conversation picture is removed.
-  Future<void> setConversationPicture({Uint8List? bytes}) => RustLib
-      .instance
-      .api
-      .crateApiConversationDetailsCubitConversationDetailsCubitBaseSetConversationPicture(
+  /// When `bytes` is `None`, the chat picture is removed.
+  Future<void> setChatPicture({Uint8List? bytes}) => RustLib.instance.api
+      .crateApiConversationDetailsCubitConversationDetailsCubitBaseSetChatPicture(
         that: this,
         bytes: bytes,
       );
@@ -11481,24 +11477,26 @@ class ConversationListCubitBaseImpl extends RustOpaque
   Future<void> close() => RustLib.instance.api
       .crateApiConversationListCubitConversationListCubitBaseClose(that: this);
 
-  /// Creates a new group chat with the given name.
-  ///
-  /// After the chat is created, the current user is the only member of the group.
-  Future<ChatId> createChat({required String groupName}) => RustLib.instance.api
-      .crateApiConversationListCubitConversationListCubitBaseCreateChat(
-        that: this,
-        groupName: groupName,
-      );
-
   /// Creates a new 1:1 connection with the given user via a user handle.
   ///
   /// Returns `None` if the provided handle does not exist.
-  Future<ChatId?> createConnection({required UiUserHandle handle}) => RustLib
+  Future<ChatId?> createContactChat({required UiUserHandle handle}) => RustLib
       .instance
       .api
-      .crateApiConversationListCubitConversationListCubitBaseCreateConnection(
+      .crateApiConversationListCubitConversationListCubitBaseCreateContactChat(
         that: this,
         handle: handle,
+      );
+
+  /// Creates a new group chat with the given name.
+  ///
+  /// After the chat is created, the current user is the only member of the group.
+  Future<ChatId> createGroupChat({required String groupName}) => RustLib
+      .instance
+      .api
+      .crateApiConversationListCubitConversationListCubitBaseCreateGroupChat(
+        that: this,
+        groupName: groupName,
       );
 
   bool get isClosed => RustLib.instance.api

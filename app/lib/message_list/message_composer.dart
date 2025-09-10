@@ -58,9 +58,9 @@ class _MessageComposerState extends State<MessageComposer>
     _draftLoadingSubscription = _conversationDetailsCubit.stream.listen((
       state,
     ) {
-      if (state.conversation != null) {
+      if (state.chat != null) {
         // state is fully loaded
-        if (state.conversation?.draft case final draft?) {
+        if (state.chat?.draft case final draft?) {
           // We have a draft
           // Ignore user drafts, those were input here and just reflect the change state.
 
@@ -109,14 +109,14 @@ class _MessageComposerState extends State<MessageComposer>
 
   @override
   Widget build(BuildContext context) {
-    final (conversationTitle, editingId) = context.select(
+    final (chatTitle, editingId) = context.select(
       (ConversationDetailsCubit cubit) => (
-        cubit.state.conversation?.title,
-        cubit.state.conversation?.draft?.editingId,
+        cubit.state.chat?.title,
+        cubit.state.chat?.draft?.editingId,
       ),
     );
 
-    if (conversationTitle == null) {
+    if (chatTitle == null) {
       return const SizedBox.shrink();
     }
 
@@ -149,7 +149,7 @@ class _MessageComposerState extends State<MessageComposer>
                 child: _MessageInput(
                   focusNode: _focusNode,
                   controller: _inputController,
-                  conversationTitle: conversationTitle,
+                  chatTitle: chatTitle,
                   isEditing: editingId != null,
                 ),
               ),
@@ -241,7 +241,7 @@ class _MessageComposerState extends State<MessageComposer>
     if (_inputController.text.trim().isNotEmpty) {
       return false;
     }
-    if (cubit.state.conversation?.draft?.editingId != null) {
+    if (cubit.state.chat?.draft?.editingId != null) {
       return false;
     }
     cubit.editMessage();
@@ -286,14 +286,14 @@ class _MessageInput extends StatelessWidget {
   const _MessageInput({
     required FocusNode focusNode,
     required TextEditingController controller,
-    required this.conversationTitle,
+    required this.chatTitle,
     required this.isEditing,
   }) : _focusNode = focusNode,
        _controller = controller;
 
   final FocusNode _focusNode;
   final TextEditingController _controller;
-  final String? conversationTitle;
+  final String? chatTitle;
   final bool isEditing;
 
   @override
@@ -338,7 +338,7 @@ class _MessageInput extends StatelessWidget {
           minLines: 1,
           maxLines: 10,
           decoration: InputDecoration(
-            hintText: loc.composer_inputHint(conversationTitle ?? ""),
+            hintText: loc.composer_inputHint(chatTitle ?? ""),
             hintStyle: TextStyle(
               color: CustomColorScheme.of(context).text.tertiary,
             ),

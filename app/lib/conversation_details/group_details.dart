@@ -13,20 +13,18 @@ import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
 
-/// Shows conversation details
+/// Shows group chat details
 class GroupDetails extends StatelessWidget {
   const GroupDetails({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final (conversation, members) = context.select((
-      ConversationDetailsCubit cubit,
-    ) {
+    final (chat, members) = context.select((ConversationDetailsCubit cubit) {
       final state = cubit.state;
-      return (state.conversation, state.members);
+      return (state.chat, state.members);
     });
 
-    if (conversation == null) {
+    if (chat == null) {
       return const SizedBox.shrink();
     }
 
@@ -38,8 +36,8 @@ class GroupDetails extends StatelessWidget {
           children: [
             UserAvatar(
               size: 128,
-              image: conversation.picture,
-              displayName: conversation.title,
+              image: chat.picture,
+              displayName: chat.title,
               onPressed: () async {
                 final conversationDetailsCubit =
                     context.read<ConversationDetailsCubit>();
@@ -50,15 +48,12 @@ class GroupDetails extends StatelessWidget {
                   source: ImageSource.gallery,
                 );
                 final bytes = await image?.readAsBytes();
-                conversationDetailsCubit.setConversationPicture(bytes: bytes);
+                conversationDetailsCubit.setChatPicture(bytes: bytes);
               },
             ),
+            Text(chat.title, style: Theme.of(context).textTheme.bodyLarge),
             Text(
-              conversation.title,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            Text(
-              conversation.conversationType.description,
+              chat.chatType.description,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             Expanded(

@@ -31,8 +31,7 @@ class ConversationDetailsScreenView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final conversationType = context.select(
-      (ConversationDetailsCubit cubit) =>
-          cubit.state.conversation?.conversationType,
+      (ConversationDetailsCubit cubit) => cubit.state.chat?.chatType,
     );
 
     final loc = AppLocalizations.of(context);
@@ -45,9 +44,9 @@ class ConversationDetailsScreenView extends StatelessWidget {
         title: Text(loc.conversationDetailsScreen_title),
       ),
       body: switch (conversationType) {
-        UiConversationType_HandleConnection() ||
-        UiConversationType_Connection() => const ConnectionDetails(),
-        UiConversationType_Group() => const GroupDetails(),
+        UiChatType_HandleConnection() ||
+        UiChatType_Connection() => const ConnectionDetails(),
+        UiChatType_Group() => const GroupDetails(),
         null => Center(
           child: Text(loc.conversationDetailsScreen_unknownConversation),
         ),

@@ -20,16 +20,16 @@ class ConnectionDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversation = context.select(
-      (ConversationDetailsCubit cubit) => cubit.state.conversation,
+    final chat = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.chat,
     );
 
-    if (conversation == null) {
+    if (chat == null) {
       return const SizedBox.shrink();
     }
 
-    final memberId = switch (conversation.conversationType) {
-      UiConversationType_Connection(field0: final profile) => profile.userId,
+    final memberId = switch (chat.chatType) {
+      UiChatType_Connection(field0: final profile) => profile.userId,
       _ => null,
     };
     if (memberId == null) {
@@ -41,19 +41,12 @@ class ConnectionDetails extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: Spacings.l),
-          UserAvatar(
-            size: 128,
-            displayName: conversation.title,
-            image: conversation.picture,
-          ),
+          UserAvatar(size: 128, displayName: chat.title, image: chat.picture),
+          const SizedBox(height: Spacings.l),
+          Text(style: Theme.of(context).textTheme.bodyLarge, chat.title),
           const SizedBox(height: Spacings.l),
           Text(
-            style: Theme.of(context).textTheme.bodyLarge,
-            conversation.title,
-          ),
-          const SizedBox(height: Spacings.l),
-          Text(
-            conversation.conversationType.description,
+            chat.chatType.description,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
 

@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/message_list/message_list.dart';
 import 'package:air/navigation/navigation.dart';
@@ -21,23 +21,23 @@ class ConversationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversationId = context.select(
-      (NavigationCubit cubit) => cubit.state.conversationId,
+    final chatId = context.select(
+      (NavigationCubit cubit) => cubit.state.chatId,
     );
 
-    if (conversationId == null) {
+    if (chatId == null) {
       return const _EmptyConversationPane();
     }
 
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          // rebuilds the cubit when a different conversation is selected
-          key: ValueKey("message-list-cubit-$conversationId"),
+          // rebuilds the cubit when a different chat is selected
+          key: ValueKey("message-list-cubit-$chatId"),
           create:
               (context) => MessageListCubit(
                 userCubit: context.read<UserCubit>(),
-                conversationId: conversationId,
+                chatId: chatId,
               ),
         ),
       ],
@@ -73,11 +73,11 @@ class ConversationScreenView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversationId = context.select(
-      (NavigationCubit cubit) => cubit.state.conversationId,
+    final chatId = context.select(
+      (NavigationCubit cubit) => cubit.state.chatId,
     );
 
-    if (conversationId == null) {
+    if (chatId == null) {
       return const _EmptyConversationPane();
     }
 
@@ -105,12 +105,12 @@ class _ConversationHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversationTitle = context.select(
-      (ConversationDetailsCubit cubit) => cubit.state.conversation?.title,
+    final title = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.chat?.title,
     );
 
-    final conversationPicture = context.select(
-      (ConversationDetailsCubit cubit) => cubit.state.conversation?.picture,
+    final image = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.chat?.picture,
     );
 
     return Container(
@@ -136,15 +136,15 @@ class _ConversationHeader extends StatelessWidget {
               spacing: Spacings.xs,
               children: [
                 UserAvatar(
-                  displayName: conversationTitle ?? "",
-                  image: conversationPicture,
+                  displayName: title ?? "",
+                  image: image,
                   size: Spacings.l,
                   onPressed: () {
-                    context.read<NavigationCubit>().openConversationDetails();
+                    context.read<NavigationCubit>().openChatDetails();
                   },
                 ),
                 Text(
-                  conversationTitle ?? "",
+                  title ?? "",
                   style: TextStyle(
                     fontSize: LabelFontSize.base.size,
                     fontWeight: FontWeight.w600,
@@ -152,9 +152,7 @@ class _ConversationHeader extends StatelessWidget {
                 ),
               ],
             ),
-            conversationTitle != null
-                ? const _DetailsButton()
-                : const SizedBox.shrink(),
+            title != null ? const _DetailsButton() : const SizedBox.shrink(),
           ],
         ),
       ),
@@ -175,7 +173,7 @@ class _DetailsButton extends StatelessWidget {
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onPressed: () {
-        context.read<NavigationCubit>().openConversationDetails();
+        context.read<NavigationCubit>().openChatDetails();
       },
     );
   }
@@ -194,7 +192,7 @@ class _BackButton extends StatelessWidget {
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onPressed: () {
-        context.read<NavigationCubit>().closeConversation();
+        context.read<NavigationCubit>().closeChat();
       },
     );
   }

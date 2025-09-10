@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A single conversation details feature
+//! A single chat details feature
 
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
@@ -31,15 +31,15 @@ use super::{
     user_cubit::UserCubitBase,
 };
 
-/// The state of a single conversation
+/// The state of a single chat
 ///
-/// Contains the conversation details and the list of members.
+/// Contains the chat details and the list of members.
 ///
 /// Also see [`ConversationDetailsCubitBase`].
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
 pub struct ConversationDetailsState {
-    pub conversation: Option<UiChatDetails>,
+    pub chat: Option<UiChatDetails>,
     pub members: Vec<UiUserId>,
     pub room_state: Option<UiRoomState>,
 }
@@ -72,10 +72,10 @@ impl UiRoomState {
     }
 }
 
-/// The cubit responsible for a single conversation
+/// The cubit responsible for a single chat
 ///
-/// Fetches the conversation details and the list of members. Allows to modify the conversation
-/// details, send messages and mark the conversation as read up to a given message.
+/// Fetches the chat details and the list of members. Allows to modify the chat details, send
+/// messages and mark the chat as read up to a given message.
 #[frb(opaque)]
 pub struct ConversationDetailsCubitBase {
     context: ConversationDetailsContext,
@@ -83,22 +83,19 @@ pub struct ConversationDetailsCubitBase {
 }
 
 impl ConversationDetailsCubitBase {
-    /// Creates a new cubit for the given conversation.
+    /// Creates a new cubit for the given chat.
     ///
-    /// The cubit will fetch the conversation details and the list of members. It will also listen
-    /// to the changes in the conversation and update the state accordingly.
+    /// The cubit will fetch the chat details and the list of members. It will also listen to the
+    /// changes in the chat and update the state accordingly.
     #[frb(sync)]
-    pub fn new(user_cubit: &UserCubitBase, conversation_id: ChatId) -> Self {
+    pub fn new(user_cubit: &UserCubitBase, chat_id: ChatId) -> Self {
         let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
         let core = CubitCore::new();
 
-        let context = ConversationDetailsContext::new(
-            store.clone(),
-            core.state_tx().clone(),
-            conversation_id,
-        );
+        let context =
+            ConversationDetailsContext::new(store.clone(), core.state_tx().clone(), chat_id);
         context
             .clone()
             .spawn(store_notifications, core.cancellation_token().clone());
@@ -128,19 +125,14 @@ impl ConversationDetailsCubitBase {
 
     // Cubit methods
 
-    /// Sets the conversation picture.
+    /// Sets the chat picture.
     ///
-    /// When `bytes` is `None`, the conversation picture is removed.
-    pub async fn set_conversation_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
-        Store::set_chat_picture(
-            &self.context.store,
-            self.context.conversation_id,
-            bytes.clone(),
-        )
-        .await
+    /// When `bytes` is `None`, the chat picture is removed.
+    pub async fn set_chat_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
+        Store::set_chat_picture(&self.context.store, self.context.chat_id, bytes.clone()).await
     }
 
-    /// Sends a message to the conversation.
+    /// Sends a message to the chat.
     ///
     /// The not yet sent message is immediately stored in the local store and then the message is
     /// send to the DS.
@@ -150,10 +142,10 @@ impl ConversationDetailsCubitBase {
 
         let mut draft = None;
         self.core.state_tx().send_if_modified(|state| {
-            let Some(conversation) = state.conversation.as_mut() else {
+            let Some(chat) = state.chat.as_mut() else {
                 return false;
             };
-            draft = conversation.draft.take();
+            draft = chat.draft.take();
             draft.is_some()
         });
 
@@ -161,14 +153,14 @@ impl ConversationDetailsCubitBase {
         if draft.is_some() {
             self.context
                 .store
-                .store_message_draft(self.context.conversation_id, None)
+                .store_message_draft(self.context.chat_id, None)
                 .await?;
         }
         let editing_id = draft.and_then(|d| d.editing_id);
 
         self.context
             .store
-            .send_message(self.context.conversation_id, content, editing_id)
+            .send_message(self.context.chat_id, content, editing_id)
             .await
             .inspect_err(|error| error!(%error, "Failed to send message"))?;
 
@@ -179,12 +171,12 @@ impl ConversationDetailsCubitBase {
         let path = PathBuf::from(path);
         self.context
             .store
-            .upload_attachment(self.context.conversation_id, &path)
+            .upload_attachment(self.context.chat_id, &path)
             .await?;
         Ok(())
     }
 
-    /// Marks the conversation as read until the given message id (including).
+    /// Marks the chat as read until the given message id (including).
     ///
     /// The calls to this method are debounced with a fixed delay.
     pub async fn mark_as_read(
@@ -197,7 +189,7 @@ impl ConversationDetailsCubitBase {
             .mark_as_read_tx
             .send_if_modified(|state| match &state {
                 MarkAsReadState::NotLoaded => {
-                    error!("Marking as read while conversation is not loaded");
+                    error!("Marking as read while chat is not loaded");
                     false
                 }
                 MarkAsReadState::Marked { at }
@@ -253,7 +245,7 @@ impl ConversationDetailsCubitBase {
         let (_, read_mimi_ids) = self
             .context
             .store
-            .mark_chat_as_read(self.context.conversation_id, until_message_id)
+            .mark_chat_as_read(self.context.chat_id, until_message_id)
             .await?;
 
         let statuses = read_mimi_ids
@@ -262,7 +254,7 @@ impl ConversationDetailsCubitBase {
         if let Err(error) = self
             .context
             .store
-            .send_delivery_receipts(self.context.conversation_id, statuses)
+            .send_delivery_receipts(self.context.chat_id, statuses)
             .await
         {
             error!(%error, "Failed to send delivery receipt");
@@ -273,10 +265,10 @@ impl ConversationDetailsCubitBase {
 
     pub async fn store_draft(&self, draft_message: String) -> anyhow::Result<()> {
         let changed = self.core.state_tx().send_if_modified(|state| {
-            let Some(conversation) = state.conversation.as_mut() else {
+            let Some(chat) = state.chat.as_mut() else {
                 return false;
             };
-            match &mut conversation.draft {
+            match &mut chat.draft {
                 Some(draft) if draft.message != draft_message => {
                     draft.message = draft_message;
                     draft.updated_at = Utc::now();
@@ -284,7 +276,7 @@ impl ConversationDetailsCubitBase {
                 }
                 Some(_) => false,
                 None => {
-                    conversation.draft.replace(UiMessageDraft::new(
+                    chat.draft.replace(UiMessageDraft::new(
                         draft_message,
                         UiMessageDraftSource::User,
                     ));
@@ -300,10 +292,10 @@ impl ConversationDetailsCubitBase {
 
     pub async fn reset_draft(&self) {
         self.core.state_tx().send_if_modified(|state| {
-            let Some(conversation) = state.conversation.as_mut() else {
+            let Some(chat) = state.chat.as_mut() else {
                 return false;
             };
-            conversation.draft.take().is_some()
+            chat.draft.take().is_some()
         });
     }
 
@@ -314,10 +306,7 @@ impl ConversationDetailsCubitBase {
             None => {
                 self.context
                     .store
-                    .last_message_by_user(
-                        self.context.conversation_id,
-                        self.context.store.user_id(),
-                    )
+                    .last_message_by_user(self.context.chat_id, self.context.store.user_id())
                     .await?
             }
         };
@@ -336,10 +325,10 @@ impl ConversationDetailsCubitBase {
 
         // Update draft in state
         let changed = self.core.state_tx().send_if_modified(|state| {
-            let Some(conversation) = state.conversation.as_mut() else {
+            let Some(chat) = state.chat.as_mut() else {
                 return false;
             };
-            let draft = conversation.draft.get_or_insert_with(|| UiMessageDraft {
+            let draft = chat.draft.get_or_insert_with(|| UiMessageDraft {
                 message: String::new(),
                 editing_id: None,
                 updated_at: Utc::now(),
@@ -365,15 +354,12 @@ impl ConversationDetailsCubitBase {
             .core
             .state_tx()
             .borrow()
-            .conversation
+            .chat
             .as_ref()
             .and_then(|c| c.draft.clone());
         self.context
             .store
-            .store_message_draft(
-                self.context.conversation_id,
-                draft.map(|d| d.into_draft()).as_ref(),
-            )
+            .store_message_draft(self.context.chat_id, draft.map(|d| d.into_draft()).as_ref())
             .await?;
         Ok(())
     }
@@ -385,7 +371,7 @@ impl ConversationDetailsCubitBase {
 struct ConversationDetailsContext {
     store: CoreUser,
     state_tx: watch::Sender<ConversationDetailsState>,
-    conversation_id: ChatId,
+    chat_id: ChatId,
     mark_as_read_tx: watch::Sender<MarkAsReadState>,
 }
 
@@ -393,13 +379,13 @@ impl ConversationDetailsContext {
     fn new(
         store: CoreUser,
         state_tx: watch::Sender<ConversationDetailsState>,
-        conversation_id: ChatId,
+        chat_id: ChatId,
     ) -> Self {
         let (mark_as_read_tx, _) = watch::channel(Default::default());
         Self {
             store,
             state_tx,
-            conversation_id,
+            chat_id,
             mark_as_read_tx,
         }
     }
@@ -417,9 +403,9 @@ impl ConversationDetailsContext {
     }
 
     async fn load_and_emit_state(&self) {
-        let (details, last_read) = self.load_conversation_details().await.unzip();
+        let (details, last_read) = self.load_chat_details().await.unzip();
         let members = if details.is_some() {
-            self.members_of_conversation()
+            self.members_of_chat()
                 .await
                 .inspect_err(|error| error!(%error, "Failed fetching members"))
                 .unwrap_or_default()
@@ -447,24 +433,24 @@ impl ConversationDetailsContext {
         }
 
         let new_state = ConversationDetailsState {
-            conversation: details,
+            chat: details,
             members,
             room_state,
         };
         let _ = self.state_tx.send(new_state);
     }
 
-    async fn load_conversation_details(&self) -> Option<(UiChatDetails, DateTime<Utc>)> {
-        let conversation = self.store.chat(&self.conversation_id).await?;
-        let last_read = conversation.last_read();
-        let details = load_chat_details(&self.store, conversation).await;
+    async fn load_chat_details(&self) -> Option<(UiChatDetails, DateTime<Utc>)> {
+        let chat = self.store.chat(&self.chat_id).await?;
+        let last_read = chat.last_read();
+        let details = load_chat_details(&self.store, chat).await;
         Some((details, last_read))
     }
 
-    async fn members_of_conversation(&self) -> anyhow::Result<Vec<UiUserId>> {
+    async fn members_of_chat(&self) -> anyhow::Result<Vec<UiUserId>> {
         Ok(self
             .store
-            .chat_participants(self.conversation_id)
+            .chat_participants(self.chat_id)
             .await
             .unwrap_or_default()
             .into_iter()
@@ -491,7 +477,7 @@ impl ConversationDetailsContext {
     }
 
     async fn handle_store_notification(&self, notification: &StoreNotification) {
-        if notification.ops.contains_key(&self.conversation_id.into()) {
+        if notification.ops.contains_key(&self.chat_id.into()) {
             self.load_and_emit_state().await;
         }
     }
@@ -502,9 +488,9 @@ impl ConversationDetailsContext {
 enum MarkAsReadState {
     #[default]
     NotLoaded,
-    /// Conversation is marked as read until the given timestamp
+    /// Chat is marked as read until the given timestamp
     Marked { at: DateTime<Utc> },
-    /// Conversation is scheduled to be marked as read until the given timestamp and message id
+    /// Chat is scheduled to be marked as read until the given timestamp and message id
     Scheduled {
         until_timestamp: DateTime<Utc>,
         until_message_id: MessageId,

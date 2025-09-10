@@ -18,7 +18,7 @@ void main() {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       home: Scaffold(
         body: MemberDetails(
-          conversationId: conversations[0].id,
+          chatId: chats[0].id,
           profile: userProfiles[1],
           isSelf: false,
           canKick: true,

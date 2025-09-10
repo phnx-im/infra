@@ -85,7 +85,7 @@ class MockMessageListCubit extends MockCubit<MessageListState>
 class MockMessageListState implements MessageListState {
   MockMessageListState(this.messages);
 
-  final List<UiConversationMessage> messages;
+  final List<UiChatMessage> messages;
 
   @override
   void dispose() {}
@@ -97,17 +97,16 @@ class MockMessageListState implements MessageListState {
   int get loadedMessagesCount => messages.length;
 
   @override
-  UiConversationMessage? messageAt(int index) =>
-      messages.elementAtOrNull(index);
+  UiChatMessage? messageAt(int index) => messages.elementAtOrNull(index);
 
   @override
-  int? messageIdIndex(ConversationMessageId messageId) {
+  int? messageIdIndex(MessageId messageId) {
     final index = messages.indexWhere((element) => element.id == messageId);
     return index != -1 ? index : null;
   }
 
   @override
-  bool isNewMessage(ConversationMessageId messageId) {
+  bool isNewMessage(MessageId messageId) {
     return false;
   }
 }

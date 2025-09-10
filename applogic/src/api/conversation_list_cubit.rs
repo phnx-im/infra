@@ -89,7 +89,10 @@ impl ConversationListCubitBase {
     /// Creates a new 1:1 connection with the given user via a user handle.
     ///
     /// Returns `None` if the provided handle does not exist.
-    pub async fn create_connection(&self, handle: UiUserHandle) -> anyhow::Result<Option<ChatId>> {
+    pub async fn create_contact_chat(
+        &self,
+        handle: UiUserHandle,
+    ) -> anyhow::Result<Option<ChatId>> {
         let handle = UserHandle::new(handle.plaintext)?;
         self.context.store.add_contact(handle).await
     }
@@ -97,7 +100,7 @@ impl ConversationListCubitBase {
     /// Creates a new group chat with the given name.
     ///
     /// After the chat is created, the current user is the only member of the group.
-    pub async fn create_chat(&self, group_name: String) -> anyhow::Result<ChatId> {
+    pub async fn create_group_chat(&self, group_name: String) -> anyhow::Result<ChatId> {
         let id = self.context.store.create_chat(group_name, None).await?;
         self.context.load_and_emit_state().await;
         Ok(id)

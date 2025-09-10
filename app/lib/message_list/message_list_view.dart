@@ -39,7 +39,7 @@ class _MessageListViewState extends State<MessageListView> {
   /// This is used to prevent the animation from being triggered multiple times
   /// for messages that were newly added to the list, but are re-built because
   /// they were removed from the rendering tree due to the scroll position.
-  final _animatedMessages = List<ConversationMessageId>.empty(growable: true);
+  final _animatedMessages = List<MessageId>.empty(growable: true);
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +81,7 @@ class _MessageListViewState extends State<MessageListView> {
             );
           },
           findChildIndexCallback: (key) {
-            final messageKey = key as ValueKey<ConversationMessageId>;
+            final messageKey = key as ValueKey<MessageId>;
             final messageId = messageKey.value;
             final index = state.messageIdIndex(messageId);
             // reverse index
@@ -101,7 +101,7 @@ class _VisibilityConversationTile extends StatelessWidget {
     required this.child,
   });
 
-  final ConversationMessageId messageId;
+  final MessageId messageId;
   final DateTime timestamp;
   final Widget child;
 
@@ -124,7 +124,7 @@ class _VisibilityConversationTile extends StatelessWidget {
 
 class VisibilityKeyValue {
   const VisibilityKeyValue(this.id);
-  final ConversationMessageId id;
+  final MessageId id;
 
   @override
   int get hashCode => id.hashCode;

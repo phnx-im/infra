@@ -24,15 +24,15 @@ part 'conversation_list_cubit.freezed.dart';
 abstract class ConversationListCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
-  /// Creates a new group chat with the given name.
-  ///
-  /// After the chat is created, the current user is the only member of the group.
-  Future<ChatId> createChat({required String groupName});
-
   /// Creates a new 1:1 connection with the given user via a user handle.
   ///
   /// Returns `None` if the provided handle does not exist.
-  Future<ChatId?> createConnection({required UiUserHandle handle});
+  Future<ChatId?> createContactChat({required UiUserHandle handle});
+
+  /// Creates a new group chat with the given name.
+  ///
+  /// After the chat is created, the current user is the only member of the group.
+  Future<ChatId> createGroupChat({required String groupName});
 
   bool get isClosed;
 

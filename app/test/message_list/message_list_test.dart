@@ -21,12 +21,12 @@ import '../conversation_list/conversation_list_content_test.dart';
 import '../helpers.dart';
 import '../mocks.dart';
 
-final conversationId = 1.conversationId();
+final chatId = 1.chatId();
 
 final messages = [
-  UiConversationMessage(
-    id: 1.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 1.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:00:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
@@ -44,9 +44,9 @@ final messages = [
     position: UiFlightPosition.single,
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 2.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 2.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:01:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
@@ -67,9 +67,9 @@ final messages = [
     position: UiFlightPosition.single,
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 3.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 3.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:02:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
@@ -87,9 +87,9 @@ final messages = [
     position: UiFlightPosition.start,
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 4.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 4.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
@@ -107,9 +107,9 @@ final messages = [
     position: UiFlightPosition.middle,
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 5.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 5.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:03:00.000Z',
     message: UiMessage_Content(
       UiContentMessage(
@@ -133,9 +133,9 @@ This is a message with multiple lines. It should be properly displayed in the me
     position: UiFlightPosition.end,
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 7.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 7.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:04:01.000Z',
     message: UiMessage_Content(
       UiContentMessage(
@@ -153,9 +153,9 @@ This is a message with multiple lines. It should be properly displayed in the me
     position: UiFlightPosition.single,
     status: UiMessageStatus.delivered,
   ),
-  UiConversationMessage(
-    id: 8.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 8.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:04:02.000Z',
     message: UiMessage_Content(
       UiContentMessage(
@@ -189,9 +189,9 @@ final imageAttachment = UiAttachment(
 );
 
 final attachmentMessages = [
-  UiConversationMessage(
-    id: 6.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 6.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:04:00.000Z',
     position: UiFlightPosition.start,
     message: UiMessage_Content(
@@ -217,9 +217,9 @@ final attachmentMessages = [
     ),
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 7.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 7.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:04:01.000Z',
     position: UiFlightPosition.end,
     message: UiMessage_Content(
@@ -237,9 +237,9 @@ final attachmentMessages = [
     ),
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 8.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 8.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:04:02.000Z',
     position: UiFlightPosition.single,
     message: UiMessage_Content(
@@ -255,9 +255,9 @@ final attachmentMessages = [
     ),
     status: UiMessageStatus.sent,
   ),
-  UiConversationMessage(
-    id: 9.conversationMessageId(),
-    conversationId: conversationId,
+  UiChatMessage(
+    id: 9.messageId(),
+    chatId: chatId,
     timestamp: '2023-01-01T00:04:03.000Z',
     position: UiFlightPosition.single,
     message: UiMessage_Content(
@@ -291,7 +291,7 @@ MessageCubit createMockMessageCubit({
 
 void main() {
   setUpAll(() {
-    registerFallbackValue(0.conversationMessageId());
+    registerFallbackValue(0.messageId());
     registerFallbackValue(0.userId());
   });
 
