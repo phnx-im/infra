@@ -8,7 +8,7 @@ import 'package:air/core/core.dart';
 import 'package:air/util/platform.dart';
 import 'package:uuid/uuid.dart';
 
-extension UiConversationDetailsExtension on UiChatDetails {
+extension UiChatDetailsExtension on UiChatDetails {
   /// ClientId of the conversation (for group it is null)
   UiUserId? get userId => switch (chatType) {
     UiChatType_HandleConnection() => null,
@@ -35,7 +35,7 @@ extension UiConversationDetailsExtension on UiChatDetails {
   };
 }
 
-extension UiConversationTypeExtension on UiChatType {
+extension UiChatTypeExtension on UiChatType {
   /// Description of the conversation type which can show in the UI
   String get description => switch (this) {
     UiChatType_HandleConnection() => "Pending connection request",
