@@ -35,7 +35,7 @@ impl User {
                     identifier: NotificationId::random(),
                     title: title.to_owned(),
                     body: body.to_owned(),
-                    conversation_id: Some(conversation.id()),
+                    chat_id: Some(conversation.id()),
                 });
             }
         }
@@ -44,18 +44,18 @@ impl User {
     /// Send notifications for new conversations.
     pub(crate) async fn new_conversation_notifications(
         &self,
-        conversation_ids: &[ChatId],
+        chat_ids: &[ChatId],
         notifications: &mut Vec<NotificationContent>,
     ) {
-        for conversation_id in conversation_ids {
-            if let Some(conversation) = self.user.chat(conversation_id).await {
-                let title = format!("You were added to {}", conversation.attributes().title());
+        for chat_id in chat_ids {
+            if let Some(chat) = self.user.chat(chat_id).await {
+                let title = format!("You were added to {}", chat.attributes().title());
                 let body = "Say hi to everyone".to_owned();
                 notifications.push(NotificationContent {
                     identifier: NotificationId::random(),
                     title: title.to_owned(),
                     body: body.to_owned(),
-                    conversation_id: Some(*conversation_id),
+                    chat_id: Some(*chat_id),
                 });
             }
         }
@@ -67,9 +67,9 @@ impl User {
         connection_conversations: &[ChatId],
         notifications: &mut Vec<NotificationContent>,
     ) {
-        for conversation_id in connection_conversations {
-            if let Some(conversation) = self.user.chat(conversation_id).await
-                && let ChatType::Connection(client_id) = conversation.chat_type()
+        for chat_id in connection_conversations {
+            if let Some(chat) = self.user.chat(chat_id).await
+                && let ChatType::Connection(client_id) = chat.chat_type()
             {
                 let contact_name = self.user.user_profile(client_id).await.display_name;
                 let title = format!("New connection with {contact_name}");
@@ -79,7 +79,7 @@ impl User {
                     identifier: NotificationId::random(),
                     title,
                     body,
-                    conversation_id: Some(*conversation_id),
+                    chat_id: Some(*chat_id),
                 });
             }
         }
@@ -105,13 +105,13 @@ pub struct NotificationContent {
     pub identifier: NotificationId,
     pub title: String,
     pub body: String,
-    pub conversation_id: Option<ChatId>,
+    pub chat_id: Option<ChatId>,
 }
 
 #[derive(Debug)]
 pub struct NotificationHandle {
     pub identifier: NotificationId,
-    pub conversation_id: Option<ChatId>,
+    pub chat_id: Option<ChatId>,
 }
 
 #[derive(Debug, Clone)]

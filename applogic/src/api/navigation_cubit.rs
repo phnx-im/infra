@@ -185,9 +185,7 @@ impl NavigationCubitBase {
         let handles = self.notification_service.get_active_notifications().await;
         let identifiers = handles
             .into_iter()
-            .filter_map(|handle| {
-                (handle.conversation_id? == conversation_id).then_some(handle.identifier)
-            })
+            .filter_map(|handle| (handle.chat_id? == conversation_id).then_some(handle.identifier))
             .collect();
         self.notification_service
             .cancel_notifications(identifiers)

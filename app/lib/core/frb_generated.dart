@@ -8178,7 +8178,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       identifier: dco_decode_notification_id(arr[0]),
       title: dco_decode_String(arr[1]),
       body: dco_decode_String(arr[2]),
-      conversationId:
+      chatId:
           dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
             arr[3],
           ),
@@ -8193,7 +8193,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
     return NotificationHandle(
       identifier: dco_decode_notification_id(arr[0]),
-      conversationId:
+      chatId:
           dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
             arr[1],
           ),
@@ -10471,7 +10471,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_identifier = sse_decode_notification_id(deserializer);
     var var_title = sse_decode_String(deserializer);
     var var_body = sse_decode_String(deserializer);
-    var var_conversationId =
+    var var_chatId =
         sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
           deserializer,
         );
@@ -10479,7 +10479,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       identifier: var_identifier,
       title: var_title,
       body: var_body,
-      conversationId: var_conversationId,
+      chatId: var_chatId,
     );
   }
 
@@ -10489,14 +10489,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_identifier = sse_decode_notification_id(deserializer);
-    var var_conversationId =
+    var var_chatId =
         sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
           deserializer,
         );
-    return NotificationHandle(
-      identifier: var_identifier,
-      conversationId: var_conversationId,
-    );
+    return NotificationHandle(identifier: var_identifier, chatId: var_chatId);
   }
 
   @protected
@@ -13084,7 +13081,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.title, serializer);
     sse_encode_String(self.body, serializer);
     sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-      self.conversationId,
+      self.chatId,
       serializer,
     );
   }
@@ -13097,7 +13094,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_notification_id(self.identifier, serializer);
     sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
-      self.conversationId,
+      self.chatId,
       serializer,
     );
   }

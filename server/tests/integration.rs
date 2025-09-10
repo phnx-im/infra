@@ -62,13 +62,9 @@ async fn send_message() {
     setup.add_user(&ALICE).await;
     tracing::info!("Created alice");
     setup.add_user(&BOB).await;
-    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
-    setup
-        .send_message(conversation_id, &ALICE, vec![&BOB])
-        .await;
-    setup
-        .send_message(conversation_id, &BOB, vec![&ALICE])
-        .await;
+    let chat_id = setup.connect_users(&ALICE, &BOB).await;
+    setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
+    setup.send_message(chat_id, &BOB, vec![&ALICE]).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -83,7 +79,7 @@ async fn rate_limit() {
     .await;
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
-    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+    let chat_id = setup.connect_users(&ALICE, &BOB).await;
 
     let alice = setup.users.get_mut(&ALICE).unwrap();
 
@@ -95,7 +91,7 @@ async fn rate_limit() {
         let res = alice
             .user
             .send_message(
-                conversation_id,
+                chat_id,
                 MimiContent::simple_markdown_message("Hello bob".into(), [0; 16]), // simple seed for testing
                 None,
             )
@@ -124,7 +120,7 @@ async fn rate_limit() {
     let res = alice
         .user
         .send_message(
-            conversation_id,
+            chat_id,
             MimiContent::simple_markdown_message("Hello bob".into(), [0; 16]), // simple seed for testing
             None,
         )
@@ -152,9 +148,9 @@ async fn invite_to_group() {
     setup.add_user(&CHARLIE).await;
     setup.connect_users(&ALICE, &BOB).await;
     setup.connect_users(&ALICE, &CHARLIE).await;
-    let conversation_id = setup.create_group(&ALICE).await;
+    let chat_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
+        .invite_to_group(chat_id, &ALICE, vec![&BOB, &CHARLIE])
         .await;
 }
 
@@ -169,13 +165,13 @@ async fn update_group() {
     tracing::info!("Connecting users");
     setup.connect_users(&ALICE, &BOB).await;
     setup.connect_users(&ALICE, &CHARLIE).await;
-    let conversation_id = setup.create_group(&ALICE).await;
+    let chat_id = setup.create_group(&ALICE).await;
     tracing::info!("Inviting to group");
     setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
+        .invite_to_group(chat_id, &ALICE, vec![&BOB, &CHARLIE])
         .await;
     tracing::info!("Updating group");
-    setup.update_group(conversation_id, &BOB).await
+    setup.update_group(chat_id, &BOB).await
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -189,9 +185,9 @@ async fn remove_from_group() {
     setup.connect_users(&ALICE, &BOB).await;
     setup.connect_users(&ALICE, &CHARLIE).await;
     setup.connect_users(&ALICE, &DAVE).await;
-    let conversation_id = setup.create_group(&ALICE).await;
+    let chat_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE, &DAVE])
+        .invite_to_group(chat_id, &ALICE, vec![&BOB, &CHARLIE, &DAVE])
         .await;
     // Check that Charlie has a user profile stored for BOB, even though
     // he hasn't connected with them.
@@ -200,7 +196,7 @@ async fn remove_from_group() {
     assert!(charlie_user_profile_bob.user_id == *BOB);
 
     setup
-        .remove_from_group(conversation_id, &ALICE, vec![&BOB])
+        .remove_from_group(chat_id, &ALICE, vec![&BOB])
         .await
         .unwrap();
 
@@ -218,25 +214,17 @@ async fn re_add_client() {
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
     setup.connect_users(&ALICE, &BOB).await;
-    let conversation_id = setup.create_group(&ALICE).await;
-    setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
-        .await;
+    let chat_id = setup.create_group(&ALICE).await;
+    setup.invite_to_group(chat_id, &ALICE, vec![&BOB]).await;
     for _ in 0..10 {
         setup
-            .remove_from_group(conversation_id, &ALICE, vec![&BOB])
+            .remove_from_group(chat_id, &ALICE, vec![&BOB])
             .await
             .unwrap();
-        setup
-            .invite_to_group(conversation_id, &ALICE, vec![&BOB])
-            .await;
+        setup.invite_to_group(chat_id, &ALICE, vec![&BOB]).await;
     }
-    setup
-        .send_message(conversation_id, &ALICE, vec![&BOB])
-        .await;
-    setup
-        .send_message(conversation_id, &BOB, vec![&ALICE])
-        .await;
+    setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
+    setup.send_message(chat_id, &BOB, vec![&ALICE]).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -246,11 +234,9 @@ async fn leave_group() {
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
     setup.connect_users(&ALICE, &BOB).await;
-    let conversation_id = setup.create_group(&ALICE).await;
-    setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
-        .await;
-    setup.leave_group(conversation_id, &BOB).await.unwrap();
+    let chat_id = setup.create_group(&ALICE).await;
+    setup.invite_to_group(chat_id, &ALICE, vec![&BOB]).await;
+    setup.leave_group(chat_id, &BOB).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -262,11 +248,9 @@ async fn delete_group() {
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
     setup.connect_users(&ALICE, &BOB).await;
-    let conversation_id = setup.create_group(&ALICE).await;
-    setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
-        .await;
-    let delete_group = setup.delete_group(conversation_id, &ALICE);
+    let chat_id = setup.create_group(&ALICE).await;
+    setup.invite_to_group(chat_id, &ALICE, vec![&BOB]).await;
+    let delete_group = setup.delete_group(chat_id, &ALICE);
     delete_group.await;
 }
 
@@ -286,15 +270,11 @@ async fn full_cycle() {
     setup.add_user(&BOB).await;
 
     // Connect them
-    let conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+    let chat_alice_bob = setup.connect_users(&ALICE, &BOB).await;
 
-    // Test the connection conversation by sending messages back and forth.
-    setup
-        .send_message(conversation_alice_bob, &ALICE, vec![&BOB])
-        .await;
-    setup
-        .send_message(conversation_alice_bob, &BOB, vec![&ALICE])
-        .await;
+    // Test the connection chat by sending messages back and forth.
+    setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
+    setup.send_message(chat_alice_bob, &BOB, vec![&ALICE]).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -307,37 +287,33 @@ async fn room_policy() {
     setup.add_user(&CHARLIE).await;
 
     // Connect them
-    let _conversation_alice_bob = setup.connect_users(&ALICE, &BOB).await;
-    let _conversation_alice_charlie = setup.connect_users(&ALICE, &CHARLIE).await;
-    let _conversation_bob_charlie = setup.connect_users(&BOB, &CHARLIE).await;
+    let _chat_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+    let _chat_alice_charlie = setup.connect_users(&ALICE, &CHARLIE).await;
+    let _chat_bob_charlie = setup.connect_users(&BOB, &CHARLIE).await;
 
     // Create an independent group and invite bob.
-    let conversation_id = setup.create_group(&ALICE).await;
+    let chat_id = setup.create_group(&ALICE).await;
 
-    setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB])
-        .await;
+    setup.invite_to_group(chat_id, &ALICE, vec![&BOB]).await;
 
     // Bob can invite charlie
-    setup
-        .invite_to_group(conversation_id, &BOB, vec![&CHARLIE])
-        .await;
+    setup.invite_to_group(chat_id, &BOB, vec![&CHARLIE]).await;
 
     // Charlie can kick alice
     setup
-        .remove_from_group(conversation_id, &CHARLIE, vec![&ALICE])
+        .remove_from_group(chat_id, &CHARLIE, vec![&ALICE])
         .await
         .unwrap();
 
     // Charlie can kick bob
     setup
-        .remove_from_group(conversation_id, &CHARLIE, vec![&BOB])
+        .remove_from_group(chat_id, &CHARLIE, vec![&BOB])
         .await
         .unwrap();
 
     // TODO: This currently fails
     // Charlie can leave and an empty room remains
-    // setup.leave_group(conversation_id, &CHARLIE).await.unwrap();
+    // setup.leave_group(chat_id, &CHARLIE).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -453,12 +429,12 @@ async fn exchange_user_profiles() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Message retrieval test", skip_all)]
-async fn retrieve_conversation_messages() {
+async fn retrieve_chat_messages() {
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
 
-    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+    let chat_id = setup.connect_users(&ALICE, &BOB).await;
 
     let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test_user.user;
@@ -473,19 +449,19 @@ async fn retrieve_conversation_messages() {
             .collect();
         let message_content = MimiContent::simple_markdown_message(message, [0; 16]); // simple seed for testing
         let message = alice
-            .send_message(conversation_id, message_content, None)
+            .send_message(chat_id, message_content, None)
             .await
             .unwrap();
         messages_sent.push(message);
     }
 
-    // Let's see what Alice's messages for this conversation look like.
+    // Let's see what Alice's messages for this chat look like.
     let messages_retrieved = setup
         .users
         .get(&ALICE)
         .unwrap()
         .user
-        .messages(conversation_id, number_of_messages)
+        .messages(chat_id, number_of_messages)
         .await
         .unwrap();
 
@@ -501,8 +477,8 @@ async fn mark_as_read() {
     setup.add_user(&BOB).await;
     setup.add_user(&CHARLIE).await;
 
-    let alice_bob_conversation = setup.connect_users(&ALICE, &BOB).await;
-    let bob_charlie_conversation = setup.connect_users(&BOB, &CHARLIE).await;
+    let alice_bob_chat = setup.connect_users(&ALICE, &BOB).await;
+    let bob_charlie_chat = setup.connect_users(&BOB, &CHARLIE).await;
 
     let charlie_test_user = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut charlie_test_user.user;
@@ -510,7 +486,7 @@ async fn mark_as_read() {
     // Send a few messages
     async fn send_messages(
         user: &mut CoreUser,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         number_of_messages: usize,
     ) -> Vec<ChatMessage> {
         let mut messages_sent = vec![];
@@ -522,7 +498,7 @@ async fn mark_as_read() {
                 .collect();
             let message_content = MimiContent::simple_markdown_message(message, [0; 16]); // simple seed for testing
             let message = user
-                .send_message(conversation_id, message_content, None)
+                .send_message(chat_id, message_content, None)
                 .await
                 .unwrap();
             messages_sent.push(message);
@@ -531,14 +507,10 @@ async fn mark_as_read() {
     }
 
     let number_of_messages = 10;
-    send_messages(alice, alice_bob_conversation, number_of_messages).await;
+    send_messages(alice, alice_bob_chat, number_of_messages).await;
 
     // Message status starts at Unread
-    let last_message = alice
-        .last_message(alice_bob_conversation)
-        .await
-        .unwrap()
-        .unwrap();
+    let last_message = alice.last_message(alice_bob_chat).await.unwrap().unwrap();
     assert_eq!(last_message.status(), MessageStatus::Unread);
 
     let bob_test_user = setup.users.get_mut(&BOB).unwrap();
@@ -548,7 +520,7 @@ async fn mark_as_read() {
     let qs_messages = bob.qs_fetch_messages().await.unwrap();
     bob.fully_process_qs_messages(qs_messages).await.unwrap();
     let expected_unread_message_count = number_of_messages;
-    let unread_message_count = bob.unread_messages_count(alice_bob_conversation).await;
+    let unread_message_count = bob.unread_messages_count(alice_bob_chat).await;
     assert_eq!(expected_unread_message_count, unread_message_count);
     let global_unread_message_count = bob.global_unread_messages_count().await.unwrap();
     let expected_global_unread_message_count = expected_unread_message_count;
@@ -562,41 +534,30 @@ async fn mark_as_read() {
     let alice = &mut alice_test_user.user;
     let qs_messages = alice.qs_fetch_messages().await.unwrap();
     alice.fully_process_qs_messages(qs_messages).await.unwrap();
-    let last_message = alice
-        .last_message(alice_bob_conversation)
-        .await
-        .unwrap()
-        .unwrap();
+    let last_message = alice.last_message(alice_bob_chat).await.unwrap().unwrap();
     assert_eq!(last_message.status(), MessageStatus::Delivered);
 
     // Bob reads the messages
     let bob_test_user = setup.users.get_mut(&BOB).unwrap();
     let bob = &mut bob_test_user.user;
     let last_message_id = last_message.message().mimi_id().unwrap();
-    bob.send_delivery_receipts(
-        alice_bob_conversation,
-        [(last_message_id, MessageStatus::Read)],
-    )
-    .await
-    .unwrap();
+    bob.send_delivery_receipts(alice_bob_chat, [(last_message_id, MessageStatus::Read)])
+        .await
+        .unwrap();
 
     // Alice sees the read receipt
     let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test_user.user;
     let qs_messages = alice.qs_fetch_messages().await.unwrap();
     alice.fully_process_qs_messages(qs_messages).await.unwrap();
-    let last_message = alice
-        .last_message(alice_bob_conversation)
-        .await
-        .unwrap()
-        .unwrap();
+    let last_message = alice.last_message(alice_bob_chat).await.unwrap().unwrap();
     assert_eq!(last_message.status(), MessageStatus::Read);
 
     // Let's send some messages between bob and charlie s.t. we can test the
     // global unread messages count.
     let charlie_test_user = setup.users.get_mut(&CHARLIE).unwrap();
     let charlie = &mut charlie_test_user.user;
-    let messages_sent = send_messages(charlie, bob_charlie_conversation, number_of_messages).await;
+    let messages_sent = send_messages(charlie, bob_charlie_chat, number_of_messages).await;
 
     let bob_test_user = setup.users.get_mut(&BOB).unwrap();
     let bob = &mut bob_test_user.user;
@@ -608,17 +569,17 @@ async fn mark_as_read() {
     // the vector is 0-indexed).
     let timestamp = bob_messages_sent.new_messages[messages_sent.len() - 3].timestamp();
 
-    bob.mark_as_read([(bob_charlie_conversation, timestamp)])
+    bob.mark_as_read([(bob_charlie_chat, timestamp)])
         .await
         .unwrap();
 
     // Check if we were successful
     let expected_unread_message_count = 2;
-    let unread_message_count = bob.unread_messages_count(bob_charlie_conversation).await;
+    let unread_message_count = bob.unread_messages_count(bob_charlie_chat).await;
     assert_eq!(expected_unread_message_count, unread_message_count);
 
     // We expect the global unread messages count to be that of both
-    // conversations, i.e. the `expected_unread_message_count` plus
+    // chats, i.e. the `expected_unread_message_count` plus
     // `number_of_messages`, because none of the messages between alice and
     // charlie had been read.
     let expected_global_unread_message_count = expected_unread_message_count + number_of_messages;
@@ -711,9 +672,9 @@ async fn update_user_profile_on_group_join() {
     setup.add_user(&CHARLIE).await;
 
     // Alice and Bob are connected.
-    let _alice_bob_conversation = setup.connect_users(&ALICE, &BOB).await;
+    let _alice_bob_chat = setup.connect_users(&ALICE, &BOB).await;
     // Bob and Charlie are connected.
-    let _bob_charlie_conversation = setup.connect_users(&BOB, &CHARLIE).await;
+    let _bob_charlie_chat = setup.connect_users(&BOB, &CHARLIE).await;
 
     // Alice updates her profile.
     let alice_display_name: DisplayName = "4l1c3".parse().unwrap();
@@ -733,11 +694,11 @@ async fn update_user_profile_on_group_join() {
 
     // Bob doesn't fetch his queue, so he doesn't know about Alice's new profile.
     // He creates a group and invites Charlie.
-    let conversation_id = setup.create_group(&BOB).await;
+    let chat_id = setup.create_group(&BOB).await;
 
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, std::slice::from_ref(&*CHARLIE))
+        .invite_users(chat_id, std::slice::from_ref(&*CHARLIE))
         .await
         .unwrap();
 
@@ -753,7 +714,7 @@ async fn update_user_profile_on_group_join() {
     // Bob now invites Alice
     let bob = setup.users.get_mut(&BOB).unwrap();
     bob.user
-        .invite_users(conversation_id, std::slice::from_ref(&*ALICE))
+        .invite_users(chat_id, std::slice::from_ref(&*ALICE))
         .await
         .unwrap();
 
@@ -767,8 +728,8 @@ async fn update_user_profile_on_group_join() {
         .await
         .unwrap();
 
-    assert!(result.changed_conversations.is_empty());
-    assert!(result.new_conversations.is_empty());
+    assert!(result.changed_chats.is_empty());
+    assert!(result.new_chats.is_empty());
     assert!(result.new_messages.is_empty());
     let err = &result.errors[0];
     let AsRequestError::Tonic(tonic_err) = err.downcast_ref().unwrap() else {
@@ -842,11 +803,11 @@ async fn send_attachment() {
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
-    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+    let chat_id = setup.connect_users(&ALICE, &BOB).await;
 
     let attachment = vec![0x00, 0x01, 0x02, 0x03];
     let (_message_id, external_part) = setup
-        .send_attachment(conversation_id, &ALICE, vec![&BOB], &attachment, "test.bin")
+        .send_attachment(chat_id, &ALICE, vec![&BOB], &attachment, "test.bin")
         .await;
 
     let attachment_id = match &external_part {
@@ -913,7 +874,7 @@ async fn send_image_attachment() {
     let mut setup = TestBackend::single().await;
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
-    let conversation_id = setup.connect_users(&ALICE, &BOB).await;
+    let chat_id = setup.connect_users(&ALICE, &BOB).await;
 
     // A base64 encoded blue PNG image 100x75 pixels.
     const SAMPLE_PNG_BASE64: &str = "\
@@ -926,7 +887,7 @@ async fn send_image_attachment() {
 
     let attachment = BASE64_STANDARD.decode(SAMPLE_PNG_BASE64).unwrap();
     let (_message_id, external_part) = setup
-        .send_attachment(conversation_id, &ALICE, vec![&BOB], &attachment, "test.png")
+        .send_attachment(chat_id, &ALICE, vec![&BOB], &attachment, "test.png")
         .await;
 
     let attachment_id = match &external_part {

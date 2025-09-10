@@ -8597,12 +8597,12 @@ impl SseDecode for crate::notifications::NotificationContent {
         let mut var_identifier = <crate::notifications::NotificationId>::sse_decode(deserializer);
         let mut var_title = <String>::sse_decode(deserializer);
         let mut var_body = <String>::sse_decode(deserializer);
-        let mut var_conversationId = <Option<ChatId>>::sse_decode(deserializer);
+        let mut var_chatId = <Option<ChatId>>::sse_decode(deserializer);
         return crate::notifications::NotificationContent {
             identifier: var_identifier,
             title: var_title,
             body: var_body,
-            conversation_id: var_conversationId,
+            chat_id: var_chatId,
         };
     }
 }
@@ -8611,10 +8611,10 @@ impl SseDecode for crate::notifications::NotificationHandle {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_identifier = <crate::notifications::NotificationId>::sse_decode(deserializer);
-        let mut var_conversationId = <Option<ChatId>>::sse_decode(deserializer);
+        let mut var_chatId = <Option<ChatId>>::sse_decode(deserializer);
         return crate::notifications::NotificationHandle {
             identifier: var_identifier,
-            conversation_id: var_conversationId,
+            chat_id: var_chatId,
         };
     }
 }
@@ -10205,7 +10205,7 @@ impl flutter_rust_bridge::IntoDart for crate::notifications::NotificationContent
             self.identifier.into_into_dart().into_dart(),
             self.title.into_into_dart().into_dart(),
             self.body.into_into_dart().into_dart(),
-            self.conversation_id.into_into_dart().into_dart(),
+            self.chat_id.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -10226,7 +10226,7 @@ impl flutter_rust_bridge::IntoDart for crate::notifications::NotificationHandle 
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.identifier.into_into_dart().into_dart(),
-            self.conversation_id.into_into_dart().into_dart(),
+            self.chat_id.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -11893,7 +11893,7 @@ impl SseEncode for crate::notifications::NotificationContent {
         <crate::notifications::NotificationId>::sse_encode(self.identifier, serializer);
         <String>::sse_encode(self.title, serializer);
         <String>::sse_encode(self.body, serializer);
-        <Option<ChatId>>::sse_encode(self.conversation_id, serializer);
+        <Option<ChatId>>::sse_encode(self.chat_id, serializer);
     }
 }
 
@@ -11901,7 +11901,7 @@ impl SseEncode for crate::notifications::NotificationHandle {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <crate::notifications::NotificationId>::sse_encode(self.identifier, serializer);
-        <Option<ChatId>>::sse_encode(self.conversation_id, serializer);
+        <Option<ChatId>>::sse_encode(self.chat_id, serializer);
     }
 }
 

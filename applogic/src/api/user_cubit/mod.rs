@@ -456,8 +456,7 @@ impl CubitContext {
             }
             NotificationContext::Conversation(conversation_id) => {
                 // Remove notifications for the current conversation
-                notifications
-                    .retain(|notification| notification.conversation_id != Some(conversation_id));
+                notifications.retain(|notification| notification.chat_id != Some(conversation_id));
             }
             NotificationContext::Other => (),
         }

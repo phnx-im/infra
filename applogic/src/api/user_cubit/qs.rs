@@ -81,8 +81,8 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
                 let messages = std::mem::take(&mut self.messages);
                 match user.process_qs_messages(messages).await {
                     Ok(ProcessedQsMessages {
-                        new_conversations,
-                        changed_conversations: _,
+                        new_chats: new_conversations,
+                        changed_chats: _,
                         new_messages,
                         errors: _,
                     }) => {

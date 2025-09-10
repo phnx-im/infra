@@ -54,8 +54,8 @@ pub enum ProcessQsMessageResult {
 
 #[derive(Debug)]
 pub struct ProcessedQsMessages {
-    pub new_conversations: Vec<ChatId>,
-    pub changed_conversations: Vec<ChatId>,
+    pub new_chats: Vec<ChatId>,
+    pub changed_chats: Vec<ChatId>,
     pub new_messages: Vec<ChatMessage>,
     pub errors: Vec<anyhow::Error>,
 }
@@ -64,7 +64,7 @@ pub struct ProcessedQsMessages {
 struct ApplicationMessagesHandlerResult {
     new_messages: Vec<TimestampedMessage>,
     updated_messages: Vec<ChatMessage>,
-    conversation_changed: bool,
+    chat_changed: bool,
 }
 
 impl CoreUser {
@@ -131,7 +131,7 @@ impl CoreUser {
     ) -> Result<ProcessQsMessageResult> {
         // WelcomeBundle Phase 1: Join the group. This might involve
         // loading AS credentials or fetching them from the AS.
-        let (own_profile_key, own_profile_key_in_group, group, conversation_id) = self
+        let (own_profile_key, own_profile_key_in_group, group, chat_id) = self
             .with_transaction_and_notifier(async |txn, notifier| {
                 let (group, member_profile_info) = Group::join_group(
                     welcome_bundle,
@@ -212,7 +212,7 @@ impl CoreUser {
                 .await?;
         }
 
-        Ok(ProcessQsMessageResult::NewConversation(conversation_id))
+        Ok(ProcessQsMessageResult::NewConversation(chat_id))
     }
 
     async fn handle_mls_message(
@@ -233,12 +233,12 @@ impl CoreUser {
         // MLSMessage Phase 1: Load the conversation and the group.
         let group_id = protocol_message.group_id().clone();
 
-        let (conversation_messages, conversation_changed, conversation_id, profile_infos) = self
+        let (conversation_messages, conversation_changed, chat_id, profile_infos) = self
             .with_transaction_and_notifier(async |txn, notifier| {
-                let conversation = Chat::load_by_group_id(txn.as_mut(), &group_id)
+                let chat = Chat::load_by_group_id(txn.as_mut(), &group_id)
                     .await?
                     .ok_or_else(|| anyhow!("No conversation found for group ID {:?}", group_id))?;
-                let conversation_id = conversation.id();
+                let chat_id = chat.id();
 
                 let mut group = Group::load_clean(txn, &group_id)
                     .await?
@@ -264,7 +264,7 @@ impl CoreUser {
                             let ApplicationMessagesHandlerResult {
                                 new_messages,
                                 updated_messages,
-                                conversation_changed,
+                                chat_changed: conversation_changed,
                             } = self
                                 .handle_application_message(
                                     txn,
@@ -288,7 +288,7 @@ impl CoreUser {
                                 .handle_staged_commit_message(
                                     txn,
                                     &mut group,
-                                    conversation,
+                                    chat,
                                     *staged_commit,
                                     aad,
                                     ds_timestamp,
@@ -310,7 +310,7 @@ impl CoreUser {
                 group.store_update(txn.as_mut()).await?;
 
                 let mut conversation_messages =
-                    Self::store_new_messages(txn, notifier, conversation_id, new_messages).await?;
+                    Self::store_new_messages(txn, notifier, chat_id, new_messages).await?;
                 for updated_message in updated_messages {
                     updated_message.update(txn.as_mut(), notifier).await?;
                     conversation_messages.push(updated_message);
@@ -319,7 +319,7 @@ impl CoreUser {
                 Ok((
                     conversation_messages,
                     conversation_changed,
-                    conversation_id,
+                    chat_id,
                     profile_infos,
                 ))
             })
@@ -339,13 +339,11 @@ impl CoreUser {
                 None
             }
         });
-        self.send_delivery_receipts(conversation_id, delivered_receipts)
+        self.send_delivery_receipts(chat_id, delivered_receipts)
             .await?;
 
         let res = match (conversation_messages, conversation_changed) {
-            (messages, true) => {
-                ProcessQsMessageResult::ConversationChanged(conversation_id, messages)
-            }
+            (messages, true) => ProcessQsMessageResult::ConversationChanged(chat_id, messages),
             (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
         };
 
@@ -419,7 +417,7 @@ impl CoreUser {
 
             return Ok(ApplicationMessagesHandlerResult {
                 updated_messages: message.into_iter().collect(),
-                conversation_changed: true,
+                chat_changed: true,
                 ..Default::default()
             });
         }
@@ -428,7 +426,7 @@ impl CoreUser {
             TimestampedMessage::from_mimi_content_result(content, ds_timestamp, sender, group);
         Ok(ApplicationMessagesHandlerResult {
             new_messages: vec![message],
-            conversation_changed: true,
+            chat_changed: true,
             ..Default::default()
         })
     }
@@ -662,8 +660,8 @@ impl CoreUser {
         }
 
         Ok(ProcessedQsMessages {
-            new_conversations,
-            changed_conversations,
+            new_chats: new_conversations,
+            changed_chats: changed_conversations,
             new_messages,
             errors,
         })

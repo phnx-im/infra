@@ -44,8 +44,8 @@ impl User {
         // Fetch QS messages
         debug!("fetch QS messages");
         let ProcessedQsMessages {
-            new_conversations,
-            changed_conversations: _,
+            new_chats: new_conversations,
+            changed_chats: _,
             new_messages,
             errors: _,
         } = self.fetch_and_process_qs_messages().await?;
