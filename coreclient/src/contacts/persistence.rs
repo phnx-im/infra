@@ -71,7 +71,8 @@ impl Contact {
                 friendship_token AS "friendship_token: _",
                 connection_key AS "connection_key: _",
                 user_profile_key_index AS "user_profile_key_index: _"
-            FROM contacts WHERE user_uuid = ? AND user_domain = ?"#,
+            FROM contact
+            WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain
         )
@@ -91,7 +92,7 @@ impl Contact {
                 friendship_token AS "friendship_token: _",
                 connection_key AS "connection_key: _",
                 user_profile_key_index AS "user_profile_key_index: _"
-            FROM contacts"#
+            FROM contact"#
         )
         .fetch(executor)
         .map(|res| res.map(From::from))
@@ -107,7 +108,7 @@ impl Contact {
         let uuid = self.user_id.uuid();
         let domain = self.user_id.domain();
         query!(
-            "INSERT OR REPLACE INTO contacts (
+            "INSERT OR REPLACE INTO contact (
                 user_uuid,
                 user_domain,
                 conversation_id,
@@ -140,7 +141,7 @@ impl Contact {
         let uuid = user_id.uuid();
         let domain = user_id.domain();
         query!(
-            "UPDATE contacts SET user_profile_key_index = ?
+            "UPDATE contact SET user_profile_key_index = ?
             WHERE user_uuid = ? AND user_domain = ?",
             key_index,
             uuid,
@@ -160,7 +161,7 @@ impl HandleContact {
     ) -> sqlx::Result<()> {
         let created_at = Utc::now();
         query!(
-            "INSERT OR REPLACE INTO user_handle_contacts (
+            "INSERT OR REPLACE INTO user_handle_contact (
                 user_handle,
                 conversation_id,
                 friendship_package_ear_key,
@@ -190,7 +191,7 @@ impl HandleContact {
                 conversation_id AS "conversation_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _",
                 connection_offer_hash AS "connection_offer_hash: _"
-            FROM user_handle_contacts
+            FROM user_handle_contact
             WHERE user_handle = ?"#,
             handle,
         )
@@ -206,7 +207,7 @@ impl HandleContact {
                 conversation_id AS "conversation_id: _",
                 friendship_package_ear_key AS "friendship_package_ear_key: _",
                 connection_offer_hash AS "connection_offer_hash: _"
-            FROM user_handle_contacts"#,
+            FROM user_handle_contact"#,
         )
         .fetch_all(executor)
         .await
@@ -214,7 +215,7 @@ impl HandleContact {
 
     async fn delete(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         query!(
-            "DELETE FROM user_handle_contacts WHERE user_handle = ?",
+            "DELETE FROM user_handle_contact WHERE user_handle = ?",
             self.handle
         )
         .execute(executor)

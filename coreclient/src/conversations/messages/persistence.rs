@@ -178,7 +178,7 @@ impl ConversationMessage {
                 sent,
                 status,
                 edited_at AS "edited_at: _"
-            FROM conversation_messages
+            FROM message
             WHERE message_id = ?
             "#,
             message_id,
@@ -210,7 +210,7 @@ impl ConversationMessage {
                 sent,
                 status,
                 edited_at AS "edited_at: _"
-            FROM conversation_messages
+            FROM message
             WHERE mimi_id = ?
             "#,
             mimi_id,
@@ -243,7 +243,7 @@ impl ConversationMessage {
                 sent,
                 status,
                 edited_at AS "edited_at: _"
-            FROM conversation_messages
+            FROM message
             WHERE conversation_id = ?
             ORDER BY timestamp DESC
             LIMIT ?"#,
@@ -294,7 +294,7 @@ impl ConversationMessage {
         };
 
         query!(
-            "INSERT INTO conversation_messages (
+            "INSERT INTO message (
                 message_id,
                 mimi_id,
                 conversation_id,
@@ -344,7 +344,7 @@ impl ConversationMessage {
         let message_id = self.id();
 
         query!(
-            "UPDATE conversation_messages
+            "UPDATE message
             SET
                 mimi_id = ?,
                 timestamp = ?,
@@ -377,7 +377,7 @@ impl ConversationMessage {
         sent: bool,
     ) -> sqlx::Result<()> {
         let res = query!(
-            "UPDATE conversation_messages SET timestamp = ?, sent = ? WHERE message_id = ?",
+            "UPDATE message SET timestamp = ?, sent = ? WHERE message_id = ?",
             timestamp,
             sent,
             message_id,
@@ -408,7 +408,7 @@ impl ConversationMessage {
                 sent,
                 status,
                 edited_at AS "edited_at: _"
-            FROM conversation_messages
+            FROM message
             WHERE conversation_id = ?
                 AND sender_user_uuid IS NOT NULL
                 AND sender_user_domain IS NOT NULL
@@ -446,7 +446,7 @@ impl ConversationMessage {
                 sent,
                 status,
                 edited_at AS "edited_at: _"
-            FROM conversation_messages
+            FROM message
             WHERE conversation_id = ?
                 AND sender_user_uuid = ?
                 AND sender_user_domain = ?
@@ -482,9 +482,9 @@ impl ConversationMessage {
                 sent,
                 status,
                 edited_at AS "edited_at: _"
-            FROM conversation_messages
+            FROM message
             WHERE message_id != ?1
-                AND timestamp <= (SELECT timestamp FROM conversation_messages
+                AND timestamp <= (SELECT timestamp FROM message
                 WHERE message_id = ?1)
             ORDER BY timestamp DESC
             LIMIT 1"#,
@@ -517,9 +517,9 @@ impl ConversationMessage {
                 sent,
                 status,
                 edited_at AS "edited_at: _"
-            FROM conversation_messages
+            FROM message
             WHERE message_id != ?1
-                AND timestamp >= (SELECT timestamp FROM conversation_messages
+                AND timestamp >= (SELECT timestamp FROM message
                 WHERE message_id = ?1)
             ORDER BY timestamp ASC
             LIMIT 1"#,

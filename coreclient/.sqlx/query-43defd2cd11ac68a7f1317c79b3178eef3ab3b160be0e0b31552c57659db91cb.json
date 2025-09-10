@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE conversation SET is_active = true WHERE conversation_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "43defd2cd11ac68a7f1317c79b3178eef3ab3b160be0e0b31552c57659db91cb"
+}

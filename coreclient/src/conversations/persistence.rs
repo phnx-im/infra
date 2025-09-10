@@ -154,7 +154,7 @@ impl Conversation {
             ConversationType::Group => (true, None, None, None),
         };
         query!(
-            "INSERT INTO conversations (
+            "INSERT INTO conversation (
                 conversation_id,
                 conversation_title,
                 conversation_picture,
@@ -184,7 +184,7 @@ impl Conversation {
         for member in past_members {
             let (uuid, domain) = member.into_parts();
             query!(
-                "INSERT OR IGNORE INTO conversation_past_members (
+                "INSERT OR IGNORE INTO conversation_past_member (
                     conversation_id,
                     member_user_uuid,
                     member_user_domain
@@ -220,7 +220,7 @@ impl Conversation {
                 connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
-            FROM conversations
+            FROM conversation
             WHERE conversation_id = ?"#,
             conversation_id
         )
@@ -253,7 +253,7 @@ impl Conversation {
                 connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
-            FROM conversations WHERE group_id = ?"#,
+            FROM conversation WHERE group_id = ?"#,
             group_id
         )
         .fetch_optional(&mut *transaction)
@@ -283,7 +283,7 @@ impl Conversation {
                 connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
                 is_active
-            FROM conversations"#,
+            FROM conversation"#,
         )
         .fetch(&mut *transaction)
         .filter_map(|res| {
@@ -312,7 +312,7 @@ impl Conversation {
         conversation_picture: Option<&[u8]>,
     ) -> sqlx::Result<()> {
         query!(
-            "UPDATE conversations SET conversation_picture = ? WHERE conversation_id = ?",
+            "UPDATE conversation SET conversation_picture = ? WHERE conversation_id = ?",
             conversation_picture,
             conversation_id,
         )
@@ -332,13 +332,13 @@ impl Conversation {
         match status {
             ConversationStatus::Inactive(inactive) => {
                 query!(
-                    "UPDATE conversations SET is_active = false WHERE conversation_id = ?",
+                    "UPDATE conversation SET is_active = false WHERE conversation_id = ?",
                     conversation_id,
                 )
                 .execute(&mut *transaction)
                 .await?;
                 query!(
-                    "DELETE FROM conversation_past_members WHERE conversation_id = ?",
+                    "DELETE FROM conversation_past_member WHERE conversation_id = ?",
                     conversation_id,
                 )
                 .execute(&mut *transaction)
@@ -347,7 +347,7 @@ impl Conversation {
                     let uuid = member.uuid();
                     let domain = member.domain();
                     query!(
-                        "INSERT OR IGNORE INTO conversation_past_members (
+                        "INSERT OR IGNORE INTO conversation_past_member (
                             conversation_id,
                             member_user_uuid,
                             member_user_domain
@@ -363,7 +363,7 @@ impl Conversation {
             }
             ConversationStatus::Active => {
                 query!(
-                    "UPDATE conversations SET is_active = true WHERE conversation_id = ?",
+                    "UPDATE conversation SET is_active = true WHERE conversation_id = ?",
                     conversation_id,
                 )
                 .execute(&mut *transaction)
@@ -381,7 +381,7 @@ impl Conversation {
         conversation_id: ConversationId,
     ) -> sqlx::Result<()> {
         query!(
-            "DELETE FROM conversations WHERE conversation_id = ?",
+            "DELETE FROM conversation WHERE conversation_id = ?",
             conversation_id
         )
         .execute(executor)
@@ -404,8 +404,8 @@ impl Conversation {
             let unread_messages: Vec<ConversationMessageId> = query_scalar!(
                 r#"SELECT
                     message_id AS "message_id: _"
-                FROM conversation_messages
-                INNER JOIN conversations c ON c.conversation_id = ?1
+                FROM message
+                INNER JOIN conversation c ON c.conversation_id = ?1
                 WHERE c.conversation_id = ?1 AND timestamp > c.last_read"#,
                 conversation_id,
             )
@@ -417,7 +417,7 @@ impl Conversation {
             }
 
             let updated = query!(
-                "UPDATE conversations
+                "UPDATE conversation
                 SET last_read = ?1
                 WHERE conversation_id = ?2 AND last_read < ?1",
                 timestamp,
@@ -450,7 +450,7 @@ impl Conversation {
         let timestamp: Option<DateTime<Utc>> = query_scalar!(
             r#"SELECT
                 timestamp AS "timestamp: _"
-            FROM conversation_messages WHERE message_id = ?"#,
+            FROM message WHERE message_id = ?"#,
             until_message_id
         )
         .fetch_optional(txn.as_mut())
@@ -461,7 +461,7 @@ impl Conversation {
         };
 
         let old_timestamp = query!(
-            "SELECT last_read FROM conversations
+            "SELECT last_read FROM conversation
             WHERE conversation_id = ?",
             conversation_id,
         )
@@ -474,8 +474,8 @@ impl Conversation {
         let new_marked_as_read: Vec<MimiId> = query_scalar!(
             r#"SELECT
                 m.mimi_id AS "mimi_id!: _"
-            FROM conversation_messages m
-            LEFT JOIN conversation_message_status s
+            FROM message m
+            LEFT JOIN message_status s
                 ON s.message_id = m.message_id
                 AND s.sender_user_uuid = ?2
                 AND s.sender_user_domain = ?3
@@ -495,7 +495,7 @@ impl Conversation {
         .await?;
 
         let updated = query!(
-            "UPDATE conversations SET last_read = ?1
+            "UPDATE conversation SET last_read = ?1
             WHERE conversation_id = ?2 AND last_read != ?1",
             timestamp,
             conversation_id,
@@ -519,10 +519,10 @@ impl Conversation {
         let timestamp: Option<TimeStamp> = query_scalar!(
             r#"SELECT
                 timestamp AS "timestamp: _"
-            FROM conversation_messages
+            FROM message
             WHERE timestamp < (
                 SELECT timestamp
-                FROM conversation_messages
+                FROM message
                 WHERE message_id = ?
             )
             ORDER BY timestamp DESC
@@ -533,7 +533,7 @@ impl Conversation {
         .await?;
 
         query!(
-            "UPDATE conversations SET last_read = ?1
+            "UPDATE conversation SET last_read = ?1
             WHERE conversation_id = ?2",
             timestamp,
             conversation_id,
@@ -551,16 +551,16 @@ impl Conversation {
     ) -> sqlx::Result<usize> {
         query_scalar!(
             r#"SELECT
-                COUNT(cm.conversation_id) AS "count: _"
+                COUNT(m.conversation_id) AS "count: _"
             FROM
-                conversations c
+                conversation c
             LEFT JOIN
-                conversation_messages cm
+                message m
             ON
-                c.conversation_id = cm.conversation_id
-                AND cm.sender_user_uuid IS NOT NULL
-                AND cm.sender_user_domain IS NOT NULL
-                AND cm.timestamp > c.last_read"#
+                c.conversation_id = m.conversation_id
+                AND m.sender_user_uuid IS NOT NULL
+                AND m.sender_user_domain IS NOT NULL
+                AND m.timestamp > c.last_read"#
         )
         .fetch_one(executor)
         .await
@@ -575,11 +575,11 @@ impl Conversation {
             r#"SELECT
                 COUNT(*) AS "count: _"
             FROM
-                conversation_messages cm
+                message m
             WHERE
-                cm.conversation_id = ?
-                AND cm.sender_user_uuid IS NOT NULL
-                AND cm.sender_user_domain IS NOT NULL"#,
+                m.conversation_id = ?
+                AND m.sender_user_uuid IS NOT NULL
+                AND m.sender_user_domain IS NOT NULL"#,
             conversation_id
         )
         .fetch_one(executor)
@@ -595,7 +595,7 @@ impl Conversation {
             r#"SELECT
                 COUNT(*) AS "count: _"
             FROM
-                conversation_messages
+                message
             WHERE
                 conversation_id = ?1
                 AND sender_user_uuid IS NOT NULL
@@ -605,7 +605,7 @@ impl Conversation {
                     SELECT
                         last_read
                     FROM
-                        conversations
+                        conversation
                     WHERE
                         conversation_id = ?1
                 )"#,
@@ -625,7 +625,7 @@ impl Conversation {
         match conversation_type {
             ConversationType::HandleConnection(handle) => {
                 query!(
-                    "UPDATE conversations SET
+                    "UPDATE conversation SET
                         connection_user_uuid = NULL,
                         connection_user_domain = NULL,
                         connection_user_handle = ?,
@@ -641,7 +641,7 @@ impl Conversation {
                 let uuid = user_id.uuid();
                 let domain = user_id.domain();
                 query!(
-                    "UPDATE conversations SET
+                    "UPDATE conversation SET
                         connection_user_uuid = ?,
                         connection_user_domain = ?,
                         is_confirmed_connection = true
@@ -655,7 +655,7 @@ impl Conversation {
             }
             ConversationType::Group => {
                 query!(
-                    "UPDATE conversations SET
+                    "UPDATE conversation SET
                         connection_user_uuid = NULL,
                         connection_user_domain = NULL
                     WHERE conversation_id = ?",
@@ -678,7 +678,7 @@ impl Conversation {
             r#"SELECT
                 member_user_uuid AS "member_user_uuid: _",
                 member_user_domain AS "member_user_domain: _"
-            FROM conversation_past_members
+            FROM conversation_past_member
             WHERE conversation_id = ?"#,
             conversation_id
         )

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE conversation SET\n                        connection_user_uuid = NULL,\n                        connection_user_domain = NULL,\n                        connection_user_handle = ?,\n                        is_confirmed_connection = false\n                    WHERE conversation_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "1dbf3c8b8272983486c0d5dcacee3914596f23b873edd5bbc0d2d67759145b76"
+}

@@ -96,15 +96,9 @@ impl CoreUser {
         // Note: Acquire a transaction here to ensure that the attachment will be deleted from the
         // local database in case of an error.
         self.with_transaction_and_notifier(async |txn, notifier| {
-            let conversation_message_id = ConversationMessageId::random();
+            let message_id = ConversationMessageId::random();
             let message = self
-                .send_message_transactional(
-                    txn,
-                    notifier,
-                    conversation_id,
-                    conversation_message_id,
-                    content,
-                )
+                .send_message_transactional(txn, notifier, conversation_id, message_id, content)
                 .await?;
 
             // store attachment locally
@@ -112,7 +106,7 @@ impl CoreUser {
             let record = AttachmentRecord {
                 attachment_id,
                 conversation_id: conversation.id(),
-                conversation_message_id,
+                message_id,
                 content_type: content_type.to_owned(),
                 status: AttachmentStatus::Ready,
                 created_at: Utc::now(),

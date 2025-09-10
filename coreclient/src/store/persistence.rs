@@ -134,7 +134,7 @@ impl StoreNotification {
             let updated = operation.contains(StoreOperation::Update);
             let removed = operation.contains(StoreOperation::Remove);
             query!(
-                "INSERT INTO store_notifications (entity_id, kind, added, updated, removed)
+                "INSERT INTO store_notification (entity_id, kind, added, updated, removed)
                 VALUES (?1, ?2, ?3, ?4, ?5)
                 ON CONFLICT DO UPDATE SET
                     added = MAX(?3, added),
@@ -158,7 +158,7 @@ impl StoreNotification {
     ) -> sqlx::Result<StoreNotification> {
         let mut records = query_as!(
             SqlStoreNotification,
-            r#"DELETE FROM store_notifications RETURNING
+            r#"DELETE FROM store_notification RETURNING
                 entity_id,
                 kind AS "kind: _",
                 added,
