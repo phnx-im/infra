@@ -32,22 +32,11 @@ CREATE TYPE client_credential AS (
 CREATE TABLE as_client_records (
     user_uuid uuid PRIMARY KEY,
     user_domain TEXT NOT NULL,
-    queue_encryption_key BYTEA NOT NULL,
-    ratchet BYTEA NOT NULL,
     activity_time timestamptz NOT NULL,
     credential client_credential NOT NULL,
     remaining_tokens integer NOT NULL,
     FOREIGN KEY (user_uuid, user_domain) REFERENCES as_user_records (user_uuid, user_domain) ON DELETE CASCADE
 );
-
-CREATE TABLE connection_packages (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_uuid uuid NOT NULL,
-    connection_package BYTEA NOT NULL,
-    FOREIGN KEY (user_uuid) REFERENCES as_client_records (user_uuid) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_connection_package_user_uuid ON connection_packages (user_uuid);
 
 CREATE TYPE credential_type AS ENUM ('as', 'intermediate');
 
@@ -59,17 +48,37 @@ CREATE TABLE as_signing_keys (
     currently_active boolean NOT NULL
 );
 
-CREATE TABLE as_queue_data (
-    queue_id uuid PRIMARY KEY,
-    sequence_number BIGINT NOT NULL,
-    FOREIGN KEY (queue_id) REFERENCES as_client_records (user_uuid) ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS as_user_handles (
+    hash BYTEA PRIMARY KEY,
+    verifying_key BYTEA NOT NULL,
+    expiration_data expiration NOT NULL
 );
 
-CREATE TABLE as_queues (
-    message_id uuid NOT NULL,
-    queue_id uuid NOT NULL,
-    sequence_number BIGINT NOT NULL,
+CREATE TABLE IF NOT EXISTS as_user_handles_queues (
+    message_id uuid PRIMARY KEY,
+    hash BYTEA NOT NULL,
     message_bytes BYTEA NOT NULL,
-    PRIMARY KEY (queue_id, sequence_number),
-    FOREIGN KEY (queue_id) REFERENCES as_queue_data (queue_id) ON DELETE CASCADE
+    fetched_by uuid,
+    created_at timestamptz DEFAULT now (),
+    FOREIGN KEY (hash) REFERENCES as_user_handles (hash) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS as_user_handles_queues_created_at ON as_user_handles_queues (created_at);
+
+CREATE INDEX IF NOT EXISTS as_user_handles_queues_fetched_by ON as_user_handles_queues (hash, fetched_by)
+WHERE
+    fetched_by IS NOT NULL;
+
+CREATE UNLOGGED TABLE allowance_records(
+    key_value bytea PRIMARY KEY,
+    remaining bigint NOT NULL,
+    valid_until timestamptz NOT NULL
+);
+
+CREATE TABLE handle_connection_packages (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    hash BYTEA NOT NULL,
+    connection_package BYTEA NOT NULL,
+    FOREIGN KEY (hash) REFERENCES as_user_handles (hash) ON DELETE CASCADE
+);
+
