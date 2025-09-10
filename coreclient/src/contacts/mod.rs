@@ -108,7 +108,7 @@ impl Contact {
             .await?
             .context("User profile not found")?;
         let user_profile_key =
-            UserProfileKey::load(&mut *connection, &user_profile.decryption_key_index()).await?;
+            UserProfileKey::load(&mut *connection, user_profile.decryption_key_index()).await?;
 
         let add_info = ContactAddInfos {
             key_package: verified_key_package,
