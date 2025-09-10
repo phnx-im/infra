@@ -47,9 +47,9 @@ use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
 pub enum ProcessQsMessageResult {
     None,
-    NewConversation(ChatId),
-    ConversationChanged(ChatId, Vec<ChatMessage>),
-    ConversationMessages(Vec<ChatMessage>),
+    NewChat(ChatId),
+    ChatChanged(ChatId, Vec<ChatMessage>),
+    Messages(Vec<ChatMessage>),
 }
 
 #[derive(Debug)]
@@ -84,8 +84,8 @@ impl CoreUser {
 
     /// Process a decrypted message received from the QS queue.
     ///
-    /// Returns the [`ConversationId`] of newly created conversations and any
-    /// [`ConversationMessage`]s produced by processin the QS message.
+    /// Returns the [`ChatId`] of newly created chats and any
+    /// [`ChatMessage`]s produced by processin the QS message.
     ///
     /// TODO: This function is (still) async, because depending on the message
     /// it processes, it might do one of the following:
@@ -166,29 +166,24 @@ impl CoreUser {
 
                 // WelcomeBundle Phase 3: Store the user profiles of the group
                 // members if they don't exist yet and store the group and the
-                // new conversation.
+                // new chat.
 
-                // Set the conversation attributes according to the group's
+                // Set the chat attributes according to the group's
                 // group data.
                 let group_data = group.group_data().context("No group data")?;
                 let attributes: ChatAttributes = PersistenceCodec::from_slice(group_data.bytes())?;
 
-                let conversation = Chat::new_group_chat(group_id.clone(), attributes);
+                let chat = Chat::new_group_chat(group_id.clone(), attributes);
                 let own_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
-                // If we've been in that conversation before, we delete the old
-                // conversation (and the corresponding MLS group) first and then
+                // If we've been in that chat before, we delete the old
+                // chat (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
-                Chat::delete(txn.as_mut(), notifier, conversation.id()).await?;
+                Chat::delete(txn.as_mut(), notifier, chat.id()).await?;
                 Group::delete_from_db(txn, &group_id).await?;
                 group.store(txn.as_mut()).await?;
-                conversation.store(txn.as_mut(), notifier).await?;
+                chat.store(txn.as_mut(), notifier).await?;
 
-                Ok((
-                    own_profile_key,
-                    own_profile_key_in_group,
-                    group,
-                    conversation.id(),
-                ))
+                Ok((own_profile_key, own_profile_key_in_group, group, chat.id()))
             })
             .await?;
 
@@ -212,7 +207,7 @@ impl CoreUser {
                 .await?;
         }
 
-        Ok(ProcessQsMessageResult::NewConversation(chat_id))
+        Ok(ProcessQsMessageResult::NewChat(chat_id))
     }
 
     async fn handle_mls_message(
@@ -230,14 +225,14 @@ impl CoreUser {
             // Neither GroupInfos nor KeyPackages should come from the queue.
             MlsMessageBodyIn::GroupInfo(_) | MlsMessageBodyIn::KeyPackage(_) => bail!("Unexpected message type"),
         };
-        // MLSMessage Phase 1: Load the conversation and the group.
+        // MLSMessage Phase 1: Load the chat and the group.
         let group_id = protocol_message.group_id().clone();
 
-        let (conversation_messages, conversation_changed, chat_id, profile_infos) = self
+        let (messages, chat_changed, chat_id, profile_infos) = self
             .with_transaction_and_notifier(async |txn, notifier| {
                 let chat = Chat::load_by_group_id(txn.as_mut(), &group_id)
                     .await?
-                    .ok_or_else(|| anyhow!("No conversation found for group ID {:?}", group_id))?;
+                    .ok_or_else(|| anyhow!("No chat found for group ID {:?}", group_id))?;
                 let chat_id = chat.id();
 
                 let mut group = Group::load_clean(txn, &group_id)
@@ -257,14 +252,14 @@ impl CoreUser {
                 let sender = processed_message.sender().clone();
                 let aad = processed_message.aad().to_vec();
 
-                // `conversation_changed` indicates whether the state of the conversation was updated
-                let (new_messages, updated_messages, conversation_changed) =
+                // `chat_changed` indicates whether the state of the chat was updated
+                let (new_messages, updated_messages, chat_changed) =
                     match processed_message.into_content() {
                         ProcessedMessageContent::ApplicationMessage(application_message) => {
                             let ApplicationMessagesHandlerResult {
                                 new_messages,
                                 updated_messages,
-                                chat_changed: conversation_changed,
+                                chat_changed,
                             } = self
                                 .handle_application_message(
                                     txn,
@@ -275,7 +270,7 @@ impl CoreUser {
                                     sender_client_credential.identity(),
                                 )
                                 .await?;
-                            (new_messages, updated_messages, conversation_changed)
+                            (new_messages, updated_messages, chat_changed)
                         }
                         ProcessedMessageContent::ProposalMessage(proposal) => {
                             let (new_messages, updated) = self
@@ -309,26 +304,21 @@ impl CoreUser {
                 // MLSMessage Phase 3: Store the updated group and the messages.
                 group.store_update(txn.as_mut()).await?;
 
-                let mut conversation_messages =
+                let mut messages =
                     Self::store_new_messages(txn, notifier, chat_id, new_messages).await?;
                 for updated_message in updated_messages {
                     updated_message.update(txn.as_mut(), notifier).await?;
-                    conversation_messages.push(updated_message);
+                    messages.push(updated_message);
                 }
 
-                Ok((
-                    conversation_messages,
-                    conversation_changed,
-                    chat_id,
-                    profile_infos,
-                ))
+                Ok((messages, chat_changed, chat_id, profile_infos))
             })
             .await?;
 
         // Send delivery receipts for incoming messages
         // TODO: Queue this and run the network requests batched together in a background task
 
-        let delivered_receipts = conversation_messages.iter().filter_map(|message| {
+        let delivered_receipts = messages.iter().filter_map(|message| {
             if let Message::Content(content_message) = message.message()
                 && let Disposition::Render | Disposition::Attachment =
                     content_message.content().nested_part.disposition
@@ -342,9 +332,9 @@ impl CoreUser {
         self.send_delivery_receipts(chat_id, delivered_receipts)
             .await?;
 
-        let res = match (conversation_messages, conversation_changed) {
-            (messages, true) => ProcessQsMessageResult::ConversationChanged(chat_id, messages),
-            (messages, false) => ProcessQsMessageResult::ConversationMessages(messages),
+        let res = match (messages, chat_changed) {
+            (messages, true) => ProcessQsMessageResult::ChatChanged(chat_id, messages),
+            (messages, false) => ProcessQsMessageResult::Messages(messages),
         };
 
         // MLSMessage Phase 4: Fetch user profiles of new clients and store them.
@@ -360,9 +350,9 @@ impl CoreUser {
         Ok(res)
     }
 
-    /// Returns a conversation message if it should be stored, otherwise an empty vec.
+    /// Returns a message if it should be stored, otherwise an empty vec.
     ///
-    /// Also returns whether the conversation should be notified as updated.
+    /// Also returns whether the chat should be notified as updated.
     async fn handle_application_message(
         &self,
         txn: &mut SqliteTransaction<'_>,
@@ -449,7 +439,7 @@ impl CoreUser {
         &self,
         txn: &mut SqliteTransaction<'_>,
         group: &mut Group,
-        mut conversation: Chat,
+        mut chat: Chat,
         staged_commit: openmls::prelude::StagedCommit,
         aad: Vec<u8>,
         ds_timestamp: TimeStamp,
@@ -458,21 +448,21 @@ impl CoreUser {
         we_were_removed: bool,
     ) -> anyhow::Result<(Vec<TimestampedMessage>, bool)> {
         // If a client joined externally, we check if the
-        // group belongs to an unconfirmed conversation.
+        // group belongs to an unconfirmed chat.
 
-        // StagedCommitMessage Phase 1: Confirm the conversation if unconfirmed
+        // StagedCommitMessage Phase 1: Confirm the chat if unconfirmed
         let mut notifier = self.store_notifier();
 
-        let conversation_changed = match &conversation.chat_type() {
+        let chat_changed = match &chat.chat_type() {
             ChatType::HandleConnection(handle) => {
                 let handle = handle.clone();
-                self.handle_unconfirmed_conversation(
+                self.handle_unconfirmed_chat(
                     txn,
                     &mut notifier,
                     aad,
                     sender,
                     sender_client_credential,
-                    &mut conversation,
+                    &mut chat,
                     &handle,
                 )
                 .await?;
@@ -486,8 +476,7 @@ impl CoreUser {
         // If we were removed, we set the group to inactive.
         if we_were_removed {
             let past_members = group.members(txn.as_mut()).await.into_iter().collect();
-            conversation
-                .set_inactive(txn.as_mut(), &mut notifier, past_members)
+            chat.set_inactive(txn.as_mut(), &mut notifier, past_members)
                 .await?;
         }
         let group_messages = group
@@ -496,18 +485,18 @@ impl CoreUser {
 
         notifier.notify();
 
-        Ok((group_messages, conversation_changed))
+        Ok((group_messages, chat_changed))
     }
 
     #[expect(clippy::too_many_arguments)]
-    async fn handle_unconfirmed_conversation(
+    async fn handle_unconfirmed_chat(
         &self,
         txn: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
         notifier: &mut StoreNotifier,
         aad: Vec<u8>,
         sender: &Sender,
         sender_client_credential: &ClientCredential,
-        conversation: &mut Chat,
+        chat: &mut Chat,
         handle: &UserHandle,
     ) -> Result<(), anyhow::Error> {
         // Check if it was an external commit
@@ -565,8 +554,7 @@ impl CoreUser {
             )
             .await?;
 
-        conversation
-            .confirm(txn.as_mut(), notifier, contact.user_id)
+        chat.confirm(txn.as_mut(), notifier, contact.user_id)
             .await?;
 
         Ok(())
@@ -625,8 +613,8 @@ impl CoreUser {
         qs_messages: Vec<QueueMessage>,
     ) -> Result<ProcessedQsMessages> {
         // Process each qs message individually
-        let mut new_conversations = vec![];
-        let mut changed_conversations = vec![];
+        let mut new_chats = vec![];
+        let mut changed_chats = vec![];
         let mut new_messages = vec![];
         let mut errors = vec![];
 
@@ -642,26 +630,21 @@ impl CoreUser {
             };
 
             match processed {
-                ProcessQsMessageResult::ConversationMessages(conversation_messages) => {
-                    new_messages.extend(conversation_messages);
+                ProcessQsMessageResult::Messages(messages) => {
+                    new_messages.extend(messages);
                 }
-                ProcessQsMessageResult::ConversationChanged(
-                    conversation_id,
-                    conversation_messages,
-                ) => {
-                    new_messages.extend(conversation_messages);
-                    changed_conversations.push(conversation_id)
+                ProcessQsMessageResult::ChatChanged(chat_id, messages) => {
+                    new_messages.extend(messages);
+                    changed_chats.push(chat_id)
                 }
-                ProcessQsMessageResult::NewConversation(conversation_id) => {
-                    new_conversations.push(conversation_id)
-                }
+                ProcessQsMessageResult::NewChat(chat_id) => new_chats.push(chat_id),
                 ProcessQsMessageResult::None => {}
             };
         }
 
         Ok(ProcessedQsMessages {
-            new_chats: new_conversations,
-            changed_chats: changed_conversations,
+            new_chats,
+            changed_chats,
             new_messages,
             errors,
         })
