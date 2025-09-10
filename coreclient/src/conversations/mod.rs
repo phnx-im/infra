@@ -102,7 +102,7 @@ impl Chat {
         Ok(conversation)
     }
 
-    pub(crate) fn new_handle_conversation(
+    pub(crate) fn new_handle_chat(
         group_id: GroupId,
         attributes: ChatAttributes,
         handle: UserHandle,

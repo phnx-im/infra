@@ -160,7 +160,7 @@ where
 
     async fn process_store_notification(&self, notification: &StoreNotification) {
         let any_conversation_changed = notification.ops.iter().any(|(id, op)| {
-            matches!(id, StoreEntityId::Conversation(_) if !op.is_empty())
+            matches!(id, StoreEntityId::Chat(_) if !op.is_empty())
                 || matches!(id, StoreEntityId::User(_) if !op.is_empty())
         });
         if any_conversation_changed {

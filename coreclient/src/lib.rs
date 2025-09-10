@@ -24,7 +24,7 @@ pub use crate::{
         Chat, ChatAttributes, ChatId, ChatStatus, ChatType, InactiveChat, MessageDraft,
         messages::{
             ChatMessage, ContentMessage, ErrorMessage, EventMessage, Message, MessageId,
-            NotificationType, SystemMessage,
+            SystemMessage,
         },
     },
     user_handles::UserHandleRecord,

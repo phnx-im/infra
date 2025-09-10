@@ -109,13 +109,13 @@ impl ChatMessage {
     /// Create a new conversation message from a group message. New messages are
     /// marked as unread by default.
     pub(crate) fn new(
-        conversation_id: ChatId,
-        conversation_message_id: MessageId,
+        chat_id: ChatId,
+        message_id: MessageId,
         timestamped_message: TimestampedMessage,
     ) -> Self {
         Self {
-            chat_id: conversation_id,
-            message_id: conversation_message_id,
+            chat_id,
+            message_id,
             timestamped_message,
             status: MessageStatus::Unread,
         }
@@ -243,13 +243,9 @@ impl Message {
 
     /// Returns a string representation of the message for use in UI
     /// notifications.
-    pub async fn string_representation(
-        &self,
-        store: &impl Store,
-        conversation_type: &ChatType,
-    ) -> String {
+    pub async fn string_representation(&self, store: &impl Store, chat_type: &ChatType) -> String {
         match self {
-            Message::Content(content_message) => match conversation_type {
+            Message::Content(content_message) => match chat_type {
                 ChatType::Group => {
                     let display_name = store
                         .user_profile(&content_message.sender)
@@ -388,21 +384,19 @@ impl SystemMessage {
             SystemMessage::Add(adder, added) => {
                 let adder_display_name = store.user_profile(adder).await.display_name;
                 let added_display_name = store.user_profile(added).await.display_name;
-                format!("{adder_display_name} added {added_display_name} to the conversation")
+                format!("{adder_display_name} added {added_display_name} to the chat")
             }
             SystemMessage::Remove(remover, removed) => {
                 let remover_display_name = store.user_profile(remover).await.display_name;
                 let removed_display_name = store.user_profile(removed).await.display_name;
-                format!(
-                    "{remover_display_name} removed {removed_display_name} from the conversation"
-                )
+                format!("{remover_display_name} removed {removed_display_name} from the chat")
             }
         }
     }
 }
 
 // WARNING: If this type is changed, the storage and loading logic in the
-// `crate::conversations::messages::peristence` module must be updated
+// `crate::chat::messages::persistence` module must be updated
 // accordingly and the `MESSAGE_CONTENT_FORMAT_VERSION` constant must be
 // incremented by one.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -424,10 +418,4 @@ impl From<ErrorMessage> for String {
     fn from(ErrorMessage { message }: ErrorMessage) -> String {
         message
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum NotificationType {
-    ConversationChange(ChatId), // The id of the changed conversation.
-    Message(Box<ChatMessage>),
 }

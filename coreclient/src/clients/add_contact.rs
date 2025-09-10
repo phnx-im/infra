@@ -85,7 +85,7 @@ impl CoreUser {
                 .await?;
 
             // Phase 5: Create the connection group on the DS and send off the connection offer
-            let conversation_id = local_partial_contact
+            let chat_id = local_partial_contact
                 .create_connection_group_via_handle(
                     &client,
                     self.signing_key(),
@@ -93,7 +93,7 @@ impl CoreUser {
                 )
                 .await?;
 
-            Ok(Some(conversation_id))
+            Ok(Some(chat_id))
         })
         .await
     }
@@ -119,8 +119,8 @@ impl VerifiedConnectionPackagesWithGroupId {
 
         info!("Creating local connection group");
         let title = format!("Connection group: {}", handle.plaintext());
-        let conversation_attributes = ChatAttributes::new(title, None);
-        let group_data = PersistenceCodec::to_vec(&conversation_attributes)?.into();
+        let attributes = ChatAttributes::new(title, None);
+        let group_data = PersistenceCodec::to_vec(&attributes)?.into();
 
         let provider = AirOpenMlsProvider::new(txn);
         let (group, group_membership, partial_params) =
@@ -131,18 +131,14 @@ impl VerifiedConnectionPackagesWithGroupId {
         // TODO: Once we allow multi-client, invite all our other clients to the
         // connection group.
 
-        // Create the connection conversation
-        let conversation = Chat::new_handle_conversation(
-            group_id.clone(),
-            conversation_attributes,
-            handle.clone(),
-        );
-        conversation.store(txn.as_mut(), notifier).await?;
+        // Create the connection chat
+        let chat = Chat::new_handle_chat(group_id.clone(), attributes, handle.clone());
+        chat.store(txn.as_mut(), notifier).await?;
 
         Ok(LocalGroup {
             group,
             partial_params,
-            conversation_id: conversation.id(),
+            chat_id: chat.id(),
             verified_connection_package,
         })
     }
@@ -151,7 +147,7 @@ impl VerifiedConnectionPackagesWithGroupId {
 struct LocalGroup {
     group: Group,
     partial_params: PartialCreateGroupParams,
-    conversation_id: ChatId,
+    chat_id: ChatId,
     verified_connection_package: ConnectionPackage,
 }
 
@@ -168,7 +164,7 @@ impl LocalGroup {
         let Self {
             group,
             partial_params,
-            conversation_id,
+            chat_id,
             verified_connection_package,
         } = self;
 
@@ -209,7 +205,7 @@ impl LocalGroup {
         // Create and persist a new partial contact
         HandleContact::new(
             handle,
-            conversation_id,
+            chat_id,
             friendship_package_ear_key,
             connection_offer_hash,
         )
@@ -224,7 +220,7 @@ impl LocalGroup {
             group,
             connection_offer,
             params,
-            conversation_id,
+            chat_id,
             verified_connection_package,
         })
     }
@@ -234,7 +230,7 @@ struct LocalHandleContact {
     group: Group,
     connection_offer: EncryptedConnectionOffer,
     params: CreateGroupParamsOut,
-    conversation_id: ChatId,
+    chat_id: ChatId,
     verified_connection_package: ConnectionPackage,
 }
 
@@ -249,7 +245,7 @@ impl LocalHandleContact {
             group,
             connection_offer,
             params,
-            conversation_id,
+            chat_id,
             verified_connection_package,
         } = self;
 
@@ -263,6 +259,6 @@ impl LocalHandleContact {
         let message = ConnectionOfferMessage::new(hash, connection_offer);
         responder.send(message).await?;
 
-        Ok(conversation_id)
+        Ok(chat_id)
     }
 }

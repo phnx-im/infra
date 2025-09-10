@@ -41,11 +41,9 @@ impl<'q> Encode<'q, Sqlite> for StoreEntityId {
                 let bytes = PersistenceCodec::to_vec(&StoredUserId(Cow::Borrowed(user_id)))?;
                 Encode::<Sqlite>::encode(bytes, buf)
             }
-            StoreEntityId::Conversation(conversation_id) => {
-                Encode::<Sqlite>::encode_by_ref(&conversation_id.uuid, buf)
-            }
-            StoreEntityId::Message(conversation_message_id) => {
-                Encode::<Sqlite>::encode_by_ref(&conversation_message_id.uuid, buf)
+            StoreEntityId::Chat(chat_id) => Encode::<Sqlite>::encode_by_ref(&chat_id.uuid, buf),
+            StoreEntityId::Message(message_id) => {
+                Encode::<Sqlite>::encode_by_ref(&message_id.uuid, buf)
             }
             StoreEntityId::Attachment(attachment_id) => {
                 Encode::<Sqlite>::encode_by_ref(&attachment_id.uuid, buf)
@@ -98,8 +96,8 @@ impl SqlStoreNotification {
                 let StoredUserId(user_id) = PersistenceCodec::from_slice(&entity_id)?;
                 StoreEntityId::User(user_id.into_owned())
             }
-            StoreEntityKind::Conversation => {
-                StoreEntityId::Conversation(ChatId::new(Uuid::from_slice(&entity_id)?))
+            StoreEntityKind::Chat => {
+                StoreEntityId::Chat(ChatId::new(Uuid::from_slice(&entity_id)?))
             }
             StoreEntityKind::Message => {
                 StoreEntityId::Message(MessageId::new(Uuid::from_slice(&entity_id)?))
@@ -201,7 +199,7 @@ mod tests {
             StoreOperation::Add.into(),
         );
         notification.ops.insert(
-            StoreEntityId::Conversation(ChatId {
+            StoreEntityId::Chat(ChatId {
                 uuid: Uuid::new_v4(),
             }),
             StoreOperation::Update.into(),
@@ -226,33 +224,30 @@ mod tests {
 
     #[sqlx::test]
     async fn queue_notification_with_conflict(pool: SqlitePool) -> anyhow::Result<()> {
-        let conversation_id = ChatId::new(Uuid::new_v4());
+        let chat_id = ChatId::new(Uuid::new_v4());
 
         let mut notification = StoreNotification::default();
-        notification.ops.insert(
-            StoreEntityId::Conversation(conversation_id),
-            StoreOperation::Add.into(),
-        );
+        notification
+            .ops
+            .insert(StoreEntityId::Chat(chat_id), StoreOperation::Add.into());
         notification.enqueue(pool.acquire().await?.as_mut()).await?;
 
         let mut notification = StoreNotification::default();
-        notification.ops.insert(
-            StoreEntityId::Conversation(conversation_id),
-            StoreOperation::Update.into(),
-        );
+        notification
+            .ops
+            .insert(StoreEntityId::Chat(chat_id), StoreOperation::Update.into());
         notification.enqueue(pool.acquire().await?.as_mut()).await?;
 
         let mut notification = StoreNotification::default();
-        notification.ops.insert(
-            StoreEntityId::Conversation(conversation_id),
-            StoreOperation::Remove.into(),
-        );
+        notification
+            .ops
+            .insert(StoreEntityId::Chat(chat_id), StoreOperation::Remove.into());
         notification.enqueue(pool.acquire().await?.as_mut()).await?;
 
         let dequeued_notification = StoreNotification::dequeue(&pool).await?;
         let expected = StoreNotification {
             ops: [(
-                StoreEntityId::Conversation(conversation_id),
+                StoreEntityId::Chat(chat_id),
                 StoreOperation::Add | StoreOperation::Update | StoreOperation::Remove,
             )]
             .into(),
