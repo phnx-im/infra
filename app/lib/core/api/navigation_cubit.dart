@@ -7,6 +7,7 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../lib.dart';
 import 'notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
@@ -33,7 +34,7 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   Future<void> openAddMembers();
 
-  Future<void> openConversation({required ConversationId conversationId});
+  Future<void> openConversation({required ChatId conversationId});
 
   Future<void> openConversationDetails();
 
@@ -71,7 +72,7 @@ sealed class HomeNavigationState with _$HomeNavigationState {
   const HomeNavigationState._();
   const factory HomeNavigationState({
     @Default(false) bool conversationOpen,
-    ConversationId? conversationId,
+    ChatId? conversationId,
     DeveloperSettingsScreenType? developerSettingsScreen,
     UiUserId? memberDetails,
     UserSettingsScreenType? userSettingsScreen,

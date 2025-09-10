@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$HomeNavigationState {
 
- bool get conversationOpen; ConversationId? get conversationId; DeveloperSettingsScreenType? get developerSettingsScreen; UiUserId? get memberDetails; UserSettingsScreenType? get userSettingsScreen; bool get conversationDetailsOpen; bool get addMembersOpen;
+ bool get conversationOpen; ChatId? get conversationId; DeveloperSettingsScreenType? get developerSettingsScreen; UiUserId? get memberDetails; UserSettingsScreenType? get userSettingsScreen; bool get conversationDetailsOpen; bool get addMembersOpen;
 /// Create a copy of HomeNavigationState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -45,7 +45,7 @@ abstract mixin class $HomeNavigationStateCopyWith<$Res>  {
   factory $HomeNavigationStateCopyWith(HomeNavigationState value, $Res Function(HomeNavigationState) _then) = _$HomeNavigationStateCopyWithImpl;
 @useResult
 $Res call({
- bool conversationOpen, ConversationId? conversationId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool conversationDetailsOpen, bool addMembersOpen
+ bool conversationOpen, ChatId? conversationId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool conversationDetailsOpen, bool addMembersOpen
 });
 
 
@@ -66,7 +66,7 @@ class _$HomeNavigationStateCopyWithImpl<$Res>
   return _then(_self.copyWith(
 conversationOpen: null == conversationOpen ? _self.conversationOpen : conversationOpen // ignore: cast_nullable_to_non_nullable
 as bool,conversationId: freezed == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
-as ConversationId?,developerSettingsScreen: freezed == developerSettingsScreen ? _self.developerSettingsScreen : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
+as ChatId?,developerSettingsScreen: freezed == developerSettingsScreen ? _self.developerSettingsScreen : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
 as DeveloperSettingsScreenType?,memberDetails: freezed == memberDetails ? _self.memberDetails : memberDetails // ignore: cast_nullable_to_non_nullable
 as UiUserId?,userSettingsScreen: freezed == userSettingsScreen ? _self.userSettingsScreen : userSettingsScreen // ignore: cast_nullable_to_non_nullable
 as UserSettingsScreenType?,conversationDetailsOpen: null == conversationDetailsOpen ? _self.conversationDetailsOpen : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable
@@ -87,7 +87,7 @@ class _HomeNavigationState extends HomeNavigationState {
   
 
 @override@JsonKey() final  bool conversationOpen;
-@override final  ConversationId? conversationId;
+@override final  ChatId? conversationId;
 @override final  DeveloperSettingsScreenType? developerSettingsScreen;
 @override final  UiUserId? memberDetails;
 @override final  UserSettingsScreenType? userSettingsScreen;
@@ -124,7 +124,7 @@ abstract mixin class _$HomeNavigationStateCopyWith<$Res> implements $HomeNavigat
   factory _$HomeNavigationStateCopyWith(_HomeNavigationState value, $Res Function(_HomeNavigationState) _then) = __$HomeNavigationStateCopyWithImpl;
 @override @useResult
 $Res call({
- bool conversationOpen, ConversationId? conversationId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool conversationDetailsOpen, bool addMembersOpen
+ bool conversationOpen, ChatId? conversationId, DeveloperSettingsScreenType? developerSettingsScreen, UiUserId? memberDetails, UserSettingsScreenType? userSettingsScreen, bool conversationDetailsOpen, bool addMembersOpen
 });
 
 
@@ -145,7 +145,7 @@ class __$HomeNavigationStateCopyWithImpl<$Res>
   return _then(_HomeNavigationState(
 conversationOpen: null == conversationOpen ? _self.conversationOpen : conversationOpen // ignore: cast_nullable_to_non_nullable
 as bool,conversationId: freezed == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
-as ConversationId?,developerSettingsScreen: freezed == developerSettingsScreen ? _self.developerSettingsScreen : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
+as ChatId?,developerSettingsScreen: freezed == developerSettingsScreen ? _self.developerSettingsScreen : developerSettingsScreen // ignore: cast_nullable_to_non_nullable
 as DeveloperSettingsScreenType?,memberDetails: freezed == memberDetails ? _self.memberDetails : memberDetails // ignore: cast_nullable_to_non_nullable
 as UiUserId?,userSettingsScreen: freezed == userSettingsScreen ? _self.userSettingsScreen : userSettingsScreen // ignore: cast_nullable_to_non_nullable
 as UserSettingsScreenType?,conversationDetailsOpen: null == conversationDetailsOpen ? _self.conversationDetailsOpen : conversationDetailsOpen // ignore: cast_nullable_to_non_nullable

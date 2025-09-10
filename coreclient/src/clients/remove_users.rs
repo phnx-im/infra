@@ -5,7 +5,7 @@
 use aircommon::identifiers::UserId;
 use remove_users_flow::RemoveUsersData;
 
-use crate::{ConversationId, ConversationMessage};
+use crate::{ChatId, ConversationMessage};
 
 use super::CoreUser;
 
@@ -18,7 +18,7 @@ impl CoreUser {
     /// group. Note that these returned message have already been persisted.
     pub(crate) async fn remove_users(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         target_users: Vec<UserId>,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load the group and conversation and prepare the commit.
@@ -58,14 +58,14 @@ mod remove_users_flow {
     use sqlx::SqliteTransaction;
 
     use crate::{
-        Conversation, ConversationId, ConversationMessage,
+        Chat, ChatId, ConversationMessage,
         clients::{CoreUser, api_clients::ApiClients},
         groups::Group,
         store::StoreNotifier,
     };
 
     pub(super) struct RemoveUsersData {
-        conversation: Conversation,
+        conversation: Chat,
         group: Group,
         params: GroupOperationParamsOut,
     }
@@ -74,11 +74,11 @@ mod remove_users_flow {
         pub(super) async fn stage_remove(
             txn: &mut SqliteTransaction<'_>,
             signer: &ClientSigningKey,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
             sender_id: &UserId,
             target_users: Vec<UserId>,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+            let conversation = Chat::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
@@ -134,7 +134,7 @@ mod remove_users_flow {
             self,
             txn: &mut sqlx::SqliteTransaction<'_>,
             notifier: &mut StoreNotifier,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> anyhow::Result<Vec<ConversationMessage>> {
             let Self {
                 mut group,

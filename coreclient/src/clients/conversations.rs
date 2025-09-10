@@ -10,13 +10,13 @@ use leave_conversation_flow::LeaveConversationData;
 use mimi_room_policy::VerifiedRoomState;
 
 use crate::{
-    ConversationMessageId,
-    conversations::{Conversation, messages::ConversationMessage},
+    MessageId,
+    conversations::{Chat, messages::ConversationMessage},
     groups::{Group, openmls_provider::AirOpenMlsProvider},
     utils::image::resize_profile_image,
 };
 
-use super::{ConversationId, CoreUser};
+use super::{ChatId, CoreUser};
 
 impl CoreUser {
     /// Create new conversation.
@@ -26,7 +26,7 @@ impl CoreUser {
         &self,
         title: String,
         picture: Option<Vec<u8>>,
-    ) -> Result<ConversationId> {
+    ) -> Result<ChatId> {
         let group_data = IntitialConversationData::new(title, picture)
             .request_group_id(&self.inner.api_clients)
             .await?;
@@ -60,7 +60,7 @@ impl CoreUser {
     /// group. Note that these returned message have already been persisted.
     pub(crate) async fn delete_conversation(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
         let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
@@ -104,7 +104,7 @@ impl CoreUser {
         }
     }
 
-    pub(crate) async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
+    pub(crate) async fn leave_conversation(&self, conversation_id: ChatId) -> Result<()> {
         let leave = self
             .with_transaction(async |txn| {
                 // Phase 1: Load the conversation and the group
@@ -127,11 +127,11 @@ impl CoreUser {
 
     pub(crate) async fn set_conversation_picture(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         picture: Option<Vec<u8>>,
     ) -> Result<()> {
         let mut connection = self.pool().acquire().await?;
-        let mut conversation = Conversation::load(&mut connection, &conversation_id)
+        let mut conversation = Chat::load(&mut connection, &conversation_id)
             .await?
             .ok_or_else(|| {
                 let id = conversation_id.uuid();
@@ -141,7 +141,7 @@ impl CoreUser {
             picture.and_then(|picture| resize_profile_image(&picture).ok());
         let mut notifier = self.store_notifier();
         conversation
-            .set_conversation_picture(&mut *connection, &mut notifier, resized_picture_option)
+            .set_picture(&mut *connection, &mut notifier, resized_picture_option)
             .await?;
         notifier.notify();
         Ok(())
@@ -149,31 +149,31 @@ impl CoreUser {
 
     pub(crate) async fn message(
         &self,
-        message_id: ConversationMessageId,
+        message_id: MessageId,
     ) -> sqlx::Result<Option<ConversationMessage>> {
         ConversationMessage::load(self.pool(), message_id).await
     }
 
     pub(crate) async fn prev_message(
         &self,
-        message_id: ConversationMessageId,
+        message_id: MessageId,
     ) -> Result<Option<ConversationMessage>> {
         Ok(ConversationMessage::prev_message(self.pool(), message_id).await?)
     }
 
     pub(crate) async fn next_message(
         &self,
-        message_id: ConversationMessageId,
+        message_id: MessageId,
     ) -> Result<Option<ConversationMessage>> {
         Ok(ConversationMessage::next_message(self.pool(), message_id).await?)
     }
 
-    pub(crate) async fn conversations(&self) -> sqlx::Result<Vec<Conversation>> {
-        Conversation::load_all(self.pool().acquire().await?.as_mut()).await
+    pub(crate) async fn chats(&self) -> sqlx::Result<Vec<Chat>> {
+        Chat::load_all(self.pool().acquire().await?.as_mut()).await
     }
 
-    pub async fn conversation(&self, conversation_id: &ConversationId) -> Option<Conversation> {
-        Conversation::load(self.pool().acquire().await.ok()?.as_mut(), conversation_id)
+    pub async fn chat(&self, conversation_id: &ChatId) -> Option<Chat> {
+        Chat::load(self.pool().acquire().await.ok()?.as_mut(), conversation_id)
             .await
             .ok()
             .flatten()
@@ -183,23 +183,20 @@ impl CoreUser {
     /// with the given [`ConversationId`].
     pub(crate) async fn get_messages(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         number_of_messages: usize,
     ) -> Result<Vec<ConversationMessage>> {
-        let messages = ConversationMessage::load_multiple(
-            self.pool(),
-            conversation_id,
-            number_of_messages as u32,
-        )
-        .await?;
+        let messages =
+            ConversationMessage::load_multiple(self.pool(), chat_id, number_of_messages as u32)
+                .await?;
         Ok(messages)
     }
 
     pub async fn load_room_state(
         &self,
-        conversation_id: &ConversationId,
+        conversation_id: &ChatId,
     ) -> Result<(UserId, VerifiedRoomState)> {
-        if let Some(conversation) = self.conversation(conversation_id).await {
+        if let Some(conversation) = self.chat(conversation_id).await {
             let mut connection = self.pool().acquire().await?;
             if let Some(group) = Group::load(&mut connection, conversation.group_id()).await? {
                 return Ok((self.user_id().clone(), group.room_state));
@@ -221,7 +218,7 @@ mod create_conversation_flow {
     use openmls_traits::OpenMlsProvider;
 
     use crate::{
-        Conversation, ConversationAttributes, ConversationId,
+        Chat, ChatAttributes, ChatId,
         clients::api_clients::ApiClients,
         groups::{Group, GroupData, PartialCreateGroupParams, client_auth_info::GroupMembership},
         key_stores::indexed_keys::StorableIndexedKey,
@@ -245,7 +242,7 @@ mod create_conversation_flow {
             let Self { title, picture } = self;
             let group_id = api_clients.default_client()?.ds_request_group_id().await?;
             // Store the conversation attributes in the group's aad
-            let attributes = ConversationAttributes::new(title, picture);
+            let attributes = ChatAttributes::new(title, picture);
             let group_data = PersistenceCodec::to_vec(&attributes)?.into();
             Ok(ConversationGroupData {
                 group_id,
@@ -258,14 +255,14 @@ mod create_conversation_flow {
     pub(super) struct ConversationGroupData {
         group_id: GroupId,
         group_data: GroupData,
-        attributes: ConversationAttributes,
+        attributes: ChatAttributes,
     }
 
     pub(super) struct CreatedGroup {
         group: Group,
         group_membership: GroupMembership,
         partial_params: PartialCreateGroupParams,
-        attributes: ConversationAttributes,
+        attributes: ChatAttributes,
     }
 
     impl ConversationGroupData {
@@ -314,8 +311,7 @@ mod create_conversation_flow {
             group_membership.store(txn.as_mut()).await?;
             group.store(txn.as_mut()).await?;
 
-            let conversation =
-                Conversation::new_group_conversation(partial_params.group_id.clone(), attributes);
+            let conversation = Chat::new_group_chat(partial_params.group_id.clone(), attributes);
             conversation.store(txn.as_mut(), notifier).await?;
 
             Ok(StoredGroup {
@@ -331,7 +327,7 @@ mod create_conversation_flow {
         group: Group,
         encrypted_user_profile_key: EncryptedUserProfileKey,
         partial_params: PartialCreateGroupParams,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     }
 
     impl StoredGroup {
@@ -340,7 +336,7 @@ mod create_conversation_flow {
             api_clients: &ApiClients,
             signer: &ClientSigningKey,
             client_reference: QsReference,
-        ) -> Result<ConversationId> {
+        ) -> Result<ChatId> {
             let Self {
                 group,
                 encrypted_user_profile_key,
@@ -370,7 +366,7 @@ mod delete_conversation_flow {
     use sqlx::{SqliteConnection, SqliteTransaction};
 
     use crate::{
-        Conversation, ConversationId, ConversationMessage,
+        Chat, ChatId, ConversationMessage,
         clients::{CoreUser, api_clients::ApiClients},
         conversations::messages::TimestampedMessage,
         groups::Group,
@@ -385,9 +381,9 @@ mod delete_conversation_flow {
     impl DeleteConversationData {
         pub(super) async fn load(
             txn: &mut SqliteTransaction<'_>,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+            let conversation = Chat::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
 
@@ -422,7 +418,7 @@ mod delete_conversation_flow {
     }
 
     pub(super) struct LoadedSingleUserConversationData {
-        conversation: Conversation,
+        conversation: Chat,
         member: UserId,
     }
 
@@ -444,7 +440,7 @@ mod delete_conversation_flow {
     }
 
     pub(super) struct LoadedConversationData<S> {
-        conversation: Conversation,
+        conversation: Chat,
         group: Group,
         past_members: HashSet<UserId>,
         state: S,
@@ -525,7 +521,7 @@ mod delete_conversation_flow {
     }
 
     pub(super) struct DeletedGroup {
-        conversation: Conversation,
+        conversation: Chat,
         past_members: HashSet<UserId>,
         messages: Vec<TimestampedMessage>,
     }
@@ -535,7 +531,7 @@ mod delete_conversation_flow {
             self,
             connection: &mut SqliteConnection,
             notifier: &mut StoreNotifier,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> anyhow::Result<Vec<ConversationMessage>> {
             let Self {
                 mut conversation,
@@ -564,10 +560,10 @@ mod leave_conversation_flow {
     use mimi_room_policy::RoleIndex;
     use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
 
-    use crate::{Conversation, ConversationId, groups::Group};
+    use crate::{Chat, ChatId, groups::Group};
 
     pub(super) struct LeaveConversationData<S> {
-        conversation: Conversation,
+        conversation: Chat,
         group: Group,
         state: S,
     }
@@ -575,9 +571,9 @@ mod leave_conversation_flow {
     impl LeaveConversationData<()> {
         pub(super) async fn load(
             txn: &mut SqliteTransaction<'_>,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> anyhow::Result<LeaveConversationData<()>> {
-            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+            let conversation = Chat::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}",))?;
             let group_id = conversation.group_id();

@@ -7,11 +7,9 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import 'markdown.dart';
-import 'message_content.dart';
+import '../lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
-import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
 part 'conversation_list_cubit.freezed.dart';
@@ -27,12 +25,12 @@ abstract class ConversationListCubitBase implements RustOpaqueInterface {
   /// Creates a new 1:1 connection with the given user via a user handle.
   ///
   /// Returns `None` if the provided handle does not exist.
-  Future<ConversationId?> createConnection({required UiUserHandle handle});
+  Future<ChatId?> createConnection({required UiUserHandle handle});
 
   /// Creates a new group conversation with the given name.
   ///
   /// After the conversation is created, the current user is the only member of the group.
-  Future<ConversationId> createConversation({required String groupName});
+  Future<ChatId> createConversation({required String groupName});
 
   bool get isClosed;
 

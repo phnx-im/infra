@@ -17,14 +17,14 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::{
-    Conversation, ConversationAttributes, ConversationId, ConversationMessageId,
-    ConversationStatus, ConversationType, store::StoreNotifier, utils::persistence::GroupIdWrapper,
+    Chat, ChatAttributes, ChatId, ChatStatus, ChatType, MessageId, store::StoreNotifier,
+    utils::persistence::GroupIdWrapper,
 };
 
-use super::InactiveConversation;
+use super::InactiveChat;
 
 struct SqlConversation {
-    conversation_id: ConversationId,
+    conversation_id: ChatId,
     conversation_title: String,
     conversation_picture: Option<Vec<u8>>,
     group_id: GroupIdWrapper,
@@ -37,7 +37,7 @@ struct SqlConversation {
 }
 
 impl SqlConversation {
-    fn convert(self, past_members: Vec<SqlPastMember>) -> Option<Conversation> {
+    fn convert(self, past_members: Vec<SqlPastMember>) -> Option<Chat> {
         let Self {
             conversation_id,
             conversation_title,
@@ -59,32 +59,32 @@ impl SqlConversation {
             (Some(user_uuid), Some(domain), _) => {
                 let connection_user_id = UserId::new(user_uuid, domain);
                 if is_confirmed_connection {
-                    ConversationType::Connection(connection_user_id)
+                    ChatType::Connection(connection_user_id)
                 } else {
                     warn!("Unconfirmed user connections are not supported anymore");
                     return None;
                 }
             }
 
-            (None, None, Some(handle)) => ConversationType::HandleConnection(handle),
-            _ => ConversationType::Group,
+            (None, None, Some(handle)) => ChatType::HandleConnection(handle),
+            _ => ChatType::Group,
         };
 
         let status = if is_active {
-            ConversationStatus::Active
+            ChatStatus::Active
         } else {
-            ConversationStatus::Inactive(InactiveConversation::new(
+            ChatStatus::Inactive(InactiveChat::new(
                 past_members.into_iter().map(From::from).collect(),
             ))
         };
 
-        Some(Conversation {
+        Some(Chat {
             id: conversation_id,
             group_id,
             last_read,
             status,
             conversation_type,
-            attributes: ConversationAttributes {
+            attributes: ChatAttributes {
                 title: conversation_title,
                 picture: conversation_picture,
             },
@@ -98,7 +98,7 @@ impl SqlConversation {
         if self.is_active {
             return Ok(Vec::new());
         }
-        Conversation::load_past_members(connection, self.conversation_id).await
+        Chat::load_past_members(connection, self.conversation_id).await
     }
 }
 
@@ -118,7 +118,7 @@ impl From<SqlPastMember> for UserId {
     }
 }
 
-impl Conversation {
+impl Chat {
     pub(crate) async fn store(
         &self,
         connection: &mut SqliteConnection,
@@ -133,25 +133,25 @@ impl Conversation {
         let picture = self.attributes().picture();
         let group_id = self.group_id.as_slice();
         let (is_active, past_members) = match self.status() {
-            ConversationStatus::Inactive(inactive_conversation) => {
+            ChatStatus::Inactive(inactive_conversation) => {
                 (false, inactive_conversation.past_members().to_vec())
             }
-            ConversationStatus::Active => (true, Vec::new()),
+            ChatStatus::Active => (true, Vec::new()),
         };
         let (
             is_confirmed_connection,
             connection_user_uuid,
             connection_user_domain,
             connection_user_handle,
-        ) = match self.conversation_type() {
-            ConversationType::HandleConnection(handle) => (false, None, None, Some(handle)),
-            ConversationType::Connection(user_id) => (
+        ) = match self.chat_type() {
+            ChatType::HandleConnection(handle) => (false, None, None, Some(handle)),
+            ChatType::Connection(user_id) => (
                 true,
                 Some(user_id.uuid()),
                 Some(user_id.domain().clone()),
                 None,
             ),
-            ConversationType::Group => (true, None, None, None),
+            ChatType::Group => (true, None, None, None),
         };
         query!(
             "INSERT INTO conversation (
@@ -204,8 +204,8 @@ impl Conversation {
 
     pub(crate) async fn load(
         connection: &mut SqliteConnection,
-        conversation_id: &ConversationId,
-    ) -> sqlx::Result<Option<Conversation>> {
+        conversation_id: &ChatId,
+    ) -> sqlx::Result<Option<Chat>> {
         let mut transaction = connection.begin().await?;
         let conversation = query_as!(
             SqlConversation,
@@ -237,7 +237,7 @@ impl Conversation {
     pub(crate) async fn load_by_group_id(
         connection: &mut SqliteConnection,
         group_id: &GroupId,
-    ) -> sqlx::Result<Option<Conversation>> {
+    ) -> sqlx::Result<Option<Chat>> {
         let group_id = group_id.as_slice();
         let mut transaction = connection.begin().await?;
         let conversation = query_as!(
@@ -266,9 +266,7 @@ impl Conversation {
         Ok(conversation.convert(members))
     }
 
-    pub(crate) async fn load_all(
-        connection: &mut SqliteConnection,
-    ) -> sqlx::Result<Vec<Conversation>> {
+    pub(crate) async fn load_all(connection: &mut SqliteConnection) -> sqlx::Result<Vec<Chat>> {
         let mut transaction = connection.begin().await?;
         let mut conversations = query_as!(
             SqlConversation,
@@ -290,12 +288,12 @@ impl Conversation {
             res.map(|conversation| conversation.convert(Vec::new()))
                 .transpose()
         })
-        .collect::<sqlx::Result<Vec<Conversation>>>()
+        .collect::<sqlx::Result<Vec<Chat>>>()
         .await?;
         for conversation in &mut conversations {
             let id = conversation.id();
-            if let ConversationStatus::Inactive(inactive) = conversation.status_mut() {
-                let members = Conversation::load_past_members(&mut *transaction, id).await?;
+            if let ChatStatus::Inactive(inactive) = conversation.status_mut() {
+                let members = Chat::load_past_members(&mut *transaction, id).await?;
                 inactive
                     .past_members_mut()
                     .extend(members.into_iter().map(From::from));
@@ -308,7 +306,7 @@ impl Conversation {
     pub(super) async fn update_picture(
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         conversation_picture: Option<&[u8]>,
     ) -> sqlx::Result<()> {
         query!(
@@ -325,12 +323,12 @@ impl Conversation {
     pub(super) async fn update_status(
         connection: &mut SqliteConnection,
         notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        status: &ConversationStatus,
+        conversation_id: ChatId,
+        status: &ChatStatus,
     ) -> sqlx::Result<()> {
         let mut transaction = connection.begin().await?;
         match status {
-            ConversationStatus::Inactive(inactive) => {
+            ChatStatus::Inactive(inactive) => {
                 query!(
                     "UPDATE conversation SET is_active = false WHERE conversation_id = ?",
                     conversation_id,
@@ -361,7 +359,7 @@ impl Conversation {
                     .await?;
                 }
             }
-            ConversationStatus::Active => {
+            ChatStatus::Active => {
                 query!(
                     "UPDATE conversation SET is_active = true WHERE conversation_id = ?",
                     conversation_id,
@@ -378,7 +376,7 @@ impl Conversation {
     pub(crate) async fn delete(
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> sqlx::Result<()> {
         query!(
             "DELETE FROM conversation WHERE conversation_id = ?",
@@ -396,12 +394,12 @@ impl Conversation {
     pub(crate) async fn mark_as_read(
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
-        mark_as_read_data: impl IntoIterator<Item = (ConversationId, DateTime<Utc>)>,
+        mark_as_read_data: impl IntoIterator<Item = (ChatId, DateTime<Utc>)>,
     ) -> sqlx::Result<()> {
         let mut transaction = connection.begin().await?;
 
         for (conversation_id, timestamp) in mark_as_read_data {
-            let unread_messages: Vec<ConversationMessageId> = query_scalar!(
+            let unread_messages: Vec<MessageId> = query_scalar!(
                 r#"SELECT
                     message_id AS "message_id: _"
                 FROM message
@@ -441,8 +439,8 @@ impl Conversation {
     pub(crate) async fn mark_as_read_until_message_id(
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        until_message_id: ConversationMessageId,
+        conversation_id: ChatId,
+        until_message_id: MessageId,
         own_user: &UserId,
     ) -> sqlx::Result<(bool, Vec<MimiId>)> {
         let (our_user_uuid, our_user_domain) = own_user.clone().into_parts();
@@ -513,8 +511,8 @@ impl Conversation {
     pub(crate) async fn mark_as_unread(
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        message_id: ConversationMessageId,
+        conversation_id: ChatId,
+        message_id: MessageId,
     ) -> sqlx::Result<()> {
         let timestamp: Option<TimeStamp> = query_scalar!(
             r#"SELECT
@@ -569,7 +567,7 @@ impl Conversation {
 
     pub(crate) async fn messages_count(
         executor: impl SqliteExecutor<'_>,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> sqlx::Result<usize> {
         query_scalar!(
             r#"SELECT
@@ -589,7 +587,7 @@ impl Conversation {
 
     pub(crate) async fn unread_messages_count(
         executor: impl SqliteExecutor<'_>,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> sqlx::Result<usize> {
         query_scalar!(
             r#"SELECT
@@ -616,14 +614,14 @@ impl Conversation {
         .map(|n: u32| n.try_into().expect("usize overflow"))
     }
 
-    pub(super) async fn set_conversation_type(
+    pub(super) async fn set_chat_type(
         &self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-        conversation_type: &ConversationType,
+        conversation_type: &ChatType,
     ) -> sqlx::Result<()> {
         match conversation_type {
-            ConversationType::HandleConnection(handle) => {
+            ChatType::HandleConnection(handle) => {
                 query!(
                     "UPDATE conversation SET
                         connection_user_uuid = NULL,
@@ -637,7 +635,7 @@ impl Conversation {
                 .execute(executor)
                 .await?;
             }
-            ConversationType::Connection(user_id) => {
+            ChatType::Connection(user_id) => {
                 let uuid = user_id.uuid();
                 let domain = user_id.domain();
                 query!(
@@ -653,7 +651,7 @@ impl Conversation {
                 .execute(executor)
                 .await?;
             }
-            ConversationType::Group => {
+            ChatType::Group => {
                 query!(
                     "UPDATE conversation SET
                         connection_user_uuid = NULL,
@@ -671,7 +669,7 @@ impl Conversation {
 
     async fn load_past_members(
         executor: impl SqliteExecutor<'_>,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> sqlx::Result<Vec<SqlPastMember>> {
         let mut members = query_as!(
             SqlPastMember,
@@ -701,23 +699,22 @@ pub mod tests {
     use uuid::Uuid;
 
     use crate::{
-        InactiveConversation,
-        conversations::messages::persistence::tests::test_conversation_message,
+        InactiveChat, conversations::messages::persistence::tests::test_conversation_message,
     };
 
     use super::*;
 
-    pub(crate) fn test_conversation() -> Conversation {
-        let id = ConversationId {
+    pub(crate) fn test_chat() -> Chat {
+        let id = ChatId {
             uuid: Uuid::new_v4(),
         };
-        Conversation {
+        Chat {
             id,
             group_id: GroupId::from_slice(&[0; 32]),
             last_read: Utc::now(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::Group,
-            attributes: ConversationAttributes {
+            status: ChatStatus::Active,
+            conversation_type: ChatType::Group,
+            attributes: ChatAttributes {
                 title: "Test conversation".to_string(),
                 picture: None,
             },
@@ -728,11 +725,11 @@ pub mod tests {
     async fn store_load(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(&mut connection, &mut store_notifier)
             .await?;
-        let loaded = Conversation::load(&mut connection, &conversation.id)
+        let loaded = Chat::load(&mut connection, &conversation.id)
             .await?
             .expect("missing conversation");
         assert_eq!(loaded, conversation);
@@ -744,11 +741,11 @@ pub mod tests {
     async fn store_load_by_group_id(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(&mut connection, &mut store_notifier)
             .await?;
-        let loaded = Conversation::load_by_group_id(&mut connection, &conversation.group_id)
+        let loaded = Chat::load_by_group_id(&mut connection, &conversation.group_id)
             .await?
             .expect("missing conversation");
         assert_eq!(loaded, conversation);
@@ -760,17 +757,17 @@ pub mod tests {
     async fn store_load_all(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation_a = test_conversation();
+        let conversation_a = test_chat();
         conversation_a
             .store(&mut connection, &mut store_notifier)
             .await?;
 
-        let conversation_b = test_conversation();
+        let conversation_b = test_chat();
         conversation_b
             .store(&mut connection, &mut store_notifier)
             .await?;
 
-        let loaded = Conversation::load_all(&mut connection).await?;
+        let loaded = Chat::load_all(&mut connection).await?;
         assert_eq!(loaded, [conversation_a, conversation_b]);
 
         Ok(())
@@ -782,13 +779,13 @@ pub mod tests {
     ) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let mut conversation = test_conversation();
+        let mut conversation = test_chat();
         conversation
             .store(&mut connection, &mut store_notifier)
             .await?;
 
         let new_picture = [1, 2, 3];
-        Conversation::update_picture(
+        Chat::update_picture(
             &mut *connection,
             &mut store_notifier,
             conversation.id,
@@ -798,7 +795,7 @@ pub mod tests {
 
         conversation.attributes.picture = Some(new_picture.to_vec());
 
-        let loaded = Conversation::load(&mut connection, &conversation.id)
+        let loaded = Chat::load(&mut connection, &conversation.id)
             .await?
             .unwrap();
         assert_eq!(loaded, conversation);
@@ -812,7 +809,7 @@ pub mod tests {
     ) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let mut conversation = test_conversation();
+        let mut conversation = test_chat();
         conversation
             .store(&mut connection, &mut store_notifier)
             .await?;
@@ -824,8 +821,8 @@ pub mod tests {
         // implicit assumption: past members are sorted
         past_members.sort_unstable();
 
-        let status = ConversationStatus::Inactive(InactiveConversation::new(past_members));
-        Conversation::update_status(
+        let status = ChatStatus::Inactive(InactiveChat::new(past_members));
+        Chat::update_status(
             &mut connection,
             &mut store_notifier,
             conversation.id,
@@ -834,7 +831,7 @@ pub mod tests {
         .await?;
 
         conversation.status = status;
-        let loaded = Conversation::load(&mut connection, &conversation.id)
+        let loaded = Chat::load(&mut connection, &conversation.id)
             .await?
             .unwrap();
         assert_eq!(loaded, conversation);
@@ -846,17 +843,17 @@ pub mod tests {
     async fn delete(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(&mut connection, &mut store_notifier)
             .await?;
-        let loaded = Conversation::load(&mut connection, &conversation.id)
+        let loaded = Chat::load(&mut connection, &conversation.id)
             .await?
             .unwrap();
         assert_eq!(loaded, conversation);
 
-        Conversation::delete(&mut *connection, &mut store_notifier, conversation.id).await?;
-        let loaded = Conversation::load(&mut connection, &conversation.id).await?;
+        Chat::delete(&mut *connection, &mut store_notifier, conversation.id).await?;
+        let loaded = Chat::load(&mut connection, &conversation.id).await?;
         assert!(loaded.is_none());
 
         Ok(())
@@ -866,12 +863,12 @@ pub mod tests {
     async fn counters(mut connection: PoolConnection<Sqlite>) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation_a = test_conversation();
+        let conversation_a = test_chat();
         conversation_a
             .store(&mut connection, &mut store_notifier)
             .await?;
 
-        let conversation_b = test_conversation();
+        let conversation_b = test_chat();
         conversation_b
             .store(&mut connection, &mut store_notifier)
             .await?;
@@ -886,17 +883,17 @@ pub mod tests {
             .store(&mut *connection, &mut store_notifier)
             .await?;
 
-        let n = Conversation::messages_count(&mut *connection, conversation_a.id()).await?;
+        let n = Chat::messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
-        let n = Conversation::messages_count(&mut *connection, conversation_b.id()).await?;
+        let n = Chat::messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 1);
 
-        let n = Conversation::global_unread_message_count(&mut *connection).await?;
+        let n = Chat::global_unread_message_count(&mut *connection).await?;
         assert_eq!(n, 2);
 
         let mut txn = connection.begin().await?;
-        Conversation::mark_as_read(
+        Chat::mark_as_read(
             &mut txn,
             &mut store_notifier,
             [(
@@ -906,35 +903,35 @@ pub mod tests {
         )
         .await?;
         txn.commit().await?;
-        let n = Conversation::unread_messages_count(&mut *connection, conversation_a.id()).await?;
+        let n = Chat::unread_messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 1);
 
         let mut txn = connection.begin().await?;
-        Conversation::mark_as_read(
+        Chat::mark_as_read(
             &mut txn,
             &mut store_notifier,
             [(conversation_a.id(), Utc::now())],
         )
         .await?;
         txn.commit().await?;
-        let n = Conversation::unread_messages_count(&mut *connection, conversation_a.id()).await?;
+        let n = Chat::unread_messages_count(&mut *connection, conversation_a.id()).await?;
         assert_eq!(n, 0);
 
         let mut txn = connection.begin().await?;
-        Conversation::mark_as_read_until_message_id(
+        Chat::mark_as_read_until_message_id(
             &mut txn,
             &mut store_notifier,
             conversation_b.id(),
-            ConversationMessageId::random(),
+            MessageId::random(),
             &UserId::random("localhost".parse().unwrap()),
         )
         .await?;
         txn.commit().await?;
-        let n = Conversation::unread_messages_count(&mut *connection, conversation_b.id()).await?;
+        let n = Chat::unread_messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 1);
 
         let mut txn = connection.begin().await?;
-        Conversation::mark_as_read_until_message_id(
+        Chat::mark_as_read_until_message_id(
             &mut txn,
             &mut store_notifier,
             conversation_b.id(),
@@ -943,10 +940,10 @@ pub mod tests {
         )
         .await?;
         txn.commit().await?;
-        let n = Conversation::unread_messages_count(&mut *connection, conversation_b.id()).await?;
+        let n = Chat::unread_messages_count(&mut *connection, conversation_b.id()).await?;
         assert_eq!(n, 0);
 
-        let n = Conversation::global_unread_message_count(&mut *connection).await?;
+        let n = Chat::global_unread_message_count(&mut *connection).await?;
         assert_eq!(n, 0);
 
         Ok(())

@@ -18,7 +18,7 @@ use tokio_stream::StreamExt;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::{ConversationId, ConversationMessageId};
+use crate::{ChatId, MessageId};
 
 use super::{StoreEntityId, StoreNotification, StoreOperation, notification::StoreEntityKind};
 
@@ -99,10 +99,10 @@ impl SqlStoreNotification {
                 StoreEntityId::User(user_id.into_owned())
             }
             StoreEntityKind::Conversation => {
-                StoreEntityId::Conversation(ConversationId::new(Uuid::from_slice(&entity_id)?))
+                StoreEntityId::Conversation(ChatId::new(Uuid::from_slice(&entity_id)?))
             }
             StoreEntityKind::Message => {
-                StoreEntityId::Message(ConversationMessageId::new(Uuid::from_slice(&entity_id)?))
+                StoreEntityId::Message(MessageId::new(Uuid::from_slice(&entity_id)?))
             }
             StoreEntityKind::Attachment => {
                 StoreEntityId::Attachment(AttachmentId::new(Uuid::from_slice(&entity_id)?))
@@ -189,7 +189,7 @@ mod tests {
     use sqlx::SqlitePool;
     use uuid::Uuid;
 
-    use crate::{ConversationId, ConversationMessageId};
+    use crate::{ChatId, MessageId};
 
     use super::*;
 
@@ -201,13 +201,13 @@ mod tests {
             StoreOperation::Add.into(),
         );
         notification.ops.insert(
-            StoreEntityId::Conversation(ConversationId {
+            StoreEntityId::Conversation(ChatId {
                 uuid: Uuid::new_v4(),
             }),
             StoreOperation::Update.into(),
         );
         notification.ops.insert(
-            StoreEntityId::Message(ConversationMessageId {
+            StoreEntityId::Message(MessageId {
                 uuid: uuid::Uuid::new_v4(),
             }),
             StoreOperation::Remove | StoreOperation::Update,
@@ -226,7 +226,7 @@ mod tests {
 
     #[sqlx::test]
     async fn queue_notification_with_conflict(pool: SqlitePool) -> anyhow::Result<()> {
-        let conversation_id = ConversationId::new(Uuid::new_v4());
+        let conversation_id = ChatId::new(Uuid::new_v4());
 
         let mut notification = StoreNotification::default();
         notification.ops.insert(

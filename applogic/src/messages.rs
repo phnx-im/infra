@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::messages::QueueMessage;
-use aircoreclient::{ConversationId, clients::process::process_qs::ProcessedQsMessages};
+use aircoreclient::{ChatId, clients::process::process_qs::ProcessedQsMessages};
 use anyhow::Result;
 use tracing::debug;
 
@@ -16,7 +16,7 @@ pub(crate) struct ProcessedMessages {
 
 impl User {
     /// Fetch and process AS messages
-    async fn fetch_and_process_as_messages(&self) -> Result<Vec<ConversationId>> {
+    async fn fetch_and_process_as_messages(&self) -> Result<Vec<ChatId>> {
         self.user.fetch_and_process_as_messages().await
     }
 

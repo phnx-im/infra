@@ -15,8 +15,8 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress, MessageDraft,
+    AttachmentContent, Chat, ChatId, Contact, ConversationMessage, DownloadProgress, MessageDraft,
+    MessageId,
     clients::{CoreUser, attachment::AttachmentRecord, user_settings::UserSettingRecord},
     contacts::HandleContact,
     store::UserSetting,
@@ -103,51 +103,48 @@ impl Store for CoreUser {
         &self,
         title: String,
         picture: Option<Vec<u8>>,
-    ) -> StoreResult<ConversationId> {
+    ) -> StoreResult<ChatId> {
         self.create_conversation(title, picture).await
     }
 
     async fn set_conversation_picture(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<()> {
         self.set_conversation_picture(conversation_id, picture)
             .await
     }
 
-    async fn conversations(&self) -> StoreResult<Vec<Conversation>> {
-        Ok(self.conversations().await?)
+    async fn conversations(&self) -> StoreResult<Vec<Chat>> {
+        Ok(self.chats().await?)
     }
 
     async fn conversation_participants(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<Option<HashSet<UserId>>> {
         self.try_conversation_participants(conversation_id).await
     }
 
     async fn delete_conversation(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<Vec<ConversationMessage>> {
         self.delete_conversation(conversation_id).await
     }
 
-    async fn leave_conversation(&self, conversation_id: ConversationId) -> StoreResult<()> {
+    async fn leave_conversation(&self, conversation_id: ChatId) -> StoreResult<()> {
         self.leave_conversation(conversation_id).await
     }
 
-    async fn update_key(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Vec<ConversationMessage>> {
+    async fn update_key(&self, conversation_id: ChatId) -> StoreResult<Vec<ConversationMessage>> {
         self.update_key(conversation_id).await
     }
 
     async fn remove_users(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         target_users: Vec<UserId>,
     ) -> StoreResult<Vec<ConversationMessage>> {
         self.remove_users(conversation_id, target_users).await
@@ -155,7 +152,7 @@ impl Store for CoreUser {
 
     async fn invite_users(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         invited_users: &[UserId],
     ) -> StoreResult<Vec<ConversationMessage>> {
         self.invite_users(conversation_id, invited_users).await
@@ -163,12 +160,12 @@ impl Store for CoreUser {
 
     async fn load_room_state(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<(UserId, VerifiedRoomState)> {
         self.load_room_state(&conversation_id).await
     }
 
-    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ConversationId>> {
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ChatId>> {
         self.add_contact_via_handle(handle).await
     }
 
@@ -190,43 +187,40 @@ impl Store for CoreUser {
 
     async fn messages(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         limit: usize,
     ) -> StoreResult<Vec<ConversationMessage>> {
         self.get_messages(conversation_id, limit).await
     }
 
-    async fn message(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>> {
+    async fn message(&self, message_id: MessageId) -> StoreResult<Option<ConversationMessage>> {
         Ok(self.message(message_id).await?)
     }
 
     async fn prev_message(
         &self,
-        message_id: ConversationMessageId,
+        message_id: MessageId,
     ) -> StoreResult<Option<ConversationMessage>> {
         self.prev_message(message_id).await
     }
 
     async fn next_message(
         &self,
-        message_id: ConversationMessageId,
+        message_id: MessageId,
     ) -> StoreResult<Option<ConversationMessage>> {
         self.next_message(message_id).await
     }
 
     async fn last_message(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<Option<ConversationMessage>> {
         Ok(ConversationMessage::last_content_message(self.pool(), conversation_id).await?)
     }
 
     async fn last_message_by_user(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         user_id: &UserId,
     ) -> StoreResult<Option<ConversationMessage>> {
         Ok(
@@ -239,16 +233,13 @@ impl Store for CoreUser {
         )
     }
 
-    async fn message_draft(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Option<MessageDraft>> {
+    async fn message_draft(&self, conversation_id: ChatId) -> StoreResult<Option<MessageDraft>> {
         Ok(MessageDraft::load(self.pool(), conversation_id).await?)
     }
 
     async fn store_message_draft(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         message_draft: Option<&MessageDraft>,
     ) -> StoreResult<()> {
         let mut notifier = self.store_notifier();
@@ -263,11 +254,11 @@ impl Store for CoreUser {
         Ok(())
     }
 
-    async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {
+    async fn messages_count(&self, conversation_id: ChatId) -> StoreResult<usize> {
         Ok(self.try_messages_count(conversation_id).await?)
     }
 
-    async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize> {
+    async fn unread_messages_count(&self, conversation_id: ChatId) -> StoreResult<usize> {
         Ok(self.try_unread_messages_count(conversation_id).await?)
     }
 
@@ -277,11 +268,11 @@ impl Store for CoreUser {
 
     async fn mark_conversation_as_read(
         &self,
-        conversation_id: ConversationId,
-        until: ConversationMessageId,
+        conversation_id: ChatId,
+        until: MessageId,
     ) -> StoreResult<(bool, Vec<MimiId>)> {
         self.with_transaction_and_notifier(async |txn, notifier| {
-            Conversation::mark_as_read_until_message_id(
+            Chat::mark_as_read_until_message_id(
                 txn,
                 notifier,
                 conversation_id,
@@ -296,9 +287,9 @@ impl Store for CoreUser {
 
     async fn send_message(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         content: mimi_content::MimiContent,
-        replaces_id: Option<ConversationMessageId>,
+        replaces_id: Option<MessageId>,
     ) -> StoreResult<ConversationMessage> {
         self.send_message(conversation_id, content, replaces_id)
             .await
@@ -306,7 +297,7 @@ impl Store for CoreUser {
 
     async fn send_delivery_receipts<'a>(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
     ) -> StoreResult<()> {
         self.send_delivery_receipts(conversation_id, statuses).await
@@ -314,7 +305,7 @@ impl Store for CoreUser {
 
     async fn upload_attachment(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         path: &Path,
     ) -> StoreResult<ConversationMessage> {
         self.upload_attachment(conversation_id, path).await

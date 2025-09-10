@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::ConversationMessageId;
+use crate::MessageId;
 
 /// A message draft which is currently composed in a conversation.
 ///
@@ -16,7 +16,7 @@ pub struct MessageDraft {
     /// The text currently composed in the draft.
     pub message: String,
     /// The id of the message currently being edited, if any.
-    pub editing_id: Option<ConversationMessageId>,
+    pub editing_id: Option<MessageId>,
     /// The time when the draft was last updated.
     pub updated_at: DateTime<Utc>,
 }
@@ -24,14 +24,14 @@ pub struct MessageDraft {
 mod persistence {
     use sqlx::{SqliteExecutor, query, query_as};
 
-    use crate::{ConversationId, store::StoreNotifier};
+    use crate::{ChatId, store::StoreNotifier};
 
     use super::*;
 
     impl MessageDraft {
         pub(crate) async fn load(
             executor: impl SqliteExecutor<'_>,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> sqlx::Result<Option<Self>> {
             query_as!(
                 MessageDraft,
@@ -53,7 +53,7 @@ mod persistence {
             &self,
             executor: impl SqliteExecutor<'_>,
             notifier: &mut StoreNotifier,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> sqlx::Result<()> {
             query!(
                 "INSERT OR REPLACE INTO message_draft (
@@ -76,7 +76,7 @@ mod persistence {
         pub(crate) async fn delete(
             executor: impl SqliteExecutor<'_>,
             notifier: &mut StoreNotifier,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> sqlx::Result<()> {
             query!(
                 "DELETE FROM message_draft WHERE conversation_id = ?",
@@ -97,7 +97,7 @@ mod persistence {
         use crate::{
             conversations::{
                 messages::persistence::tests::test_conversation_message,
-                persistence::tests::test_conversation,
+                persistence::tests::test_chat,
             },
             store::StoreNotifier,
         };
@@ -108,7 +108,7 @@ mod persistence {
         async fn store_load_and_delete_message_draft(pool: SqlitePool) -> anyhow::Result<()> {
             let mut notifier = StoreNotifier::noop();
 
-            let conversation = test_conversation();
+            let conversation = test_chat();
             conversation
                 .store(pool.acquire().await?.as_mut(), &mut notifier)
                 .await?;

@@ -4,7 +4,7 @@
 
 use update_key_flow::UpdateKeyData;
 
-use crate::{ConversationId, ConversationMessage, utils::connection_ext::ConnectionExt};
+use crate::{ChatId, ConversationMessage, utils::connection_ext::ConnectionExt};
 
 use super::CoreUser;
 
@@ -18,7 +18,7 @@ impl CoreUser {
     /// group. Note that these returned message have already been persisted.
     pub(crate) async fn update_key(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         // Phase 1: Load the conversation and the group
         let mut connection = self.pool().acquire().await?;
@@ -56,13 +56,13 @@ mod update_key_flow {
     use sqlx::SqliteTransaction;
 
     use crate::{
-        Conversation, ConversationId, ConversationMessage,
+        Chat, ChatId, ConversationMessage,
         clients::{CoreUser, api_clients::ApiClients},
         groups::Group,
     };
 
     pub(super) struct UpdateKeyData {
-        conversation: Conversation,
+        conversation: Chat,
         group: Group,
         params: UpdateParamsOut,
     }
@@ -70,10 +70,10 @@ mod update_key_flow {
     impl UpdateKeyData {
         pub(super) async fn lock(
             txn: &mut SqliteTransaction<'_>,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
             signer: &ClientSigningKey,
         ) -> anyhow::Result<Self> {
-            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+            let conversation = Chat::load(txn.as_mut(), &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
             let group_id = conversation.group_id();
@@ -119,7 +119,7 @@ mod update_key_flow {
             self,
             connection: &mut sqlx::SqliteConnection,
             notifier: &mut crate::store::StoreNotifier,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> anyhow::Result<Vec<ConversationMessage>> {
             let Self {
                 mut group,

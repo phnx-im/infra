@@ -18,8 +18,7 @@ use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
 use crate::{
-    ContentMessage, Conversation, ConversationId, ConversationMessage, ConversationMessageId,
-    Message,
+    Chat, ChatId, ContentMessage, ConversationMessage, Message, MessageId,
     conversations::{StatusRecord, messages::edit::MessageEdit},
 };
 
@@ -32,15 +31,15 @@ impl CoreUser {
     /// conversation is marked as read until this message.
     pub(crate) async fn send_message(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         content: MimiContent,
-        replaces_id: Option<ConversationMessageId>,
+        replaces_id: Option<MessageId>,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = self
             .with_transaction_and_notifier(async |txn, notifier| {
                 UnsentContent {
                     conversation_id,
-                    conversation_message_id: ConversationMessageId::random(),
+                    conversation_message_id: MessageId::random(),
                     content,
                 }
                 .store_unsent_message(txn, notifier, self.user_id(), replaces_id)
@@ -67,8 +66,8 @@ impl CoreUser {
         &self,
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
-        conversation_message_id: ConversationMessageId,
+        conversation_id: ChatId,
+        conversation_message_id: MessageId,
         content: MimiContent,
     ) -> anyhow::Result<ConversationMessage> {
         let unsent_group_message = UnsentContent {
@@ -119,7 +118,7 @@ impl CoreUser {
 
     pub(crate) async fn send_delivery_receipts(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         statuses: impl IntoIterator<Item = (&MimiId, MessageStatus)>,
     ) -> anyhow::Result<()> {
         let Some(unsent_receipt) = UnsentReceipt::new(statuses)? else {
@@ -128,7 +127,7 @@ impl CoreUser {
 
         let (conversation, group, params) = self
             .with_transaction(async |txn| {
-                let conversation = Conversation::load(&mut *txn, &conversation_id)
+                let conversation = Chat::load(&mut *txn, &conversation_id)
                     .await?
                     .with_context(|| {
                         format!("Can't find conversation with id {conversation_id}")
@@ -166,8 +165,8 @@ impl CoreUser {
 }
 
 struct UnsentContent {
-    conversation_id: ConversationId,
-    conversation_message_id: ConversationMessageId,
+    conversation_id: ChatId,
+    conversation_message_id: MessageId,
     content: MimiContent,
 }
 
@@ -177,7 +176,7 @@ impl UnsentContent {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         sender: &UserId,
-        replaces_id: Option<ConversationMessageId>,
+        replaces_id: Option<MessageId>,
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdateNeeded>> {
         let UnsentContent {
             conversation_id,
@@ -185,7 +184,7 @@ impl UnsentContent {
             mut content,
         } = self;
 
-        let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+        let conversation = Chat::load(txn.as_mut(), &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
 
@@ -268,12 +267,10 @@ impl LocalMessage {
     ) -> anyhow::Result<UnsentMessage<WithContent, GroupUpdated>> {
         let Self { local_message_id } = self;
 
-        let conversation_message = ConversationMessage::load(
-            &mut *connection,
-            ConversationMessageId::new(local_message_id),
-        )
-        .await?
-        .with_context(|| format!("Can't find unsent message with id {local_message_id}"))?;
+        let conversation_message =
+            ConversationMessage::load(&mut *connection, MessageId::new(local_message_id))
+                .await?
+                .with_context(|| format!("Can't find unsent message with id {local_message_id}"))?;
         let content = match conversation_message.message() {
             Message::Content(content_message) if !content_message.was_sent() => {
                 content_message.content().clone()
@@ -282,7 +279,7 @@ impl LocalMessage {
             _ => bail!("Message with id {local_message_id} is not a content message"),
         };
         let conversation_id = conversation_message.conversation_id();
-        let conversation = Conversation::load(&mut *connection, &conversation_id)
+        let conversation = Chat::load(&mut *connection, &conversation_id)
             .await?
             .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
         let group_id = conversation.group_id();
@@ -314,7 +311,7 @@ struct GroupUpdateNeeded;
 struct GroupUpdated;
 
 struct UnsentMessage<State, GroupUpdate> {
-    conversation: Conversation,
+    conversation: Chat,
     group: Group,
     conversation_message: ConversationMessage,
     content: State,
@@ -367,7 +364,7 @@ impl UnsentMessage<WithParams, GroupUpdateNeeded> {
         group.store_update(txn.as_mut()).await?;
 
         // Also, mark the message (and all messages preceeding it) as read.
-        Conversation::mark_as_read_until_message_id(
+        Chat::mark_as_read_until_message_id(
             txn,
             notifier,
             conversation.id(),
@@ -441,7 +438,7 @@ impl SentMessage {
         // Note: even though the message was already marked as read, we still need to move the last
         // read timestamp down. After a message was sent to DS, it is marked as read, which updates
         // its timestamp to the timestamp returned by DS.
-        Conversation::mark_as_read_until_message_id(
+        Chat::mark_as_read_until_message_id(
             txn,
             notifier,
             conversation_message.conversation_id(),

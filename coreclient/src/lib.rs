@@ -21,11 +21,10 @@ pub use crate::{
     },
     contacts::Contact,
     conversations::{
-        Conversation, ConversationAttributes, ConversationId, ConversationStatus, ConversationType,
-        InactiveConversation, MessageDraft,
+        Chat, ChatAttributes, ChatId, ChatStatus, ChatType, InactiveChat, MessageDraft,
         messages::{
-            ContentMessage, ConversationMessage, ConversationMessageId, ErrorMessage, EventMessage,
-            Message, NotificationType, SystemMessage,
+            ContentMessage, ConversationMessage, ErrorMessage, EventMessage, Message, MessageId,
+            NotificationType, SystemMessage,
         },
     },
     user_handles::UserHandleRecord,

@@ -10,7 +10,7 @@ use std::{
 };
 
 use aircoreclient::{
-    ConversationId, ConversationMessage, ConversationMessageId,
+    ChatId, ConversationMessage, MessageId,
     store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
 use flutter_rust_bridge::frb;
@@ -25,7 +25,7 @@ use crate::{
 };
 
 use super::{
-    types::{UiConversationMessage, UiFlightPosition},
+    types::{UiChatMessage, UiFlightPosition},
     user_cubit::UserCubitBase,
 };
 
@@ -43,11 +43,11 @@ pub struct MessageListState {
 #[derive(Debug, Default)]
 struct MessageListStateInner {
     /// Loaded messages (not all messages in the conversation)
-    messages: Vec<UiConversationMessage>,
+    messages: Vec<UiChatMessage>,
     /// Lookup index mapping a message id to the index in `messages`
-    message_ids_index: HashMap<ConversationMessageId, usize>,
+    message_ids_index: HashMap<MessageId, usize>,
     /// Newly added messages
-    new_messages: HashSet<ConversationMessageId>,
+    new_messages: HashSet<MessageId>,
 }
 
 impl MessageListState {
@@ -74,10 +74,10 @@ impl MessageListState {
         let prev = if include_first {
             None
         } else {
-            messages_iter.next().map(UiConversationMessage::from)
+            messages_iter.next().map(UiChatMessage::from)
         };
         let mut prev = prev.as_ref();
-        let mut cur = messages_iter.next().map(UiConversationMessage::from);
+        let mut cur = messages_iter.next().map(UiChatMessage::from);
 
         while let Some(mut message) = cur.take() {
             let next = messages_iter.next().map(From::from);
@@ -120,18 +120,18 @@ impl MessageListState {
 
     /// Returns the message at the given index.
     #[frb(sync, type_64bit_int, positional)]
-    pub fn message_at(&self, index: usize) -> Option<UiConversationMessage> {
+    pub fn message_at(&self, index: usize) -> Option<UiChatMessage> {
         self.inner.messages.get(index).cloned()
     }
 
     /// Returns the lookup table mapping a message id to the index in the list.
     #[frb(sync, type_64bit_int, positional)]
-    pub fn message_id_index(&self, message_id: ConversationMessageId) -> Option<usize> {
+    pub fn message_id_index(&self, message_id: MessageId) -> Option<usize> {
         self.inner.message_ids_index.get(&message_id).copied()
     }
 
     #[frb(sync, positional)]
-    pub fn is_new_message(&self, message_id: ConversationMessageId) -> bool {
+    pub fn is_new_message(&self, message_id: MessageId) -> bool {
         self.inner.new_messages.contains(&message_id)
     }
 }
@@ -148,7 +148,7 @@ pub struct MessageListCubitBase {
 
 impl MessageListCubitBase {
     #[frb(sync)]
-    pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
+    pub fn new(user_cubit: &UserCubitBase, conversation_id: ChatId) -> Self {
         let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
@@ -187,15 +187,11 @@ impl MessageListCubitBase {
 struct MessageListContext<S> {
     store: S,
     state_tx: watch::Sender<MessageListState>,
-    conversation_id: ConversationId,
+    conversation_id: ChatId,
 }
 
 impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
-    fn new(
-        store: S,
-        state_tx: watch::Sender<MessageListState>,
-        conversation_id: ConversationId,
-    ) -> Self {
+    fn new(store: S, state_tx: watch::Sender<MessageListState>, conversation_id: ChatId) -> Self {
         Self {
             store,
             state_tx,
@@ -319,7 +315,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
 #[cfg(test)]
 mod tests {
     use aircommon::{identifiers::UserId, time::TimeStamp};
-    use aircoreclient::{ContentMessage, ConversationMessageId, Message};
+    use aircoreclient::{ContentMessage, Message, MessageId};
     use mimi_content::MimiContent;
     use openmls::group::GroupId;
     use uuid::Uuid;
@@ -328,8 +324,8 @@ mod tests {
 
     fn new_test_message(sender: &UserId, timestamp_secs: i64) -> ConversationMessage {
         ConversationMessage::new_for_test(
-            ConversationId::new(Uuid::from_u128(1)),
-            ConversationMessageId::new(Uuid::from_u128(1)),
+            ChatId::new(Uuid::from_u128(1)),
+            MessageId::new(Uuid::from_u128(1)),
             TimeStamp::from(timestamp_secs * 1_000_000_000),
             Message::with_content(ContentMessage::new(
                 sender.clone(),

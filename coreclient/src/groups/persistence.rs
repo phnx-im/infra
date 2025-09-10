@@ -16,7 +16,7 @@ use tls_codec::Serialize as _;
 use tracing::error;
 
 use crate::{
-    ConversationId,
+    ChatId,
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper},
 };
 
@@ -123,7 +123,7 @@ impl Group {
 
     pub async fn load_with_conversation_id_clean(
         connection: &mut sqlx::SqliteConnection,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> anyhow::Result<Option<Self>> {
         let Some(group) = Group::load_with_conversation_id(connection, conversation_id).await?
         else {
@@ -167,7 +167,7 @@ impl Group {
     /// Same as [`Self::load()`], but load the group via the corresponding conversation.
     pub(crate) async fn load_with_conversation_id(
         connection: &mut sqlx::SqliteConnection,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> sqlx::Result<Option<Self>> {
         let Some(sql_group) = query_as!(
             SqlGroup,

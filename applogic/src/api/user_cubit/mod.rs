@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use aircommon::identifiers::{UserHandle, UserId};
 use aircoreclient::Asset;
-use aircoreclient::{ConversationId, clients::CoreUser, store::Store};
+use aircoreclient::{ChatId, clients::CoreUser, store::Store};
 use flutter_rust_bridge::frb;
 use qs::QueueContext;
 use tokio::sync::watch;
@@ -224,7 +224,7 @@ impl UserCubitBase {
     #[frb(positional)]
     pub async fn add_user_to_conversation(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         user_id: UiUserId,
     ) -> anyhow::Result<()> {
         self.context
@@ -237,7 +237,7 @@ impl UserCubitBase {
     #[frb(positional)]
     pub async fn remove_user_from_conversation(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         user_id: UiUserId,
     ) -> anyhow::Result<()> {
         self.context
@@ -255,7 +255,7 @@ impl UserCubitBase {
 
     pub async fn addable_contacts(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> anyhow::Result<Vec<UiContact>> {
         let Some(members) = self
             .context
@@ -406,7 +406,7 @@ impl CubitContext {
 #[derive(Debug)]
 enum NotificationContext {
     Intro,
-    Conversation(ConversationId),
+    Conversation(ChatId),
     ConversationList,
     Other,
 }

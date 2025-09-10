@@ -34,29 +34,28 @@ use tracing::error;
 use crate::{
     ContentMessage, ConversationMessage, Message,
     contacts::HandleContact,
-    conversations::{ConversationType, StatusRecord, messages::edit::MessageEdit},
+    conversations::{ChatType, StatusRecord, messages::edit::MessageEdit},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
 };
 
 use super::{
-    Conversation, ConversationAttributes, ConversationId, CoreUser, FriendshipPackage,
-    TimestampedMessage, anyhow,
+    Chat, ChatAttributes, ChatId, CoreUser, FriendshipPackage, TimestampedMessage, anyhow,
 };
 use crate::key_stores::queue_ratchets::StorableQsQueueRatchet;
 
 pub enum ProcessQsMessageResult {
     None,
-    NewConversation(ConversationId),
-    ConversationChanged(ConversationId, Vec<ConversationMessage>),
+    NewConversation(ChatId),
+    ConversationChanged(ChatId, Vec<ConversationMessage>),
     ConversationMessages(Vec<ConversationMessage>),
 }
 
 #[derive(Debug)]
 pub struct ProcessedQsMessages {
-    pub new_conversations: Vec<ConversationId>,
-    pub changed_conversations: Vec<ConversationId>,
+    pub new_conversations: Vec<ChatId>,
+    pub changed_conversations: Vec<ChatId>,
     pub new_messages: Vec<ConversationMessage>,
     pub errors: Vec<anyhow::Error>,
 }
@@ -172,16 +171,14 @@ impl CoreUser {
                 // Set the conversation attributes according to the group's
                 // group data.
                 let group_data = group.group_data().context("No group data")?;
-                let attributes: ConversationAttributes =
-                    PersistenceCodec::from_slice(group_data.bytes())?;
+                let attributes: ChatAttributes = PersistenceCodec::from_slice(group_data.bytes())?;
 
-                let conversation =
-                    Conversation::new_group_conversation(group_id.clone(), attributes);
+                let conversation = Chat::new_group_chat(group_id.clone(), attributes);
                 let own_profile_key = UserProfileKey::load_own(txn.as_mut()).await?;
                 // If we've been in that conversation before, we delete the old
                 // conversation (and the corresponding MLS group) first and then
                 // create a new one. We do leave the messages intact, though.
-                Conversation::delete(txn.as_mut(), notifier, conversation.id()).await?;
+                Chat::delete(txn.as_mut(), notifier, conversation.id()).await?;
                 Group::delete_from_db(txn, &group_id).await?;
                 group.store(txn.as_mut()).await?;
                 conversation.store(txn.as_mut(), notifier).await?;
@@ -238,7 +235,7 @@ impl CoreUser {
 
         let (conversation_messages, conversation_changed, conversation_id, profile_infos) = self
             .with_transaction_and_notifier(async |txn, notifier| {
-                let conversation = Conversation::load_by_group_id(txn.as_mut(), &group_id)
+                let conversation = Chat::load_by_group_id(txn.as_mut(), &group_id)
                     .await?
                     .ok_or_else(|| anyhow!("No conversation found for group ID {:?}", group_id))?;
                 let conversation_id = conversation.id();
@@ -454,7 +451,7 @@ impl CoreUser {
         &self,
         txn: &mut SqliteTransaction<'_>,
         group: &mut Group,
-        mut conversation: Conversation,
+        mut conversation: Chat,
         staged_commit: openmls::prelude::StagedCommit,
         aad: Vec<u8>,
         ds_timestamp: TimeStamp,
@@ -468,8 +465,8 @@ impl CoreUser {
         // StagedCommitMessage Phase 1: Confirm the conversation if unconfirmed
         let mut notifier = self.store_notifier();
 
-        let conversation_changed = match &conversation.conversation_type() {
-            ConversationType::HandleConnection(handle) => {
+        let conversation_changed = match &conversation.chat_type() {
+            ChatType::HandleConnection(handle) => {
                 let handle = handle.clone();
                 self.handle_unconfirmed_conversation(
                     txn,
@@ -512,7 +509,7 @@ impl CoreUser {
         aad: Vec<u8>,
         sender: &Sender,
         sender_client_credential: &ClientCredential,
-        conversation: &mut Conversation,
+        conversation: &mut Chat,
         handle: &UserHandle,
     ) -> Result<(), anyhow::Error> {
         // Check if it was an external commit
@@ -734,7 +731,7 @@ async fn handle_message_edit(
     // Clear the status of the message
     StatusRecord::clear(txn.as_mut(), notifier, message.id()).await?;
 
-    Conversation::mark_as_unread(txn, notifier, message.conversation_id(), message.id()).await?;
+    Chat::mark_as_unread(txn, notifier, message.conversation_id(), message.id()).await?;
 
     Ok(message)
 }

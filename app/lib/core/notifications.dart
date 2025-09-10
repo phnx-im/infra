@@ -6,8 +6,8 @@ import 'package:convert/convert.dart';
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
-import 'api/types.dart';
 import 'frb_generated.dart';
+import 'lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
 
@@ -15,7 +15,7 @@ class NotificationContent {
   final NotificationId identifier;
   final String title;
   final String body;
-  final ConversationId? conversationId;
+  final ChatId? conversationId;
 
   const NotificationContent({
     required this.identifier,
@@ -44,7 +44,7 @@ class NotificationContent {
 
 class NotificationHandle {
   final NotificationId identifier;
-  final ConversationId? conversationId;
+  final ChatId? conversationId;
 
   const NotificationHandle({required this.identifier, this.conversationId});
 

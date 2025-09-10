@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
 use aircommon::{OpenMlsRand, RustCrypto, identifiers::UserId};
-use aircoreclient::{ConversationId, store::StoreNotification};
-use aircoreclient::{ConversationMessageId, clients::CoreUser, store::Store};
+use aircoreclient::{ChatId, store::StoreNotification};
+use aircoreclient::{MessageId, clients::CoreUser, store::Store};
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
 use mimi_content::{MessageStatus, MimiContent};
@@ -88,7 +88,7 @@ impl ConversationDetailsCubitBase {
     /// The cubit will fetch the conversation details and the list of members. It will also listen
     /// to the changes in the conversation and update the state accordingly.
     #[frb(sync)]
-    pub fn new(user_cubit: &UserCubitBase, conversation_id: ConversationId) -> Self {
+    pub fn new(user_cubit: &UserCubitBase, conversation_id: ChatId) -> Self {
         let store = user_cubit.core_user().clone();
         let store_notifications = store.subscribe();
 
@@ -189,7 +189,7 @@ impl ConversationDetailsCubitBase {
     /// The calls to this method are debounced with a fixed delay.
     pub async fn mark_as_read(
         &self,
-        until_message_id: ConversationMessageId,
+        until_message_id: MessageId,
         until_timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
         let scheduled = self
@@ -307,10 +307,7 @@ impl ConversationDetailsCubitBase {
         });
     }
 
-    pub async fn edit_message(
-        &self,
-        message_id: Option<ConversationMessageId>,
-    ) -> anyhow::Result<()> {
+    pub async fn edit_message(&self, message_id: Option<MessageId>) -> anyhow::Result<()> {
         // Load message
         let message = match message_id {
             Some(message_id) => self.context.store.message(message_id).await?,
@@ -388,7 +385,7 @@ impl ConversationDetailsCubitBase {
 struct ConversationDetailsContext {
     store: CoreUser,
     state_tx: watch::Sender<ConversationDetailsState>,
-    conversation_id: ConversationId,
+    conversation_id: ChatId,
     mark_as_read_tx: watch::Sender<MarkAsReadState>,
 }
 
@@ -396,7 +393,7 @@ impl ConversationDetailsContext {
     fn new(
         store: CoreUser,
         state_tx: watch::Sender<ConversationDetailsState>,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> Self {
         let (mark_as_read_tx, _) = watch::channel(Default::default());
         Self {
@@ -458,7 +455,7 @@ impl ConversationDetailsContext {
     }
 
     async fn load_conversation_details(&self) -> Option<(UiConversationDetails, DateTime<Utc>)> {
-        let conversation = self.store.conversation(&self.conversation_id).await?;
+        let conversation = self.store.chat(&self.conversation_id).await?;
         let last_read = conversation.last_read();
         let details = load_conversation_details(&self.store, conversation).await;
         Some((details, last_read))
@@ -510,6 +507,6 @@ enum MarkAsReadState {
     /// Conversation is scheduled to be marked as read until the given timestamp and message id
     Scheduled {
         until_timestamp: DateTime<Utc>,
-        until_message_id: ConversationMessageId,
+        until_message_id: MessageId,
     },
 }

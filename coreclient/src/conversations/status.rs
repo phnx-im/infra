@@ -19,7 +19,7 @@ mod persistence {
     use mimi_content::PerMessageStatus;
     use sqlx::{SqliteExecutor, SqliteTransaction, query, query_scalar};
 
-    use crate::{ConversationMessageId, store::StoreNotifier};
+    use crate::{MessageId, store::StoreNotifier};
 
     use super::*;
 
@@ -58,7 +58,7 @@ mod persistence {
                 let mimi_id = mimi_id.as_slice();
                 let status = status.repr();
                 let Some(message_id) = query_scalar!(
-                    r#"SELECT message_id AS "message_id: ConversationMessageId"
+                    r#"SELECT message_id AS "message_id: MessageId"
                         FROM message
                         WHERE mimi_id = ?"#,
                     mimi_id,
@@ -114,7 +114,7 @@ mod persistence {
         pub(crate) async fn clear(
             txn: impl SqliteExecutor<'_>,
             notifier: &mut crate::store::StoreNotifier,
-            message_id: crate::ConversationMessageId,
+            message_id: crate::MessageId,
         ) -> sqlx::Result<()> {
             query!(
                 "DELETE FROM message_status WHERE message_id = ?",
@@ -135,7 +135,7 @@ mod persistence {
 
         use crate::conversations::{
             messages::persistence::tests::test_conversation_message_with_salt,
-            persistence::tests::test_conversation,
+            persistence::tests::test_chat,
         };
 
         use super::*;
@@ -146,7 +146,7 @@ mod persistence {
 
             let alice = UserId::random("localhost".parse().unwrap());
 
-            let conversation = test_conversation();
+            let conversation = test_chat();
             conversation
                 .store(pool.acquire().await?.as_mut(), &mut notifier)
                 .await?;

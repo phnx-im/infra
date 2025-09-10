@@ -7,8 +7,7 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import 'markdown.dart';
-import 'message_content.dart';
+import '../lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
@@ -25,7 +24,7 @@ part 'conversation_details_cubit.freezed.dart';
 abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
-  Future<void> editMessage({ConversationMessageId? messageId});
+  Future<void> editMessage({MessageId? messageId});
 
   bool get isClosed;
 
@@ -33,7 +32,7 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   ///
   /// The calls to this method are debounced with a fixed delay.
   Future<void> markAsRead({
-    required ConversationMessageId untilMessageId,
+    required MessageId untilMessageId,
     required DateTime untilTimestamp,
   });
 
@@ -43,7 +42,7 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   /// to the changes in the conversation and update the state accordingly.
   factory ConversationDetailsCubitBase({
     required UserCubitBase userCubit,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   }) => RustLib.instance.api
       .crateApiConversationDetailsCubitConversationDetailsCubitBaseNew(
         userCubit: userCubit,

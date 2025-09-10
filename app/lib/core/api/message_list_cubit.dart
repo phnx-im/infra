@@ -7,10 +7,8 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import 'markdown.dart';
-import 'message_content.dart';
+import '../lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
-import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
 
@@ -27,7 +25,7 @@ abstract class MessageListCubitBase implements RustOpaqueInterface {
 
   factory MessageListCubitBase({
     required UserCubitBase userCubit,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   }) => RustLib.instance.api.crateApiMessageListCubitMessageListCubitBaseNew(
     userCubit: userCubit,
     conversationId: conversationId,
@@ -43,7 +41,7 @@ abstract class MessageListState implements RustOpaqueInterface {
   static Future<MessageListState> default_() =>
       RustLib.instance.api.crateApiMessageListCubitMessageListStateDefault();
 
-  bool isNewMessage(ConversationMessageId messageId);
+  bool isNewMessage(MessageId messageId);
 
   /// The number of loaded messages in the list
   ///
@@ -51,8 +49,8 @@ abstract class MessageListState implements RustOpaqueInterface {
   int get loadedMessagesCount;
 
   /// Returns the message at the given index.
-  UiConversationMessage? messageAt(int index);
+  UiChatMessage? messageAt(int index);
 
   /// Returns the lookup table mapping a message id to the index in the list.
-  int? messageIdIndex(ConversationMessageId messageId);
+  int? messageIdIndex(MessageId messageId);
 }

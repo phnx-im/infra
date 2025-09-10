@@ -24,8 +24,7 @@ use mimi_content::{
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AttachmentStatus, AttachmentUrl, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId,
+    AttachmentStatus, AttachmentUrl, Chat, ChatId, ConversationMessage, MessageId,
     clients::{
         CoreUser,
         attachment::{
@@ -41,16 +40,14 @@ impl CoreUser {
     /// Uploads an attachment and sends a message containing it.
     pub(crate) async fn upload_attachment(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         path: &Path,
     ) -> anyhow::Result<ConversationMessage> {
         let (conversation, group) = self
             .with_transaction(async |txn| {
-                let conversation = Conversation::load(txn, &conversation_id)
-                    .await?
-                    .with_context(|| {
-                        format!("Can't find conversation with id {conversation_id}")
-                    })?;
+                let conversation = Chat::load(txn, &conversation_id).await?.with_context(|| {
+                    format!("Can't find conversation with id {conversation_id}")
+                })?;
 
                 let group_id = conversation.group_id();
                 let group = Group::load_clean(txn, group_id)
@@ -96,7 +93,7 @@ impl CoreUser {
         // Note: Acquire a transaction here to ensure that the attachment will be deleted from the
         // local database in case of an error.
         self.with_transaction_and_notifier(async |txn, notifier| {
-            let message_id = ConversationMessageId::random();
+            let message_id = MessageId::random();
             let message = self
                 .send_message_transactional(txn, notifier, conversation_id, message_id, content)
                 .await?;

@@ -22,7 +22,7 @@ use sqlx::SqliteTransaction;
 use tracing::info;
 
 use crate::{
-    Conversation, ConversationAttributes, ConversationId,
+    Chat, ChatAttributes, ChatId,
     clients::connection_offer::FriendshipPackage,
     contacts::HandleContact,
     groups::{Group, PartialCreateGroupParams, openmls_provider::AirOpenMlsProvider},
@@ -37,7 +37,7 @@ impl CoreUser {
     pub(crate) async fn add_contact_via_handle(
         &self,
         handle: UserHandle,
-    ) -> anyhow::Result<Option<ConversationId>> {
+    ) -> anyhow::Result<Option<ChatId>> {
         let client = self.api_client()?;
 
         // Phase 1: Fetch a connection package from the AS
@@ -119,7 +119,7 @@ impl VerifiedConnectionPackagesWithGroupId {
 
         info!("Creating local connection group");
         let title = format!("Connection group: {}", handle.plaintext());
-        let conversation_attributes = ConversationAttributes::new(title, None);
+        let conversation_attributes = ChatAttributes::new(title, None);
         let group_data = PersistenceCodec::to_vec(&conversation_attributes)?.into();
 
         let provider = AirOpenMlsProvider::new(txn);
@@ -132,7 +132,7 @@ impl VerifiedConnectionPackagesWithGroupId {
         // connection group.
 
         // Create the connection conversation
-        let conversation = Conversation::new_handle_conversation(
+        let conversation = Chat::new_handle_conversation(
             group_id.clone(),
             conversation_attributes,
             handle.clone(),
@@ -151,7 +151,7 @@ impl VerifiedConnectionPackagesWithGroupId {
 struct LocalGroup {
     group: Group,
     partial_params: PartialCreateGroupParams,
-    conversation_id: ConversationId,
+    conversation_id: ChatId,
     verified_connection_package: ConnectionPackage,
 }
 
@@ -234,7 +234,7 @@ struct LocalHandleContact {
     group: Group,
     connection_offer: EncryptedConnectionOffer,
     params: CreateGroupParamsOut,
-    conversation_id: ConversationId,
+    conversation_id: ChatId,
     verified_connection_package: ConnectionPackage,
 }
 
@@ -244,7 +244,7 @@ impl LocalHandleContact {
         client: &ApiClient,
         signer: &ClientSigningKey,
         responder: ConnectionOfferResponder,
-    ) -> anyhow::Result<ConversationId> {
+    ) -> anyhow::Result<ChatId> {
         let Self {
             group,
             connection_offer,

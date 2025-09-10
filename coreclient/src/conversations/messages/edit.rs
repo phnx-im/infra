@@ -5,11 +5,11 @@
 use aircommon::{identifiers::MimiId, time::TimeStamp};
 use mimi_content::MimiContent;
 
-use crate::ConversationMessageId;
+use crate::MessageId;
 
 pub(crate) struct MessageEdit<'a> {
     mimi_id: &'a MimiId,
-    message_id: ConversationMessageId,
+    message_id: MessageId,
     created_at: TimeStamp,
     mimi_content: &'a MimiContent,
 }
@@ -17,7 +17,7 @@ pub(crate) struct MessageEdit<'a> {
 impl<'a> MessageEdit<'a> {
     pub(crate) fn new(
         mimi_id: &'a MimiId,
-        message_id: ConversationMessageId,
+        message_id: MessageId,
         created_at: TimeStamp,
         mimi_content: &'a MimiContent,
     ) -> Self {
@@ -62,7 +62,7 @@ mod persistence {
         pub(crate) async fn find_message_id(
             executor: impl SqliteExecutor<'_>,
             mimi_id: &MimiId,
-        ) -> sqlx::Result<Option<ConversationMessageId>> {
+        ) -> sqlx::Result<Option<MessageId>> {
             query_scalar!(
                 r#"SELECT
                     message_id AS "message_id: _"

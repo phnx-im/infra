@@ -27,6 +27,7 @@ import 'dart:convert';
 import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
+import 'lib.dart';
 import 'notifications.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
@@ -84,7 +85,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1964416115;
+  int get rustContentHash => -25731784;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -114,7 +115,7 @@ abstract class RustLibApi extends BaseApi {
   Future<void>
   crateApiConversationDetailsCubitConversationDetailsCubitBaseEditMessage({
     required ConversationDetailsCubitBase that,
-    ConversationMessageId? messageId,
+    MessageId? messageId,
   });
 
   bool crateApiConversationDetailsCubitConversationDetailsCubitBaseIsClosed({
@@ -124,14 +125,14 @@ abstract class RustLibApi extends BaseApi {
   Future<void>
   crateApiConversationDetailsCubitConversationDetailsCubitBaseMarkAsRead({
     required ConversationDetailsCubitBase that,
-    required ConversationMessageId untilMessageId,
+    required MessageId untilMessageId,
     required DateTime untilTimestamp,
   });
 
   ConversationDetailsCubitBase
   crateApiConversationDetailsCubitConversationDetailsCubitBaseNew({
     required UserCubitBase userCubit,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   });
 
   Future<void>
@@ -177,13 +178,13 @@ abstract class RustLibApi extends BaseApi {
     required ConversationListCubitBase that,
   });
 
-  Future<ConversationId?>
+  Future<ChatId?>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
   });
 
-  Future<ConversationId>
+  Future<ChatId>
   crateApiConversationListCubitConversationListCubitBaseCreateConversation({
     required ConversationListCubitBase that,
     required String groupName,
@@ -250,7 +251,7 @@ abstract class RustLibApi extends BaseApi {
 
   MessageListCubitBase crateApiMessageListCubitMessageListCubitBaseNew({
     required UserCubitBase userCubit,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   });
 
   MessageListState crateApiMessageListCubitMessageListCubitBaseState({
@@ -265,21 +266,30 @@ abstract class RustLibApi extends BaseApi {
 
   bool crateApiMessageListCubitMessageListStateIsNewMessage({
     required MessageListState that,
-    required ConversationMessageId messageId,
+    required MessageId messageId,
   });
 
   int crateApiMessageListCubitMessageListStateLoadedMessagesCount({
     required MessageListState that,
   });
 
-  UiConversationMessage? crateApiMessageListCubitMessageListStateMessageAt({
+  UiChatMessage? crateApiMessageListCubitMessageListStateMessageAt({
     required MessageListState that,
     required int index,
   });
 
   int? crateApiMessageListCubitMessageListStateMessageIdIndex({
     required MessageListState that,
-    required ConversationMessageId messageId,
+    required MessageId messageId,
+  });
+
+  UiChatMessage crateApiMessageCubitMessageStateAutoAccessorGetMessage({
+    required MessageState that,
+  });
+
+  void crateApiMessageCubitMessageStateAutoAccessorSetMessage({
+    required MessageState that,
+    required UiChatMessage message,
   });
 
   Future<void> crateApiNavigationCubitNavigationCubitBaseClose({
@@ -304,7 +314,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiNavigationCubitNavigationCubitBaseOpenConversation({
     required NavigationCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   });
 
   Future<void>
@@ -352,6 +362,171 @@ abstract class RustLibApi extends BaseApi {
     required NavigationCubitBase that,
   });
 
+  ChatId crateApiTypesUiChatMessageAutoAccessorGetConversationId({
+    required UiChatMessage that,
+  });
+
+  MessageId crateApiTypesUiChatMessageAutoAccessorGetId({
+    required UiChatMessage that,
+  });
+
+  UiMessage crateApiTypesUiChatMessageAutoAccessorGetMessage({
+    required UiChatMessage that,
+  });
+
+  UiFlightPosition crateApiTypesUiChatMessageAutoAccessorGetPosition({
+    required UiChatMessage that,
+  });
+
+  UiMessageStatus crateApiTypesUiChatMessageAutoAccessorGetStatus({
+    required UiChatMessage that,
+  });
+
+  String crateApiTypesUiChatMessageAutoAccessorGetTimestamp({
+    required UiChatMessage that,
+  });
+
+  void crateApiTypesUiChatMessageAutoAccessorSetConversationId({
+    required UiChatMessage that,
+    required ChatId conversationId,
+  });
+
+  void crateApiTypesUiChatMessageAutoAccessorSetId({
+    required UiChatMessage that,
+    required MessageId id,
+  });
+
+  void crateApiTypesUiChatMessageAutoAccessorSetMessage({
+    required UiChatMessage that,
+    required UiMessage message,
+  });
+
+  void crateApiTypesUiChatMessageAutoAccessorSetPosition({
+    required UiChatMessage that,
+    required UiFlightPosition position,
+  });
+
+  void crateApiTypesUiChatMessageAutoAccessorSetStatus({
+    required UiChatMessage that,
+    required UiMessageStatus status,
+  });
+
+  void crateApiTypesUiChatMessageAutoAccessorSetTimestamp({
+    required UiChatMessage that,
+    required String timestamp,
+  });
+
+  UiChatAttributes crateApiTypesUiChatAutoAccessorGetAttributes({
+    required UiChat that,
+  });
+
+  UiChatType crateApiTypesUiChatAutoAccessorGetChatType({required UiChat that});
+
+  ChatId crateApiTypesUiChatAutoAccessorGetId({required UiChat that});
+
+  UiChatStatus crateApiTypesUiChatAutoAccessorGetStatus({required UiChat that});
+
+  void crateApiTypesUiChatAutoAccessorSetAttributes({
+    required UiChat that,
+    required UiChatAttributes attributes,
+  });
+
+  void crateApiTypesUiChatAutoAccessorSetChatType({
+    required UiChat that,
+    required UiChatType chatType,
+  });
+
+  void crateApiTypesUiChatAutoAccessorSetId({
+    required UiChat that,
+    required ChatId id,
+  });
+
+  void crateApiTypesUiChatAutoAccessorSetStatus({
+    required UiChat that,
+    required UiChatStatus status,
+  });
+
+  UiChatAttributes crateApiTypesUiConversationDetailsAutoAccessorGetAttributes({
+    required UiConversationDetails that,
+  });
+
+  UiChatType crateApiTypesUiConversationDetailsAutoAccessorGetChatType({
+    required UiConversationDetails that,
+  });
+
+  UiMessageDraft? crateApiTypesUiConversationDetailsAutoAccessorGetDraft({
+    required UiConversationDetails that,
+  });
+
+  ChatId crateApiTypesUiConversationDetailsAutoAccessorGetId({
+    required UiConversationDetails that,
+  });
+
+  UiChatMessage? crateApiTypesUiConversationDetailsAutoAccessorGetLastMessage({
+    required UiConversationDetails that,
+  });
+
+  String crateApiTypesUiConversationDetailsAutoAccessorGetLastUsed({
+    required UiConversationDetails that,
+  });
+
+  int crateApiTypesUiConversationDetailsAutoAccessorGetMessagesCount({
+    required UiConversationDetails that,
+  });
+
+  UiChatStatus crateApiTypesUiConversationDetailsAutoAccessorGetStatus({
+    required UiConversationDetails that,
+  });
+
+  int crateApiTypesUiConversationDetailsAutoAccessorGetUnreadMessages({
+    required UiConversationDetails that,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetAttributes({
+    required UiConversationDetails that,
+    required UiChatAttributes attributes,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetChatType({
+    required UiConversationDetails that,
+    required UiChatType chatType,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetDraft({
+    required UiConversationDetails that,
+    UiMessageDraft? draft,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetId({
+    required UiConversationDetails that,
+    required ChatId id,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetLastMessage({
+    required UiConversationDetails that,
+    UiChatMessage? lastMessage,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetLastUsed({
+    required UiConversationDetails that,
+    required String lastUsed,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetMessagesCount({
+    required UiConversationDetails that,
+    required int messagesCount,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetStatus({
+    required UiConversationDetails that,
+    required UiChatStatus status,
+  });
+
+  void crateApiTypesUiConversationDetailsAutoAccessorSetUnreadMessages({
+    required UiConversationDetails that,
+    required int unreadMessages,
+  });
+
   bool crateApiConversationDetailsCubitUiRoomStateCanKick({
     required UiRoomState that,
     required UiUserId target,
@@ -368,13 +543,13 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUserCubitUserCubitBaseAddUserToConversation({
     required UserCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
     required UiUserId userId,
   });
 
   Future<List<UiContact>> crateApiUserCubitUserCubitBaseAddableContacts({
     required UserCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   });
 
   Future<void> crateApiUserCubitUserCubitBaseClose({
@@ -394,7 +569,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUserCubitUserCubitBaseRemoveUserFromConversation({
     required UserCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
     required UiUserId userId,
   });
 
@@ -588,6 +763,12 @@ abstract class RustLibApi extends BaseApi {
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_AttachmentsRepositoryPtr;
 
+  RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_ChatId;
+
+  RustArcDecrementStrongCountFnType get rust_arc_decrement_strong_count_ChatId;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_ChatIdPtr;
+
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_ConversationDetailsCubitBase;
 
@@ -633,6 +814,14 @@ abstract class RustLibApi extends BaseApi {
   get rust_arc_decrement_strong_count_MessageCubitBasePtr;
 
   RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MessageId;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MessageId;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_MessageIdPtr;
+
+  RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_MessageListCubitBase;
 
   RustArcDecrementStrongCountFnType
@@ -651,6 +840,14 @@ abstract class RustLibApi extends BaseApi {
   get rust_arc_decrement_strong_count_MessageListStatePtr;
 
   RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MessageState;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MessageState;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_MessageStatePtr;
+
+  RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_NavigationCubitBase;
 
   RustArcDecrementStrongCountFnType
@@ -658,6 +855,30 @@ abstract class RustLibApi extends BaseApi {
 
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_NavigationCubitBasePtr;
+
+  RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_UiChat;
+
+  RustArcDecrementStrongCountFnType get rust_arc_decrement_strong_count_UiChat;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_UiChatPtr;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_UiChatMessage;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_UiChatMessage;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_UiChatMessagePtr;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_UiConversationDetails;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_UiConversationDetails;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_UiConversationDetailsPtr;
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_UiRoomState;
@@ -846,7 +1067,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<void>
   crateApiConversationDetailsCubitConversationDetailsCubitBaseEditMessage({
     required ConversationDetailsCubitBase that,
-    ConversationMessageId? messageId,
+    MessageId? messageId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -856,7 +1077,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_opt_box_autoadd_conversation_message_id(
+          sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
             messageId,
             serializer,
           );
@@ -923,7 +1144,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<void>
   crateApiConversationDetailsCubitConversationDetailsCubitBaseMarkAsRead({
     required ConversationDetailsCubitBase that,
-    required ConversationMessageId untilMessageId,
+    required MessageId untilMessageId,
     required DateTime untilTimestamp,
   }) {
     return handler.executeNormal(
@@ -934,7 +1155,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_message_id(
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
             untilMessageId,
             serializer,
           );
@@ -969,7 +1190,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ConversationDetailsCubitBase
   crateApiConversationDetailsCubitConversationDetailsCubitBaseNew({
     required UserCubitBase userCubit,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -979,7 +1200,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             userCubit,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_id(conversationId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            conversationId,
+            serializer,
+          );
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
         },
         codec: SseCodec(
@@ -1325,7 +1549,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<ConversationId?>
+  Future<ChatId?>
   crateApiConversationListCubitConversationListCubitBaseCreateConnection({
     required ConversationListCubitBase that,
     required UiUserHandle handle,
@@ -1347,7 +1571,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_conversation_id,
+          decodeSuccessData:
+              sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId,
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
@@ -1366,7 +1591,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<ConversationId>
+  Future<ChatId>
   crateApiConversationListCubitConversationListCubitBaseCreateConversation({
     required ConversationListCubitBase that,
     required String groupName,
@@ -1388,7 +1613,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_conversation_id,
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId,
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
@@ -1712,7 +1938,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             userCubit,
             serializer,
           );
-          sse_encode_box_autoadd_message_state(initialState, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+            initialState,
+            serializer,
+          );
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
         },
         codec: SseCodec(
@@ -1748,7 +1977,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_message_state,
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState,
           decodeErrorData: null,
         ),
         constMeta: kCrateApiMessageCubitMessageCubitBaseStateConstMeta,
@@ -1778,7 +2008,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               that,
               serializer,
             );
-            sse_encode_StreamSink_message_state_Sse(sink, serializer);
+            sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState_Sse(
+              sink,
+              serializer,
+            );
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
@@ -1878,7 +2111,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   MessageListCubitBase crateApiMessageListCubitMessageListCubitBaseNew({
     required UserCubitBase userCubit,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -1888,7 +2121,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             userCubit,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_id(conversationId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            conversationId,
+            serializer,
+          );
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
         },
         codec: SseCodec(
@@ -2019,7 +2255,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   bool crateApiMessageListCubitMessageListStateIsNewMessage({
     required MessageListState that,
-    required ConversationMessageId messageId,
+    required MessageId messageId,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -2029,7 +2265,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_message_id(messageId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+            messageId,
+            serializer,
+          );
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
         },
         codec: SseCodec(
@@ -2085,7 +2324,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  UiConversationMessage? crateApiMessageListCubitMessageListStateMessageAt({
+  UiChatMessage? crateApiMessageListCubitMessageListStateMessageAt({
     required MessageListState that,
     required int index,
   }) {
@@ -2101,7 +2340,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 37)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_ui_conversation_message,
+          decodeSuccessData:
+              sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage,
           decodeErrorData: null,
         ),
         constMeta: kCrateApiMessageListCubitMessageListStateMessageAtConstMeta,
@@ -2121,7 +2361,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   int? crateApiMessageListCubitMessageListStateMessageIdIndex({
     required MessageListState that,
-    required ConversationMessageId messageId,
+    required MessageId messageId,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -2131,7 +2371,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_message_id(messageId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+            messageId,
+            serializer,
+          );
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 38)!;
         },
         codec: SseCodec(
@@ -2154,6 +2397,78 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  UiChatMessage crateApiMessageCubitMessageStateAutoAccessorGetMessage({
+    required MessageState that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 39)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiMessageCubitMessageStateAutoAccessorGetMessageConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMessageCubitMessageStateAutoAccessorGetMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "MessageState_auto_accessor_get_message",
+        argNames: ["that"],
+      );
+
+  @override
+  void crateApiMessageCubitMessageStateAutoAccessorSetMessage({
+    required MessageState that,
+    required UiChatMessage message,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+            that,
+            serializer,
+          );
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            message,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 40)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiMessageCubitMessageStateAutoAccessorSetMessageConstMeta,
+        argValues: [that, message],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMessageCubitMessageStateAutoAccessorSetMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "MessageState_auto_accessor_set_message",
+        argNames: ["that", "message"],
+      );
+
+  @override
   Future<void> crateApiNavigationCubitNavigationCubitBaseClose({
     required NavigationCubitBase that,
   }) {
@@ -2168,7 +2483,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 41,
             port: port_,
           );
         },
@@ -2204,7 +2519,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 42,
             port: port_,
           );
         },
@@ -2239,7 +2554,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 41)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 43)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -2271,7 +2586,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             notificationService,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 42)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 44)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -2306,7 +2621,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 45,
             port: port_,
           );
         },
@@ -2332,7 +2647,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiNavigationCubitNavigationCubitBaseOpenConversation({
     required NavigationCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2342,11 +2657,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_id(conversationId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            conversationId,
+            serializer,
+          );
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 46,
             port: port_,
           );
         },
@@ -2385,7 +2703,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 47,
             port: port_,
           );
         },
@@ -2425,7 +2743,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 48,
             port: port_,
           );
         },
@@ -2463,7 +2781,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 49,
             port: port_,
           );
         },
@@ -2500,7 +2818,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 50,
             port: port_,
           );
         },
@@ -2539,7 +2857,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 49,
+            funcId: 51,
             port: port_,
           );
         },
@@ -2579,7 +2897,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 52,
             port: port_,
           );
         },
@@ -2619,7 +2937,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 53,
             port: port_,
           );
         },
@@ -2654,7 +2972,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 52)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 54)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -2685,7 +3003,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 53)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 55)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_navigation_state,
@@ -2722,7 +3040,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 54,
+              funcId: 56,
               port: port_,
             );
           },
@@ -2747,6 +3065,1286 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  ChatId crateApiTypesUiChatMessageAutoAccessorGetConversationId({
+    required UiChatMessage that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 57)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiChatMessageAutoAccessorGetConversationIdConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorGetConversationIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_get_conversation_id",
+        argNames: ["that"],
+      );
+
+  @override
+  MessageId crateApiTypesUiChatMessageAutoAccessorGetId({
+    required UiChatMessage that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 58)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorGetIdConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatMessageAutoAccessorGetIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_get_id",
+        argNames: ["that"],
+      );
+
+  @override
+  UiMessage crateApiTypesUiChatMessageAutoAccessorGetMessage({
+    required UiChatMessage that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 59)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_message,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorGetMessageConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorGetMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_get_message",
+        argNames: ["that"],
+      );
+
+  @override
+  UiFlightPosition crateApiTypesUiChatMessageAutoAccessorGetPosition({
+    required UiChatMessage that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 60)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_flight_position,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorGetPositionConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorGetPositionConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_get_position",
+        argNames: ["that"],
+      );
+
+  @override
+  UiMessageStatus crateApiTypesUiChatMessageAutoAccessorGetStatus({
+    required UiChatMessage that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 61)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_message_status,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorGetStatusConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatMessageAutoAccessorGetStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_get_status",
+        argNames: ["that"],
+      );
+
+  @override
+  String crateApiTypesUiChatMessageAutoAccessorGetTimestamp({
+    required UiChatMessage that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 62)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorGetTimestampConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorGetTimestampConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_get_timestamp",
+        argNames: ["that"],
+      );
+
+  @override
+  void crateApiTypesUiChatMessageAutoAccessorSetConversationId({
+    required UiChatMessage that,
+    required ChatId conversationId,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            conversationId,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 63)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiChatMessageAutoAccessorSetConversationIdConstMeta,
+        argValues: [that, conversationId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorSetConversationIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_set_conversation_id",
+        argNames: ["that", "conversationId"],
+      );
+
+  @override
+  void crateApiTypesUiChatMessageAutoAccessorSetId({
+    required UiChatMessage that,
+    required MessageId id,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+            id,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 64)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorSetIdConstMeta,
+        argValues: [that, id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatMessageAutoAccessorSetIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_set_id",
+        argNames: ["that", "id"],
+      );
+
+  @override
+  void crateApiTypesUiChatMessageAutoAccessorSetMessage({
+    required UiChatMessage that,
+    required UiMessage message,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          sse_encode_ui_message(message, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 65)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorSetMessageConstMeta,
+        argValues: [that, message],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorSetMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_set_message",
+        argNames: ["that", "message"],
+      );
+
+  @override
+  void crateApiTypesUiChatMessageAutoAccessorSetPosition({
+    required UiChatMessage that,
+    required UiFlightPosition position,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          sse_encode_ui_flight_position(position, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 66)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorSetPositionConstMeta,
+        argValues: [that, position],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorSetPositionConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_set_position",
+        argNames: ["that", "position"],
+      );
+
+  @override
+  void crateApiTypesUiChatMessageAutoAccessorSetStatus({
+    required UiChatMessage that,
+    required UiMessageStatus status,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          sse_encode_ui_message_status(status, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 67)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorSetStatusConstMeta,
+        argValues: [that, status],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatMessageAutoAccessorSetStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_set_status",
+        argNames: ["that", "status"],
+      );
+
+  @override
+  void crateApiTypesUiChatMessageAutoAccessorSetTimestamp({
+    required UiChatMessage that,
+    required String timestamp,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            that,
+            serializer,
+          );
+          sse_encode_String(timestamp, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 68)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatMessageAutoAccessorSetTimestampConstMeta,
+        argValues: [that, timestamp],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiChatMessageAutoAccessorSetTimestampConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChatMessage_auto_accessor_set_timestamp",
+        argNames: ["that", "timestamp"],
+      );
+
+  @override
+  UiChatAttributes crateApiTypesUiChatAutoAccessorGetAttributes({
+    required UiChat that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 69)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_chat_attributes,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorGetAttributesConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorGetAttributesConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_get_attributes",
+        argNames: ["that"],
+      );
+
+  @override
+  UiChatType crateApiTypesUiChatAutoAccessorGetChatType({
+    required UiChat that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 70)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_chat_type,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorGetChatTypeConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorGetChatTypeConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_get_chat_type",
+        argNames: ["that"],
+      );
+
+  @override
+  ChatId crateApiTypesUiChatAutoAccessorGetId({required UiChat that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 71)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorGetIdConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorGetIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_get_id",
+        argNames: ["that"],
+      );
+
+  @override
+  UiChatStatus crateApiTypesUiChatAutoAccessorGetStatus({
+    required UiChat that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 72)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_chat_status,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorGetStatusConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorGetStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_get_status",
+        argNames: ["that"],
+      );
+
+  @override
+  void crateApiTypesUiChatAutoAccessorSetAttributes({
+    required UiChat that,
+    required UiChatAttributes attributes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          sse_encode_ui_chat_attributes(attributes, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 73)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorSetAttributesConstMeta,
+        argValues: [that, attributes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorSetAttributesConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_set_attributes",
+        argNames: ["that", "attributes"],
+      );
+
+  @override
+  void crateApiTypesUiChatAutoAccessorSetChatType({
+    required UiChat that,
+    required UiChatType chatType,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          sse_encode_ui_chat_type(chatType, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 74)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorSetChatTypeConstMeta,
+        argValues: [that, chatType],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorSetChatTypeConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_set_chat_type",
+        argNames: ["that", "chatType"],
+      );
+
+  @override
+  void crateApiTypesUiChatAutoAccessorSetId({
+    required UiChat that,
+    required ChatId id,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            id,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 75)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorSetIdConstMeta,
+        argValues: [that, id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorSetIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_set_id",
+        argNames: ["that", "id"],
+      );
+
+  @override
+  void crateApiTypesUiChatAutoAccessorSetStatus({
+    required UiChat that,
+    required UiChatStatus status,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+            that,
+            serializer,
+          );
+          sse_encode_ui_chat_status(status, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 76)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesUiChatAutoAccessorSetStatusConstMeta,
+        argValues: [that, status],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesUiChatAutoAccessorSetStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiChat_auto_accessor_set_status",
+        argNames: ["that", "status"],
+      );
+
+  @override
+  UiChatAttributes crateApiTypesUiConversationDetailsAutoAccessorGetAttributes({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 77)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_chat_attributes,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetAttributesConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetAttributesConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_attributes",
+        argNames: ["that"],
+      );
+
+  @override
+  UiChatType crateApiTypesUiConversationDetailsAutoAccessorGetChatType({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 78)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_chat_type,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetChatTypeConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetChatTypeConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_chat_type",
+        argNames: ["that"],
+      );
+
+  @override
+  UiMessageDraft? crateApiTypesUiConversationDetailsAutoAccessorGetDraft({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 79)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_ui_message_draft,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetDraftConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetDraftConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_draft",
+        argNames: ["that"],
+      );
+
+  @override
+  ChatId crateApiTypesUiConversationDetailsAutoAccessorGetId({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 80)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetIdConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_id",
+        argNames: ["that"],
+      );
+
+  @override
+  UiChatMessage? crateApiTypesUiConversationDetailsAutoAccessorGetLastMessage({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 81)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetLastMessageConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetLastMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_last_message",
+        argNames: ["that"],
+      );
+
+  @override
+  String crateApiTypesUiConversationDetailsAutoAccessorGetLastUsed({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 82)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetLastUsedConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetLastUsedConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_last_used",
+        argNames: ["that"],
+      );
+
+  @override
+  int crateApiTypesUiConversationDetailsAutoAccessorGetMessagesCount({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 83)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_CastedPrimitive_usize,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetMessagesCountConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetMessagesCountConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_messages_count",
+        argNames: ["that"],
+      );
+
+  @override
+  UiChatStatus crateApiTypesUiConversationDetailsAutoAccessorGetStatus({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 84)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ui_chat_status,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetStatusConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_status",
+        argNames: ["that"],
+      );
+
+  @override
+  int crateApiTypesUiConversationDetailsAutoAccessorGetUnreadMessages({
+    required UiConversationDetails that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 85)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_CastedPrimitive_usize,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorGetUnreadMessagesConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorGetUnreadMessagesConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_get_unread_messages",
+        argNames: ["that"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetAttributes({
+    required UiConversationDetails that,
+    required UiChatAttributes attributes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_ui_chat_attributes(attributes, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 86)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetAttributesConstMeta,
+        argValues: [that, attributes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetAttributesConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_attributes",
+        argNames: ["that", "attributes"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetChatType({
+    required UiConversationDetails that,
+    required UiChatType chatType,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_ui_chat_type(chatType, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 87)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetChatTypeConstMeta,
+        argValues: [that, chatType],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetChatTypeConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_chat_type",
+        argNames: ["that", "chatType"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetDraft({
+    required UiConversationDetails that,
+    UiMessageDraft? draft,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_opt_box_autoadd_ui_message_draft(draft, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 88)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetDraftConstMeta,
+        argValues: [that, draft],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetDraftConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_draft",
+        argNames: ["that", "draft"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetId({
+    required UiConversationDetails that,
+    required ChatId id,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            id,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 89)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetIdConstMeta,
+        argValues: [that, id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_id",
+        argNames: ["that", "id"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetLastMessage({
+    required UiConversationDetails that,
+    UiChatMessage? lastMessage,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+            lastMessage,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 90)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetLastMessageConstMeta,
+        argValues: [that, lastMessage],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetLastMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_last_message",
+        argNames: ["that", "lastMessage"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetLastUsed({
+    required UiConversationDetails that,
+    required String lastUsed,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_String(lastUsed, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 91)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetLastUsedConstMeta,
+        argValues: [that, lastUsed],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetLastUsedConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_last_used",
+        argNames: ["that", "lastUsed"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetMessagesCount({
+    required UiConversationDetails that,
+    required int messagesCount,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_CastedPrimitive_usize(messagesCount, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 92)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetMessagesCountConstMeta,
+        argValues: [that, messagesCount],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetMessagesCountConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_messages_count",
+        argNames: ["that", "messagesCount"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetStatus({
+    required UiConversationDetails that,
+    required UiChatStatus status,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_ui_chat_status(status, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 93)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetStatusConstMeta,
+        argValues: [that, status],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_status",
+        argNames: ["that", "status"],
+      );
+
+  @override
+  void crateApiTypesUiConversationDetailsAutoAccessorSetUnreadMessages({
+    required UiConversationDetails that,
+    required int unreadMessages,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            that,
+            serializer,
+          );
+          sse_encode_CastedPrimitive_usize(unreadMessages, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 94)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiTypesUiConversationDetailsAutoAccessorSetUnreadMessagesConstMeta,
+        argValues: [that, unreadMessages],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiTypesUiConversationDetailsAutoAccessorSetUnreadMessagesConstMeta =>
+      const TaskConstMeta(
+        debugName: "UiConversationDetails_auto_accessor_set_unread_messages",
+        argNames: ["that", "unreadMessages"],
+      );
+
+  @override
   bool crateApiConversationDetailsCubitUiRoomStateCanKick({
     required UiRoomState that,
     required UiUserId target,
@@ -2760,7 +4358,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_box_autoadd_ui_user_id(target, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 55)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 95)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -2792,7 +4390,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 56)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 96)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_ui_user_handle,
@@ -2818,7 +4416,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 57)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 97)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_ui_user_id,
@@ -2851,7 +4449,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 58,
+            funcId: 98,
             port: port_,
           );
         },
@@ -2875,7 +4473,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiUserCubitUserCubitBaseAddUserToConversation({
     required UserCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
     required UiUserId userId,
   }) {
     return handler.executeNormal(
@@ -2886,12 +4484,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_id(conversationId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            conversationId,
+            serializer,
+          );
           sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 59,
+            funcId: 99,
             port: port_,
           );
         },
@@ -2917,7 +4518,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<List<UiContact>> crateApiUserCubitUserCubitBaseAddableContacts({
     required UserCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2927,11 +4528,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_id(conversationId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            conversationId,
+            serializer,
+          );
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 60,
+            funcId: 100,
             port: port_,
           );
         },
@@ -2967,7 +4571,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 61,
+            funcId: 101,
             port: port_,
           );
         },
@@ -3000,7 +4604,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 62,
+            funcId: 102,
             port: port_,
           );
         },
@@ -3031,7 +4635,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 63)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 103,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -3067,7 +4675,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             navigation,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 64)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 104,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -3090,7 +4702,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiUserCubitUserCubitBaseRemoveUserFromConversation({
     required UserCubitBase that,
-    required ConversationId conversationId,
+    required ChatId conversationId,
     required UiUserId userId,
   }) {
     return handler.executeNormal(
@@ -3101,12 +4713,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_conversation_id(conversationId, serializer);
+          sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            conversationId,
+            serializer,
+          );
           sse_encode_box_autoadd_ui_user_id(userId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 65,
+            funcId: 105,
             port: port_,
           );
         },
@@ -3146,7 +4761,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 66,
+            funcId: 106,
             port: port_,
           );
         },
@@ -3184,7 +4799,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 67,
+            funcId: 107,
             port: port_,
           );
         },
@@ -3222,7 +4837,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 68,
+            funcId: 108,
             port: port_,
           );
         },
@@ -3262,7 +4877,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 69,
+            funcId: 109,
             port: port_,
           );
         },
@@ -3293,7 +4908,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 70)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 110,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -3331,7 +4950,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 71,
+              funcId: 111,
               port: port_,
             );
           },
@@ -3369,7 +4988,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 72,
+            funcId: 112,
             port: port_,
           );
         },
@@ -3404,7 +5023,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 73)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 113,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -3445,7 +5068,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 74,
+            funcId: 114,
             port: port_,
           );
         },
@@ -3474,7 +5097,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 75)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 115,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -3507,7 +5134,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 76,
+            funcId: 116,
             port: port_,
           );
         },
@@ -3552,7 +5179,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 77,
+            funcId: 117,
             port: port_,
           );
         },
@@ -3597,7 +5224,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 78,
+            funcId: 118,
             port: port_,
           );
         },
@@ -3642,7 +5269,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 79,
+            funcId: 119,
             port: port_,
           );
         },
@@ -3677,7 +5304,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 80)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 120,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_user_settings,
@@ -3716,7 +5347,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 81,
+              funcId: 121,
               port: port_,
             );
           },
@@ -3754,7 +5385,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 82,
+            funcId: 122,
             port: port_,
           );
         },
@@ -3789,7 +5420,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 83,
+            funcId: 123,
             port: port_,
           );
         },
@@ -3822,7 +5453,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 84,
+            funcId: 124,
             port: port_,
           );
         },
@@ -3853,7 +5484,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 85,
+            funcId: 125,
             port: port_,
           );
         },
@@ -3892,7 +5523,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 86,
+            funcId: 126,
             port: port_,
           );
         },
@@ -3930,7 +5561,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 87,
+            funcId: 127,
             port: port_,
           );
         },
@@ -3961,7 +5592,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 88)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 128,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_ui_user_id,
@@ -3992,7 +5627,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 89,
+            funcId: 129,
             port: port_,
           );
         },
@@ -4025,7 +5660,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 90)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 130,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -4056,7 +5695,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             userCubit,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 91)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 131,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -4088,7 +5731,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 92)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 132,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -4129,7 +5776,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 93,
+              funcId: 133,
               port: port_,
             );
           },
@@ -4166,7 +5813,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_opt_box_autoadd_ui_user_id(userId, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 94)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 134,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -4199,7 +5850,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_opt_box_autoadd_ui_user_id(userId, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 95)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 135,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_ui_user_profile,
@@ -4232,7 +5887,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_opt_box_autoadd_ui_user_id(userId, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 96)!;
+          return pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 136,
+          )!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_box_autoadd_image_data,
@@ -4260,7 +5919,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 97,
+            funcId: 137,
             port: port_,
           );
         },
@@ -4288,7 +5947,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 98,
+            funcId: 138,
             port: port_,
           );
         },
@@ -4319,7 +5978,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 99,
+            funcId: 139,
             port: port_,
           );
         },
@@ -4352,7 +6011,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 100,
+            funcId: 140,
             port: port_,
           );
         },
@@ -4387,7 +6046,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 101,
+              funcId: 141,
               port: port_,
             );
           },
@@ -4421,7 +6080,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 102,
+            funcId: 142,
             port: port_,
           );
         },
@@ -4452,7 +6111,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 103,
+            funcId: 143,
             port: port_,
           );
         },
@@ -4480,7 +6139,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 104,
+            funcId: 144,
             port: port_,
           );
         },
@@ -4512,7 +6171,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 105,
+            funcId: 145,
           )!;
         },
         codec: SseCodec(
@@ -4542,7 +6201,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 106,
+            funcId: 146,
           )!;
         },
         codec: SseCodec(
@@ -4575,7 +6234,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 107,
+            funcId: 147,
             port: port_,
           );
         },
@@ -4608,7 +6267,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 108,
+            funcId: 148,
             port: port_,
           );
         },
@@ -4641,7 +6300,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 109,
+            funcId: 149,
           )!;
         },
         codec: SseCodec(
@@ -4670,7 +6329,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 110,
+            funcId: 150,
             port: port_,
           );
         },
@@ -4698,7 +6357,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 111,
+            funcId: 151,
             port: port_,
           );
         },
@@ -4729,7 +6388,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 112,
+            funcId: 152,
             port: port_,
           );
         },
@@ -4759,7 +6418,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 113,
+            funcId: 153,
           )!;
         },
         codec: SseCodec(
@@ -4926,6 +6585,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerAttachmentsRepository;
 
   RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_ChatId =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_ChatId =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId;
+
+  RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_ConversationDetailsCubitBase =>
       wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase;
 
@@ -4966,6 +6633,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageCubitBase;
 
   RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MessageId =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MessageId =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId;
+
+  RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_MessageListCubitBase =>
       wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase;
 
@@ -4982,12 +6657,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListState;
 
   RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MessageState =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MessageState =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState;
+
+  RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_NavigationCubitBase =>
       wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
 
   RustArcDecrementStrongCountFnType
   get rust_arc_decrement_strong_count_NavigationCubitBase =>
       wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_UiChat =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_UiChat =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_UiChatMessage =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_UiChatMessage =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_UiConversationDetails =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_UiConversationDetails =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails;
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_UiRoomState =>
@@ -5059,6 +6766,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChatId
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ChatIdImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   ConversationDetailsCubitBase
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     dynamic raw,
@@ -5110,6 +6826,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageId
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MessageIdImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   MessageListCubitBase
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     dynamic raw,
@@ -5128,12 +6853,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MessageStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   NavigationCubitBase
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChat
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChatMessage
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiConversationDetails
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -5240,12 +7001,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MessageStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   NavigationCubitBase
   dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChat
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChatMessage
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiConversationDetails
+  dco_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -5354,12 +7151,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MessageStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   NavigationCubitBase
   dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChat
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChatMessage
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiConversationDetails
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -5497,6 +7330,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChatId
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ChatIdImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   ConversationDetailsCubitBase
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     dynamic raw,
@@ -5548,6 +7390,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageId
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MessageIdImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   MessageListCubitBase
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     dynamic raw,
@@ -5566,12 +7417,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MessageStateImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   NavigationCubitBase
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChat
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiChatMessage
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  UiConversationDetails
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -5647,6 +7534,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<MessageState>
+  dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState_Sse(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
   RustStreamSink<UiUser>
   dco_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
     dynamic raw,
@@ -5680,14 +7576,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   RustStreamSink<LogEntry> dco_decode_StreamSink_log_entry_Sse(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    throw UnimplementedError();
-  }
-
-  @protected
-  RustStreamSink<MessageState> dco_decode_StreamSink_message_state_Sse(
-    dynamic raw,
-  ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     throw UnimplementedError();
   }
@@ -5783,6 +7671,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChatId
+  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+      raw,
+    );
+  }
+
+  @protected
+  MessageId
+  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+      raw,
+    );
+  }
+
+  @protected
+  UiChatMessage
+  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+      raw,
+    );
+  }
+
+  @protected
+  UiConversationDetails
+  dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+      raw,
+    );
+  }
+
+  @protected
   UiRoomState
   dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     dynamic raw,
@@ -5808,20 +7740,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AttachmentId dco_decode_box_autoadd_attachment_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_attachment_id(raw);
-  }
-
-  @protected
-  ConversationId dco_decode_box_autoadd_conversation_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_conversation_id(raw);
-  }
-
-  @protected
-  ConversationMessageId dco_decode_box_autoadd_conversation_message_id(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_conversation_message_id(raw);
   }
 
   @protected
@@ -5858,31 +7776,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  MessageState dco_decode_box_autoadd_message_state(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_message_state(raw);
-  }
-
-  @protected
   PlatformPushToken dco_decode_box_autoadd_platform_push_token(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_platform_push_token(raw);
-  }
-
-  @protected
-  UiConversationDetails dco_decode_box_autoadd_ui_conversation_details(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_ui_conversation_details(raw);
-  }
-
-  @protected
-  UiConversationMessage dco_decode_box_autoadd_ui_conversation_message(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_ui_conversation_message(raw);
   }
 
   @protected
@@ -5962,7 +7858,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return ConversationDetailsState(
-      conversation: dco_decode_opt_box_autoadd_ui_conversation_details(arr[0]),
+      conversation:
+          dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            arr[0],
+          ),
       members: dco_decode_list_ui_user_id(arr[1]),
       roomState:
           dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
@@ -5972,32 +7871,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ConversationId dco_decode_conversation_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 1)
-      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return ConversationId(uuid: dco_decode_Uuid(arr[0]));
-  }
-
-  @protected
   ConversationListState dco_decode_conversation_list_state(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
     return ConversationListState(
-      conversations: dco_decode_list_ui_conversation_details(arr[0]),
+      conversations:
+          dco_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+            arr[0],
+          ),
     );
-  }
-
-  @protected
-  ConversationMessageId dco_decode_conversation_message_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 1)
-      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return ConversationMessageId(uuid: dco_decode_Uuid(arr[0]));
   }
 
   @protected
@@ -6022,7 +7906,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return HomeNavigationState(
       conversationOpen: dco_decode_bool(arr[0]),
-      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[1]),
+      conversationId:
+          dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            arr[1],
+          ),
       developerSettingsScreen:
           dco_decode_opt_box_autoadd_developer_settings_screen_type(arr[2]),
       memberDetails: dco_decode_opt_box_autoadd_ui_user_id(arr[3]),
@@ -6122,6 +8009,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<UiConversationDetails>
+  dco_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(
+          dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails,
+        )
+        .toList();
+  }
+
+  @protected
   List<IntroScreenType> dco_decode_list_intro_screen_type(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_intro_screen_type).toList();
@@ -6209,16 +8109,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<UiConversationDetails> dco_decode_list_ui_conversation_details(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>)
-        .map(dco_decode_ui_conversation_details)
-        .toList();
-  }
-
-  @protected
   List<UiUserHandle> dco_decode_list_ui_user_handle(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_ui_user_handle).toList();
@@ -6262,15 +8152,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  MessageState dco_decode_message_state(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 1)
-      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return MessageState(message: dco_decode_ui_conversation_message(arr[0]));
-  }
-
-  @protected
   NavigationState dco_decode_navigation_state(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     switch (raw[0]) {
@@ -6297,7 +8178,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       identifier: dco_decode_notification_id(arr[0]),
       title: dco_decode_String(arr[1]),
       body: dco_decode_String(arr[2]),
-      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[3]),
+      conversationId:
+          dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            arr[3],
+          ),
     );
   }
 
@@ -6309,7 +8193,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
     return NotificationHandle(
       identifier: dco_decode_notification_id(arr[0]),
-      conversationId: dco_decode_opt_box_autoadd_conversation_id(arr[1]),
+      conversationId:
+          dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+            arr[1],
+          ),
     );
   }
 
@@ -6332,6 +8219,58 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   String? dco_decode_opt_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  ChatId?
+  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+          raw,
+        );
+  }
+
+  @protected
+  MessageId?
+  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+          raw,
+        );
+  }
+
+  @protected
+  UiChatMessage?
+  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+          raw,
+        );
+  }
+
+  @protected
+  UiConversationDetails?
+  dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+          raw,
+        );
   }
 
   @protected
@@ -6361,22 +8300,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ConversationId? dco_decode_opt_box_autoadd_conversation_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_conversation_id(raw);
-  }
-
-  @protected
-  ConversationMessageId? dco_decode_opt_box_autoadd_conversation_message_id(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null
-        ? null
-        : dco_decode_box_autoadd_conversation_message_id(raw);
-  }
-
-  @protected
   DeveloperSettingsScreenType?
   dco_decode_opt_box_autoadd_developer_settings_screen_type(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -6403,26 +8326,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_platform_push_token(raw);
-  }
-
-  @protected
-  UiConversationDetails? dco_decode_opt_box_autoadd_ui_conversation_details(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null
-        ? null
-        : dco_decode_box_autoadd_ui_conversation_details(raw);
-  }
-
-  @protected
-  UiConversationMessage? dco_decode_opt_box_autoadd_ui_conversation_message(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null
-        ? null
-        : dco_decode_box_autoadd_ui_conversation_message(raw);
   }
 
   @protected
@@ -6546,6 +8449,52 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiChatAttributes dco_decode_ui_chat_attributes(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return UiChatAttributes(
+      title: dco_decode_String(arr[0]),
+      picture: dco_decode_opt_box_autoadd_image_data(arr[1]),
+    );
+  }
+
+  @protected
+  UiChatStatus dco_decode_ui_chat_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return UiChatStatus_Inactive(
+          dco_decode_box_autoadd_ui_inactive_conversation(raw[1]),
+        );
+      case 1:
+        return UiChatStatus_Active();
+      default:
+        throw Exception("unreachable");
+    }
+  }
+
+  @protected
+  UiChatType dco_decode_ui_chat_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return UiChatType_HandleConnection(
+          dco_decode_box_autoadd_ui_user_handle(raw[1]),
+        );
+      case 1:
+        return UiChatType_Connection(
+          dco_decode_box_autoadd_ui_user_profile(raw[1]),
+        );
+      case 2:
+        return UiChatType_Group();
+      default:
+        throw Exception("unreachable");
+    }
+  }
+
+  @protected
   UiClientRecord dco_decode_ui_client_record(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -6580,87 +8529,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       content: dco_decode_ui_mimi_content(arr[2]),
       edited: dco_decode_bool(arr[3]),
     );
-  }
-
-  @protected
-  UiConversationAttributes dco_decode_ui_conversation_attributes(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return UiConversationAttributes(
-      title: dco_decode_String(arr[0]),
-      picture: dco_decode_opt_box_autoadd_image_data(arr[1]),
-    );
-  }
-
-  @protected
-  UiConversationDetails dco_decode_ui_conversation_details(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
-    return UiConversationDetails(
-      id: dco_decode_conversation_id(arr[0]),
-      status: dco_decode_ui_conversation_status(arr[1]),
-      conversationType: dco_decode_ui_conversation_type(arr[2]),
-      lastUsed: dco_decode_String(arr[3]),
-      attributes: dco_decode_ui_conversation_attributes(arr[4]),
-      messagesCount: dco_decode_CastedPrimitive_usize(arr[5]),
-      unreadMessages: dco_decode_CastedPrimitive_usize(arr[6]),
-      lastMessage: dco_decode_opt_box_autoadd_ui_conversation_message(arr[7]),
-      draft: dco_decode_opt_box_autoadd_ui_message_draft(arr[8]),
-    );
-  }
-
-  @protected
-  UiConversationMessage dco_decode_ui_conversation_message(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
-    return UiConversationMessage(
-      conversationId: dco_decode_conversation_id(arr[0]),
-      id: dco_decode_conversation_message_id(arr[1]),
-      timestamp: dco_decode_String(arr[2]),
-      message: dco_decode_ui_message(arr[3]),
-      position: dco_decode_ui_flight_position(arr[4]),
-      status: dco_decode_ui_message_status(arr[5]),
-    );
-  }
-
-  @protected
-  UiConversationStatus dco_decode_ui_conversation_status(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    switch (raw[0]) {
-      case 0:
-        return UiConversationStatus_Inactive(
-          dco_decode_box_autoadd_ui_inactive_conversation(raw[1]),
-        );
-      case 1:
-        return UiConversationStatus_Active();
-      default:
-        throw Exception("unreachable");
-    }
-  }
-
-  @protected
-  UiConversationType dco_decode_ui_conversation_type(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    switch (raw[0]) {
-      case 0:
-        return UiConversationType_HandleConnection(
-          dco_decode_box_autoadd_ui_user_handle(raw[1]),
-        );
-      case 1:
-        return UiConversationType_Connection(
-          dco_decode_box_autoadd_ui_user_profile(raw[1]),
-        );
-      case 2:
-        return UiConversationType_Group();
-      default:
-        throw Exception("unreachable");
-    }
   }
 
   @protected
@@ -6742,7 +8610,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return UiMessageDraft(
       message: dco_decode_String(arr[0]),
-      editingId: dco_decode_opt_box_autoadd_conversation_message_id(arr[1]),
+      editingId:
+          dco_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+            arr[1],
+          ),
       updatedAt: dco_decode_Chrono_Utc(arr[2]),
       source: dco_decode_ui_message_draft_source(arr[3]),
     );
@@ -6880,6 +8751,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChatId
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return ChatIdImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   ConversationDetailsCubitBase
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     SseDeserializer deserializer,
@@ -6940,6 +8823,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageId
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MessageIdImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   MessageListCubitBase
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     SseDeserializer deserializer,
@@ -6964,12 +8859,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MessageStateImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   NavigationCubitBase
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChat
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChatMessage
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiConversationDetails
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -7108,12 +9051,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MessageStateImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   NavigationCubitBase
   sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChat
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChatMessage
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiConversationDetails
+  sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -7252,12 +9243,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MessageStateImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   NavigationCubitBase
   sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChat
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChatMessage
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiConversationDetails
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -7388,6 +9427,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChatId
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return ChatIdImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   ConversationDetailsCubitBase
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     SseDeserializer deserializer,
@@ -7448,6 +9499,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageId
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MessageIdImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   MessageListCubitBase
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     SseDeserializer deserializer,
@@ -7472,12 +9535,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageState
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MessageStateImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   NavigationCubitBase
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return NavigationCubitBaseImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChat
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiChatMessage
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiChatMessageImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  UiConversationDetails
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return UiConversationDetailsImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -7577,6 +9688,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<MessageState>
+  sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   RustStreamSink<UiUser>
   sse_decode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
     SseDeserializer deserializer,
@@ -7614,14 +9734,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   RustStreamSink<LogEntry> sse_decode_StreamSink_log_entry_Sse(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    throw UnimplementedError('Unreachable ()');
-  }
-
-  @protected
-  RustStreamSink<MessageState> sse_decode_StreamSink_message_state_Sse(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7724,6 +9836,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChatId
+  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+      deserializer,
+    ));
+  }
+
+  @protected
+  MessageId
+  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+      deserializer,
+    ));
+  }
+
+  @protected
+  UiChatMessage
+  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+      deserializer,
+    ));
+  }
+
+  @protected
+  UiConversationDetails
+  sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+      deserializer,
+    ));
+  }
+
+  @protected
   UiRoomState
   sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     SseDeserializer deserializer,
@@ -7751,22 +9907,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_attachment_id(deserializer));
-  }
-
-  @protected
-  ConversationId sse_decode_box_autoadd_conversation_id(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_conversation_id(deserializer));
-  }
-
-  @protected
-  ConversationMessageId sse_decode_box_autoadd_conversation_message_id(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_conversation_message_id(deserializer));
   }
 
   @protected
@@ -7809,35 +9949,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  MessageState sse_decode_box_autoadd_message_state(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_message_state(deserializer));
-  }
-
-  @protected
   PlatformPushToken sse_decode_box_autoadd_platform_push_token(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_platform_push_token(deserializer));
-  }
-
-  @protected
-  UiConversationDetails sse_decode_box_autoadd_ui_conversation_details(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_ui_conversation_details(deserializer));
-  }
-
-  @protected
-  UiConversationMessage sse_decode_box_autoadd_ui_conversation_message(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_ui_conversation_message(deserializer));
   }
 
   @protected
@@ -7931,9 +10047,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_conversation = sse_decode_opt_box_autoadd_ui_conversation_details(
-      deserializer,
-    );
+    var var_conversation =
+        sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+          deserializer,
+        );
     var var_members = sse_decode_list_ui_user_id(deserializer);
     var var_roomState =
         sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
@@ -7947,30 +10064,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ConversationId sse_decode_conversation_id(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_uuid = sse_decode_Uuid(deserializer);
-    return ConversationId(uuid: var_uuid);
-  }
-
-  @protected
   ConversationListState sse_decode_conversation_list_state(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_conversations = sse_decode_list_ui_conversation_details(
-      deserializer,
-    );
+    var var_conversations =
+        sse_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+          deserializer,
+        );
     return ConversationListState(conversations: var_conversations);
-  }
-
-  @protected
-  ConversationMessageId sse_decode_conversation_message_id(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_uuid = sse_decode_Uuid(deserializer);
-    return ConversationMessageId(uuid: var_uuid);
   }
 
   @protected
@@ -7994,9 +10096,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_conversationOpen = sse_decode_bool(deserializer);
-    var var_conversationId = sse_decode_opt_box_autoadd_conversation_id(
-      deserializer,
-    );
+    var var_conversationId =
+        sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+          deserializer,
+        );
     var var_developerSettingsScreen =
         sse_decode_opt_box_autoadd_developer_settings_screen_type(deserializer);
     var var_memberDetails = sse_decode_opt_box_autoadd_ui_user_id(deserializer);
@@ -8100,6 +10203,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 sse_decode_isize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getPlatformInt64();
+  }
+
+  @protected
+  List<UiConversationDetails>
+  sse_decode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <UiConversationDetails>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(
+        sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+          deserializer,
+        ),
+      );
+    }
+    return ans_;
   }
 
   @protected
@@ -8268,20 +10390,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<UiConversationDetails> sse_decode_list_ui_conversation_details(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <UiConversationDetails>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_ui_conversation_details(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
   List<UiUserHandle> sse_decode_list_ui_user_handle(
     SseDeserializer deserializer,
   ) {
@@ -8337,13 +10445,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  MessageState sse_decode_message_state(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_message = sse_decode_ui_conversation_message(deserializer);
-    return MessageState(message: var_message);
-  }
-
-  @protected
   NavigationState sse_decode_navigation_state(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -8370,9 +10471,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_identifier = sse_decode_notification_id(deserializer);
     var var_title = sse_decode_String(deserializer);
     var var_body = sse_decode_String(deserializer);
-    var var_conversationId = sse_decode_opt_box_autoadd_conversation_id(
-      deserializer,
-    );
+    var var_conversationId =
+        sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+          deserializer,
+        );
     return NotificationContent(
       identifier: var_identifier,
       title: var_title,
@@ -8387,9 +10489,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_identifier = sse_decode_notification_id(deserializer);
-    var var_conversationId = sse_decode_opt_box_autoadd_conversation_id(
-      deserializer,
-    );
+    var var_conversationId =
+        sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+          deserializer,
+        );
     return NotificationHandle(
       identifier: var_identifier,
       conversationId: var_conversationId,
@@ -8426,6 +10529,70 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChatId?
+  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+        deserializer,
+      ));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  MessageId?
+  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+        deserializer,
+      ));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  UiChatMessage?
+  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+        deserializer,
+      ));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  UiConversationDetails?
+  sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+        deserializer,
+      ));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   UiRoomState?
   sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     SseDeserializer deserializer,
@@ -8452,32 +10619,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       return (sse_decode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUser(
         deserializer,
       ));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  ConversationId? sse_decode_opt_box_autoadd_conversation_id(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_conversation_id(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  ConversationMessageId? sse_decode_opt_box_autoadd_conversation_message_id(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_conversation_message_id(deserializer));
     } else {
       return null;
     }
@@ -8533,32 +10674,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_platform_push_token(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  UiConversationDetails? sse_decode_opt_box_autoadd_ui_conversation_details(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_ui_conversation_details(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  UiConversationMessage? sse_decode_opt_box_autoadd_ui_conversation_message(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_ui_conversation_message(deserializer));
     } else {
       return null;
     }
@@ -8725,6 +10840,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  UiChatAttributes sse_decode_ui_chat_attributes(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_String(deserializer);
+    var var_picture = sse_decode_opt_box_autoadd_image_data(deserializer);
+    return UiChatAttributes(title: var_title, picture: var_picture);
+  }
+
+  @protected
+  UiChatStatus sse_decode_ui_chat_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_field0 = sse_decode_box_autoadd_ui_inactive_conversation(
+          deserializer,
+        );
+        return UiChatStatus_Inactive(var_field0);
+      case 1:
+        return UiChatStatus_Active();
+      default:
+        throw UnimplementedError('');
+    }
+  }
+
+  @protected
+  UiChatType sse_decode_ui_chat_type(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_field0 = sse_decode_box_autoadd_ui_user_handle(deserializer);
+        return UiChatType_HandleConnection(var_field0);
+      case 1:
+        var var_field0 = sse_decode_box_autoadd_ui_user_profile(deserializer);
+        return UiChatType_Connection(var_field0);
+      case 2:
+        return UiChatType_Group();
+      default:
+        throw UnimplementedError('');
+    }
+  }
+
+  @protected
   UiClientRecord sse_decode_ui_client_record(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_userId = sse_decode_ui_user_id(deserializer);
@@ -8759,107 +10919,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       content: var_content,
       edited: var_edited,
     );
-  }
-
-  @protected
-  UiConversationAttributes sse_decode_ui_conversation_attributes(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_title = sse_decode_String(deserializer);
-    var var_picture = sse_decode_opt_box_autoadd_image_data(deserializer);
-    return UiConversationAttributes(title: var_title, picture: var_picture);
-  }
-
-  @protected
-  UiConversationDetails sse_decode_ui_conversation_details(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_id = sse_decode_conversation_id(deserializer);
-    var var_status = sse_decode_ui_conversation_status(deserializer);
-    var var_conversationType = sse_decode_ui_conversation_type(deserializer);
-    var var_lastUsed = sse_decode_String(deserializer);
-    var var_attributes = sse_decode_ui_conversation_attributes(deserializer);
-    var var_messagesCount = sse_decode_CastedPrimitive_usize(deserializer);
-    var var_unreadMessages = sse_decode_CastedPrimitive_usize(deserializer);
-    var var_lastMessage = sse_decode_opt_box_autoadd_ui_conversation_message(
-      deserializer,
-    );
-    var var_draft = sse_decode_opt_box_autoadd_ui_message_draft(deserializer);
-    return UiConversationDetails(
-      id: var_id,
-      status: var_status,
-      conversationType: var_conversationType,
-      lastUsed: var_lastUsed,
-      attributes: var_attributes,
-      messagesCount: var_messagesCount,
-      unreadMessages: var_unreadMessages,
-      lastMessage: var_lastMessage,
-      draft: var_draft,
-    );
-  }
-
-  @protected
-  UiConversationMessage sse_decode_ui_conversation_message(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_conversationId = sse_decode_conversation_id(deserializer);
-    var var_id = sse_decode_conversation_message_id(deserializer);
-    var var_timestamp = sse_decode_String(deserializer);
-    var var_message = sse_decode_ui_message(deserializer);
-    var var_position = sse_decode_ui_flight_position(deserializer);
-    var var_status = sse_decode_ui_message_status(deserializer);
-    return UiConversationMessage(
-      conversationId: var_conversationId,
-      id: var_id,
-      timestamp: var_timestamp,
-      message: var_message,
-      position: var_position,
-      status: var_status,
-    );
-  }
-
-  @protected
-  UiConversationStatus sse_decode_ui_conversation_status(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var tag_ = sse_decode_i_32(deserializer);
-    switch (tag_) {
-      case 0:
-        var var_field0 = sse_decode_box_autoadd_ui_inactive_conversation(
-          deserializer,
-        );
-        return UiConversationStatus_Inactive(var_field0);
-      case 1:
-        return UiConversationStatus_Active();
-      default:
-        throw UnimplementedError('');
-    }
-  }
-
-  @protected
-  UiConversationType sse_decode_ui_conversation_type(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var tag_ = sse_decode_i_32(deserializer);
-    switch (tag_) {
-      case 0:
-        var var_field0 = sse_decode_box_autoadd_ui_user_handle(deserializer);
-        return UiConversationType_HandleConnection(var_field0);
-      case 1:
-        var var_field0 = sse_decode_box_autoadd_ui_user_profile(deserializer);
-        return UiConversationType_Connection(var_field0);
-      case 2:
-        return UiConversationType_Group();
-      default:
-        throw UnimplementedError('');
-    }
   }
 
   @protected
@@ -8936,9 +10995,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiMessageDraft sse_decode_ui_message_draft(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_message = sse_decode_String(deserializer);
-    var var_editingId = sse_decode_opt_box_autoadd_conversation_message_id(
-      deserializer,
-    );
+    var var_editingId =
+        sse_decode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+          deserializer,
+        );
     var var_updatedAt = sse_decode_Chrono_Utc(deserializer);
     var var_source = sse_decode_ui_message_draft_source(deserializer);
     return UiMessageDraft(
@@ -9090,6 +11150,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    ChatId self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as ChatIdImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     ConversationDetailsCubitBase self,
     SseSerializer serializer,
@@ -9157,6 +11230,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    MessageId self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MessageIdImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     MessageListCubitBase self,
     SseSerializer serializer,
@@ -9183,6 +11269,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    MessageState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MessageStateImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
     SseSerializer serializer,
@@ -9190,6 +11289,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    UiChat self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    UiChatMessage self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatMessageImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    UiConversationDetails self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiConversationDetailsImpl).frbInternalSseEncode(move: true),
       serializer,
     );
   }
@@ -9341,6 +11479,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    MessageState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MessageStateImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
     SseSerializer serializer,
@@ -9348,6 +11499,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    UiChat self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    UiChatMessage self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatMessageImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    UiConversationDetails self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiConversationDetailsImpl).frbInternalSseEncode(move: false),
       serializer,
     );
   }
@@ -9499,6 +11689,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    MessageState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MessageStateImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
     SseSerializer serializer,
@@ -9506,6 +11709,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    UiChat self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    UiChatMessage self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatMessageImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    UiConversationDetails self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiConversationDetailsImpl).frbInternalSseEncode(move: false),
       serializer,
     );
   }
@@ -9709,6 +11951,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    ChatId self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as ChatIdImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
     ConversationDetailsCubitBase self,
     SseSerializer serializer,
@@ -9776,6 +12031,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    MessageId self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MessageIdImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageListCubitBase(
     MessageListCubitBase self,
     SseSerializer serializer,
@@ -9802,6 +12070,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState(
+    MessageState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MessageStateImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerNavigationCubitBase(
     NavigationCubitBase self,
     SseSerializer serializer,
@@ -9809,6 +12090,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as NavigationCubitBaseImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChat(
+    UiChat self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    UiChatMessage self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiChatMessageImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    UiConversationDetails self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as UiConversationDetailsImpl).frbInternalSseEncode(move: null),
       serializer,
     );
   }
@@ -9925,6 +12245,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState_Sse(
+    RustStreamSink<MessageState> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageState,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_StreamSink_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiUser_Sse(
     RustStreamSink<UiUser> self,
     SseSerializer serializer,
@@ -10005,23 +12344,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       self.setupAndSerialize(
         codec: SseCodec(
           decodeSuccessData: sse_decode_log_entry,
-          decodeErrorData: sse_decode_AnyhowException,
-        ),
-      ),
-      serializer,
-    );
-  }
-
-  @protected
-  void sse_encode_StreamSink_message_state_Sse(
-    RustStreamSink<MessageState> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(
-      self.setupAndSerialize(
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_message_state,
           decodeErrorData: sse_decode_AnyhowException,
         ),
       ),
@@ -10130,6 +12452,58 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    ChatId self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+      self,
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    MessageId self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+      self,
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    UiChatMessage self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+      self,
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    UiConversationDetails self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+      self,
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     UiRoomState self,
     SseSerializer serializer,
@@ -10161,24 +12535,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_attachment_id(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_conversation_id(
-    ConversationId self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_conversation_id(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_conversation_message_id(
-    ConversationMessageId self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_conversation_message_id(self, serializer);
   }
 
   @protected
@@ -10227,39 +12583,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_box_autoadd_message_state(
-    MessageState self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_message_state(self, serializer);
-  }
-
-  @protected
   void sse_encode_box_autoadd_platform_push_token(
     PlatformPushToken self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_platform_push_token(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_ui_conversation_details(
-    UiConversationDetails self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_conversation_details(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_ui_conversation_message(
-    UiConversationMessage self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_conversation_message(self, serializer);
   }
 
   @protected
@@ -10367,7 +12696,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_opt_box_autoadd_ui_conversation_details(
+    sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
       self.conversation,
       serializer,
     );
@@ -10379,30 +12708,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_conversation_id(
-    ConversationId self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_Uuid(self.uuid, serializer);
-  }
-
-  @protected
   void sse_encode_conversation_list_state(
     ConversationListState self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_ui_conversation_details(self.conversations, serializer);
-  }
-
-  @protected
-  void sse_encode_conversation_message_id(
-    ConversationMessageId self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_Uuid(self.uuid, serializer);
+    sse_encode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+      self.conversations,
+      serializer,
+    );
   }
 
   @protected
@@ -10427,7 +12741,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_bool(self.conversationOpen, serializer);
-    sse_encode_opt_box_autoadd_conversation_id(self.conversationId, serializer);
+    sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+      self.conversationId,
+      serializer,
+    );
     sse_encode_opt_box_autoadd_developer_settings_screen_type(
       self.developerSettingsScreen,
       serializer,
@@ -10518,6 +12835,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_isize(PlatformInt64 self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putPlatformInt64(self);
+  }
+
+  @protected
+  void
+  sse_encode_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    List<UiConversationDetails> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+        item,
+        serializer,
+      );
+    }
   }
 
   @protected
@@ -10675,18 +13008,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_ui_conversation_details(
-    List<UiConversationDetails> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_ui_conversation_details(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_list_ui_user_handle(
     List<UiUserHandle> self,
     SseSerializer serializer,
@@ -10738,12 +13059,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_message_state(MessageState self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_ui_conversation_message(self.message, serializer);
-  }
-
-  @protected
   void sse_encode_navigation_state(
     NavigationState self,
     SseSerializer serializer,
@@ -10768,7 +13083,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_notification_id(self.identifier, serializer);
     sse_encode_String(self.title, serializer);
     sse_encode_String(self.body, serializer);
-    sse_encode_opt_box_autoadd_conversation_id(self.conversationId, serializer);
+    sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+      self.conversationId,
+      serializer,
+    );
   }
 
   @protected
@@ -10778,7 +13096,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_notification_id(self.identifier, serializer);
-    sse_encode_opt_box_autoadd_conversation_id(self.conversationId, serializer);
+    sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+      self.conversationId,
+      serializer,
+    );
   }
 
   @protected
@@ -10815,6 +13136,74 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+    ChatId? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatId(
+        self,
+        serializer,
+      );
+    }
+  }
+
+  @protected
+  void
+  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+    MessageId? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
+        self,
+        serializer,
+      );
+    }
+  }
+
+  @protected
+  void
+  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+    UiChatMessage? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiChatMessage(
+        self,
+        serializer,
+      );
+    }
+  }
+
+  @protected
+  void
+  sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+    UiConversationDetails? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiConversationDetails(
+        self,
+        serializer,
+      );
+    }
+  }
+
+  @protected
+  void
   sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerUiRoomState(
     UiRoomState? self,
     SseSerializer serializer,
@@ -10844,32 +13233,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         self,
         serializer,
       );
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_conversation_id(
-    ConversationId? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_conversation_id(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_conversation_message_id(
-    ConversationMessageId? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_conversation_message_id(self, serializer);
     }
   }
 
@@ -10922,32 +13285,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_platform_push_token(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_ui_conversation_details(
-    UiConversationDetails? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_ui_conversation_details(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_ui_conversation_message(
-    UiConversationMessage? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_ui_conversation_message(self, serializer);
     }
   }
 
@@ -11098,6 +13435,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_ui_chat_attributes(
+    UiChatAttributes self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.title, serializer);
+    sse_encode_opt_box_autoadd_image_data(self.picture, serializer);
+  }
+
+  @protected
+  void sse_encode_ui_chat_status(UiChatStatus self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case UiChatStatus_Inactive(field0: final field0):
+        sse_encode_i_32(0, serializer);
+        sse_encode_box_autoadd_ui_inactive_conversation(field0, serializer);
+      case UiChatStatus_Active():
+        sse_encode_i_32(1, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_ui_chat_type(UiChatType self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case UiChatType_HandleConnection(field0: final field0):
+        sse_encode_i_32(0, serializer);
+        sse_encode_box_autoadd_ui_user_handle(field0, serializer);
+      case UiChatType_Connection(field0: final field0):
+        sse_encode_i_32(1, serializer);
+        sse_encode_box_autoadd_ui_user_profile(field0, serializer);
+      case UiChatType_Group():
+        sse_encode_i_32(2, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_ui_client_record(
     UiClientRecord self,
     SseSerializer serializer,
@@ -11125,83 +13499,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.sent, serializer);
     sse_encode_ui_mimi_content(self.content, serializer);
     sse_encode_bool(self.edited, serializer);
-  }
-
-  @protected
-  void sse_encode_ui_conversation_attributes(
-    UiConversationAttributes self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.title, serializer);
-    sse_encode_opt_box_autoadd_image_data(self.picture, serializer);
-  }
-
-  @protected
-  void sse_encode_ui_conversation_details(
-    UiConversationDetails self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_conversation_id(self.id, serializer);
-    sse_encode_ui_conversation_status(self.status, serializer);
-    sse_encode_ui_conversation_type(self.conversationType, serializer);
-    sse_encode_String(self.lastUsed, serializer);
-    sse_encode_ui_conversation_attributes(self.attributes, serializer);
-    sse_encode_CastedPrimitive_usize(self.messagesCount, serializer);
-    sse_encode_CastedPrimitive_usize(self.unreadMessages, serializer);
-    sse_encode_opt_box_autoadd_ui_conversation_message(
-      self.lastMessage,
-      serializer,
-    );
-    sse_encode_opt_box_autoadd_ui_message_draft(self.draft, serializer);
-  }
-
-  @protected
-  void sse_encode_ui_conversation_message(
-    UiConversationMessage self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_conversation_id(self.conversationId, serializer);
-    sse_encode_conversation_message_id(self.id, serializer);
-    sse_encode_String(self.timestamp, serializer);
-    sse_encode_ui_message(self.message, serializer);
-    sse_encode_ui_flight_position(self.position, serializer);
-    sse_encode_ui_message_status(self.status, serializer);
-  }
-
-  @protected
-  void sse_encode_ui_conversation_status(
-    UiConversationStatus self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    switch (self) {
-      case UiConversationStatus_Inactive(field0: final field0):
-        sse_encode_i_32(0, serializer);
-        sse_encode_box_autoadd_ui_inactive_conversation(field0, serializer);
-      case UiConversationStatus_Active():
-        sse_encode_i_32(1, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_ui_conversation_type(
-    UiConversationType self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    switch (self) {
-      case UiConversationType_HandleConnection(field0: final field0):
-        sse_encode_i_32(0, serializer);
-        sse_encode_box_autoadd_ui_user_handle(field0, serializer);
-      case UiConversationType_Connection(field0: final field0):
-        sse_encode_i_32(1, serializer);
-        sse_encode_box_autoadd_ui_user_profile(field0, serializer);
-      case UiConversationType_Group():
-        sse_encode_i_32(2, serializer);
-    }
   }
 
   @protected
@@ -11278,7 +13575,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.message, serializer);
-    sse_encode_opt_box_autoadd_conversation_message_id(
+    sse_encode_opt_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMessageId(
       self.editingId,
       serializer,
     );
@@ -11432,6 +13729,26 @@ class AttachmentsRepositoryImpl extends RustOpaque
 }
 
 @sealed
+class ChatIdImpl extends RustOpaque implements ChatId {
+  // Not to be used by end users
+  ChatIdImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  ChatIdImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_ChatId,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_ChatId,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_ChatIdPtr,
+  );
+}
+
+@sealed
 class ConversationDetailsCubitBaseImpl extends RustOpaque
     implements ConversationDetailsCubitBase {
   // Not to be used by end users
@@ -11467,9 +13784,7 @@ class ConversationDetailsCubitBaseImpl extends RustOpaque
         that: this,
       );
 
-  Future<void> editMessage({ConversationMessageId? messageId}) => RustLib
-      .instance
-      .api
+  Future<void> editMessage({MessageId? messageId}) => RustLib.instance.api
       .crateApiConversationDetailsCubitConversationDetailsCubitBaseEditMessage(
         that: this,
         messageId: messageId,
@@ -11484,7 +13799,7 @@ class ConversationDetailsCubitBaseImpl extends RustOpaque
   ///
   /// The calls to this method are debounced with a fixed delay.
   Future<void> markAsRead({
-    required ConversationMessageId untilMessageId,
+    required MessageId untilMessageId,
     required DateTime untilTimestamp,
   }) => RustLib.instance.api
       .crateApiConversationDetailsCubitConversationDetailsCubitBaseMarkAsRead(
@@ -11583,9 +13898,9 @@ class ConversationListCubitBaseImpl extends RustOpaque
   /// Creates a new 1:1 connection with the given user via a user handle.
   ///
   /// Returns `None` if the provided handle does not exist.
-  Future<ConversationId?> createConnection({
-    required UiUserHandle handle,
-  }) => RustLib.instance.api
+  Future<ChatId?> createConnection({required UiUserHandle handle}) => RustLib
+      .instance
+      .api
       .crateApiConversationListCubitConversationListCubitBaseCreateConnection(
         that: this,
         handle: handle,
@@ -11594,9 +13909,9 @@ class ConversationListCubitBaseImpl extends RustOpaque
   /// Creates a new group conversation with the given name.
   ///
   /// After the conversation is created, the current user is the only member of the group.
-  Future<ConversationId> createConversation({
-    required String groupName,
-  }) => RustLib.instance.api
+  Future<ChatId> createConversation({required String groupName}) => RustLib
+      .instance
+      .api
       .crateApiConversationListCubitConversationListCubitBaseCreateConversation(
         that: this,
         groupName: groupName,
@@ -11708,6 +14023,26 @@ class MessageCubitBaseImpl extends RustOpaque implements MessageCubitBase {
 }
 
 @sealed
+class MessageIdImpl extends RustOpaque implements MessageId {
+  // Not to be used by end users
+  MessageIdImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  MessageIdImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_MessageId,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MessageId,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MessageIdPtr,
+  );
+}
+
+@sealed
 class MessageListCubitBaseImpl extends RustOpaque
     implements MessageListCubitBase {
   // Not to be used by end users
@@ -11775,7 +14110,7 @@ class MessageListStateImpl extends RustOpaque implements MessageListState {
             .rust_arc_decrement_strong_count_MessageListStatePtr,
   );
 
-  bool isNewMessage(ConversationMessageId messageId) =>
+  bool isNewMessage(MessageId messageId) =>
       RustLib.instance.api.crateApiMessageListCubitMessageListStateIsNewMessage(
         that: this,
         messageId: messageId,
@@ -11788,17 +14123,46 @@ class MessageListStateImpl extends RustOpaque implements MessageListState {
       .crateApiMessageListCubitMessageListStateLoadedMessagesCount(that: this);
 
   /// Returns the message at the given index.
-  UiConversationMessage? messageAt(int index) =>
+  UiChatMessage? messageAt(int index) =>
       RustLib.instance.api.crateApiMessageListCubitMessageListStateMessageAt(
         that: this,
         index: index,
       );
 
   /// Returns the lookup table mapping a message id to the index in the list.
-  int? messageIdIndex(ConversationMessageId messageId) => RustLib.instance.api
+  int? messageIdIndex(MessageId messageId) => RustLib.instance.api
       .crateApiMessageListCubitMessageListStateMessageIdIndex(
         that: this,
         messageId: messageId,
+      );
+}
+
+@sealed
+class MessageStateImpl extends RustOpaque implements MessageState {
+  // Not to be used by end users
+  MessageStateImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  MessageStateImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_MessageState,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MessageState,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MessageStatePtr,
+  );
+
+  UiChatMessage get message => RustLib.instance.api
+      .crateApiMessageCubitMessageStateAutoAccessorGetMessage(that: this);
+
+  set message(UiChatMessage message) => RustLib.instance.api
+      .crateApiMessageCubitMessageStateAutoAccessorSetMessage(
+        that: this,
+        message: message,
       );
 }
 
@@ -11845,12 +14209,13 @@ class NavigationCubitBaseImpl extends RustOpaque
   Future<void> openAddMembers() => RustLib.instance.api
       .crateApiNavigationCubitNavigationCubitBaseOpenAddMembers(that: this);
 
-  Future<void> openConversation({required ConversationId conversationId}) =>
-      RustLib.instance.api
-          .crateApiNavigationCubitNavigationCubitBaseOpenConversation(
-            that: this,
-            conversationId: conversationId,
-          );
+  Future<void> openConversation({required ChatId conversationId}) => RustLib
+      .instance
+      .api
+      .crateApiNavigationCubitNavigationCubitBaseOpenConversation(
+        that: this,
+        conversationId: conversationId,
+      );
 
   Future<void> openConversationDetails() => RustLib.instance.api
       .crateApiNavigationCubitNavigationCubitBaseOpenConversationDetails(
@@ -11902,6 +14267,241 @@ class NavigationCubitBaseImpl extends RustOpaque
 
   Stream<NavigationState> stream() => RustLib.instance.api
       .crateApiNavigationCubitNavigationCubitBaseStream(that: this);
+}
+
+@sealed
+class UiChatImpl extends RustOpaque implements UiChat {
+  // Not to be used by end users
+  UiChatImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  UiChatImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_UiChat,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_UiChat,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_UiChatPtr,
+  );
+
+  UiChatAttributes get attributes => RustLib.instance.api
+      .crateApiTypesUiChatAutoAccessorGetAttributes(that: this);
+
+  UiChatType get chatType => RustLib.instance.api
+      .crateApiTypesUiChatAutoAccessorGetChatType(that: this);
+
+  ChatId get id =>
+      RustLib.instance.api.crateApiTypesUiChatAutoAccessorGetId(that: this);
+
+  UiChatStatus get status =>
+      RustLib.instance.api.crateApiTypesUiChatAutoAccessorGetStatus(that: this);
+
+  set attributes(UiChatAttributes attributes) =>
+      RustLib.instance.api.crateApiTypesUiChatAutoAccessorSetAttributes(
+        that: this,
+        attributes: attributes,
+      );
+
+  set chatType(UiChatType chatType) =>
+      RustLib.instance.api.crateApiTypesUiChatAutoAccessorSetChatType(
+        that: this,
+        chatType: chatType,
+      );
+
+  set id(ChatId id) => RustLib.instance.api
+      .crateApiTypesUiChatAutoAccessorSetId(that: this, id: id);
+
+  set status(UiChatStatus status) => RustLib.instance.api
+      .crateApiTypesUiChatAutoAccessorSetStatus(that: this, status: status);
+}
+
+@sealed
+class UiChatMessageImpl extends RustOpaque implements UiChatMessage {
+  // Not to be used by end users
+  UiChatMessageImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  UiChatMessageImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_UiChatMessage,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_UiChatMessage,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_UiChatMessagePtr,
+  );
+
+  ChatId get conversationId => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorGetConversationId(that: this);
+
+  MessageId get id => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorGetId(that: this);
+
+  UiMessage get message => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorGetMessage(that: this);
+
+  UiFlightPosition get position => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorGetPosition(that: this);
+
+  UiMessageStatus get status => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorGetStatus(that: this);
+
+  String get timestamp => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorGetTimestamp(that: this);
+
+  set conversationId(ChatId conversationId) => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorSetConversationId(
+        that: this,
+        conversationId: conversationId,
+      );
+
+  set id(MessageId id) => RustLib.instance.api
+      .crateApiTypesUiChatMessageAutoAccessorSetId(that: this, id: id);
+
+  set message(UiMessage message) =>
+      RustLib.instance.api.crateApiTypesUiChatMessageAutoAccessorSetMessage(
+        that: this,
+        message: message,
+      );
+
+  set position(UiFlightPosition position) =>
+      RustLib.instance.api.crateApiTypesUiChatMessageAutoAccessorSetPosition(
+        that: this,
+        position: position,
+      );
+
+  set status(UiMessageStatus status) =>
+      RustLib.instance.api.crateApiTypesUiChatMessageAutoAccessorSetStatus(
+        that: this,
+        status: status,
+      );
+
+  set timestamp(String timestamp) =>
+      RustLib.instance.api.crateApiTypesUiChatMessageAutoAccessorSetTimestamp(
+        that: this,
+        timestamp: timestamp,
+      );
+}
+
+@sealed
+class UiConversationDetailsImpl extends RustOpaque
+    implements UiConversationDetails {
+  // Not to be used by end users
+  UiConversationDetailsImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  UiConversationDetailsImpl.frbInternalSseDecode(
+    BigInt ptr,
+    int externalSizeOnNative,
+  ) : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib
+            .instance
+            .api
+            .rust_arc_increment_strong_count_UiConversationDetails,
+    rustArcDecrementStrongCount:
+        RustLib
+            .instance
+            .api
+            .rust_arc_decrement_strong_count_UiConversationDetails,
+    rustArcDecrementStrongCountPtr:
+        RustLib
+            .instance
+            .api
+            .rust_arc_decrement_strong_count_UiConversationDetailsPtr,
+  );
+
+  UiChatAttributes get attributes => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetAttributes(that: this);
+
+  UiChatType get chatType => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetChatType(that: this);
+
+  UiMessageDraft? get draft => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetDraft(that: this);
+
+  ChatId get id => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetId(that: this);
+
+  UiChatMessage? get lastMessage => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetLastMessage(that: this);
+
+  String get lastUsed => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetLastUsed(that: this);
+
+  int get messagesCount => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetMessagesCount(
+        that: this,
+      );
+
+  UiChatStatus get status => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetStatus(that: this);
+
+  int get unreadMessages => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorGetUnreadMessages(
+        that: this,
+      );
+
+  set attributes(UiChatAttributes attributes) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetAttributes(
+        that: this,
+        attributes: attributes,
+      );
+
+  set chatType(UiChatType chatType) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetChatType(
+        that: this,
+        chatType: chatType,
+      );
+
+  set draft(UiMessageDraft? draft) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetDraft(
+        that: this,
+        draft: draft,
+      );
+
+  set id(ChatId id) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetId(that: this, id: id);
+
+  set lastMessage(UiChatMessage? lastMessage) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetLastMessage(
+        that: this,
+        lastMessage: lastMessage,
+      );
+
+  set lastUsed(String lastUsed) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetLastUsed(
+        that: this,
+        lastUsed: lastUsed,
+      );
+
+  set messagesCount(int messagesCount) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetMessagesCount(
+        that: this,
+        messagesCount: messagesCount,
+      );
+
+  set status(UiChatStatus status) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetStatus(
+        that: this,
+        status: status,
+      );
+
+  set unreadMessages(int unreadMessages) => RustLib.instance.api
+      .crateApiTypesUiConversationDetailsAutoAccessorSetUnreadMessages(
+        that: this,
+        unreadMessages: unreadMessages,
+      );
 }
 
 @sealed
@@ -11981,21 +14581,18 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
         userHandle: userHandle,
       );
 
-  Future<void> addUserToConversation(
-    ConversationId conversationId,
-    UiUserId userId,
-  ) => RustLib.instance.api.crateApiUserCubitUserCubitBaseAddUserToConversation(
-    that: this,
-    conversationId: conversationId,
-    userId: userId,
-  );
+  Future<void> addUserToConversation(ChatId conversationId, UiUserId userId) =>
+      RustLib.instance.api.crateApiUserCubitUserCubitBaseAddUserToConversation(
+        that: this,
+        conversationId: conversationId,
+        userId: userId,
+      );
 
-  Future<List<UiContact>> addableContacts({
-    required ConversationId conversationId,
-  }) => RustLib.instance.api.crateApiUserCubitUserCubitBaseAddableContacts(
-    that: this,
-    conversationId: conversationId,
-  );
+  Future<List<UiContact>> addableContacts({required ChatId conversationId}) =>
+      RustLib.instance.api.crateApiUserCubitUserCubitBaseAddableContacts(
+        that: this,
+        conversationId: conversationId,
+      );
 
   Future<void> close() =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseClose(that: this);
@@ -12007,7 +14604,7 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
       RustLib.instance.api.crateApiUserCubitUserCubitBaseIsClosed(that: this);
 
   Future<void> removeUserFromConversation(
-    ConversationId conversationId,
+    ChatId conversationId,
     UiUserId userId,
   ) => RustLib.instance.api
       .crateApiUserCubitUserCubitBaseRemoveUserFromConversation(

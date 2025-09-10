@@ -5,7 +5,7 @@
 use aircommon::identifiers::UserId;
 use invite_users_flow::InviteUsersData;
 
-use crate::{ConversationId, ConversationMessage, utils::connection_ext::ConnectionExt as _};
+use crate::{ChatId, ConversationMessage, utils::connection_ext::ConnectionExt as _};
 
 use super::CoreUser;
 
@@ -18,7 +18,7 @@ impl CoreUser {
     /// group. Note that these returned message have already been persisted.
     pub(crate) async fn invite_users(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         invited_users: &[UserId],
     ) -> anyhow::Result<Vec<ConversationMessage>> {
         let mut connection = self.pool().acquire().await?;
@@ -75,7 +75,7 @@ mod invite_users_flow {
     use sqlx::SqliteConnection;
 
     use crate::{
-        Contact, Conversation, ConversationId, ConversationMessage,
+        Chat, ChatId, Contact, ConversationMessage,
         clients::{CoreUser, api_clients::ApiClients},
         contacts::ContactAddInfos,
         groups::{Group, client_auth_info::StorableClientCredential},
@@ -96,10 +96,10 @@ mod invite_users_flow {
     impl InviteUsersData<()> {
         pub(super) async fn load(
             connection: &mut SqliteConnection,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
             invited_users: &[UserId],
         ) -> anyhow::Result<InviteUsersData<Vec<Contact>>> {
-            let conversation = Conversation::load(&mut *connection, &conversation_id)
+            let conversation = Chat::load(&mut *connection, &conversation_id)
                 .await?
                 .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
 
@@ -257,7 +257,7 @@ mod invite_users_flow {
             self,
             connection: &mut sqlx::SqliteConnection,
             notifier: &mut StoreNotifier,
-            conversation_id: ConversationId,
+            conversation_id: ChatId,
         ) -> anyhow::Result<Vec<ConversationMessage>> {
             let Self {
                 mut group,

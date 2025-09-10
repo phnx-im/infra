@@ -10,7 +10,7 @@ use sqlx::{
     query, query_as, query_scalar,
 };
 
-use crate::{ConversationId, ConversationMessageId, store::StoreNotifier};
+use crate::{ChatId, MessageId, store::StoreNotifier};
 
 /// A record of an attachment.
 ///
@@ -19,8 +19,8 @@ use crate::{ConversationId, ConversationMessageId, store::StoreNotifier};
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(crate) struct AttachmentRecord {
     pub(super) attachment_id: AttachmentId,
-    pub(super) conversation_id: ConversationId,
-    pub(super) message_id: ConversationMessageId,
+    pub(super) conversation_id: ChatId,
+    pub(super) message_id: MessageId,
     pub(super) content_type: String,
     pub(super) status: AttachmentStatus,
     pub(super) created_at: DateTime<Utc>,
@@ -369,16 +369,12 @@ mod test {
     use uuid::Uuid;
 
     use crate::conversations::{
-        messages::persistence::tests::test_conversation_message,
-        persistence::tests::test_conversation,
+        messages::persistence::tests::test_conversation_message, persistence::tests::test_chat,
     };
 
     use super::*;
 
-    fn test_attachment_record(
-        conversation_id: ConversationId,
-        message_id: ConversationMessageId,
-    ) -> AttachmentRecord {
+    fn test_attachment_record(conversation_id: ChatId, message_id: MessageId) -> AttachmentRecord {
         AttachmentRecord {
             attachment_id: AttachmentId::new(Uuid::new_v4()),
             conversation_id,
@@ -392,7 +388,7 @@ mod test {
     #[sqlx::test]
     async fn attachment_record_store_and_load(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
@@ -413,7 +409,7 @@ mod test {
     #[sqlx::test]
     async fn attachment_content_lifecycle(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
@@ -462,7 +458,7 @@ mod test {
     #[sqlx::test]
     async fn load_all_pending_attachments(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
@@ -505,7 +501,7 @@ mod test {
     #[sqlx::test]
     async fn pending_attachment_record_cycle(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
@@ -550,7 +546,7 @@ mod test {
         pool: Pool<Sqlite>,
     ) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
@@ -593,7 +589,7 @@ mod test {
     async fn attachment_record_update_status(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;

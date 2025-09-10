@@ -7,6 +7,7 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../lib.dart';
 import 'navigation_cubit.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:uuid/uuid.dart';
@@ -28,14 +29,9 @@ abstract class UiUser implements RustOpaqueInterface {
 abstract class UserCubitBase implements RustOpaqueInterface {
   Future<bool> addUserHandle({required UiUserHandle userHandle});
 
-  Future<void> addUserToConversation(
-    ConversationId conversationId,
-    UiUserId userId,
-  );
+  Future<void> addUserToConversation(ChatId conversationId, UiUserId userId);
 
-  Future<List<UiContact>> addableContacts({
-    required ConversationId conversationId,
-  });
+  Future<List<UiContact>> addableContacts({required ChatId conversationId});
 
   Future<void> close();
 
@@ -52,7 +48,7 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   );
 
   Future<void> removeUserFromConversation(
-    ConversationId conversationId,
+    ChatId conversationId,
     UiUserId userId,
   );
 

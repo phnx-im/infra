@@ -31,8 +31,8 @@ use crate::{
 };
 
 use super::{
-    AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
-    EarEncryptable, FriendshipPackage, anyhow,
+    AsCredentials, Chat, ChatAttributes, ChatId, Contact, CoreUser, EarEncryptable,
+    FriendshipPackage, anyhow,
 };
 
 impl CoreUser {
@@ -43,7 +43,7 @@ impl CoreUser {
         &self,
         user_handle: &UserHandle,
         handle_queue_message: HandleQueueMessage,
-    ) -> Result<ConversationId> {
+    ) -> Result<ChatId> {
         let payload = handle_queue_message
             .payload
             .context("no payload in handle queue message")?;
@@ -59,7 +59,7 @@ impl CoreUser {
         &self,
         handle: UserHandle,
         ecep: ConnectionOfferMessage,
-    ) -> Result<ConversationId> {
+    ) -> Result<ChatId> {
         let mut connection = self.pool().acquire().await?;
 
         let connection_offer_hash = ecep.connection_offer_hash();
@@ -281,7 +281,7 @@ impl CoreUser {
         connection: &mut SqliteConnection,
         group: &Group,
         cep_payload: &ConnectionOfferPayload,
-    ) -> Result<(Conversation, Contact)> {
+    ) -> Result<(Chat, Contact)> {
         let sender_user_id = cep_payload.sender_client_credential.identity();
 
         let display_name = self
@@ -289,10 +289,10 @@ impl CoreUser {
             .await
             .display_name;
 
-        let conversation = Conversation::new_connection_conversation(
+        let conversation = Chat::new_connection_chat(
             group.group_id().clone(),
             sender_user_id.clone(),
-            ConversationAttributes::new(display_name.to_string(), None),
+            ChatAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
             sender_user_id.clone(),
@@ -307,7 +307,7 @@ impl CoreUser {
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         group: &Group,
-        conversation: &mut Conversation,
+        conversation: &mut Chat,
         contact: Contact,
     ) -> Result<()> {
         group.store(txn.as_mut()).await?;

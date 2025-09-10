@@ -7,14 +7,9 @@ import 'package:convert/convert.dart';
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import 'markdown.dart';
-import 'message_content.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
-import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
-import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
-part 'message_cubit.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `calculate_flight_position`, `load_and_emit_state`, `new`, `process_store_notification`, `spawn`, `store_notifications_loop`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `MessageContext`
@@ -42,9 +37,9 @@ abstract class MessageCubitBase implements RustOpaqueInterface {
   Stream<MessageState> stream();
 }
 
-/// State of a single message in a conversation
-@freezed
-sealed class MessageState with _$MessageState {
-  const factory MessageState({required UiConversationMessage message}) =
-      _MessageState;
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MessageState>>
+abstract class MessageState implements RustOpaqueInterface {
+  UiChatMessage get message;
+
+  set message(UiChatMessage message);
 }

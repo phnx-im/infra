@@ -77,11 +77,11 @@ impl TimestampedMessage {
 
 /// Identifier of a message in a conversation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ConversationMessageId {
+pub struct MessageId {
     pub uuid: Uuid,
 }
 
-impl ConversationMessageId {
+impl MessageId {
     pub(crate) fn random() -> Self {
         Self {
             uuid: Uuid::new_v4(),
@@ -99,8 +99,8 @@ impl ConversationMessageId {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConversationMessage {
-    pub(super) conversation_id: ConversationId,
-    pub(super) conversation_message_id: ConversationMessageId,
+    pub(super) conversation_id: ChatId,
+    pub(super) conversation_message_id: MessageId,
     pub(super) timestamped_message: TimestampedMessage,
     pub(super) status: MessageStatus,
 }
@@ -109,8 +109,8 @@ impl ConversationMessage {
     /// Create a new conversation message from a group message. New messages are
     /// marked as unread by default.
     pub(crate) fn new(
-        conversation_id: ConversationId,
-        conversation_message_id: ConversationMessageId,
+        conversation_id: ChatId,
+        conversation_message_id: MessageId,
         timestamped_message: TimestampedMessage,
     ) -> Self {
         Self {
@@ -122,8 +122,8 @@ impl ConversationMessage {
     }
 
     pub fn new_for_test(
-        conversation_id: ConversationId,
-        conversation_message_id: ConversationMessageId,
+        conversation_id: ChatId,
+        conversation_message_id: MessageId,
         timestamp: TimeStamp,
         message: Message,
     ) -> Self {
@@ -137,8 +137,8 @@ impl ConversationMessage {
 
     pub(crate) fn new_unsent_message(
         sender: UserId,
-        conversation_id: ConversationId,
-        conversation_message_id: ConversationMessageId,
+        conversation_id: ChatId,
+        conversation_message_id: MessageId,
         content: MimiContent,
         group_id: &GroupId,
     ) -> Self {
@@ -169,11 +169,11 @@ impl ConversationMessage {
         Ok(())
     }
 
-    pub fn id_ref(&self) -> &ConversationMessageId {
+    pub fn id_ref(&self) -> &MessageId {
         &self.conversation_message_id
     }
 
-    pub fn id(&self) -> ConversationMessageId {
+    pub fn id(&self) -> MessageId {
         self.conversation_message_id
     }
 
@@ -211,7 +211,7 @@ impl ConversationMessage {
         self.status = status;
     }
 
-    pub fn conversation_id(&self) -> ConversationId {
+    pub fn conversation_id(&self) -> ChatId {
         self.conversation_id
     }
 
@@ -246,11 +246,11 @@ impl Message {
     pub async fn string_representation(
         &self,
         store: &impl Store,
-        conversation_type: &ConversationType,
+        conversation_type: &ChatType,
     ) -> String {
         match self {
             Message::Content(content_message) => match conversation_type {
-                ConversationType::Group => {
+                ChatType::Group => {
                     let display_name = store
                         .user_profile(&content_message.sender)
                         .await
@@ -261,14 +261,14 @@ impl Message {
                         .unwrap_or_else(|e| format!("Error: {e}"));
                     format!("{display_name}: {content}")
                 }
-                ConversationType::HandleConnection(handle) => {
+                ChatType::HandleConnection(handle) => {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
                         .unwrap_or_else(|e| format!("Error: {e}"));
                     format!("{handle}: {content}", handle = handle.plaintext())
                 }
-                ConversationType::Connection(_) => {
+                ChatType::Connection(_) => {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
@@ -428,6 +428,6 @@ impl From<ErrorMessage> for String {
 
 #[derive(Debug, Clone)]
 pub enum NotificationType {
-    ConversationChange(ConversationId), // The id of the changed conversation.
+    ConversationChange(ChatId), // The id of the changed conversation.
     Message(Box<ConversationMessage>),
 }

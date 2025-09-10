@@ -4,7 +4,7 @@
 
 use std::mem;
 
-use aircoreclient::ConversationId;
+use aircoreclient::ChatId;
 use flutter_rust_bridge::frb;
 use tokio::sync::watch;
 
@@ -58,7 +58,7 @@ pub struct HomeNavigationState {
     /// Allows to close a conversation without setting the conversation id to `None`.
     #[frb(default = false)]
     pub conversation_open: bool,
-    pub conversation_id: Option<ConversationId>,
+    pub conversation_id: Option<ChatId>,
     pub developer_settings_screen: Option<DeveloperSettingsScreenType>,
     /// User name of the member that details are currently open
     pub member_details: Option<UiUserId>,
@@ -162,7 +162,7 @@ impl NavigationCubitBase {
         });
     }
 
-    pub async fn open_conversation(&self, conversation_id: ConversationId) {
+    pub async fn open_conversation(&self, conversation_id: ChatId) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => {
                 *state = HomeNavigationState {

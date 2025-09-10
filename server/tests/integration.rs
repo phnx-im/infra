@@ -19,7 +19,7 @@ use aircommon::{
     identifiers::{UserHandle, UserId},
 };
 use aircoreclient::{
-    Asset, ConversationId, ConversationMessage, DisplayName, DownloadProgressEvent, UserProfile,
+    Asset, ChatId, ConversationMessage, DisplayName, DownloadProgressEvent, UserProfile,
     clients::CoreUser, store::Store,
 };
 use airserver::RateLimitsConfig;
@@ -510,7 +510,7 @@ async fn mark_as_read() {
     // Send a few messages
     async fn send_messages(
         user: &mut CoreUser,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         number_of_messages: usize,
     ) -> Vec<ConversationMessage> {
         let mut messages_sent = vec![];

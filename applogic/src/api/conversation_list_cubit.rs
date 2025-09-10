@@ -8,11 +8,11 @@ use std::sync::Arc;
 
 use aircommon::identifiers::UserHandle;
 use aircoreclient::{
-    Conversation,
+    Chat,
     clients::CoreUser,
     store::{Store, StoreEntityId},
 };
-use aircoreclient::{ConversationId, store::StoreNotification};
+use aircoreclient::{ChatId, store::StoreNotification};
 use flutter_rust_bridge::frb;
 use tokio::sync::watch;
 use tokio_stream::{Stream, StreamExt};
@@ -21,12 +21,12 @@ use tracing::debug;
 
 use crate::{
     StreamSink,
-    api::types::{UiMessageDraft, UiMessageDraftSource},
+    api::types::{UiChatMessage, UiMessageDraft, UiMessageDraftSource},
     util::{Cubit, CubitCore, spawn_from_sync},
 };
 
 use super::{
-    types::{UiConversationDetails, UiConversationMessage, UiConversationType, UiUserHandle},
+    types::{UiChatType, UiConversationDetails, UiUserHandle},
     user_cubit::UserCubitBase,
 };
 
@@ -89,10 +89,7 @@ impl ConversationListCubitBase {
     /// Creates a new 1:1 connection with the given user via a user handle.
     ///
     /// Returns `None` if the provided handle does not exist.
-    pub async fn create_connection(
-        &self,
-        handle: UiUserHandle,
-    ) -> anyhow::Result<Option<ConversationId>> {
+    pub async fn create_connection(&self, handle: UiUserHandle) -> anyhow::Result<Option<ChatId>> {
         let handle = UserHandle::new(handle.plaintext)?;
         self.context.store.add_contact(handle).await
     }
@@ -100,7 +97,7 @@ impl ConversationListCubitBase {
     /// Creates a new group conversation with the given name.
     ///
     /// After the conversation is created, the current user is the only member of the group.
-    pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ConversationId> {
+    pub async fn create_conversation(&self, group_name: String) -> anyhow::Result<ChatId> {
         let id = self
             .context
             .store
@@ -207,7 +204,7 @@ async fn conversation_details(store: &impl Store) -> Vec<UiConversationDetails> 
 /// [`UiConversationDetails`]
 pub(super) async fn load_conversation_details(
     store: &impl Store,
-    conversation: Conversation,
+    conversation: Chat,
 ) -> UiConversationDetails {
     let messages_count = store
         .messages_count(conversation.id())
@@ -225,13 +222,12 @@ pub(super) async fn load_conversation_details(
         .map(From::from);
     let last_used = last_message
         .as_ref()
-        .map(|m: &UiConversationMessage| m.timestamp.clone())
+        .map(|m: &UiChatMessage| m.timestamp.clone())
         .unwrap_or_default();
     // default is UNIX_EPOCH
 
     let conversation_type =
-        UiConversationType::load_from_conversation_type(store, conversation.conversation_type)
-            .await;
+        UiChatType::load_from_conversation_type(store, conversation.conversation_type).await;
 
     let draft = store
         .message_draft(conversation.id)
@@ -242,7 +238,7 @@ pub(super) async fn load_conversation_details(
     UiConversationDetails {
         id: conversation.id,
         status: conversation.status.into(),
-        conversation_type,
+        chat_type: conversation_type,
         last_used,
         attributes: conversation.attributes.into(),
         messages_count,

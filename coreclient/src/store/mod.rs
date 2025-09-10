@@ -13,9 +13,8 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress, MessageDraft, contacts::HandleContact,
-    user_handles::UserHandleRecord, user_profiles::UserProfile,
+    AttachmentContent, Chat, ChatId, Contact, ConversationMessage, DownloadProgress, MessageDraft,
+    MessageId, contacts::HandleContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -79,19 +78,19 @@ pub trait Store {
         &self,
         title: String,
         picture: Option<Vec<u8>>,
-    ) -> StoreResult<ConversationId>;
+    ) -> StoreResult<ChatId>;
 
     async fn set_conversation_picture(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<()>;
 
-    async fn conversations(&self) -> StoreResult<Vec<Conversation>>;
+    async fn conversations(&self) -> StoreResult<Vec<Chat>>;
 
     async fn conversation_participants(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<Option<HashSet<UserId>>>;
 
     /// Mark the conversation with the given [`ConversationId`] as read until the given message id
@@ -101,8 +100,8 @@ pub trait Store {
     /// were marked as read.
     async fn mark_conversation_as_read(
         &self,
-        conversation_id: ConversationId,
-        until: ConversationMessageId,
+        conversation_id: ChatId,
+        until: MessageId,
     ) -> StoreResult<(bool, Vec<MimiId>)>;
 
     /// Delete the conversation with the given [`ConversationId`].
@@ -113,10 +112,10 @@ pub trait Store {
     /// group. Note that these returned message have already been persisted.
     async fn delete_conversation(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<Vec<ConversationMessage>>;
 
-    async fn leave_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
+    async fn leave_conversation(&self, conversation_id: ChatId) -> StoreResult<()>;
 
     // user management
 
@@ -127,10 +126,7 @@ pub trait Store {
     /// more than one effect on the group. As a result this function returns a
     /// vector of [`ConversationMessage`]s that represents the changes to the
     /// group. Note that these returned message have already been persisted.
-    async fn update_key(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Vec<ConversationMessage>>;
+    async fn update_key(&self, conversation_id: ChatId) -> StoreResult<Vec<ConversationMessage>>;
 
     /// Remove users from the conversation with the given [`ConversationId`].
     ///
@@ -140,7 +136,7 @@ pub trait Store {
     /// group. Note that these returned message have already been persisted.
     async fn remove_users(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         target_users: Vec<UserId>,
     ) -> StoreResult<Vec<ConversationMessage>>;
 
@@ -152,13 +148,13 @@ pub trait Store {
     /// group. Note that these returned message have already been persisted.
     async fn invite_users(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         invited_users: &[UserId],
     ) -> StoreResult<Vec<ConversationMessage>>;
 
     async fn load_room_state(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<(UserId, VerifiedRoomState)>;
 
     // contacts
@@ -167,7 +163,7 @@ pub trait Store {
     ///
     /// Returns the [`ConversationId`] of the newly created connection
     /// conversation, or `None` if the user handle does not exist.
-    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ConversationId>>;
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ChatId>>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
@@ -181,58 +177,48 @@ pub trait Store {
 
     async fn messages(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         limit: usize,
     ) -> StoreResult<Vec<ConversationMessage>>;
 
-    async fn message(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    async fn message(&self, message_id: MessageId) -> StoreResult<Option<ConversationMessage>>;
 
-    async fn prev_message(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    async fn prev_message(&self, message_id: MessageId)
+    -> StoreResult<Option<ConversationMessage>>;
 
-    async fn next_message(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    async fn next_message(&self, message_id: MessageId)
+    -> StoreResult<Option<ConversationMessage>>;
 
     async fn last_message(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
     async fn last_message_by_user(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         user_id: &UserId,
     ) -> StoreResult<Option<ConversationMessage>>;
 
-    async fn message_draft(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Option<MessageDraft>>;
+    async fn message_draft(&self, conversation_id: ChatId) -> StoreResult<Option<MessageDraft>>;
 
     async fn store_message_draft(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         message_draft: Option<&MessageDraft>,
     ) -> StoreResult<()>;
 
-    async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
+    async fn messages_count(&self, conversation_id: ChatId) -> StoreResult<usize>;
 
-    async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
+    async fn unread_messages_count(&self, conversation_id: ChatId) -> StoreResult<usize>;
 
     async fn global_unread_messages_count(&self) -> StoreResult<usize>;
 
     async fn send_message(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         content: MimiContent,
-        replaces_id: Option<ConversationMessageId>,
+        replaces_id: Option<MessageId>,
     ) -> StoreResult<ConversationMessage>;
 
     /// Sends a delivery receipt for the message with the given MimiId.
@@ -240,7 +226,7 @@ pub trait Store {
     /// Also stores the message status report locally.
     async fn send_delivery_receipts<'a>(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
     ) -> StoreResult<()>;
 
@@ -250,7 +236,7 @@ pub trait Store {
 
     async fn upload_attachment(
         &self,
-        conversation_id: ConversationId,
+        conversation_id: ChatId,
         path: &Path,
     ) -> StoreResult<ConversationMessage>;
 

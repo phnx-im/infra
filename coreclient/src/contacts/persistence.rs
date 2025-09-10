@@ -15,16 +15,14 @@ use sqlx::{SqliteExecutor, SqliteTransaction, query, query_as};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
-use crate::{
-    Contact, ConversationId, clients::connection_offer::FriendshipPackage, store::StoreNotifier,
-};
+use crate::{ChatId, Contact, clients::connection_offer::FriendshipPackage, store::StoreNotifier};
 
 use super::HandleContact;
 
 struct SqlContact {
     user_uuid: Uuid,
     user_domain: Fqdn,
-    conversation_id: ConversationId,
+    conversation_id: ChatId,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     friendship_token: FriendshipToken,
     connection_key: ConnectionKey,
@@ -263,13 +261,13 @@ mod tests {
     use sqlx::SqlitePool;
 
     use crate::{
-        ConversationId, conversations::persistence::tests::test_conversation,
+        ChatId, conversations::persistence::tests::test_chat,
         key_stores::indexed_keys::StorableIndexedKey,
     };
 
     use super::*;
 
-    fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
+    fn test_contact(conversation_id: ChatId) -> (Contact, UserProfileKey) {
         let user_id = UserId::random("localhost".parse().unwrap());
         let user_profile_key = UserProfileKey::random(&user_id).unwrap();
         let contact = Contact {
@@ -287,7 +285,7 @@ mod tests {
     async fn contact_store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
 
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
@@ -305,7 +303,7 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_upsert_load(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
@@ -329,7 +327,7 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_mark_as_complete(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
@@ -379,7 +377,7 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_delete(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
@@ -407,7 +405,7 @@ mod tests {
     #[sqlx::test]
     async fn handle_contact_upsert_idempotent(pool: SqlitePool) -> anyhow::Result<()> {
         let mut store_notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
+        let conversation = test_chat();
         conversation
             .store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
