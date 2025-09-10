@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    crypto::{
-        ear::keys::WelcomeAttributionInfoEarKey, indexed_aead::keys::UserProfileKeyIndex,
-        kdf::keys::ConnectionKey,
-    },
+    crypto::ear::keys::WelcomeAttributionInfoEarKey,
     identifiers::{Fqdn, UserHandle, UserId},
     messages::FriendshipToken,
 };
@@ -27,8 +24,6 @@ struct SqlContact {
     conversation_id: ConversationId,
     wai_ear_key: WelcomeAttributionInfoEarKey,
     friendship_token: FriendshipToken,
-    connection_key: ConnectionKey,
-    user_profile_key_index: UserProfileKeyIndex,
 }
 
 impl From<SqlContact> for Contact {
@@ -39,17 +34,13 @@ impl From<SqlContact> for Contact {
             wai_ear_key,
             friendship_token,
             conversation_id,
-            connection_key,
-            user_profile_key_index,
         }: SqlContact,
     ) -> Self {
         Self {
             user_id: UserId::new(user_uuid, user_domain),
             wai_ear_key,
             friendship_token,
-            connection_key,
             conversation_id,
-            user_profile_key_index,
         }
     }
 }
@@ -68,9 +59,7 @@ impl Contact {
                 user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 wai_ear_key AS "wai_ear_key: _",
-                friendship_token AS "friendship_token: _",
-                connection_key AS "connection_key: _",
-                user_profile_key_index AS "user_profile_key_index: _"
+                friendship_token AS "friendship_token: _"
             FROM contacts WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain
@@ -88,9 +77,7 @@ impl Contact {
                 user_domain AS "user_domain: _",
                 conversation_id AS "conversation_id: _",
                 wai_ear_key AS "wai_ear_key: _",
-                friendship_token AS "friendship_token: _",
-                connection_key AS "connection_key: _",
-                user_profile_key_index AS "user_profile_key_index: _"
+                friendship_token AS "friendship_token: _"
             FROM contacts"#
         )
         .fetch(executor)
@@ -112,42 +99,19 @@ impl Contact {
                 user_domain,
                 conversation_id,
                 wai_ear_key,
-                friendship_token,
-                connection_key,
-                user_profile_key_index
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                friendship_token
+            ) VALUES (?, ?, ?, ?, ?)",
             uuid,
             domain,
             self.conversation_id,
             self.wai_ear_key,
             self.friendship_token,
-            self.connection_key,
-            self.user_profile_key_index,
         )
         .execute(executor)
         .await?;
         notifier
             .add(self.user_id.clone())
             .update(self.conversation_id);
-        Ok(())
-    }
-
-    pub(crate) async fn update_user_profile_key_index(
-        executor: impl SqliteExecutor<'_>,
-        user_id: &UserId,
-        key_index: &UserProfileKeyIndex,
-    ) -> sqlx::Result<()> {
-        let uuid = user_id.uuid();
-        let domain = user_id.domain();
-        query!(
-            "UPDATE contacts SET user_profile_key_index = ?
-            WHERE user_uuid = ? AND user_domain = ?",
-            key_index,
-            uuid,
-            domain,
-        )
-        .execute(executor)
-        .await?;
         Ok(())
     }
 }
@@ -229,15 +193,12 @@ impl HandleContact {
         notifier: &mut StoreNotifier,
         user_id: UserId,
         friendship_package: FriendshipPackage,
-        user_profile_key_index: UserProfileKeyIndex,
     ) -> anyhow::Result<Contact> {
         let contact = Contact {
             user_id,
             conversation_id: self.conversation_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            connection_key: friendship_package.connection_key,
-            user_profile_key_index,
         };
 
         self.delete(txn.as_mut()).await?;
@@ -255,7 +216,6 @@ mod tests {
         crypto::{
             ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
             indexed_aead::keys::UserProfileKey,
-            kdf::keys::ConnectionKey,
         },
         messages::{FriendshipToken, client_as::ConnectionOfferHash},
     };
@@ -268,18 +228,14 @@ mod tests {
 
     use super::*;
 
-    fn test_contact(conversation_id: ConversationId) -> (Contact, UserProfileKey) {
+    fn test_contact(conversation_id: ConversationId) -> Contact {
         let user_id = UserId::random("localhost".parse().unwrap());
-        let user_profile_key = UserProfileKey::random(&user_id).unwrap();
-        let contact = Contact {
+        Contact {
             user_id,
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             friendship_token: FriendshipToken::random().unwrap(),
-            connection_key: ConnectionKey::random().unwrap(),
             conversation_id,
-            user_profile_key_index: user_profile_key.index().clone(),
-        };
-        (contact, user_profile_key)
+        }
     }
 
     #[sqlx::test]
@@ -291,8 +247,7 @@ mod tests {
             .store(pool.acquire().await?.as_mut(), &mut store_notifier)
             .await?;
 
-        let (contact, user_profile_key) = test_contact(conversation.id());
-        user_profile_key.store(&pool).await?;
+        let contact = test_contact(conversation.id());
         contact.upsert(&pool, &mut store_notifier).await?;
 
         let loaded = Contact::load(&pool, &contact.user_id).await?.unwrap();
@@ -347,7 +302,6 @@ mod tests {
 
         let friendship_package = FriendshipPackage {
             friendship_token: FriendshipToken::random().unwrap(),
-            connection_key: ConnectionKey::random().unwrap(),
             wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
             user_profile_base_secret: user_profile_key.base_secret().clone(),
         };
@@ -355,13 +309,7 @@ mod tests {
         let mut txn = pool.begin().await?;
 
         let contact = handle_contact
-            .mark_as_complete(
-                &mut txn,
-                &mut store_notifier,
-                user_id,
-                friendship_package,
-                user_profile_key.index().clone(),
-            )
+            .mark_as_complete(&mut txn, &mut store_notifier, user_id, friendship_package)
             .await?;
 
         txn.commit().await?;

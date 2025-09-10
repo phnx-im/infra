@@ -5,10 +5,7 @@
 use std::{fmt, ops::Deref};
 
 use aircommon::{
-    crypto::{
-        hpke::{ClientIdEncryptionKey, HpkeEncryptable},
-        kdf::keys::ConnectionKey,
-    },
+    crypto::hpke::{ClientIdEncryptionKey, HpkeEncryptable},
     identifiers::{ClientConfig, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsClientId, QsReference},
 };
 use anyhow::Result;
@@ -52,7 +49,6 @@ pub(crate) struct MemoryUserKeyStoreBase<K> {
     pub(super) push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
     pub(super) friendship_token: FriendshipToken,
-    pub(super) connection_key: ConnectionKey,
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
 }
 

@@ -88,11 +88,8 @@ CREATE TABLE IF NOT EXISTS contacts (
     conversation_id BLOB NOT NULL,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
-    connection_key BLOB NOT NULL,
-    user_profile_key_index BLOB NOT NULL,
     PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id),
-    FOREIGN KEY (user_profile_key_index) REFERENCES indexed_keys (key_index)
+    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id)
 );
 
 CREATE TABLE IF NOT EXISTS partial_contacts (

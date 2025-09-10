@@ -551,7 +551,6 @@ impl CoreUser {
         )?;
 
         // UnconfirmedConnection Phase 2: Fetch the user profile.
-        let user_profile_key_index = user_profile_key.index().clone();
         self.fetch_and_store_user_profile(
             txn,
             notifier,
@@ -561,13 +560,7 @@ impl CoreUser {
 
         // Now we can turn the partial contact into a full one.
         let contact = contact
-            .mark_as_complete(
-                txn,
-                notifier,
-                user_id.clone(),
-                friendship_package,
-                user_profile_key_index,
-            )
+            .mark_as_complete(txn, notifier, user_id.clone(), friendship_package)
             .await?;
 
         conversation
