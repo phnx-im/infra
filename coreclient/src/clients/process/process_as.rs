@@ -15,7 +15,7 @@ use aircommon::{
 };
 use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
 use anyhow::{Context, Result, ensure};
-use mimi_room_policy::{MimiProposal, RoleIndex};
+use mimi_room_policy::RoleIndex;
 use openmls::prelude::MlsMessageOut;
 use sqlx::SqliteConnection;
 use sqlx::SqliteTransaction;
@@ -122,7 +122,7 @@ impl CoreUser {
             .await?;
 
         group.room_state_change_role(
-            &cep_payload.sender_client_credential.identity(),
+            cep_payload.sender_client_credential.identity(),
             self.user_id(),
             RoleIndex::Regular,
         )?;

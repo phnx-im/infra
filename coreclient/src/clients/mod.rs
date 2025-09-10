@@ -443,6 +443,31 @@ impl CoreUser {
     }
 
     /// Returns None if there is no conversation with the given id.
+    pub async fn mls_conversation_participants(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Option<HashSet<UserId>> {
+        self.try_mls_conversation_participants(conversation_id)
+            .await
+            .ok()?
+    }
+
+    pub(crate) async fn try_mls_conversation_participants(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<Option<HashSet<UserId>>> {
+        let mut connection = self.pool().acquire().await?;
+        let Some(conversation) = Conversation::load(&mut connection, &conversation_id).await?
+        else {
+            return Ok(None);
+        };
+        let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
+            return Ok(None);
+        };
+        Ok(Some(group.members(&mut *connection).await))
+    }
+
+    /// Returns None if there is no conversation with the given id.
     pub async fn conversation_participants(
         &self,
         conversation_id: ConversationId,

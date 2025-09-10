@@ -29,7 +29,7 @@ use openmls::{
     },
 };
 use sqlx::{Acquire, SqliteTransaction};
-use tls_codec::{DeserializeBytes, Serialize};
+use tls_codec::DeserializeBytes;
 use tracing::{error, warn};
 
 use crate::{
@@ -607,7 +607,7 @@ impl CoreUser {
 
         // Room state update: Pretend that we just invited that user
         // We do that now, because we didn't know that user id when we created the room.
-        group.room_state_change_role(&self.user_id(), user_id, RoleIndex::Regular)?;
+        group.room_state_change_role(self.user_id(), user_id, RoleIndex::Regular)?;
 
         conversation
             .confirm(txn.as_mut(), notifier, contact.user_id)
