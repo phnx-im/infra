@@ -14,7 +14,6 @@ use aircommon::identifiers::Fqdn;
 use airserver::{
     RateLimitsConfig, ServerRunParams,
     configurations::*,
-    dispatch::DispatchNotifier,
     enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
     push_notification_provider::ProductionPushNotificationProvider,
@@ -93,12 +92,10 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to connect to database.");
 
-    let dispatch_notifier = DispatchNotifier::new();
     let push_notification_provider =
         ProductionPushNotificationProvider::new(configuration.fcm, configuration.apns)?;
     let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),
-        notifier: dispatch_notifier.clone(),
         push_notification_provider,
         network: network_provider.clone(),
     };
@@ -110,7 +107,6 @@ async fn main() -> anyhow::Result<()> {
         auth_service,
         qs,
         qs_connector,
-        dispatch_notifier,
         rate_limits: RateLimitsConfig {
             period: Duration::from_millis(500),
             burst_size: 20,

@@ -80,7 +80,7 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
     // capture store notification in below store calls
     let pending_store_notifications = user.user.subscribe_iter();
 
-    let notifications = match user.fetch_and_process_all_messages().await {
+    let notifications = match user.fetch_and_process_all_messages_in_background().await {
         Ok(processed_messages) => {
             info!("All messages fetched and processed");
             processed_messages.notifications_content

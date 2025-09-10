@@ -10,26 +10,29 @@ use aircommon::{
     },
     identifiers::{QsClientId, QsUserId},
     messages::{
-        FriendshipToken, QueueMessage,
+        FriendshipToken,
         client_qs::{
-            CreateClientRecordResponse, CreateUserRecordResponse, DequeueMessagesResponse,
-            EncryptionKeyResponse, KeyPackageResponseIn,
+            CreateClientRecordResponse, CreateUserRecordResponse, EncryptionKeyResponse,
+            KeyPackageResponseIn,
         },
         push_token::EncryptedPushToken,
     },
 };
-use airprotos::queue_service::v1::QueueEvent;
+use airprotos::queue_service::v1::{
+    AckListenRequest, FetchListenRequest, InitListenRequest, QueueEvent, listen_request,
+};
 use airprotos::{
     queue_service::v1::{
         CreateClientRequest, CreateUserRequest, DeleteClientRequest, DeleteUserRequest,
-        DequeueMessagesRequest, KeyPackageRequest, ListenRequest, PublishKeyPackagesRequest,
-        QsEncryptionKeyRequest, UpdateClientRequest, UpdateUserRequest,
+        KeyPackageRequest, ListenRequest, PublishKeyPackagesRequest, QsEncryptionKeyRequest,
+        UpdateClientRequest, UpdateUserRequest,
     },
     validation::{MissingFieldError, MissingFieldExt},
 };
 use mls_assist::openmls::prelude::KeyPackage;
 use thiserror::Error;
-use tokio_stream::{Stream, StreamExt};
+use tokio::sync::mpsc;
+use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
 use tracing::error;
 
 use crate::ApiClient;
@@ -202,39 +205,6 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn qs_dequeue_messages(
-        &self,
-        sender: &QsClientId,
-        sequence_number_start: u64,
-        max_message_number: u64,
-        _signing_key: &QsClientSigningKey,
-    ) -> Result<DequeueMessagesResponse, QsRequestError> {
-        let request = DequeueMessagesRequest {
-            sender: Some((*sender).into()),
-            sequence_number_start,
-            max_message_number,
-        };
-        let response = self
-            .qs_grpc_client
-            .client()
-            .dequeue_messages(request)
-            .await?
-            .into_inner();
-        let messages: Result<Vec<QueueMessage>, _> = response
-            .messages
-            .into_iter()
-            .map(|message| message.try_into())
-            .collect();
-        let messages = messages.map_err(|error| {
-            error!(%error, "failed to dequeue messages");
-            QsRequestError::UnexpectedResponse
-        })?;
-        Ok(DequeueMessagesResponse {
-            messages,
-            remaining_messages_number: response.remaining_messages_number,
-        })
-    }
-
     pub async fn qs_key_package(
         &self,
         sender: FriendshipToken,
@@ -277,16 +247,57 @@ impl ApiClient {
     pub async fn listen_queue(
         &self,
         queue_id: QsClientId,
-    ) -> Result<impl Stream<Item = QueueEvent> + use<>, QsRequestError> {
-        let request = ListenRequest {
+        sequence_number_start: u64,
+    ) -> Result<(impl Stream<Item = QueueEvent> + use<>, ListenResponder), QsRequestError> {
+        let init_request = InitListenRequest {
             client_id: Some(queue_id.into()),
+            sequence_number_start,
         };
-        let response = self.qs_grpc_client.client().listen(request).await?;
+        let init_request = ListenRequest {
+            request: Some(listen_request::Request::Init(init_request)),
+        };
+
+        const RESPONSE_CHANNEL_BUFFER_SIZE: usize = 16; // not too big for applying backpressure
+        let (tx, rx) = mpsc::channel::<ListenRequest>(RESPONSE_CHANNEL_BUFFER_SIZE);
+        let responder = ListenResponder { tx };
+
+        let requests = tokio_stream::once(init_request).chain(ReceiverStream::new(rx));
+
+        let response = self.qs_grpc_client.client().listen(requests).await?;
         let stream = response.into_inner().map_while(|response| {
             response
                 .inspect_err(|status| error!(?status, "terminating listen stream due to an error"))
                 .ok()
         });
-        Ok(stream)
+        Ok((stream, responder))
+    }
+}
+
+#[derive(Debug)]
+pub struct ListenResponder {
+    tx: mpsc::Sender<ListenRequest>,
+}
+
+impl ListenResponder {
+    pub async fn ack(&self, up_to_sequence_number: u64) -> bool {
+        self.tx
+            .send(ListenRequest {
+                request: Some(listen_request::Request::Ack(AckListenRequest {
+                    up_to_sequence_number,
+                })),
+            })
+            .await
+            .inspect_err(|error| error!(%error, "failed to ack listen request"))
+            .is_ok()
+    }
+
+    pub async fn fetch(&self) {
+        self.tx
+            .send(ListenRequest {
+                request: Some(listen_request::Request::Fetch(FetchListenRequest {})),
+            })
+            .await
+            .inspect_err(|error| error!(%error, "failed to fetch listen request"))
+            .ok();
     }
 }
