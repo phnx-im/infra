@@ -53,7 +53,7 @@ CREATE TABLE qs_queues (
     FOREIGN KEY (queue_id) REFERENCES qs_queue_data(queue_id) ON DELETE CASCADE
 );
 
-CREATE TABLE key_packages (
+CREATE TABLE key_package (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id uuid NOT NULL,
     key_package BYTEA NOT NULL,
