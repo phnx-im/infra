@@ -100,7 +100,7 @@ impl Store for CoreUser {
     }
 
     async fn create_chat(&self, title: String, picture: Option<Vec<u8>>) -> StoreResult<ChatId> {
-        self.create_conversation(title, picture).await
+        self.create_chat(title, picture).await
     }
 
     async fn set_picture(
@@ -108,8 +108,7 @@ impl Store for CoreUser {
         conversation_id: ChatId,
         picture: Option<Vec<u8>>,
     ) -> StoreResult<()> {
-        self.set_conversation_picture(conversation_id, picture)
-            .await
+        self.set_chat_picture(conversation_id, picture).await
     }
 
     async fn chats(&self) -> StoreResult<Vec<Chat>> {
@@ -124,11 +123,11 @@ impl Store for CoreUser {
     }
 
     async fn delete_chat(&self, conversation_id: ChatId) -> StoreResult<Vec<ChatMessage>> {
-        self.delete_conversation(conversation_id).await
+        self.delete_chat(conversation_id).await
     }
 
     async fn leave_chat(&self, conversation_id: ChatId) -> StoreResult<()> {
-        self.leave_conversation(conversation_id).await
+        self.leave_chat(conversation_id).await
     }
 
     async fn update_key(&self, conversation_id: ChatId) -> StoreResult<Vec<ChatMessage>> {

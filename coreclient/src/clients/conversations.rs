@@ -4,9 +4,9 @@
 
 use aircommon::identifiers::UserId;
 use anyhow::{Result, anyhow, bail};
-use create_conversation_flow::IntitialConversationData;
-use delete_conversation_flow::DeleteConversationData;
-use leave_conversation_flow::LeaveConversationData;
+use create_chat_flow::IntitialChatData;
+use delete_chat_flow::DeleteChatData;
+use leave_chat_flow::LeaveChatData;
 use mimi_room_policy::VerifiedRoomState;
 
 use crate::{
@@ -19,15 +19,15 @@ use crate::{
 use super::{ChatId, CoreUser};
 
 impl CoreUser {
-    /// Create new conversation.
+    /// Create new chat.
     ///
-    /// Returns the id of the newly created conversation.
-    pub(crate) async fn create_conversation(
+    /// Returns the id of the newly created chat.
+    pub(crate) async fn create_chat(
         &self,
         title: String,
         picture: Option<Vec<u8>>,
     ) -> Result<ChatId> {
-        let group_data = IntitialConversationData::new(title, picture)
+        let group_data = IntitialChatData::new(title, picture)
             .request_group_id(&self.inner.api_clients)
             .await?;
 
@@ -52,33 +52,29 @@ impl CoreUser {
             .await
     }
 
-    /// Delete the conversation with the given [`ConversationId`].
+    /// Delete the chat with the given [`ChatId`].
     ///
     /// Since this function causes the creation of an MLS commit, it can cause
     /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
+    /// vector of [`ChatMessage`]s that represents the changes to the
     /// group. Note that these returned message have already been persisted.
-    pub(crate) async fn delete_conversation(
-        &self,
-        conversation_id: ChatId,
-    ) -> Result<Vec<ChatMessage>> {
-        // Phase 1: Load the conversation and the group
+    pub(crate) async fn delete_chat(&self, chat_id: ChatId) -> Result<Vec<ChatMessage>> {
+        // Phase 1: Load the chat and the group
         let mut txn = self.pool().begin_with("BEGIN IMMEDIATE").await?;
 
-        let delete_conversation_data =
-            DeleteConversationData::load(&mut txn, conversation_id).await?;
+        let delete_chat_data = DeleteChatData::load(&mut txn, chat_id).await?;
 
-        match delete_conversation_data {
-            DeleteConversationData::SingleMember(data) => {
+        match delete_chat_data {
+            DeleteChatData::SingleMember(data) => {
                 // No need to send a message to the server if we are the only member.
-                // Phase 5: Set the conversation to inactive
+                // Phase 5: Set the chat to inactive
                 self.with_notifier(async |notifier| data.set_inactive(&mut txn, notifier).await)
                     .await?;
                 txn.commit().await?;
 
                 Ok(Vec::new())
             }
-            DeleteConversationData::MultiMember(data) => {
+            DeleteChatData::MultiMember(data) => {
                 // Phase 2: Create the delete commit
                 let delete = data
                     .stage_delete_commit(&mut txn, self.signing_key())
@@ -95,8 +91,8 @@ impl CoreUser {
                         // Phase 4: Merge the commit into the group
                         .merge_pending_commit(&mut *connection)
                         .await?
-                        // Phase 5: Set the conversation to inactive
-                        .set_inactive(&mut *connection, notifier, conversation_id)
+                        // Phase 5: Set the chat to inactive
+                        .set_inactive(&mut *connection, notifier, chat_id)
                         .await
                 })
                 .await
@@ -104,11 +100,11 @@ impl CoreUser {
         }
     }
 
-    pub(crate) async fn leave_conversation(&self, conversation_id: ChatId) -> Result<()> {
+    pub(crate) async fn leave_chat(&self, chat_id: ChatId) -> Result<()> {
         let leave = self
             .with_transaction(async |txn| {
-                // Phase 1: Load the conversation and the group
-                LeaveConversationData::load(txn, conversation_id)
+                // Phase 1: Load the chat and the group
+                LeaveChatData::load(txn, chat_id)
                     .await?
                     .stage_leave_group(self.user_id(), txn, self.signing_key())
                     .await
@@ -125,23 +121,22 @@ impl CoreUser {
         Ok(())
     }
 
-    pub(crate) async fn set_conversation_picture(
+    pub(crate) async fn set_chat_picture(
         &self,
-        conversation_id: ChatId,
+        chat_id: ChatId,
         picture: Option<Vec<u8>>,
     ) -> Result<()> {
         let mut connection = self.pool().acquire().await?;
-        let mut conversation = Chat::load(&mut connection, &conversation_id)
+        let mut chat = Chat::load(&mut connection, &chat_id)
             .await?
             .ok_or_else(|| {
-                let id = conversation_id.uuid();
-                anyhow!("Can't find conversation with id {id}")
+                let id = chat_id.uuid();
+                anyhow!("Can't find chat with id {id}")
             })?;
         let resized_picture_option =
             picture.and_then(|picture| resize_profile_image(&picture).ok());
         let mut notifier = self.store_notifier();
-        conversation
-            .set_picture(&mut *connection, &mut notifier, resized_picture_option)
+        chat.set_picture(&mut *connection, &mut notifier, resized_picture_option)
             .await?;
         notifier.notify();
         Ok(())
@@ -163,15 +158,14 @@ impl CoreUser {
         Chat::load_all(self.pool().acquire().await?.as_mut()).await
     }
 
-    pub async fn chat(&self, conversation_id: &ChatId) -> Option<Chat> {
-        Chat::load(self.pool().acquire().await.ok()?.as_mut(), conversation_id)
+    pub async fn chat(&self, chat: &ChatId) -> Option<Chat> {
+        Chat::load(self.pool().acquire().await.ok()?.as_mut(), chat)
             .await
             .ok()
             .flatten()
     }
 
-    /// Get the most recent `number_of_messages` messages from the conversation
-    /// with the given [`ConversationId`].
+    /// Get the most recent `number_of_messages` messages from the chat with the given [`ChatId`].
     pub(crate) async fn get_messages(
         &self,
         chat_id: ChatId,
@@ -182,13 +176,10 @@ impl CoreUser {
         Ok(messages)
     }
 
-    pub async fn load_room_state(
-        &self,
-        conversation_id: &ChatId,
-    ) -> Result<(UserId, VerifiedRoomState)> {
-        if let Some(conversation) = self.chat(conversation_id).await {
+    pub async fn load_room_state(&self, chat_id: &ChatId) -> Result<(UserId, VerifiedRoomState)> {
+        if let Some(chat_id) = self.chat(chat_id).await {
             let mut connection = self.pool().acquire().await?;
-            if let Some(group) = Group::load(&mut connection, conversation.group_id()).await? {
+            if let Some(group) = Group::load(&mut connection, chat_id.group_id()).await? {
                 return Ok((self.user_id().clone(), group.room_state));
             }
         }
@@ -196,7 +187,7 @@ impl CoreUser {
     }
 }
 
-mod create_conversation_flow {
+mod create_chat_flow {
     use aircommon::{
         codec::PersistenceCodec,
         credentials::keys::ClientSigningKey,
@@ -215,12 +206,12 @@ mod create_conversation_flow {
         store::StoreNotifier,
     };
 
-    pub(super) struct IntitialConversationData {
+    pub(super) struct IntitialChatData {
         title: String,
         picture: Option<Vec<u8>>,
     }
 
-    impl IntitialConversationData {
+    impl IntitialChatData {
         pub(super) fn new(title: String, picture: Option<Vec<u8>>) -> Self {
             Self { title, picture }
         }
@@ -228,13 +219,13 @@ mod create_conversation_flow {
         pub(super) async fn request_group_id(
             self,
             api_clients: &ApiClients,
-        ) -> Result<ConversationGroupData> {
+        ) -> Result<ChatGroupData> {
             let Self { title, picture } = self;
             let group_id = api_clients.default_client()?.ds_request_group_id().await?;
-            // Store the conversation attributes in the group's aad
+            // Store the chat attributes in the group's aad
             let attributes = ChatAttributes::new(title, picture);
             let group_data = PersistenceCodec::to_vec(&attributes)?.into();
-            Ok(ConversationGroupData {
+            Ok(ChatGroupData {
                 group_id,
                 group_data,
                 attributes,
@@ -242,7 +233,7 @@ mod create_conversation_flow {
         }
     }
 
-    pub(super) struct ConversationGroupData {
+    pub(super) struct ChatGroupData {
         group_id: GroupId,
         group_data: GroupData,
         attributes: ChatAttributes,
@@ -255,7 +246,7 @@ mod create_conversation_flow {
         attributes: ChatAttributes,
     }
 
-    impl ConversationGroupData {
+    impl ChatGroupData {
         pub(super) fn create_group(
             self,
             provider: &impl OpenMlsProvider,
@@ -301,14 +292,14 @@ mod create_conversation_flow {
             group_membership.store(txn.as_mut()).await?;
             group.store(txn.as_mut()).await?;
 
-            let conversation = Chat::new_group_chat(partial_params.group_id.clone(), attributes);
-            conversation.store(txn.as_mut(), notifier).await?;
+            let chat = Chat::new_group_chat(partial_params.group_id.clone(), attributes);
+            chat.store(txn.as_mut(), notifier).await?;
 
             Ok(StoredGroup {
                 group,
                 encrypted_user_profile_key,
                 partial_params,
-                conversation_id: conversation.id(),
+                chat_id: chat.id(),
             })
         }
     }
@@ -317,7 +308,7 @@ mod create_conversation_flow {
         group: Group,
         encrypted_user_profile_key: EncryptedUserProfileKey,
         partial_params: PartialCreateGroupParams,
-        conversation_id: ChatId,
+        chat_id: ChatId,
     }
 
     impl StoredGroup {
@@ -331,7 +322,7 @@ mod create_conversation_flow {
                 group,
                 encrypted_user_profile_key,
                 partial_params,
-                conversation_id,
+                chat_id,
             } = self;
 
             let params = partial_params.into_params(client_reference, encrypted_user_profile_key);
@@ -340,12 +331,12 @@ mod create_conversation_flow {
                 .ds_create_group(params, signer, group.group_state_ear_key())
                 .await?;
 
-            Ok(conversation_id)
+            Ok(chat_id)
         }
     }
 }
 
-mod delete_conversation_flow {
+mod delete_chat_flow {
     use std::collections::HashSet;
 
     use aircommon::{
@@ -363,21 +354,21 @@ mod delete_conversation_flow {
         store::StoreNotifier,
     };
 
-    pub(super) enum DeleteConversationData {
-        SingleMember(Box<LoadedSingleUserConversationData>),
-        MultiMember(Box<LoadedConversationData<()>>),
+    pub(super) enum DeleteChatData {
+        SingleMember(Box<LoadedSingleUserChatData>),
+        MultiMember(Box<LoadedChatData<()>>),
     }
 
-    impl DeleteConversationData {
+    impl DeleteChatData {
         pub(super) async fn load(
             txn: &mut SqliteTransaction<'_>,
-            conversation_id: ChatId,
+            chat_id: ChatId,
         ) -> anyhow::Result<Self> {
-            let conversation = Chat::load(txn.as_mut(), &conversation_id)
+            let chat = Chat::load(txn.as_mut(), &chat_id)
                 .await?
-                .with_context(|| format!("Can't find conversation with id {conversation_id}"))?;
+                .with_context(|| format!("Can't find chat with id {chat_id}"))?;
 
-            let group_id = conversation.group_id();
+            let group_id = chat.group_id();
             let group = Group::load_clean(txn, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
@@ -387,16 +378,12 @@ mod delete_conversation_flow {
             if past_members.len() == 1 {
                 let member = past_members.into_iter().next().unwrap();
                 Ok(Self::SingleMember(
-                    LoadedSingleUserConversationData {
-                        conversation,
-                        member,
-                    }
-                    .into(),
+                    LoadedSingleUserChatData { chat, member }.into(),
                 ))
             } else {
                 Ok(Self::MultiMember(
-                    LoadedConversationData {
-                        conversation,
+                    LoadedChatData {
+                        chat,
                         group,
                         past_members,
                         state: (),
@@ -407,50 +394,46 @@ mod delete_conversation_flow {
         }
     }
 
-    pub(super) struct LoadedSingleUserConversationData {
-        conversation: Chat,
+    pub(super) struct LoadedSingleUserChatData {
+        chat: Chat,
         member: UserId,
     }
 
-    impl LoadedSingleUserConversationData {
+    impl LoadedSingleUserChatData {
         pub(super) async fn set_inactive(
             self,
             connection: &mut SqliteConnection,
             notifier: &mut StoreNotifier,
         ) -> anyhow::Result<()> {
-            let Self {
-                mut conversation,
-                member,
-            } = self;
-            conversation
-                .set_inactive(connection, notifier, vec![member])
+            let Self { mut chat, member } = self;
+            chat.set_inactive(connection, notifier, vec![member])
                 .await?;
             Ok(())
         }
     }
 
-    pub(super) struct LoadedConversationData<S> {
-        conversation: Chat,
+    pub(super) struct LoadedChatData<S> {
+        chat: Chat,
         group: Group,
         past_members: HashSet<UserId>,
         state: S,
     }
 
-    impl LoadedConversationData<()> {
+    impl LoadedChatData<()> {
         pub(super) async fn stage_delete_commit(
             self,
             connection: &mut SqliteConnection,
             signer: &ClientSigningKey,
-        ) -> anyhow::Result<LoadedConversationData<DeleteGroupParamsOut>> {
+        ) -> anyhow::Result<LoadedChatData<DeleteGroupParamsOut>> {
             let Self {
-                conversation,
+                chat,
                 mut group,
                 past_members,
                 state: _,
             } = self;
             let params = group.stage_delete(connection, signer).await?;
-            Ok(LoadedConversationData {
-                conversation,
+            Ok(LoadedChatData {
+                chat,
                 group,
                 past_members,
                 state: params,
@@ -458,25 +441,25 @@ mod delete_conversation_flow {
         }
     }
 
-    impl LoadedConversationData<DeleteGroupParamsOut> {
+    impl LoadedChatData<DeleteGroupParamsOut> {
         pub(super) async fn send_delete_commit(
             self,
             api_clients: &ApiClients,
             signer: &ClientSigningKey,
-        ) -> anyhow::Result<LoadedConversationData<DeletedGroupOnDs>> {
+        ) -> anyhow::Result<LoadedChatData<DeletedGroupOnDs>> {
             let Self {
-                conversation,
+                chat,
                 group,
                 past_members,
                 state: params,
             } = self;
-            let owner_domain = conversation.owner_domain();
+            let owner_domain = chat.owner_domain();
             let ds_timestamp = api_clients
                 .get(&owner_domain)?
                 .ds_delete_group(params, signer, group.group_state_ear_key())
                 .await?;
-            Ok(LoadedConversationData {
-                conversation,
+            Ok(LoadedChatData {
+                chat,
                 group,
                 past_members,
                 state: DeletedGroupOnDs(ds_timestamp),
@@ -486,13 +469,13 @@ mod delete_conversation_flow {
 
     pub(super) struct DeletedGroupOnDs(TimeStamp);
 
-    impl LoadedConversationData<DeletedGroupOnDs> {
+    impl LoadedChatData<DeletedGroupOnDs> {
         pub(super) async fn merge_pending_commit(
             self,
             connection: &mut SqliteConnection,
         ) -> anyhow::Result<DeletedGroup> {
             let Self {
-                conversation,
+                chat,
                 mut group,
                 past_members,
                 state: DeletedGroupOnDs(ds_timestamp),
@@ -503,7 +486,7 @@ mod delete_conversation_flow {
                 .await?;
 
             Ok(DeletedGroup {
-                conversation,
+                chat,
                 past_members,
                 messages,
             })
@@ -511,7 +494,7 @@ mod delete_conversation_flow {
     }
 
     pub(super) struct DeletedGroup {
-        conversation: Chat,
+        chat: Chat,
         past_members: HashSet<UserId>,
         messages: Vec<TimestampedMessage>,
     }
@@ -521,27 +504,25 @@ mod delete_conversation_flow {
             self,
             connection: &mut SqliteConnection,
             notifier: &mut StoreNotifier,
-            conversation_id: ChatId,
+            chat_id: ChatId,
         ) -> anyhow::Result<Vec<ChatMessage>> {
             let Self {
-                mut conversation,
+                mut chat,
                 past_members,
                 messages,
             } = self;
-            conversation
-                .set_inactive(
-                    &mut *connection,
-                    notifier,
-                    past_members.into_iter().collect(),
-                )
-                .await?;
-            CoreUser::store_new_messages(&mut *connection, notifier, conversation_id, messages)
-                .await
+            chat.set_inactive(
+                &mut *connection,
+                notifier,
+                past_members.into_iter().collect(),
+            )
+            .await?;
+            CoreUser::store_new_messages(&mut *connection, notifier, chat_id, messages).await
         }
     }
 }
 
-mod leave_conversation_flow {
+mod leave_chat_flow {
     use aircommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
         messages::client_ds_out::SelfRemoveParamsOut,
@@ -552,26 +533,26 @@ mod leave_conversation_flow {
 
     use crate::{Chat, ChatId, groups::Group};
 
-    pub(super) struct LeaveConversationData<S> {
-        conversation: Chat,
+    pub(super) struct LeaveChatData<S> {
+        chat: Chat,
         group: Group,
         state: S,
     }
 
-    impl LeaveConversationData<()> {
+    impl LeaveChatData<()> {
         pub(super) async fn load(
             txn: &mut SqliteTransaction<'_>,
-            conversation_id: ChatId,
-        ) -> anyhow::Result<LeaveConversationData<()>> {
-            let conversation = Chat::load(txn.as_mut(), &conversation_id)
+            chat_id: ChatId,
+        ) -> anyhow::Result<LeaveChatData<()>> {
+            let chat = Chat::load(txn.as_mut(), &chat_id)
                 .await?
-                .with_context(|| format!("Can't find conversation with id {conversation_id}",))?;
-            let group_id = conversation.group_id();
+                .with_context(|| format!("Can't find chat with id {chat_id}",))?;
+            let group_id = chat.group_id();
             let group = Group::load_clean(txn, group_id)
                 .await?
                 .with_context(|| format!("Can't find group with id {group_id:?}"))?;
             Ok(Self {
-                conversation,
+                chat,
                 group,
                 state: (),
             })
@@ -582,9 +563,9 @@ mod leave_conversation_flow {
             sender_id: &UserId,
             connection: &mut SqliteConnection,
             signer: &ClientSigningKey,
-        ) -> anyhow::Result<LeaveConversationData<SelfRemoveParamsOut>> {
+        ) -> anyhow::Result<LeaveChatData<SelfRemoveParamsOut>> {
             let Self {
-                conversation,
+                chat,
                 mut group,
                 state: (),
             } = self;
@@ -593,27 +574,27 @@ mod leave_conversation_flow {
 
             let params = group.stage_leave_group(connection, signer)?;
 
-            Ok(LeaveConversationData {
-                conversation,
+            Ok(LeaveChatData {
+                chat,
                 group,
                 state: params,
             })
         }
     }
 
-    impl LeaveConversationData<SelfRemoveParamsOut> {
+    impl LeaveChatData<SelfRemoveParamsOut> {
         pub(super) async fn ds_self_remove(
             self,
             api_clients: &crate::clients::api_clients::ApiClients,
             signer: &ClientSigningKey,
         ) -> anyhow::Result<DsSelfRemoved> {
             let Self {
-                conversation,
+                chat,
                 group,
                 state: params,
             } = self;
 
-            let owner_domain = conversation.owner_domain();
+            let owner_domain = chat.owner_domain();
 
             api_clients
                 .get(&owner_domain)?
