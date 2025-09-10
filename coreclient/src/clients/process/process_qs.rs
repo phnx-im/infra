@@ -634,6 +634,7 @@ impl CoreUser {
         let mut changed_conversations = vec![];
         let mut new_messages = vec![];
         let mut errors = vec![];
+
         for qs_message in qs_messages {
             let qs_message_plaintext = self.decrypt_qs_queue_message(qs_message).await?;
             let processed = match self.process_qs_message(qs_message_plaintext).await {

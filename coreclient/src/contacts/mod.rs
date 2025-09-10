@@ -12,7 +12,7 @@ use aircommon::{
         kdf::keys::ConnectionKey,
     },
     identifiers::{UserHandle, UserId},
-    messages::FriendshipToken,
+    messages::{FriendshipToken, client_as::ConnectionOfferHash},
 };
 use openmls::{prelude::KeyPackage, versions::ProtocolVersion};
 use openmls_rust_crypto::RustCrypto;
@@ -134,6 +134,8 @@ pub struct HandleContact {
     pub handle: UserHandle,
     pub conversation_id: ConversationId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
+    // This is Optional only for backwards compatibility
+    pub connection_offer_hash: ConnectionOfferHash,
 }
 
 impl HandleContact {
@@ -141,11 +143,13 @@ impl HandleContact {
         handle: UserHandle,
         conversation_id: ConversationId,
         friendship_package_ear_key: FriendshipPackageEarKey,
+        connection_offer_hash: ConnectionOfferHash,
     ) -> Self {
         Self {
             handle,
             conversation_id,
             friendship_package_ear_key,
+            connection_offer_hash,
         }
     }
 }
