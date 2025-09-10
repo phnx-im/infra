@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/navigation/navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:air/core/core.dart';
@@ -30,6 +31,16 @@ class ConversationDetailsScreenView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final conversationExists = context.select(
+      (NavigationCubit cubit) => switch (cubit.state) {
+        NavigationState_Intro() => false,
+        NavigationState_Home(:final home) => home.conversationId != null,
+      },
+    );
+    if (!conversationExists) {
+      return const SizedBox.shrink();
+    }
+
     final conversationType = context.select(
       (ConversationDetailsCubit cubit) =>
           cubit.state.conversation?.conversationType,
@@ -44,14 +55,16 @@ class ConversationDetailsScreenView extends StatelessWidget {
         leading: const AppBarBackButton(),
         title: Text(loc.conversationDetailsScreen_title),
       ),
-      body: switch (conversationType) {
-        UiConversationType_HandleConnection() ||
-        UiConversationType_Connection() => const ConnectionDetails(),
-        UiConversationType_Group() => const GroupDetails(),
-        null => Center(
-          child: Text(loc.conversationDetailsScreen_unknownConversation),
-        ),
-      },
+      body: SafeArea(
+        child: switch (conversationType) {
+          UiConversationType_HandleConnection() ||
+          UiConversationType_Connection() => const ConnectionDetails(),
+          UiConversationType_Group() => const GroupDetails(),
+          null => Center(
+            child: Text(loc.conversationDetailsScreen_unknownConversation),
+          ),
+        },
+      ),
     );
   }
 }

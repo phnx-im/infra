@@ -32,7 +32,7 @@ sqlx = { version = "0.8.5", default-features = false, features = [
     "runtime-tokio",
 ] }
 
-mimi-room-policy = { git = "https://github.com/phnx-im/mimi-room-policy", rev = "565772078c5bf72cf92610aadfedc985929372a3" }
+mimi-room-policy = { git = "https://github.com/phnx-im/mimi-room-policy", rev = "6406e6d84c1219da3afcccb91007f2fdaaf61193" }
 
 tls_codec = { version = "0.4.1", features = ["derive", "serde", "mls"] }
 
@@ -48,13 +48,14 @@ thiserror = "2.0"
 blake3 = "1.8.2"
 sha2 = "0.10.9"
 
+
+openmls = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
-openmls = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
-openmls_memory_storage = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
-openmls_traits = { git = "https://github.com/openmls/openmls", rev = "335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", rev = "6a3ce5ac8dbb756d90d1710f16d6ae17321f15ab" }
+openmls_memory_storage = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
+openmls_traits = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
+mls-assist = { path = "../mls-assist" }
 
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",

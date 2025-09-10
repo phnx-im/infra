@@ -37,6 +37,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqliteConnection, SqlitePool, SqliteTransaction, query};
 use store::ClientRecord;
 use thiserror::Error;
+use tls_codec::DeserializeBytes;
 use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info, warn};
 use url::Url;
@@ -433,6 +434,31 @@ impl CoreUser {
     }
 
     /// Returns None if there is no conversation with the given id.
+    pub async fn mls_conversation_participants(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Option<HashSet<UserId>> {
+        self.try_mls_conversation_participants(conversation_id)
+            .await
+            .ok()?
+    }
+
+    pub(crate) async fn try_mls_conversation_participants(
+        &self,
+        conversation_id: ConversationId,
+    ) -> Result<Option<HashSet<UserId>>> {
+        let mut connection = self.pool().acquire().await?;
+        let Some(conversation) = Conversation::load(&mut connection, &conversation_id).await?
+        else {
+            return Ok(None);
+        };
+        let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
+            return Ok(None);
+        };
+        Ok(Some(group.members(&mut *connection).await))
+    }
+
+    /// Returns None if there is no conversation with the given id.
     pub async fn conversation_participants(
         &self,
         conversation_id: ConversationId,
@@ -454,7 +480,13 @@ impl CoreUser {
         let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
             return Ok(None);
         };
-        Ok(Some(group.members(&mut *connection).await))
+        let users = group
+            .room_state
+            .users()
+            .keys()
+            .map(|bytes| Ok(UserId::tls_deserialize_exact_bytes(bytes)?))
+            .collect::<Result<HashSet<_>>>()?;
+        Ok(Some(users))
     }
 
     pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserId>> {

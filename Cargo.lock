@@ -112,7 +112,7 @@ dependencies = [
  "mimi-room-policy",
  "mimi_content",
  "notify-rust",
- "openmls 0.6.1",
+ "openmls",
  "parking_lot",
  "pulldown-cmark",
  "quickcheck",
@@ -223,9 +223,9 @@ dependencies = [
  "mimi-room-policy",
  "mimi_content",
  "mls-assist",
- "openmls 0.6.1",
- "openmls_rust_crypto 0.3.0",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168)",
+ "openmls",
+ "openmls_rust_crypto",
+ "openmls_traits",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
@@ -255,7 +255,7 @@ dependencies = [
  "displaydoc",
  "mimi-room-policy",
  "mls-assist",
- "openmls 0.6.1",
+ "openmls",
  "prost",
  "protoc-bin-vendored",
  "thiserror 2.0.16",
@@ -2839,41 +2839,19 @@ dependencies = [
 
 [[package]]
 name = "hpke-rs"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e11bd4ee27b79fa1820e72ef8489cc729c87299ec3f7f52b8fc8dcb87cb2d485"
-dependencies = [
- "hpke-rs-crypto 0.2.0",
- "log",
- "serde",
- "tls_codec",
- "zeroize",
-]
-
-[[package]]
-name = "hpke-rs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36874953dfe0223fd877a77b0eefcd84f8da36161b446c6fcb47b8311fa0251a"
 dependencies = [
- "hpke-rs-crypto 0.3.0",
+ "hpke-rs-crypto",
  "hpke-rs-libcrux",
- "hpke-rs-rust-crypto 0.3.0",
+ "hpke-rs-rust-crypto",
  "libcrux-sha3",
  "log",
  "rand_core 0.9.3",
  "serde",
  "tls_codec",
  "zeroize",
-]
-
-[[package]]
-name = "hpke-rs-crypto"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c3f1ae0a26c18d6469a70db1217136056261c4a244b09a755bc60bd4e055b67"
-dependencies = [
- "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -2891,7 +2869,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb9f3bdfd7bc6a45f985b47cce25c5409312af06c2dec07a2af2cca5c89579ae"
 dependencies = [
- "hpke-rs-crypto 0.3.0",
+ "hpke-rs-crypto",
  "libcrux-chacha20poly1305",
  "libcrux-ecdh",
  "libcrux-hkdf",
@@ -2903,24 +2881,6 @@ dependencies = [
 
 [[package]]
 name = "hpke-rs-rust-crypto"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a08d4500baf0aced746723d3515d08212bdb9d941df6d1aca3d46d1619b2a1cf"
-dependencies = [
- "aes-gcm",
- "chacha20poly1305",
- "hkdf",
- "hpke-rs-crypto 0.2.0",
- "p256",
- "p384",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "sha2",
- "x25519-dalek",
-]
-
-[[package]]
-name = "hpke-rs-rust-crypto"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff7dc0df494528a0b90005bb511c117453c6a89cd8819f6cf311d0f4446dcf45"
@@ -2928,7 +2888,7 @@ dependencies = [
  "aes-gcm",
  "chacha20poly1305",
  "hkdf",
- "hpke-rs-crypto 0.3.0",
+ "hpke-rs-crypto",
  "k256",
  "p256",
  "p384",
@@ -3859,7 +3819,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mimi-room-policy"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mimi-room-policy?rev=565772078c5bf72cf92610aadfedc985929372a3#565772078c5bf72cf92610aadfedc985929372a3"
+source = "git+https://github.com/phnx-im/mimi-room-policy?rev=6406e6d84c1219da3afcccb91007f2fdaaf61193#6406e6d84c1219da3afcccb91007f2fdaaf61193"
 dependencies = [
  "ciborium",
  "serde",
@@ -3911,12 +3871,11 @@ dependencies = [
 [[package]]
 name = "mls-assist"
 version = "0.1.0"
-source = "git+https://github.com/phnx-im/mls-assist?rev=6a3ce5ac8dbb756d90d1710f16d6ae17321f15ab#6a3ce5ac8dbb756d90d1710f16d6ae17321f15ab"
 dependencies = [
  "chrono",
- "openmls 0.7.0",
- "openmls_rust_crypto 0.4.0",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls.git)",
+ "openmls",
+ "openmls_rust_crypto",
+ "openmls_traits",
  "serde",
  "thiserror 1.0.69",
 ]
@@ -4212,24 +4171,11 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openmls"
-version = "0.6.1"
-source = "git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
-dependencies = [
- "log",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168)",
- "rayon",
- "serde",
- "thiserror 2.0.16",
- "tls_codec",
-]
-
-[[package]]
-name = "openmls"
 version = "0.7.0"
-source = "git+https://github.com/openmls/openmls.git#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
+source = "git+https://github.com/openmls/openmls.git?rev=e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
 dependencies = [
  "log",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls.git)",
+ "openmls_traits",
  "rayon",
  "serde",
  "thiserror 2.0.16",
@@ -4238,23 +4184,11 @@ dependencies = [
 
 [[package]]
 name = "openmls_memory_storage"
-version = "0.3.0"
-source = "git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
-dependencies = [
- "log",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168)",
- "serde",
- "serde_json",
- "thiserror 2.0.16",
-]
-
-[[package]]
-name = "openmls_memory_storage"
 version = "0.4.0"
-source = "git+https://github.com/openmls/openmls.git#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
+source = "git+https://github.com/openmls/openmls.git?rev=e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
 dependencies = [
  "log",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls.git)",
+ "openmls_traits",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -4262,43 +4196,19 @@ dependencies = [
 
 [[package]]
 name = "openmls_rust_crypto"
-version = "0.3.0"
-source = "git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
-dependencies = [
- "aes-gcm",
- "chacha20poly1305",
- "ed25519-dalek",
- "hkdf",
- "hmac",
- "hpke-rs 0.2.0",
- "hpke-rs-crypto 0.2.0",
- "hpke-rs-rust-crypto 0.2.0",
- "openmls_memory_storage 0.3.0",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168)",
- "p256",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "serde",
- "sha2",
- "thiserror 2.0.16",
- "tls_codec",
-]
-
-[[package]]
-name = "openmls_rust_crypto"
 version = "0.4.0"
-source = "git+https://github.com/openmls/openmls.git#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
+source = "git+https://github.com/openmls/openmls.git?rev=e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
 dependencies = [
  "aes-gcm",
  "chacha20poly1305",
  "ed25519-dalek",
  "hkdf",
  "hmac",
- "hpke-rs 0.3.0",
- "hpke-rs-crypto 0.3.0",
- "hpke-rs-rust-crypto 0.3.0",
- "openmls_memory_storage 0.4.0",
- "openmls_traits 0.4.0 (git+https://github.com/openmls/openmls.git)",
+ "hpke-rs",
+ "hpke-rs-crypto",
+ "hpke-rs-rust-crypto",
+ "openmls_memory_storage",
+ "openmls_traits",
  "p256",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -4311,16 +4221,7 @@ dependencies = [
 [[package]]
 name = "openmls_traits"
 version = "0.4.0"
-source = "git+https://github.com/openmls/openmls?rev=335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168#335f6e996e5a15eb3b67cd0ae4b2c79aae6fc168"
-dependencies = [
- "serde",
- "tls_codec",
-]
-
-[[package]]
-name = "openmls_traits"
-version = "0.4.0"
-source = "git+https://github.com/openmls/openmls.git#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
+source = "git+https://github.com/openmls/openmls.git?rev=e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1#e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1"
 dependencies = [
  "serde",
  "tls_codec",
