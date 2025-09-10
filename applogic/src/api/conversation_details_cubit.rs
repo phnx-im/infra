@@ -132,7 +132,7 @@ impl ConversationDetailsCubitBase {
     ///
     /// When `bytes` is `None`, the conversation picture is removed.
     pub async fn set_conversation_picture(&mut self, bytes: Option<Vec<u8>>) -> anyhow::Result<()> {
-        Store::set_picture(
+        Store::set_chat_picture(
             &self.context.store,
             self.context.conversation_id,
             bytes.clone(),
