@@ -60,11 +60,9 @@ class UserCubit implements StateStreamableSource<UiUser> {
   Future<void> removeUserFromChat(ChatId chatId, UiUserId userId) =>
       _impl.removeUserFromChat(chatId, userId);
 
-  Future<void> leaveConversation(ConversationId conversationId) =>
-      _impl.leaveConversation(conversationId);
+  Future<void> leaveChat(ChatId chatId) => _impl.leaveChat(chatId);
 
-  Future<void> deleteConversation(ConversationId conversationId) =>
-      _impl.deleteConversation(conversationId);
+  Future<void> deleteChat(ChatId chatId) => _impl.deleteChat(chatId);
 
   Future<List<UiContact>> get contacts => _impl.contacts;
 

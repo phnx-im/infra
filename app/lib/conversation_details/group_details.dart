@@ -140,7 +140,7 @@ class GroupDetails extends StatelessWidget {
       positiveButtonText: loc.leaveConversationDialog_leave,
       negativeButtonText: loc.leaveConversationDialog_cancel,
     )) {
-      userCubit.leaveConversation(id);
+      userCubit.leaveChat(id);
       navigationCubit.closeChat();
     }
   }
@@ -156,7 +156,7 @@ class GroupDetails extends StatelessWidget {
       positiveButtonText: loc.deleteConversationDialog_delete,
       negativeButtonText: loc.deleteConversationDialog_cancel,
     )) {
-      userCubit.deleteConversation(id);
+      userCubit.deleteChat(id);
       navigationCubit.closeChat();
     }
   }

@@ -57,7 +57,7 @@ class ConnectionDetails extends StatelessWidget {
 
           const Spacer(),
 
-          _DeleteConnectionButton(conversationId: conversation.id),
+          _DeleteConnectionButton(chatId: chat.id),
           const SizedBox(height: Spacings.s),
 
           ReportSpamButton(userId: memberId),
@@ -69,15 +69,15 @@ class ConnectionDetails extends StatelessWidget {
 }
 
 class _DeleteConnectionButton extends StatelessWidget {
-  const _DeleteConnectionButton({required this.conversationId});
+  const _DeleteConnectionButton({required this.chatId});
 
-  final ConversationId conversationId;
+  final ChatId chatId;
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     return OutlinedButton(
-      onPressed: () => _delete(context, conversationId),
+      onPressed: () => _delete(context, chatId),
       child: Text(
         loc.deleteConnectionButton_text,
         style: TextStyle(color: CustomColorScheme.of(context).function.danger),
@@ -85,7 +85,7 @@ class _DeleteConnectionButton extends StatelessWidget {
     );
   }
 
-  void _delete(BuildContext context, ConversationId conversationId) async {
+  void _delete(BuildContext context, ChatId chatId) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
     final loc = AppLocalizations.of(context);
@@ -97,8 +97,8 @@ class _DeleteConnectionButton extends StatelessWidget {
       negativeButtonText: loc.deleteConnectionDialog_cancel,
     );
     if (confirmed) {
-      userCubit.deleteConversation(conversationId);
-      navigationCubit.closeConversation();
+      userCubit.deleteChat(chatId);
+      navigationCubit.closeChat();
     }
   }
 }
