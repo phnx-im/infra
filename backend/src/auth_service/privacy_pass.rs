@@ -40,7 +40,7 @@ impl PrivateKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
     ) {
         let server = BlobEncoded(server);
         if let Err(error) = sqlx::query!(
-            "INSERT INTO as_batched_keys (token_key_id, voprf_server)
+            "INSERT INTO as_batched_key (token_key_id, voprf_server)
             VALUES ($1, $2)",
             truncated_token_key_id as i16,
             server as _
@@ -60,7 +60,7 @@ impl PrivateKeyStore for AuthServiceBatchedKeyStoreProvider<'_> {
         let token_key_id: i16 = (*truncated_token_key_id).into();
         sqlx::query_scalar!(
             r#"SELECT voprf_server AS "voprf_server: BlobDecoded<VoprfServer<Ristretto255>>"
-            FROM as_batched_keys
+            FROM as_batched_key
             WHERE token_key_id = $1"#,
             token_key_id
         )
