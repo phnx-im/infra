@@ -17,7 +17,6 @@ use aircommon::{
     },
     crypto::{
         indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
-        kdf::keys::ConnectionKey,
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
     messages::{
@@ -93,7 +92,6 @@ impl BasicUserData {
         // TODO: The following keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random()?;
-        let connection_key = ConnectionKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
 
@@ -104,7 +102,6 @@ impl BasicUserData {
             qs_queue_decryption_key,
             push_token_ear_key,
             friendship_token,
-            connection_key,
             wai_ear_key,
             qs_client_id_encryption_key: qs_encryption_key,
         };
@@ -238,7 +235,6 @@ impl PostAsRegistrationState {
             qs_queue_decryption_key: key_store.qs_queue_decryption_key,
             push_token_ear_key: key_store.push_token_ear_key,
             friendship_token: key_store.friendship_token,
-            connection_key: key_store.connection_key,
             wai_ear_key: key_store.wai_ear_key,
             qs_client_id_encryption_key: key_store.qs_client_id_encryption_key,
         };
