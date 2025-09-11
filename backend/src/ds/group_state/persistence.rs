@@ -19,7 +19,7 @@ impl StorableDsGroupData {
     pub(super) async fn store(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
         query!(
             "INSERT INTO
-                encrypted_groups
+                encrypted_group
                 (group_id, ciphertext, last_used, deleted_queues)
             VALUES
                 ($1, $2, $3, $4)
@@ -45,7 +45,7 @@ impl StorableDsGroupData {
                 last_used,
                 deleted_queues AS "deleted_queues: BlobDecoded<Vec<SealedClientReference>>"
             FROM
-                encrypted_groups
+                encrypted_group
             WHERE
                 group_id = $1"#,
             qgid.group_uuid()
@@ -63,7 +63,7 @@ impl StorableDsGroupData {
     pub(crate) async fn update(&self, connection: impl PgExecutor<'_>) -> Result<(), StorageError> {
         query!(
             "UPDATE
-                encrypted_groups
+                encrypted_group
             SET
                 ciphertext = $2, last_used = $3, deleted_queues = $4
             WHERE
@@ -84,7 +84,7 @@ impl StorableDsGroupData {
     ) -> Result<(), StorageError> {
         query!(
             "DELETE FROM
-                encrypted_groups
+                encrypted_group
             WHERE
                 group_id = $1",
             qgid.group_uuid()

@@ -225,11 +225,11 @@ impl TestBackend {
         let updater = &mut test_updater.user;
 
         let pending_removes = HashSet::from_iter(updater.pending_removes(chat_id).await.unwrap());
-        let group_members_before = updater.chat_participants(chat_id).await.unwrap();
+        let group_members_before = updater.mls_chat_participants(chat_id).await.unwrap();
 
         updater.update_key(chat_id).await.unwrap();
 
-        let group_members_after = updater.chat_participants(chat_id).await.unwrap();
+        let group_members_after = updater.mls_chat_participants(chat_id).await.unwrap();
         let difference: HashSet<UserId> = group_members_before
             .difference(&group_members_after)
             .map(|s| s.to_owned())
@@ -249,7 +249,7 @@ impl TestBackend {
 
             let pending_removes =
                 HashSet::from_iter(group_member.pending_removes(chat_id).await.unwrap());
-            let group_members_before = group_member.chat_participants(chat_id).await.unwrap();
+            let group_members_before = group_member.mls_chat_participants(chat_id).await.unwrap();
 
             group_member
                 .fully_process_qs_messages(qs_messages)
@@ -267,7 +267,8 @@ impl TestBackend {
                 ));
             } else {
                 // ... if not, it should remove the members to be removed.
-                let group_members_after = group_member.chat_participants(chat_id).await.unwrap();
+                let group_members_after =
+                    group_member.mls_chat_participants(chat_id).await.unwrap();
                 let difference: HashSet<UserId> = group_members_before
                     .difference(&group_members_after)
                     .cloned()
@@ -1073,16 +1074,8 @@ impl TestBackend {
     /// Has the leaver leave the given group.
     pub async fn leave_group(&mut self, chat_id: ChatId, leaver_id: &UserId) -> anyhow::Result<()> {
         info!("{leaver_id:?} leaves the group with id {}", chat_id.uuid());
-        let test_leaver = self.users.get_mut(leaver_id).unwrap();
-        let leaver = &mut test_leaver.user;
 
-        // Perform the leave operation.
-        leaver.leave_chat(chat_id).await?;
-
-        // Now have a random group member perform an update, thus committing the leave operation.
-        // TODO: This is not really random. We should do better here. But also,
-        // we probably want a way to track the randomness s.t. we can reproduce
-        // tests.
+        // Get random member that observes the proposal and can commit it later
         let group_members = self.groups.get(&chat_id).unwrap().clone();
         let mut random_member_iter = group_members.iter();
         let mut random_member_id = random_member_iter.next().unwrap();
@@ -1090,16 +1083,38 @@ impl TestBackend {
         if random_member_id == leaver_id {
             random_member_id = random_member_iter.next().unwrap()
         }
+
+        // Perform the leave operation.
         let test_random_member = self.users.get_mut(random_member_id).unwrap();
         let random_member = &mut test_random_member.user;
+        let mimi_members_before = random_member.chat_participants(chat_id).await.unwrap();
+        let test_leaver = self.users.get_mut(leaver_id).unwrap();
+        let leaver = &mut test_leaver.user;
+        leaver.leave_chat(chat_id).await?;
 
-        // First fetch and process the QS messages to make sure the member has the proposal.
+        // Fetch and process the QS messages to make sure the random member has the proposal.
+        let test_random_member = self.users.get_mut(random_member_id).unwrap();
+        let random_member = &mut test_random_member.user;
         let qs_messages = random_member.qs_fetch_messages().await.unwrap();
 
         random_member
             .fully_process_qs_messages(qs_messages)
             .await
             .expect("Error processing qs messages.");
+
+        let mimi_members_after = random_member.chat_participants(chat_id).await.unwrap();
+        let difference: HashSet<UserId> = mimi_members_before
+            .difference(&mimi_members_after)
+            .map(|s| s.to_owned())
+            .collect();
+        let pending_removes =
+            HashSet::from_iter(random_member.pending_removes(chat_id).await.unwrap());
+        assert_eq!(difference, pending_removes);
+
+        // Now have a random group member perform an update, thus committing the leave operation.
+        // TODO: This is not really random. We should do better here. But also,
+        // we probably want a way to track the randomness s.t. we can reproduce
+        // tests.
 
         // Now commit to the pending proposal. This also makes everyone else
         // pick up and process their messages. This also tests that group

@@ -497,6 +497,8 @@ mod test {
 
     #[sqlx::test]
     async fn pending_attachment_record_cycle(pool: Pool<Sqlite>) -> anyhow::Result<()> {
+        tracing_subscriber::fmt::try_init().ok();
+
         let mut notifier = StoreNotifier::noop();
         let chat = test_chat();
         chat.store(pool.acquire().await?.as_mut(), &mut notifier)

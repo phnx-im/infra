@@ -35,6 +35,24 @@ impl CoreUser {
         content: MimiContent,
         replaces_id: Option<MessageId>,
     ) -> anyhow::Result<ChatMessage> {
+        let needs_update = self
+            .with_transaction(async |txn| {
+                let chat = Chat::load(txn.as_mut(), &chat_id)
+                    .await?
+                    .with_context(|| format!("Can't find chat with id {chat_id}"))?;
+                let group_id = chat.group_id;
+                let group = Group::load_clean(txn, &group_id)
+                    .await?
+                    .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+                Ok(group.mls_group().has_pending_proposals())
+            })
+            .await?;
+
+        if needs_update {
+            // TODO race condition: Before or after this update, new proposals could arrive
+            self.update_key(chat_id).await?;
+        }
+
         let unsent_group_message = self
             .with_transaction_and_notifier(async |txn, notifier| {
                 UnsentContent {

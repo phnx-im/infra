@@ -114,7 +114,7 @@ pub(crate) mod persistence {
 
             query!(
                 "INSERT INTO
-                    qs_client_records
+                    qs_client_record
                     (client_id, user_id, encrypted_push_token, owner_public_key,
                     owner_signature_key, ratchet, activity_time)
                 VALUES
@@ -147,7 +147,7 @@ pub(crate) mod persistence {
                     ratchet AS "ratchet: BlobDecoded<QsQueueRatchet>",
                     activity_time AS "activity_time: TimeStamp"
                 FROM
-                    qs_client_records
+                    qs_client_record
                 WHERE
                     client_id = $1"#,
                 client_id,
@@ -174,7 +174,7 @@ pub(crate) mod persistence {
             let ratchet = BlobEncoded(&self.ratchet_key);
 
             query!(
-                "UPDATE qs_client_records
+                "UPDATE qs_client_record
                 SET
                     encrypted_push_token = $1,
                     owner_public_key = $2,
@@ -201,7 +201,7 @@ pub(crate) mod persistence {
             client_id: &QsClientId,
         ) -> Result<(), StorageError> {
             query!(
-                "DELETE FROM qs_client_records WHERE client_id = $1",
+                "DELETE FROM qs_client_record WHERE client_id = $1",
                 client_id as &QsClientId
             )
             .execute(connection)
@@ -216,7 +216,7 @@ pub(crate) mod persistence {
         ) -> sqlx::Result<()> {
             if let Some(encrypted_push_token) = self.encrypted_push_token.as_ref() {
                 query!(
-                    "UPDATE qs_client_records
+                    "UPDATE qs_client_record
                     SET encrypted_push_token = NULL
                     WHERE client_id = $1 AND encrypted_push_token = $2",
                     self.client_id as _,

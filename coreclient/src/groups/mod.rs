@@ -127,7 +127,7 @@ pub(crate) struct PartialCreateGroupParams {
     pub(crate) group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
-    room_state: VerifiedRoomState,
+    pub(crate) room_state: VerifiedRoomState,
 }
 
 impl PartialCreateGroupParams {
@@ -962,7 +962,7 @@ impl Group {
     ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
         let aad = AadMessage::from(AadPayload::GroupOperation(GroupOperationParamsAad {
-            new_encrypted_user_profile_keys: vec![],
+            new_encrypted_user_profile_keys: Vec::new(),
         }))
         .tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
@@ -1120,6 +1120,7 @@ impl TimestampedMessage {
             .client_credential()
             .identity()
             .clone();
+
             let removed_index = remove_proposal.remove_proposal().removed();
             let removed = ClientAuthInfo::load_staged(connection, group_id, removed_index)
                 .await?
@@ -1127,6 +1128,12 @@ impl TimestampedMessage {
                 .client_credential()
                 .identity()
                 .clone();
+
+            if remover == removed {
+                // A system message for this proposal was already made when it was proposed
+                continue;
+            }
+
             removed_set.insert((remover, removed));
         }
         let remove_messages = removed_set.into_iter().map(|(remover, removed)| {

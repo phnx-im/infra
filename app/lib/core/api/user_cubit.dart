@@ -36,7 +36,11 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   Future<List<UiContact>> get contacts;
 
+  Future<void> deleteChat(ChatId chatId);
+
   bool get isClosed;
+
+  Future<void> leaveChat(ChatId chatId);
 
   factory UserCubitBase({
     required User user,

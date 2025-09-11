@@ -102,6 +102,11 @@ pub trait Store {
 
     async fn leave_chat(&self, chat_id: ChatId) -> StoreResult<()>;
 
+    /// Erases the chat data with the given [`ChatId`].
+    ///
+    /// Must not be called before the chat is deleted.
+    async fn erase_chat(&self, chat_id: ChatId) -> StoreResult<()>;
+
     // user management
 
     /// Update the user's key material in the chat with the given [`ChatId`].

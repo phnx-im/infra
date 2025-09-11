@@ -34,7 +34,7 @@ void main() {
   group('HomeScreen', () {
     late MockNavigationCubit navigationCubit;
     late MockUserCubit userCubit;
-    late MockUsersCubit contactsCubit;
+    late MockUsersCubit usersCubit;
     late MockConversationListCubit conversationListCubit;
     late MockConversationDetailsCubit conversationDetailsCubit;
     late MockMessageListCubit messageListCubit;
@@ -43,7 +43,7 @@ void main() {
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
-      contactsCubit = MockUsersCubit();
+      usersCubit = MockUsersCubit();
       conversationListCubit = MockConversationListCubit();
       conversationDetailsCubit = MockConversationDetailsCubit();
       messageListCubit = MockMessageListCubit();
@@ -51,7 +51,7 @@ void main() {
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => contactsCubit.state,
+        () => usersCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
       when(
         () => conversationDetailsCubit.state,
@@ -74,7 +74,7 @@ void main() {
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
+        BlocProvider<UsersCubit>.value(value: usersCubit),
         BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
         BlocProvider<ConversationDetailsCubit>.value(
           value: conversationDetailsCubit,

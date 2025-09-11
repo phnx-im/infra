@@ -2,8 +2,16 @@
 --
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 --
+-- Notes:
+--  * DateTime is stored as TEXT
 --
 -- MLS Storage Provider Schema
+--
+-- Notes:
+--  * Tables in this schema are indepdent of other tables and cannot be
+--    referenced in foreign key constraints.
+--  * Indexes are prefixed with `idx_` to avoid name clashes with other
+--    tables.
 --
 CREATE TABLE group_data (
     group_id BLOB NOT NULL,
@@ -66,6 +74,9 @@ CREATE TABLE psk (psk_id BLOB PRIMARY KEY, psk_bundle BLOB NOT NULL);
 --
 -- Client Records Schema
 --
+-- Notes:
+--  * The `client_record` table is independent and cannot be referenced in
+--    other tables.
 CREATE TABLE client_record (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
@@ -86,11 +97,12 @@ CREATE TABLE user_creation_state (
 );
 
 CREATE TABLE own_client_info (
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
     server_url TEXT NOT NULL,
     qs_user_id BLOB NOT NULL,
     qs_client_id BLOB NOT NULL,
-    user_uuid BLOB NOT NULL,
-    user_domain TEXT NOT NULL
+    PRIMARY KEY (user_uuid, user_domain)
 );
 
 CREATE TABLE user (
@@ -103,7 +115,7 @@ CREATE TABLE user (
     PRIMARY KEY (user_uuid, user_domain)
 );
 
-CREATE TABLE IF NOT EXISTS "group" (
+CREATE TABLE "group" (
     group_id BLOB NOT NULL PRIMARY KEY,
     identity_link_wrapper_key BLOB NOT NULL,
     group_state_ear_key BLOB NOT NULL,
@@ -118,13 +130,10 @@ CREATE TABLE client_credential (
     client_credential BLOB NOT NULL
 );
 
-CREATE INDEX client_credential_user_id ON client_credential (user_uuid, user_domain);
+CREATE INDEX idx_client_credential_user_id ON client_credential (user_uuid, user_domain);
 
 CREATE TABLE group_membership (
-    client_credential_fingerprint BLOB NOT NULL REFERENCES client_credential (fingerprint),
     group_id BLOB NOT NULL,
-    user_uuid BLOB NOT NULL,
-    user_domain TEXT NOT NULL,
     leaf_index INTEGER NOT NULL,
     status TEXT DEFAULT 'staged_update' NOT NULL CHECK (
         status IN (
@@ -134,101 +143,11 @@ CREATE TABLE group_membership (
             'merged'
         )
     ),
-    PRIMARY KEY (group_id, leaf_index, status)
-);
-
-CREATE TABLE indexed_key (
-    key_index BLOB NOT NULL PRIMARY KEY,
-    key_value BLOB NOT NULL,
-    base_secret BLOB NOT NULL
-);
-
-CREATE TABLE own_key_index (
-    key_type TEXT CHECK (key_type IN ('user_profile_key')) PRIMARY KEY,
-    key_index BLOB NOT NULL REFERENCES indexed_key (key_index) ON DELETE CASCADE
-);
-
-CREATE TABLE chat (
-    chat_id BLOB NOT NULL PRIMARY KEY,
-    chat_title TEXT NOT NULL,
-    chat_picture BLOB,
-    group_id BLOB NOT NULL,
-    last_read TEXT NOT NULL,
-    -- missing `connection_as_{client_uuid,domain}` fields means it is a group chat
-    connection_user_uuid BLOB,
-    connection_user_domain TEXT,
-    is_confirmed_connection BOOLEAN NOT NULL DEFAULT FALSE,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    connection_user_handle TEXT
-);
-
-CREATE TABLE chat_past_member (
-    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE,
-    member_user_uuid BLOB NOT NULL,
-    member_user_domain TEXT NOT NULL,
-    PRIMARY KEY (chat_id, member_user_uuid, member_user_domain)
-);
-
-CREATE INDEX chat_past_member_chat_id_idx ON chat_past_member (chat_id);
-
-CREATE TABLE contact (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
-    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE,
-    wai_ear_key BLOB NOT NULL,
-    friendship_token BLOB NOT NULL,
-    connection_key BLOB NOT NULL,
-    user_profile_key_index BLOB NOT NULL REFERENCES indexed_key (key_index),
-    PRIMARY KEY (user_uuid, user_domain)
-);
-
-CREATE TABLE message (
-    message_id BLOB NOT NULL PRIMARY KEY,
-    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-    timestamp TEXT NOT NULL,
-    -- missing `sender_as_{client_uuid,domain}` fields means it is a system message
-    sender_user_uuid BLOB,
-    sender_user_domain TEXT,
-    content BLOB NOT NULL,
-    sent BOOLEAN NOT NULL,
-    mimi_id BLOB,
-    status INT NOT NULL DEFAULT 0,
-    edited_at TEXT
-);
-
-CREATE INDEX message_chat_id_idx ON message (chat_id);
-
-CREATE INDEX message_timetstamp_idx ON message (timestamp);
-
-CREATE INDEX message_mimi_id_idx ON message (mimi_id);
-
-CREATE TABLE qs_verifying_key (
-    user_domain TEXT PRIMARY KEY,
-    verifying_key BLOB NOT NULL
-);
-
-CREATE TABLE queue_ratchet (
-    queue_type TEXT PRIMARY KEY CHECK (queue_type IN ('qs')),
-    queue_ratchet BLOB NOT NULL,
-    sequence_number INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE as_credential (
-    fingerprint TEXT PRIMARY KEY,
-    user_domain TEXT NOT NULL,
-    credential_type TEXT NOT NULL CHECK (
-        credential_type IN ('as_credential', 'as_intermediate_credential')
-    ),
-    credential BLOB NOT NULL
-);
-
-CREATE TABLE store_notification (
-    entity_id BLOB NOT NULL,
-    kind INTEGER NOT NULL,
-    added BOOLEAN NOT NULL,
-    updated BOOLEAN NOT NULL,
-    removed BOOLEAN NOT NULL,
-    PRIMARY KEY (entity_id, kind)
+    client_credential_fingerprint BLOB NOT NULL,
+    PRIMARY KEY (group_id, leaf_index, status),
+    FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credential (fingerprint)
 );
 
 CREATE TRIGGER delete_orphaned_data AFTER DELETE ON group_membership FOR EACH ROW BEGIN
@@ -280,21 +199,110 @@ WHERE
 
 END;
 
-CREATE TRIGGER delete_keys AFTER DELETE ON contact FOR EACH ROW BEGIN
--- Delete user profile keys if the corresponding contact is deleted. Since key
--- indexes include the user id in their derivation, they are unique per user
--- and we don't need to check if they are used by another user (or ourselves).
+CREATE TABLE indexed_key (
+    key_index BLOB NOT NULL PRIMARY KEY,
+    key_value BLOB NOT NULL,
+    base_secret BLOB NOT NULL
+);
+
+CREATE TABLE own_key_index (
+    key_type TEXT CHECK (key_type IN ('user_profile_key')) PRIMARY KEY,
+    key_index BLOB NOT NULL,
+    FOREIGN KEY (key_index) REFERENCES indexed_key (key_index) ON DELETE CASCADE
+);
+
+CREATE TABLE chat (
+    chat_id BLOB NOT NULL PRIMARY KEY,
+    chat_title TEXT NOT NULL,
+    chat_picture BLOB,
+    group_id BLOB NOT NULL,
+    last_read TEXT NOT NULL,
+    -- missing `connection_as_{client_uuid,domain}` fields means it is a group chat
+    connection_user_uuid BLOB,
+    connection_user_domain TEXT,
+    is_confirmed_connection BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    connection_user_handle TEXT
+);
+
+CREATE INDEX idx_chat_connection_user ON chat (connection_user_uuid, connection_user_domain);
+
+CREATE TABLE chat_past_member (
+    chat_id BLOB NOT NULL,
+    member_user_uuid BLOB NOT NULL,
+    member_user_domain TEXT NOT NULL,
+    PRIMARY KEY (chat_id, member_user_uuid, member_user_domain),
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_chat_past_member_chat_id ON chat_past_member (chat_id);
+
+CREATE TABLE contact (
+    user_uuid BLOB NOT NULL,
+    user_domain TEXT NOT NULL,
+    chat_id BLOB NOT NULL,
+    wai_ear_key BLOB NOT NULL,
+    friendship_token BLOB NOT NULL,
+    PRIMARY KEY (user_uuid, user_domain),
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_contact_chat_id ON contact (chat_id);
+
+CREATE TABLE message (
+    message_id BLOB NOT NULL PRIMARY KEY,
+    chat_id BLOB NOT NULL,
+    timestamp TEXT NOT NULL,
+    -- missing `sender_as_{client_uuid,domain}` fields means it is a system message
+    sender_user_uuid BLOB,
+    sender_user_domain TEXT,
+    content BLOB NOT NULL,
+    sent BOOLEAN NOT NULL,
+    mimi_id BLOB,
+    status INT NOT NULL DEFAULT 0,
+    edited_at TEXT,
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX idx_message_chat_id ON message (chat_id);
+
+CREATE INDEX idx_message_timetstamp ON message (timestamp);
+
+CREATE INDEX idx_message_mimi_id ON message (mimi_id);
+
+CREATE TABLE qs_verifying_key (
+    user_domain TEXT PRIMARY KEY,
+    verifying_key BLOB NOT NULL
+);
+
+CREATE TABLE queue_ratchet (
+    queue_type TEXT PRIMARY KEY CHECK (queue_type IN ('qs')),
+    queue_ratchet BLOB NOT NULL,
+    sequence_number INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE as_credential (
+    fingerprint BLOB PRIMARY KEY,
+    user_domain TEXT NOT NULL,
+    credential_type TEXT NOT NULL CHECK (
+        credential_type IN ('as_credential', 'as_intermediate_credential')
+    ),
+    credential BLOB NOT NULL
+);
+
+CREATE TABLE store_notification (
+    entity_id BLOB NOT NULL,
+    kind INTEGER NOT NULL,
+    added BOOLEAN NOT NULL,
+    updated BOOLEAN NOT NULL,
+    removed BOOLEAN NOT NULL,
+    PRIMARY KEY (entity_id, kind)
+);
+
+CREATE TRIGGER delete_keys AFTER DELETE ON user FOR EACH ROW BEGIN
 DELETE FROM indexed_key
 WHERE
-    key_index = OLD.user_profile_key_index
-    AND (
-        key_index NOT IN (
-            SELECT
-                decryption_key_index
-            FROM
-                user
-        )
-    );
+    key_index = OLD.decryption_key_index;
 
 END;
 
@@ -307,35 +315,43 @@ CREATE TABLE user_handle (
 );
 
 CREATE TABLE user_handle_contact (
+    -- Not referencing the user_handle table, because we don't want to delete
+    -- the contact when the user handle is deleted.
     user_handle TEXT NOT NULL PRIMARY KEY,
     -- 1:1 relationship with chat
-    chat_id BLOB NOT NULL UNIQUE REFERENCES chat (chat_id) ON DELETE CASCADE,
+    chat_id BLOB NOT NULL UNIQUE,
     friendship_package_ear_key BLOB NOT NULL,
     created_at TEXT NOT NULL,
-    connection_offer_hash BLOB NOT NULL
+    connection_offer_hash BLOB NOT NULL,
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE
 );
 
 CREATE TABLE attachment (
     attachment_id BLOB NOT NULL PRIMARY KEY,
-    chat_id BLOB NOT NULL REFERENCES chat (chat_id) ON DELETE CASCADE,
-    message_id BLOB NOT NULL REFERENCES message (message_id) ON DELETE CASCADE,
+    chat_id BLOB NOT NULL,
+    message_id BLOB NOT NULL,
     content_type TEXT NOT NULL,
     content BLOB,
     status INTEGER NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE,
+    FOREIGN KEY (message_id) REFERENCES message (message_id) ON DELETE CASCADE
 );
 
-CREATE INDEX attachment_created_at_index ON attachment (created_at);
+CREATE INDEX idx_attachment_chat_id ON attachment (chat_id);
+
+CREATE INDEX idx_attachment_created_at ON attachment (created_at);
 
 CREATE TABLE pending_attachment (
-    attachment_id BLOB NOT NULL PRIMARY KEY REFERENCES attachment (attachment_id) ON DELETE CASCADE,
+    attachment_id BLOB NOT NULL PRIMARY KEY,
     size INTEGER NOT NULL,
     enc_alg INTEGER NOT NULL,
     enc_key BLOB NOT NULL,
     nonce BLOB NOT NULL,
     aad BLOB NOT NULL,
     hash_alg INTEGER NOT NULL,
-    hash BLOB NOT NULL
+    hash BLOB NOT NULL,
+    FOREIGN KEY (attachment_id) REFERENCES attachment (attachment_id) ON DELETE CASCADE
 );
 
 CREATE TABLE user_setting (
@@ -345,29 +361,32 @@ CREATE TABLE user_setting (
 
 CREATE TABLE connection_package (
     connection_package_hash BLOB NOT NULL PRIMARY KEY,
-    handle TEXT NOT NULL REFERENCES user_handle (handle) ON DELETE CASCADE,
+    handle TEXT NOT NULL,
     decryption_key BLOB NOT NULL,
-    expires_at TEXT NOT NULL
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (handle) REFERENCES user_handle (handle) ON DELETE CASCADE
 );
 
 CREATE TABLE message_draft (
-    chat_id BLOB NOT NULL PRIMARY KEY REFERENCES chat (chat_id) ON DELETE CASCADE,
+    chat_id BLOB NOT NULL PRIMARY KEY,
     message TEXT NOT NULL,
-    editing_id BLOB REFERENCES message (message_id) ON DELETE CASCADE,
-    updated_at TEXT NOT NULL
+    editing_id BLOB,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE,
+    FOREIGN KEY (editing_id) REFERENCES message (message_id) ON DELETE CASCADE
 );
 
 CREATE TABLE message_status (
-    message_id BLOB NOT NULL REFERENCES message (message_id) ON DELETE CASCADE,
+    message_id BLOB NOT NULL,
     sender_user_uuid BLOB NOT NULL,
     sender_user_domain TEXT NOT NULL,
     status INT NOT NULL,
     created_at TEXT NOT NULL,
-    PRIMARY KEY (message_id, sender_user_domain, sender_user_uuid)
+    PRIMARY KEY (message_id, sender_user_domain, sender_user_uuid),
+    FOREIGN KEY (message_id) REFERENCES message (message_id) ON DELETE CASCADE
 );
 
 CREATE TABLE message_edit (
-    -- This is the Mimi ID of the `content` field.
     mimi_id BLOB NOT NULL PRIMARY KEY,
     -- the message that was edited
     --
@@ -375,10 +394,11 @@ CREATE TABLE message_edit (
     -- That is, the latest edit contains the previous message content. The
     -- second latest edit contains the content before the latest edit, and so
     -- on.
-    message_id BLOB NOT NULL REFERENCES message (message_id) ON DELETE CASCADE,
+    message_id BLOB NOT NULL,
     created_at TEXT NOT NULL,
     -- content of the edited message
-    content BLOB NOT NULL
+    content BLOB NOT NULL,
+    FOREIGN KEY (message_id) REFERENCES message (message_id) ON DELETE CASCADE
 );
 
-CREATE INDEX message_edit_message_id_idx ON message_edit (message_id);
+CREATE INDEX idx_message_edit_message_id ON message_edit (message_id);

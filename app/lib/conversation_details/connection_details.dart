@@ -2,6 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/l10n/app_localizations.dart';
+import 'package:air/navigation/navigation_cubit.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user_cubit.dart';
+import 'package:air/util/dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:air/core/core.dart';
 import 'package:air/theme/theme.dart';
@@ -52,10 +57,48 @@ class ConnectionDetails extends StatelessWidget {
 
           const Spacer(),
 
+          _DeleteConnectionButton(conversationId: conversation.id),
+          const SizedBox(height: Spacings.s),
+
           ReportSpamButton(userId: memberId),
           const SizedBox(height: Spacings.s),
         ],
       ),
     );
+  }
+}
+
+class _DeleteConnectionButton extends StatelessWidget {
+  const _DeleteConnectionButton({required this.conversationId});
+
+  final ConversationId conversationId;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return OutlinedButton(
+      onPressed: () => _delete(context, conversationId),
+      child: Text(
+        loc.deleteConnectionButton_text,
+        style: TextStyle(color: CustomColorScheme.of(context).function.danger),
+      ),
+    );
+  }
+
+  void _delete(BuildContext context, ConversationId conversationId) async {
+    final userCubit = context.read<UserCubit>();
+    final navigationCubit = context.read<NavigationCubit>();
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: loc.deleteConnectionDialog_title,
+      message: loc.deleteConnectionDialog_content,
+      positiveButtonText: loc.deleteConnectionDialog_delete,
+      negativeButtonText: loc.deleteConnectionDialog_cancel,
+    );
+    if (confirmed) {
+      userCubit.deleteConversation(conversationId);
+      navigationCubit.closeConversation();
+    }
   }
 }

@@ -2,8 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/util/dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:air/l10n/l10n.dart';
 import 'package:air/core/core.dart';
 import 'package:air/navigation/navigation.dart';
 import 'package:air/theme/theme.dart';
@@ -13,7 +16,7 @@ import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
 
-/// Shows group chat details
+/// Details of a group chat
 class GroupDetails extends StatelessWidget {
   const GroupDetails({super.key});
 
@@ -28,70 +31,134 @@ class GroupDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Spacings.l),
+    final loc = AppLocalizations.of(context);
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
+        padding: const EdgeInsets.symmetric(horizontal: Spacings.s),
         child: Column(
-          spacing: Spacings.l,
           children: [
+            const SizedBox(height: Spacings.l),
             UserAvatar(
               size: 128,
               image: chat.picture,
               displayName: chat.title,
-              onPressed: () async {
-                final conversationDetailsCubit =
-                    context.read<ConversationDetailsCubit>();
-                // Image picker
-                final ImagePicker picker = ImagePicker();
-                // Pick an image.
-                final XFile? image = await picker.pickImage(
-                  source: ImageSource.gallery,
-                );
-                final bytes = await image?.readAsBytes();
-                conversationDetailsCubit.setChatPicture(bytes: bytes);
-              },
+              onPressed: () => _selectAvatar(context, chat.id),
             ),
+            const SizedBox(height: Spacings.l),
             Text(chat.title, style: Theme.of(context).textTheme.bodyLarge),
+            const SizedBox(height: Spacings.l),
             Text(
               chat.chatType.description,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            const SizedBox(height: Spacings.l),
+
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(minWidth: 100, maxWidth: 600),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Spacings.l),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Members",
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: members.length,
-                          itemBuilder: (context, index) {
-                            final memberId = members[index];
-                            return _MemberTile(memberId: memberId);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: members.length,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Column(
+                        children: [
+                          // Header
+                          Text(
+                            loc.groupDetails_members,
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          _MemberTile(memberId: members[index]),
+                        ],
+                      );
+                    } else {
+                      return _MemberTile(memberId: members[index]);
+                    }
+                  },
                 ),
               ),
             ),
+            const SizedBox(height: Spacings.l),
+
             OutlinedButton(
               onPressed: () {
                 context.read<NavigationCubit>().openAddMembers();
               },
-              child: const Text("Add members"),
+              child: Text(loc.groupDetails_addMembers),
             ),
+            const SizedBox(height: Spacings.s),
+
+            OutlinedButton(
+              onPressed: () => _leave(context, chat.id),
+              child: Text(
+                loc.groupDetails_leaveConversation,
+                style: TextStyle(
+                  color: CustomColorScheme.of(context).function.danger,
+                ),
+              ),
+            ),
+            const SizedBox(height: Spacings.s),
+
+            OutlinedButton(
+              onPressed: () => _delete(context, chat.id),
+              child: Text(
+                loc.groupDetails_deleteConversation,
+                style: TextStyle(
+                  color: CustomColorScheme.of(context).function.danger,
+                ),
+              ),
+            ),
+            const SizedBox(height: Spacings.s),
           ],
         ),
       ),
     );
+  }
+
+  void _selectAvatar(BuildContext context, ChatId id) async {
+    final conversationDetailsCubit = context.read<ConversationDetailsCubit>();
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image == null) {
+      return;
+    }
+    final bytes = await image.readAsBytes();
+    conversationDetailsCubit.setChatPicture(bytes: bytes);
+  }
+
+  void _leave(BuildContext context, ChatId id) async {
+    final userCubit = context.read<UserCubit>();
+    final navigationCubit = context.read<NavigationCubit>();
+    final loc = AppLocalizations.of(context);
+    if (await showConfirmationDialog(
+      context,
+      title: loc.leaveConversationDialog_title,
+      message: loc.leaveConversationDialog_content,
+      positiveButtonText: loc.leaveConversationDialog_leave,
+      negativeButtonText: loc.leaveConversationDialog_cancel,
+    )) {
+      userCubit.leaveConversation(id);
+      navigationCubit.closeChat();
+    }
+  }
+
+  void _delete(BuildContext context, ChatId id) async {
+    final userCubit = context.read<UserCubit>();
+    final navigationCubit = context.read<NavigationCubit>();
+    final loc = AppLocalizations.of(context);
+    if (await showConfirmationDialog(
+      context,
+      title: loc.deleteConversationDialog_title,
+      message: loc.deleteConversationDialog_content,
+      positiveButtonText: loc.deleteConversationDialog_delete,
+      negativeButtonText: loc.deleteConversationDialog_cancel,
+    )) {
+      userCubit.deleteConversation(id);
+      navigationCubit.closeChat();
+    }
   }
 }
 

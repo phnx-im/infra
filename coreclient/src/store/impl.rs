@@ -123,6 +123,10 @@ impl Store for CoreUser {
         self.leave_chat(chat_id).await
     }
 
+    async fn erase_chat(&self, chat_id: ChatId) -> StoreResult<()> {
+        self.erase_chat(chat_id).await
+    }
+
     async fn update_key(&self, chat_id: ChatId) -> StoreResult<Vec<ChatMessage>> {
         self.update_key(chat_id).await
     }
