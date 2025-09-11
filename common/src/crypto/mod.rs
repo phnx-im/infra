@@ -13,12 +13,15 @@
 use std::marker::PhantomData;
 
 use hpke::{DecryptionKey, EncryptionKey};
-use kdf::keys::ConnectionKeyType;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
-use crate::{LibraryError, crypto::ear::EarEncryptable, messages::QueueMessage};
+use crate::{
+    LibraryError,
+    crypto::{ear::EarEncryptable, kdf::keys::ConnectionKeyType},
+    messages::QueueMessage,
+};
 
 use self::{
     ear::{EarDecryptable, keys::RatchetKey},

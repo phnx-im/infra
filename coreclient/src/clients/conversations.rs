@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::identifiers::UserId;
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use create_conversation_flow::IntitialConversationData;
 use delete_conversation_flow::DeleteConversationData;
 use leave_conversation_flow::LeaveConversationData;
 use mimi_room_policy::VerifiedRoomState;
+use tracing::error;
 
 use crate::{
     ConversationMessageId,
@@ -104,6 +105,23 @@ impl CoreUser {
         }
     }
 
+    pub(crate) async fn erase_conversation(&self, conversation_id: ConversationId) -> Result<()> {
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            let conversation = Conversation::load(txn.as_mut(), &conversation_id)
+                .await?
+                .context("missing conversation for deletion")?;
+            Group::delete_from_db(txn, conversation.group_id())
+                .await
+                .inspect_err(|error| {
+                    error!(%error, "failed to delete group; skipping");
+                })
+                .ok();
+            Conversation::delete(txn.as_mut(), notifier, conversation.id()).await?;
+            Ok(())
+        })
+        .await
+    }
+
     pub(crate) async fn leave_conversation(&self, conversation_id: ConversationId) -> Result<()> {
         let leave = self
             .with_transaction(async |txn| {
@@ -116,12 +134,17 @@ impl CoreUser {
             .await?;
 
         // Phase 2: Send the leave to the DS
-        leave
+        let leave = leave
             .ds_self_remove(&self.inner.api_clients, self.signing_key())
-            .await?
-            // Phase 3: Merge the commit into the group
-            .store_update(self.pool())
             .await?;
+        self.with_transaction_and_notifier(async |txn, notifier| {
+            // Phase 3: Merge the commit into the group
+            leave
+                .store_update(txn, notifier, conversation_id, self.user_id())
+                .await?;
+            Ok(())
+        })
+        .await?;
         Ok(())
     }
 
@@ -422,8 +445,8 @@ mod delete_conversation_flow {
     }
 
     pub(super) struct LoadedSingleUserConversationData {
-        conversation: Conversation,
-        member: UserId,
+        pub(super) conversation: Conversation,
+        pub(super) member: UserId,
     }
 
     impl LoadedSingleUserConversationData {
@@ -558,13 +581,16 @@ mod delete_conversation_flow {
 mod leave_conversation_flow {
     use aircommon::{
         credentials::keys::ClientSigningKey, identifiers::UserId,
-        messages::client_ds_out::SelfRemoveParamsOut,
+        messages::client_ds_out::SelfRemoveParamsOut, time::TimeStamp,
     };
     use anyhow::Context;
     use mimi_room_policy::RoleIndex;
-    use sqlx::{SqliteConnection, SqlitePool, SqliteTransaction};
+    use sqlx::{SqliteConnection, SqliteTransaction};
 
-    use crate::{Conversation, ConversationId, groups::Group};
+    use crate::{
+        Conversation, ConversationId, SystemMessage, clients::CoreUser,
+        conversations::messages::TimestampedMessage, groups::Group, store::StoreNotifier,
+    };
 
     pub(super) struct LeaveConversationData<S> {
         conversation: Conversation,
@@ -629,21 +655,47 @@ mod leave_conversation_flow {
 
             let owner_domain = conversation.owner_domain();
 
-            api_clients
+            let ts = api_clients
                 .get(&owner_domain)?
                 .ds_self_remove(params, signer, group.group_state_ear_key())
                 .await?;
 
-            Ok(DsSelfRemoved(group))
+            Ok(DsSelfRemoved {
+                group,
+                ds_timestamp: ts,
+            })
         }
     }
 
-    pub(super) struct DsSelfRemoved(Group);
+    pub(super) struct DsSelfRemoved {
+        group: Group,
+        ds_timestamp: TimeStamp,
+    }
 
     impl DsSelfRemoved {
-        pub(super) async fn store_update(self, pool: &SqlitePool) -> anyhow::Result<()> {
-            let Self(group) = self;
-            group.store_update(pool).await?;
+        pub(super) async fn store_update(
+            self,
+            txn: &mut SqliteTransaction<'_>,
+            notifier: &mut StoreNotifier,
+            conversation_id: ConversationId,
+            user_id: &UserId,
+        ) -> anyhow::Result<()> {
+            let Self {
+                group,
+                ds_timestamp,
+            } = self;
+
+            group.store_update(&mut **txn).await?;
+            CoreUser::store_new_messages(
+                &mut *txn,
+                notifier,
+                conversation_id,
+                vec![TimestampedMessage::system_message(
+                    SystemMessage::Remove(user_id.clone(), user_id.clone()),
+                    ds_timestamp,
+                )],
+            )
+            .await?;
             Ok(())
         }
     }

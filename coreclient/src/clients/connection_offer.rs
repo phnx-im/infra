@@ -18,7 +18,7 @@ use aircommon::{
         hash::Hash,
         hpke::{HpkeDecryptable, HpkeEncryptable},
         indexed_aead::keys::UserProfileBaseSecret,
-        kdf::keys::{ConnectionKey, ConnectionKeyType},
+        kdf::keys::ConnectionKeyType,
         signatures::{
             private_keys::SignatureVerificationError,
             signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
@@ -113,7 +113,6 @@ pub(crate) mod payload {
                 friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
                 friendship_package: FriendshipPackage {
                     friendship_token: FriendshipToken::random().unwrap(),
-                    connection_key: ConnectionKey::random().unwrap(),
                     wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
                     user_profile_base_secret: UserProfileBaseSecret::random().unwrap(),
                 },
@@ -284,7 +283,6 @@ impl HpkeDecryptable<ConnectionKeyType, EncryptedConnectionOffer> for Connection
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) struct FriendshipPackage {
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) connection_key: ConnectionKey,
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) user_profile_base_secret: UserProfileBaseSecret,
 }
