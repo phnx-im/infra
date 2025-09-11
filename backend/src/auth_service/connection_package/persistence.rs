@@ -20,9 +20,8 @@ impl StorableConnectionPackage {
         hash: &UserHandleHash,
     ) -> Result<(), StorageError> {
         let mut query_args = PgArguments::default();
-        let mut query_string = String::from(
-            "INSERT INTO handle_connection_packages (hash, connection_package) VALUES",
-        );
+        let mut query_string =
+            String::from("INSERT INTO handle_connection_package (hash, connection_package) VALUES");
 
         for (i, connection_package) in connection_packages.into_iter().enumerate() {
             let connection_package: StorableConnectionPackageRef = connection_package.into();
@@ -60,7 +59,7 @@ impl StorableConnectionPackage {
         let connection_package = sqlx::query_scalar!(
             r#"WITH next_connection_package AS (
                 SELECT id, connection_package
-                FROM handle_connection_packages
+                FROM handle_connection_package
                 WHERE hash = $1
                 LIMIT 1
                 FOR UPDATE -- make sure two concurrent queries don't return the same package
@@ -68,11 +67,11 @@ impl StorableConnectionPackage {
             ),
             remaining_packages AS (
                 SELECT COUNT(*) as count
-                FROM handle_connection_packages
+                FROM handle_connection_package
                 WHERE hash = $1
             ),
             deleted_package AS (
-                DELETE FROM handle_connection_packages
+                DELETE FROM handle_connection_package
                 WHERE id = (
                     SELECT id
                     FROM next_connection_package

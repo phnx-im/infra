@@ -204,6 +204,12 @@ impl UnvalidatedUserProfile {
     }
 }
 
+impl IndexedUserProfile {
+    pub(crate) fn decryption_key_index(&self) -> &UserProfileKeyIndex {
+        &self.decryption_key_index
+    }
+}
+
 #[derive(
     TlsSerialize, TlsDeserializeBytes, TlsSize, Clone, Serialize, Deserialize, PartialEq, Eq,
 )]

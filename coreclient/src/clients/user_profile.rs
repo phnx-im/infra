@@ -13,7 +13,6 @@ use anyhow::Context;
 use sqlx::SqliteConnection;
 
 use crate::{
-    Contact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
@@ -137,8 +136,6 @@ impl CoreUser {
         user_profile_key.store(&mut *connection).await?;
         persistable_user_profile
             .persist(&mut *connection, notifier)
-            .await?;
-        Contact::update_user_profile_key_index(&mut *connection, user_id, user_profile_key.index())
             .await?;
         if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
             // Delete the old user profile key

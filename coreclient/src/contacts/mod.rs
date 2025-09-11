@@ -8,8 +8,7 @@ use aircommon::{
     LibraryError,
     crypto::{
         ear::keys::{FriendshipPackageEarKey, WelcomeAttributionInfoEarKey},
-        indexed_aead::keys::{UserProfileKey, UserProfileKeyIndex},
-        kdf::keys::ConnectionKey,
+        indexed_aead::keys::UserProfileKey,
     },
     identifiers::{UserHandle, UserId},
     messages::{FriendshipToken, client_as::ConnectionOfferHash},
@@ -23,6 +22,7 @@ use crate::{
     clients::{api_clients::ApiClients, connection_offer::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
     key_stores::{as_credentials::AsCredentials, indexed_keys::StorableIndexedKey},
+    user_profiles::IndexedUserProfile,
 };
 use anyhow::{Context, Result, bail};
 
@@ -34,8 +34,6 @@ pub struct Contact {
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) connection_key: ConnectionKey,
-    pub(crate) user_profile_key_index: UserProfileKeyIndex,
     // ID of the connection conversation with this contact.
     pub(crate) conversation_id: ConversationId,
 }
@@ -52,17 +50,11 @@ impl Contact {
         conversation_id: ConversationId,
         friendship_package: FriendshipPackage,
     ) -> Result<Self, LibraryError> {
-        let user_profile_key = UserProfileKey::from_base_secret(
-            friendship_package.user_profile_base_secret,
-            &user_id,
-        )?;
         let contact = Self {
             user_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            connection_key: friendship_package.connection_key,
             conversation_id,
-            user_profile_key_index: user_profile_key.index().clone(),
         };
         Ok(contact)
     }
@@ -112,8 +104,11 @@ impl Contact {
             bail!("Client credential does not match");
         }
 
+        let user_profile = IndexedUserProfile::load(&mut *connection, &self.user_id)
+            .await?
+            .context("User profile not found")?;
         let user_profile_key =
-            UserProfileKey::load(&mut *connection, &self.user_profile_key_index).await?;
+            UserProfileKey::load(&mut *connection, user_profile.decryption_key_index()).await?;
 
         let add_info = ContactAddInfos {
             key_package: verified_key_package,

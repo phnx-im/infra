@@ -93,8 +93,7 @@ CREATE TABLE user_creation_state (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
     state BLOB NOT NULL,
-    PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (user_uuid, user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    PRIMARY KEY (user_uuid, user_domain)
 );
 
 CREATE TABLE own_client_info (
@@ -103,8 +102,7 @@ CREATE TABLE own_client_info (
     server_url TEXT NOT NULL,
     qs_user_id BLOB NOT NULL,
     qs_client_id BLOB NOT NULL,
-    PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (user_uuid, user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    PRIMARY KEY (user_uuid, user_domain)
 );
 
 CREATE TABLE user (
@@ -114,8 +112,7 @@ CREATE TABLE user (
     decryption_key_index BLOB NOT NULL,
     display_name TEXT NOT NULL,
     profile_picture BLOB,
-    PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (user_uuid, user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    PRIMARY KEY (user_uuid, user_domain)
 );
 
 CREATE TABLE "group" (
@@ -130,8 +127,7 @@ CREATE TABLE client_credential (
     fingerprint BLOB NOT NULL PRIMARY KEY,
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
-    client_credential BLOB NOT NULL,
-    FOREIGN KEY (user_uuid, user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    client_credential BLOB NOT NULL
 );
 
 CREATE INDEX idx_client_credential_user_id ON client_credential (user_uuid, user_domain);
@@ -149,12 +145,35 @@ CREATE TABLE group_membership (
     ),
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
+    client_credential_fingerprint BLOB NOT NULL,
     PRIMARY KEY (group_id, leaf_index, status),
-    FOREIGN KEY (group_id) REFERENCES "group" (group_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_uuid, user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credential (fingerprint)
 );
 
 CREATE TRIGGER delete_orphaned_data AFTER DELETE ON group_membership FOR EACH ROW BEGIN
+-- Delete client credentials if they are not our own and not used in any group.
+DELETE FROM client_credential
+WHERE
+    fingerprint = OLD.client_credential_fingerprint
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            group_membership
+        WHERE
+            client_credential_fingerprint = OLD.client_credential_fingerprint
+    )
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            own_client_info
+        WHERE
+            user_uuid = OLD.user_uuid
+            AND user_domain = OLD.user_domain
+    );
+
+-- Delete user profiles of users that are not in any group and that are not our own.
 DELETE FROM user
 WHERE
     user_uuid = OLD.user_uuid
@@ -203,8 +222,7 @@ CREATE TABLE conversation (
     connection_user_domain TEXT,
     is_confirmed_connection BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    connection_user_handle TEXT,
-    FOREIGN KEY (group_id) REFERENCES "group" (group_id) ON DELETE CASCADE
+    connection_user_handle TEXT
 );
 
 CREATE INDEX idx_conversation_connection_user ON conversation (connection_user_uuid, connection_user_domain);
@@ -218,8 +236,7 @@ CREATE TABLE conversation_past_member (
         member_user_uuid,
         member_user_domain
     ),
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE,
-    FOREIGN KEY (member_user_uuid, member_user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_conversation_past_member_conversation_id ON conversation_past_member (conversation_id);
@@ -231,7 +248,6 @@ CREATE TABLE contact (
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
     PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (user_uuid, user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE,
     FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE
 );
 
@@ -249,8 +265,7 @@ CREATE TABLE message (
     mimi_id BLOB,
     status INT NOT NULL DEFAULT 0,
     edited_at TEXT,
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-    FOREIGN KEY (sender_user_uuid, sender_user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE INDEX idx_message_conversation_id ON message (conversation_id);
@@ -304,14 +319,15 @@ CREATE TABLE user_handle (
 );
 
 CREATE TABLE user_handle_contact (
+    -- Not referencing the user_handle table, because we don't want to delete
+    -- the contact when the user handle is deleted.
     user_handle TEXT NOT NULL PRIMARY KEY,
     -- 1:1 relationship with conversation
     conversation_id BLOB NOT NULL UNIQUE,
     friendship_package_ear_key BLOB NOT NULL,
     created_at TEXT NOT NULL,
     connection_offer_hash BLOB NOT NULL,
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_handle) REFERENCES user_handle (handle) ON DELETE CASCADE
+    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE
 );
 
 CREATE TABLE attachment (
@@ -371,8 +387,7 @@ CREATE TABLE message_status (
     status INT NOT NULL,
     created_at TEXT NOT NULL,
     PRIMARY KEY (message_id, sender_user_domain, sender_user_uuid),
-    FOREIGN KEY (message_id) REFERENCES message (message_id) ON DELETE CASCADE,
-    FOREIGN KEY (sender_user_uuid, sender_user_domain) REFERENCES client_record (user_uuid, user_domain) ON DELETE CASCADE
+    FOREIGN KEY (message_id) REFERENCES message (message_id) ON DELETE CASCADE
 );
 
 CREATE TABLE message_edit (
