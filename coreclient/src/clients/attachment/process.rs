@@ -32,7 +32,7 @@ impl CoreUser {
         let mut records = Vec::new();
 
         let conversation_id = message.conversation_id();
-        let conversation_message_id = message.id();
+        let message_id = message.id();
         let created_at = message.timestamp();
 
         let Some(mimi_content) = message.message_mut().mimi_content_mut() else {
@@ -71,7 +71,7 @@ impl CoreUser {
             let record = AttachmentRecord {
                 attachment_id,
                 conversation_id,
-                conversation_message_id,
+                message_id,
                 content_type: content_type.clone(),
                 status: AttachmentStatus::Pending,
                 created_at,

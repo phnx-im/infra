@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                client_credential AS \"client_credential: _\"\n            FROM client_credential\n            WHERE fingerprint = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "client_credential: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a2bef2d61c0db003b5fe8713504b139bd5886a324862a5cd336bf00d46874288"
+}

@@ -86,14 +86,14 @@ impl Group {
         let pending_diff = self.pending_diff.as_ref().map(BlobEncoded);
 
         query!(
-            "INSERT INTO groups (
+            r#"INSERT INTO "group" (
                 group_id,
                 identity_link_wrapper_key,
                 group_state_ear_key,
                 pending_diff,
                 room_state
             )
-            VALUES (?, ?, ?, ?, ?)",
+            VALUES (?, ?, ?, ?, ?)"#,
             group_id,
             self.identity_link_wrapper_key,
             self.group_state_ear_key,
@@ -156,7 +156,7 @@ impl Group {
                 group_state_ear_key AS "group_state_ear_key: _",
                 pending_diff AS "pending_diff: _",
                 room_state AS "room_state: _"
-            FROM groups WHERE group_id = ?"#,
+            FROM "group" WHERE group_id = ?"#,
             group_id
         )
         .fetch_optional(connection)
@@ -177,8 +177,8 @@ impl Group {
                 g.group_state_ear_key AS "group_state_ear_key: _",
                 g.pending_diff AS "pending_diff: _",
                 g.room_state AS "room_state: _"
-            FROM groups g
-            INNER JOIN conversations c ON c.group_id = g.group_id
+            FROM "group" g
+            INNER JOIN conversation c ON c.group_id = g.group_id
             WHERE c.conversation_id = ?
             "#,
             conversation_id
@@ -203,12 +203,12 @@ impl Group {
         let pending_diff = self.pending_diff.as_ref().map(BlobEncoded);
         let room_state = BlobEncoded(&self.room_state);
         query!(
-            "UPDATE groups SET
+            r#"UPDATE "group" SET
                 identity_link_wrapper_key = ?,
                 group_state_ear_key = ?,
                 pending_diff = ?,
                 room_state = ?
-            WHERE group_id = ?",
+            WHERE group_id = ?"#,
             self.identity_link_wrapper_key,
             self.group_state_ear_key,
             pending_diff,
@@ -229,7 +229,7 @@ impl Group {
             group.mls_group.delete(provider.storage())?;
         };
         let group_id = GroupIdRefWrapper::from(group_id);
-        query!("DELETE FROM groups WHERE group_id = ?", group_id)
+        query!(r#"DELETE FROM "group" WHERE group_id = ?"#, group_id)
             .execute(txn.as_mut())
             .await?;
         Ok(())
@@ -243,7 +243,7 @@ impl Group {
         }
         let group_ids = query_as!(
             SqlGroupId,
-            r#"SELECT group_id AS "group_id: _" FROM groups"#,
+            r#"SELECT group_id AS "group_id: _" FROM "group""#,
         )
         .fetch_all(connection)
         .await?;

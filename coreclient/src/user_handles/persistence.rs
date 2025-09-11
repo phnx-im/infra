@@ -66,7 +66,7 @@ impl UserHandleRecord {
                     handle AS "handle: _",
                     hash AS "hash: _",
                     signing_key AS "signing_key: _"
-                FROM user_handles
+                FROM user_handle
                 WHERE handle = ?
             "#,
             handle
@@ -84,7 +84,7 @@ impl UserHandleRecord {
                     handle AS "handle: _",
                     hash AS "hash: _",
                     signing_key AS "signing_key: _"
-                FROM user_handles
+                FROM user_handle
                 ORDER BY created_at ASC
             "#,
         )
@@ -99,7 +99,7 @@ impl UserHandleRecord {
         query_scalar!(
             r#"
                 SELECT handle AS "handle: _"
-                FROM user_handles
+                FROM user_handle
                 ORDER BY created_at ASC
             "#
         )
@@ -113,7 +113,7 @@ impl UserHandleRecord {
         let refreshed_at = created_at;
         query!(
             r#"
-                INSERT INTO user_handles (
+                INSERT INTO user_handle (
                     handle,
                     hash,
                     signing_key,
@@ -138,7 +138,7 @@ impl UserHandleRecord {
     ) -> sqlx::Result<()> {
         query!(
             r#"
-                DELETE FROM user_handles
+                DELETE FROM user_handle
                 WHERE handle = ?
             "#,
             handle,

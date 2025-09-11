@@ -20,7 +20,7 @@ use crate::{ConversationId, ConversationMessageId, store::StoreNotifier};
 pub(crate) struct AttachmentRecord {
     pub(super) attachment_id: AttachmentId,
     pub(super) conversation_id: ConversationId,
-    pub(super) conversation_message_id: ConversationMessageId,
+    pub(super) message_id: ConversationMessageId,
     pub(super) content_type: String,
     pub(super) status: AttachmentStatus,
     pub(super) created_at: DateTime<Utc>,
@@ -125,10 +125,10 @@ impl AttachmentRecord {
         content: Option<&[u8]>,
     ) -> sqlx::Result<()> {
         query!(
-            "INSERT INTO attachments (
+            "INSERT INTO attachment (
                 attachment_id,
                 conversation_id,
-                conversation_message_id,
+                message_id,
                 content_type,
                 content,
                 status,
@@ -136,7 +136,7 @@ impl AttachmentRecord {
             ) VALUES (?, ?, ?, ?, ?, ?, ?)",
             self.attachment_id,
             self.conversation_id,
-            self.conversation_message_id,
+            self.message_id,
             self.content_type,
             content,
             self.status,
@@ -154,7 +154,7 @@ impl AttachmentRecord {
         query_scalar!(
             r#"SELECT
                 attachment_id AS "attachment_id: AttachmentId"
-            FROM attachments
+            FROM attachment
             WHERE status = ?
             ORDER BY created_at ASC"#,
             AttachmentStatus::Pending
@@ -173,11 +173,11 @@ impl AttachmentRecord {
                 SELECT
                     attachment_id AS "attachment_id: _",
                     conversation_id AS "conversation_id: _",
-                    conversation_message_id AS "conversation_message_id: _",
+                    message_id AS "message_id: _",
                     content_type AS "content_type: _",
                     status AS "status: _",
                     created_at AS "created_at: _"
-                FROM attachments
+                FROM attachment
                 WHERE attachment_id = ?"#,
             attachment_id
         )
@@ -191,7 +191,7 @@ impl AttachmentRecord {
         status: AttachmentStatus,
     ) -> sqlx::Result<()> {
         query!(
-            "UPDATE attachments SET status = ? WHERE attachment_id = ?",
+            "UPDATE attachment SET status = ? WHERE attachment_id = ?",
             status,
             attachment_id,
         )
@@ -207,7 +207,7 @@ impl AttachmentRecord {
         bytes: &[u8],
     ) -> sqlx::Result<()> {
         query!(
-            "UPDATE attachments SET status = ?, content = ? WHERE attachment_id = ?",
+            "UPDATE attachment SET status = ?, content = ? WHERE attachment_id = ?",
             AttachmentStatus::Ready,
             bytes,
             attachment_id,
@@ -231,7 +231,7 @@ impl AttachmentRecord {
             r#"SELECT
                 content,
                 status AS "status: _"
-            FROM attachments WHERE attachment_id = ?"#,
+            FROM attachment WHERE attachment_id = ?"#,
             attachment_id
         )
         .fetch_optional(executor)
@@ -266,7 +266,7 @@ impl PendingAttachmentRecord {
         let enc_alg: i64 = self.enc_alg.repr().into();
         let hash_alg: i64 = self.hash_alg.repr().into();
         query!(
-            "INSERT INTO pending_attachments (
+            "INSERT INTO pending_attachment (
                 attachment_id,
                 size,
                 enc_alg,
@@ -316,8 +316,8 @@ impl PendingAttachmentRecord {
                     pa.aad AS "aad: _",
                     pa.hash_alg AS "hash_alg: _",
                     pa.hash AS "hash: _"
-                FROM pending_attachments pa
-                INNER JOIN attachments a ON a.attachment_id = pa.attachment_id
+                FROM pending_attachment pa
+                INNER JOIN attachment a ON a.attachment_id = pa.attachment_id
                 WHERE pa.attachment_id = ? AND a.status = 1
             "#,
             attachment_id
@@ -353,7 +353,7 @@ impl PendingAttachmentRecord {
         attachment_id: AttachmentId,
     ) -> sqlx::Result<()> {
         query!(
-            "DELETE FROM pending_attachments WHERE attachment_id = ?",
+            "DELETE FROM pending_attachment WHERE attachment_id = ?",
             attachment_id
         )
         .execute(executor)
@@ -382,7 +382,7 @@ mod test {
         AttachmentRecord {
             attachment_id: AttachmentId::new(Uuid::new_v4()),
             conversation_id,
-            conversation_message_id: message_id,
+            message_id,
             content_type: "image/png".to_string(),
             status: AttachmentStatus::Pending,
             created_at: Utc::now().round_subsecs(6),
@@ -504,6 +504,8 @@ mod test {
 
     #[sqlx::test]
     async fn pending_attachment_record_cycle(pool: Pool<Sqlite>) -> anyhow::Result<()> {
+        tracing_subscriber::fmt::try_init().ok();
+
         let mut notifier = StoreNotifier::noop();
         let conversation = test_conversation();
         conversation
@@ -606,7 +608,7 @@ mod test {
         let record = AttachmentRecord {
             attachment_id,
             conversation_id: conversation.id(),
-            conversation_message_id: message.id(),
+            message_id: message.id(),
             content_type: "image/png".to_string(),
             status: AttachmentStatus::Pending,
             created_at,

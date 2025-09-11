@@ -26,7 +26,7 @@ impl StorableClientCredential {
         query_scalar!(
             r#"SELECT
                 client_credential AS "client_credential: _"
-            FROM client_credentials
+            FROM client_credential
             WHERE fingerprint = ?"#,
             credential_fingerprint
         )
@@ -44,7 +44,7 @@ impl StorableClientCredential {
         query_scalar!(
             r#"SELECT
                 client_credential AS "client_credential: _"
-            FROM client_credentials
+            FROM client_credential
             WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain,
@@ -61,7 +61,7 @@ impl StorableClientCredential {
         let uuid = user_id.uuid();
         let domain = user_id.domain();
         query!(
-            "INSERT OR IGNORE INTO client_credentials
+            "INSERT OR IGNORE INTO client_credential
                 (fingerprint, user_uuid, user_domain, client_credential) VALUES (?, ?, ?, ?)",
             fingerprint,
             uuid,

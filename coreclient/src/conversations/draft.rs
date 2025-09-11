@@ -40,7 +40,7 @@ mod persistence {
                         message,
                         editing_id AS "editing_id: _",
                         updated_at AS "updated_at: _"
-                    FROM conversation_message_draft
+                    FROM message_draft
                     WHERE conversation_id = ?
                 "#,
                 conversation_id
@@ -56,7 +56,7 @@ mod persistence {
             conversation_id: ConversationId,
         ) -> sqlx::Result<()> {
             query!(
-                "INSERT OR REPLACE INTO conversation_message_draft (
+                "INSERT OR REPLACE INTO message_draft (
                     conversation_id,
                     message,
                     editing_id,
@@ -79,7 +79,7 @@ mod persistence {
             conversation_id: ConversationId,
         ) -> sqlx::Result<()> {
             query!(
-                "DELETE FROM conversation_message_draft WHERE conversation_id = ?",
+                "DELETE FROM message_draft WHERE conversation_id = ?",
                 conversation_id
             )
             .execute(executor)
