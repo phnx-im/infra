@@ -13,9 +13,8 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 
 use crate::{
-    AttachmentContent, Contact, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId, DownloadProgress, MessageDraft, contacts::HandleContact,
-    user_handles::UserHandleRecord, user_profiles::UserProfile,
+    AttachmentContent, Chat, ChatId, ChatMessage, Contact, DownloadProgress, MessageDraft,
+    MessageId, contacts::HandleContact, user_handles::UserHandleRecord, user_profiles::UserProfile,
 };
 
 pub use notification::{StoreEntityId, StoreNotification, StoreOperation};
@@ -30,9 +29,9 @@ pub type StoreResult<T> = anyhow::Result<T>;
 
 /// Unified access to the client data
 ///
-/// This trait is used to access the client data, e.g. the user profile, the conversations or
-/// the messages. Additionaly, it is used to listen to changes in the client data via the
-/// [`Self::subscribe`] method and the [`StoreNotification`] type.
+/// This trait is used to access the client data, e.g. the user profile, the chats or the messages.
+/// Additionaly, it is used to listen to changes in the client data via the [`Self::subscribe`]
+/// method and the [`StoreNotification`] type.
 #[allow(async_fn_in_trait, reason = "trait is only used in the workspace")]
 #[trait_variant::make(Send)]
 pub trait Store {
@@ -70,109 +69,87 @@ pub trait Store {
         user_handle: &UserHandle,
     ) -> StoreResult<UserHandleDeleteResponse>;
 
-    // conversations
+    // chats
 
-    /// Create new conversation.
+    /// Create new chat
     ///
-    /// Returns the id of the newly created conversation.
-    async fn create_conversation(
-        &self,
-        title: String,
-        picture: Option<Vec<u8>>,
-    ) -> StoreResult<ConversationId>;
+    /// Returns the id of the newly created chat.
+    async fn create_chat(&self, title: String, picture: Option<Vec<u8>>) -> StoreResult<ChatId>;
 
-    async fn set_conversation_picture(
-        &self,
-        conversation_id: ConversationId,
-        picture: Option<Vec<u8>>,
-    ) -> StoreResult<()>;
+    async fn set_chat_picture(&self, chat_id: ChatId, picture: Option<Vec<u8>>) -> StoreResult<()>;
 
-    async fn conversations(&self) -> StoreResult<Vec<Conversation>>;
+    async fn chats(&self) -> StoreResult<Vec<Chat>>;
 
-    async fn conversation_participants(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Option<HashSet<UserId>>>;
+    async fn chat_participants(&self, chat_id: ChatId) -> StoreResult<Option<HashSet<UserId>>>;
 
-    /// Mark the conversation with the given [`ConversationId`] as read until the given message id
-    /// (including).
+    /// Mark the chat with the given [`ChatId`] as read until the given message id (including).
     ///
-    /// Returns whether the conversation was marked as read and the mimi ids of the messages that
-    /// were marked as read.
-    async fn mark_conversation_as_read(
+    /// Returns whether the chat was marked as read and the mimi ids of the messages that were
+    /// marked as read.
+    async fn mark_chat_as_read(
         &self,
-        conversation_id: ConversationId,
-        until: ConversationMessageId,
+        chat_id: ChatId,
+        until: MessageId,
     ) -> StoreResult<(bool, Vec<MimiId>)>;
 
-    /// Delete the conversation with the given [`ConversationId`].
+    /// Delete the chat with the given [`ChatId`].
     ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
-    async fn delete_conversation(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Vec<ConversationMessage>>;
+    /// Since this function causes the creation of an MLS commit, it can cause more than one effect
+    /// on the group. As a result this function returns a vector of [`ChatMessage`]s that
+    /// represents the changes to the group. Note that these returned message have already been
+    /// persisted.
+    async fn delete_chat(&self, chat_id: ChatId) -> StoreResult<Vec<ChatMessage>>;
 
-    async fn leave_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
+    async fn leave_chat(&self, chat_id: ChatId) -> StoreResult<()>;
 
-    /// Erases the conversation data with the given [`ConversationId`].
+    /// Erases the chat data with the given [`ChatId`].
     ///
-    /// Must not be called before the conversation is deleted.
-    async fn erase_conversation(&self, conversation_id: ConversationId) -> StoreResult<()>;
+    /// Must not be called before the chat is deleted.
+    async fn erase_chat(&self, chat_id: ChatId) -> StoreResult<()>;
 
     // user management
 
-    /// Update the user's key material in the conversation with the given
-    /// [`ConversationId`].
+    /// Update the user's key material in the chat with the given [`ChatId`].
     ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
-    async fn update_key(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Vec<ConversationMessage>>;
+    /// Since this function causes the creation of an MLS commit, it can cause more than one effect
+    /// on the group. As a result this function returns a vector of [`ChatMessage`]s that
+    /// represents the changes to the group. Note that these returned message have already been
+    /// persisted.
+    async fn update_key(&self, chat_id: ChatId) -> StoreResult<Vec<ChatMessage>>;
 
-    /// Remove users from the conversation with the given [`ConversationId`].
+    /// Remove users from the chat with the given [`ChatId`].
     ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
+    /// Since this function causes the creation of an MLS commit, it can cause more than one effect
+    /// on the group. As a result this function returns a vector of [`ChatMessage`]s that
+    /// represents the changes to the group. Note that these returned message have already been
+    /// persisted.
     async fn remove_users(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         target_users: Vec<UserId>,
-    ) -> StoreResult<Vec<ConversationMessage>>;
+    ) -> StoreResult<Vec<ChatMessage>>;
 
-    /// Invite users to an existing conversation.
+    /// Invite users to an existing chat.
     ///
-    /// Since this function causes the creation of an MLS commit, it can cause
-    /// more than one effect on the group. As a result this function returns a
-    /// vector of [`ConversationMessage`]s that represents the changes to the
-    /// group. Note that these returned message have already been persisted.
+    /// Since this function causes the creation of an MLS commit, it can cause more than one effect
+    /// on the group. As a result this function returns a vector of [`ChatMessage`]s that
+    /// represents the changes to the group. Note that these group. Note that these returned
+    /// message have already been persisted.
     async fn invite_users(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         invited_users: &[UserId],
-    ) -> StoreResult<Vec<ConversationMessage>>;
+    ) -> StoreResult<Vec<ChatMessage>>;
 
-    async fn load_room_state(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<(UserId, VerifiedRoomState)>;
+    async fn load_room_state(&self, chat_id: ChatId) -> StoreResult<(UserId, VerifiedRoomState)>;
 
     // contacts
 
     /// Create a connection with a new user via their user handle.
     ///
-    /// Returns the [`ConversationId`] of the newly created connection
-    /// conversation, or `None` if the user handle does not exist.
-    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ConversationId>>;
+    /// Returns the [`ChatId`] of the newly created connection
+    /// chat, or `None` if the user handle does not exist.
+    async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ChatId>>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
@@ -184,68 +161,49 @@ pub trait Store {
 
     // messages
 
-    async fn messages(
-        &self,
-        conversation_id: ConversationId,
-        limit: usize,
-    ) -> StoreResult<Vec<ConversationMessage>>;
+    async fn messages(&self, chat_id: ChatId, limit: usize) -> StoreResult<Vec<ChatMessage>>;
 
-    async fn message(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    async fn message(&self, message_id: MessageId) -> StoreResult<Option<ChatMessage>>;
 
-    async fn prev_message(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    async fn prev_message(&self, message_id: MessageId) -> StoreResult<Option<ChatMessage>>;
 
-    async fn next_message(
-        &self,
-        message_id: ConversationMessageId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    async fn next_message(&self, message_id: MessageId) -> StoreResult<Option<ChatMessage>>;
 
-    async fn last_message(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    async fn last_message(&self, chat_id: ChatId) -> StoreResult<Option<ChatMessage>>;
 
     async fn last_message_by_user(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         user_id: &UserId,
-    ) -> StoreResult<Option<ConversationMessage>>;
+    ) -> StoreResult<Option<ChatMessage>>;
 
-    async fn message_draft(
-        &self,
-        conversation_id: ConversationId,
-    ) -> StoreResult<Option<MessageDraft>>;
+    async fn message_draft(&self, chat_id: ChatId) -> StoreResult<Option<MessageDraft>>;
 
     async fn store_message_draft(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         message_draft: Option<&MessageDraft>,
     ) -> StoreResult<()>;
 
-    async fn messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
+    async fn messages_count(&self, chat_id: ChatId) -> StoreResult<usize>;
 
-    async fn unread_messages_count(&self, conversation_id: ConversationId) -> StoreResult<usize>;
+    async fn unread_messages_count(&self, chat_id: ChatId) -> StoreResult<usize>;
 
     async fn global_unread_messages_count(&self) -> StoreResult<usize>;
 
     async fn send_message(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         content: MimiContent,
-        replaces_id: Option<ConversationMessageId>,
-    ) -> StoreResult<ConversationMessage>;
+        replaces_id: Option<MessageId>,
+    ) -> StoreResult<ChatMessage>;
 
     /// Sends a delivery receipt for the message with the given MimiId.
     ///
     /// Also stores the message status report locally.
     async fn send_delivery_receipts<'a>(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
     ) -> StoreResult<()>;
 
@@ -253,11 +211,7 @@ pub trait Store {
 
     // attachments
 
-    async fn upload_attachment(
-        &self,
-        conversation_id: ConversationId,
-        path: &Path,
-    ) -> StoreResult<ConversationMessage>;
+    async fn upload_attachment(&self, chat_id: ChatId, path: &Path) -> StoreResult<ChatMessage>;
 
     fn download_attachment(
         &self,

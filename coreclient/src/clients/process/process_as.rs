@@ -32,19 +32,19 @@ use crate::{
 };
 
 use super::{
-    AsCredentials, Contact, Conversation, ConversationAttributes, ConversationId, CoreUser,
-    EarEncryptable, FriendshipPackage, anyhow,
+    AsCredentials, Chat, ChatAttributes, ChatId, Contact, CoreUser, EarEncryptable,
+    FriendshipPackage, anyhow,
 };
 
 impl CoreUser {
     /// Process a queue message received from the AS handle queue.
     ///
-    /// Returns the [`ConversationId`] of any newly created conversations.
+    /// Returns the [`ChatId`] of any newly created chat.
     pub async fn process_handle_queue_message(
         &self,
         user_handle: &UserHandle,
         handle_queue_message: HandleQueueMessage,
-    ) -> Result<ConversationId> {
+    ) -> Result<ChatId> {
         let payload = handle_queue_message
             .payload
             .context("no payload in handle queue message")?;
@@ -60,7 +60,7 @@ impl CoreUser {
         &self,
         handle: UserHandle,
         ecep: ConnectionOfferMessage,
-    ) -> Result<ConversationId> {
+    ) -> Result<ChatId> {
         let mut connection = self.pool().acquire().await?;
 
         let connection_offer_hash = ecep.connection_offer_hash();
@@ -124,10 +124,10 @@ impl CoreUser {
         })
         .await?;
 
-        // Create conversation
-        // Note: For now, the conversation is immediately confirmed.
-        let (mut conversation, contact) = self
-            .create_connection_conversation(&mut connection, &group, &cep_payload)
+        // Create chat
+        // Note: For now, the chat is immediately confirmed.
+        let (mut chat, contact) = self
+            .create_connection_chat(&mut connection, &group, &cep_payload)
             .await?;
 
         group.room_state_change_role(
@@ -138,17 +138,11 @@ impl CoreUser {
 
         let mut notifier = self.store_notifier();
 
-        // Store group, conversation & contact
+        // Store group, chat & contact
         connection
             .with_transaction(async |txn| {
-                self.store_group_conversation_contact(
-                    txn,
-                    &mut notifier,
-                    &group,
-                    &mut conversation,
-                    contact,
-                )
-                .await
+                self.store_group_chat_contact(txn, &mut notifier, &group, &mut chat, contact)
+                    .await
             })
             .await?;
 
@@ -163,8 +157,8 @@ impl CoreUser {
 
         notifier.notify();
 
-        // Return the conversation ID
-        Ok(conversation.id())
+        // Return the chat ID
+        Ok(chat.id())
     }
 
     /// Parse and verify the connection offer
@@ -282,12 +276,12 @@ impl CoreUser {
         Ok((group, commit, group_info, member_profile_info))
     }
 
-    async fn create_connection_conversation(
+    async fn create_connection_chat(
         &self,
         connection: &mut SqliteConnection,
         group: &Group,
         cep_payload: &ConnectionOfferPayload,
-    ) -> Result<(Conversation, Contact)> {
+    ) -> Result<(Chat, Contact)> {
         let sender_user_id = cep_payload.sender_client_credential.identity();
 
         let display_name = self
@@ -295,29 +289,29 @@ impl CoreUser {
             .await
             .display_name;
 
-        let conversation = Conversation::new_connection_conversation(
+        let chat = Chat::new_connection_chat(
             group.group_id().clone(),
             sender_user_id.clone(),
-            ConversationAttributes::new(display_name.to_string(), None),
+            ChatAttributes::new(display_name.to_string(), None),
         )?;
         let contact = Contact::from_friendship_package(
             sender_user_id.clone(),
-            conversation.id(),
+            chat.id(),
             cep_payload.friendship_package.clone(),
         )?;
-        Ok((conversation, contact))
+        Ok((chat, contact))
     }
 
-    async fn store_group_conversation_contact(
+    async fn store_group_chat_contact(
         &self,
         txn: &mut SqliteTransaction<'_>,
         notifier: &mut StoreNotifier,
         group: &Group,
-        conversation: &mut Conversation,
+        chat: &mut Chat,
         contact: Contact,
     ) -> Result<()> {
         group.store(txn.as_mut()).await?;
-        conversation.store(txn.as_mut(), notifier).await?;
+        chat.store(txn.as_mut(), notifier).await?;
         contact.upsert(txn.as_mut(), notifier).await?;
         Ok(())
     }

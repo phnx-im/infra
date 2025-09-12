@@ -31,19 +31,18 @@ class ConversationDetailsScreenView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversationExists = context.select(
+    final chatExists = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Intro() => false,
-        NavigationState_Home(:final home) => home.conversationId != null,
+        NavigationState_Home(:final home) => home.chatId != null,
       },
     );
-    if (!conversationExists) {
+    if (!chatExists) {
       return const SizedBox.shrink();
     }
 
-    final conversationType = context.select(
-      (ConversationDetailsCubit cubit) =>
-          cubit.state.conversation?.conversationType,
+    final chatType = context.select(
+      (ConversationDetailsCubit cubit) => cubit.state.chat?.chatType,
     );
 
     final loc = AppLocalizations.of(context);
@@ -56,10 +55,10 @@ class ConversationDetailsScreenView extends StatelessWidget {
         title: Text(loc.conversationDetailsScreen_title),
       ),
       body: SafeArea(
-        child: switch (conversationType) {
-          UiConversationType_HandleConnection() ||
-          UiConversationType_Connection() => const ConnectionDetails(),
-          UiConversationType_Group() => const GroupDetails(),
+        child: switch (chatType) {
+          UiChatType_HandleConnection() ||
+          UiChatType_Connection() => const ConnectionDetails(),
+          UiChatType_Group() => const GroupDetails(),
           null => Center(
             child: Text(loc.conversationDetailsScreen_unknownConversation),
           ),

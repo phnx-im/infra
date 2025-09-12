@@ -10,7 +10,7 @@ use sqlx::{
     query, query_as, query_scalar,
 };
 
-use crate::{ConversationId, ConversationMessageId, store::StoreNotifier};
+use crate::{ChatId, MessageId, store::StoreNotifier};
 
 /// A record of an attachment.
 ///
@@ -19,8 +19,8 @@ use crate::{ConversationId, ConversationMessageId, store::StoreNotifier};
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(crate) struct AttachmentRecord {
     pub(super) attachment_id: AttachmentId,
-    pub(super) conversation_id: ConversationId,
-    pub(super) message_id: ConversationMessageId,
+    pub(super) chat_id: ChatId,
+    pub(super) message_id: MessageId,
     pub(super) content_type: String,
     pub(super) status: AttachmentStatus,
     pub(super) created_at: DateTime<Utc>,
@@ -127,7 +127,7 @@ impl AttachmentRecord {
         query!(
             "INSERT INTO attachment (
                 attachment_id,
-                conversation_id,
+                chat_id,
                 message_id,
                 content_type,
                 content,
@@ -135,7 +135,7 @@ impl AttachmentRecord {
                 created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?)",
             self.attachment_id,
-            self.conversation_id,
+            self.chat_id,
             self.message_id,
             self.content_type,
             content,
@@ -172,7 +172,7 @@ impl AttachmentRecord {
             r#"
                 SELECT
                     attachment_id AS "attachment_id: _",
-                    conversation_id AS "conversation_id: _",
+                    chat_id AS "chat_id: _",
                     message_id AS "message_id: _",
                     content_type AS "content_type: _",
                     status AS "status: _",
@@ -369,19 +369,15 @@ mod test {
     use uuid::Uuid;
 
     use crate::conversations::{
-        messages::persistence::tests::test_conversation_message,
-        persistence::tests::test_conversation,
+        messages::persistence::tests::test_chat_message, persistence::tests::test_chat,
     };
 
     use super::*;
 
-    fn test_attachment_record(
-        conversation_id: ConversationId,
-        message_id: ConversationMessageId,
-    ) -> AttachmentRecord {
+    fn test_attachment_record(chat_id: ChatId, message_id: MessageId) -> AttachmentRecord {
         AttachmentRecord {
             attachment_id: AttachmentId::new(Uuid::new_v4()),
-            conversation_id,
+            chat_id,
             message_id,
             content_type: "image/png".to_string(),
             status: AttachmentStatus::Pending,
@@ -392,13 +388,12 @@ mod test {
     #[sqlx::test]
     async fn attachment_record_store_and_load(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
         message.store(&pool, &mut notifier).await?;
-        let record = test_attachment_record(conversation.id(), message.id());
+        let record = test_attachment_record(chat.id(), message.id());
 
         // Store the record
         record.store(&pool, &mut notifier, None).await?;
@@ -413,13 +408,12 @@ mod test {
     #[sqlx::test]
     async fn attachment_content_lifecycle(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
         message.store(&pool, &mut notifier).await?;
-        let record = test_attachment_record(conversation.id(), message.id());
+        let record = test_attachment_record(chat.id(), message.id());
 
         // 1. Store the record with no content, status should be Pending.
         record.store(&pool, &mut notifier, None).await?;
@@ -462,26 +456,25 @@ mod test {
     #[sqlx::test]
     async fn load_all_pending_attachments(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
         message.store(&pool, &mut notifier).await?;
 
         // Create and store a few attachments with different statuses
         let created_at = Utc::now().round_subsecs(6);
-        let mut pending_record_1 = test_attachment_record(conversation.id(), message.id());
+        let mut pending_record_1 = test_attachment_record(chat.id(), message.id());
         pending_record_1.created_at = created_at;
         pending_record_1.store(&pool, &mut notifier, None).await?;
 
         let downloading_record = AttachmentRecord {
             status: AttachmentStatus::Downloading,
-            ..test_attachment_record(conversation.id(), message.id())
+            ..test_attachment_record(chat.id(), message.id())
         };
         downloading_record.store(&pool, &mut notifier, None).await?;
 
-        let mut pending_record_2 = test_attachment_record(conversation.id(), message.id());
+        let mut pending_record_2 = test_attachment_record(chat.id(), message.id());
         pending_record_2.created_at = created_at
             .checked_add_signed(chrono::Duration::milliseconds(10))
             .unwrap();
@@ -507,15 +500,14 @@ mod test {
         tracing_subscriber::fmt::try_init().ok();
 
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
         message.store(&pool, &mut notifier).await?;
 
         // 1. Create the base AttachmentRecord in Pending state
-        let attachment_record = test_attachment_record(conversation.id(), message.id());
+        let attachment_record = test_attachment_record(chat.id(), message.id());
         attachment_record.store(&pool, &mut notifier, None).await?;
 
         // 2. Create and store the PendingAttachmentRecord
@@ -552,15 +544,14 @@ mod test {
         pool: Pool<Sqlite>,
     ) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
         message.store(&pool, &mut notifier).await?;
 
         // 1. Create the base AttachmentRecord and a PendingAttachmentRecord
-        let attachment_record = test_attachment_record(conversation.id(), message.id());
+        let attachment_record = test_attachment_record(chat.id(), message.id());
         attachment_record.store(&pool, &mut notifier, None).await?;
 
         let pending_record = PendingAttachmentRecord {
@@ -595,11 +586,10 @@ mod test {
     async fn attachment_record_update_status(pool: Pool<Sqlite>) -> anyhow::Result<()> {
         let mut notifier = StoreNotifier::noop();
 
-        let conversation = test_conversation();
-        conversation
-            .store(pool.acquire().await?.as_mut(), &mut notifier)
+        let chat = test_chat();
+        chat.store(pool.acquire().await?.as_mut(), &mut notifier)
             .await?;
-        let message = test_conversation_message(conversation.id());
+        let message = test_chat_message(chat.id());
         message.store(&pool, &mut notifier).await?;
 
         let attachment_id = AttachmentId::new(Uuid::new_v4());
@@ -607,7 +597,7 @@ mod test {
 
         let record = AttachmentRecord {
             attachment_id,
-            conversation_id: conversation.id(),
+            chat_id: chat.id(),
             message_id: message.id(),
             content_type: "image/png".to_string(),
             status: AttachmentStatus::Pending,

@@ -25,19 +25,19 @@ pub(crate) mod persistence;
 mod sqlx_support;
 pub(crate) mod status;
 
-/// Id of a conversation
+/// Id of a chat
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ConversationId {
+pub struct ChatId {
     pub uuid: Uuid,
 }
 
-impl Display for ConversationId {
+impl Display for ChatId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.uuid)
     }
 }
 
-impl ConversationId {
+impl ChatId {
     pub fn random() -> Self {
         Self {
             uuid: Uuid::new_v4(),
@@ -53,87 +53,83 @@ impl ConversationId {
     }
 }
 
-impl From<Uuid> for ConversationId {
+impl From<Uuid> for ChatId {
     fn from(uuid: Uuid) -> Self {
         Self { uuid }
     }
 }
 
-impl TryFrom<&GroupId> for ConversationId {
+impl TryFrom<&GroupId> for ChatId {
     type Error = tls_codec::Error;
 
     fn try_from(value: &GroupId) -> Result<Self, Self::Error> {
         let qgid = QualifiedGroupId::try_from(value.clone())?;
-        let conversation_id = Self {
+        let chat_id = Self {
             uuid: qgid.group_uuid(),
         };
-        Ok(conversation_id)
+        Ok(chat_id)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Conversation {
-    pub id: ConversationId,
-    // Id of the (active) MLS group representing this conversation.
+pub struct Chat {
+    pub id: ChatId,
+    // Id of the (active) MLS group representing this chat.
     pub group_id: GroupId,
     // The timestamp of the last message that was (marked as) read by the user.
     pub last_read: DateTime<Utc>,
-    pub status: ConversationStatus,
-    pub conversation_type: ConversationType,
-    pub attributes: ConversationAttributes,
+    pub status: ChatStatus,
+    pub chat_type: ChatType,
+    pub attributes: ChatAttributes,
 }
 
-impl Conversation {
-    pub(crate) fn new_connection_conversation(
+impl Chat {
+    pub(crate) fn new_connection_chat(
         group_id: GroupId,
         user_id: UserId,
-        attributes: ConversationAttributes,
+        attributes: ChatAttributes,
     ) -> Result<Self, tls_codec::Error> {
-        // To keep things simple and to make sure that conversation ids are the
-        // same across users, we derive the conversation id from the group id.
-        let conversation = Conversation {
-            id: ConversationId::try_from(&group_id)?,
+        // To keep things simple and to make sure that chat ids are the same across users, we
+        // derive the chat id from the group id.
+        Ok(Chat {
+            id: ChatId::try_from(&group_id)?,
             group_id,
             last_read: Utc::now(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::Connection(user_id),
+            status: ChatStatus::Active,
+            chat_type: ChatType::Connection(user_id),
             attributes,
-        };
-        Ok(conversation)
+        })
     }
 
-    pub(crate) fn new_handle_conversation(
+    pub(crate) fn new_handle_chat(
         group_id: GroupId,
-        attributes: ConversationAttributes,
+        attributes: ChatAttributes,
         handle: UserHandle,
     ) -> Self {
-        let id = ConversationId::try_from(&group_id).unwrap();
+        let id = ChatId::try_from(&group_id).unwrap();
         Self {
             id,
             group_id,
             last_read: Utc::now(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::HandleConnection(handle),
+            status: ChatStatus::Active,
+            chat_type: ChatType::HandleConnection(handle),
             attributes,
         }
     }
 
-    pub(crate) fn new_group_conversation(
-        group_id: GroupId,
-        attributes: ConversationAttributes,
-    ) -> Self {
-        let id = ConversationId::try_from(&group_id).unwrap();
+    pub(crate) fn new_group_chat(group_id: GroupId, attributes: ChatAttributes) -> Self {
+        let id = ChatId::try_from(&group_id).unwrap();
         Self {
             id,
             group_id,
             last_read: Utc::now(),
-            status: ConversationStatus::Active,
-            conversation_type: ConversationType::Group,
+            status: ChatStatus::Active,
+            chat_type: ChatType::Group,
             attributes,
         }
     }
 
-    pub fn id(&self) -> ConversationId {
+    pub fn id(&self) -> ChatId {
         self.id
     }
 
@@ -141,19 +137,19 @@ impl Conversation {
         &self.group_id
     }
 
-    pub fn conversation_type(&self) -> &ConversationType {
-        &self.conversation_type
+    pub fn chat_type(&self) -> &ChatType {
+        &self.chat_type
     }
 
-    pub fn status(&self) -> &ConversationStatus {
+    pub fn status(&self) -> &ChatStatus {
         &self.status
     }
 
-    pub fn status_mut(&mut self) -> &mut ConversationStatus {
+    pub fn status_mut(&mut self) -> &mut ChatStatus {
         &mut self.status
     }
 
-    pub fn attributes(&self) -> &ConversationAttributes {
+    pub fn attributes(&self) -> &ChatAttributes {
         &self.attributes
     }
 
@@ -166,14 +162,14 @@ impl Conversation {
         qgid.owning_domain().clone()
     }
 
-    pub(crate) async fn set_conversation_picture(
+    pub(crate) async fn set_picture(
         &mut self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
-        conversation_picture: Option<Vec<u8>>,
+        picture: Option<Vec<u8>>,
     ) -> sqlx::Result<()> {
-        Self::update_picture(executor, notifier, self.id, conversation_picture.as_deref()).await?;
-        self.attributes.set_picture(conversation_picture);
+        Self::update_picture(executor, notifier, self.id, picture.as_deref()).await?;
+        self.attributes.set_picture(picture);
         Ok(())
     }
 
@@ -183,42 +179,40 @@ impl Conversation {
         notifier: &mut StoreNotifier,
         past_members: Vec<UserId>,
     ) -> sqlx::Result<()> {
-        let new_status = ConversationStatus::Inactive(InactiveConversation { past_members });
+        let new_status = ChatStatus::Inactive(InactiveChat { past_members });
         Self::update_status(executor, notifier, self.id, &new_status).await?;
         self.status = new_status;
         Ok(())
     }
 
-    /// Confirm a connection conversation by setting the conversation type to
-    /// `Connection`.
+    /// Confirm a connection chat by setting the chat type to `Connection`.
     pub(crate) async fn confirm(
         &mut self,
         executor: impl SqliteExecutor<'_>,
         notifier: &mut StoreNotifier,
         user_id: UserId,
     ) -> sqlx::Result<()> {
-        if let ConversationType::HandleConnection(_) = &self.conversation_type {
-            let conversation_type = ConversationType::Connection(user_id);
-            self.set_conversation_type(executor, notifier, &conversation_type)
-                .await?;
-            self.conversation_type = conversation_type;
+        if let ChatType::HandleConnection(_) = &self.chat_type {
+            let chat_type = ChatType::Connection(user_id);
+            self.set_chat_type(executor, notifier, &chat_type).await?;
+            self.chat_type = chat_type;
         }
         Ok(())
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
-pub enum ConversationStatus {
-    Inactive(InactiveConversation),
+pub enum ChatStatus {
+    Inactive(InactiveChat),
     Active,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct InactiveConversation {
+pub struct InactiveChat {
     pub past_members: Vec<UserId>,
 }
 
-impl InactiveConversation {
+impl InactiveChat {
     pub fn new(past_members: Vec<UserId>) -> Self {
         Self { past_members }
     }
@@ -233,23 +227,23 @@ impl InactiveConversation {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ConversationType {
-    /// A connection conversation which was established via a handle and is not yet confirmed by
-    /// the other party.
+pub enum ChatType {
+    /// A connection chat which was established via a handle and is not yet confirmed by the other
+    /// party.
     HandleConnection(UserHandle),
-    /// A connection conversation that is confirmed by the other party and for
-    /// which we have received the necessary secrets.
+    /// A connection chat that is confirmed by the other party and for which we have received the
+    /// necessary secrets.
     Connection(UserId),
     Group,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ConversationAttributes {
+pub struct ChatAttributes {
     title: String,
     picture: Option<Vec<u8>>,
 }
 
-impl ConversationAttributes {
+impl ChatAttributes {
     pub fn new(title: String, picture: Option<Vec<u8>>) -> Self {
         Self { title, picture }
     }

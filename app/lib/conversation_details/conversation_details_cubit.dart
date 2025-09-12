@@ -13,10 +13,10 @@ class ConversationDetailsCubit
     extends StateStreamableSource<ConversationDetailsState> {
   ConversationDetailsCubit({
     required UserCubit userCubit,
-    required ConversationId conversationId,
+    required ChatId chatId,
   }) : _impl = ConversationDetailsCubitBase(
          userCubit: userCubit.impl,
-         conversationId: conversationId,
+         chatId: chatId,
        );
 
   final ConversationDetailsCubitBase _impl;
@@ -37,8 +37,8 @@ class ConversationDetailsCubit
 
   // Cubit methods
 
-  Future<void> setConversationPicture({required Uint8List? bytes}) =>
-      _impl.setConversationPicture(bytes: bytes);
+  Future<void> setChatPicture({required Uint8List? bytes}) =>
+      _impl.setChatPicture(bytes: bytes);
 
   Future<void> sendMessage(String messageText) =>
       _impl.sendMessage(messageText: messageText);
@@ -47,7 +47,7 @@ class ConversationDetailsCubit
       _impl.uploadAttachment(path: path);
 
   Future<void> markAsRead({
-    required ConversationMessageId untilMessageId,
+    required MessageId untilMessageId,
     required DateTime untilTimestamp,
   }) => _impl.markAsRead(
     untilMessageId: untilMessageId,
@@ -59,6 +59,6 @@ class ConversationDetailsCubit
 
   Future<void> resetDraft() => _impl.resetDraft();
 
-  Future<void> editMessage({ConversationMessageId? messageId}) =>
+  Future<void> editMessage({MessageId? messageId}) =>
       _impl.editMessage(messageId: messageId);
 }

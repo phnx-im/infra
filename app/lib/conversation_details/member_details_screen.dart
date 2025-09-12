@@ -21,19 +21,19 @@ class MemberDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
-    final (conversationId, memberId) = context.select(
+    final (chatId, memberId) = context.select(
       (NavigationCubit cubit) => switch (cubit.state) {
         NavigationState_Home(
           home: HomeNavigationState(
-            conversationId: final conversationId,
+            chatId: final chatId,
             memberDetails: final memberId,
           ),
         ) =>
-          (conversationId, memberId),
+          (chatId, memberId),
         _ => (null, null),
       },
     );
-    if (conversationId == null || memberId == null) {
+    if (chatId == null || memberId == null) {
       return const SizedBox.shrink();
     }
 
@@ -61,7 +61,7 @@ class MemberDetailsScreen extends StatelessWidget {
         title: Text(loc.memberDetailsScreen_title),
       ),
       body: MemberDetails(
-        conversationId: conversationId,
+        chatId: chatId,
         profile: profile,
         isSelf: isSelf,
         canKick: canKick,
@@ -70,17 +70,17 @@ class MemberDetailsScreen extends StatelessWidget {
   }
 }
 
-/// Details of a member of a conversation
+/// Details of a member of a chat
 class MemberDetails extends StatelessWidget {
   const MemberDetails({
-    required this.conversationId,
+    required this.chatId,
     required this.profile,
     required this.isSelf,
     required this.canKick,
     super.key,
   });
 
-  final ConversationId conversationId;
+  final ChatId chatId;
   final UiUserProfile profile;
   final bool isSelf;
   final bool canKick;
@@ -108,10 +108,7 @@ class MemberDetails extends StatelessWidget {
           if (!isSelf && canKick)
             Padding(
               padding: const EdgeInsets.only(bottom: Spacings.s),
-              child: _RemoveUserButton(
-                conversationId: conversationId,
-                userId: profile.userId,
-              ),
+              child: _RemoveUserButton(chatId: chatId, userId: profile.userId),
             ),
 
           if (!isSelf)
@@ -126,9 +123,9 @@ class MemberDetails extends StatelessWidget {
 }
 
 class _RemoveUserButton extends StatelessWidget {
-  const _RemoveUserButton({required this.conversationId, required this.userId});
+  const _RemoveUserButton({required this.chatId, required this.userId});
 
-  final ConversationId conversationId;
+  final ChatId chatId;
   final UiUserId userId;
 
   @override
@@ -160,8 +157,8 @@ class _RemoveUserButton extends StatelessWidget {
             ),
             TextButton(
               onPressed: () async {
-                await context.read<UserCubit>().removeUserFromConversation(
-                  conversationId,
+                await context.read<UserCubit>().removeUserFromChat(
+                  chatId,
                   userId,
                 );
                 if (context.mounted) {

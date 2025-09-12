@@ -19,7 +19,7 @@ mod persistence {
     use mimi_content::PerMessageStatus;
     use sqlx::{SqliteExecutor, SqliteTransaction, query, query_scalar};
 
-    use crate::{ConversationMessageId, store::StoreNotifier};
+    use crate::{MessageId, store::StoreNotifier};
 
     use super::*;
 
@@ -58,7 +58,7 @@ mod persistence {
                 let mimi_id = mimi_id.as_slice();
                 let status = status.repr();
                 let Some(message_id) = query_scalar!(
-                    r#"SELECT message_id AS "message_id: ConversationMessageId"
+                    r#"SELECT message_id AS "message_id: MessageId"
                         FROM message
                         WHERE mimi_id = ?"#,
                     mimi_id,
@@ -114,7 +114,7 @@ mod persistence {
         pub(crate) async fn clear(
             txn: impl SqliteExecutor<'_>,
             notifier: &mut crate::store::StoreNotifier,
-            message_id: crate::ConversationMessageId,
+            message_id: crate::MessageId,
         ) -> sqlx::Result<()> {
             query!(
                 "DELETE FROM message_status WHERE message_id = ?",
@@ -134,8 +134,8 @@ mod persistence {
         use sqlx::{SqlitePool, query_scalar};
 
         use crate::conversations::{
-            messages::persistence::tests::test_conversation_message_with_salt,
-            persistence::tests::test_conversation,
+            messages::persistence::tests::test_chat_message_with_salt,
+            persistence::tests::test_chat,
         };
 
         use super::*;
@@ -146,15 +146,14 @@ mod persistence {
 
             let alice = UserId::random("localhost".parse().unwrap());
 
-            let conversation = test_conversation();
-            conversation
-                .store(pool.acquire().await?.as_mut(), &mut notifier)
+            let chat = test_chat();
+            chat.store(pool.acquire().await?.as_mut(), &mut notifier)
                 .await?;
 
-            let message_a = test_conversation_message_with_salt(conversation.id(), [0; 16]);
+            let message_a = test_chat_message_with_salt(chat.id(), [0; 16]);
             message_a.store(&pool, &mut notifier).await?;
             let mimi_id_a = message_a.message().mimi_id().unwrap();
-            let message_b = test_conversation_message_with_salt(conversation.id(), [1; 16]);
+            let message_b = test_chat_message_with_salt(chat.id(), [1; 16]);
             message_b.store(&pool, &mut notifier).await?;
             let mimi_id_b = message_b.message().mimi_id().unwrap();
             assert_ne!(mimi_id_a, mimi_id_b);
