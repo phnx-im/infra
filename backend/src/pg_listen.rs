@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Facilities for listening to Postgres notifications and managing the multiplexed notifications
+//! and lifetimes of the listener.
+
 use futures_util::Stream;
 use sqlx::postgres::{PgListener, PgNotification};
 use thiserror::Error;
@@ -43,6 +46,7 @@ impl<C: PgChannelName> PgListenerTaskHandle<C> {
                     .filter(|recv_channel| recv_channel == &channel)
             })
             .map(|_| ())
+            .fuse()
     }
 }
 

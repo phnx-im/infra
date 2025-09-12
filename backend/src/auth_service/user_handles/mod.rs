@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 // SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -36,13 +34,10 @@ impl AuthService {
     ) -> Result<(), CreateHandleError> {
         let handle = UserHandle::new(handle_plaintext)?;
 
-        let now = Instant::now();
-        tracing::info!("started to calculate hash");
-        let local_hash = handle.calculate_hash()?;
+        let local_hash = handle.hash()?;
         if local_hash != hash {
             return Err(CreateHandleError::HashMismatch);
         }
-        tracing::info!(elapsed = ?now.elapsed(), "finished to calculate hash");
 
         let expiration_data = ExpirationData::new(USER_HANDLE_VALIDITY_PERIOD);
 
@@ -63,7 +58,6 @@ impl AuthService {
         &self,
         hash: UserHandleHash,
     ) -> Result<(), DeleteHandleError> {
-        tracing::info!(?self.db_pool, "########## delete_handle");
         if UserHandleRecord::delete(&self.db_pool, &hash).await? {
             Ok(())
         } else {
