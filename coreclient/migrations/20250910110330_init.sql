@@ -145,34 +145,12 @@ CREATE TABLE group_membership (
     ),
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
-    client_credential_fingerprint BLOB NOT NULL,
-    PRIMARY KEY (group_id, leaf_index, status),
-    FOREIGN KEY (client_credential_fingerprint) REFERENCES client_credential (fingerprint)
+    PRIMARY KEY (group_id, leaf_index, status)
 );
 
-CREATE TRIGGER delete_orphaned_data AFTER DELETE ON group_membership FOR EACH ROW BEGIN
--- Delete client credentials if they are not our own and not used in any group.
-DELETE FROM client_credential
-WHERE
-    fingerprint = OLD.client_credential_fingerprint
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            group_membership
-        WHERE
-            client_credential_fingerprint = OLD.client_credential_fingerprint
-    )
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            own_client_info
-        WHERE
-            user_uuid = OLD.user_uuid
-            AND user_domain = OLD.user_domain
-    );
+CREATE INDEX idx_group_membership_user_id ON group_membership (user_uuid, user_domain);
 
+CREATE TRIGGER delete_orphaned_data AFTER DELETE ON group_membership FOR EACH ROW BEGIN
 -- Delete user profiles of users that are not in any group and that are not our own.
 DELETE FROM user
 WHERE
