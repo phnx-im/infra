@@ -158,7 +158,7 @@ mod test {
     #[sqlx::test]
     async fn user_handle_record_store_load(pool: SqlitePool) -> anyhow::Result<()> {
         let handle = UserHandle::new("ellie_03".to_owned())?;
-        let hash = handle.hash()?;
+        let hash = handle.calculate_hash()?;
         let signing_key = HandleSigningKey::generate()?;
         let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
         record.store(&pool).await?;
@@ -171,13 +171,13 @@ mod test {
     #[sqlx::test]
     async fn user_handle_record_load_all(pool: SqlitePool) -> anyhow::Result<()> {
         let handle1 = UserHandle::new("ellie_03".to_owned())?;
-        let hash1 = handle1.hash()?;
+        let hash1 = handle1.calculate_hash()?;
         let signing_key1 = HandleSigningKey::generate()?;
         let record1 = UserHandleRecord::new(handle1.clone(), hash1, signing_key1);
         record1.store(&pool).await?;
 
         let handle2 = UserHandle::new("joel_03".to_owned())?;
-        let hash2 = handle2.hash()?;
+        let hash2 = handle2.calculate_hash()?;
         let signing_key2 = HandleSigningKey::generate()?;
         let record2 = UserHandleRecord::new(handle2.clone(), hash2, signing_key2);
         record2.store(&pool).await?;
@@ -192,13 +192,13 @@ mod test {
     #[sqlx::test]
     async fn user_handle_record_load_all_handles(pool: SqlitePool) -> anyhow::Result<()> {
         let handle1 = UserHandle::new("ellie_03".to_owned())?;
-        let hash1 = handle1.hash()?;
+        let hash1 = handle1.calculate_hash()?;
         let signing_key1 = HandleSigningKey::generate()?;
         let record1 = UserHandleRecord::new(handle1.clone(), hash1, signing_key1);
         record1.store(&pool).await?;
 
         let handle2 = UserHandle::new("joel_03".to_owned())?;
-        let hash2 = handle2.hash()?;
+        let hash2 = handle2.calculate_hash()?;
         let signing_key2 = HandleSigningKey::generate()?;
         let record2 = UserHandleRecord::new(handle2.clone(), hash2, signing_key2);
         record2.store(&pool).await?;
@@ -213,7 +213,7 @@ mod test {
     #[sqlx::test]
     async fn user_handle_record_delete(pool: SqlitePool) -> anyhow::Result<()> {
         let handle = UserHandle::new("ellie_03".to_owned())?;
-        let hash = handle.hash()?;
+        let hash = handle.calculate_hash()?;
         let signing_key = HandleSigningKey::generate()?;
         let record = UserHandleRecord::new(handle.clone(), hash, signing_key);
         record.store(&pool).await?;

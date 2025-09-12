@@ -31,7 +31,10 @@ use airprotos::auth_service::v1::{
 };
 use futures_util::{FutureExt, future::BoxFuture};
 use thiserror::Error;
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::spawn_blocking,
+};
 use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
 use tonic::Request;
 use tracing::error;
@@ -209,12 +212,18 @@ impl ApiClient {
 
     pub async fn as_connect_handle(
         &self,
-        handle: &UserHandle,
+        handle: UserHandle,
     ) -> Result<(ConnectionPackageIn, ConnectionOfferResponder), AsRequestError> {
-        let hash = handle.hash().map_err(|error| {
-            error!(%error, "failed to hash user handle");
-            AsRequestError::LibraryError
-        })?;
+        let hash = spawn_blocking(move || handle.calculate_hash())
+            .await
+            .map_err(|error| {
+                error!(%error, "hash calculation task failed");
+                AsRequestError::LibraryError
+            })?
+            .map_err(|error| {
+                error!(%error, "failed to hash user handle");
+                AsRequestError::LibraryError
+            })?;
 
         // Step 1: Fetch connection package
         let fetch_request = ConnectRequest {

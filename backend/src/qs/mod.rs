@@ -107,7 +107,7 @@ impl BackendService for Qs {
                 .map_err(|e| ServiceCreationError::InitializationFailed(Box::new(e)))?;
         }
 
-        let queues = Queues::new(db_pool.clone());
+        let queues = Queues::new(db_pool.clone()).await?;
 
         Ok(Self {
             domain,

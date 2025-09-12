@@ -87,7 +87,7 @@ impl Store for CoreUser {
 
     async fn add_user_handle(
         &self,
-        user_handle: &UserHandle,
+        user_handle: UserHandle,
     ) -> StoreResult<Option<UserHandleRecord>> {
         self.add_user_handle(user_handle).await
     }
