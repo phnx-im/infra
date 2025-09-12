@@ -41,7 +41,7 @@ impl TimestampedMessage {
 
     /// Creates a new timestamped message from a MimiContent.
     ///
-    /// If content is an error, a conversation message containing an error event is created
+    /// If content is an error, a chat message containing an error event is created
     /// instead.
     pub(crate) fn from_mimi_content_result(
         content: mimi_content::Result<MimiContent>,
@@ -75,13 +75,13 @@ impl TimestampedMessage {
     }
 }
 
-/// Identifier of a message in a conversation
+/// Identifier of a message in a chat
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ConversationMessageId {
+pub struct MessageId {
     pub uuid: Uuid,
 }
 
-impl ConversationMessageId {
+impl MessageId {
     pub(crate) fn random() -> Self {
         Self {
             uuid: Uuid::new_v4(),
@@ -98,38 +98,38 @@ impl ConversationMessageId {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct ConversationMessage {
-    pub(super) conversation_id: ConversationId,
-    pub(super) conversation_message_id: ConversationMessageId,
+pub struct ChatMessage {
+    pub(super) chat_id: ChatId,
+    pub(super) message_id: MessageId,
     pub(super) timestamped_message: TimestampedMessage,
     pub(super) status: MessageStatus,
 }
 
-impl ConversationMessage {
-    /// Create a new conversation message from a group message. New messages are
-    /// marked as unread by default.
+impl ChatMessage {
+    /// Create a new chat message from a group message. New messages are marked as unread by
+    /// default.
     pub(crate) fn new(
-        conversation_id: ConversationId,
-        conversation_message_id: ConversationMessageId,
+        chat_id: ChatId,
+        message_id: MessageId,
         timestamped_message: TimestampedMessage,
     ) -> Self {
         Self {
-            conversation_id,
-            conversation_message_id,
+            chat_id,
+            message_id,
             timestamped_message,
             status: MessageStatus::Unread,
         }
     }
 
     pub fn new_for_test(
-        conversation_id: ConversationId,
-        conversation_message_id: ConversationMessageId,
+        chat_id: ChatId,
+        message_id: MessageId,
         timestamp: TimeStamp,
         message: Message,
     ) -> Self {
         Self {
-            conversation_id,
-            conversation_message_id,
+            chat_id,
+            message_id,
             timestamped_message: TimestampedMessage { timestamp, message },
             status: MessageStatus::Unread,
         }
@@ -137,8 +137,8 @@ impl ConversationMessage {
 
     pub(crate) fn new_unsent_message(
         sender: UserId,
-        conversation_id: ConversationId,
-        conversation_message_id: ConversationMessageId,
+        chat_id: ChatId,
+        message_id: MessageId,
         content: MimiContent,
         group_id: &GroupId,
     ) -> Self {
@@ -150,8 +150,8 @@ impl ConversationMessage {
             timestamp: TimeStamp::now(),
         };
         Self {
-            conversation_id,
-            conversation_message_id,
+            chat_id,
+            message_id,
             timestamped_message,
             status: MessageStatus::Unread,
         }
@@ -169,12 +169,12 @@ impl ConversationMessage {
         Ok(())
     }
 
-    pub fn id_ref(&self) -> &ConversationMessageId {
-        &self.conversation_message_id
+    pub fn id_ref(&self) -> &MessageId {
+        &self.message_id
     }
 
-    pub fn id(&self) -> ConversationMessageId {
-        self.conversation_message_id
+    pub fn id(&self) -> MessageId {
+        self.message_id
     }
 
     pub fn timestamp(&self) -> DateTime<Utc> {
@@ -211,8 +211,8 @@ impl ConversationMessage {
         self.status = status;
     }
 
-    pub fn conversation_id(&self) -> ConversationId {
-        self.conversation_id
+    pub fn chat_id(&self) -> ChatId {
+        self.chat_id
     }
 
     pub fn message(&self) -> &Message {
@@ -243,14 +243,10 @@ impl Message {
 
     /// Returns a string representation of the message for use in UI
     /// notifications.
-    pub async fn string_representation(
-        &self,
-        store: &impl Store,
-        conversation_type: &ConversationType,
-    ) -> String {
+    pub async fn string_representation(&self, store: &impl Store, chat_type: &ChatType) -> String {
         match self {
-            Message::Content(content_message) => match conversation_type {
-                ConversationType::Group => {
+            Message::Content(content_message) => match chat_type {
+                ChatType::Group => {
                     let display_name = store
                         .user_profile(&content_message.sender)
                         .await
@@ -261,14 +257,14 @@ impl Message {
                         .unwrap_or_else(|e| format!("Error: {e}"));
                     format!("{display_name}: {content}")
                 }
-                ConversationType::HandleConnection(handle) => {
+                ChatType::HandleConnection(handle) => {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
                         .unwrap_or_else(|e| format!("Error: {e}"));
                     format!("{handle}: {content}", handle = handle.plaintext())
                 }
-                ConversationType::Connection(_) => {
+                ChatType::Connection(_) => {
                     let content = content_message
                         .content
                         .string_rendering() // TODO: Better error handling
@@ -388,21 +384,19 @@ impl SystemMessage {
             SystemMessage::Add(adder, added) => {
                 let adder_display_name = store.user_profile(adder).await.display_name;
                 let added_display_name = store.user_profile(added).await.display_name;
-                format!("{adder_display_name} added {added_display_name} to the conversation")
+                format!("{adder_display_name} added {added_display_name} to the chat")
             }
             SystemMessage::Remove(remover, removed) => {
                 let remover_display_name = store.user_profile(remover).await.display_name;
                 let removed_display_name = store.user_profile(removed).await.display_name;
-                format!(
-                    "{remover_display_name} removed {removed_display_name} from the conversation"
-                )
+                format!("{remover_display_name} removed {removed_display_name} from the chat")
             }
         }
     }
 }
 
 // WARNING: If this type is changed, the storage and loading logic in the
-// `crate::conversations::messages::peristence` module must be updated
+// `crate::chat::messages::persistence` module must be updated
 // accordingly and the `MESSAGE_CONTENT_FORMAT_VERSION` constant must be
 // incremented by one.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -424,10 +418,4 @@ impl From<ErrorMessage> for String {
     fn from(ErrorMessage { message }: ErrorMessage) -> String {
         message
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum NotificationType {
-    ConversationChange(ConversationId), // The id of the changed conversation.
-    Message(Box<ConversationMessage>),
 }

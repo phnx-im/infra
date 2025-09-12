@@ -27,7 +27,7 @@ import 'mocks.dart';
 
 void main() {
   setUpAll(() {
-    registerFallbackValue(0.conversationMessageId());
+    registerFallbackValue(0.messageId());
     registerFallbackValue(0.userId());
   });
 
@@ -53,9 +53,9 @@ void main() {
       when(
         () => usersCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
-      when(() => conversationDetailsCubit.state).thenReturn(
-        ConversationDetailsState(conversation: conversation, members: members),
-      );
+      when(
+        () => conversationDetailsCubit.state,
+      ).thenReturn(ConversationDetailsState(chat: chat, members: members));
       when(
         () => conversationDetailsCubit.markAsRead(
           untilMessageId: any(named: "untilMessageId"),
@@ -117,7 +117,7 @@ void main() {
       ).thenReturn(const NavigationState.home());
       when(
         () => conversationListCubit.state,
-      ).thenReturn(const ConversationListState(conversations: []));
+      ).thenReturn(const ConversationListState(chats: []));
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());
@@ -143,7 +143,7 @@ void main() {
       ).thenReturn(const NavigationState.home());
       when(
         () => conversationListCubit.state,
-      ).thenReturn(ConversationListState(conversations: conversations));
+      ).thenReturn(ConversationListState(chats: chats));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));
@@ -170,15 +170,12 @@ void main() {
 
       when(() => navigationCubit.state).thenReturn(
         NavigationState.home(
-          home: HomeNavigationState(
-            conversationOpen: true,
-            conversationId: conversations[2].id,
-          ),
+          home: HomeNavigationState(chatOpen: true, chatId: chats[2].id),
         ),
       );
       when(
         () => conversationListCubit.state,
-      ).thenReturn(ConversationListState(conversations: conversations));
+      ).thenReturn(ConversationListState(chats: chats));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));

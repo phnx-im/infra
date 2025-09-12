@@ -31,12 +31,9 @@ void main() {
     });
 
     Widget buildSubject({List<UiUserId> members = const []}) {
-      when(() => conversationDetailsCubit.state).thenReturn(
-        ConversationDetailsState(
-          conversation: conversations[2],
-          members: members,
-        ),
-      );
+      when(
+        () => conversationDetailsCubit.state,
+      ).thenReturn(ConversationDetailsState(chat: chats[2], members: members));
 
       return MultiBlocProvider(
         providers: [

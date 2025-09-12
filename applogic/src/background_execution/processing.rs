@@ -20,7 +20,7 @@ pub(crate) fn error_batch(title: String, body: String) -> NotificationBatch {
             identifier: NotificationId::invalid(),
             title,
             body,
-            conversation_id: None,
+            chat_id: None,
         }],
     }
 }
@@ -91,7 +91,7 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
                 identifier: NotificationId::invalid(),
                 title: "Error fetching messages".to_string(),
                 body: e.to_string(),
-                conversation_id: None,
+                chat_id: None,
             }]
         }
     };

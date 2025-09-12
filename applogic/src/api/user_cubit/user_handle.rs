@@ -136,10 +136,10 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
             .process_handle_queue_message(&self.handle_record.handle.clone(), message)
             .await
         {
-            Ok(conversation_id) => {
+            Ok(chat_id) => {
                 let user = User::from_core_user(self.cubit_context.core_user.clone());
                 let mut notifications = Vec::with_capacity(1);
-                user.new_connection_request_notifications(&[conversation_id], &mut notifications)
+                user.new_connection_request_notifications(&[chat_id], &mut notifications)
                     .await;
                 self.cubit_context.show_notifications(notifications).await;
             }

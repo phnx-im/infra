@@ -13,7 +13,7 @@ const platform = MethodChannel('ms.air/channel');
 
 final _log = Logger('Platform');
 
-void initMethodChannel(StreamSink<ConversationId> openedNotificationSink) {
+void initMethodChannel(StreamSink<ChatId> openedNotificationSink) {
   platform.setMethodCallHandler(
     (call) => _handleMethod(call, openedNotificationSink),
   );
@@ -21,31 +21,29 @@ void initMethodChannel(StreamSink<ConversationId> openedNotificationSink) {
 
 Future<void> _handleMethod(
   MethodCall call,
-  StreamSink<ConversationId> openedNotificationSink,
+  StreamSink<ChatId> openedNotificationSink,
 ) async {
   _log.info('Handling method call: ${call.method}');
   switch (call.method) {
     case 'receivedNotification':
       // Handle notification data
       final String? identifier = call.arguments["identifier"];
-      final String? conversationIdStr = call.arguments["conversationId"];
+      final String? chatIdStr = call.arguments["conversationId"];
       _log.info(
-        'Received notification: identifier = $identifier, conversationId = $conversationIdStr',
+        'Received notification: identifier = $identifier, chatId = $chatIdStr',
       );
       // Do something with the data
       break;
     case 'openedNotification':
       // Handle notification opened
       final String? identifier = call.arguments["identifier"];
-      final String? conversationIdStr = call.arguments["conversationId"];
+      final String? chatIdStr = call.arguments["conversationId"];
       _log.fine(
-        'Notification opened: identifier = $identifier, conversationId = $conversationIdStr',
+        'Notification opened: identifier = $identifier, chatId = $chatIdStr',
       );
-      if (identifier != null && conversationIdStr != null) {
-        final conversationId = ConversationId(
-          uuid: UuidValue.withValidation(conversationIdStr),
-        );
-        openedNotificationSink.add(conversationId);
+      if (identifier != null && chatIdStr != null) {
+        final chatId = ChatId(uuid: UuidValue.withValidation(chatIdStr));
+        openedNotificationSink.add(chatId);
       }
       break;
     default:
@@ -98,7 +96,7 @@ FutureOr<void> sendNotification(NotificationContent content) async {
       'identifier': content.identifier.field0.toString(),
       'title': content.title,
       'body': content.body,
-      'conversationId': content.conversationId?.uuid.toString(),
+      'conversationId': content.chatId?.uuid.toString(),
     };
     await platform.invokeMethod('sendNotification', arguments);
   } on PlatformException catch (e, stacktrace) {

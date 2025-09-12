@@ -24,29 +24,29 @@ class ConversationListContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversations = context.select(
-      (ConversationListCubit cubit) => cubit.state.conversations,
+    final chats = context.select(
+      (ConversationListCubit cubit) => cubit.state.chats,
     );
 
-    if (conversations.isEmpty) {
-      return const _NoConversations();
+    if (chats.isEmpty) {
+      return const _NoChats();
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(0),
-      itemCount: conversations.length,
+      itemCount: chats.length,
       physics: const BouncingScrollPhysics().applyTo(
         const AlwaysScrollableScrollPhysics(),
       ),
       itemBuilder: (BuildContext context, int index) {
-        return _ListTile(conversation: conversations[index]);
+        return _ListTile(chat: chats[index]);
       },
     );
   }
 }
 
-class _NoConversations extends StatelessWidget {
-  const _NoConversations();
+class _NoChats extends StatelessWidget {
+  const _NoChats();
 
   @override
   Widget build(BuildContext context) {
@@ -63,16 +63,16 @@ class _NoConversations extends StatelessWidget {
 }
 
 class _ListTile extends StatelessWidget {
-  const _ListTile({required this.conversation});
+  const _ListTile({required this.chat});
 
-  final UiConversationDetails conversation;
+  final UiChatDetails chat;
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId = context.select(
-      (NavigationCubit cubit) => cubit.state.openConversationId,
+    final currentChatId = context.select(
+      (NavigationCubit cubit) => cubit.state.openChatId,
     );
-    final isSelected = currentConversationId == conversation.id;
+    final isSelected = currentChatId == chat.id;
     return ListTile(
       horizontalTitleGap: 0,
       contentPadding: const EdgeInsets.symmetric(
@@ -100,19 +100,15 @@ class _ListTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           spacing: Spacings.s,
           children: [
-            UserAvatar(
-              size: 50,
-              image: conversation.picture,
-              displayName: conversation.title,
-            ),
+            UserAvatar(size: 50, image: chat.picture, displayName: chat.title),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
                 spacing: Spacings.xxxs,
                 children: [
-                  _ListTileTop(conversation: conversation),
-                  Expanded(child: _ListTileBottom(conversation: conversation)),
+                  _ListTileTop(chat: chat),
+                  Expanded(child: _ListTileBottom(chat: chat)),
                 ],
               ),
             ),
@@ -120,17 +116,15 @@ class _ListTile extends StatelessWidget {
         ),
       ),
       selected: isSelected,
-      onTap:
-          () =>
-              context.read<NavigationCubit>().openConversation(conversation.id),
+      onTap: () => context.read<NavigationCubit>().openChat(chat.id),
     );
   }
 }
 
 class _ListTileTop extends StatelessWidget {
-  const _ListTileTop({required this.conversation});
+  const _ListTileTop({required this.chat});
 
-  final UiConversationDetails conversation;
+  final UiChatDetails chat;
 
   @override
   Widget build(BuildContext context) {
@@ -138,17 +132,17 @@ class _ListTileTop extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       spacing: Spacings.xxs,
       children: [
-        Expanded(child: _ConversationTitle(title: conversation.title)),
-        _LastUpdated(conversation: conversation),
+        Expanded(child: _ChatTitle(title: chat.title)),
+        _LastUpdated(chat: chat),
       ],
     );
   }
 }
 
 class _ListTileBottom extends StatelessWidget {
-  const _ListTileBottom({required this.conversation});
+  const _ListTileBottom({required this.chat});
 
-  final UiConversationDetails conversation;
+  final UiChatDetails chat;
 
   @override
   Widget build(BuildContext context) {
@@ -162,18 +156,12 @@ class _ListTileBottom extends StatelessWidget {
         Expanded(
           child: Align(
             alignment: Alignment.topLeft,
-            child: _LastMessage(
-              conversation: conversation,
-              ownClientId: ownClientId,
-            ),
+            child: _LastMessage(chat: chat, ownClientId: ownClientId),
           ),
         ),
         Align(
           alignment: Alignment.center,
-          child: _UnreadBadge(
-            conversationId: conversation.id,
-            count: conversation.unreadMessages,
-          ),
+          child: _UnreadBadge(chatId: chat.id, count: chat.unreadMessages),
         ),
       ],
     );
@@ -181,18 +169,18 @@ class _ListTileBottom extends StatelessWidget {
 }
 
 class _UnreadBadge extends StatelessWidget {
-  const _UnreadBadge({required this.conversationId, required this.count});
+  const _UnreadBadge({required this.chatId, required this.count});
 
-  final ConversationId conversationId;
+  final ChatId chatId;
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    final currentConversationId = context.select(
-      (NavigationCubit cubit) => cubit.state.conversationId,
+    final currentChatId = context.select(
+      (NavigationCubit cubit) => cubit.state.chatId,
     );
 
-    if (count < 1 || conversationId == currentConversationId) {
+    if (count < 1 || chatId == currentChatId) {
       return const SizedBox();
     }
 
@@ -220,19 +208,19 @@ class _UnreadBadge extends StatelessWidget {
 }
 
 class _LastMessage extends StatelessWidget {
-  const _LastMessage({required this.conversation, required this.ownClientId});
+  const _LastMessage({required this.chat, required this.ownClientId});
 
-  final UiConversationDetails conversation;
+  final UiChatDetails chat;
   final UiUserId ownClientId;
 
   @override
   Widget build(BuildContext context) {
-    final isCurrentConversation = context.select(
-      (NavigationCubit cubit) => cubit.state.conversationId == conversation.id,
+    final isCurrentChat = context.select(
+      (NavigationCubit cubit) => cubit.state.chatId == chat.id,
     );
 
-    final lastMessage = conversation.lastMessage;
-    final draftMessage = conversation.draft?.message.trim();
+    final lastMessage = chat.lastMessage;
+    final draftMessage = chat.draft?.message.trim();
 
     final readStyle = TextStyle(
       color: CustomColorScheme.of(context).text.primary,
@@ -244,8 +232,7 @@ class _LastMessage extends StatelessWidget {
       color: CustomColorScheme.of(context).text.tertiary,
     );
 
-    final showDraft =
-        !isCurrentConversation && draftMessage?.isNotEmpty == true;
+    final showDraft = !isCurrentChat && draftMessage?.isNotEmpty == true;
 
     final prefixStyle =
         showDraft
@@ -256,9 +243,7 @@ class _LastMessage extends StatelessWidget {
             );
 
     final suffixStyle =
-        isCurrentConversation && conversation.unreadMessages > 0
-            ? unreadStyle
-            : readStyle;
+        isCurrentChat && chat.unreadMessages > 0 ? unreadStyle : readStyle;
 
     final loc = AppLocalizations.of(context);
 
@@ -302,9 +287,9 @@ class _LastMessage extends StatelessWidget {
 }
 
 class _LastUpdated extends StatefulWidget {
-  const _LastUpdated({required this.conversation});
+  const _LastUpdated({required this.chat});
 
-  final UiConversationDetails conversation;
+  final UiChatDetails chat;
 
   @override
   State<_LastUpdated> createState() => _LastUpdatedState();
@@ -317,9 +302,9 @@ class _LastUpdatedState extends State<_LastUpdated> {
   @override
   void initState() {
     super.initState();
-    _displayTimestamp = formatTimestamp(widget.conversation.lastUsed);
+    _displayTimestamp = formatTimestamp(widget.chat.lastUsed);
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      final newDisplayTimestamp = formatTimestamp(widget.conversation.lastUsed);
+      final newDisplayTimestamp = formatTimestamp(widget.chat.lastUsed);
       if (newDisplayTimestamp != _displayTimestamp) {
         setState(() {
           _displayTimestamp = newDisplayTimestamp;
@@ -331,9 +316,9 @@ class _LastUpdatedState extends State<_LastUpdated> {
   @override
   void didUpdateWidget(covariant _LastUpdated oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.conversation.lastUsed != widget.conversation.lastUsed) {
+    if (oldWidget.chat.lastUsed != widget.chat.lastUsed) {
       setState(() {
-        _displayTimestamp = formatTimestamp(widget.conversation.lastUsed);
+        _displayTimestamp = formatTimestamp(widget.chat.lastUsed);
       });
     }
   }
@@ -361,8 +346,8 @@ class _LastUpdatedState extends State<_LastUpdated> {
   }
 }
 
-class _ConversationTitle extends StatelessWidget {
-  const _ConversationTitle({required this.title});
+class _ChatTitle extends StatelessWidget {
+  const _ChatTitle({required this.title});
 
   final String title;
 

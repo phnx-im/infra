@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$MessageState {
 
- UiConversationMessage get message;
+ UiChatMessage get message;
 /// Create a copy of MessageState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -45,7 +45,7 @@ abstract mixin class $MessageStateCopyWith<$Res>  {
   factory $MessageStateCopyWith(MessageState value, $Res Function(MessageState) _then) = _$MessageStateCopyWithImpl;
 @useResult
 $Res call({
- UiConversationMessage message
+ UiChatMessage message
 });
 
 
@@ -65,7 +65,7 @@ class _$MessageStateCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') @override $Res call({Object? message = null,}) {
   return _then(_self.copyWith(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
-as UiConversationMessage,
+as UiChatMessage,
   ));
 }
 
@@ -80,7 +80,7 @@ class _MessageState implements MessageState {
   const _MessageState({required this.message});
   
 
-@override final  UiConversationMessage message;
+@override final  UiChatMessage message;
 
 /// Create a copy of MessageState
 /// with the given fields replaced by the non-null parameter values.
@@ -112,7 +112,7 @@ abstract mixin class _$MessageStateCopyWith<$Res> implements $MessageStateCopyWi
   factory _$MessageStateCopyWith(_MessageState value, $Res Function(_MessageState) _then) = __$MessageStateCopyWithImpl;
 @override @useResult
 $Res call({
- UiConversationMessage message
+ UiChatMessage message
 });
 
 
@@ -132,7 +132,7 @@ class __$MessageStateCopyWithImpl<$Res>
 @override @pragma('vm:prefer-inline') $Res call({Object? message = null,}) {
   return _then(_MessageState(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
-as UiConversationMessage,
+as UiChatMessage,
   ));
 }
 

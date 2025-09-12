@@ -27,18 +27,18 @@ final userProfiles = [
   UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
 ];
 
-final conversations = [
-  UiConversationDetails(
-    id: 1.conversationId(),
-    status: const UiConversationStatus.active(),
-    conversationType: UiConversationType_Connection(userProfiles[1]),
+final chats = [
+  UiChatDetails(
+    id: 1.chatId(),
+    status: const UiChatStatus.active(),
+    chatType: UiChatType_Connection(userProfiles[1]),
     unreadMessages: 10,
     messagesCount: 10,
-    attributes: const UiConversationAttributes(title: 'Bob', picture: null),
+    attributes: const UiChatAttributes(title: 'Bob', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
-    lastMessage: UiConversationMessage(
-      id: 1.conversationMessageId(),
-      conversationId: 1.conversationId(),
+    lastMessage: UiChatMessage(
+      id: 1.messageId(),
+      chatId: 1.chatId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
@@ -57,19 +57,19 @@ final conversations = [
       status: UiMessageStatus.sent,
     ),
   ),
-  UiConversationDetails(
-    id: 2.conversationId(),
-    status: const UiConversationStatus.active(),
-    conversationType: const UiConversationType_HandleConnection(
+  UiChatDetails(
+    id: 2.chatId(),
+    status: const UiChatStatus.active(),
+    chatType: const UiChatType_HandleConnection(
       UiUserHandle(plaintext: "eve_03"),
     ),
     unreadMessages: 0,
     messagesCount: 10,
-    attributes: const UiConversationAttributes(title: 'Eve', picture: null),
+    attributes: const UiChatAttributes(title: 'Eve', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
-    lastMessage: UiConversationMessage(
-      id: 2.conversationMessageId(),
-      conversationId: 2.conversationId(),
+    lastMessage: UiChatMessage(
+      id: 2.messageId(),
+      chatId: 2.chatId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
@@ -91,17 +91,17 @@ final conversations = [
       status: UiMessageStatus.sent,
     ),
   ),
-  UiConversationDetails(
-    id: 3.conversationId(),
-    status: const UiConversationStatus.active(),
-    conversationType: const UiConversationType_Group(),
+  UiChatDetails(
+    id: 3.chatId(),
+    status: const UiChatStatus.active(),
+    chatType: const UiChatType_Group(),
     unreadMessages: 0,
     messagesCount: 10,
-    attributes: const UiConversationAttributes(title: 'Group', picture: null),
+    attributes: const UiChatAttributes(title: 'Group', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
-    lastMessage: UiConversationMessage(
-      id: 3.conversationMessageId(),
-      conversationId: 3.conversationId(),
+    lastMessage: UiChatMessage(
+      id: 3.messageId(),
+      chatId: 3.chatId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
@@ -120,17 +120,17 @@ final conversations = [
       status: UiMessageStatus.sent,
     ),
   ),
-  UiConversationDetails(
-    id: 4.conversationId(),
-    status: const UiConversationStatus.active(),
-    conversationType: const UiConversationType_Group(),
+  UiChatDetails(
+    id: 4.chatId(),
+    status: const UiChatStatus.active(),
+    chatType: const UiChatType_Group(),
     unreadMessages: 0,
     messagesCount: 10,
-    attributes: const UiConversationAttributes(title: 'Group', picture: null),
+    attributes: const UiChatAttributes(title: 'Group', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
-    lastMessage: UiConversationMessage(
-      id: 3.conversationMessageId(),
-      conversationId: 3.conversationId(),
+    lastMessage: UiChatMessage(
+      id: 3.messageId(),
+      chatId: 3.chatId(),
       timestamp: '2023-01-01T00:00:00.000Z',
       message: UiMessage_Content(
         UiContentMessage(
@@ -218,7 +218,7 @@ void main() {
     ) async {
       when(
         () => conversationListCubit.state,
-      ).thenReturn(const ConversationListState(conversations: []));
+      ).thenReturn(const ConversationListState(chats: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -231,18 +231,12 @@ void main() {
     testWidgets('renders correctly', (tester) async {
       when(() => navigationCubit.state).thenReturn(
         NavigationState.home(
-          home: HomeNavigationState(
-            conversationOpen: true,
-            conversationId: conversations[1].id,
-          ),
+          home: HomeNavigationState(chatOpen: true, chatId: chats[1].id),
         ),
       );
       when(() => conversationListCubit.state).thenReturn(
         ConversationListState(
-          conversations: List.generate(
-            20,
-            (index) => conversations[index % conversations.length],
-          ),
+          chats: List.generate(20, (index) => chats[index % chats.length]),
         ),
       );
 

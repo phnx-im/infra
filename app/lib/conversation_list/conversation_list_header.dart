@@ -173,7 +173,7 @@ class _PlusButtonState extends State<_PlusButton> {
     Future<String?> onAction(String input) async {
       final handle = UiUserHandle(plaintext: input.trim().toLowerCase());
       try {
-        final conversationId = await conversationListCubit.createConnection(
+        final conversationId = await conversationListCubit.createContactChat(
           handle: handle,
         );
         if (context.mounted) {
@@ -242,7 +242,7 @@ class _PlusButtonState extends State<_PlusButton> {
     String groupName = input?.trim() ?? "";
     if (groupName.isNotEmpty) {
       try {
-        final conversationId = await conversationListCubit.createConversation(
+        final conversationId = await conversationListCubit.createGroupChat(
           groupName: groupName,
         );
         _log.info(

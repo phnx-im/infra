@@ -39,7 +39,7 @@ split across multiple crates:
   expose the HTTP endpoints. A `Dockerfile` is available to build a Docker image
   that contains the server binary.
 - `coreclient`: Implements the protocol logic of the client component. The
-  `coreclient` stores and manages a user's contacts, conversations, as well as
+  `coreclient` stores and manages a user's contacts, chats, as well as
   the underlying MLS groups. It provides a high-level API to make use of the
   protocol in the context of a messaging application. Just like the `backend`,
   the `coreclient` uses a type-based message verification approach. The crate

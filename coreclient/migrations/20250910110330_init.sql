@@ -211,13 +211,13 @@ CREATE TABLE own_key_index (
     FOREIGN KEY (key_index) REFERENCES indexed_key (key_index) ON DELETE CASCADE
 );
 
-CREATE TABLE conversation (
-    conversation_id BLOB NOT NULL PRIMARY KEY,
-    conversation_title TEXT NOT NULL,
-    conversation_picture BLOB,
+CREATE TABLE chat (
+    chat_id BLOB NOT NULL PRIMARY KEY,
+    chat_title TEXT NOT NULL,
+    chat_picture BLOB,
     group_id BLOB NOT NULL,
     last_read TEXT NOT NULL,
-    -- missing `connection_as_{client_uuid,domain}` fields means it is a group conversation
+    -- missing `connection_as_{client_uuid,domain}` fields means it is a group chat
     connection_user_uuid BLOB,
     connection_user_domain TEXT,
     is_confirmed_connection BOOLEAN NOT NULL DEFAULT FALSE,
@@ -225,37 +225,33 @@ CREATE TABLE conversation (
     connection_user_handle TEXT
 );
 
-CREATE INDEX idx_conversation_connection_user ON conversation (connection_user_uuid, connection_user_domain);
+CREATE INDEX idx_chat_connection_user ON chat (connection_user_uuid, connection_user_domain);
 
-CREATE TABLE conversation_past_member (
-    conversation_id BLOB NOT NULL,
+CREATE TABLE chat_past_member (
+    chat_id BLOB NOT NULL,
     member_user_uuid BLOB NOT NULL,
     member_user_domain TEXT NOT NULL,
-    PRIMARY KEY (
-        conversation_id,
-        member_user_uuid,
-        member_user_domain
-    ),
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE
+    PRIMARY KEY (chat_id, member_user_uuid, member_user_domain),
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_conversation_past_member_conversation_id ON conversation_past_member (conversation_id);
+CREATE INDEX idx_chat_past_member_chat_id ON chat_past_member (chat_id);
 
 CREATE TABLE contact (
     user_uuid BLOB NOT NULL,
     user_domain TEXT NOT NULL,
-    conversation_id BLOB NOT NULL,
+    chat_id BLOB NOT NULL,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
     PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_contact_conversation_id ON contact (conversation_id);
+CREATE INDEX idx_contact_chat_id ON contact (chat_id);
 
 CREATE TABLE message (
     message_id BLOB NOT NULL PRIMARY KEY,
-    conversation_id BLOB NOT NULL,
+    chat_id BLOB NOT NULL,
     timestamp TEXT NOT NULL,
     -- missing `sender_as_{client_uuid,domain}` fields means it is a system message
     sender_user_uuid BLOB,
@@ -265,10 +261,10 @@ CREATE TABLE message (
     mimi_id BLOB,
     status INT NOT NULL DEFAULT 0,
     edited_at TEXT,
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 
-CREATE INDEX idx_message_conversation_id ON message (conversation_id);
+CREATE INDEX idx_message_chat_id ON message (chat_id);
 
 CREATE INDEX idx_message_timetstamp ON message (timestamp);
 
@@ -322,27 +318,27 @@ CREATE TABLE user_handle_contact (
     -- Not referencing the user_handle table, because we don't want to delete
     -- the contact when the user handle is deleted.
     user_handle TEXT NOT NULL PRIMARY KEY,
-    -- 1:1 relationship with conversation
-    conversation_id BLOB NOT NULL UNIQUE,
+    -- 1:1 relationship with chat
+    chat_id BLOB NOT NULL UNIQUE,
     friendship_package_ear_key BLOB NOT NULL,
     created_at TEXT NOT NULL,
     connection_offer_hash BLOB NOT NULL,
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE
 );
 
 CREATE TABLE attachment (
     attachment_id BLOB NOT NULL PRIMARY KEY,
-    conversation_id BLOB NOT NULL,
+    chat_id BLOB NOT NULL,
     message_id BLOB NOT NULL,
     content_type TEXT NOT NULL,
     content BLOB,
     status INTEGER NOT NULL,
     created_at TEXT NOT NULL,
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE,
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE,
     FOREIGN KEY (message_id) REFERENCES message (message_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_attachment_conversation_id ON attachment (conversation_id);
+CREATE INDEX idx_attachment_chat_id ON attachment (chat_id);
 
 CREATE INDEX idx_attachment_created_at ON attachment (created_at);
 
@@ -372,11 +368,11 @@ CREATE TABLE connection_package (
 );
 
 CREATE TABLE message_draft (
-    conversation_id BLOB NOT NULL PRIMARY KEY,
+    chat_id BLOB NOT NULL PRIMARY KEY,
     message TEXT NOT NULL,
     editing_id BLOB,
     updated_at TEXT NOT NULL,
-    FOREIGN KEY (conversation_id) REFERENCES conversation (conversation_id) ON DELETE CASCADE,
+    FOREIGN KEY (chat_id) REFERENCES chat (chat_id) ON DELETE CASCADE,
     FOREIGN KEY (editing_id) REFERENCES message (message_id) ON DELETE CASCADE
 );
 

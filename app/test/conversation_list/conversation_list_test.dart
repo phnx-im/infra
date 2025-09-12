@@ -44,10 +44,7 @@ void main() {
         ),
       );
       when(() => conversationDetailsCubit.state).thenReturn(
-        ConversationDetailsState(
-          conversation: conversations[1],
-          members: [1.userId()],
-        ),
+        ConversationDetailsState(chat: chats[1], members: [1.userId()]),
       );
     });
 
@@ -78,7 +75,7 @@ void main() {
     ) async {
       when(
         () => conversationListCubit.state,
-      ).thenReturn(const ConversationListState(conversations: []));
+      ).thenReturn(const ConversationListState(chats: []));
 
       await tester.pumpWidget(buildSubject());
 
@@ -91,18 +88,12 @@ void main() {
     testWidgets('renders correctly', (tester) async {
       when(() => navigationCubit.state).thenReturn(
         NavigationState.home(
-          home: HomeNavigationState(
-            conversationOpen: true,
-            conversationId: conversations[1].id,
-          ),
+          home: HomeNavigationState(chatOpen: true, chatId: chats[1].id),
         ),
       );
       when(() => conversationListCubit.state).thenReturn(
         ConversationListState(
-          conversations: List.generate(
-            20,
-            (index) => conversations[index % conversations.length],
-          ),
+          chats: List.generate(20, (index) => chats[index % chats.length]),
         ),
       );
 

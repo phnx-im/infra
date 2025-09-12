@@ -16,7 +16,7 @@ use tls_codec::Serialize as _;
 use tracing::error;
 
 use crate::{
-    ConversationId,
+    ChatId,
     utils::persistence::{GroupIdRefWrapper, GroupIdWrapper},
 };
 
@@ -121,12 +121,11 @@ impl Group {
         Ok(Some(group))
     }
 
-    pub async fn load_with_conversation_id_clean(
+    pub async fn load_with_chat_id_clean(
         connection: &mut sqlx::SqliteConnection,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
     ) -> anyhow::Result<Option<Self>> {
-        let Some(group) = Group::load_with_conversation_id(connection, conversation_id).await?
-        else {
+        let Some(group) = Group::load_with_chat_id(connection, chat_id).await? else {
             return Ok(None);
         };
 
@@ -164,10 +163,10 @@ impl Group {
         .map(|res| res.map(|group| SqlGroup::into_group(group, mls_group)))
     }
 
-    /// Same as [`Self::load()`], but load the group via the corresponding conversation.
-    pub(crate) async fn load_with_conversation_id(
+    /// Same as [`Self::load()`], but load the group via the corresponding chat.
+    pub(crate) async fn load_with_chat_id(
         connection: &mut sqlx::SqliteConnection,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
     ) -> sqlx::Result<Option<Self>> {
         let Some(sql_group) = query_as!(
             SqlGroup,
@@ -178,10 +177,10 @@ impl Group {
                 g.pending_diff AS "pending_diff: _",
                 g.room_state AS "room_state: _"
             FROM "group" g
-            INNER JOIN conversation c ON c.group_id = g.group_id
-            WHERE c.conversation_id = ?
+            INNER JOIN chat c ON c.group_id = g.group_id
+            WHERE c.chat_id = ?
             "#,
-            conversation_id
+            chat_id
         )
         .fetch_optional(&mut *connection)
         .await?
