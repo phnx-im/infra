@@ -16,7 +16,7 @@ import 'types.dart';
 import 'user_cubit.dart';
 part 'conversation_details_cubit.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `handle_store_notification`, `load_and_emit_state`, `load_conversation_details`, `members_of_conversation`, `new`, `spawn`, `store_draft_from_state`, `store_notifications_loop`
+// These functions are ignored because they are not marked as `pub`: `handle_store_notification`, `load_and_emit_state`, `load_chat_details`, `members_of_chat`, `new`, `spawn`, `store_draft_from_state`, `store_notifications_loop`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ConversationDetailsContext`, `MarkAsReadState`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `hash`, `hash`
 // These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
@@ -25,43 +25,43 @@ part 'conversation_details_cubit.freezed.dart';
 abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
-  Future<void> editMessage({ConversationMessageId? messageId});
+  Future<void> editMessage({MessageId? messageId});
 
   bool get isClosed;
 
-  /// Marks the conversation as read until the given message id (including).
+  /// Marks the chat as read until the given message id (including).
   ///
   /// The calls to this method are debounced with a fixed delay.
   Future<void> markAsRead({
-    required ConversationMessageId untilMessageId,
+    required MessageId untilMessageId,
     required DateTime untilTimestamp,
   });
 
-  /// Creates a new cubit for the given conversation.
+  /// Creates a new cubit for the given chat.
   ///
-  /// The cubit will fetch the conversation details and the list of members. It will also listen
-  /// to the changes in the conversation and update the state accordingly.
+  /// The cubit will fetch the chat details and the list of members. It will also listen to the
+  /// changes in the chat and update the state accordingly.
   factory ConversationDetailsCubitBase({
     required UserCubitBase userCubit,
-    required ConversationId conversationId,
+    required ChatId chatId,
   }) => RustLib.instance.api
       .crateApiConversationDetailsCubitConversationDetailsCubitBaseNew(
         userCubit: userCubit,
-        conversationId: conversationId,
+        chatId: chatId,
       );
 
   Future<void> resetDraft();
 
-  /// Sends a message to the conversation.
+  /// Sends a message to the chat.
   ///
   /// The not yet sent message is immediately stored in the local store and then the message is
   /// send to the DS.
   Future<void> sendMessage({required String messageText});
 
-  /// Sets the conversation picture.
+  /// Sets the chat picture.
   ///
-  /// When `bytes` is `None`, the conversation picture is removed.
-  Future<void> setConversationPicture({Uint8List? bytes});
+  /// When `bytes` is `None`, the chat picture is removed.
+  Future<void> setChatPicture({Uint8List? bytes});
 
   ConversationDetailsState get state;
 
@@ -77,16 +77,16 @@ abstract class UiRoomState implements RustOpaqueInterface {
   bool canKick({required UiUserId target});
 }
 
-/// The state of a single conversation
+/// The state of a single chat
 ///
-/// Contains the conversation details and the list of members.
+/// Contains the chat details and the list of members.
 ///
 /// Also see [`ConversationDetailsCubitBase`].
 @freezed
 sealed class ConversationDetailsState with _$ConversationDetailsState {
   const ConversationDetailsState._();
   const factory ConversationDetailsState({
-    UiConversationDetails? conversation,
+    UiChatDetails? chat,
     required List<UiUserId> members,
     UiRoomState? roomState,
   }) = _ConversationDetailsState;

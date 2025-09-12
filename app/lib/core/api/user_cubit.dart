@@ -28,24 +28,19 @@ abstract class UiUser implements RustOpaqueInterface {
 abstract class UserCubitBase implements RustOpaqueInterface {
   Future<bool> addUserHandle({required UiUserHandle userHandle});
 
-  Future<void> addUserToConversation(
-    ConversationId conversationId,
-    UiUserId userId,
-  );
+  Future<void> addUserToChat(ChatId chatId, UiUserId userId);
 
-  Future<List<UiContact>> addableContacts({
-    required ConversationId conversationId,
-  });
+  Future<List<UiContact>> addableContacts({required ChatId chatId});
 
   Future<void> close();
 
   Future<List<UiContact>> get contacts;
 
-  Future<void> deleteConversation(ConversationId conversationId);
+  Future<void> deleteChat(ChatId chatId);
 
   bool get isClosed;
 
-  Future<void> leaveConversation(ConversationId conversationId);
+  Future<void> leaveChat(ChatId chatId);
 
   factory UserCubitBase({
     required User user,
@@ -55,10 +50,7 @@ abstract class UserCubitBase implements RustOpaqueInterface {
     navigation: navigation,
   );
 
-  Future<void> removeUserFromConversation(
-    ConversationId conversationId,
-    UiUserId userId,
-  );
+  Future<void> removeUserFromChat(ChatId chatId, UiUserId userId);
 
   Future<void> removeUserHandle({required UiUserHandle userHandle});
 

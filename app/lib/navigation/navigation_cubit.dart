@@ -35,12 +35,11 @@ class NavigationCubit implements StateStreamableSource<NavigationState> {
 
   // Methods
 
-  Future<void> closeConversation() => _impl.closeConversation();
+  Future<void> closeChat() => _impl.closeChat();
 
-  Future<void> openConversation(ConversationId conversationId) =>
-      _impl.openConversation(conversationId: conversationId);
+  Future<void> openChat(ChatId chatId) => _impl.openChat(chatId: chatId);
 
-  Future<void> openConversationDetails() => _impl.openConversationDetails();
+  Future<void> openChatDetails() => _impl.openChatDetails();
 
   Future<void> openAddMembers() => _impl.openAddMembers();
 

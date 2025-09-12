@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ConversationDetailsState {
 
- UiConversationDetails? get conversation; List<UiUserId> get members; UiRoomState? get roomState;
+ UiChatDetails? get chat; List<UiUserId> get members; UiRoomState? get roomState;
 /// Create a copy of ConversationDetailsState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $ConversationDetailsStateCopyWith<ConversationDetailsState> get copyWith => _$Co
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationDetailsState&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other.members, members)&&(identical(other.roomState, roomState) || other.roomState == roomState));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationDetailsState&&(identical(other.chat, chat) || other.chat == chat)&&const DeepCollectionEquality().equals(other.members, members)&&(identical(other.roomState, roomState) || other.roomState == roomState));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(members),roomState);
+int get hashCode => Object.hash(runtimeType,chat,const DeepCollectionEquality().hash(members),roomState);
 
 @override
 String toString() {
-  return 'ConversationDetailsState(conversation: $conversation, members: $members, roomState: $roomState)';
+  return 'ConversationDetailsState(chat: $chat, members: $members, roomState: $roomState)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $ConversationDetailsStateCopyWith<$Res>  {
   factory $ConversationDetailsStateCopyWith(ConversationDetailsState value, $Res Function(ConversationDetailsState) _then) = _$ConversationDetailsStateCopyWithImpl;
 @useResult
 $Res call({
- UiConversationDetails? conversation, List<UiUserId> members, UiRoomState? roomState
+ UiChatDetails? chat, List<UiUserId> members, UiRoomState? roomState
 });
 
 
@@ -62,10 +62,10 @@ class _$ConversationDetailsStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationDetailsState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? conversation = freezed,Object? members = null,Object? roomState = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? chat = freezed,Object? members = null,Object? roomState = freezed,}) {
   return _then(_self.copyWith(
-conversation: freezed == conversation ? _self.conversation : conversation // ignore: cast_nullable_to_non_nullable
-as UiConversationDetails?,members: null == members ? _self.members : members // ignore: cast_nullable_to_non_nullable
+chat: freezed == chat ? _self.chat : chat // ignore: cast_nullable_to_non_nullable
+as UiChatDetails?,members: null == members ? _self.members : members // ignore: cast_nullable_to_non_nullable
 as List<UiUserId>,roomState: freezed == roomState ? _self.roomState : roomState // ignore: cast_nullable_to_non_nullable
 as UiRoomState?,
   ));
@@ -79,10 +79,10 @@ as UiRoomState?,
 
 
 class _ConversationDetailsState extends ConversationDetailsState {
-  const _ConversationDetailsState({this.conversation, required final  List<UiUserId> members, this.roomState}): _members = members,super._();
+  const _ConversationDetailsState({this.chat, required final  List<UiUserId> members, this.roomState}): _members = members,super._();
   
 
-@override final  UiConversationDetails? conversation;
+@override final  UiChatDetails? chat;
  final  List<UiUserId> _members;
 @override List<UiUserId> get members {
   if (_members is EqualUnmodifiableListView) return _members;
@@ -102,16 +102,16 @@ _$ConversationDetailsStateCopyWith<_ConversationDetailsState> get copyWith => __
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationDetailsState&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other._members, _members)&&(identical(other.roomState, roomState) || other.roomState == roomState));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationDetailsState&&(identical(other.chat, chat) || other.chat == chat)&&const DeepCollectionEquality().equals(other._members, _members)&&(identical(other.roomState, roomState) || other.roomState == roomState));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(_members),roomState);
+int get hashCode => Object.hash(runtimeType,chat,const DeepCollectionEquality().hash(_members),roomState);
 
 @override
 String toString() {
-  return 'ConversationDetailsState(conversation: $conversation, members: $members, roomState: $roomState)';
+  return 'ConversationDetailsState(chat: $chat, members: $members, roomState: $roomState)';
 }
 
 
@@ -122,7 +122,7 @@ abstract mixin class _$ConversationDetailsStateCopyWith<$Res> implements $Conver
   factory _$ConversationDetailsStateCopyWith(_ConversationDetailsState value, $Res Function(_ConversationDetailsState) _then) = __$ConversationDetailsStateCopyWithImpl;
 @override @useResult
 $Res call({
- UiConversationDetails? conversation, List<UiUserId> members, UiRoomState? roomState
+ UiChatDetails? chat, List<UiUserId> members, UiRoomState? roomState
 });
 
 
@@ -139,10 +139,10 @@ class __$ConversationDetailsStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationDetailsState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? conversation = freezed,Object? members = null,Object? roomState = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? chat = freezed,Object? members = null,Object? roomState = freezed,}) {
   return _then(_ConversationDetailsState(
-conversation: freezed == conversation ? _self.conversation : conversation // ignore: cast_nullable_to_non_nullable
-as UiConversationDetails?,members: null == members ? _self._members : members // ignore: cast_nullable_to_non_nullable
+chat: freezed == chat ? _self.chat : chat // ignore: cast_nullable_to_non_nullable
+as UiChatDetails?,members: null == members ? _self._members : members // ignore: cast_nullable_to_non_nullable
 as List<UiUserId>,roomState: freezed == roomState ? _self.roomState : roomState // ignore: cast_nullable_to_non_nullable
 as UiRoomState?,
   ));

@@ -14,10 +14,10 @@ final bobId = 2.userId();
 
 void main() {
   group('MessageCubit', () {
-    test('UiConversationMessage equality', () {
-      final a = UiConversationMessage(
-        id: 1.conversationMessageId(),
-        conversationId: 1.conversationId(),
+    test('UiChatMessage equality', () {
+      final a = UiChatMessage(
+        id: 1.messageId(),
+        chatId: 1.chatId(),
         timestamp: '2023-01-01T00:00:00.000Z',
         message: UiMessage_Content(
           UiContentMessage(
@@ -35,9 +35,9 @@ void main() {
         position: UiFlightPosition.single,
         status: UiMessageStatus.sent,
       );
-      final b = UiConversationMessage(
-        id: 1.conversationMessageId(),
-        conversationId: 1.conversationId(),
+      final b = UiChatMessage(
+        id: 1.messageId(),
+        chatId: 1.chatId(),
         timestamp: '2023-01-01T00:00:00.000Z',
         message: UiMessage_Content(
           UiContentMessage(

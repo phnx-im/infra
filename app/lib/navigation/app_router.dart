@@ -217,30 +217,22 @@ extension on HomeNavigationState {
           ),
         ],
       },
-      if (conversationId != null &&
-          conversationOpen &&
+      if (chatId != null &&
+          chatOpen &&
           screenType == ResponsiveScreenType.mobile)
         const MaterialPage(
           key: ValueKey("conversation-screen"),
           child: ConversationScreen(),
         ),
-      if (conversationId != null && conversationOpen && conversationDetailsOpen)
-        const MaterialPage(
-          key: ValueKey("conversation-details-screen"),
-          child: ConversationDetailsScreen(),
-        ),
-      if (conversationId != null &&
-          conversationOpen &&
-          conversationDetailsOpen &&
+      if (chatId != null &&
+          chatOpen &&
+          chatDetailsOpen &&
           memberDetails != null)
         const MaterialPage(
-          key: ValueKey("conversation-member-details-screen"),
+          key: ValueKey("chat-member-details-screen"),
           child: MemberDetailsScreen(),
         ),
-      if (conversationId != null &&
-          conversationOpen &&
-          conversationDetailsOpen &&
-          addMembersOpen)
+      if (chatId != null && chatOpen && chatDetailsOpen && addMembersOpen)
         const MaterialPage(
           key: ValueKey("add-members-screen"),
           child: AddMembersScreen(),

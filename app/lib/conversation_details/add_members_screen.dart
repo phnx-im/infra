@@ -23,10 +23,10 @@ class AddMembersScreen extends StatelessWidget {
       create: (context) {
         final userCubit = context.read<UserCubit>();
         final navigationCubit = context.read<NavigationCubit>();
-        final conversationId = navigationCubit.state.conversationId;
+        final chatId = navigationCubit.state.chatId;
         final contactsFuture =
-            conversationId != null
-                ? userCubit.addableContacts(conversationId)
+            chatId != null
+                ? userCubit.addableContacts(chatId)
                 : Future.value(<UiContact>[]);
 
         return AddMembersCubit()..loadContacts(contactsFuture);
@@ -103,13 +103,13 @@ class AddMembersScreenView extends StatelessWidget {
   ) async {
     final navigationCubit = context.read<NavigationCubit>();
     final userCubit = context.read<UserCubit>();
-    final conversationId = navigationCubit.state.conversationId;
+    final chatId = navigationCubit.state.chatId;
     final loc = AppLocalizations.of(context);
-    if (conversationId == null) {
+    if (chatId == null) {
       throw StateError(loc.addMembersScreen_error_noActiveConversation);
     }
     for (final userId in selectedContacts) {
-      await userCubit.addUserToConversation(conversationId, userId);
+      await userCubit.addUserToChat(chatId, userId);
     }
     navigationCubit.pop();
   }

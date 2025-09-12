@@ -18,7 +18,7 @@ use openmls_rust_crypto::RustCrypto;
 use sqlx::SqliteConnection;
 
 use crate::{
-    ConversationId,
+    ChatId,
     clients::{api_clients::ApiClients, connection_offer::FriendshipPackage},
     groups::client_auth_info::StorableClientCredential,
     key_stores::{as_credentials::AsCredentials, indexed_keys::StorableIndexedKey},
@@ -34,8 +34,8 @@ pub struct Contact {
     // Encryption key for WelcomeAttributionInfos
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) friendship_token: FriendshipToken,
-    // ID of the connection conversation with this contact.
-    pub(crate) conversation_id: ConversationId,
+    // ID of the connection chat with this contact.
+    pub(crate) chat_id: ChatId,
 }
 
 #[derive(Debug, Clone)]
@@ -47,14 +47,14 @@ pub(crate) struct ContactAddInfos {
 impl Contact {
     pub(crate) fn from_friendship_package(
         user_id: UserId,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         friendship_package: FriendshipPackage,
     ) -> Result<Self, LibraryError> {
         let contact = Self {
             user_id,
             wai_ear_key: friendship_package.wai_ear_key,
             friendship_token: friendship_package.friendship_token,
-            conversation_id,
+            chat_id,
         };
         Ok(contact)
     }
@@ -127,7 +127,7 @@ impl Contact {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct HandleContact {
     pub handle: UserHandle,
-    pub conversation_id: ConversationId,
+    pub chat_id: ChatId,
     pub friendship_package_ear_key: FriendshipPackageEarKey,
     // This is Optional only for backwards compatibility
     pub connection_offer_hash: ConnectionOfferHash,
@@ -136,13 +136,13 @@ pub struct HandleContact {
 impl HandleContact {
     pub(crate) fn new(
         handle: UserHandle,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         friendship_package_ear_key: FriendshipPackageEarKey,
         connection_offer_hash: ConnectionOfferHash,
     ) -> Self {
         Self {
             handle,
-            conversation_id,
+            chat_id,
             friendship_package_ear_key,
             connection_offer_hash,
         }

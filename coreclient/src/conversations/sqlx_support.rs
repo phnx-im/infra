@@ -6,11 +6,11 @@ use openmls::group::GroupId;
 use sqlx::{Database, Decode, Encode, Sqlite, Type, encode::IsNull, error::BoxDynError};
 use uuid::Uuid;
 
-use crate::{ConversationMessageId, utils::persistence::GroupIdWrapper};
+use crate::{MessageId, utils::persistence::GroupIdWrapper};
 
-use super::ConversationId;
+use super::ChatId;
 
-impl<DB> Type<DB> for ConversationId
+impl<DB> Type<DB> for ChatId
 where
     DB: Database,
     Uuid: Type<DB>,
@@ -20,7 +20,7 @@ where
     }
 }
 
-impl<'q, DB> Encode<'q, DB> for ConversationId
+impl<'q, DB> Encode<'q, DB> for ChatId
 where
     DB: Database,
     Uuid: Encode<'q, DB>,
@@ -33,7 +33,7 @@ where
     }
 }
 
-impl<'r, DB> Decode<'r, DB> for ConversationId
+impl<'r, DB> Decode<'r, DB> for ChatId
 where
     DB: Database,
     Uuid: Decode<'r, DB>,
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<DB> Type<DB> for ConversationMessageId
+impl<DB> Type<DB> for MessageId
 where
     DB: Database,
     Uuid: Type<DB>,
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<'q, DB> Encode<'q, DB> for ConversationMessageId
+impl<'q, DB> Encode<'q, DB> for MessageId
 where
     DB: Database,
     Uuid: Encode<'q, DB>,
@@ -67,7 +67,7 @@ where
     }
 }
 
-impl<'r, DB> Decode<'r, DB> for ConversationMessageId
+impl<'r, DB> Decode<'r, DB> for MessageId
 where
     DB: Database,
     Uuid: Decode<'r, DB>,

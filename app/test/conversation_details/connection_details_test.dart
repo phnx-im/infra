@@ -15,7 +15,7 @@ import 'package:air/theme/theme.dart';
 import '../conversation_list/conversation_list_content_test.dart';
 import '../mocks.dart';
 
-final conversation = conversations[0];
+final chat = chats[0];
 
 void main() {
   group('ConnectionDetailsTest', () {
@@ -25,10 +25,7 @@ void main() {
       conversationDetailsCubit = MockConversationDetailsCubit();
 
       when(() => conversationDetailsCubit.state).thenReturn(
-        ConversationDetailsState(
-          conversation: conversation,
-          members: [userProfiles[1].userId],
-        ),
+        ConversationDetailsState(chat: chat, members: [userProfiles[1].userId]),
       );
     });
 
