@@ -312,7 +312,12 @@ impl UserCubitBase {
 
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
-        let Some(record) = self.context.core_user.add_user_handle(&user_handle).await? else {
+        let Some(record) = self
+            .context
+            .core_user
+            .add_user_handle(user_handle.clone())
+            .await?
+        else {
             return Ok(false);
         };
 

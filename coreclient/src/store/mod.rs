@@ -62,7 +62,7 @@ pub trait Store {
 
     async fn add_user_handle(
         &self,
-        user_handle: &UserHandle,
+        user_handle: UserHandle,
     ) -> StoreResult<Option<UserHandleRecord>>;
 
     async fn remove_user_handle(

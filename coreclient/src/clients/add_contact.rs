@@ -42,7 +42,7 @@ impl CoreUser {
 
         // Phase 1: Fetch a connection package from the AS
         let (connection_package, connection_offer_responder) =
-            match client.as_connect_handle(&handle).await {
+            match client.as_connect_handle(handle.clone()).await {
                 Ok(res) => res,
                 Err(error) if error.is_not_found() => {
                     return Ok(None);

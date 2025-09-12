@@ -124,7 +124,7 @@ impl TestUser {
         );
         let record = self
             .user
-            .add_user_handle(&handle)
+            .add_user_handle(handle)
             .await?
             .context("user handle is already in use")?;
         self.user_handle_record = Some(record.clone());

@@ -61,7 +61,7 @@ impl UserHandleQueues {
         &self,
         hash: UserHandleHash,
     ) -> Result<impl Stream<Item = Option<HandleQueueMessage>> + use<>, HandleQueueError> {
-        let notifications = self.pg_listener_task_handle.subscribe(hash.clone());
+        let notifications = self.pg_listener_task_handle.subscribe(hash);
         let cancel = self.track_listener(hash).await?;
         let context = QueueStreamContext {
             id: Uuid::new_v4(),
