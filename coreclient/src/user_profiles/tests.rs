@@ -163,7 +163,7 @@ fn profile_deletion_trigger(pool: SqlitePool) {
     // when the user is removed from the last shared group. This is tested in the
     // integration test called `user_deletion_triggers`.)
     delete_user_profile(&pool).await.unwrap();
-    let loaded_key = UserProfileKey::load(&pool, &user_profile_key.index()).await;
+    let loaded_key = UserProfileKey::load(&pool, user_profile_key.index()).await;
     assert!(matches!(loaded_key, Err(sqlx::Error::RowNotFound)));
 }
 
