@@ -9,6 +9,7 @@ pub mod auth_service;
 pub mod ds;
 pub(crate) mod errors;
 pub mod messages;
+pub(crate) mod pg_listen;
 pub mod qs;
 pub mod rate_limiter;
 pub mod settings;

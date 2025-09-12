@@ -12,13 +12,17 @@ use airprotos::queue_service::v1::{
     QueueEmpty, QueueEvent, QueueEventPayload, QueueMessage, queue_event,
 };
 use futures_util::{Stream, stream};
-use sqlx::{Connection, PgConnection, PgExecutor, PgPool, postgres::PgListener, query_scalar};
+use sqlx::{Connection, PgConnection, PgExecutor, PgPool, query_scalar};
 use tokio::sync::{Mutex, mpsc};
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
+use uuid::Uuid;
 
-use crate::errors::{QueueError, StorageError};
+use crate::{
+    errors::{QueueError, StorageError},
+    pg_listen::{PgChannelName, PgListenerTaskHandle, spawn_pg_listener_task},
+};
 
 /// Maximum number of messages to fetch at once.
 const MAX_BUFFER_SIZE: usize = 32;
@@ -27,6 +31,7 @@ const MAX_BUFFER_SIZE: usize = 32;
 pub(crate) struct Queues {
     pool: PgPool,
     listeners: Arc<Mutex<HashMap<QsClientId, ListenerContext>>>,
+    pg_listener_task_handle: PgListenerTaskHandle<QsClientId>,
 }
 
 #[derive(Debug)]
@@ -36,11 +41,13 @@ struct ListenerContext {
 }
 
 impl Queues {
-    pub(crate) fn new(pool: PgPool) -> Self {
-        Self {
+    pub(crate) async fn new(pool: PgPool) -> sqlx::Result<Self> {
+        let pg_listener_task_handle = spawn_pg_listener_task(pool.clone()).await?;
+        Ok(Self {
             pool,
             listeners: Default::default(),
-        }
+            pg_listener_task_handle,
+        })
     }
 
     pub(crate) async fn listen(
@@ -48,15 +55,13 @@ impl Queues {
         queue_id: QsClientId,
         sequence_number_start: u64,
     ) -> Result<impl Stream<Item = Option<QueueEvent>> + use<>, QueueError> {
-        let mut pg_listener = PgListener::connect_with(&self.pool).await?;
-        pg_listener.listen(&pg_queue_label(queue_id)).await?;
-
+        let notifications = self.pg_listener_task_handle.subscribe(queue_id);
         let (payload_tx, payload_rx) = tokio::sync::mpsc::channel(1024);
 
         let cancel = self.track_listener(queue_id, payload_tx).await?;
         let context = QueueStreamContext {
             pool: self.pool.clone(),
-            pg_listener,
+            notifications,
             queue_id,
             sequence_number: sequence_number_start,
             cancel,
@@ -113,7 +118,7 @@ impl Queues {
     }
 
     pub(crate) async fn trigger_fetch(&self, queue_id: QsClientId) -> Result<(), QueueError> {
-        let query = format!(r#"NOTIFY "{}""#, pg_queue_label(queue_id));
+        let query = queue_id.notify_query();
         sqlx::query(&query).execute(&self.pool).await?;
         Ok(())
     }
@@ -124,7 +129,9 @@ impl Queues {
         payload_tx: mpsc::Sender<QueueEventPayload>,
     ) -> sqlx::Result<CancellationToken> {
         let mut listeners = self.listeners.lock().await;
-        listeners.retain(|_, context| !context.cancel.is_cancelled());
+        for (id, _) in listeners.extract_if(|_, context| context.cancel.is_cancelled()) {
+            self.pg_listener_task_handle.unlisten(id).await;
+        }
         let cancel = CancellationToken::new();
         let context = ListenerContext {
             cancel: cancel.clone(),
@@ -132,8 +139,21 @@ impl Queues {
         };
         if let Some(prev_context) = listeners.insert(client_id, context) {
             prev_context.cancel.cancel();
+        } else {
+            self.pg_listener_task_handle.listen(client_id).await;
         }
         Ok(cancel)
+    }
+}
+
+impl PgChannelName for QsClientId {
+    fn pg_channel(&self) -> String {
+        format!("qs_{}", self.as_uuid())
+    }
+
+    fn from_pg_channel(channel: &str) -> Option<Self> {
+        let uuid: Uuid = channel.strip_prefix("qs_")?.parse().ok()?;
+        Some(uuid.into())
     }
 }
 
@@ -188,9 +208,9 @@ impl QueueNotifier for Queues {
     }
 }
 
-struct QueueStreamContext {
+struct QueueStreamContext<S> {
     pool: PgPool,
-    pg_listener: PgListener,
+    notifications: S,
     queue_id: QsClientId,
     sequence_number: u64,
     cancel: CancellationToken,
@@ -210,7 +230,7 @@ enum FetchState {
     Wait,
 }
 
-impl QueueStreamContext {
+impl<S: Stream<Item = ()> + Send + Unpin> QueueStreamContext<S> {
     fn into_stream(self) -> impl Stream<Item = Option<QueueMessage>> + Send {
         stream::unfold(
             self,
@@ -268,7 +288,7 @@ impl QueueStreamContext {
     /// Returns `None` if the listener was cancelled and should stop.
     async fn wait_for_notification(&mut self) -> Option<()> {
         tokio::select! {
-            _ = self.pg_listener.recv() => Some(()),
+            _ = self.notifications.next() => Some(()),
             _ = self.cancel.cancelled() => None,
         }
     }

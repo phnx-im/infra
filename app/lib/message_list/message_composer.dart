@@ -301,6 +301,7 @@ class _MessageInput extends StatelessWidget {
     final sendOnEnter = context.select(
       (UserSettingsCubit cubit) => cubit.state.sendOnEnter,
     );
+    debugPrint("sendOnEnter: $sendOnEnter");
 
     final loc = AppLocalizations.of(context);
 

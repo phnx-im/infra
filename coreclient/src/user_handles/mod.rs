@@ -30,7 +30,7 @@ impl CoreUser {
         handle: &UserHandle,
     ) -> StoreResult<Option<UserHandleRecord>> {
         let signing_key = HandleSigningKey::generate()?;
-        let hash = handle.hash()?;
+        let hash = handle.calculate_hash()?;
 
         let api_client = self.api_client()?;
         let created = api_client

@@ -211,7 +211,7 @@ impl ApiClient {
         &self,
         handle: &UserHandle,
     ) -> Result<(ConnectionPackageIn, ConnectionOfferResponder), AsRequestError> {
-        let hash = handle.hash().map_err(|error| {
+        let hash = handle.calculate_hash().map_err(|error| {
             error!(%error, "failed to hash user handle");
             AsRequestError::LibraryError
         })?;

@@ -47,7 +47,7 @@ impl<T: Into<sqlx::Error>> From<T> for AuthServiceCreationError {
 
 impl BackendService for AuthService {
     async fn initialize(db_pool: PgPool, domain: Fqdn) -> Result<Self, ServiceCreationError> {
-        let handle_queues = UserHandleQueues::new(db_pool.clone());
+        let handle_queues = UserHandleQueues::new(db_pool.clone()).await?;
         let auth_service = Self {
             db_pool,
             handle_queues,
