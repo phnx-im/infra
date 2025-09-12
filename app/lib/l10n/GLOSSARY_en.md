@@ -9,7 +9,7 @@ This glossary provides definitions for key terms used in Air's user interface to
 | **Air** | The name of the application | Always keep as "Air", do not translate |
 | **Username** | A unique identifier that users can share to connect with others | Only used for connections |
 | **Display Name** | The name that appears in conversations and is visible to other users | Different from username; this is what people see when you message them |
-| **Conversation** | A chat thread between two or more people | Can be 1:1 or group conversations |
+| **Chat** | A chat thread between two or more people | Can be 1:1 or group chat |
 | **Contact** | Another user you can message | Someone in your contact list |
 | **Member** | A participant in a group conversation | Used in group conversation contexts |
 
