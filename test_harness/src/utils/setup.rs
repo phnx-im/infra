@@ -1092,6 +1092,22 @@ impl TestBackend {
         let leaver = &mut test_leaver.user;
         leaver.leave_chat(chat_id).await?;
 
+        // Make sure everyone else processes their QS messages so that the
+        // leaver's proposal is observed. This is relevant mostly s.t. we can
+        // compare the pending removes with the actual members removed after the
+        // commit.
+        for member_id in &group_members {
+            if member_id != leaver_id {
+                let test_member = self.users.get_mut(member_id).unwrap();
+                let member = &mut test_member.user;
+                let qs_messages = member.qs_fetch_messages().await.unwrap();
+                member
+                    .fully_process_qs_messages(qs_messages)
+                    .await
+                    .expect("Error processing qs messages.");
+            }
+        }
+
         // Fetch and process the QS messages to make sure the random member has the proposal.
         let test_random_member = self.users.get_mut(random_member_id).unwrap();
         let random_member = &mut test_random_member.user;

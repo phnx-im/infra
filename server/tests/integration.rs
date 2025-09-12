@@ -957,3 +957,43 @@ fn init_test_tracing() {
         .with_env_filter(EnvFilter::from_default_env())
         .try_init();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "User deletion triggers", skip_all)]
+async fn user_deletion_triggers() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+
+    // Connect alice and bob
+    setup.connect_users(&ALICE, &BOB).await;
+    // Connect alice and charlie
+    setup.connect_users(&ALICE, &CHARLIE).await;
+
+    // Note that bob and charlie are not connected.
+
+    // Alice creates a group and invites bob and charlie
+    let conversation_id = setup.create_group(&ALICE).await;
+    setup
+        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await;
+
+    // Bob should have a user profile for charlie now, even though they
+    // are not connected.
+    let bob = setup.get_user(&BOB);
+    let bob_user_profile_charlie = bob.user.user_profile(&CHARLIE).await;
+    assert!(bob_user_profile_charlie.user_id == *CHARLIE);
+
+    // Now charlie leaves the group
+    setup.leave_group(conversation_id, &CHARLIE).await.unwrap();
+    // Bob should not have a user profile for charlie anymore.
+
+    let bob = setup.get_user(&BOB);
+    let bob_user_profile_charlie = bob.user.user_profile(&CHARLIE).await;
+    assert_eq!(
+        bob_user_profile_charlie,
+        UserProfile::from_user_id(&CHARLIE)
+    );
+}
