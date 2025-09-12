@@ -251,7 +251,6 @@ impl Group {
             user_id.clone(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
-            signer.credential().fingerprint(),
         );
 
         let group = Self {
@@ -547,7 +546,6 @@ impl Group {
             own_client_credential.identity().clone(),
             mls_group.group_id().clone(),
             LeafNodeIndex::new(own_index as u32),
-            own_client_credential.fingerprint(),
         );
 
         let own_auth_info =
@@ -672,12 +670,10 @@ impl Group {
         // Stage the adds in the DB.
         let free_indices = GroupMembership::free_indices(&mut *connection, self.group_id()).await?;
         for (leaf_index, client_credential) in free_indices.zip(client_credentials) {
-            let fingerprint = client_credential.fingerprint();
             let group_membership = GroupMembership::new(
                 client_credential.identity().clone(),
                 self.group_id.clone(),
                 leaf_index,
-                fingerprint,
             );
             let client_auth_info = ClientAuthInfo::new(client_credential, group_membership);
             client_auth_info.stage_add(&mut *connection).await?;
