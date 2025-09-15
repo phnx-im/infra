@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
-import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/chat_details/chat_details.dart';
 import 'package:air/developer/developer.dart';
 import 'package:air/home_screen.dart';
 import 'package:air/intro_screen.dart';
@@ -221,13 +221,13 @@ extension on HomeNavigationState {
       },
       if (openChatId != null && screenType == ResponsiveScreenType.mobile)
         const MaterialPage(
-          key: ValueKey("conversation-screen"),
-          child: ConversationScreen(),
+          key: ValueKey("chat-screen"),
+          child: ChatScreen(),
         ),
       if (openChatId != null && chatDetailsOpen)
         const MaterialPage(
           key: ValueKey("chat-details-screen"),
-          child: ConversationDetailsScreen(),
+          child: ChatDetailsScreen(),
         ),
       if (openChatId != null && chatDetailsOpen && memberDetails != null)
         const MaterialPage(

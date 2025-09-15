@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:air/conversation_list/conversation_list.dart';
-import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/chat_list/chat_list.dart';
+import 'package:air/chat_details/chat_details.dart';
 import 'package:air/theme/theme.dart';
 import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
@@ -18,11 +18,11 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final mobileLayout = Scaffold(
       backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
-      body: const ConversationListContainer(),
+      body: const ChatListContainer(),
     );
     const desktopLayout = HomeScreenDesktopLayout(
-      conversationList: ConversationListContainer(),
-      conversation: ConversationScreen(),
+      chatList: ChatListContainer(),
+      chat: ChatScreen(),
     );
     return ResponsiveScreen(
       mobile: mobileLayout,
@@ -34,13 +34,13 @@ class HomeScreen extends StatelessWidget {
 
 class HomeScreenDesktopLayout extends StatelessWidget {
   const HomeScreenDesktopLayout({
-    required this.conversationList,
-    required this.conversation,
+    required this.chatList,
+    required this.chat,
     super.key,
   });
 
-  final Widget conversationList;
-  final Widget conversation;
+  final Widget chatList;
+  final Widget chat;
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +51,9 @@ class HomeScreenDesktopLayout extends StatelessWidget {
           ResizablePanel(
             initialWidth: context.read<UserSettingsCubit>().state.sidebarWidth,
             onResizeEnd: (width) => onResizeEnd(context, width),
-            child: conversationList,
+            child: chatList,
           ),
-          Expanded(child: conversation),
+          Expanded(child: chat),
         ],
       ),
     );

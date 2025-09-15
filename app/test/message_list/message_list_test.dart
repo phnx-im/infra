@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/chat_details/chat_details.dart';
 import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/message_list/message_list.dart';
@@ -17,7 +17,7 @@ import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
-import '../conversation_list/conversation_list_content_test.dart';
+import '../chat_list/chat_list_content_test.dart';
 import '../helpers.dart';
 import '../mocks.dart';
 
@@ -298,14 +298,14 @@ void main() {
   group('MessageListView', () {
     late MockUserCubit userCubit;
     late MockUsersCubit contactsCubit;
-    late MockConversationDetailsCubit conversationDetailsCubit;
+    late MockChatDetailsCubit chatDetailsCubit;
     late MockMessageListCubit messageListCubit;
     late MockAttachmentsRepository attachmentsRepository;
 
     setUp(() async {
       userCubit = MockUserCubit();
       contactsCubit = MockUsersCubit();
-      conversationDetailsCubit = MockConversationDetailsCubit();
+      chatDetailsCubit = MockChatDetailsCubit();
       messageListCubit = MockMessageListCubit();
       attachmentsRepository = MockAttachmentsRepository();
 
@@ -314,7 +314,7 @@ void main() {
         () => contactsCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
       when(
-        () => conversationDetailsCubit.markAsRead(
+        () => chatDetailsCubit.markAsRead(
           untilMessageId: any(named: 'untilMessageId'),
           untilTimestamp: any(named: 'untilTimestamp'),
         ),
@@ -327,8 +327,8 @@ void main() {
         providers: [
           BlocProvider<UserCubit>.value(value: userCubit),
           BlocProvider<UsersCubit>.value(value: contactsCubit),
-          BlocProvider<ConversationDetailsCubit>.value(
-            value: conversationDetailsCubit,
+          BlocProvider<ChatDetailsCubit>.value(
+            value: chatDetailsCubit,
           ),
           BlocProvider<MessageListCubit>.value(value: messageListCubit),
         ],

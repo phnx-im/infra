@@ -7,7 +7,7 @@ import 'dart:typed_data';
 import 'package:air/core/core.dart';
 import 'package:test/test.dart';
 
-import '../conversation_list/conversation_list_content_test.dart';
+import '../chat_list/chat_list_content_test.dart';
 import '../helpers.dart';
 
 final bobId = 2.userId();

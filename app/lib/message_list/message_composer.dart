@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logging/logging.dart';
-import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/chat_details/chat_details.dart';
 import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart' show AppLocalizations;
 import 'package:air/main.dart';
@@ -36,9 +36,9 @@ class _MessageComposerState extends State<MessageComposer>
   final Debouncer _storeDraftDebouncer = Debouncer(
     delay: const Duration(milliseconds: 500),
   );
-  StreamSubscription<ConversationDetailsState>? _draftLoadingSubscription;
+  StreamSubscription<ChatDetailsState>? _draftLoadingSubscription;
   final _focusNode = FocusNode();
-  late ConversationDetailsCubit _conversationDetailsCubit;
+  late ChatDetailsCubit _chatDetailsCubit;
   bool _keyboardVisible = false;
   bool _inputIsEmpty = true;
 
@@ -50,12 +50,12 @@ class _MessageComposerState extends State<MessageComposer>
         (focusNode, event) => _onKeyEvent(context.read(), focusNode, event);
     _inputController.addListener(_onTextChanged);
 
-    _conversationDetailsCubit = context.read<ConversationDetailsCubit>();
+    _chatDetailsCubit = context.read<ChatDetailsCubit>();
 
     // Propagate draft changes to the text field.
     // In particular, this sets the draft message on initial load, if any.
 
-    _draftLoadingSubscription = _conversationDetailsCubit.stream.listen((
+    _draftLoadingSubscription = _chatDetailsCubit.stream.listen((
       state,
     ) {
       if (state.chat != null) {
@@ -86,7 +86,7 @@ class _MessageComposerState extends State<MessageComposer>
     WidgetsBinding.instance.removeObserver(this);
     _storeDraftDebouncer.dispose();
 
-    _conversationDetailsCubit.storeDraft(draftMessage: _inputController.text);
+    _chatDetailsCubit.storeDraft(draftMessage: _inputController.text);
     _inputController.dispose();
 
     _draftLoadingSubscription?.cancel();
@@ -110,7 +110,7 @@ class _MessageComposerState extends State<MessageComposer>
   @override
   Widget build(BuildContext context) {
     final (chatTitle, editingId) = context.select(
-      (ConversationDetailsCubit cubit) => (
+      (ChatDetailsCubit cubit) => (
         cubit.state.chat?.title,
         cubit.state.chat?.draft?.editingId,
       ),
@@ -168,7 +168,7 @@ class _MessageComposerState extends State<MessageComposer>
                   color: CustomColorScheme.of(context).text.primary,
                   hoverColor: const Color(0x00FFFFFF),
                   onPressed: () {
-                    context.read<ConversationDetailsCubit>().resetDraft();
+                    context.read<ChatDetailsCubit>().resetDraft();
                     _inputController.clear();
                   },
                 ),
@@ -202,19 +202,19 @@ class _MessageComposerState extends State<MessageComposer>
 
   // Key events
   KeyEventResult _onKeyEvent(
-    ConversationDetailsCubit conversationDetailCubit,
+    ChatDetailsCubit chatDetailCubit,
     FocusNode node,
     KeyEvent evt,
   ) {
     if (evt.logicalKey == LogicalKeyboardKey.enter &&
         evt is KeyDownEvent &&
         HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
-      _submitMessage(conversationDetailCubit);
+      _submitMessage(chatDetailCubit);
       return KeyEventResult.handled;
     } else if (evt.logicalKey == LogicalKeyboardKey.arrowUp &&
         evt is KeyDownEvent &&
         HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
-      return _editMessage(conversationDetailCubit)
+      return _editMessage(chatDetailCubit)
           ? KeyEventResult.handled
           : KeyEventResult.ignored;
     } else {
@@ -222,14 +222,14 @@ class _MessageComposerState extends State<MessageComposer>
     }
   }
 
-  void _submitMessage(ConversationDetailsCubit conversationDetailsCubit) async {
+  void _submitMessage(ChatDetailsCubit chatDetailsCubit) async {
     final messageText = _inputController.text.trim();
     if (messageText.isEmpty) {
       return;
     }
 
     // FIXME: Handle errors
-    conversationDetailsCubit.sendMessage(messageText);
+    chatDetailsCubit.sendMessage(messageText);
 
     setState(() {
       _inputController.clear();
@@ -237,7 +237,7 @@ class _MessageComposerState extends State<MessageComposer>
     });
   }
 
-  bool _editMessage(ConversationDetailsCubit cubit) {
+  bool _editMessage(ChatDetailsCubit cubit) {
     if (_inputController.text.trim().isNotEmpty) {
       return false;
     }
@@ -260,7 +260,7 @@ class _MessageComposerState extends State<MessageComposer>
       return;
     }
 
-    final cubit = context.read<ConversationDetailsCubit>();
+    final cubit = context.read<ChatDetailsCubit>();
     try {
       await cubit.uploadAttachment(file.path);
     } catch (e) {
@@ -277,7 +277,7 @@ class _MessageComposerState extends State<MessageComposer>
       _inputIsEmpty = _inputController.text.trim().isEmpty;
     });
     _storeDraftDebouncer.run(() {
-      _conversationDetailsCubit.storeDraft(draftMessage: _inputController.text);
+      _chatDetailsCubit.storeDraft(draftMessage: _inputController.text);
     });
   }
 }

@@ -196,29 +196,29 @@ abstract class AppLocalizations {
   /// **'Add member(s)'**
   String get addMembersScreen_addMembers;
 
-  /// No description provided for @addMembersScreen_error_noActiveConversation.
+  /// No description provided for @addMembersScreen_error_noActiveChat.
   ///
   /// In en, this message translates to:
-  /// **'an active conversation is obligatory'**
-  String get addMembersScreen_error_noActiveConversation;
+  /// **'an active chat is obligatory'**
+  String get addMembersScreen_error_noActiveChat;
 
-  /// No description provided for @conversationDetailsScreen_title.
+  /// No description provided for @chatDetailsScreen_title.
   ///
   /// In en, this message translates to:
   /// **'Details'**
-  String get conversationDetailsScreen_title;
+  String get chatDetailsScreen_title;
 
-  /// No description provided for @conversationDetailsScreen_unknownConversation.
+  /// No description provided for @chatDetailsScreen_unknownChat.
   ///
   /// In en, this message translates to:
-  /// **'Unknown conversation'**
-  String get conversationDetailsScreen_unknownConversation;
+  /// **'Unknown chat'**
+  String get chatDetailsScreen_unknownChat;
 
-  /// No description provided for @conversationScreen_emptyConversation.
+  /// No description provided for @chatScreen_emptyChat.
   ///
   /// In en, this message translates to:
-  /// **'Select a conversation to start messaging'**
-  String get conversationScreen_emptyConversation;
+  /// **'Select a chat to start messaging'**
+  String get chatScreen_emptyChat;
 
   /// No description provided for @memberDetailsScreen_title.
   ///
@@ -394,47 +394,47 @@ abstract class AppLocalizations {
   /// **'Yesterday'**
   String get timestamp_yesterday;
 
-  /// No description provided for @conversationList_newContact.
+  /// No description provided for @chatList_newContact.
   ///
   /// In en, this message translates to:
   /// **'New contact'**
-  String get conversationList_newContact;
+  String get chatList_newContact;
 
-  /// No description provided for @conversationList_newGroup.
+  /// No description provided for @chatList_newGroup.
   ///
   /// In en, this message translates to:
   /// **'New group'**
-  String get conversationList_newGroup;
+  String get chatList_newGroup;
 
-  /// No description provided for @conversationList_emptyMessage.
+  /// No description provided for @chatList_emptyMessage.
   ///
   /// In en, this message translates to:
   /// **'Create a new connection to get started'**
-  String get conversationList_emptyMessage;
+  String get chatList_emptyMessage;
 
-  /// No description provided for @conversationList_draft.
+  /// No description provided for @chatList_draft.
   ///
   /// In en, this message translates to:
   /// **'Draft'**
-  String get conversationList_draft;
+  String get chatList_draft;
 
-  /// No description provided for @conversationList_you.
+  /// No description provided for @chatList_you.
   ///
   /// In en, this message translates to:
   /// **'You'**
-  String get conversationList_you;
+  String get chatList_you;
 
-  /// No description provided for @conversationList_imageEmoji.
+  /// No description provided for @chatList_imageEmoji.
   ///
   /// In en, this message translates to:
   /// **'🖼️'**
-  String get conversationList_imageEmoji;
+  String get chatList_imageEmoji;
 
-  /// No description provided for @conversationList_fileEmoji.
+  /// No description provided for @chatList_fileEmoji.
   ///
   /// In en, this message translates to:
   /// **'📎'**
-  String get conversationList_fileEmoji;
+  String get chatList_fileEmoji;
 
   /// No description provided for @settings_profile.
   ///
@@ -448,41 +448,41 @@ abstract class AppLocalizations {
   /// **'Settings (developer)'**
   String get settings_developerSettings;
 
-  /// No description provided for @newConversationDialog_newConversationTitle.
+  /// No description provided for @newChatDialog_newChatTitle.
   ///
   /// In en, this message translates to:
-  /// **'New conversation'**
-  String get newConversationDialog_newConversationTitle;
+  /// **'New chat'**
+  String get newChatDialog_newChatTitle;
 
-  /// No description provided for @newConversationDialog_newConversationDescription.
+  /// No description provided for @newChatDialog_newChatDescription.
   ///
   /// In en, this message translates to:
-  /// **'Choose a name for the new conversation'**
-  String get newConversationDialog_newConversationDescription;
+  /// **'Choose a name for the new chat'**
+  String get newChatDialog_newChatDescription;
 
-  /// No description provided for @newConversationDialog_conversationNamePlaceholder.
+  /// No description provided for @newChatDialog_chatNamePlaceholder.
   ///
   /// In en, this message translates to:
-  /// **'Conversation name'**
-  String get newConversationDialog_conversationNamePlaceholder;
+  /// **'Chat name'**
+  String get newChatDialog_chatNamePlaceholder;
 
-  /// No description provided for @newConversationDialog_actionButton.
+  /// No description provided for @newChatDialog_actionButton.
   ///
   /// In en, this message translates to:
-  /// **'Create conversation'**
-  String get newConversationDialog_actionButton;
+  /// **'Create chat'**
+  String get newChatDialog_actionButton;
 
-  /// No description provided for @newConversationDialog_error.
+  /// No description provided for @newChatDialog_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to add conversation with name {conversationName}'**
-  String newConversationDialog_error(Object conversationName);
+  /// **'Failed to add chat with name {chatName}'**
+  String newChatDialog_error(Object chatName);
 
-  /// No description provided for @newConversationDialog_error_emptyGroupName.
+  /// No description provided for @newChatDialog_error_emptyGroupName.
   ///
   /// In en, this message translates to:
-  /// **'Conversation name cannot be empty'**
-  String get newConversationDialog_error_emptyGroupName;
+  /// **'Chat name cannot be empty'**
+  String get newChatDialog_error_emptyGroupName;
 
   /// No description provided for @newConnectionDialog_newConnectionTitle.
   ///
@@ -529,8 +529,8 @@ abstract class AppLocalizations {
   /// No description provided for @composer_inputHint.
   ///
   /// In en, this message translates to:
-  /// **'Message {conversationTitle}'**
-  String composer_inputHint(Object conversationTitle);
+  /// **'Message {chatTitle}'**
+  String composer_inputHint(Object chatTitle);
 
   /// No description provided for @composer_editMessage.
   ///
@@ -712,65 +712,65 @@ abstract class AppLocalizations {
   /// **'Add Members'**
   String get groupDetails_addMembers;
 
-  /// No description provided for @groupDetails_leaveConversation.
+  /// No description provided for @groupDetails_leaveChat.
   ///
   /// In en, this message translates to:
-  /// **'Leave Conversation'**
-  String get groupDetails_leaveConversation;
+  /// **'Leave Chat'**
+  String get groupDetails_leaveChat;
 
-  /// No description provided for @groupDetails_deleteConversation.
+  /// No description provided for @groupDetails_deleteChat.
   ///
   /// In en, this message translates to:
-  /// **'Delete Conversation'**
-  String get groupDetails_deleteConversation;
+  /// **'Delete Chat'**
+  String get groupDetails_deleteChat;
 
-  /// No description provided for @leaveConversationDialog_title.
+  /// No description provided for @leaveChatDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Leave Conversation'**
-  String get leaveConversationDialog_title;
+  /// **'Leave Chat'**
+  String get leaveChatDialog_title;
 
-  /// No description provided for @leaveConversationDialog_content.
+  /// No description provided for @leaveChatDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to leave this conversation?'**
-  String get leaveConversationDialog_content;
+  /// **'Are you sure you want to leave this chat?'**
+  String get leaveChatDialog_content;
 
-  /// No description provided for @leaveConversationDialog_cancel.
+  /// No description provided for @leaveChatDialog_cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get leaveConversationDialog_cancel;
+  String get leaveChatDialog_cancel;
 
-  /// No description provided for @leaveConversationDialog_leave.
+  /// No description provided for @leaveChatDialog_leave.
   ///
   /// In en, this message translates to:
   /// **'Leave'**
-  String get leaveConversationDialog_leave;
+  String get leaveChatDialog_leave;
 
-  /// No description provided for @deleteConversationDialog_title.
+  /// No description provided for @deleteChatDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Delete Conversation'**
-  String get deleteConversationDialog_title;
+  /// **'Delete Chat'**
+  String get deleteChatDialog_title;
 
-  /// No description provided for @deleteConversationDialog_content.
+  /// No description provided for @deleteChatDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete this conversation? The message history will be also deleted.'**
-  String get deleteConversationDialog_content;
+  /// **'Are you sure you want to delete this chat? The message history will be also deleted.'**
+  String get deleteChatDialog_content;
 
-  /// No description provided for @deleteConversationDialog_cancel.
+  /// No description provided for @deleteChatDialog_cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get deleteConversationDialog_cancel;
+  String get deleteChatDialog_cancel;
 
-  /// No description provided for @deleteConversationDialog_delete.
+  /// No description provided for @deleteChatDialog_delete.
   ///
   /// In en, this message translates to:
   /// **'Delete'**
-  String get deleteConversationDialog_delete;
+  String get deleteChatDialog_delete;
 
   /// No description provided for @byteUnit_B.
   ///

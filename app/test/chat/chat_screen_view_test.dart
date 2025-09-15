@@ -7,23 +7,28 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:air/chat_details/chat_details.dart';
-import 'package:air/chat_list/chat_list.dart';
-import 'package:air/chat_list/chat_list_cubit.dart';
 import 'package:air/core/core.dart';
-import 'package:air/home_screen.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/message_list/message_list.dart';
 import 'package:air/navigation/navigation.dart';
 import 'package:air/theme/theme.dart';
-import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
-import 'chat/chat_screen_view_test.dart';
-import 'chat_list/chat_list_content_test.dart';
-import 'helpers.dart';
-import 'message_list/message_list_test.dart';
-import 'mocks.dart';
+import '../chat_list/chat_list_content_test.dart';
+import '../helpers.dart';
+import '../message_list/message_list_test.dart';
+import '../mocks.dart';
+
+final chat = chats[2];
+
+final members = [1.userId(), 2.userId(), 3.userId()];
+
+final profiles = [
+  UiUserProfile(userId: 1.userId(), displayName: 'Alice'),
+  UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
+  UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+];
 
 void main() {
   setUpAll(() {
@@ -31,11 +36,10 @@ void main() {
     registerFallbackValue(0.userId());
   });
 
-  group('HomeScreen', () {
+  group('ChatScreenView', () {
     late MockNavigationCubit navigationCubit;
     late MockUserCubit userCubit;
-    late MockUsersCubit usersCubit;
-    late MockChatListCubit chatListCubit;
+    late MockUsersCubit contactsCubit;
     late MockChatDetailsCubit chatDetailsCubit;
     late MockMessageListCubit messageListCubit;
     late MockUserSettingsCubit userSettingsCubit;
@@ -43,15 +47,14 @@ void main() {
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
-      usersCubit = MockUsersCubit();
-      chatListCubit = MockChatListCubit();
+      contactsCubit = MockUsersCubit();
       chatDetailsCubit = MockChatDetailsCubit();
       messageListCubit = MockMessageListCubit();
       userSettingsCubit = MockUserSettingsCubit();
 
       when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
       when(
-        () => usersCubit.state,
+        () => contactsCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
       when(
         () => chatDetailsCubit.state,
@@ -70,12 +73,11 @@ void main() {
       when(() => userSettingsCubit.state).thenReturn(const UserSettings());
     });
 
-    Widget buildSubject() => MultiBlocProvider(
+    Widget buildSubject({bool useDarkTheme = false}) => MultiBlocProvider(
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: usersCubit),
-        BlocProvider<ChatListCubit>.value(value: chatListCubit),
+        BlocProvider<UsersCubit>.value(value: contactsCubit),
         BlocProvider<ChatDetailsCubit>.value(
           value: chatDetailsCubit,
         ),
@@ -86,14 +88,10 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(
-              MediaQuery.platformBrightnessOf(context),
-              CustomColorScheme.of(context),
-            ),
+            theme: useDarkTheme ? darkTheme : lightTheme,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: const HomeScreenDesktopLayout(
-              chatList: ChatListView(),
-              chat: ChatScreenView(
+            home: const Scaffold(
+              body: ChatScreenView(
                 createMessageCubit: createMockMessageCubit,
               ),
             ),
@@ -102,80 +100,24 @@ void main() {
       ),
     );
 
-    testWidgets('desktop layout empty', (tester) async {
-      final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize = const Size(
-        3840,
-        2160,
-      );
-      addTearDown(() {
-        binding.platformDispatcher.views.first.resetPhysicalSize();
-      });
-
+    testWidgets('renders correctly when empty', (tester) async {
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => chatListCubit.state,
-      ).thenReturn(const ChatListState(chats: []));
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('goldens/home_screen_desktop_empty.png'),
+        matchesGoldenFile('goldens/chat_screen_empty.png'),
       );
     });
 
-    testWidgets('desktop layout no chat', (tester) async {
-      final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize = const Size(
-        3840,
-        2160,
-      );
-      addTearDown(() {
-        binding.platformDispatcher.views.first.resetPhysicalSize();
-      });
-
-      when(
-        () => navigationCubit.state,
-      ).thenReturn(const NavigationState.home());
-      when(
-        () => chatListCubit.state,
-      ).thenReturn(ChatListState(chats: chats));
-      when(
-        () => messageListCubit.state,
-      ).thenReturn(MockMessageListState(messages));
-
-      VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-      await tester.pumpWidget(buildSubject());
-
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/home_screen_desktop_no_chat.png'),
-      );
-    });
-
-    testWidgets('desktop layout selected chat', (tester) async {
-      final binding = TestWidgetsFlutterBinding.ensureInitialized();
-      binding.platformDispatcher.views.first.physicalSize = const Size(
-        3840,
-        2160,
-      );
-      addTearDown(() {
-        binding.platformDispatcher.views.first.resetPhysicalSize();
-      });
-
+    testWidgets('renders correctly', (tester) async {
       when(() => navigationCubit.state).thenReturn(
-        NavigationState.home(
-          home: HomeNavigationState(chatOpen: true, chatId: chats[2].id),
-        ),
+        NavigationState.home(home: HomeNavigationState(chatId: chat.id)),
       );
-      when(
-        () => chatListCubit.state,
-      ).thenReturn(ChatListState(chats: chats));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));
@@ -186,7 +128,25 @@ void main() {
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('goldens/home_screen_desktop.png'),
+        matchesGoldenFile('goldens/chat_screen.png'),
+      );
+    });
+
+    testWidgets('renders correctly (dark mode)', (tester) async {
+      when(() => navigationCubit.state).thenReturn(
+        NavigationState.home(home: HomeNavigationState(chatId: chat.id)),
+      );
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages));
+
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+      await tester.pumpWidget(buildSubject(useDarkTheme: true));
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/chat_screen_dark.png'),
       );
     });
   });
