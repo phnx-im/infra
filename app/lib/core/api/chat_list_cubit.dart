@@ -14,14 +14,14 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
-part 'conversation_list_cubit.freezed.dart';
+part 'chat_list_cubit.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `chat_details`, `load_and_emit_state`, `load_chat_details`, `new`, `process_store_notification`, `spawn`, `store_notifications_loop`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ConversationListContext`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ChatListContext`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `clone`, `clone`, `eq`, `fmt`, `hash`
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>
-abstract class ConversationListCubitBase implements RustOpaqueInterface {
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>
+abstract class ChatListCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
   /// Creates a new 1:1 connection with the given user via a user handle.
@@ -40,24 +40,22 @@ abstract class ConversationListCubitBase implements RustOpaqueInterface {
   ///
   /// Loads the list of chats in the background and listens to the changes in the
   /// chats.
-  factory ConversationListCubitBase({required UserCubitBase userCubit}) =>
-      RustLib.instance.api
-          .crateApiConversationListCubitConversationListCubitBaseNew(
-            userCubit: userCubit,
-          );
+  factory ChatListCubitBase({required UserCubitBase userCubit}) => RustLib
+      .instance
+      .api
+      .crateApiChatListCubitChatListCubitBaseNew(userCubit: userCubit);
 
-  ConversationListState get state;
+  ChatListState get state;
 
-  Stream<ConversationListState> stream();
+  Stream<ChatListState> stream();
 }
 
 /// Represents the state of the list of chat.
 @freezed
-sealed class ConversationListState with _$ConversationListState {
-  const ConversationListState._();
-  const factory ConversationListState({required List<UiChatDetails> chats}) =
-      _ConversationListState;
-  static Future<ConversationListState> default_() =>
-      RustLib.instance.api
-          .crateApiConversationListCubitConversationListStateDefault();
+sealed class ChatListState with _$ChatListState {
+  const ChatListState._();
+  const factory ChatListState({required List<UiChatDetails> chats}) =
+      _ChatListState;
+  static Future<ChatListState> default_() =>
+      RustLib.instance.api.crateApiChatListCubitChatListStateDefault();
 }

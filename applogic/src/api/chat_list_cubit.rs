@@ -33,18 +33,18 @@ use super::{
 /// Represents the state of the list of chat.
 #[frb(dart_metadata = ("freezed"))]
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
-pub struct ConversationListState {
+pub struct ChatListState {
     pub chats: Vec<UiChatDetails>,
 }
 
 /// Provides access to the list of chat.
 #[frb(opaque)]
-pub struct ConversationListCubitBase {
-    core: CubitCore<ConversationListState>,
-    context: ConversationListContext<CoreUser>,
+pub struct ChatListCubitBase {
+    core: CubitCore<ChatListState>,
+    context: ChatListContext<CoreUser>,
 }
 
-impl ConversationListCubitBase {
+impl ChatListCubitBase {
     /// Creates a new chat list cubit.
     ///
     /// Loads the list of chats in the background and listens to the changes in the
@@ -56,7 +56,7 @@ impl ConversationListCubitBase {
 
         let core = CubitCore::new();
 
-        let context = ConversationListContext::new(store, core.state_tx().clone());
+        let context = ChatListContext::new(store, core.state_tx().clone());
         context
             .clone()
             .spawn(store_notifications, core.cancellation_token().clone());
@@ -76,11 +76,11 @@ impl ConversationListCubitBase {
     }
 
     #[frb(getter, sync)]
-    pub fn state(&self) -> ConversationListState {
+    pub fn state(&self) -> ChatListState {
         self.core.state()
     }
 
-    pub async fn stream(&mut self, sink: StreamSink<ConversationListState>) {
+    pub async fn stream(&mut self, sink: StreamSink<ChatListState>) {
         self.core.stream(sink).await;
     }
 
@@ -110,16 +110,16 @@ impl ConversationListCubitBase {
 /// Loads the initial state and listen to the changes
 #[frb(ignore)]
 #[derive(Clone)]
-struct ConversationListContext<S> {
+struct ChatListContext<S> {
     store: S,
-    state_tx: watch::Sender<ConversationListState>,
+    state_tx: watch::Sender<ChatListState>,
 }
 
-impl<S> ConversationListContext<S>
+impl<S> ChatListContext<S>
 where
     S: Store + Send + Sync + 'static,
 {
-    fn new(store: S, state_tx: watch::Sender<ConversationListState>) -> Self {
+    fn new(store: S, state_tx: watch::Sender<ChatListState>) -> Self {
         Self { store, state_tx }
     }
 

@@ -14,15 +14,15 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 import 'types.dart';
 import 'user_cubit.dart';
-part 'conversation_details_cubit.freezed.dart';
+part 'chat_details_cubit.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `handle_store_notification`, `load_and_emit_state`, `load_chat_details`, `members_of_chat`, `new`, `spawn`, `store_draft_from_state`, `store_notifications_loop`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ConversationDetailsContext`, `MarkAsReadState`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ChatDetailsContext`, `MarkAsReadState`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `hash`, `hash`
 // These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>
-abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>
+abstract class ChatDetailsCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
   Future<void> editMessage({MessageId? messageId});
@@ -41,14 +41,13 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   ///
   /// The cubit will fetch the chat details and the list of members. It will also listen to the
   /// changes in the chat and update the state accordingly.
-  factory ConversationDetailsCubitBase({
+  factory ChatDetailsCubitBase({
     required UserCubitBase userCubit,
     required ChatId chatId,
-  }) => RustLib.instance.api
-      .crateApiConversationDetailsCubitConversationDetailsCubitBaseNew(
-        userCubit: userCubit,
-        chatId: chatId,
-      );
+  }) => RustLib.instance.api.crateApiChatDetailsCubitChatDetailsCubitBaseNew(
+    userCubit: userCubit,
+    chatId: chatId,
+  );
 
   Future<void> resetDraft();
 
@@ -63,11 +62,11 @@ abstract class ConversationDetailsCubitBase implements RustOpaqueInterface {
   /// When `bytes` is `None`, the chat picture is removed.
   Future<void> setChatPicture({Uint8List? bytes});
 
-  ConversationDetailsState get state;
+  ChatDetailsState get state;
 
   Future<void> storeDraft({required String draftMessage});
 
-  Stream<ConversationDetailsState> stream();
+  Stream<ChatDetailsState> stream();
 
   Future<void> uploadAttachment({required String path});
 }
@@ -81,16 +80,15 @@ abstract class UiRoomState implements RustOpaqueInterface {
 ///
 /// Contains the chat details and the list of members.
 ///
-/// Also see [`ConversationDetailsCubitBase`].
+/// Also see [`ChatDetailsCubitBase`].
 @freezed
-sealed class ConversationDetailsState with _$ConversationDetailsState {
-  const ConversationDetailsState._();
-  const factory ConversationDetailsState({
+sealed class ChatDetailsState with _$ChatDetailsState {
+  const ChatDetailsState._();
+  const factory ChatDetailsState({
     UiChatDetails? chat,
     required List<UiUserId> members,
     UiRoomState? roomState,
-  }) = _ConversationDetailsState;
-  static Future<ConversationDetailsState> default_() =>
-      RustLib.instance.api
-          .crateApiConversationDetailsCubitConversationDetailsStateDefault();
+  }) = _ChatDetailsState;
+  static Future<ChatDetailsState> default_() =>
+      RustLib.instance.api.crateApiChatDetailsCubitChatDetailsStateDefault();
 }
