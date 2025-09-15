@@ -194,16 +194,7 @@ impl NavigationCubitBase {
     pub fn close_chat(&self) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => false,
-            NavigationState::Home { home } => {
-                if home.chat_open {
-                    home.chat_open = false;
-                    home.chat_details_open = false;
-                    home.chat_id = None;
-                    true
-                } else {
-                    false
-                }
-            }
+            NavigationState::Home { home } => mem::replace(&mut home.chat_open, false),
         });
     }
 
@@ -225,10 +216,12 @@ impl NavigationCubitBase {
     }
 
     pub fn open_chat_details(&self) {
-        self.core.state_tx().send_if_modified(|state| match state {
-            NavigationState::Intro { .. } => false,
-            NavigationState::Home { home } => !mem::replace(&mut home.chat_details_open, true),
-        });
+        self.core
+            .state_tx()
+            .send_if_modified(|state| match dbg!(state) {
+                NavigationState::Intro { .. } => false,
+                NavigationState::Home { home } => !mem::replace(&mut home.chat_details_open, true),
+            });
     }
 
     pub fn open_add_members(&self) {
