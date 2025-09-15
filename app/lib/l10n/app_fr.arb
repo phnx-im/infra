@@ -17,12 +17,12 @@
 
   "addMembersScreen_title": "Ajouter des membres",
   "addMembersScreen_addMembers": "Ajouter membre(s)",
-  "addMembersScreen_error_noActiveConversation": "une conversation active est obligatoire",
+  "addMembersScreen_error_noActiveChat": "une chat active est obligatoire",
 
-  "conversationDetailsScreen_title": "Détails",
-  "conversationDetailsScreen_unknownConversation": "Conversation inconnue",
+  "chatDetailsScreen_title": "Détails",
+  "chatDetailsScreen_unknownChat": "Chat inconnue",
 
-  "conversationScreen_emptyConversation": "Sélectionnez une conversation pour commencer à envoyer des messages",
+  "chatScreen_emptyChat": "Sélectionnez une chat pour commencer à envoyer des messages",
 
   "memberDetailsScreen_title": "Détails du membre",
   "removeUserDialog_title": "Retirer l'utilisateur",
@@ -55,24 +55,24 @@
   "timestamp_now": "Maintenant",
   "timestamp_yesterday": "Hier",
 
-  "conversationList_newContact": "Nouveau contact",
-  "conversationList_newGroup": "Nouveau groupe",
-  "conversationList_emptyMessage": "Créez une nouvelle connexion pour commencer",
+  "chatList_newContact": "Nouveau contact",
+  "chatList_newGroup": "Nouveau groupe",
+  "chatList_emptyMessage": "Créez une nouvelle connexion pour commencer",
 
-  "conversationList_draft": "Brouillon",
-  "conversationList_you": "Vous",
-  "conversationList_imageEmoji": "🖼️",
-  "conversationList_fileEmoji": "📎",
+  "chatList_draft": "Brouillon",
+  "chatList_you": "Vous",
+  "chatList_imageEmoji": "🖼️",
+  "chatList_fileEmoji": "📎",
 
   "settings_profile": "Profil",
   "settings_developerSettings": "Paramètres (développeur)",
 
-  "newConversationDialog_newConversationTitle": "Nouvelle conversation",
-  "newConversationDialog_newConversationDescription": "Choisissez un nom pour la nouvelle conversation",
-  "newConversationDialog_conversationNamePlaceholder": "Nom de la conversation",
-  "newConversationDialog_actionButton": "Créer une conversation",
-  "newConversationDialog_error": "Impossible d'ajouter une conversation avec le nom {conversationName}",
-  "newConversationDialog_error_emptyGroupName": "Le nom de la conversation ne peut pas être vide",
+  "newChatDialog_newChatTitle": "Nouvelle chat",
+  "newChatDialog_newChatDescription": "Choisissez un nom pour la nouvelle chat",
+  "newChatDialog_chatNamePlaceholder": "Nom de la chat",
+  "newChatDialog_actionButton": "Créer une chat",
+  "newChatDialog_error": "Impossible d'ajouter une chat avec le nom {chatName}",
+  "newChatDialog_error_emptyGroupName": "Le nom de la chat ne peut pas être vide",
 
   "newConnectionDialog_newConnectionTitle": "Nouvelle connexion",
   "newConnectionDialog_newConnectionDescription": "Saisissez le pseudo de l'utilisateur avec lequel vous souhaitez vous connecter",
@@ -82,7 +82,7 @@
   "newConnectionDialog_error_emptyHandle": "Le pseudo ne peut pas être vide",
   "newConnectionDialog_error_handleNotFound": "Le pseudo {username} n'existe pas",
 
-  "composer_inputHint": "Message à {conversationTitle}",
+  "composer_inputHint": "Message à {chatTitle}",
   "composer_editMessage": "Modifier le message",
   "composer_error_attachment": "Échec du téléchargement de la pièce jointe. Veuillez réessayer.",
 
