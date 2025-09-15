@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::{
     Chat, ChatId, ChatMessage, ContentMessage, Message, MessageId,
-    conversations::{StatusRecord, messages::edit::MessageEdit},
+    chats::{StatusRecord, messages::edit::MessageEdit},
 };
 
 use super::{AirOpenMlsProvider, ApiClients, CoreUser, Group, StoreNotifier};

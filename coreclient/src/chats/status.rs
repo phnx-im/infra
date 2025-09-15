@@ -133,7 +133,7 @@ mod persistence {
         use mimi_content::MessageStatus;
         use sqlx::{SqlitePool, query_scalar};
 
-        use crate::conversations::{
+        use crate::chats::{
             messages::persistence::tests::test_chat_message_with_salt,
             persistence::tests::test_chat,
         };

@@ -92,7 +92,7 @@ mod persistence {
         use sqlx::SqlitePool;
 
         use crate::{
-            conversations::{
+            chats::{
                 messages::persistence::tests::test_chat_message, persistence::tests::test_chat,
             },
             store::StoreNotifier,

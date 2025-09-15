@@ -975,9 +975,9 @@ async fn user_deletion_triggers() {
     // Note that bob and charlie are not connected.
 
     // Alice creates a group and invites bob and charlie
-    let conversation_id = setup.create_group(&ALICE).await;
+    let chat_id = setup.create_group(&ALICE).await;
     setup
-        .invite_to_group(conversation_id, &ALICE, vec![&BOB, &CHARLIE])
+        .invite_to_group(chat_id, &ALICE, vec![&BOB, &CHARLIE])
         .await;
 
     // Bob should have a user profile for charlie now, even though they
@@ -987,7 +987,7 @@ async fn user_deletion_triggers() {
     assert!(bob_user_profile_charlie.user_id == *CHARLIE);
 
     // Now charlie leaves the group
-    setup.leave_group(conversation_id, &CHARLIE).await.unwrap();
+    setup.leave_group(chat_id, &CHARLIE).await.unwrap();
     // Bob should not have a user profile for charlie anymore.
 
     let bob = setup.get_user(&BOB);

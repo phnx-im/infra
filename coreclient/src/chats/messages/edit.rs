@@ -34,7 +34,7 @@ mod persistence {
     use aircommon::codec::BlobEncoded;
     use sqlx::{SqliteExecutor, query, query_scalar};
 
-    use crate::conversations::messages::persistence::VersionedMessage;
+    use crate::chats::messages::persistence::VersionedMessage;
 
     use super::*;
 

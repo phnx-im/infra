@@ -167,7 +167,7 @@ where
         });
         if any_chat_changed {
             // TODO(perf): This is a very coarse-grained approach. Optimally, we would only load
-            // changed and new conversations, and replace them individually in the `state`.
+            // changed and new chats, and replace them individually in the `state`.
             self.load_and_emit_state().await;
         }
     }

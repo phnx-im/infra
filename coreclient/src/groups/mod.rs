@@ -57,8 +57,8 @@ use sqlx::{SqliteConnection, SqliteExecutor, SqliteTransaction};
 use tracing::{debug, error};
 
 use crate::{
-    SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage, key_stores::as_credentials::AsCredentials,
+    SystemMessage, chats::messages::TimestampedMessage, clients::api_clients::ApiClients,
+    contacts::ContactAddInfos, key_stores::as_credentials::AsCredentials,
 };
 use std::collections::HashSet;
 

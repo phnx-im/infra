@@ -1,6 +1,0 @@
----
-source: common/src/messages/mod.rs
-expression: "AirCodec::to_vec(&message).unwrap()"
-extension: cbor
-snapshot_kind: binary
----

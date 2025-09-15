@@ -687,7 +687,7 @@ pub mod tests {
     use sqlx::{Sqlite, pool::PoolConnection};
     use uuid::Uuid;
 
-    use crate::{InactiveChat, conversations::messages::persistence::tests::test_chat_message};
+    use crate::{InactiveChat, chats::messages::persistence::tests::test_chat_message};
 
     use super::*;
 

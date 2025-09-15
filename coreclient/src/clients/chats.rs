@@ -12,7 +12,7 @@ use tracing::error;
 
 use crate::{
     MessageId,
-    conversations::{Chat, messages::ChatMessage},
+    chats::{Chat, messages::ChatMessage},
     groups::{Group, openmls_provider::AirOpenMlsProvider},
     utils::image::resize_profile_image,
 };
@@ -371,8 +371,8 @@ mod delete_chat_flow {
 
     use crate::{
         Chat, ChatId, ChatMessage,
+        chats::messages::TimestampedMessage,
         clients::{CoreUser, api_clients::ApiClients},
-        conversations::messages::TimestampedMessage,
         groups::Group,
         store::StoreNotifier,
     };
@@ -555,8 +555,8 @@ mod leave_chat_flow {
     use sqlx::{SqliteConnection, SqliteTransaction};
 
     use crate::{
-        Chat, ChatId, SystemMessage, clients::CoreUser,
-        conversations::messages::TimestampedMessage, groups::Group, store::StoreNotifier,
+        Chat, ChatId, SystemMessage, chats::messages::TimestampedMessage, clients::CoreUser,
+        groups::Group, store::StoreNotifier,
     };
 
     pub(super) struct LeaveChatData<S> {

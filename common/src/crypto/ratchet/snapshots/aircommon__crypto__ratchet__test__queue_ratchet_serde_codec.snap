@@ -1,6 +1,0 @@
----
-source: common/src/crypto/ratchet/mod.rs
-expression: "AirCodec::to_vec(&queue_ratchet()).unwrap()"
-extension: cbor
-snapshot_kind: binary
----
