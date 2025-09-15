@@ -216,12 +216,10 @@ impl NavigationCubitBase {
     }
 
     pub fn open_chat_details(&self) {
-        self.core
-            .state_tx()
-            .send_if_modified(|state| match dbg!(state) {
-                NavigationState::Intro { .. } => false,
-                NavigationState::Home { home } => !mem::replace(&mut home.chat_details_open, true),
-            });
+        self.core.state_tx().send_if_modified(|state| match state {
+            NavigationState::Intro { .. } => false,
+            NavigationState::Home { home } => !mem::replace(&mut home.chat_details_open, true),
+        });
     }
 
     pub fn open_add_members(&self) {
