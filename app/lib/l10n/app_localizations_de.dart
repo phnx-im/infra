@@ -64,18 +64,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get addMembersScreen_addMembers => 'Mitglied(er) hinzufügen';
 
   @override
-  String get addMembersScreen_error_noActiveConversation =>
+  String get addMembersScreen_error_noActiveChat =>
       'eine aktive Unterhaltung ist erforderlich';
 
   @override
-  String get conversationDetailsScreen_title => 'Details';
+  String get chatDetailsScreen_title => 'Details';
 
   @override
-  String get conversationDetailsScreen_unknownConversation =>
-      'Unbekannte Unterhaltung';
+  String get chatDetailsScreen_unknownChat => 'Unbekannte Unterhaltung';
 
   @override
-  String get conversationScreen_emptyConversation =>
+  String get chatScreen_emptyChat =>
       'Wähle eine Unterhaltung aus, um mit dem Nachrichten schreiben zu beginnen';
 
   @override
@@ -171,26 +170,26 @@ class AppLocalizationsDe extends AppLocalizations {
   String get timestamp_yesterday => 'Gestern';
 
   @override
-  String get conversationList_newContact => 'Neuer Kontakt';
+  String get chatList_newContact => 'Neuer Kontakt';
 
   @override
-  String get conversationList_newGroup => 'Neue Gruppe';
+  String get chatList_newGroup => 'Neue Gruppe';
 
   @override
-  String get conversationList_emptyMessage =>
+  String get chatList_emptyMessage =>
       'Erstelle eine neue Verbindung, um zu beginnen';
 
   @override
-  String get conversationList_draft => 'Entwurf';
+  String get chatList_draft => 'Entwurf';
 
   @override
-  String get conversationList_you => 'Du';
+  String get chatList_you => 'Du';
 
   @override
-  String get conversationList_imageEmoji => '🖼️';
+  String get chatList_imageEmoji => '🖼️';
 
   @override
-  String get conversationList_fileEmoji => '📎';
+  String get chatList_fileEmoji => '📎';
 
   @override
   String get settings_profile => 'Profil';
@@ -199,26 +198,25 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings_developerSettings => 'Einstellungen (Entwickler)';
 
   @override
-  String get newConversationDialog_newConversationTitle => 'Neue Unterhaltung';
+  String get newChatDialog_newChatTitle => 'Neue Unterhaltung';
 
   @override
-  String get newConversationDialog_newConversationDescription =>
+  String get newChatDialog_newChatDescription =>
       'Wähle einen Namen für die neue Unterhaltung';
 
   @override
-  String get newConversationDialog_conversationNamePlaceholder =>
-      'Unterhaltungsname';
+  String get newChatDialog_chatNamePlaceholder => 'Unterhaltungsname';
 
   @override
-  String get newConversationDialog_actionButton => 'Unterhaltung erstellen';
+  String get newChatDialog_actionButton => 'Unterhaltung erstellen';
 
   @override
-  String newConversationDialog_error(Object conversationName) {
-    return 'Unterhaltung mit Name $conversationName konnte nicht hinzugefügt werden';
+  String newChatDialog_error(Object chatName) {
+    return 'Unterhaltung mit Name $chatName konnte nicht hinzugefügt werden';
   }
 
   @override
-  String get newConversationDialog_error_emptyGroupName =>
+  String get newChatDialog_error_emptyGroupName =>
       'Unterhaltungsname darf nicht leer sein';
 
   @override
@@ -249,8 +247,8 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String composer_inputHint(Object conversationTitle) {
-    return 'Nachricht an $conversationTitle';
+  String composer_inputHint(Object chatTitle) {
+    return 'Nachricht an $chatTitle';
   }
 
   @override
@@ -358,36 +356,36 @@ class AppLocalizationsDe extends AppLocalizations {
   String get groupDetails_addMembers => 'Add Members';
 
   @override
-  String get groupDetails_leaveConversation => 'Leave Conversation';
+  String get groupDetails_leaveChat => 'Leave Chat';
 
   @override
-  String get groupDetails_deleteConversation => 'Delete Conversation';
+  String get groupDetails_deleteChat => 'Delete Chat';
 
   @override
-  String get leaveConversationDialog_title => 'Leave Conversation';
+  String get leaveChatDialog_title => 'Leave Chat';
 
   @override
-  String get leaveConversationDialog_content =>
-      'Are you sure you want to leave this conversation?';
+  String get leaveChatDialog_content =>
+      'Are you sure you want to leave this chat?';
 
   @override
-  String get leaveConversationDialog_cancel => 'Cancel';
+  String get leaveChatDialog_cancel => 'Cancel';
 
   @override
-  String get leaveConversationDialog_leave => 'Leave';
+  String get leaveChatDialog_leave => 'Leave';
 
   @override
-  String get deleteConversationDialog_title => 'Delete Conversation';
+  String get deleteChatDialog_title => 'Delete Chat';
 
   @override
-  String get deleteConversationDialog_content =>
-      'Are you sure you want to delete this conversation? The message history will be also deleted.';
+  String get deleteChatDialog_content =>
+      'Are you sure you want to delete this chat? The message history will be also deleted.';
 
   @override
-  String get deleteConversationDialog_cancel => 'Cancel';
+  String get deleteChatDialog_cancel => 'Cancel';
 
   @override
-  String get deleteConversationDialog_delete => 'Delete';
+  String get deleteChatDialog_delete => 'Delete';
 
   @override
   String get byteUnit_B => 'B';

@@ -4,8 +4,8 @@
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:air/conversation_details/conversation_details.dart';
-import 'package:air/conversation_list/conversation_list_cubit.dart';
+import 'package:air/chat_details/chat_details.dart';
+import 'package:air/chat_list/chat_list_cubit.dart';
 import 'package:air/core/core.dart';
 import 'package:air/message_list/message_cubit.dart';
 import 'package:air/message_list/message_list_cubit.dart';
@@ -73,11 +73,11 @@ class MockUsersState implements UsersState {
   bool get isDisposed => false;
 }
 
-class MockConversationDetailsCubit extends MockCubit<ConversationDetailsState>
-    implements ConversationDetailsCubit {}
+class MockChatDetailsCubit extends MockCubit<ChatDetailsState>
+    implements ChatDetailsCubit {}
 
-class MockConversationListCubit extends MockCubit<ConversationListState>
-    implements ConversationListCubit {}
+class MockChatListCubit extends MockCubit<ChatListState>
+    implements ChatListCubit {}
 
 class MockMessageListCubit extends MockCubit<MessageListState>
     implements MessageListCubit {}

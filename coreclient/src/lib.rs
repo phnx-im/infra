@@ -4,9 +4,9 @@
 
 //! Implements the protocol logic of the client component
 
+mod chats;
 pub mod clients;
 mod contacts;
-mod conversations;
 mod groups;
 mod key_stores;
 pub mod store;
@@ -15,18 +15,18 @@ mod user_profiles;
 mod utils;
 
 pub use crate::{
-    clients::attachment::{
-        AttachmentContent, AttachmentStatus, AttachmentUrl, AttachmentUrlParseError,
-        DownloadProgress, DownloadProgressEvent, MimiContentExt,
-    },
-    contacts::Contact,
-    conversations::{
+    chats::{
         Chat, ChatAttributes, ChatId, ChatStatus, ChatType, InactiveChat, MessageDraft,
         messages::{
             ChatMessage, ContentMessage, ErrorMessage, EventMessage, Message, MessageId,
             SystemMessage,
         },
     },
+    clients::attachment::{
+        AttachmentContent, AttachmentStatus, AttachmentUrl, AttachmentUrlParseError,
+        DownloadProgress, DownloadProgressEvent, MimiContentExt,
+    },
+    contacts::Contact,
     user_handles::UserHandleRecord,
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
     utils::persistence::{delete_client_database, delete_databases, open_client_db},

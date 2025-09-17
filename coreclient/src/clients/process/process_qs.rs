@@ -34,8 +34,8 @@ use tracing::{error, warn};
 
 use crate::{
     ChatMessage, ContentMessage, Message, SystemMessage,
+    chats::{ChatType, StatusRecord, messages::edit::MessageEdit},
     contacts::HandleContact,
-    conversations::{ChatType, StatusRecord, messages::edit::MessageEdit},
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,

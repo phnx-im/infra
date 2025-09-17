@@ -18,7 +18,7 @@ import 'package:air/util/interface_scale.dart';
 import 'package:air/util/platform.dart';
 import 'package:provider/provider.dart';
 
-import 'conversation_details/conversation_details.dart';
+import 'chat_details/chat_details.dart';
 import 'registration/registration.dart';
 import 'theme/theme.dart';
 
@@ -52,8 +52,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
     initMethodChannel(_openedNotificationController.sink);
     _openedNotificationSubscription = _openedNotificationController.stream
-        .listen((conversationId) {
-          _navigationCubit.openChat(conversationId);
+        .listen((chatId) {
+          _navigationCubit.openChat(chatId);
         });
 
     _requestMobileNotifications();
@@ -126,7 +126,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           builder:
               (context, router) => LoadableUserCubitProvider(
                 appStateController: _appStateController,
-                child: ConversationDetailsCubitProvider(child: router!),
+                child: ChatDetailsCubitProvider(child: router!),
               ),
         ),
       ),
@@ -222,13 +222,13 @@ void _requestMobileNotifications() async {
   }
 }
 
-/// Creates a [ConversationDetailsCubit] for the current conversation
+/// Creates a [ChatDetailsCubit] for the current chat
 ///
-/// This is used to mount the conversation details cubit when the user
-/// navigates to a conversation. The [ConversationDetailsCubit] can be
+/// This is used to mount the chat details cubit when the user
+/// navigates to a chat. The [ChatDetailsCubit] can be
 /// then used from any screen.
-class ConversationDetailsCubitProvider extends StatelessWidget {
-  const ConversationDetailsCubitProvider({required this.child, super.key});
+class ChatDetailsCubitProvider extends StatelessWidget {
+  const ChatDetailsCubitProvider({required this.child, super.key});
 
   final Widget child;
 
@@ -242,10 +242,10 @@ class ConversationDetailsCubitProvider extends StatelessWidget {
           return child;
         }
         return BlocProvider(
-          // rebuilds the cubit when a different conversation is selected
-          key: ValueKey("conversation-details-cubit-$chatId"),
+          // rebuilds the cubit when a different chat is selected
+          key: ValueKey("chat-details-cubit-$chatId"),
           create:
-              (context) => ConversationDetailsCubit(
+              (context) => ChatDetailsCubit(
                 userCubit: context.read<UserCubit>(),
                 chatId: chatId,
               ),

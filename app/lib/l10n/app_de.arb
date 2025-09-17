@@ -17,12 +17,12 @@
 
   "addMembersScreen_title": "Mitglieder hinzufügen",
   "addMembersScreen_addMembers": "Mitglied(er) hinzufügen",
-  "addMembersScreen_error_noActiveConversation": "eine aktive Unterhaltung ist erforderlich",
+  "addMembersScreen_error_noActiveChat": "eine aktive Unterhaltung ist erforderlich",
 
-  "conversationDetailsScreen_title": "Details",
-  "conversationDetailsScreen_unknownConversation": "Unbekannte Unterhaltung",
+  "chatDetailsScreen_title": "Details",
+  "chatDetailsScreen_unknownChat": "Unbekannte Unterhaltung",
 
-  "conversationScreen_emptyConversation": "Wähle eine Unterhaltung aus, um mit dem Nachrichten schreiben zu beginnen",
+  "chatScreen_emptyChat": "Wähle eine Unterhaltung aus, um mit dem Nachrichten schreiben zu beginnen",
 
   "memberDetailsScreen_title": "Mitgliederdetails",
   "removeUserDialog_title": "Benutzer entfernen",
@@ -55,24 +55,24 @@
   "timestamp_now": "Jetzt",
   "timestamp_yesterday": "Gestern",
 
-  "conversationList_newContact": "Neuer Kontakt",
-  "conversationList_newGroup": "Neue Gruppe",
-  "conversationList_emptyMessage": "Erstelle eine neue Verbindung, um zu beginnen",
+  "chatList_newContact": "Neuer Kontakt",
+  "chatList_newGroup": "Neue Gruppe",
+  "chatList_emptyMessage": "Erstelle eine neue Verbindung, um zu beginnen",
 
-  "conversationList_draft": "Entwurf",
-  "conversationList_you": "Du",
-  "conversationList_imageEmoji": "🖼️",
-  "conversationList_fileEmoji": "📎",
+  "chatList_draft": "Entwurf",
+  "chatList_you": "Du",
+  "chatList_imageEmoji": "🖼️",
+  "chatList_fileEmoji": "📎",
 
   "settings_profile": "Profil",
   "settings_developerSettings": "Einstellungen (Entwickler)",
 
-  "newConversationDialog_newConversationTitle": "Neue Unterhaltung",
-  "newConversationDialog_newConversationDescription": "Wähle einen Namen für die neue Unterhaltung",
-  "newConversationDialog_conversationNamePlaceholder": "Unterhaltungsname",
-  "newConversationDialog_actionButton": "Unterhaltung erstellen",
-  "newConversationDialog_error": "Unterhaltung mit Name {conversationName} konnte nicht hinzugefügt werden",
-  "newConversationDialog_error_emptyGroupName": "Unterhaltungsname darf nicht leer sein",
+  "newChatDialog_newChatTitle": "Neue Unterhaltung",
+  "newChatDialog_newChatDescription": "Wähle einen Namen für die neue Unterhaltung",
+  "newChatDialog_chatNamePlaceholder": "Unterhaltungsname",
+  "newChatDialog_actionButton": "Unterhaltung erstellen",
+  "newChatDialog_error": "Unterhaltung mit Name {chatName} konnte nicht hinzugefügt werden",
+  "newChatDialog_error_emptyGroupName": "Unterhaltungsname darf nicht leer sein",
 
   "newConnectionDialog_newConnectionTitle": "Neue Verbindung",
   "newConnectionDialog_newConnectionDescription": "Gib den Benutzernamen des Benutzers ein, mit dem du dich verbinden möchtest",
@@ -82,7 +82,7 @@
   "newConnectionDialog_error_emptyHandle": "Benutzername darf nicht leer sein",
   "newConnectionDialog_error_handleNotFound": "Benutzername {username} existiert nicht",
 
-  "composer_inputHint": "Nachricht an {conversationTitle}",
+  "composer_inputHint": "Nachricht an {chatTitle}",
   "composer_editMessage": "Nachricht bearbeiten",
   "composer_error_attachment": "Anhang konnte nicht hochgeladen werden. Bitte versuche es erneut.",
 

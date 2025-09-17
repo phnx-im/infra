@@ -158,7 +158,7 @@ impl User {
         Ok(())
     }
 
-    /// Total number of unread messages across all conversations
+    /// Total number of unread messages across all chats
     #[frb(getter, type_64bit_int)]
     pub async fn global_unread_messages_count(&self) -> usize {
         self.user

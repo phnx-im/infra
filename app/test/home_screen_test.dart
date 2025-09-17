@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:air/conversation_details/conversation_details.dart';
-import 'package:air/conversation_list/conversation_list.dart';
-import 'package:air/conversation_list/conversation_list_cubit.dart';
+import 'package:air/chat_details/chat_details.dart';
+import 'package:air/chat_list/chat_list.dart';
+import 'package:air/chat_list/chat_list_cubit.dart';
 import 'package:air/core/core.dart';
 import 'package:air/home_screen.dart';
 import 'package:air/l10n/l10n.dart';
@@ -19,8 +19,8 @@ import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
-import 'conversation/conversation_screen_view_test.dart';
-import 'conversation_list/conversation_list_content_test.dart';
+import 'chat/chat_screen_view_test.dart';
+import 'chat_list/chat_list_content_test.dart';
 import 'helpers.dart';
 import 'message_list/message_list_test.dart';
 import 'mocks.dart';
@@ -35,8 +35,8 @@ void main() {
     late MockNavigationCubit navigationCubit;
     late MockUserCubit userCubit;
     late MockUsersCubit usersCubit;
-    late MockConversationListCubit conversationListCubit;
-    late MockConversationDetailsCubit conversationDetailsCubit;
+    late MockChatListCubit chatListCubit;
+    late MockChatDetailsCubit chatDetailsCubit;
     late MockMessageListCubit messageListCubit;
     late MockUserSettingsCubit userSettingsCubit;
 
@@ -44,8 +44,8 @@ void main() {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
       usersCubit = MockUsersCubit();
-      conversationListCubit = MockConversationListCubit();
-      conversationDetailsCubit = MockConversationDetailsCubit();
+      chatListCubit = MockChatListCubit();
+      chatDetailsCubit = MockChatDetailsCubit();
       messageListCubit = MockMessageListCubit();
       userSettingsCubit = MockUserSettingsCubit();
 
@@ -54,16 +54,16 @@ void main() {
         () => usersCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
       when(
-        () => conversationDetailsCubit.state,
-      ).thenReturn(ConversationDetailsState(chat: chat, members: members));
+        () => chatDetailsCubit.state,
+      ).thenReturn(ChatDetailsState(chat: chat, members: members));
       when(
-        () => conversationDetailsCubit.markAsRead(
+        () => chatDetailsCubit.markAsRead(
           untilMessageId: any(named: "untilMessageId"),
           untilTimestamp: any(named: "untilTimestamp"),
         ),
       ).thenAnswer((_) => Future.value());
       when(
-        () => conversationDetailsCubit.storeDraft(
+        () => chatDetailsCubit.storeDraft(
           draftMessage: any(named: "draftMessage"),
         ),
       ).thenAnswer((_) async => Future.value());
@@ -75,10 +75,8 @@ void main() {
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
         BlocProvider<UsersCubit>.value(value: usersCubit),
-        BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
-        BlocProvider<ConversationDetailsCubit>.value(
-          value: conversationDetailsCubit,
-        ),
+        BlocProvider<ChatListCubit>.value(value: chatListCubit),
+        BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
         BlocProvider<MessageListCubit>.value(value: messageListCubit),
         BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
       ],
@@ -92,10 +90,8 @@ void main() {
             ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const HomeScreenDesktopLayout(
-              conversationList: ConversationListView(),
-              conversation: ConversationScreenView(
-                createMessageCubit: createMockMessageCubit,
-              ),
+              chatList: ChatListView(),
+              chat: ChatScreenView(createMessageCubit: createMockMessageCubit),
             ),
           );
         },
@@ -116,8 +112,8 @@ void main() {
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
       when(
-        () => conversationListCubit.state,
-      ).thenReturn(const ConversationListState(chats: []));
+        () => chatListCubit.state,
+      ).thenReturn(const ChatListState(chats: []));
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());
@@ -128,7 +124,7 @@ void main() {
       );
     });
 
-    testWidgets('desktop layout no conversation', (tester) async {
+    testWidgets('desktop layout no chat', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
       binding.platformDispatcher.views.first.physicalSize = const Size(
         3840,
@@ -141,9 +137,7 @@ void main() {
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => conversationListCubit.state,
-      ).thenReturn(ConversationListState(chats: chats));
+      when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));
@@ -154,11 +148,11 @@ void main() {
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('goldens/home_screen_desktop_no_conversation.png'),
+        matchesGoldenFile('goldens/home_screen_desktop_no_chat.png'),
       );
     });
 
-    testWidgets('desktop layout selected conversation', (tester) async {
+    testWidgets('desktop layout selected chat', (tester) async {
       final binding = TestWidgetsFlutterBinding.ensureInitialized();
       binding.platformDispatcher.views.first.physicalSize = const Size(
         3840,
@@ -173,9 +167,7 @@ void main() {
           home: HomeNavigationState(chatOpen: true, chatId: chats[2].id),
         ),
       );
-      when(
-        () => conversationListCubit.state,
-      ).thenReturn(ConversationListState(chats: chats));
+      when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));
