@@ -26,10 +26,10 @@ struct NotificationContent: Codable {
   let identifier: UUID
   let title: String
   let body: String
-  let conversationId: ConversationId
+  let chatId: ChatId
 }
 
-struct ConversationId: Codable {
+struct ChatId: Codable {
   let uuid: UUID
 }
 
@@ -161,7 +161,7 @@ class NotificationService: UNNotificationServiceExtension {
         newContent.title = notificationContent.title
         newContent.body = notificationContent.body
         newContent.sound = UNNotificationSound.default
-        newContent.userInfo["conversationId"] = notificationContent.conversationId.uuid.uuidString
+        newContent.userInfo["chatId"] = notificationContent.chatId.uuid.uuidString
         let request = UNNotificationRequest(
           identifier: notificationContent.identifier.uuidString,
           content: newContent,
@@ -182,7 +182,7 @@ class NotificationService: UNNotificationServiceExtension {
         content.title = lastNotification.title
         content.body = lastNotification.body
         content.sound = UNNotificationSound.default
-        content.userInfo["conversationId"] = lastNotification.conversationId.uuid.uuidString
+        content.userInfo["chatId"] = lastNotification.chatId.uuid.uuidString
       }
       // Add the badge number
       content.badge = NSNumber(value: batch.badgeCount)
