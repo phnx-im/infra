@@ -25,7 +25,7 @@ pub(crate) trait StorableConnectionPackage: Sized + Borrow<ConnectionPackage> {
         let hash = cp.hash();
         let not_after = cp.expires_at();
         query!(
-            "INSERT INTO connection_packages
+            "INSERT INTO connection_package
                  (connection_package_hash, handle, decryption_key, expires_at)
                  VALUES ($1, $2, $3, $4)",
             hash,
@@ -46,7 +46,7 @@ pub(crate) trait StorableConnectionPackage: Sized + Borrow<ConnectionPackage> {
         query_scalar!(
             r#"SELECT decryption_key
                 AS "decryption_key: _"
-            FROM connection_packages
+            FROM connection_package
             WHERE connection_package_hash = $1"#,
             hash
         )
@@ -56,7 +56,7 @@ pub(crate) trait StorableConnectionPackage: Sized + Borrow<ConnectionPackage> {
 
     async fn delete(connection: &mut SqliteConnection, hash: &ConnectionPackageHash) -> Result<()> {
         query!(
-            "DELETE FROM connection_packages WHERE connection_package_hash = $1",
+            "DELETE FROM connection_package WHERE connection_package_hash = $1",
             hash
         )
         .execute(connection)
@@ -81,7 +81,7 @@ mod tests {
     async fn test_store_and_load_connection_package(pool: SqlitePool) {
         let handle = UserHandle::new("test_handle".to_string()).unwrap();
         let signing_key = HandleSigningKey::generate().unwrap();
-        let hash = handle.hash().unwrap();
+        let hash = handle.calculate_hash().unwrap();
         let record = UserHandleRecord::new(handle, hash, signing_key);
         record.store(&pool).await.unwrap();
         let (decryption_key, connection_package) =

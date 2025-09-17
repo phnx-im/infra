@@ -170,6 +170,8 @@ extension on IntroScreenType {
 
 /// Convert [HomeNavigation] state into a list of pages.
 extension on HomeNavigationState {
+  ChatId? get openChatId => chatOpen ? chatId : null;
+
   List<MaterialPage> pages(ResponsiveScreenType screenType) {
     const homeScreenPage = NoAnimationPage(
       key: ValueKey("home-screen"),
@@ -217,30 +219,22 @@ extension on HomeNavigationState {
           ),
         ],
       },
-      if (conversationId != null &&
-          conversationOpen &&
-          screenType == ResponsiveScreenType.mobile)
+      if (openChatId != null && screenType == ResponsiveScreenType.mobile)
         const MaterialPage(
           key: ValueKey("conversation-screen"),
           child: ConversationScreen(),
         ),
-      if (conversationId != null && conversationOpen && conversationDetailsOpen)
+      if (openChatId != null && chatDetailsOpen)
         const MaterialPage(
-          key: ValueKey("conversation-details-screen"),
+          key: ValueKey("chat-details-screen"),
           child: ConversationDetailsScreen(),
         ),
-      if (conversationId != null &&
-          conversationOpen &&
-          conversationDetailsOpen &&
-          memberDetails != null)
+      if (openChatId != null && chatDetailsOpen && memberDetails != null)
         const MaterialPage(
-          key: ValueKey("conversation-member-details-screen"),
+          key: ValueKey("chat-member-details-screen"),
           child: MemberDetailsScreen(),
         ),
-      if (conversationId != null &&
-          conversationOpen &&
-          conversationDetailsOpen &&
-          addMembersOpen)
+      if (openChatId != null && chatDetailsOpen && addMembersOpen)
         const MaterialPage(
           key: ValueKey("add-members-screen"),
           child: AddMembersScreen(),

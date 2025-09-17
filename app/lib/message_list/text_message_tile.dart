@@ -41,7 +41,7 @@ class TextMessageTile extends StatelessWidget {
     super.key,
   });
 
-  final ConversationMessageId messageId;
+  final MessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
@@ -77,7 +77,7 @@ class _MessageView extends StatelessWidget {
     required this.status,
   });
 
-  final ConversationMessageId messageId;
+  final MessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;

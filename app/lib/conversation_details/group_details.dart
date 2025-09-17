@@ -16,20 +16,18 @@ import 'package:provider/provider.dart';
 
 import 'conversation_details_cubit.dart';
 
-/// Details of a conversation (group)
+/// Details of a group chat
 class GroupDetails extends StatelessWidget {
   const GroupDetails({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final (conversation, members) = context.select((
-      ConversationDetailsCubit cubit,
-    ) {
+    final (chat, members) = context.select((ConversationDetailsCubit cubit) {
       final state = cubit.state;
-      return (state.conversation, state.members);
+      return (state.chat, state.members);
     });
 
-    if (conversation == null) {
+    if (chat == null) {
       return const SizedBox.shrink();
     }
 
@@ -45,18 +43,15 @@ class GroupDetails extends StatelessWidget {
             const SizedBox(height: Spacings.l),
             UserAvatar(
               size: 128,
-              image: conversation.picture,
-              displayName: conversation.title,
-              onPressed: () => _selectAvatar(context, conversation.id),
+              image: chat.picture,
+              displayName: chat.title,
+              onPressed: () => _selectAvatar(context, chat.id),
             ),
             const SizedBox(height: Spacings.l),
-            Text(
-              conversation.title,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
+            Text(chat.title, style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: Spacings.l),
             Text(
-              conversation.conversationType.description,
+              chat.chatType.description,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: Spacings.l),
@@ -97,7 +92,7 @@ class GroupDetails extends StatelessWidget {
             const SizedBox(height: Spacings.s),
 
             OutlinedButton(
-              onPressed: () => _leave(context, conversation.id),
+              onPressed: () => _leave(context, chat.id),
               child: Text(
                 loc.groupDetails_leaveConversation,
                 style: TextStyle(
@@ -108,7 +103,7 @@ class GroupDetails extends StatelessWidget {
             const SizedBox(height: Spacings.s),
 
             OutlinedButton(
-              onPressed: () => _delete(context, conversation.id),
+              onPressed: () => _delete(context, chat.id),
               child: Text(
                 loc.groupDetails_deleteConversation,
                 style: TextStyle(
@@ -123,7 +118,7 @@ class GroupDetails extends StatelessWidget {
     );
   }
 
-  void _selectAvatar(BuildContext context, ConversationId id) async {
+  void _selectAvatar(BuildContext context, ChatId id) async {
     final conversationDetailsCubit = context.read<ConversationDetailsCubit>();
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -131,10 +126,10 @@ class GroupDetails extends StatelessWidget {
       return;
     }
     final bytes = await image.readAsBytes();
-    conversationDetailsCubit.setConversationPicture(bytes: bytes);
+    conversationDetailsCubit.setChatPicture(bytes: bytes);
   }
 
-  void _leave(BuildContext context, ConversationId id) async {
+  void _leave(BuildContext context, ChatId id) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
     final loc = AppLocalizations.of(context);
@@ -145,12 +140,12 @@ class GroupDetails extends StatelessWidget {
       positiveButtonText: loc.leaveConversationDialog_leave,
       negativeButtonText: loc.leaveConversationDialog_cancel,
     )) {
-      userCubit.leaveConversation(id);
-      navigationCubit.closeConversation();
+      userCubit.leaveChat(id);
+      navigationCubit.closeChat();
     }
   }
 
-  void _delete(BuildContext context, ConversationId id) async {
+  void _delete(BuildContext context, ChatId id) async {
     final userCubit = context.read<UserCubit>();
     final navigationCubit = context.read<NavigationCubit>();
     final loc = AppLocalizations.of(context);
@@ -161,8 +156,8 @@ class GroupDetails extends StatelessWidget {
       positiveButtonText: loc.deleteConversationDialog_delete,
       negativeButtonText: loc.deleteConversationDialog_cancel,
     )) {
-      userCubit.deleteConversation(id);
-      navigationCubit.closeConversation();
+      userCubit.deleteChat(id);
+      navigationCubit.closeChat();
     }
   }
 }

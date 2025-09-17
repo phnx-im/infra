@@ -81,14 +81,14 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
                 let messages = std::mem::take(&mut self.messages);
                 match user.process_qs_messages(messages).await {
                     Ok(ProcessedQsMessages {
-                        new_conversations,
-                        changed_conversations: _,
+                        new_chats,
+                        changed_chats: _,
                         new_messages,
                         errors: _,
                     }) => {
                         let mut notifications =
-                            Vec::with_capacity(new_conversations.len() + new_messages.len());
-                        user.new_conversation_notifications(&new_conversations, &mut notifications)
+                            Vec::with_capacity(new_chats.len() + new_messages.len());
+                        user.new_chat_notifications(&new_chats, &mut notifications)
                             .await;
                         user.new_message_notifications(&new_messages, &mut notifications)
                             .await;

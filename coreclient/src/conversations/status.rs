@@ -19,7 +19,7 @@ mod persistence {
     use mimi_content::PerMessageStatus;
     use sqlx::{SqliteExecutor, SqliteTransaction, query, query_scalar};
 
-    use crate::{ConversationMessageId, store::StoreNotifier};
+    use crate::{MessageId, store::StoreNotifier};
 
     use super::*;
 
@@ -58,8 +58,8 @@ mod persistence {
                 let mimi_id = mimi_id.as_slice();
                 let status = status.repr();
                 let Some(message_id) = query_scalar!(
-                    r#"SELECT message_id AS "message_id: ConversationMessageId"
-                        FROM conversation_messages
+                    r#"SELECT message_id AS "message_id: MessageId"
+                        FROM message
                         WHERE mimi_id = ?"#,
                     mimi_id,
                 )
@@ -71,7 +71,7 @@ mod persistence {
 
                 // Set the statuses for the message and user
                 query!(
-                    "INSERT INTO conversation_message_status
+                    "INSERT INTO message_status
                         (message_id,  sender_user_uuid, sender_user_domain, status, created_at)
                     VALUES (?1, ?2, ?3, ?4, ?5)
                     ON CONFLICT (message_id, sender_user_domain, sender_user_uuid)
@@ -89,7 +89,7 @@ mod persistence {
 
                 let final_status = query_scalar!(
                     "SELECT COALESCE(MAX(status), 0) AS max
-                    FROM conversation_message_status
+                    FROM message_status
                     WHERE message_id = ?1 AND (status = 1 OR status = 2)",
                     message_id,
                 )
@@ -98,9 +98,7 @@ mod persistence {
 
                 // Aggregate the status for the message
                 query!(
-                    "UPDATE conversation_messages
-                    SET status = ?1
-                    WHERE message_id = ?2",
+                    "UPDATE message SET status = ?1 WHERE message_id = ?2",
                     final_status,
                     message_id,
                 )
@@ -116,11 +114,10 @@ mod persistence {
         pub(crate) async fn clear(
             txn: impl SqliteExecutor<'_>,
             notifier: &mut crate::store::StoreNotifier,
-            message_id: crate::ConversationMessageId,
+            message_id: crate::MessageId,
         ) -> sqlx::Result<()> {
             query!(
-                "DELETE FROM conversation_message_status
-                WHERE message_id = ?",
+                "DELETE FROM message_status WHERE message_id = ?",
                 message_id,
             )
             .execute(txn)
@@ -137,8 +134,8 @@ mod persistence {
         use sqlx::{SqlitePool, query_scalar};
 
         use crate::conversations::{
-            messages::persistence::tests::test_conversation_message_with_salt,
-            persistence::tests::test_conversation,
+            messages::persistence::tests::test_chat_message_with_salt,
+            persistence::tests::test_chat,
         };
 
         use super::*;
@@ -149,15 +146,14 @@ mod persistence {
 
             let alice = UserId::random("localhost".parse().unwrap());
 
-            let conversation = test_conversation();
-            conversation
-                .store(pool.acquire().await?.as_mut(), &mut notifier)
+            let chat = test_chat();
+            chat.store(pool.acquire().await?.as_mut(), &mut notifier)
                 .await?;
 
-            let message_a = test_conversation_message_with_salt(conversation.id(), [0; 16]);
+            let message_a = test_chat_message_with_salt(chat.id(), [0; 16]);
             message_a.store(&pool, &mut notifier).await?;
             let mimi_id_a = message_a.message().mimi_id().unwrap();
-            let message_b = test_conversation_message_with_salt(conversation.id(), [1; 16]);
+            let message_b = test_chat_message_with_salt(chat.id(), [1; 16]);
             message_b.store(&pool, &mut notifier).await?;
             let mimi_id_b = message_b.message().mimi_id().unwrap();
             assert_ne!(mimi_id_a, mimi_id_b);
@@ -185,21 +181,17 @@ mod persistence {
                 .await?;
             txn.commit().await?;
 
-            let status_a: i64 = query_scalar(
-                "SELECT status FROM conversation_message_status
-                    WHERE message_id = ?",
-            )
-            .bind(message_a.id())
-            .fetch_one(&mut *pool.acquire().await?)
-            .await?;
+            let status_a: i64 =
+                query_scalar("SELECT status FROM message_status WHERE message_id = ?")
+                    .bind(message_a.id())
+                    .fetch_one(&mut *pool.acquire().await?)
+                    .await?;
 
-            let status_b: i64 = query_scalar(
-                "SELECT status FROM conversation_message_status
-                    WHERE message_id = ?",
-            )
-            .bind(message_b.id())
-            .fetch_one(&mut *pool.acquire().await?)
-            .await?;
+            let status_b: i64 =
+                query_scalar("SELECT status FROM message_status WHERE message_id = ?")
+                    .bind(message_b.id())
+                    .fetch_one(&mut *pool.acquire().await?)
+                    .await?;
 
             assert_eq!(status_a, i64::from(MessageStatus::Read.repr()));
             assert_eq!(status_b, i64::from(MessageStatus::Deleted.repr()));

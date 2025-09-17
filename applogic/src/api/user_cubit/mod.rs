@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use aircommon::identifiers::{UserHandle, UserId};
 use aircoreclient::Asset;
-use aircoreclient::{ConversationId, clients::CoreUser, store::Store};
+use aircoreclient::{ChatId, clients::CoreUser, store::Store};
 use flutter_rust_bridge::frb;
 use qs::QueueContext;
 use tokio::sync::watch;
@@ -222,54 +222,44 @@ impl UserCubitBase {
     }
 
     #[frb(positional)]
-    pub async fn add_user_to_conversation(
-        &self,
-        conversation_id: ConversationId,
-        user_id: UiUserId,
-    ) -> anyhow::Result<()> {
+    pub async fn add_user_to_chat(&self, chat_id: ChatId, user_id: UiUserId) -> anyhow::Result<()> {
         self.context
             .core_user
-            .invite_users(conversation_id, &[user_id.into()])
+            .invite_users(chat_id, &[user_id.into()])
             .await?;
         Ok(())
     }
 
     #[frb(positional)]
-    pub async fn remove_user_from_conversation(
+    pub async fn remove_user_from_chat(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         user_id: UiUserId,
     ) -> anyhow::Result<()> {
         self.context
             .core_user
-            .remove_users(conversation_id, vec![user_id.into()])
+            .remove_users(chat_id, vec![user_id.into()])
             .await?;
         Ok(())
     }
 
     #[frb(positional)]
-    pub async fn delete_conversation(&self, conversation_id: ConversationId) -> anyhow::Result<()> {
+    pub async fn delete_chat(&self, chat_id: ChatId) -> anyhow::Result<()> {
         self.context
             .core_user
-            .delete_conversation(conversation_id)
+            .delete_chat(chat_id)
             .await
             .inspect_err(|error| {
                 error!(%error, "failed to delete conversion; skipping");
             })
             .ok();
-        self.context
-            .core_user
-            .erase_conversation(conversation_id)
-            .await?;
+        self.context.core_user.erase_chat(chat_id).await?;
         Ok(())
     }
 
     #[frb(positional)]
-    pub async fn leave_conversation(&self, conversation_id: ConversationId) -> anyhow::Result<()> {
-        self.context
-            .core_user
-            .leave_conversation(conversation_id)
-            .await
+    pub async fn leave_chat(&self, chat_id: ChatId) -> anyhow::Result<()> {
+        self.context.core_user.leave_chat(chat_id).await
     }
 
     #[frb(getter)]
@@ -278,20 +268,12 @@ impl UserCubitBase {
         Ok(contacts.into_iter().map(From::from).collect())
     }
 
-    pub async fn addable_contacts(
-        &self,
-        conversation_id: ConversationId,
-    ) -> anyhow::Result<Vec<UiContact>> {
-        let Some(members) = self
-            .context
-            .core_user
-            .conversation_participants(conversation_id)
-            .await
-        else {
+    pub async fn addable_contacts(&self, chat_id: ChatId) -> anyhow::Result<Vec<UiContact>> {
+        let Some(members) = self.context.core_user.chat_participants(chat_id).await else {
             return Ok(vec![]);
         };
         let mut contacts = self.contacts().await.unwrap_or_default();
-        // Retain only those contacts that are not already in the conversation
+        // Retain only those contacts that are not already in the chat
         contacts.retain(|contact| {
             !members
                 .iter()
@@ -312,7 +294,12 @@ impl UserCubitBase {
 
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
         let user_handle = UserHandle::new(user_handle.plaintext)?;
-        let Some(record) = self.context.core_user.add_user_handle(&user_handle).await? else {
+        let Some(record) = self
+            .context
+            .core_user
+            .add_user_handle(user_handle.clone())
+            .await?
+        else {
             return Ok(false);
         };
 
@@ -431,8 +418,8 @@ impl CubitContext {
 #[derive(Debug)]
 enum NotificationContext {
     Intro,
-    Conversation(ConversationId),
-    ConversationList,
+    Chat(ChatId),
+    ChatList,
     Other,
 }
 
@@ -444,14 +431,14 @@ impl CubitContext {
             NavigationState::Home {
                 home:
                     HomeNavigationState {
-                        conversation_id: Some(conversation_id),
+                        chat_id: Some(chat_id),
                         ..
                     },
-            } => NotificationContext::Conversation(*conversation_id),
+            } => NotificationContext::Chat(*chat_id),
             NavigationState::Home {
                 home:
                     HomeNavigationState {
-                        conversation_id: None,
+                        chat_id: None,
                         developer_settings_screen,
                         user_settings_screen,
                         ..
@@ -466,7 +453,7 @@ impl CubitContext {
                     && developer_settings_screen.is_none()
                     && user_settings_screen.is_none()
                 {
-                    NotificationContext::ConversationList
+                    NotificationContext::ChatList
                 } else {
                     NotificationContext::Other
                 }
@@ -476,13 +463,12 @@ impl CubitContext {
         debug!(?notifications, ?notification_context, "send_notification");
 
         match notification_context {
-            NotificationContext::Intro | NotificationContext::ConversationList => {
+            NotificationContext::Intro | NotificationContext::ChatList => {
                 return; // suppress all notifications
             }
-            NotificationContext::Conversation(conversation_id) => {
-                // Remove notifications for the current conversation
-                notifications
-                    .retain(|notification| notification.conversation_id != Some(conversation_id));
+            NotificationContext::Chat(chat_id) => {
+                // Remove notifications for the current chat
+                notifications.retain(|notification| notification.chat_id != Some(chat_id));
             }
             NotificationContext::Other => (),
         }

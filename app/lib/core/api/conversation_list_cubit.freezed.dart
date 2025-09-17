@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ConversationListState {
 
- List<UiConversationDetails> get conversations;
+ List<UiChatDetails> get chats;
 /// Create a copy of ConversationListState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $ConversationListStateCopyWith<ConversationListState> get copyWith => _$Conversa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationListState&&const DeepCollectionEquality().equals(other.conversations, conversations));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationListState&&const DeepCollectionEquality().equals(other.chats, chats));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(conversations));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(chats));
 
 @override
 String toString() {
-  return 'ConversationListState(conversations: $conversations)';
+  return 'ConversationListState(chats: $chats)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $ConversationListStateCopyWith<$Res>  {
   factory $ConversationListStateCopyWith(ConversationListState value, $Res Function(ConversationListState) _then) = _$ConversationListStateCopyWithImpl;
 @useResult
 $Res call({
- List<UiConversationDetails> conversations
+ List<UiChatDetails> chats
 });
 
 
@@ -62,10 +62,10 @@ class _$ConversationListStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationListState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? conversations = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? chats = null,}) {
   return _then(_self.copyWith(
-conversations: null == conversations ? _self.conversations : conversations // ignore: cast_nullable_to_non_nullable
-as List<UiConversationDetails>,
+chats: null == chats ? _self.chats : chats // ignore: cast_nullable_to_non_nullable
+as List<UiChatDetails>,
   ));
 }
 
@@ -77,14 +77,14 @@ as List<UiConversationDetails>,
 
 
 class _ConversationListState extends ConversationListState {
-  const _ConversationListState({required final  List<UiConversationDetails> conversations}): _conversations = conversations,super._();
+  const _ConversationListState({required final  List<UiChatDetails> chats}): _chats = chats,super._();
   
 
- final  List<UiConversationDetails> _conversations;
-@override List<UiConversationDetails> get conversations {
-  if (_conversations is EqualUnmodifiableListView) return _conversations;
+ final  List<UiChatDetails> _chats;
+@override List<UiChatDetails> get chats {
+  if (_chats is EqualUnmodifiableListView) return _chats;
   // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_conversations);
+  return EqualUnmodifiableListView(_chats);
 }
 
 
@@ -98,16 +98,16 @@ _$ConversationListStateCopyWith<_ConversationListState> get copyWith => __$Conve
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationListState&&const DeepCollectionEquality().equals(other._conversations, _conversations));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationListState&&const DeepCollectionEquality().equals(other._chats, _chats));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_conversations));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_chats));
 
 @override
 String toString() {
-  return 'ConversationListState(conversations: $conversations)';
+  return 'ConversationListState(chats: $chats)';
 }
 
 
@@ -118,7 +118,7 @@ abstract mixin class _$ConversationListStateCopyWith<$Res> implements $Conversat
   factory _$ConversationListStateCopyWith(_ConversationListState value, $Res Function(_ConversationListState) _then) = __$ConversationListStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<UiConversationDetails> conversations
+ List<UiChatDetails> chats
 });
 
 
@@ -135,10 +135,10 @@ class __$ConversationListStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationListState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? conversations = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? chats = null,}) {
   return _then(_ConversationListState(
-conversations: null == conversations ? _self._conversations : conversations // ignore: cast_nullable_to_non_nullable
-as List<UiConversationDetails>,
+chats: null == chats ? _self._chats : chats // ignore: cast_nullable_to_non_nullable
+as List<UiChatDetails>,
   ));
 }
 
