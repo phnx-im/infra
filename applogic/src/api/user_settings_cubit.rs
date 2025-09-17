@@ -15,8 +15,7 @@ use crate::{
 #[derive(Debug, Clone)]
 #[frb(dart_metadata = ("freezed"))]
 pub struct UserSettings {
-    #[frb(default = 1.0)]
-    pub interface_scale: f64,
+    pub interface_scale: Option<f64>,
     #[frb(default = 300.0)]
     pub sidebar_width: f64,
     #[frb(default = false)]
@@ -27,9 +26,9 @@ impl Default for UserSettings {
     #[frb(ignore)]
     fn default() -> Self {
         Self {
-            interface_scale: InterfaceScaleSetting::DEFAULT.0,
-            sidebar_width: SidebarWidthSetting::DEFAULT.0,
-            send_on_enter: SendOnEnterSetting::DEFAULT.0,
+            interface_scale: None,
+            sidebar_width: 300.0,
+            send_on_enter: false,
         }
     }
 }
@@ -77,11 +76,17 @@ impl UserSettingsCubitBase {
 
     pub async fn load_state(&self, user: &User) {
         let store = &user.user;
-        let InterfaceScaleSetting(interface_scale) = store.user_setting().await;
-        let SidebarWidthSetting(sidebar_width) = store.user_setting().await;
+        let interface_scale = store.user_setting().await;
+        let sidebar_width = store.user_setting().await;
+        let send_on_enter = store.user_setting().await;
         self.core.state_tx().send_modify(|state| {
-            state.interface_scale = interface_scale;
-            state.sidebar_width = sidebar_width;
+            state.interface_scale = interface_scale.map(|InterfaceScaleSetting(value)| value);
+            if let Some(SidebarWidthSetting(value)) = sidebar_width {
+                state.sidebar_width = value;
+            }
+            if let Some(SendOnEnterSetting(value)) = send_on_enter {
+                state.send_on_enter = value;
+            }
         });
     }
 
@@ -90,7 +95,7 @@ impl UserSettingsCubitBase {
         user_cubit: &UserCubitBase,
         value: f64,
     ) -> anyhow::Result<()> {
-        if self.core.state_tx().borrow().interface_scale == value {
+        if self.core.state_tx().borrow().interface_scale == Some(value) {
             return Ok(());
         }
         user_cubit
@@ -99,7 +104,7 @@ impl UserSettingsCubitBase {
             .await?;
         self.core
             .state_tx()
-            .send_modify(|state| state.interface_scale = value);
+            .send_modify(|state| state.interface_scale = Some(value));
         Ok(())
     }
 
@@ -145,8 +150,6 @@ struct InterfaceScaleSetting(f64);
 impl UserSetting for InterfaceScaleSetting {
     const KEY: &'static str = "interface_scale";
 
-    const DEFAULT: Self = Self(1.0);
-
     fn encode(&self) -> anyhow::Result<Vec<u8>> {
         f64_encode(&self.0)
     }
@@ -160,8 +163,6 @@ struct SidebarWidthSetting(f64);
 
 impl UserSetting for SidebarWidthSetting {
     const KEY: &'static str = "sidebar_width";
-
-    const DEFAULT: Self = Self(300.0);
 
     fn encode(&self) -> anyhow::Result<Vec<u8>> {
         f64_encode(&self.0)
@@ -186,8 +187,6 @@ struct SendOnEnterSetting(bool);
 
 impl UserSetting for SendOnEnterSetting {
     const KEY: &'static str = "send_on_enter";
-
-    const DEFAULT: Self = Self(false);
 
     fn encode(&self) -> anyhow::Result<Vec<u8>> {
         Ok(vec![self.0 as u8])

@@ -4,6 +4,8 @@
 
 import 'dart:io';
 
+import 'package:air/util/interface_scale.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:air/core/core.dart';
@@ -292,9 +294,15 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
   @override
   void initState() {
     super.initState();
+
     setState(() {
+      final interfaceScale =
+          context.read<UserSettingsCubit>().state.interfaceScale;
+      var isLinuxAndScaled =
+          Platform.isLinux &&
+          WidgetsBinding.instance.platformDispatcher.textScaleFactor >= 1.5;
       _interfaceScaleSliderValue =
-          context.read<UserSettingsCubit>().state.interfaceScale * 100;
+          100 * (interfaceScale ?? (isLinuxAndScaled ? 1.5 : 1.0));
     });
   }
 
