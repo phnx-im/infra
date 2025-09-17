@@ -702,7 +702,7 @@ impl CoreUser {
             let mut result = Vec::new();
 
             for table in tables {
-                for row in sqlx::query(&format!("SELECT * FROM {}", table.name.unwrap()))
+                for row in sqlx::query(&format!("SELECT * FROM '{}'", table.name.unwrap()))
                     .fetch_all(&mut **txn)
                     .await?
                 {
