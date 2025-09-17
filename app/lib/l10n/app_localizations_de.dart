@@ -126,6 +126,9 @@ class AppLocalizationsDe extends AppLocalizations {
       'Benutzername darf nicht leer sein';
 
   @override
+  String get userHandleScreen_error_alreadyExists => 'Username already exists';
+
+  @override
   String get userHandleScreen_description =>
       'Wähle einen Benutzernamen, den andere verwenden können, um sich mit dir zu verbinden.\n\nVerwende Buchstaben, Zahlen oder Unterstriche. Mindestens 5 Zeichen.';
 

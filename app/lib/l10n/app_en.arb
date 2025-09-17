@@ -42,6 +42,7 @@
   "userHandleScreen_title": "Username",
   "userHandleScreen_inputHint": "Username",
   "userHandleScreen_error_emptyHandle": "Username cannot be empty",
+  "userHandleScreen_error_alreadyExists": "Username already exists",
   "userHandleScreen_description": "Choose a username that others can use to connect with you.\n\nUse letters, numbers, or underscores. Minimum 5 characters.",
   "userHandleScreen_save": "Save",
 

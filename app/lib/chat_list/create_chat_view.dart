@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:air/theme/theme.dart';
 import 'package:air/ui/colors/themes.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
-class CreateChatView extends StatefulWidget {
+class CreateChatView extends HookWidget {
   final String title;
   final String prompt;
   final String hint;
@@ -27,27 +30,18 @@ class CreateChatView extends StatefulWidget {
   });
 
   @override
-  State<CreateChatView> createState() => _CreateChatViewState();
-}
-
-class _CreateChatViewState extends State<CreateChatView> {
-  final _formKey = GlobalKey<FormState>();
-
-  bool _isInputValid = false;
-  String? _customValidationError;
-
-  final TextEditingController _controller = TextEditingController();
-
-  void _validateForm() {
-    setState(() {
-      _isInputValid = _formKey.currentState?.validate() ?? false;
-    });
-  }
-
-  @override
   Widget build(context) {
+    final formKey = useMemoized(() => GlobalKey<FormState>());
+
+    final isInputValid = useState(false);
+    final customValidationError = useState<String?>(null);
+
+    final controller = useTextEditingController();
+
+    final focusNode = useFocusNode();
+
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text(title),
       titlePadding: const EdgeInsets.all(20),
       titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
         color: CustomColorScheme.of(context).text.secondary,
@@ -65,22 +59,36 @@ class _CreateChatViewState extends State<CreateChatView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 50),
-              Text(
-                widget.prompt,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              Text(prompt, style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 20),
               Form(
-                key: _formKey,
+                key: formKey,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: ConstrainedBox(
                   constraints: BoxConstraints.tight(const Size(380, 80)),
                   child: TextFormField(
                     autofocus: true,
-                    controller: _controller,
-                    decoration: InputDecoration(hintText: widget.hint),
-                    validator: _validator,
-                    onChanged: (String value) => _validateForm(),
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(hintText: hint),
+                    onChanged: (text) => customValidationError.value = null,
+                    validator:
+                        (input) => _validator(
+                          isInputValid,
+                          customValidationError,
+                          input,
+                        ),
+                    onFieldSubmitted: (text) {
+                      // keep focus on the input field
+                      focusNode.requestFocus();
+                      _onAction(
+                        context,
+                        formKey,
+                        isInputValid,
+                        customValidationError,
+                        text,
+                      );
+                    },
                   ),
                 ),
               ),
@@ -97,35 +105,57 @@ class _CreateChatViewState extends State<CreateChatView> {
           },
         ),
         TextButton(
-          style: dynamicTextButtonStyle(context, _isInputValid, true),
-          onPressed: _isInputValid ? _onAction : null,
-          child: Text(widget.action),
+          style: dynamicTextButtonStyle(context, isInputValid.value, true),
+          onPressed:
+              isInputValid.value
+                  ? () => _onAction(
+                    context,
+                    formKey,
+                    isInputValid,
+                    customValidationError,
+                    controller.text,
+                  )
+                  : null,
+          child: Text(action),
         ),
       ],
     );
   }
 
-  void _onAction() async {
-    if (widget.onAction != null) {
-      final error = await widget.onAction!(_controller.text);
+  void _onAction(
+    BuildContext context,
+    GlobalKey<FormState> formKey,
+    ValueNotifier<bool> isInputValid,
+    ValueNotifier<String?> customValidationError,
+    String value,
+  ) async {
+    if (!isInputValid.value) {
+      return;
+    }
+
+    if (onAction != null) {
+      final error = await onAction!(value);
       if (error != null) {
-        setState(() {
-          _isInputValid = false;
-          _customValidationError = error;
-        });
+        isInputValid.value = false;
+        customValidationError.value = error;
+        formKey.currentState?.validate();
       }
     } else {
-      Navigator.of(context).pop(_controller.text);
+      Navigator.of(context).pop(value);
     }
   }
 
-  String? _validator(String? input) {
-    if (_customValidationError != null) {
-      final error = _customValidationError;
-      _customValidationError = null;
-      return error;
-    } else {
-      return widget.validator(input);
+  String? _validator(
+    ValueNotifier<bool> isInputValid,
+    ValueNotifier<String?> customValidationError,
+    String? input,
+  ) {
+    final error = customValidationError.value ?? validator(input);
+    final isValid = error == null;
+    if (isValid != isInputValid.value) {
+      // Don't update the value in the same build frame
+      scheduleMicrotask(() => isInputValid.value = isValid);
     }
+    return error;
   }
 }
