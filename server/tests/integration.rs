@@ -262,8 +262,8 @@ async fn create_user() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[tracing::instrument(name = "Full cycle", skip_all)]
-async fn full_cycle() {
+#[tracing::instrument(name = "Communication and persistence", skip_all)]
+async fn communication_and_persistence() {
     let mut setup = TestBackend::single().await;
     // Create alice and bob
     setup.add_user(&ALICE).await;
@@ -276,6 +276,8 @@ async fn full_cycle() {
     setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
     setup.send_message(chat_alice_bob, &BOB, vec![&ALICE]).await;
 
+    // TODO: This currently fails
+    /*
     let count_18 = setup
         .scan_database("\x18", true, vec![&ALICE, &BOB])
         .await
@@ -284,11 +286,11 @@ async fn full_cycle() {
         .scan_database("\x19", true, vec![&ALICE, &BOB])
         .await
         .len();
-    // TODO: This currently fails
-    //assert!(
-    //   count_18 < count_19 * 3 / 2,
-    //   "Having too many 0x18 is an indicator for using Vec<u8> instead of ByteBuf"
-    //);
+    assert!(
+        count_18 < count_19 * 3 / 2,
+        "Having too many 0x18 is an indicator for using Vec<u8> instead of ByteBuf"
+    );
+    */
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
