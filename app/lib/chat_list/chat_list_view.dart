@@ -18,9 +18,7 @@ class ChatListContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create:
-          (context) =>
-              ChatListCubit(userCubit: context.read<UserCubit>()),
+      create: (context) => ChatListCubit(userCubit: context.read<UserCubit>()),
       child: const ChatListView(),
     );
   }
@@ -40,10 +38,7 @@ class ChatListView extends StatelessWidget {
       padding: EdgeInsets.only(top: _topPadding()),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ChatListHeader(),
-          Expanded(child: ChatListContent()),
-        ],
+        children: [ChatListHeader(), Expanded(child: ChatListContent())],
       ),
     );
   }

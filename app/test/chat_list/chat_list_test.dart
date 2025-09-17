@@ -70,9 +70,7 @@ void main() {
       ),
     );
 
-    testWidgets('renders correctly when there are no chats', (
-      tester,
-    ) async {
+    testWidgets('renders correctly when there are no chats', (tester) async {
       when(
         () => chatListCubit.state,
       ).thenReturn(const ChatListState(chats: []));

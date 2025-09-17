@@ -25,9 +25,7 @@ class ConnectionDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = context.select(
-      (ChatDetailsCubit cubit) => cubit.state.chat,
-    );
+    final chat = context.select((ChatDetailsCubit cubit) => cubit.state.chat);
 
     if (chat == null) {
       return const SizedBox.shrink();

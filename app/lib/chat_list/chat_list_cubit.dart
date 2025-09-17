@@ -8,8 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:air/core/core.dart';
 import 'package:air/user/user.dart';
 
-class ChatListCubit
-    implements StateStreamableSource<ChatListState> {
+class ChatListCubit implements StateStreamableSource<ChatListState> {
   ChatListCubit({required UserCubit userCubit})
     : _impl = ChatListCubitBase(userCubit: userCubit.impl);
 

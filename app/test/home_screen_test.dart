@@ -76,9 +76,7 @@ void main() {
         BlocProvider<UserCubit>.value(value: userCubit),
         BlocProvider<UsersCubit>.value(value: usersCubit),
         BlocProvider<ChatListCubit>.value(value: chatListCubit),
-        BlocProvider<ChatDetailsCubit>.value(
-          value: chatDetailsCubit,
-        ),
+        BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
         BlocProvider<MessageListCubit>.value(value: messageListCubit),
         BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
       ],
@@ -93,9 +91,7 @@ void main() {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const HomeScreenDesktopLayout(
               chatList: ChatListView(),
-              chat: ChatScreenView(
-                createMessageCubit: createMockMessageCubit,
-              ),
+              chat: ChatScreenView(createMessageCubit: createMockMessageCubit),
             ),
           );
         },
@@ -141,9 +137,7 @@ void main() {
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(
-        () => chatListCubit.state,
-      ).thenReturn(ChatListState(chats: chats));
+      when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));
@@ -173,9 +167,7 @@ void main() {
           home: HomeNavigationState(chatOpen: true, chatId: chats[2].id),
         ),
       );
-      when(
-        () => chatListCubit.state,
-      ).thenReturn(ChatListState(chats: chats));
+      when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));

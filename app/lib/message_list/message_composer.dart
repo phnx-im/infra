@@ -55,9 +55,7 @@ class _MessageComposerState extends State<MessageComposer>
     // Propagate draft changes to the text field.
     // In particular, this sets the draft message on initial load, if any.
 
-    _draftLoadingSubscription = _chatDetailsCubit.stream.listen((
-      state,
-    ) {
+    _draftLoadingSubscription = _chatDetailsCubit.stream.listen((state) {
       if (state.chat != null) {
         // state is fully loaded
         if (state.chat?.draft case final draft?) {

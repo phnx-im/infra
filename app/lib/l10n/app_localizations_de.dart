@@ -71,8 +71,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatDetailsScreen_title => 'Details';
 
   @override
-  String get chatDetailsScreen_unknownChat =>
-      'Unbekannte Unterhaltung';
+  String get chatDetailsScreen_unknownChat => 'Unbekannte Unterhaltung';
 
   @override
   String get chatScreen_emptyChat =>
@@ -206,8 +205,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Wähle einen Namen für die neue Unterhaltung';
 
   @override
-  String get newChatDialog_chatNamePlaceholder =>
-      'Unterhaltungsname';
+  String get newChatDialog_chatNamePlaceholder => 'Unterhaltungsname';
 
   @override
   String get newChatDialog_actionButton => 'Unterhaltung erstellen';

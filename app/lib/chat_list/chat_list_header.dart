@@ -173,9 +173,7 @@ class _PlusButtonState extends State<_PlusButton> {
     Future<String?> onAction(String input) async {
       final handle = UiUserHandle(plaintext: input.trim().toLowerCase());
       try {
-        final chatId = await chatListCubit.createContactChat(
-          handle: handle,
-        );
+        final chatId = await chatListCubit.createContactChat(handle: handle);
         if (context.mounted) {
           if (chatId == null) {
             return loc.newConnectionDialog_error_handleNotFound(

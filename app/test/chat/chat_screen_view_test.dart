@@ -78,9 +78,7 @@ void main() {
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
         BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ChatDetailsCubit>.value(
-          value: chatDetailsCubit,
-        ),
+        BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
         BlocProvider<MessageListCubit>.value(value: messageListCubit),
         BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
       ],
@@ -91,9 +89,7 @@ void main() {
             theme: useDarkTheme ? darkTheme : lightTheme,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             home: const Scaffold(
-              body: ChatScreenView(
-                createMessageCubit: createMockMessageCubit,
-              ),
+              body: ChatScreenView(createMessageCubit: createMockMessageCubit),
             ),
           );
         },

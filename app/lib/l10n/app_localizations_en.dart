@@ -70,12 +70,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatDetailsScreen_title => 'Details';
 
   @override
-  String get chatDetailsScreen_unknownChat =>
-      'Unknown chat';
+  String get chatDetailsScreen_unknownChat => 'Unknown chat';
 
   @override
-  String get chatScreen_emptyChat =>
-      'Select a chat to start messaging';
+  String get chatScreen_emptyChat => 'Select a chat to start messaging';
 
   @override
   String get memberDetailsScreen_title => 'Member details';
@@ -175,8 +173,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatList_newGroup => 'New group';
 
   @override
-  String get chatList_emptyMessage =>
-      'Create a new connection to get started';
+  String get chatList_emptyMessage => 'Create a new connection to get started';
 
   @override
   String get chatList_draft => 'Draft';
@@ -204,8 +201,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose a name for the new chat';
 
   @override
-  String get newChatDialog_chatNamePlaceholder =>
-      'Chat name';
+  String get newChatDialog_chatNamePlaceholder => 'Chat name';
 
   @override
   String get newChatDialog_actionButton => 'Create chat';
@@ -216,8 +212,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get newChatDialog_error_emptyGroupName =>
-      'Chat name cannot be empty';
+  String get newChatDialog_error_emptyGroupName => 'Chat name cannot be empty';
 
   @override
   String get newConnectionDialog_newConnectionTitle => 'New connection';

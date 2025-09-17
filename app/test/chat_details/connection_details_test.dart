@@ -31,9 +31,7 @@ void main() {
 
     Widget buildSubject() => MultiBlocProvider(
       providers: [
-        BlocProvider<ChatDetailsCubit>.value(
-          value: chatDetailsCubit,
-        ),
+        BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
       ],
       child: Builder(
         builder: (context) {

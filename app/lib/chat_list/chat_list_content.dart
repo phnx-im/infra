@@ -24,9 +24,7 @@ class ChatListContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chats = context.select(
-      (ChatListCubit cubit) => cubit.state.chats,
-    );
+    final chats = context.select((ChatListCubit cubit) => cubit.state.chats);
 
     if (chats.isEmpty) {
       return const _NoChats();

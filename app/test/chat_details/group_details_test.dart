@@ -37,9 +37,7 @@ void main() {
 
       return MultiBlocProvider(
         providers: [
-          BlocProvider<ChatDetailsCubit>.value(
-            value: chatDetailsCubit,
-          ),
+          BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
           BlocProvider<UsersCubit>.value(value: usersCubit),
         ],
         child: MaterialApp(

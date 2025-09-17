@@ -71,8 +71,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chatDetailsScreen_title => 'Détails';
 
   @override
-  String get chatDetailsScreen_unknownChat =>
-      'Chat inconnue';
+  String get chatDetailsScreen_unknownChat => 'Chat inconnue';
 
   @override
   String get chatScreen_emptyChat =>
@@ -199,16 +198,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settings_developerSettings => 'Paramètres (développeur)';
 
   @override
-  String get newChatDialog_newChatTitle =>
-      'Nouvelle chat';
+  String get newChatDialog_newChatTitle => 'Nouvelle chat';
 
   @override
   String get newChatDialog_newChatDescription =>
       'Choisissez un nom pour la nouvelle chat';
 
   @override
-  String get newChatDialog_chatNamePlaceholder =>
-      'Nom de la chat';
+  String get newChatDialog_chatNamePlaceholder => 'Nom de la chat';
 
   @override
   String get newChatDialog_actionButton => 'Créer une chat';

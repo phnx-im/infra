@@ -110,9 +110,9 @@ class _MessageView extends StatelessWidget {
                 InkWell(
                   mouseCursor: SystemMouseCursors.basic,
                   onLongPress:
-                      () => context
-                          .read<ChatDetailsCubit>()
-                          .editMessage(messageId: messageId),
+                      () => context.read<ChatDetailsCubit>().editMessage(
+                        messageId: messageId,
+                      ),
                   child: _MessageContent(
                     content: contentMessage.content,
                     isSender: isSender,

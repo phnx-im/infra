@@ -327,9 +327,7 @@ void main() {
         providers: [
           BlocProvider<UserCubit>.value(value: userCubit),
           BlocProvider<UsersCubit>.value(value: contactsCubit),
-          BlocProvider<ChatDetailsCubit>.value(
-            value: chatDetailsCubit,
-          ),
+          BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
           BlocProvider<MessageListCubit>.value(value: messageListCubit),
         ],
         child: Builder(

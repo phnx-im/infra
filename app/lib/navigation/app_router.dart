@@ -220,10 +220,7 @@ extension on HomeNavigationState {
         ],
       },
       if (openChatId != null && screenType == ResponsiveScreenType.mobile)
-        const MaterialPage(
-          key: ValueKey("chat-screen"),
-          child: ChatScreen(),
-        ),
+        const MaterialPage(key: ValueKey("chat-screen"), child: ChatScreen()),
       if (openChatId != null && chatDetailsOpen)
         const MaterialPage(
           key: ValueKey("chat-details-screen"),

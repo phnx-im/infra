@@ -64,10 +64,7 @@ class _EmptyChatPane extends StatelessWidget {
 }
 
 class ChatScreenView extends StatelessWidget {
-  const ChatScreenView({
-    super.key,
-    this.createMessageCubit = MessageCubit.new,
-  });
+  const ChatScreenView({super.key, this.createMessageCubit = MessageCubit.new});
 
   final MessageCubitCreate createMessageCubit;
 

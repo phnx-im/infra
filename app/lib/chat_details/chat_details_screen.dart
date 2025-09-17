@@ -59,9 +59,7 @@ class ChatDetailsScreenView extends StatelessWidget {
           UiChatType_HandleConnection() ||
           UiChatType_Connection() => const ConnectionDetails(),
           UiChatType_Group() => const GroupDetails(),
-          null => Center(
-            child: Text(loc.chatDetailsScreen_unknownChat),
-          ),
+          null => Center(child: Text(loc.chatDetailsScreen_unknownChat)),
         },
       ),
     );
