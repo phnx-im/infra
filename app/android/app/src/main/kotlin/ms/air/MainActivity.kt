@@ -25,10 +25,10 @@ class MainActivity : FlutterActivity() {
 
         if (intent.action == Notifications.SELECT_NOTIFICATION) {
             val notificationId = intent.extras?.getString(Notifications.EXTRAS_NOTIFICATION_ID_KEY)
-            val conversationId = intent.extras?.getString(Notifications.EXTRAS_CONVERSATION_ID_KEY)
+            val chatId = intent.extras?.getString(Notifications.EXTRAS_CHAT_ID_KEY)
             if (notificationId != null) {
                 val arguments = mapOf(
-                    "identifier" to notificationId, "conversationId" to conversationId
+                    "identifier" to notificationId, "chatId" to chatId
                 )
                 channel?.invokeMethod("openedNotification", arguments)
             }
@@ -73,12 +73,12 @@ class MainActivity : FlutterActivity() {
                     val identifier: String? = call.argument("identifier")
                     val title: String? = call.argument("title")
                     val body: String? = call.argument("body")
-                    val conversationId: ConversationId? =
-                        call.argument<String>("conversationId")?.let { ConversationId(it) }
+                    val chatId: ChatId? =
+                        call.argument<String>("chatId")?.let { ChatId(it) }
 
                     if (identifier != null && title != null && body != null) {
                         val notification =
-                            NotificationContent(identifier, title, body, conversationId)
+                            NotificationContent(identifier, title, body, chatId)
                         Notifications.showNotification(this, notification)
                         result.success(null)
                     } else {
@@ -95,7 +95,7 @@ class MainActivity : FlutterActivity() {
                     val res: ArrayList<Map<String, Any?>> = ArrayList(notifications.map { handle ->
                         mapOf<String, Any?>(
                             "identifier" to handle.notificationId,
-                            "conversationId" to handle.conversationId
+                            "chatId" to handle.chatId
                         )
                     })
                     result.success(res)

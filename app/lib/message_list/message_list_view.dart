@@ -6,12 +6,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:air/conversation_details/conversation_details.dart';
+import 'package:air/chat_details/chat_details.dart';
 import 'package:air/core/core.dart';
 import 'package:air/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
-import 'conversation_tile.dart';
+import 'chat_tile.dart';
 import 'message_cubit.dart';
 import 'message_list_cubit.dart';
 
@@ -73,10 +73,10 @@ class _MessageListViewState extends State<MessageListView> {
                   initialState: MessageState(message: message),
                 );
               },
-              child: _VisibilityConversationTile(
+              child: _VisibilityChatTile(
                 messageId: message.id,
                 timestamp: DateTime.parse(message.timestamp),
-                child: ConversationTile(animated: animate),
+                child: ChatTile(animated: animate),
               ),
             );
           },
@@ -94,8 +94,8 @@ class _MessageListViewState extends State<MessageListView> {
   }
 }
 
-class _VisibilityConversationTile extends StatelessWidget {
-  const _VisibilityConversationTile({
+class _VisibilityChatTile extends StatelessWidget {
+  const _VisibilityChatTile({
     required this.messageId,
     required this.timestamp,
     required this.child,
@@ -112,7 +112,7 @@ class _VisibilityConversationTile extends StatelessWidget {
       child: child,
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction > 0) {
-          context.read<ConversationDetailsCubit>().markAsRead(
+          context.read<ChatDetailsCubit>().markAsRead(
             untilMessageId: messageId,
             untilTimestamp: timestamp,
           );

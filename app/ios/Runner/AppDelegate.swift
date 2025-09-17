@@ -131,13 +131,13 @@ private let kProtectedBlockedCategory = "protected-blocked"
         let identifier = UUID(uuidString: identifierStr),
         let title = args["title"] as? String,
         let body = args["body"] as? String,
-        let conversationIdStr = args["conversationId"] as? String?
+        let chatIdStr = args["chatId"] as? String?
       {
         sendNotification(
           identifier: identifier,
           title: title,
           body: body,
-          conversationId: conversationIdStr.flatMap { UUID(uuidString: $0) })
+          chatId: chatIdStr.flatMap { UUID(uuidString: $0) })
         result(nil)
       } else {
         result(
@@ -245,14 +245,14 @@ private func clearProtectedBlockedNotifications() {
   }
 }
 
-func sendNotification(identifier: UUID, title: String, body: String, conversationId: UUID?) {
+func sendNotification(identifier: UUID, title: String, body: String, chatId: UUID?) {
   let center = UNUserNotificationCenter.current()
 
   let content = UNMutableNotificationContent()
   content.title = title
   content.body = body
   content.sound = UNNotificationSound.default
-  content.userInfo["conversationId"] = conversationId?.uuidString
+  content.userInfo["chatId"] = chatId?.uuidString
 
   let request = UNNotificationRequest(
     identifier: identifier.uuidString,
@@ -268,7 +268,7 @@ func sendNotification(identifier: UUID, title: String, body: String, conversatio
 
 struct NotificationHandle {
   let identifier: UUID
-  let conversationId: UUID?
+  let chatId: UUID?
 
   init?(notification: UNNotification) {
     let identifierStr = notification.request.identifier
@@ -276,15 +276,15 @@ struct NotificationHandle {
       return nil
     }
     self.identifier = identifier
-    let conversationIdStr: String? =
-      notification.request.content.userInfo["conversationId"] as? String? ?? nil
-    self.conversationId = conversationIdStr.flatMap { UUID(uuidString: $0) }
+    let chatIdStr: String? =
+      notification.request.content.userInfo["chatId"] as? String? ?? nil
+    self.chatId = chatIdStr.flatMap { UUID(uuidString: $0) }
   }
 
   func toDict() -> [String: Any?] {
     [
       "identifier": identifier.uuidString,
-      "conversationId": conversationId?.uuidString,
+      "chatId": chatId?.uuidString,
     ]
   }
 }
