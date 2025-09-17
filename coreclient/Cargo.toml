@@ -51,7 +51,6 @@ infer = "0.19.0"
 blurhash = "0.2.3"
 webp = "0.3.0"
 sha2 = { workspace = true }
-serde_bytes = "0.11.17"
 
 [dev-dependencies]
 airserver_test_harness = { path = "../test_harness" }

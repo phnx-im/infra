@@ -28,7 +28,8 @@ pub(crate) struct VersionedMessage {
     pub(crate) version: u16,
     // We store the message as bytes, because deserialization depends on
     // other parameters.
-    #[serde(default, with = "serde_bytes")]
+    // TODO: Do not use cbor unsigned int array here
+    #[serde(default)]
     pub(crate) content: Vec<u8>,
 }
 

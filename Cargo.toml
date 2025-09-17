@@ -62,7 +62,7 @@ tracing-subscriber = { version = "0.3", features = [
     "parking_lot",
 ] }
 
-tokio = { version = "1.18.2", features = ["macros", "sync"] }
+tokio = { version = "1.18.2", features = ["macros"] }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }
