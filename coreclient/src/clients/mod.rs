@@ -692,7 +692,8 @@ impl CoreUser {
         Ok(value)
     }
 
-    pub async fn scan_database(&self, query: &str) -> anyhow::Result<Vec<String>> {
+    /// This function goes through all tables of the database and returns all columns that contain the query.
+    pub async fn scan_database(&self, query: &str, strict: bool) -> anyhow::Result<Vec<String>> {
         self.with_transaction(async |txn: &mut SqliteTransaction| {
             let tables = query!("SELECT name FROM sqlite_schema WHERE type='table'")
                 .fetch_all(&mut **txn)
@@ -720,11 +721,13 @@ impl CoreUser {
                             continue;
                         }
 
-                        // Try again without 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
-                        let string2 = string.replace('\x18', "");
-                        if string2.contains(query) {
-                            //result.push(string.to_string());
-                            continue;
+                        if !strict {
+                            // Try again without 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
+                            let string2 = string.replace('\x18', "");
+                            if string2.contains(query) {
+                                result.push(string.to_string());
+                                continue;
+                            }
                         }
                     }
                 }

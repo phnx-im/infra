@@ -24,11 +24,11 @@ tracing = { version = "0.1.35", features = ["log"] }
 # Rust crypto dependencies
 sqlx = { workspace = true, features = ["postgres", "tls-rustls"] }
 mimi-room-policy = { workspace = true }
-tokio = "1"
+tokio = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
-tokio-stream = "0.1.17"
+tokio-stream = { workspace = true }
 tonic = { workspace = true }
 rand = "0.8"
 tokio-util.workspace = true

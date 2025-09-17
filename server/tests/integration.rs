@@ -276,8 +276,14 @@ async fn full_cycle() {
     setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
     setup.send_message(chat_alice_bob, &BOB, vec![&ALICE]).await;
 
-    let count_18 = setup.scan_database(&"\x18", vec![&ALICE, &BOB]).await.len();
-    let count_19 = setup.scan_database(&"\x19", vec![&ALICE, &BOB]).await.len();
+    let count_18 = setup
+        .scan_database(&"\x18", true, vec![&ALICE, &BOB])
+        .await
+        .len();
+    let count_19 = setup
+        .scan_database(&"\x19", true, vec![&ALICE, &BOB])
+        .await
+        .len();
     assert!(
         count_18 < count_19 * 3 / 2,
         "Having too many 0x18 is an indicator for using Vec<u8> instead of ByteBuf"
@@ -325,7 +331,7 @@ async fn delete_message() {
 
     assert!(
         !setup
-            .scan_database(&string, vec![&ALICE, &BOB])
+            .scan_database(&string, false, vec![&ALICE, &BOB])
             .await
             .is_empty(),
     );
@@ -335,7 +341,9 @@ async fn delete_message() {
         .await;
 
     assert_eq!(
-        setup.scan_database(&string, vec![&ALICE, &BOB]).await,
+        setup
+            .scan_database(&string, false, vec![&ALICE, &BOB])
+            .await,
         Vec::<String>::new()
     );
 }

@@ -19,7 +19,7 @@ pub(crate) trait MimiContentExt {
 }
 
 impl MimiContentExt for MimiContent {
-    // TODO: Message editing relies on this function returning the original input again. When we add processing to the input or the plain_body function, we need to adjust message editing.
+    // Message editing relies on this function returning the original input again. When we add processing to the input or the plain_body function, we need to adjust message editing.
     fn plain_body(&self) -> Option<&str> {
         match &self.nested_part.part {
             // single part message

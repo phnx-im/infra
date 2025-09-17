@@ -895,13 +895,19 @@ impl TestBackend {
         (message.id(), external_part)
     }
 
-    pub async fn scan_database(&mut self, query: &str, users: Vec<&UserId>) -> Vec<String> {
+    /// This function goes through all tables of the database and returns all columns that contain the query.
+    pub async fn scan_database(
+        &mut self,
+        query: &str,
+        strict: bool,
+        users: Vec<&UserId>,
+    ) -> Vec<String> {
         let mut result = Vec::new();
         for user_id in &users {
             let user = self.users.get_mut(user_id).unwrap();
             let user = &mut user.user;
 
-            result.append(&mut user.scan_database(query).await.unwrap());
+            result.append(&mut user.scan_database(query, strict).await.unwrap());
         }
 
         result
