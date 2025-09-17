@@ -88,11 +88,8 @@ CREATE TABLE IF NOT EXISTS contacts (
     conversation_id BLOB NOT NULL,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
-    connection_key BLOB NOT NULL,
-    user_profile_key_index BLOB NOT NULL,
     PRIMARY KEY (user_uuid, user_domain),
-    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id),
-    FOREIGN KEY (user_profile_key_index) REFERENCES indexed_keys (key_index)
+    FOREIGN KEY (conversation_id) REFERENCES conversations (conversation_id)
 );
 
 CREATE TABLE IF NOT EXISTS partial_contacts (
@@ -361,12 +358,12 @@ SELECT
 
 END;
 
-CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON contacts FOR EACH ROW BEGIN
--- Delete user profile keys if the corresponding contact is deleted. Since key
+CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON users FOR EACH ROW BEGIN
+-- Delete user profile keys if the corresponding user profile is deleted. Since key
 -- indexes include the user id in their derivation, they are unique per user
 -- and we don't need to check if they are used by another user (or ourselves).
 DELETE FROM indexed_keys
 WHERE
-    fingerprint = OLD.user_profile_key_index;
+    key_index = OLD.decryption_key_index;
 
 END;

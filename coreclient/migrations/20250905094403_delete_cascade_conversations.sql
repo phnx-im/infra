@@ -16,8 +16,6 @@ CREATE TABLE IF NOT EXISTS contacts_new (
     conversation_id BLOB NOT NULL REFERENCES conversations (conversation_id) ON DELETE CASCADE,
     wai_ear_key BLOB NOT NULL,
     friendship_token BLOB NOT NULL,
-    connection_key BLOB NOT NULL,
-    user_profile_key_index BLOB NOT NULL REFERENCES indexed_keys (key_index),
     PRIMARY KEY (user_uuid, user_domain)
 );
 
@@ -33,16 +31,6 @@ DROP TABLE contacts;
 
 ALTER TABLE contacts_new
 RENAME TO contacts;
-
-CREATE TRIGGER IF NOT EXISTS delete_keys AFTER DELETE ON contacts FOR EACH ROW BEGIN
--- Delete user profile keys if the corresponding contact is deleted. Since key
--- indexes include the user id in their derivation, they are unique per user
--- and we don't need to check if they are used by another user (or ourselves).
-DELETE FROM indexed_keys
-WHERE
-    key_index = OLD.user_profile_key_index;
-
-END;
 
 -- Migration for 'conversation_messages' table
 CREATE TABLE conversation_messages_new (
