@@ -141,6 +141,38 @@ String toString() {
 
 
 /// @nodoc
+
+
+class UiChatStatus_Blocked extends UiChatStatus {
+  const UiChatStatus_Blocked(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatStatus_Blocked);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'UiChatStatus.blocked()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
 mixin _$UiChatType {
 
 

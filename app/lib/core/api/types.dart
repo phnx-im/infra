@@ -204,6 +204,7 @@ sealed class UiChatStatus with _$UiChatStatus {
   const factory UiChatStatus.inactive(UiInactiveChat field0) =
       UiChatStatus_Inactive;
   const factory UiChatStatus.active() = UiChatStatus_Active;
+  const factory UiChatStatus.blocked() = UiChatStatus_Blocked;
 }
 
 @freezed

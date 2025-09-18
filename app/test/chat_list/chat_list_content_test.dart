@@ -59,10 +59,8 @@ final chats = [
   ),
   UiChatDetails(
     id: 2.chatId(),
-    status: const UiChatStatus.active(),
-    chatType: const UiChatType_HandleConnection(
-      UiUserHandle(plaintext: "eve_03"),
-    ),
+    status: const UiChatStatus.blocked(),
+    chatType: UiChatType_Connection(userProfiles[2]),
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiChatAttributes(title: 'Eve', picture: null),

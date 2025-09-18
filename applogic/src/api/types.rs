@@ -89,6 +89,15 @@ pub struct UiChatDetails {
     pub draft: Option<UiMessageDraft>,
 }
 
+impl UiChatDetails {
+    pub(crate) fn connection_user_id(&self) -> Option<&UiUserId> {
+        match &self.chat_type {
+            UiChatType::Connection(profile) => Some(&profile.user_id),
+            _ => None,
+        }
+    }
+}
+
 /// Draft of a message in a chat
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[frb(dart_metadata = ("freezed"))]
@@ -143,11 +152,13 @@ impl UiMessageDraft {
 
 /// Status of a chat
 ///
-/// A chat can be inactive or active.
+/// A chat can be inactive or active, or blocked in case this is a 1:1 chat and the contact is
+/// blocked.
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum UiChatStatus {
     Inactive(UiInactiveChat),
     Active,
+    Blocked,
 }
 
 impl From<ChatStatus> for UiChatStatus {
@@ -157,6 +168,7 @@ impl From<ChatStatus> for UiChatStatus {
                 UiChatStatus::Inactive(UiInactiveChat::from(inactive))
             }
             ChatStatus::Active => UiChatStatus::Active,
+            ChatStatus::Blocked => UiChatStatus::Blocked,
         }
     }
 }

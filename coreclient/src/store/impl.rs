@@ -143,6 +143,14 @@ impl Store for CoreUser {
         self.add_contact_via_handle(handle).await
     }
 
+    async fn block_contact(&self, user_id: UserId) -> StoreResult<()> {
+        self.block_contact(user_id).await
+    }
+
+    async fn unblock_contact(&self, user_id: UserId) -> StoreResult<()> {
+        self.unblock_contact(user_id).await
+    }
+
     async fn contacts(&self) -> StoreResult<Vec<Contact>> {
         Ok(self.contacts().await?)
     }

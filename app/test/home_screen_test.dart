@@ -54,9 +54,6 @@ void main() {
         () => usersCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
       when(
-        () => chatDetailsCubit.state,
-      ).thenReturn(ChatDetailsState(chat: chat, members: members));
-      when(
         () => chatDetailsCubit.markAsRead(
           untilMessageId: any(named: "untilMessageId"),
           untilTimestamp: any(named: "untilTimestamp"),
@@ -114,6 +111,9 @@ void main() {
       when(
         () => chatListCubit.state,
       ).thenReturn(const ChatListState(chats: []));
+      when(
+        () => chatDetailsCubit.state,
+      ).thenReturn(ChatDetailsState(chat: chats[2], members: members));
       when(() => messageListCubit.state).thenReturn(MockMessageListState([]));
 
       await tester.pumpWidget(buildSubject());
@@ -138,6 +138,9 @@ void main() {
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
       when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
+      when(
+        () => chatDetailsCubit.state,
+      ).thenReturn(ChatDetailsState(chat: chats[2], members: members));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));
@@ -169,6 +172,9 @@ void main() {
       );
       when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
       when(
+        () => chatDetailsCubit.state,
+      ).thenReturn(ChatDetailsState(chat: chats[2], members: members));
+      when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));
 
@@ -179,6 +185,39 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/home_screen_desktop.png'),
+      );
+    });
+
+    testWidgets('desktop layout selected blocked contact', (tester) async {
+      final binding = TestWidgetsFlutterBinding.ensureInitialized();
+      binding.platformDispatcher.views.first.physicalSize = const Size(
+        3840,
+        2160,
+      );
+      addTearDown(() {
+        binding.platformDispatcher.views.first.resetPhysicalSize();
+      });
+
+      when(() => navigationCubit.state).thenReturn(
+        NavigationState.home(
+          home: HomeNavigationState(chatOpen: true, chatId: chats[1].id),
+        ),
+      );
+      when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
+      when(
+        () => chatDetailsCubit.state,
+      ).thenReturn(ChatDetailsState(chat: chats[1], members: members));
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messages));
+
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+      await tester.pumpWidget(buildSubject());
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/home_screen_desktop_blocked.png'),
       );
     });
   });

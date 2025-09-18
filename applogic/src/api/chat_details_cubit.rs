@@ -4,7 +4,7 @@
 
 //! A single chat details feature
 
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 use std::{sync::Arc, time::Duration};
 
 use aircommon::{OpenMlsRand, RustCrypto, identifiers::UserId};
@@ -20,7 +20,7 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
-use crate::api::types::UiMessageDraft;
+use crate::api::types::{UiChatType, UiMessageDraft};
 use crate::message_content::MimiContentExt;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
 use crate::{StreamSink, api::types::UiMessageDraftSource};
@@ -474,6 +474,20 @@ impl ChatDetailsContext {
     async fn handle_store_notification(&self, notification: &StoreNotification) {
         if notification.ops.contains_key(&self.chat_id.into()) {
             self.load_and_emit_state().await;
+        } else {
+            let user_id = self
+                .state_tx
+                .borrow()
+                .chat
+                .as_ref()
+                .and_then(|chat| chat.connection_user_id())
+                .cloned()
+                .map(UserId::from);
+            if let Some(user_id) = user_id
+                && notification.ops.contains_key(&user_id.into())
+            {
+                self.load_and_emit_state().await;
+            }
         }
     }
 }
