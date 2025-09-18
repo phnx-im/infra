@@ -19,7 +19,7 @@ use aircommon::{
             RegisterUserResponseIn, UserHandleDeleteResponse,
         },
         connection_package::ConnectionPackage,
-        connection_package_v1::VersionedConnectionPackageIn,
+        connection_package::VersionedConnectionPackageIn,
     },
 };
 use airprotos::auth_service::v1::{

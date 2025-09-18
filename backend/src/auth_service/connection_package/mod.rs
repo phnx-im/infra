@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::messages::{
-    connection_package::ConnectionPackage,
-    connection_package_v1::{ConnectionPackageV1, VersionedConnectionPackage},
+    connection_package::ConnectionPackage, connection_package::VersionedConnectionPackage,
+    connection_package_v1::ConnectionPackageV1,
 };
 use serde::{Deserialize, Serialize};
 

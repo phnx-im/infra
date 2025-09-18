@@ -28,56 +28,6 @@ pub use payload::{ConnectionPackageV1In, ConnectionPackageV1Payload};
 
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
-/// This enum holds different versions of `ConnectionPackage`. It exists to
-/// allow separate processing (especially signature verification) of the
-/// ProtoBuf ConnectionPackage. For example, the ProtoBuf version gained an
-/// extra field that indicates whether the connection is a last resort. This
-/// field is not present in the original version of ConnectionPackage and the
-/// presence of the signature means we cannot just change the struct without
-/// breaking backwards compatibility.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VersionedConnectionPackage {
-    V1(ConnectionPackageV1),
-    V2(ConnectionPackage),
-}
-
-impl VersionedConnectionPackage {
-    pub fn is_last_resort(&self) -> Option<bool> {
-        match self {
-            VersionedConnectionPackage::V1(_) => None,
-            VersionedConnectionPackage::V2(cp_v2) => Some(cp_v2.is_last_resort()),
-        }
-    }
-
-    pub fn into_current(self) -> ConnectionPackage {
-        match self {
-            VersionedConnectionPackage::V1(cp) => cp.into(),
-            VersionedConnectionPackage::V2(cp_v2) => cp_v2,
-        }
-    }
-}
-
-/// See [`VersionedConnectionPackage`].
-pub enum VersionedConnectionPackageIn {
-    V1(ConnectionPackageV1In),
-    V2(ConnectionPackageIn),
-}
-
-impl VersionedConnectionPackageIn {
-    pub fn verify(self) -> Result<VersionedConnectionPackage, SignatureVerificationError> {
-        match self {
-            VersionedConnectionPackageIn::V1(cp) => {
-                let verified = cp.verify()?;
-                Ok(VersionedConnectionPackage::V1(verified))
-            }
-            VersionedConnectionPackageIn::V2(cp) => {
-                let verified = cp.verify()?;
-                Ok(VersionedConnectionPackage::V2(verified))
-            }
-        }
-    }
-}
-
 mod payload {
     use super::*;
     use crate::{

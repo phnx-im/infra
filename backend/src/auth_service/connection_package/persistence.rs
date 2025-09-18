@@ -5,7 +5,7 @@
 use aircommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::UserHandleHash,
-    messages::connection_package_v1::VersionedConnectionPackage,
+    messages::connection_package::VersionedConnectionPackage,
 };
 use sqlx::{Arguments, PgExecutor, postgres::PgArguments};
 

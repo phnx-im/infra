@@ -359,20 +359,20 @@ impl From<messages::connection_package_v1::ConnectionPackageV1Payload>
     }
 }
 
-impl From<messages::connection_package_v1::VersionedConnectionPackage> for ConnectionPackage {
-    fn from(value: messages::connection_package_v1::VersionedConnectionPackage) -> Self {
+impl From<messages::connection_package::VersionedConnectionPackage> for ConnectionPackage {
+    fn from(value: messages::connection_package::VersionedConnectionPackage) -> Self {
         match value {
-            messages::connection_package_v1::VersionedConnectionPackage::V1(cp_v1) => {
+            messages::connection_package::VersionedConnectionPackage::V1(cp_v1) => {
                 ConnectionPackage::from(cp_v1)
             }
-            messages::connection_package_v1::VersionedConnectionPackage::V2(cp_v2) => {
+            messages::connection_package::VersionedConnectionPackage::V2(cp_v2) => {
                 ConnectionPackage::from(cp_v2)
             }
         }
     }
 }
 
-impl TryFrom<ConnectionPackage> for messages::connection_package_v1::VersionedConnectionPackageIn {
+impl TryFrom<ConnectionPackage> for messages::connection_package::VersionedConnectionPackageIn {
     type Error = ConnectionPackageError;
 
     fn try_from(proto: ConnectionPackage) -> Result<Self, Self::Error> {
