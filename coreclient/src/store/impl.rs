@@ -43,31 +43,19 @@ impl Store for CoreUser {
         self.report_spam(spammer_id).await
     }
 
-    async fn user_setting<T: UserSetting>(&self) -> T {
+    async fn user_setting<T: UserSetting>(&self) -> Option<T> {
         match UserSettingRecord::load(self.pool(), T::KEY).await {
             Ok(Some(bytes)) => match T::decode(bytes) {
-                Ok(value) => value,
+                Ok(value) => Some(value),
                 Err(error) => {
                     error!(%error, "Failed to decode user setting; resetting to default");
-                    self.set_user_setting(&T::DEFAULT)
-                        .await
-                        .inspect_err(|error| {
-                            error!(%error, "Failed to reset user setting to default");
-                        })
-                        .ok();
-                    T::DEFAULT
+                    None
                 }
             },
-            Ok(None) => T::DEFAULT,
+            Ok(None) => None,
             Err(error) => {
                 error!(%error, "Failed to load user setting; resetting to default");
-                self.set_user_setting(&T::DEFAULT)
-                    .await
-                    .inspect_err(|error| {
-                        error!(%error, "Failed to reset user setting to default");
-                    })
-                    .ok();
-                T::DEFAULT
+                None
             }
         }
     }
