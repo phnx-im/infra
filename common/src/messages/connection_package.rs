@@ -28,6 +28,13 @@ pub use payload::{ConnectionPackageIn, ConnectionPackagePayload};
 
 pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 
+/// This enum holds different versions of `ConnectionPackage`. It exists to
+/// allow separate processing (especially signature verification) of the
+/// ProtoBuf ConnectionPackage. For example, the ProtoBuf version gained an
+/// extra field that indicates whether the connection is a last resort. This
+/// field is not present in the original version of ConnectionPackage and the
+/// presence of the signature means we cannot just change the struct without
+/// breaking backwards compatibility.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VersionedConnectionPackage {
     V1(ConnectionPackage),
