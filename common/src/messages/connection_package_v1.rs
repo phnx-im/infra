@@ -14,13 +14,10 @@ use crate::{
         ConnectionDecryptionKey, ConnectionEncryptionKey, Labeled,
         errors::RandomnessError,
         hash::{Hash, Hashable},
-        signatures::{private_keys::SignatureVerificationError, signable::Signable},
+        signatures::signable::Signable,
     },
     identifiers::UserHandleHash,
-    messages::{
-        AirProtocolVersion,
-        connection_package::{ConnectionPackage, ConnectionPackageIn},
-    },
+    messages::{AirProtocolVersion, connection_package::ConnectionPackage},
     time::{ExpirationData, TimeStamp},
 };
 
