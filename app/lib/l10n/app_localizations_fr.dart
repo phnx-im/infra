@@ -126,6 +126,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Le nom d\'utilisateur ne peut pas être vide';
 
   @override
+  String get userHandleScreen_error_alreadyExists => 'Username already exists';
+
+  @override
   String get userHandleScreen_description =>
       'Choisissez un nom d\'utilisateur que d\'autres peuvent utiliser pour se connecter avec vous.\n\nUtilisez des lettres, des chiffres ou des traits de soulignement. Minimum 5 caractères.';
 
