@@ -103,6 +103,7 @@ message ConnectionPackagePayload {
   common.v1.ExpirationData lifetime = 3;
   HandleVerifyingKey verifying_key = 5;
   UserHandleHash user_handle_hash = 6;
+  optional bool is_last_resort = 7;
 }
 
 message ConnectionEncryptionKey {

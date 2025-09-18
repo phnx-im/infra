@@ -6,7 +6,9 @@ use aircommon::{
     credentials::keys::HandleSigningKey,
     crypto::ConnectionDecryptionKey,
     identifiers::{UserHandle, UserHandleHash},
-    messages::{client_as_out::UserHandleDeleteResponse, connection_package::ConnectionPackage},
+    messages::{
+        client_as_out::UserHandleDeleteResponse, connection_package_v2::ConnectionPackageV2,
+    },
 };
 use anyhow::Context;
 pub use persistence::UserHandleRecord;
@@ -128,11 +130,14 @@ impl CoreUser {
 fn generate_connection_packages(
     signing_key: &HandleSigningKey,
     hash: UserHandleHash,
-) -> anyhow::Result<Vec<(ConnectionDecryptionKey, ConnectionPackage)>> {
+) -> anyhow::Result<Vec<(ConnectionDecryptionKey, ConnectionPackageV2)>> {
     let mut connection_packages = Vec::with_capacity(CONNECTION_PACKAGES);
-    for _ in 0..CONNECTION_PACKAGES {
-        let connection_package = ConnectionPackage::new(hash, signing_key)?;
+    for _ in 0..CONNECTION_PACKAGES - 1 {
+        let connection_package = ConnectionPackageV2::new(hash, signing_key, false)?;
         connection_packages.push(connection_package);
     }
+    // Last resort connection package
+    let connection_package = ConnectionPackageV2::new(hash, signing_key, true)?;
+    connection_packages.push(connection_package);
     Ok(connection_packages)
 }

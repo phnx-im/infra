@@ -14,7 +14,7 @@ use aircommon::{
     messages::{
         client_as::{ConnectionOfferMessage, EncryptedConnectionOffer},
         client_ds_out::CreateGroupParamsOut,
-        connection_package::ConnectionPackage,
+        connection_package_v2::ConnectionPackageV2,
     },
 };
 use openmls::group::GroupId;
@@ -52,6 +52,10 @@ impl CoreUser {
 
         // Phase 2: Verify the connection package
         let verified_connection_package = connection_package.verify()?;
+        // We don't need to know if the connection package is last resort here,
+        // so we can just turn it into a v2.
+        let verified_connection_package: ConnectionPackageV2 =
+            verified_connection_package.into_v2();
 
         // Phase 3: Prepare the connection locally
         let group_id = client.ds_request_group_id().await?;
@@ -100,7 +104,7 @@ impl CoreUser {
 }
 
 struct VerifiedConnectionPackagesWithGroupId {
-    verified_connection_package: ConnectionPackage,
+    verified_connection_package: ConnectionPackageV2,
     group_id: GroupId,
 }
 
@@ -149,7 +153,7 @@ struct LocalGroup {
     group: Group,
     partial_params: PartialCreateGroupParams,
     chat_id: ChatId,
-    verified_connection_package: ConnectionPackage,
+    verified_connection_package: ConnectionPackageV2,
 }
 
 impl LocalGroup {
@@ -231,7 +235,7 @@ struct LocalHandleContact {
     connection_offer: EncryptedConnectionOffer,
     params: CreateGroupParamsOut,
     chat_id: ChatId,
-    verified_connection_package: ConnectionPackage,
+    verified_connection_package: ConnectionPackageV2,
 }
 
 impl LocalHandleContact {

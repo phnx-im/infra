@@ -17,7 +17,7 @@ use crate::{
         hash::{Hash, Hashable},
         kdf::keys::RatchetSecret,
     },
-    messages::connection_package::ConnectionPackageHash,
+    messages::connection_package_v2::ConnectionPackageV2Hash,
 };
 
 use super::client_as_out::EncryptedUserProfile;
@@ -58,13 +58,13 @@ pub struct EncryptedConnectionOffer {
 
 #[derive(Debug, TlsDeserializeBytes, TlsSerialize, TlsSize)]
 pub struct ConnectionOfferMessage {
-    connection_package_hash: ConnectionPackageHash,
+    connection_package_hash: ConnectionPackageV2Hash,
     ciphertext: EncryptedConnectionOffer,
 }
 
 impl ConnectionOfferMessage {
     pub fn new(
-        connection_package_hash: ConnectionPackageHash,
+        connection_package_hash: ConnectionPackageV2Hash,
         ciphertext: EncryptedConnectionOffer,
     ) -> Self {
         Self {
@@ -77,7 +77,7 @@ impl ConnectionOfferMessage {
         self.ciphertext.hash()
     }
 
-    pub fn into_parts(self) -> (EncryptedConnectionOffer, ConnectionPackageHash) {
+    pub fn into_parts(self) -> (EncryptedConnectionOffer, ConnectionPackageV2Hash) {
         (self.ciphertext, self.connection_package_hash)
     }
 }

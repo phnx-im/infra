@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    identifiers::UserHandleHash, messages::connection_package::ConnectionPackage,
+    identifiers::UserHandleHash, messages::connection_package::VersionedConnectionPackage,
     time::ExpirationData,
 };
 use airprotos::{
@@ -52,7 +52,7 @@ pub(crate) trait ConnectHandleProtocol {
     async fn get_connection_package_for_handle(
         &self,
         hash: &UserHandleHash,
-    ) -> sqlx::Result<ConnectionPackage>;
+    ) -> sqlx::Result<VersionedConnectionPackage>;
 
     async fn enqueue_connection_offer(
         &self,
@@ -215,7 +215,7 @@ impl ConnectHandleProtocol for AuthService {
     async fn get_connection_package_for_handle(
         &self,
         hash: &UserHandleHash,
-    ) -> sqlx::Result<ConnectionPackage> {
+    ) -> sqlx::Result<VersionedConnectionPackage> {
         StorableConnectionPackage::load_for_handle(&self.db_pool, hash).await
     }
 
@@ -315,7 +315,8 @@ mod tests {
 
         let hash = UserHandleHash::new([1; 32]);
         let expiration_data = ExpirationData::new(Duration::days(1));
-        let connection_package = random_connection_package(signing_key.verifying_key().clone());
+        let connection_package =
+            random_connection_package(signing_key.verifying_key().clone(), None);
         let connection_offer = ConnectionOfferMessage::default();
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
@@ -489,7 +490,8 @@ mod tests {
 
         let hash = UserHandleHash::new([1; 32]);
         let expiration_data = ExpirationData::new(Duration::days(1));
-        let connection_package = random_connection_package(signing_key.verifying_key().clone());
+        let connection_package =
+            random_connection_package(signing_key.verifying_key().clone(), None);
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
 
