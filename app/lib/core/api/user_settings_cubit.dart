@@ -54,7 +54,7 @@ abstract class UserSettingsCubitBase implements RustOpaqueInterface {
 @freezed
 sealed class UserSettings with _$UserSettings {
   const factory UserSettings({
-    @Default(1.0) double interfaceScale,
+    double? interfaceScale,
     @Default(300.0) double sidebarWidth,
     @Default(false) bool sendOnEnter,
   }) = _UserSettings;

@@ -47,9 +47,8 @@ pub trait Store {
 
     /// Loads a user setting
     ///
-    /// If the setting is not found, the default value is returned. If loading or decoding failed,
-    /// the default value is stored and returned.
-    async fn user_setting<T: UserSetting>(&self) -> T;
+    /// If the setting is not found, or loading or decoding failed, `None` is returned.
+    async fn user_setting<T: UserSetting>(&self) -> Option<T>;
 
     async fn set_user_setting<T: UserSetting>(&self, value: &T) -> StoreResult<()>;
 
@@ -240,8 +239,6 @@ pub trait Store {
 
 pub trait UserSetting: Send + Sync {
     const KEY: &'static str;
-
-    const DEFAULT: Self;
 
     fn encode(&self) -> StoreResult<Vec<u8>>;
     fn decode(bytes: Vec<u8>) -> StoreResult<Self>
