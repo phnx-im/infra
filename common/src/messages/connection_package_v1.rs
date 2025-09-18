@@ -35,7 +35,7 @@ pub(crate) const CONNECTION_PACKAGE_EXPIRATION: Duration = Duration::days(30);
 /// field is not present in the original version of ConnectionPackage and the
 /// presence of the signature means we cannot just change the struct without
 /// breaking backwards compatibility.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VersionedConnectionPackage {
     V1(ConnectionPackageV1),
     V2(ConnectionPackage),
