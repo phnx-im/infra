@@ -560,6 +560,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   dco_decode_box_autoadd_developer_settings_screen_type(dynamic raw);
 
   @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
   HomeNavigationState dco_decode_box_autoadd_home_navigation_state(dynamic raw);
 
   @protected
@@ -761,6 +764,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   DeveloperSettingsScreenType?
   dco_decode_opt_box_autoadd_developer_settings_screen_type(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
 
   @protected
   ImageData? dco_decode_opt_box_autoadd_image_data(dynamic raw);
@@ -1345,6 +1351,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
   HomeNavigationState sse_decode_box_autoadd_home_navigation_state(
     SseDeserializer deserializer,
   );
@@ -1606,6 +1615,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   sse_decode_opt_box_autoadd_developer_settings_screen_type(
     SseDeserializer deserializer,
   );
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
 
   @protected
   ImageData? sse_decode_opt_box_autoadd_image_data(
@@ -2312,6 +2324,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_home_navigation_state(
     HomeNavigationState self,
     SseSerializer serializer,
@@ -2648,6 +2663,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     DeveloperSettingsScreenType? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_image_data(

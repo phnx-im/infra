@@ -5823,6 +5823,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
+  }
+
+  @protected
   HomeNavigationState dco_decode_box_autoadd_home_navigation_state(
     dynamic raw,
   ) {
@@ -6361,6 +6367,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_f_64(raw);
+  }
+
+  @protected
   ImageData? dco_decode_opt_box_autoadd_image_data(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_image_data(raw);
@@ -6813,7 +6825,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return UserSettings(
-      interfaceScale: dco_decode_f_64(arr[0]),
+      interfaceScale: dco_decode_opt_box_autoadd_f_64(arr[0]),
       sidebarWidth: dco_decode_f_64(arr[1]),
       sendOnEnter: dco_decode_bool(arr[2]),
     );
@@ -7738,6 +7750,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_f_64(deserializer));
+  }
+
+  @protected
   HomeNavigationState sse_decode_box_autoadd_home_navigation_state(
     SseDeserializer deserializer,
   ) {
@@ -8431,6 +8449,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_f_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   ImageData? sse_decode_opt_box_autoadd_image_data(
     SseDeserializer deserializer,
   ) {
@@ -8969,7 +8998,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   UserSettings sse_decode_user_settings(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_interfaceScale = sse_decode_f_64(deserializer);
+    var var_interfaceScale = sse_decode_opt_box_autoadd_f_64(deserializer);
     var var_sidebarWidth = sse_decode_f_64(deserializer);
     var var_sendOnEnter = sse_decode_bool(deserializer);
     return UserSettings(
@@ -10099,6 +10128,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_64(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_home_navigation_state(
     HomeNavigationState self,
     SseSerializer serializer,
@@ -10782,6 +10817,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_f_64(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_image_data(
     ImageData? self,
     SseSerializer serializer,
@@ -11264,7 +11309,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_user_settings(UserSettings self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_f_64(self.interfaceScale, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.interfaceScale, serializer);
     sse_encode_f_64(self.sidebarWidth, serializer);
     sse_encode_bool(self.sendOnEnter, serializer);
   }
