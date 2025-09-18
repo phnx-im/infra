@@ -339,7 +339,7 @@ impl From<messages::connection_package::ConnectionPackagePayload> for Connection
             lifetime: Some(value.lifetime.into()),
             verifying_key: Some(value.verifying_key.into()),
             user_handle_hash: Some(value.user_handle_hash.into()),
-            is_last_resort: Some(value.is_last_resort.0.into()),
+            is_last_resort: Some(value.is_last_resort.0),
         }
     }
 }
