@@ -28,7 +28,7 @@ use aircommon::{
     messages::{
         FriendshipToken,
         client_as::{EncryptedConnectionOffer, EncryptedFriendshipPackageCtype},
-        connection_package_v2::ConnectionPackageV2Hash,
+        connection_package::ConnectionPackageHash,
     },
 };
 use openmls::group::GroupId;
@@ -49,7 +49,7 @@ pub(crate) mod payload {
         connection_group_identity_link_wrapper_key: IdentityLinkWrapperKey,
         friendship_package_ear_key: FriendshipPackageEarKey,
         friendship_package: FriendshipPackage,
-        connection_package_hash: ConnectionPackageV2Hash,
+        connection_package_hash: ConnectionPackageHash,
     }
 
     impl ConnectionOfferPayloadIn {
@@ -81,7 +81,7 @@ pub(crate) mod payload {
         pub(crate) connection_group_identity_link_wrapper_key: IdentityLinkWrapperKey,
         pub(crate) friendship_package_ear_key: FriendshipPackageEarKey,
         pub(crate) friendship_package: FriendshipPackage,
-        pub(crate) connection_package_hash: ConnectionPackageV2Hash,
+        pub(crate) connection_package_hash: ConnectionPackageHash,
     }
 
     impl ConnectionOfferPayload {
@@ -89,7 +89,7 @@ pub(crate) mod payload {
             self,
             signing_key: &ClientSigningKey,
             recipient_user_handle: UserHandle,
-            connection_package_hash: ConnectionPackageV2Hash,
+            connection_package_hash: ConnectionPackageHash,
         ) -> Result<ConnectionOffer, LibraryError> {
             let tbs = ConnectionOfferTbs::from_payload(
                 self.clone(),
@@ -113,7 +113,7 @@ pub(crate) mod payload {
                     wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
                     user_profile_base_secret: UserProfileBaseSecret::random().unwrap(),
                 },
-                connection_package_hash: ConnectionPackageV2Hash::new_for_test(vec![0; 32]),
+                connection_package_hash: ConnectionPackageHash::new_for_test(vec![0; 32]),
             }
         }
     }
@@ -132,14 +132,14 @@ mod tbs {
     pub(super) struct ConnectionOfferTbs {
         payload: ConnectionOfferPayload,
         recipient_user_handle: UserHandle,
-        connection_package_hash: ConnectionPackageV2Hash,
+        connection_package_hash: ConnectionPackageHash,
     }
 
     impl ConnectionOfferTbs {
         pub(super) fn from_payload(
             payload: ConnectionOfferPayload,
             recipient_user_handle: UserHandle,
-            connection_package_hash: ConnectionPackageV2Hash,
+            connection_package_hash: ConnectionPackageHash,
         ) -> Self {
             Self {
                 payload,
@@ -185,7 +185,7 @@ mod tbs {
         pub(super) fn from_verified_payload(
             verified_payload: ConnectionOfferPayload,
             recipient_user_handle: UserHandle,
-            connection_package_hash: ConnectionPackageV2Hash,
+            connection_package_hash: ConnectionPackageHash,
             signature: ClientSignature,
         ) -> Self {
             let tbs = ConnectionOfferTbs::from_payload(
@@ -260,7 +260,7 @@ impl ConnectionOfferIn {
         self,
         verifying_key: &AsIntermediateVerifyingKey,
         recipient_user_handle: UserHandle,
-        connection_package_hash: ConnectionPackageV2Hash,
+        connection_package_hash: ConnectionPackageHash,
     ) -> Result<ConnectionOfferPayload, SignatureVerificationError> {
         let verified_payload = self.payload.verify(verifying_key)?;
         VerifiableConnectionOffer::from_verified_payload(
@@ -298,7 +298,7 @@ mod tests {
         credentials::test_utils::create_test_credentials,
         crypto::signatures::private_keys::SignatureVerificationError,
         identifiers::{UserHandle, UserId},
-        messages::connection_package_v2::ConnectionPackageV2Hash,
+        messages::connection_package::ConnectionPackageHash,
     };
     use tls_codec::{DeserializeBytes as _, Serialize};
 
@@ -310,7 +310,7 @@ mod tests {
         let (as_sk, client_sk) = create_test_credentials(sender_user_id);
         let cep_payload = ConnectionOfferPayload::dummy(client_sk.credential().clone());
         let user_handle = UserHandle::new("ellie_01".to_owned()).unwrap();
-        let hash = ConnectionPackageV2Hash::new_for_test(vec![0; 32]);
+        let hash = ConnectionPackageHash::new_for_test(vec![0; 32]);
         let cep = cep_payload
             .clone()
             .sign(&client_sk, user_handle.clone(), hash)

@@ -5,7 +5,7 @@
 use aircommon::{
     codec::{BlobDecoded, BlobEncoded},
     identifiers::UserHandleHash,
-    messages::connection_package::VersionedConnectionPackage,
+    messages::connection_package_v1::VersionedConnectionPackage,
 };
 use sqlx::{Arguments, PgExecutor, postgres::PgArguments};
 
@@ -103,7 +103,7 @@ pub(crate) mod tests {
         messages::{
             AirProtocolVersion,
             connection_package::{ConnectionPackage, ConnectionPackagePayload},
-            connection_package_v2::{ConnectionPackageV2, ConnectionPackageV2Payload},
+            connection_package_v1::{ConnectionPackageV1, ConnectionPackageV1Payload},
         },
         time::{Duration, ExpirationData},
     };
@@ -132,8 +132,8 @@ pub(crate) mod tests {
     ) -> VersionedConnectionPackage {
         let is_last_resort = is_last_resort.into();
         if let Some(is_last_resort) = is_last_resort {
-            VersionedConnectionPackage::V2(ConnectionPackageV2::new_for_test(
-                ConnectionPackageV2Payload {
+            VersionedConnectionPackage::V2(ConnectionPackage::new_for_test(
+                ConnectionPackagePayload {
                     verifying_key,
                     protocol_version: AirProtocolVersion::Alpha,
                     encryption_key: ConnectionDecryptionKey::generate()
@@ -147,8 +147,8 @@ pub(crate) mod tests {
                 Signature::new_for_test(b"signature".to_vec()),
             ))
         } else {
-            VersionedConnectionPackage::V1(ConnectionPackage::new_for_test(
-                ConnectionPackagePayload {
+            VersionedConnectionPackage::V1(ConnectionPackageV1::new_for_test(
+                ConnectionPackageV1Payload {
                     verifying_key,
                     protocol_version: AirProtocolVersion::Alpha,
                     encryption_key: ConnectionDecryptionKey::generate()

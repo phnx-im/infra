@@ -4,7 +4,7 @@
 
 use aircommon::{
     identifiers::UserHandleHash,
-    messages::connection_package::{VersionedConnectionPackage, VersionedConnectionPackageIn},
+    messages::connection_package_v1::{VersionedConnectionPackage, VersionedConnectionPackageIn},
 };
 
 use crate::{

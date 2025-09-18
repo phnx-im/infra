@@ -18,8 +18,8 @@ use aircommon::{
             AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
             RegisterUserResponseIn, UserHandleDeleteResponse,
         },
-        connection_package::VersionedConnectionPackageIn,
-        connection_package_v2::ConnectionPackageV2,
+        connection_package::ConnectionPackage,
+        connection_package_v1::VersionedConnectionPackageIn,
     },
 };
 use airprotos::auth_service::v1::{
@@ -181,7 +181,7 @@ impl ApiClient {
     pub async fn as_publish_connection_packages_for_handle(
         &self,
         hash: UserHandleHash,
-        connection_packages: Vec<ConnectionPackageV2>,
+        connection_packages: Vec<ConnectionPackage>,
         signing_key: &HandleSigningKey,
     ) -> Result<(), AsRequestError> {
         let payload = PublishConnectionPackagesPayload {

@@ -289,8 +289,8 @@ impl From<ClientCredentialPayloadError> for Status {
     }
 }
 
-impl From<messages::connection_package::ConnectionPackage> for ConnectionPackage {
-    fn from(value: messages::connection_package::ConnectionPackage) -> Self {
+impl From<messages::connection_package_v1::ConnectionPackageV1> for ConnectionPackage {
+    fn from(value: messages::connection_package_v1::ConnectionPackageV1) -> Self {
         let (payload, signature) = value.into_parts();
         Self {
             payload: Some(payload.into()),
@@ -299,8 +299,8 @@ impl From<messages::connection_package::ConnectionPackage> for ConnectionPackage
     }
 }
 
-impl From<messages::connection_package_v2::ConnectionPackageV2> for ConnectionPackage {
-    fn from(value: messages::connection_package_v2::ConnectionPackageV2) -> Self {
+impl From<messages::connection_package::ConnectionPackage> for ConnectionPackage {
+    fn from(value: messages::connection_package::ConnectionPackage) -> Self {
         let (payload, signature) = value.into_parts();
         Self {
             payload: Some(payload.into()),
@@ -331,10 +331,8 @@ impl From<ConnectionPackageError> for Status {
     }
 }
 
-impl From<messages::connection_package_v2::ConnectionPackageV2Payload>
-    for ConnectionPackagePayload
-{
-    fn from(value: messages::connection_package_v2::ConnectionPackageV2Payload) -> Self {
+impl From<messages::connection_package::ConnectionPackagePayload> for ConnectionPackagePayload {
+    fn from(value: messages::connection_package::ConnectionPackagePayload) -> Self {
         Self {
             protocol_version: Some(value.protocol_version.into()),
             encryption_key: Some(value.encryption_key.into()),
@@ -346,8 +344,10 @@ impl From<messages::connection_package_v2::ConnectionPackageV2Payload>
     }
 }
 
-impl From<messages::connection_package::ConnectionPackagePayload> for ConnectionPackagePayload {
-    fn from(value: messages::connection_package::ConnectionPackagePayload) -> Self {
+impl From<messages::connection_package_v1::ConnectionPackageV1Payload>
+    for ConnectionPackagePayload
+{
+    fn from(value: messages::connection_package_v1::ConnectionPackageV1Payload) -> Self {
         Self {
             protocol_version: Some(value.protocol_version.into()),
             encryption_key: Some(value.encryption_key.into()),
@@ -359,20 +359,20 @@ impl From<messages::connection_package::ConnectionPackagePayload> for Connection
     }
 }
 
-impl From<messages::connection_package::VersionedConnectionPackage> for ConnectionPackage {
-    fn from(value: messages::connection_package::VersionedConnectionPackage) -> Self {
+impl From<messages::connection_package_v1::VersionedConnectionPackage> for ConnectionPackage {
+    fn from(value: messages::connection_package_v1::VersionedConnectionPackage) -> Self {
         match value {
-            messages::connection_package::VersionedConnectionPackage::V1(cp_v1) => {
+            messages::connection_package_v1::VersionedConnectionPackage::V1(cp_v1) => {
                 ConnectionPackage::from(cp_v1)
             }
-            messages::connection_package::VersionedConnectionPackage::V2(cp_v2) => {
+            messages::connection_package_v1::VersionedConnectionPackage::V2(cp_v2) => {
                 ConnectionPackage::from(cp_v2)
             }
         }
     }
 }
 
-impl TryFrom<ConnectionPackage> for messages::connection_package::VersionedConnectionPackageIn {
+impl TryFrom<ConnectionPackage> for messages::connection_package_v1::VersionedConnectionPackageIn {
     type Error = ConnectionPackageError;
 
     fn try_from(proto: ConnectionPackage) -> Result<Self, Self::Error> {
@@ -400,7 +400,7 @@ impl TryFrom<ConnectionPackage> for messages::connection_package::VersionedConne
         let is_last_resort = payload.is_last_resort.map(|b| b.into());
         let signature = proto.signature.ok_or_missing_field("signature")?.into();
         let result = if let Some(is_last_resort) = is_last_resort {
-            let payload = messages::connection_package_v2::ConnectionPackageV2Payload {
+            let payload = messages::connection_package::ConnectionPackagePayload {
                 protocol_version,
                 encryption_key,
                 lifetime,
@@ -408,18 +408,18 @@ impl TryFrom<ConnectionPackage> for messages::connection_package::VersionedConne
                 user_handle_hash,
                 is_last_resort,
             };
-            Self::V2(messages::connection_package_v2::ConnectionPackageV2In::new(
+            Self::V2(messages::connection_package::ConnectionPackageIn::new(
                 payload, signature,
             ))
         } else {
-            let payload = messages::connection_package::ConnectionPackagePayload {
+            let payload = messages::connection_package_v1::ConnectionPackageV1Payload {
                 protocol_version,
                 encryption_key,
                 lifetime,
                 verifying_key,
                 user_handle_hash,
             };
-            Self::V1(messages::connection_package::ConnectionPackageIn::new(
+            Self::V1(messages::connection_package_v1::ConnectionPackageV1In::new(
                 payload, signature,
             ))
         };

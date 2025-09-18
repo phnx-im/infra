@@ -20,7 +20,7 @@ pub mod client_ds;
 pub mod client_ds_out;
 pub mod client_qs;
 pub mod connection_package;
-pub mod connection_package_v2;
+pub mod connection_package_v1;
 pub mod push_token;
 pub mod welcome_attribution_info;
 

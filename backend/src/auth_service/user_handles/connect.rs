@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::{
-    identifiers::UserHandleHash, messages::connection_package::VersionedConnectionPackage,
+    identifiers::UserHandleHash, messages::connection_package_v1::VersionedConnectionPackage,
     time::ExpirationData,
 };
 use airprotos::{

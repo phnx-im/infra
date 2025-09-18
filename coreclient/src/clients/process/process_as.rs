@@ -10,7 +10,7 @@ use aircommon::{
         client_as::{ConnectionOfferHash, ConnectionOfferMessage},
         client_ds::{AadMessage, AadPayload, JoinConnectionGroupParamsAad},
         client_ds_out::ExternalCommitInfoIn,
-        connection_package_v2::{ConnectionPackageV2, ConnectionPackageV2Hash},
+        connection_package::{ConnectionPackage, ConnectionPackageHash},
     },
 };
 use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
@@ -154,13 +154,13 @@ impl CoreUser {
         connection
             .with_transaction(async |mut txn| {
                 let is_last_resort =
-                    <ConnectionPackageV2 as StorableConnectionPackage>::is_last_resort(
+                    <ConnectionPackage as StorableConnectionPackage>::is_last_resort(
                         &mut txn, &hash,
                     )
                     .await?
                     .unwrap_or(false);
                 if !is_last_resort {
-                    ConnectionPackageV2::delete(&mut txn, &hash)
+                    ConnectionPackage::delete(&mut txn, &hash)
                         .await
                         .context("Failed to delete connection package")?;
                 }
@@ -180,10 +180,10 @@ impl CoreUser {
         connection: &mut SqliteConnection,
         com: ConnectionOfferMessage,
         user_handle: UserHandle,
-    ) -> Result<(ConnectionOfferPayload, ConnectionPackageV2Hash)> {
+    ) -> Result<(ConnectionOfferPayload, ConnectionPackageHash)> {
         let (eco, hash) = com.into_parts();
 
-        let decryption_key = ConnectionPackageV2::load_decryption_key(connection, &hash)
+        let decryption_key = ConnectionPackage::load_decryption_key(connection, &hash)
             .await?
             .context("No decryption key found for incoming connection offer")?;
 

@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::messages::{
-    connection_package::{ConnectionPackage, VersionedConnectionPackage},
-    connection_package_v2::ConnectionPackageV2,
+    connection_package::ConnectionPackage,
+    connection_package_v1::{ConnectionPackageV1, VersionedConnectionPackage},
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +12,8 @@ pub(crate) mod persistence;
 
 #[derive(Deserialize)]
 pub(in crate::auth_service) enum StorableConnectionPackage {
-    V1(ConnectionPackage),
-    V2(ConnectionPackageV2),
+    V1(ConnectionPackageV1),
+    V2(ConnectionPackage),
 }
 
 impl From<StorableConnectionPackage> for VersionedConnectionPackage {
@@ -40,8 +40,8 @@ impl From<VersionedConnectionPackage> for StorableConnectionPackage {
 
 #[derive(Serialize)]
 pub(in crate::auth_service) enum StorableConnectionPackageRef<'a> {
-    V1(&'a ConnectionPackage),
-    V2(&'a ConnectionPackageV2),
+    V1(&'a ConnectionPackageV1),
+    V2(&'a ConnectionPackage),
 }
 
 impl<'a> From<&'a VersionedConnectionPackage> for StorableConnectionPackageRef<'a> {
